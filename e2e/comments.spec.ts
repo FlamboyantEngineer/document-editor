@@ -67,6 +67,28 @@ test.describe('comments lab', () => {
     await expect(thread.getByRole('textbox', { name: 'Reply' })).toBeFocused();
   });
 
+  test('DOCE-COMMENTS-3.8 scrolls a card opened at a narrow width into view sideways, and again on resize', async ({
+    lab,
+    page,
+  }) => {
+    await page.setViewportSize({ width: 700, height: 800 });
+    await lab.open('comments');
+    await page.getByLabel('Markers, cards on request').check();
+    await content(page).locator('mark[data-comment-id]').first().click();
+    const opened = page.locator('.de-document-comments__card').first();
+    await expect(opened).toBeFocused();
+    const shown = async () => {
+      const box = await opened.boundingBox();
+      const width = await page.evaluate(() => document.documentElement.clientWidth);
+      return box !== null && box.x >= 0 && box.x + box.width <= width + 1;
+    };
+    await expect.poll(shown).toBe(true);
+    // Only sideways: the page did not scroll up or down for it.
+    expect(await page.evaluate(() => window.scrollX)).toBeGreaterThan(0);
+    await page.setViewportSize({ width: 620, height: 800 });
+    await expect.poll(shown).toBe(true);
+  });
+
   test('DOCE-COMMENTS-2.24 puts a thread being started away on a click in the page', async ({
     lab,
     page,
@@ -322,6 +344,38 @@ test.describe('comments lab', () => {
     await page.getByLabel('Mine only').uncheck();
     await page.getByLabel('Threads I wrote in only').check();
     await expect(card(page, 'Is one second measured')).toHaveCount(0);
+  });
+
+  test('DOCE-COMMENTS-2.6 starts one thread across paragraphs with Mod-Alt-M', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await selectText(page, 'operator console');
+    // The selection reaches into the next paragraph once the editor has taken the key.
+    const caret = () => page.evaluate(() => document.documentElement.dataset.labCaret ?? '');
+    const before = await caret();
+    await expect(async () => {
+      if ((await caret()) === before) await page.keyboard.press('Shift+ArrowDown');
+      expect(await caret()).not.toBe(before);
+    }).toPass({ intervals: [200, 400, 800] });
+    await page.keyboard.press('ControlOrMeta+Alt+m');
+    await page.keyboard.type('Across');
+    await margin(page).getByRole('button', { name: 'Comment', exact: true }).click();
+    await expect(card(page, 'Across')).toHaveCount(1);
+    const thread = await content(page)
+      .locator('mark[data-comment-id]', { hasText: 'operator console' })
+      .last()
+      .getAttribute('data-comment-id');
+    // The one thread's marks lie in two paragraphs.
+    const marks = content(page).locator(`mark[data-comment-id="${thread ?? ''}"]`);
+    await expect
+      .poll(() =>
+        marks.evaluateAll(
+          (found) => new Set(found.map((mark) => mark.closest('p, li, h1, h2, h3'))).size,
+        ),
+      )
+      .toBeGreaterThanOrEqual(2);
   });
 
   test('DOCE-COMMENTS-4.7 keeps the threads in the pane and starts one there with Mod-Alt-M', async ({

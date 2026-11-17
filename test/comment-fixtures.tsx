@@ -8,7 +8,10 @@ import {
   type DocumentCommentsPanelProps,
 } from '../src/components/document-comments/comments-panel.js';
 import type { DocumentCommentsOptions } from '../src/components/document-comments/document-comments.js';
-import { DocumentEditor } from '../src/components/document-editor/document-editor.js';
+import {
+  DocumentEditor,
+  type DocumentEditorProps,
+} from '../src/components/document-editor/document-editor.js';
 import type { DocumentEditorHandle } from '../src/components/document-editor/editor-handle.js';
 import { createDocumentEditing } from '../src/engine/index.js';
 import { type CommentThread, createMemoryHost, type EditorHost } from '../src/host/index.js';
@@ -101,6 +104,8 @@ export function Harness(props: {
   content?: readonly StoredNode[];
   /** Receives the editor's handle. */
   handleRef?: Ref<DocumentEditorHandle>;
+  /** The document's session. */
+  session?: DocumentEditorProps['session'];
 }) {
   const [state, setState] = useState(() => initial(props.select, props.content));
   useEffect(() => {
@@ -116,6 +121,7 @@ export function Harness(props: {
       editable={props.editable}
       aria-label="Report"
       handleRef={props.handleRef}
+      session={props.session}
       comments={
         comments
           ? {

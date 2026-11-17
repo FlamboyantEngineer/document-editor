@@ -58,6 +58,22 @@ async function selectText(page: Page, value: string) {
   await page.mouse.up();
 }
 
+// Where a list opened at the caret sits: `below` its line, `above` it, or across it, with the
+// boxes when it is not below so a failure shows them.
+async function listPlacement(page: Page, list: ReturnType<Page['getByRole']>) {
+  const box = await list.locator('xpath=..').boundingBox();
+  const line = await page.evaluate(() => {
+    const selection = document.getSelection();
+    if (!selection?.rangeCount) return null;
+    const { top, bottom } = selection.getRangeAt(0).getBoundingClientRect();
+    return { top, bottom };
+  });
+  if (!box || !line) return 'not shown';
+  if (box.y >= line.bottom) return 'below';
+  const where = box.y + box.height <= line.top ? 'above' : 'across';
+  return `${where}: list ${String(box.y)}+${String(box.height)}, line ${String(line.top)}-${String(line.bottom)}`;
+}
+
 // Opens the context menu with a secondary click inside a text.
 async function openMenuAt(page: Page, value: string) {
   const point = await pointAt(page, value);
@@ -252,6 +268,33 @@ test.describe('document editor lab', () => {
     ).toHaveText('operator console');
   });
 
+  test('DOCE-EDITOR-3.3 comments on the whole selection when the menu opens outside it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
+    // From "operator" in one paragraph to "keeps" in the next.
+    const from = await pointAt(page, 'operator console');
+    await page.mouse.click(from.left + 1, from.y);
+    const to = await pointAt(page, 'The log keeps');
+    await page.keyboard.down('Shift');
+    await page.mouse.click(to.right - 1, to.y);
+    await page.keyboard.up('Shift');
+    await expect
+      .poll(() => page.evaluate(() => getSelection()?.toString() ?? ''))
+      .toMatch(/^operator console[\s\S]*The log keeps$/);
+    await openMenuAt(page, 'ninety days');
+    await item(page, 'Comment').click();
+    // One thread, its marks on both paragraphs.
+    const on = (text: string) =>
+      content(page).locator('mark[data-comment-id]', { hasText: text }).last();
+    await expect(on('operator console')).toHaveText(/^operator console/);
+    await expect(on('The log keeps')).toHaveText(/The log keeps$/);
+    const thread = await on('operator console').getAttribute('data-comment-id');
+    await expect(on('The log keeps')).toHaveAttribute('data-comment-id', thread ?? '');
+  });
+
   test('DOCE-EDITOR-3.3 starts a comment on the caret block from the menu without a selection', async ({
     lab,
     page,
@@ -381,9 +424,11 @@ test.describe('document editor lab', () => {
     await expect(list).toBeVisible();
     await page.keyboard.type('head');
     await expect(list.getByRole('option').first()).toHaveText('Heading 1');
-    // Below the slash, focus still in the document. The unfiltered list may open above the slash,
-    // where it fits, and moves below once filtering shortens it, a frame after its options change.
-    await expect.poll(async () => (await list.boundingBox())?.y ?? 0).toBeGreaterThan(point.y);
+    // Below the slash once filtering shortens it enough to fit there, focus still in the
+    // document. The unfiltered list may open above the slash, where it fits, and moves below a
+    // frame after its options change. Measured against the slash's own line as it is now: the
+    // pages may have moved it since the click.
+    await expect.poll(() => listPlacement(page, list)).toBe('below');
     await expect(content(page)).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');

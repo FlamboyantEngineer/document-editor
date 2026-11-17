@@ -9,8 +9,9 @@ import {
   referenceFormatKeys,
 } from '../../model/index.js';
 import { contentsSettings } from './contents-catalog.js';
-import { FONT_PARTS, OBJECT_SECTIONS, RUNNING_PARTS } from './object-settings.js';
+import { OBJECT_SECTIONS } from './object-settings.js';
 import {
+  affixSetting,
   choice,
   numberingSetting,
   PAGE_SIZES,
@@ -180,9 +181,9 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     scope: ['styles', 'paragraph', 'numbering'],
     settings: [
       setting('enabled', 'Number paragraphs', boolean),
-      setting('prefix', 'Before the number', text),
+      affixSetting('prefix', 'Before the number', 'prefix'),
       numberingSetting('format', 'Format'),
-      setting('suffix', 'After the number', text),
+      affixSetting('suffix', 'After the number', 'suffix'),
     ],
     cards: PARAGRAPH_LEVELS,
   },
@@ -196,15 +197,16 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
       ...region('footer', 'Footer', 'Space above the footer'),
     ],
   },
+  referenceSection(),
   {
     id: 'lists',
     title: 'Lists',
     scope: ['styles', 'list'],
     settings: [
       setting('bullet', 'Bullet', select(...BULLETS)),
-      setting('prefix', 'Before the number', text),
+      affixSetting('prefix', 'Before the number', 'prefix'),
       numberingSetting('format', 'Numbering format'),
-      setting('suffix', 'After the number', text),
+      affixSetting('suffix', 'After the number', 'suffix'),
       setting('indentation', 'Indentation', length),
       setting('spaceBefore', 'Space before', length),
       setting('spaceAfter', 'Space after', length),
@@ -216,29 +218,25 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Footnotes',
     pagesOnly: true,
     scope: ['footnotes'],
+    // The numbering mode, the text after the number and the colours are the format's, set in the
+    // template's file, not in the editor.
     settings: [
-      {
-        ...setting(
-          'numbering',
-          'Numbering',
-          select(['document', 'Through the document'], ['page', 'On each page']),
-        ),
-        documentOnly: true,
-      },
-      setting('suffix', 'After the number', text),
       setting('separator.enabled', 'Separator line', boolean),
       setting('separator.thickness', 'Separator thickness', length),
-      setting('separator.color', 'Separator colour', color),
       setting('spacingToContent', 'Space above', length),
       setting('entrySpacing', 'Space between notes', length),
     ],
     cards: [
-      { id: 'marker', title: 'Marker', path: ['marker'], style: FONT_PARTS },
-      { id: 'text', title: 'Text', path: ['text'], style: RUNNING_PARTS },
+      { id: 'marker', title: 'Marker', path: ['marker'], style: ['font', 'emphasis'] },
+      {
+        id: 'text',
+        title: 'Text',
+        path: ['text'],
+        style: ['font', 'emphasis', 'justify', 'lineHeight'],
+      },
     ],
   },
   contentsSettings(null),
-  referenceSection(),
   {
     id: 'change-bars',
     title: 'Change bars',

@@ -86,4 +86,39 @@ describe('Comment mentions', () => {
     // The thread that mentions the reader's group, and her own suggestion.
     expect(within(panel).getByRole('radio', { name: /Mine.*2/ })).toBeInTheDocument();
   });
+
+  it('DOCE-HOST-1.21 makes pasted text a mention as the host resolves it, typed text staying text', async () => {
+    const user = userEvent.setup();
+    const host = store();
+    const pasting: MentionsAdapter = {
+      ...mentions,
+      resolvePaste: (text) =>
+        text === '@Helper'
+          ? [
+              {
+                kind: 'mention',
+                text: '<assistant:helper|Helper>',
+                id: 'helper',
+                name: 'Helper',
+                mentionKind: 'assistant',
+              },
+            ]
+          : null,
+    };
+    render(<Harness host={host} options={{ mentions: pasting }} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText(/Over to/)).closest('[role="group"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The thread should show.');
+    await user.click(within(card).getByText(/Over to/));
+    await user.click(within(card).getByRole('textbox', { name: 'Reply' }));
+    await user.keyboard('@Helper{Escape} and ');
+    await user.paste('@Helper');
+    await user.click(within(card).getByRole('button', { name: 'Reply' }));
+    await expect
+      .poll(async () => {
+        const now = await host.comments?.list('doc');
+        return now?.ok ? now.value[0]?.entries[1]?.text : undefined;
+      })
+      .toBe('@Helper and <assistant:helper|Helper>');
+  });
 });

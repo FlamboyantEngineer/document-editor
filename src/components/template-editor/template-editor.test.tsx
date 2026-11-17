@@ -2,11 +2,11 @@ import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { openSections } from '../../../test/property-sections.js';
 import type { StoredContent, TemplateFile } from '../../model/index.js';
 import { SettingControl } from './setting-controls.js';
 import { TEMPLATE_SECTIONS } from './settings-catalog.js';
 import { TemplateEditor, withRegionChange } from './template-editor.js';
-import { TemplateJsonEditor } from './template-json-editor.js';
 import { withListedSections } from './template-scope.js';
 import { type TemplateSetting, withSetting } from './template-settings.js';
 
@@ -21,11 +21,19 @@ describe('withSetting', () => {
   });
 });
 
-describe('footnote numbering', () => {
-  it('DOCE-TEMPLATE-EDITOR-1.3 is a setting of the document only', () => {
+describe('footnote rows', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.9 leave the numbering mode, the text after the number and the colours to the file', () => {
     const footnotes = TEMPLATE_SECTIONS.find((section) => section.scope[0] === 'footnotes');
-    const numbering = footnotes?.settings.find((setting) => setting.id === 'numbering');
-    expect(numbering?.documentOnly).toBe(true);
+    expect(footnotes?.settings.map((setting) => setting.id)).toEqual([
+      'separator.enabled',
+      'separator.thickness',
+      'spacingToContent',
+      'entrySpacing',
+    ]);
+    expect(footnotes?.cards?.map((card) => card.style)).toEqual([
+      ['font', 'emphasis'],
+      ['font', 'emphasis', 'justify', 'lineHeight'],
+    ]);
   });
 });
 
@@ -69,30 +77,28 @@ describe('withRegionChange', () => {
   });
 });
 
-describe('TemplateJsonEditor', () => {
-  it('DOCE-TEMPLATE-EDITOR-1.5 shows the errors of a template that is JSON, not that it is not', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    const validity: (readonly string[])[] = [];
-    render(
-      <TemplateJsonEditor
-        template={{ formatVersion: 1, id: 'plain' }}
-        onChange={(next) => changes.push(next)}
-        onValidityChange={(errors) => validity.push(errors)}
-      />,
-    );
-    const text = screen.getByRole('textbox');
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,"id":"plain","constructor":{"size":"A4"}}');
-    expect(validity.at(-1)).toEqual(['template.constructor is not a template setting']);
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,');
-    expect(validity.at(-1)).toEqual(['The text is not valid JSON.']);
-    expect(changes).toEqual([]);
+describe('the package', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.5 DOCE-TEMPLATE-EDITOR-2.7 offers no JSON editor, these being withdrawn', async () => {
+    const components = await import('../index.js');
+    expect(Object.keys(components).filter((name) => /json/i.test(name))).toEqual([]);
   });
 });
 
 describe('TemplateEditor', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.9 starts with only the identity and the scope expanded', () => {
+    render(<TemplateEditor template={{ formatVersion: 1, id: 'plain' }} onChange={() => {}} />);
+    const expanded = screen
+      .getAllByRole('heading')
+      .map((heading) => within(heading).queryByRole('button', { expanded: true })?.textContent)
+      .filter(Boolean)
+      .map((title) => title?.replace(/[\s\d]+$/, ''));
+    expect(expanded).toEqual(['Identity', 'Settings of']);
+    expect(screen.getByRole('button', { name: /^Page setup/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  }, 15_000);
+
   it('DOCE-TEMPLATE-EDITOR-1.1 offers to inherit again a value the template sets over its parent’s', async () => {
     const user = userEvent.setup();
     const changes: TemplateFile[] = [];
@@ -104,9 +110,13 @@ describe('TemplateEditor', () => {
         onChange={(next) => changes.push(next)}
       />,
     );
-    const [reset] = screen.getAllByRole('button', { name: 'Reset to inherited value' });
-    if (!reset) throw new Error('No reset button');
-    await user.click(reset);
+    await openSections(user);
+    // The field's menu inherits again.
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('button', { name: /Page size/ }),
+    });
+    await user.click(await screen.findByRole('menuitem', { name: 'Reset to inherited value' }));
     expect(changes.at(-1)).not.toHaveProperty('page');
     // The whole editor renders here, which takes over 5 s on a shared CI runner.
   }, 15_000);
@@ -147,12 +157,14 @@ describe('TemplateEditor', () => {
         onChange={(next) => changes.push(next)}
       />,
     );
+    await openSections(user);
     // The paragraph numbering the parent sets shows as inherited while the template sets none.
     const [format] = screen.getAllByRole('combobox', { name: 'Format' });
     expect(format).toHaveAttribute('placeholder', '1.');
     // A zero height is a value of the template's own, not an unset one.
     const height = screen.getByRole('textbox', { name: 'Header height' });
     await user.type(height, '0pt');
+    await user.tab();
     expect(changes.at(-1)?.header).toEqual({ height: '0pt' });
   }, 15_000);
 });
@@ -203,6 +215,7 @@ describe('the references settings', () => {
         referenceTypes={[{ type: 'catalog', label: 'the catalog' }]}
       />,
     );
+    await openSections(user);
     expect(
       screen.getByText(
         'Uses {{ref.numbering}}, {{ref.title}}, {{ref.revision}}, {{doc.numbering}} and {{doc.title}}; left empty, it inherits',
@@ -217,12 +230,13 @@ describe('the references settings', () => {
     await openCard(/^Format/);
     await user.click(screen.getByRole('textbox', { name: 'To figures in the catalog' }));
     await user.paste('Item {{ref.numbering}}');
+    await user.tab();
     expect(changes.at(-1)?.references?.formats?.['catalog-figure']).toBe('Item {{ref.numbering}}');
     expect(
       screen.getByRole('textbox', { name: 'To figures in other documents' }),
     ).toBeInTheDocument();
     await openCard(/^Links to the target/);
-    await user.click(screen.getByRole('checkbox', { name: 'To the catalog' }));
+    await user.click(screen.getByRole('switch', { name: 'To the catalog' }));
     expect(changes.at(-1)?.references?.links?.catalog).toBe(true);
   }, 15_000);
 });
@@ -259,6 +273,7 @@ describe('the template editor over a template it keeps', () => {
         }}
       />,
     );
+    await openSections(user);
     const panel = screen.getByRole('region', { name: 'Template settings' });
     await user.click(within(panel).getByRole('radio', { name: 'Landscape' }));
     await user.click(screen.getByRole('button', { name: 'Add a section' }));
@@ -271,7 +286,7 @@ describe('the template editor over a template it keeps', () => {
   it('DOCE-TEMPLATE-EDITOR-1.10 renames a style in use, and the blocks in it follow', async () => {
     const user = userEvent.setup();
     let last: TemplateFile | undefined;
-    const lead = { type: 'paragraph', attrs: { className: 'lead' }, content: [] };
+    const lead = { type: 'paragraph', attrs: { style: 'lead' }, content: [] };
     render(
       <Stateful
         initial={{
@@ -285,27 +300,31 @@ describe('the template editor over a template it keeps', () => {
         }}
       />,
     );
+    await openSections(user);
     await user.click(screen.getByRole('button', { name: /^lead\b/ }));
     const name = screen.getAllByRole('textbox', { name: 'Name' }).at(-1);
     if (!name) throw new Error('No style name');
     await user.clear(name);
     await user.type(name, 'opening{Enter}');
     expect(last?.styles?.custom).toEqual({ opening: { size: '13pt' } });
-    expect(last?.header?.content).toEqual([{ ...lead, attrs: { className: 'opening' } }]);
+    expect(last?.header?.content).toEqual([{ ...lead, attrs: { style: 'opening' } }]);
   }, 15_000);
 });
 
 describe('a disabled template editor', () => {
-  it('DOCE-TEMPLATE-EDITOR-1.1 locks every setting and still filters them', async () => {
+  it('DOCE-TEMPLATE-EDITOR-1.1 locks every setting, still filters them and still picks the scope', async () => {
     const user = userEvent.setup();
     render(
       <TemplateEditor
-        template={{ formatVersion: 1, id: 'plain' }}
+        template={{ formatVersion: 1, id: 'plain', sections: [{ name: 'annex' }] }}
         onChange={() => undefined}
         isDisabled
       />,
     );
+    await openSections(user);
     expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Settings of$/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add a section' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Landscape' })).toBeDisabled();
     const filter = screen.getByRole('searchbox');
     await user.type(filter, 'orientation');

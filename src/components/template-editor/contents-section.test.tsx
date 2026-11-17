@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { openSections } from '../../../test/property-sections.js';
 import type { TemplateFile } from '../../model/index.js';
 import { withAllLevels } from './contents-catalog.js';
 import { TemplateEditor } from './template-editor.js';
@@ -35,6 +36,7 @@ describe('the contents section', () => {
       const user = userEvent.setup();
       const log: TemplateFile[] = [];
       render(<Host log={log} />);
+      await openSections(user);
       expect(screen.queryByRole('textbox', { name: 'Custom title' })).not.toBeInTheDocument();
       await pick(user, 'List type', 'List of figures');
       // A list without heading levels has no level picker.
@@ -67,6 +69,7 @@ describe('the contents section', () => {
       const user = userEvent.setup();
       const log: TemplateFile[] = [];
       render(<Host log={log} />);
+      await openSections(user);
       await user.click(screen.getByRole('button', { name: /^All levels/ }));
       await user.type(screen.getByRole('textbox', { name: 'Indent each level' }), '10');
       await user.tab();

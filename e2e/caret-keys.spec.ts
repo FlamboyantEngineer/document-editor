@@ -82,6 +82,8 @@ test.describe('caret keys across pages', () => {
     const count = await pages(page).count();
     const into = count - 1;
     await clickInto(page, into, 'first', 2);
+    // The keys wait for the caret, which the click places once the pages take focus.
+    await expect.poll(async () => (await selection(page)).focus.page).toBe(into);
     await page.keyboard.press('Home');
     await page.keyboard.press('Shift+ArrowUp');
     await expect.poll(async () => (await selection(page)).focus.page).toBe(into - 1);

@@ -5,16 +5,16 @@
   },
   "consumers": {
     "editor": {
-      "raw": 1894315,
-      "gzip": 603709
+      "raw": 1984354,
+      "gzip": 633847
     },
     "editor-with-panels": {
-      "raw": 1998916,
-      "gzip": 638604
+      "raw": 2095039,
+      "gzip": 670684
     },
     "template-workspace": {
-      "raw": 1224970,
-      "gzip": 374597
+      "raw": 1269129,
+      "gzip": 387742
     }
   }
 }

@@ -1,6 +1,5 @@
 // The parts of the template workspace that a layout places: the messages, the open template's
-// properties for the scope shown, its preview (or its JSON while the debug view is on) and the
-// tabs' panel that holds it.
+// properties for the scope shown, its preview and the tabs' panel that holds it.
 
 import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
@@ -11,6 +10,7 @@ import type { AssetAdapter } from '../../host/asset-adapters.js';
 import { withTemplatePart } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
 import {
+  type TemplateDraftState,
   TemplateEditor,
   type TemplateEditorProps,
   type TemplateScope,
@@ -92,6 +92,8 @@ interface PropertiesProps extends PartProps {
   /** Why the template cannot be saved, shown at its field. */
   readonly saveError: { id?: string; parent?: string };
   readonly idInputRef: Ref<HTMLInputElement>;
+  /** Hears the state of the fields' drafts. */
+  readonly onDraftsChange: (state: TemplateDraftState) => void;
   readonly isNameReadOnly: boolean;
   /** Whether the template inherits nothing, so it has no parent to pick. */
   readonly isRoot: boolean;
@@ -127,6 +129,7 @@ export function WorkspaceProperties(props: PropertiesProps) {
         fonts={props.fonts}
         referenceTypes={props.referenceTypes}
         layout={props.layout}
+        onDraftsChange={props.onDraftsChange}
       />
     </div>
   );
@@ -184,23 +187,6 @@ export function WorkspacePreview({ workspace, labels, scope, layout, ...props }:
         </Suspense>
       )}
     </div>
-  );
-}
-
-// The JSON view loads the first time it shows, so the workspace's own code does not carry its code
-// editor (DOCE-ENTRY-2.2).
-const LazyJson = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./workspace-json.js')).WorkspaceJson,
-}));
-
-/** The open template's JSON in place of the preview, once it has loaded. */
-export function WorkspaceJson(
-  props: PartProps & { onValidityChange: (errors: readonly string[]) => void },
-) {
-  return (
-    <Suspense fallback={null}>
-      <LazyJson {...props} />
-    </Suspense>
   );
 }
 

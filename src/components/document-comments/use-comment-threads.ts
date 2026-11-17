@@ -30,6 +30,8 @@ export interface CommentThreads {
   readonly threads: ReadonlyMap<string, CommentThread>;
   /** Who wrote each comment, by person id. */
   readonly people: ReadonlyMap<string, AvatarIdentity>;
+  /** Whether the store has listed the threads yet; until then a missing thread may yet come. */
+  readonly listed?: boolean | undefined;
   /** Why the threads could not be listed, if they could not; the threads listed before stay. */
   readonly error: string | null;
   /** What is happening in each thread besides its comments, by thread id. */
@@ -150,7 +152,7 @@ export function useCommentThreads({
   identity,
   failed,
 }: CommentThreadsOptions): CommentThreads {
-  const { threads, error, write, settle } = useThreadList(store, { documentId, failed });
+  const { threads, listed, error, write, settle } = useThreadList(store, { documentId, failed });
   const { activity, track } = useThreadActivity(store, { documentId, threads, failed });
   const active = useActivePeople(activity);
   const people = useCommentPeople(identity, { threads, others: active, known: NO_PEOPLE });
@@ -172,8 +174,9 @@ export function useCommentThreads({
     [write, settle, track, failed],
   );
   return useMemo(
-    () => threadActions({ store, documentId, change }, { threads, people, error, activity }),
-    [store, documentId, change, threads, people, error, activity],
+    () =>
+      threadActions({ store, documentId, change }, { threads, listed, people, error, activity }),
+    [store, documentId, change, threads, listed, people, error, activity],
   );
 }
 

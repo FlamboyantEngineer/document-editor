@@ -2,10 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { openSections } from '../../../test/property-sections.js';
 import type { TemplateFile } from '../../model/index.js';
 import { TemplateEditor, type TemplateEditorProps, templateIdOf } from './template-editor.js';
-import { TemplateJsonEditor } from './template-json-editor.js';
-import { templateText } from './template-json-text.js';
 import type { TemplateScope } from './template-scope-state.js';
 
 // The whole editor renders in each test, which takes seconds on a shared CI runner.
@@ -109,7 +108,7 @@ describe('section flags', () => {
         sections: [{ name: 'annex', styles: { heading1: { numbering: { format: 'A.' } } } }],
       };
       render(<TemplateEditor template={template} scope="annex" onChange={() => {}} />);
-      expect(screen.getAllByText('Inherited: true').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Inherited: On').length).toBeGreaterThan(0);
     },
     SLOW,
   );
@@ -132,6 +131,28 @@ describe('section names', () => {
       expect(log.renames).toEqual([['annex', 'annex_b']]);
       expect(log.scopes).toEqual(['annex_b']);
       expect(screen.getByRole('textbox', { name: 'Section name' })).toHaveValue('annex_b');
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-2.3 puts the name back on Escape and on a name with nothing left',
+    async () => {
+      const user = userEvent.setup();
+      const log = newLog();
+      render(<Host log={log} initialScope="annex" />);
+      const name = screen.getByRole('textbox', { name: 'Section name' });
+      await user.clear(name);
+      await user.type(name, 'Appendix{Escape}');
+      expect(name).toHaveValue('annex');
+      await user.clear(name);
+      await user.tab();
+      expect(name).toHaveValue('annex');
+      await user.clear(name);
+      await user.type(name, ' ?! {Enter}');
+      expect(name).toHaveValue('annex');
+      expect(name).not.toHaveAccessibleDescription(/needs a letter/);
+      expect(log.templates).toEqual([]);
     },
     SLOW,
   );
@@ -250,7 +271,7 @@ describe('identity', () => {
       expect(templateIdOf('42')).toBe('');
       unmount();
       render(<TemplateEditor template={TEMPLATE} onChange={() => {}} />);
-      expect(screen.queryByRole('textbox', { name: 'Id' })).not.toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'Id' })).toHaveAttribute('readonly');
     },
     SLOW,
   );
@@ -309,6 +330,7 @@ describe('extension slots', () => {
           }}
         />,
       );
+      await openSections(user);
       const folder = screen.getByRole('textbox', { name: 'Folder' });
       expect(folder).toHaveValue('Old');
       await user.clear(folder);
@@ -353,63 +375,4 @@ describe('extension slots', () => {
     },
     SLOW,
   );
-});
-
-// The JSON editor beside a host that changes the template elsewhere.
-function JsonHost({ changes }: { changes: TemplateFile[] }) {
-  const [template, setTemplate] = useState<TemplateFile>({ formatVersion: 1, id: 'plain' });
-  return (
-    <>
-      <button type="button" onClick={() => setTemplate({ ...template, name: 'Renamed' })}>
-        Rename
-      </button>
-      <TemplateJsonEditor
-        template={template}
-        onChange={(next) => {
-          changes.push(next);
-          setTemplate(next);
-        }}
-      />
-      <button type="button">Elsewhere</button>
-    </>
-  );
-}
-
-describe('TemplateJsonEditor', () => {
-  it('DOCE-TEMPLATE-EDITOR-2.7 hands the template over once focus leaves, keeping locked keys', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    render(<JsonHost changes={changes} />);
-    const text = screen.getByRole('textbox');
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,"id":"other","name":"Typed"}');
-    expect(changes).toEqual([]);
-    await user.click(screen.getByRole('button', { name: 'Elsewhere' }));
-    expect(changes).toEqual([{ formatVersion: 1, id: 'plain', name: 'Typed' }]);
-    expect(text).toHaveValue(templateText({ formatVersion: 1, id: 'plain', name: 'Typed' }));
-  });
-
-  it('DOCE-TEMPLATE-EDITOR-2.7 keeps an invalid text and hands nothing over', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    render(<JsonHost changes={changes} />);
-    const text = screen.getByRole('textbox');
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,');
-    await user.click(screen.getByRole('button', { name: 'Elsewhere' }));
-    expect(changes).toEqual([]);
-    expect(text).toHaveValue('{"formatVersion":1,');
-    expect(screen.getByText('The text is not valid JSON.')).toBeInTheDocument();
-  });
-
-  it('DOCE-TEMPLATE-EDITOR-2.7 follows a template changed elsewhere while it holds no edit', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    render(<JsonHost changes={changes} />);
-    await user.click(screen.getByRole('button', { name: 'Rename' }));
-    expect(screen.getByRole('textbox')).toHaveValue(
-      templateText({ formatVersion: 1, id: 'plain', name: 'Renamed' }),
-    );
-    expect(changes).toEqual([]);
-  });
 });

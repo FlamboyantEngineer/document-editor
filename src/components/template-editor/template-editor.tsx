@@ -10,9 +10,10 @@ import { PropertyPanel, PropertySection } from '@flamboyantengineer/ui-component
 import type { Ref } from 'react';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
-import { createHooks } from '../../utils/hooks.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
+import { TemplateDrafts, type TemplateDraftState } from './setting-drafts.js';
 import type { TemplateReferenceType } from './settings-catalog.js';
+import { templateEditorHooks as hooks } from './template-editor-hooks.js';
 import {
   extensionRows,
   ExtensionSections,
@@ -44,18 +45,18 @@ import {
   withSetting,
 } from './template-settings.js';
 
-const hooks = createHooks('template-editor');
-
 /** The template editor's own text. */
 export interface TemplateEditorLabels
   extends TemplateScopeLabels, TemplateIdentityLabels, TemplateSettingsLabels {
   readonly panel: string;
   readonly filter: string;
   readonly textStyles: string;
+  /** Names a section's heading numbering rows. */
+  readonly headingNumbering: string;
   readonly numbering: string;
   readonly font: string;
   readonly size: string;
-  /** Names the weight, slant and underline toggles and the alignment together. */
+  /** Names the weight, slant and underline toggles together. */
   readonly face: string;
   readonly bold: string;
   readonly italic: string;
@@ -66,6 +67,10 @@ export interface TemplateEditorLabels
   readonly spacing: string;
   readonly spaceBefore: string;
   readonly spaceAfter: string;
+  /** The short label of the space before, beside its field. */
+  readonly before: string;
+  /** The short label of the space after, beside its field. */
+  readonly after: string;
   readonly lineHeight: string;
   readonly styleName: string;
   readonly overrideCustomStyle: string;
@@ -79,6 +84,8 @@ export interface TemplateEditorLabels
   readonly customStyle: string;
   readonly addCustomStyle: string;
   readonly deleteCustomStyle: string;
+  /** Drops a scope's override of an inherited custom style, so the inherited one shows again. */
+  readonly resetCustomStyle: string;
 }
 
 /** The template editor's English text. */
@@ -89,10 +96,11 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   panel: 'Template settings',
   filter: 'Filter settings',
   textStyles: 'Text styles',
+  headingNumbering: 'Heading numbering',
   numbering: 'Numbering',
   font: 'Font',
   size: 'Size',
-  face: 'Weight & align',
+  face: 'Bold, italic and underline',
   bold: 'Bold',
   italic: 'Italic',
   underline: 'Underline',
@@ -102,6 +110,8 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   spacing: 'Spacing',
   spaceBefore: 'Space before',
   spaceAfter: 'Space after',
+  before: 'Before',
+  after: 'After',
   lineHeight: 'Line height',
   styleName: 'Name',
   overrideCustomStyle: 'Override the inherited style',
@@ -113,6 +123,7 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   customStyle: 'Custom styles',
   addCustomStyle: 'Add a style',
   deleteCustomStyle: 'Delete the style',
+  resetCustomStyle: 'Use the inherited style',
   inherited: (value, source) =>
     source ? `Inherited from ${source}: ${value}` : `Inherited: ${value}`,
 };
@@ -166,6 +177,12 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly referenceTypes?: readonly TemplateReferenceType[] | undefined;
   /** The fonts the code font fields suggest, monospace ones; others may be typed. */
   readonly codeFonts?: readonly string[] | undefined;
+  /**
+   * Hears the state of the fields' drafts: `pending` while a field holds a draft it has not
+   * committed, so a host can offer to save, and `invalid` while one is not valid, such as a length
+   * that does not read as one, so the host can hold a save until it is corrected.
+   */
+  readonly onDraftsChange?: ((state: TemplateDraftState) => void) | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly className?: string | undefined;
@@ -234,6 +251,9 @@ export function withRegionChange(
   return withSetting(template, [change.region, 'content'], change.content);
 }
 
+// The sections of the panel that start open.
+const OPEN_SECTIONS = ['identity', 'scope', 'section'];
+
 /** Edits a template's settings, handing each change to the host. */
 export function TemplateEditor(props: TemplateEditorProps) {
   const labels = { ...DEFAULT_TEMPLATE_EDITOR_LABELS, ...props.labels };
@@ -258,49 +278,54 @@ export function TemplateEditor(props: TemplateEditorProps) {
   // A host's own settings are the document's: a template section has no `extensions`.
   const slots = scope === null ? extensions : undefined;
   return (
-    <PropertyPanel
-      searchable
-      {...hooks.root({
-        className: props.className,
-        data: { scope: scope === null ? 'document' : 'section' },
-      })}
-      aria-label={labels.panel}
-      searchPlaceholder={labels.filter}
-      isDisabled={isDisabled}
-    >
-      <TemplateIdentity
-        template={props.template}
-        onChange={onChange}
-        parentOptions={props.parentOptions}
-        parentError={props.parentError}
-        isNew={props.isNew}
-        idError={props.idError}
-        idInputRef={props.idInputRef}
-        isNameReadOnly={props.isNameReadOnly}
-        isDisabled={isDisabled}
-        labels={labels}
+    <TemplateDrafts onDraftsChange={props.onDraftsChange} scope={scope ?? ''}>
+      <PropertyPanel
+        searchable
+        {...hooks.root({
+          className: props.className,
+          // Each field locks itself while the editor is disabled, so the scope picker stays usable.
+          data: { scope: scope === null ? 'document' : 'section', disabled: isDisabled },
+        })}
+        aria-label={labels.panel}
+        searchPlaceholder={labels.filter}
+        // Only the identity, the scope and a section's own rows start open.
+        defaultExpandedKeys={OPEN_SECTIONS}
       >
-        {slots?.rows?.identity ? extensionRows(context, slots.rows.identity) : null}
-      </TemplateIdentity>
-      {props.showsScopePicker === false ? null : (
-        <PropertySection id="scope" title={labels.scope} defaultExpanded>
-          <ScopePicker {...scoped} />
-        </PropertySection>
-      )}
-      <SectionRows {...scoped} />
-      <SettingSections
-        context={context}
-        inSection={scope !== null}
-        onPages={props.layout !== 'web'}
-        extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
-      />
-      {slots ? <ExtensionSections context={context} slots={slots} /> : null}
-    </PropertyPanel>
+        <TemplateIdentity
+          template={props.template}
+          onChange={onChange}
+          parentOptions={props.parentOptions}
+          parentError={props.parentError}
+          isNew={props.isNew}
+          idError={props.idError}
+          idInputRef={props.idInputRef}
+          isNameReadOnly={props.isNameReadOnly}
+          isDisabled={isDisabled}
+          labels={labels}
+        >
+          {slots?.rows?.identity ? extensionRows(context, slots.rows.identity) : null}
+        </TemplateIdentity>
+        {props.showsScopePicker === false ? null : (
+          <PropertySection id="scope" title={labels.scope} defaultExpanded>
+            <ScopePicker {...scoped} />
+          </PropertySection>
+        )}
+        {/* A scope's own rows are its own: turning to another scope commits their drafts. */}
+        <SectionRows key={`rows:${scope ?? ''}`} {...scoped} />
+        <SettingSections
+          context={context}
+          inSection={scope !== null}
+          onPages={props.layout !== 'web'}
+          extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
+        />
+        {slots ? <ExtensionSections context={context} slots={slots} /> : null}
+      </PropertyPanel>
+    </TemplateDrafts>
   );
 }
 
+export type { TemplateDraftState } from './setting-drafts.js';
 export { templateIdOf } from './template-identity.js';
-export { TemplateJsonEditor } from './template-json-editor.js';
 export { DEFAULT_TEMPLATE_SCOPE_LABELS, withListedSections } from './template-scope.js';
 export type { TemplateScope } from './template-scope-state.js';
 export {

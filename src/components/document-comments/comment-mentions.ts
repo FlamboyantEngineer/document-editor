@@ -26,7 +26,7 @@ export function useCommentMentions(
           })),
       });
     }
-    const { serialize, parse } = mentions;
+    const { serialize, parse, resolvePaste } = mentions;
     return createCommentMentions({
       search: async (query, signal) =>
         (await mentions.find(query, signal)).map((target) => ({
@@ -46,6 +46,7 @@ export function useCommentMentions(
             })
         : undefined,
       parse: parse ? (text) => parse.call(mentions, text) : undefined,
+      resolvePaste: resolvePaste ? (text) => resolvePaste.call(mentions, text) : undefined,
     });
   }, [identity, mentions]);
 }

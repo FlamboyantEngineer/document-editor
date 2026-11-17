@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect, test } from './fixtures.js';
-import { sectionOf } from './template-settings-steps.js';
+import { expect, type LabFixture, test } from './fixtures.js';
+import { openSections, sectionOf } from './template-settings-steps.js';
 
 const panel = (page: Page) =>
   page.getByRole('region', { name: 'Template settings' }).or(page.locator('.de-template-editor'));
@@ -42,6 +42,8 @@ async function typeInto(page: Page, block: Locator, text: string) {
     await expect(block).toHaveText(before + text.slice(0, index));
   }
 }
+// The template the editor holds, shown read only as JSON beside it.
+const templateJson = (page: Page) => page.getByLabel('Template JSON');
 const landscape = (page: Page) =>
   panel(page)
     .first()
@@ -63,12 +65,18 @@ async function card(page: Page, name: string) {
   return found.first();
 }
 
+// Opens the lab with every section of the settings expanded, as a person reading all of it does.
+async function openLab(lab: LabFixture, page: Page) {
+  await lab.open('template-editor');
+  await openSections(panel(page).first());
+}
+
 test.describe('template editor lab', () => {
   test('DOCE-TEMPLATE-EDITOR-1.1 DOCE-TEMPLATE-EDITOR-1.2 DOCE-LABS-3.1 restyles the document as settings change', async ({
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     // DOCE-TEMPLATE-EDITOR-1.7: a size in points.
     const paragraph = await card(page, 'Paragraph');
     const size = paragraph.getByRole('textbox', { name: 'Size' });
@@ -104,16 +112,17 @@ test.describe('template editor lab', () => {
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     const settings = panel(page).first();
     await settings.getByRole('button', { name: 'Add a section' }).click();
+    await openSections(panel(page).first());
     await expect(settings).toHaveAttribute('data-scope', 'section');
     const name = settings.getByRole('textbox', { name: 'Label' });
     await name.fill('Appendix');
     await landscape(page).click();
-    // DOCE-TEMPLATE-EDITOR-1.5: the JSON holds the section.
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
+    // The template holds the section.
+    await page.getByLabel('Show as JSON').check();
+    const json = templateJson(page);
     await expect(json).toContainText('"label": "Appendix"');
     await expect(json).toContainText('"orientation": "landscape"');
   });
@@ -122,7 +131,7 @@ test.describe('template editor lab', () => {
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     const headers = content(page).locator('.pm-page-header');
     await expect(headers.first()).not.toHaveAttribute('contenteditable', 'false');
     await headers.first().locator('p').last().click();
@@ -130,74 +139,34 @@ test.describe('template editor lab', () => {
     await page.keyboard.type(' Programme review');
     // Every page of the section shows it, and the template holds it.
     await expect(headers.nth(1)).toContainText('Programme review');
-    await page.getByLabel('Edit as JSON').check();
-    await expect(page.getByRole('textbox', { name: 'Template JSON' })).toContainText(
-      'Programme review',
-    );
-  });
-
-  test('DOCE-TEMPLATE-EDITOR-1.5 DOCE-TEMPLATE-EDITOR-2.7 edits the template as JSON, committed once focus leaves', async ({
-    lab,
-    page,
-  }) => {
-    await lab.open('template-editor');
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
-    // The id is locked: the text cannot change it.
-    await json.fill(
-      '{ "formatVersion": 1, "id": "other", "page": { "orientation": "landscape" } }',
-    );
-    const pageIsLandscape = () =>
-      content(page)
-        .locator('.pm-page')
-        .first()
-        .evaluate(
-          (element) =>
-            element.getBoundingClientRect().width > element.getBoundingClientRect().height,
-        );
-    expect(await pageIsLandscape()).toBe(false);
-    await json.blur();
-    await expect
-      .poll(() =>
-        content(page)
-          .locator('.pm-page')
-          .first()
-          .evaluate(
-            (element) =>
-              element.getBoundingClientRect().width > element.getBoundingClientRect().height,
-          ),
-      )
-      .toBe(true);
-    await expect(json).toContainText('"id": "lab-template"');
-    await json.fill('{ "formatVersion": 1, "id": "lab-template", ');
-    await expect(page.getByText('The text is not valid JSON.')).toBeVisible();
-    await json.blur();
-    await expect(json).toHaveValue('{ "formatVersion": 1, "id": "lab-template", ');
+    await page.getByLabel('Show as JSON').check();
+    await expect(templateJson(page)).toContainText('Programme review');
   });
 
   test('DOCE-TEMPLATE-EDITOR-1.6 DOCE-TEMPLATES-7.1 adds a custom style and applies it to a paragraph', async ({
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     const settings = panel(page).first();
     await settings.getByRole('button', { name: 'Add a style' }).click();
     const paragraph = content(page).locator('.pm-page-content p').nth(2);
     await paragraph.click();
     const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
     await toolbar.getByRole('button', { name: /Text style/ }).click();
-    await page.getByRole('option', { name: 'style_1' }).click();
-    await expect(paragraph).toHaveAttribute('data-custom-style', 'style_1');
+    await page.getByRole('option', { name: 'custom_style_1' }).click();
+    await expect(paragraph).toHaveAttribute('data-custom-style', 'custom_style_1');
     await expect
       .poll(() =>
         paragraph.evaluate((element) => Math.round(parseFloat(getComputedStyle(element).fontSize))),
       )
-      .toBe(15);
+      // A new style is 12pt: 16 pixels.
+      .toBe(16);
     await toolbar.getByRole('button', { name: /Text style/ }).click();
     await page.getByRole('option', { name: 'Paragraph' }).click();
     await expect(paragraph).not.toHaveAttribute('data-custom-style');
     // The style's card renames it, and deletes it.
-    await card(page, 'style_1');
+    await card(page, 'custom_style_1');
     // The style's name is the last one; the template's is first.
     const name = panel(page).first().getByRole('textbox', { name: 'Name' }).last();
     await name.fill('note');
@@ -215,7 +184,7 @@ test.describe('template editor lab', () => {
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     const settings = panel(page).first();
     // A page size with its dimensions.
     await expect(settings.getByRole('button', { name: /Page size$/ })).toContainText(
@@ -226,12 +195,17 @@ test.describe('template editor lab', () => {
     await expect(
       settings.getByText(/^Inherited from Base template: /, { exact: false }).first(),
     ).toBeAttached();
-    // A font typed or picked.
+    // A font picked from those offered, each drawn in its own font.
     const paragraph = await card(page, 'Paragraph');
-    const font = paragraph.getByRole('combobox', { name: 'Font' });
-    await font.fill('Georgia');
+    await paragraph.getByRole('button', { name: /Font$/ }).click();
+    const georgia = page.getByRole('option', { name: 'Georgia', exact: true });
+    expect(
+      await georgia
+        .locator('.de-template-editor__font-option')
+        .evaluate((element) => getComputedStyle(element).fontFamily),
+    ).toContain('Georgia');
+    await georgia.click();
     await expect.poll(() => style(page, 'p', 'font-family')).toContain('Georgia');
-    await page.keyboard.press('Tab');
     // Space before and after, in points, typed as numbers.
     const after = paragraph.getByRole('textbox', { name: 'Space after' });
     await after.fill('20');
@@ -253,14 +227,17 @@ test.describe('template editor lab', () => {
     const heading = await card(page, 'Heading 1');
     const numbering = heading.getByRole('combobox', { name: 'Numbering', exact: true });
     await numbering.fill('Ab.1x');
-    await page.keyboard.press('Escape');
+    // Enter commits the draft while no format in the list the typing opened is picked; the open
+    // list hides the rest of the panel, so Enter goes to the page.
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
     await expect(numbering).toHaveValue('A.1');
     await numbering.fill('');
     await page.getByRole('option', { name: /^I\.\s*I\., II\., III\./ }).click();
     await expect(numbering).toHaveValue('I.');
     await expect(heading.getByText('1, a, A, i or I for each level')).toBeVisible();
-    // A heading has a line height of its own.
-    await expect(heading.getByRole('textbox', { name: 'Line height' })).toHaveCount(1);
+    // A heading follows the paragraph's line height: it has none of its own.
+    await expect(heading.getByRole('textbox', { name: 'Line height' })).toHaveCount(0);
     // The margins, one row of four sides, in millimetres on an A4 page.
     const top = settings.getByRole('textbox', { name: 'Top margin' });
     // The four sides fit across the settings panel.
@@ -290,8 +267,9 @@ test.describe('template editor lab', () => {
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     await panel(page).first().getByRole('button', { name: 'Add a section' }).click();
+    await openSections(panel(page).first());
     await page.getByRole('button', { name: 'Preview the template' }).click();
     await expect(content(page).locator('h1').first()).toHaveText('Lab template');
     for (const level of [1, 2, 3, 4, 5, 6]) {
@@ -309,7 +287,7 @@ test.describe('template editor lab', () => {
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     await page.getByRole('button', { name: 'Preview the template' }).click();
     const heading = content(page).locator('h2', { hasText: 'Heading 2' });
     await expect(heading).toHaveCount(1);
@@ -336,7 +314,7 @@ test.describe('template editor lab', () => {
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     const settings = panel(page).first();
     const add = settings.getByRole('button', { name: 'Add a section' });
     await add.click();
@@ -354,22 +332,22 @@ test.describe('template editor lab', () => {
     await settings.getByRole('button', { name: 'Move the section earlier' }).click();
     // The scope stays on the moved section.
     await expect(name).toHaveValue('annex_b');
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
+    await page.getByLabel('Show as JSON').check();
+    const json = templateJson(page);
     await expect
       .poll(async () => {
-        const text = (await json.inputValue()) || '';
+        const text = (await json.textContent()) ?? '';
         return [...text.matchAll(/"name": "(annex_\w)"/g)].map((match) => match[1]);
       })
       .toEqual(['annex_b', 'annex_a']);
-    await page.getByLabel('Edit as JSON').uncheck();
+    await page.getByLabel('Show as JSON').uncheck();
     // Deleting asks first.
     await settings.getByRole('button', { name: 'Delete the section' }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toContainText('annex_b');
     await dialog.getByRole('button', { name: 'Delete the section' }).click();
     await expect(settings).toHaveAttribute('data-scope', 'document');
-    await page.getByLabel('Edit as JSON').check();
+    await page.getByLabel('Show as JSON').check();
     await expect(json).not.toContainText('annex_b');
     await expect(json).toContainText('annex_a');
   });
@@ -378,23 +356,22 @@ test.describe('template editor lab', () => {
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     const folder = panel(page).first().getByRole('textbox', { name: 'Folder' });
     await folder.fill('Reports');
     await folder.press('Enter');
-    await page.getByLabel('Edit as JSON').check();
-    await expect(page.getByRole('textbox', { name: 'Template JSON' })).toContainText(
-      '"folder": "Reports"',
-    );
+    await page.getByLabel('Show as JSON').check();
+    await expect(templateJson(page)).toContainText('"folder": "Reports"');
   });
 
   test('DOCE-TEMPLATE-EDITOR-2.8 scrolls the preview to the section picked', async ({
     lab,
     page,
   }) => {
-    await lab.open('template-editor');
+    await openLab(lab, page);
     const settings = panel(page).first();
     for (const _ of [1, 2]) await settings.getByRole('button', { name: 'Add a section' }).click();
+    await openSections(panel(page).first());
     await page.getByRole('button', { name: 'Preview the template' }).click();
     const last = content(page).locator('[data-section-name="section_2"]').first();
     await expect(last).toBeInViewport();
@@ -406,18 +383,12 @@ test.describe('template editor lab', () => {
     await expect(content(page).locator('[data-section-name="section_1"]').first()).toBeInViewport();
   });
 
-  test('DOCE-LABS-3.1 DOCE-TEMPLATE-EDITOR-2.7 follows the host options and reports JSON validity', async ({
-    lab,
-    page,
-  }) => {
-    await lab.open('template-editor');
+  test('DOCE-LABS-3.1 follows the host options', async ({ lab, page }) => {
+    await openLab(lab, page);
     await page.getByLabel('Parent fails to load').check();
     await expect(panel(page)).toContainText('The base template could not be loaded.');
-    await page.getByLabel('Edit as JSON').check();
-    await page.getByRole('textbox', { name: 'Template JSON' }).fill('{ "formatVersion": 1, ');
-    await expect(page.getByRole('status', { name: 'Template report' })).toContainText(
-      'JSON invalid',
-    );
+    await page.getByLabel('Disable the template editor').check();
+    await expect(panel(page).first().getByRole('textbox', { name: 'Name' })).toBeDisabled();
   });
 
   test('DOCE-SECTIONS-5.1 DOCE-PAGINATION-8.7 types in headers and footers, in a paragraph and a table cell, on the first and a later page', async ({
@@ -425,26 +396,9 @@ test.describe('template editor lab', () => {
     page,
   }) => {
     test.slow();
-    await lab.open('template-editor');
+    await openLab(lab, page);
     // Each region holds a paragraph and a table of two cells.
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
-    const template = JSON.parse((await json.inputValue()) || '{}') as Record<string, unknown>;
-    const text = (value: string) => [
-      { type: 'paragraph', content: [{ type: 'text', text: value }] },
-    ];
-    const cell = { type: 'tableCell', content: [{ type: 'paragraph' }] };
-    const region = (name: string) => ({
-      content: [
-        ...text(name),
-        { type: 'table', content: [{ type: 'tableRow', content: [cell, cell] }] },
-      ],
-    });
-    await json.fill(
-      JSON.stringify({ ...template, header: region('Head'), footer: region('Foot') }),
-    );
-    await json.blur();
-    await page.getByLabel('Edit as JSON').uncheck();
+    await page.getByRole('button', { name: 'Put a table in the header and footer' }).click();
     await expect(regions(page, 'footer').first().locator('td')).toHaveCount(2);
     await expect(page.locator('.de-document-editor')).toHaveAttribute(
       'data-layout-state',

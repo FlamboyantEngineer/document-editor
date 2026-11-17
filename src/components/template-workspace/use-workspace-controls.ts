@@ -1,10 +1,10 @@
 // The workspace's controls beyond its state: the side panel's pane, remembered in the provider's
 // storage; the template and version a host names; Save, which says at its field what keeps a
-// template from being saved; and the JSON view's keys.
+// template from being saved.
 
 import { useUiStorage } from '@flamboyantengineer/ui-components/core';
 import { useUnsavedChangesGuard } from '@flamboyantengineer/ui-components/unsaved-changes-guard';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TemplateWorkspaceProps } from './template-workspace-types.js';
 import type { TemplateWorkspaceState } from './use-template-workspace.js';
 import type { TemplateWorkspaceLabels } from './workspace-labels.js';
@@ -57,11 +57,12 @@ export function useRoute(props: TemplateWorkspaceProps, workspace: TemplateWorks
   }, [templateId, revision]);
 }
 
-// Saves the open template, or shows at its field what keeps it from being saved.
+// Saves the open template, or shows at its field what keeps it from being saved; a settings field
+// holding a draft that is not valid keeps it from being saved too.
 export function useSave(
   workspace: TemplateWorkspaceState,
   panel: WorkspacePanelState,
-  labels: TemplateWorkspaceLabels,
+  { labels, settingsValid }: { labels: TemplateWorkspaceLabels; settingsValid: boolean },
 ) {
   const [saveError, setSaveError] = useState<{ id?: string; parent?: string }>({});
   const idInput = useRef<HTMLInputElement>(null);
@@ -80,29 +81,13 @@ export function useSave(
       if (problem === 'no-id') setFocusing(true);
       throw new Error(problem === 'no-id' ? labels.idNeeded : labels.parentCycle);
     }
+    if (!settingsValid) {
+      panel.onPaneChange('properties');
+      panel.onExpandedChange(true);
+      throw new Error(labels.settingsInvalid);
+    }
     setSaveError({});
     await workspace.save();
   };
   return { save, saveError: workspace.saveProblem ? saveError : {}, idInput };
-}
-
-// Control+Alt+B turns the JSON view on and off, outside a composition and a held key's repeats.
-export function useJsonView(isEnabled: boolean) {
-  const [isShown, setShown] = useState(false);
-  const [errors, setErrors] = useState<readonly string[]>([]);
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (!isEnabled || event.repeat || event.nativeEvent.isComposing) return;
-    if (!event.ctrlKey || !event.altKey || event.key.toLowerCase() !== 'b') return;
-    event.preventDefault();
-    setShown((shown) => !shown);
-    setErrors([]);
-  };
-  const shows = isEnabled && isShown;
-  return {
-    isShown: shows,
-    view: shows ? ('json' as const) : undefined,
-    errors,
-    setErrors,
-    onKeyDown,
-  };
 }

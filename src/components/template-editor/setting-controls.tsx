@@ -3,15 +3,23 @@
 
 import { BooleanField } from '@flamboyantengineer/ui-components/boolean-field';
 import { ColorField } from '@flamboyantengineer/ui-components/color-field';
-import { Combobox } from '@flamboyantengineer/ui-components/combobox';
-import { PageLandscapeGlyph, PagePortraitGlyph } from '@flamboyantengineer/ui-components/core';
+import {
+  type Key,
+  PageLandscapeGlyph,
+  PagePortraitGlyph,
+} from '@flamboyantengineer/ui-components/core';
+import { defaultFieldMenu, type FieldMenuEntry } from '@flamboyantengineer/ui-components/field';
 import { NumberField } from '@flamboyantengineer/ui-components/number-field';
 import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-choice';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
-import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import { type ReactNode, useState } from 'react';
-import { NUMBERING_OPTIONS } from './numbering-presets.js';
-import type { TemplateSetting } from './template-settings.js';
+import type { ReactNode } from 'react';
+import { FontControl, LengthControl, NumberingControl, TextControl } from './draft-controls.js';
+import { templateEditorHooks as hooks } from './template-editor-hooks.js';
+import {
+  DEFAULT_TEMPLATE_SETTINGS_LABELS,
+  type TemplateSetting,
+  type TemplateSettingsLabels,
+} from './template-settings.js';
 
 /** What a row shows and changes. */
 export interface SettingRowProps {
@@ -26,13 +34,12 @@ export interface SettingRowProps {
   readonly inheritedLabel: (value: string, source?: string) => string;
   /** Where the inherited value comes from, such as the parent template's name. */
   readonly inheritedFrom?: string | undefined;
-  /** The fonts a font field suggests. */
+  /** The fonts a font field offers. */
   readonly fonts?: readonly string[] | undefined;
+  /** The fields' own text: the names of on and off, and why a typed length is not valid. */
+  readonly fieldLabels?: TemplateSettingsLabels | undefined;
   readonly isDisabled?: boolean | undefined;
 }
-
-// A length: a number and a unit, such as `12pt` or `20mm`.
-const LENGTH = /^\d+(\.\d+)?(pt|px|mm|cm|in|em|rem)$/;
 
 // Points in each unit a size may be written in.
 const POINTS: Readonly<Record<string, number>> = {
@@ -47,14 +54,9 @@ const POINTS: Readonly<Record<string, number>> = {
 export function toPoints(value: unknown): number | null {
   const match = /^(\d+(?:\.\d+)?)(pt|px|mm|cm|in)$/.exec(String(value ?? '').trim());
   const factor = match ? POINTS[match[2] ?? ''] : undefined;
-  return match && factor ? Math.round(Number(match[1]) * factor * 100) / 100 : null;
+  // Rounded only past what a typed value holds, so 10.25pt and 0.125in keep their digits.
+  return match && factor ? Number((Number(match[1]) * factor).toPrecision(12)) : null;
 }
-
-// What a numbering format may hold: a level's character and the separators between levels.
-const NOT_NUMBERING = /[^1aAiI.\-):/]/g;
-
-/** A numbering format with what it may not hold left out. */
-const cleanNumbering = (text: string) => text.replace(NOT_NUMBERING, '');
 
 /** Whether a value is unset, so the field inherits. */
 export const isUnset = (value: unknown) => value === undefined || value === null;
@@ -65,7 +67,9 @@ const hasNothing = (value: unknown) => isUnset(value) || value === '';
 const shown = (value: unknown) =>
   value === undefined || value === null ? '' : typeof value === 'string' ? value : String(value);
 
-interface ControlProps extends SettingRowProps {
+/** What a field draws with. */
+export interface ControlProps extends SettingRowProps {
+  readonly fieldLabels: TemplateSettingsLabels;
   readonly common: {
     readonly label: string;
     readonly labelLayout: 'control-only';
@@ -76,6 +80,9 @@ interface ControlProps extends SettingRowProps {
     /** Names the inherited value and where it comes from, while the field inherits one. */
     readonly help: string | undefined;
     readonly showHelpButton: false;
+    /** The field's context menu: its own, then inheriting again while it has a value of its own. */
+    readonly menu: readonly FieldMenuEntry[];
+    readonly onMenuAction: (key: Key) => void;
   };
   readonly placeholder: string | undefined;
 }
@@ -125,14 +132,22 @@ function ChoiceControl({ setting, value, onChange, common, placeholder }: Contro
   );
 }
 
+// A yes or no that may be unset, as a switch captioned on, off, or inherited with what it inherits;
+// it goes from inherited to on, off and inherited again.
 function BooleanControl(props: ControlProps) {
-  const { value, onChange, inheritedLabel, inheritedFrom, common, placeholder } = props;
+  const { value, onChange, inheritedLabel, inheritedFrom, common, placeholder, fieldLabels } =
+    props;
+  const inherited =
+    placeholder === 'true' ? fieldLabels.on : placeholder === 'false' ? fieldLabels.off : '—';
   return (
     <BooleanField
       {...common}
+      variant="switch"
       allowsUnset
       value={typeof value === 'boolean' ? value : null}
-      unsetLabel={inheritedLabel(placeholder ?? '—', inheritedFrom)}
+      trueLabel={fieldLabels.on}
+      falseLabel={fieldLabels.off}
+      unsetLabel={inheritedLabel(inherited, inheritedFrom)}
       onChange={onChange}
     />
   );
@@ -150,6 +165,7 @@ function ColorControl({ value, onChange, common, placeholder }: ControlProps) {
   );
 }
 
+// A number, kept as typed within its bounds: a value outside them says so and is not written.
 function NumberControl({ setting, value, onChange, common, placeholder }: ControlProps) {
   const range: { min?: number; max?: number; step?: number } =
     setting.kind.type === 'number' ? setting.kind : {};
@@ -161,13 +177,21 @@ function NumberControl({ setting, value, onChange, common, placeholder }: Contro
       minValue={range.min}
       maxValue={range.max}
       step={range.step}
-      onChange={onChange}
+      commitBehavior="validate"
+      onChange={(next: number | null) => {
+        const inRange =
+          next === null ||
+          ((range.min === undefined || next >= range.min) &&
+            (range.max === undefined || next <= range.max));
+        if (inRange) onChange(next);
+      }}
     />
   );
 }
 
-// A size in points, written as one, such as `12pt`; one in another absolute unit shows in points,
-// and one in a relative unit, such as `1.5em`, shows as typed in a length field.
+// A size in points, any non-negative decimal, written as one, such as `10.25pt`; one in another
+// absolute unit shows in points, and one in a relative unit, such as `1.5em`, shows as typed in a
+// length field.
 function PointsControl(props: ControlProps) {
   const { value, inherited, onChange, common } = props;
   const own = toPoints(value);
@@ -179,83 +203,17 @@ function PointsControl(props: ControlProps) {
       value={own}
       placeholder={from === null ? undefined : String(from)}
       minValue={0}
-      maxValue={400}
-      step={0.5}
-      onChange={(points: number | null) => onChange(points === null ? null : `${String(points)}pt`)}
-    />
-  );
-}
-
-// A font, from those suggested or typed.
-function FontControl({ value, onChange, fonts = [], common, placeholder }: ControlProps) {
-  return (
-    <Combobox
-      aria-label={common.label}
-      size="sm"
-      isDisabled={common.isDisabled}
-      allowsCustomValue
-      menuTrigger="focus"
-      defaultItems={fonts.map((font) => ({ id: font, label: font }))}
-      inputValue={shown(value)}
-      placeholder={placeholder}
-      onInputChange={(text) => onChange(text.trim() || null)}
-    />
-  );
-}
-
-function TextControl({ setting, value, onChange, common, placeholder }: ControlProps) {
-  return (
-    <TextField
-      {...common}
-      value={shown(value)}
-      // An own empty value shows empty, not the inherited value it replaces.
-      placeholder={isUnset(value) ? placeholder : undefined}
-      errorMessage={setting.check?.(value) ?? undefined}
-      // Text is kept as typed, spaces too.
-      onChange={onChange}
-    />
-  );
-}
-
-// A numbering format, typed or picked from the formats offered with the numbers each gives; it
-// keeps what a format may hold.
-function NumberingControl({ setting, value, onChange, common, placeholder }: ControlProps) {
-  return (
-    <Combobox
-      aria-label={common.label}
-      size="sm"
-      isDisabled={common.isDisabled}
-      allowsCustomValue
-      menuTrigger="focus"
-      defaultItems={NUMBERING_OPTIONS}
-      inputValue={shown(value)}
-      placeholder={isUnset(value) ? placeholder : undefined}
-      description={common.help}
-      errorMessage={setting.check?.(value) ?? undefined}
-      onInputChange={(text) => onChange(cleanNumbering(text))}
-    />
-  );
-}
-
-// A length, such as `12pt` or `20mm`: what is typed shows as it is, and is kept once it reads as
-// a length, or cleared.
-function LengthControl({ value, onChange, common, placeholder }: ControlProps) {
-  const external = shown(value);
-  const [draft, setDraft] = useState({ text: external, from: external });
-  return (
-    <TextField
-      {...common}
-      value={draft.from === external ? draft.text : external}
-      placeholder={placeholder}
-      onChange={(text) => {
-        const length = text.trim();
-        const valid = !length || LENGTH.test(length);
-        setDraft({ text, from: valid ? length : external });
-        if (valid) onChange(length || null);
+      commitBehavior="validate"
+      onChange={(points: number | null) => {
+        if (points === null || points >= 0)
+          onChange(points === null ? null : `${String(points)}pt`);
       }}
     />
   );
 }
+
+// The menu entry that inherits again.
+const INHERIT = 'inherit';
 
 const CONTROLS = {
   select: SelectControl,
@@ -274,10 +232,17 @@ const CONTROLS = {
 
 /** A setting's field. */
 export function SettingControl(props: SettingRowProps): ReactNode {
+  const labels = props.fieldLabels ?? DEFAULT_TEMPLATE_SETTINGS_LABELS;
   const { inherited, value, setting } = props;
   const placeholder = hasNothing(inherited) ? undefined : shown(inherited);
   const inheritedText =
-    setting.kind.type === 'points' ? `${String(toPoints(inherited) ?? '')}pt` : shown(inherited);
+    setting.kind.type === 'points'
+      ? `${String(toPoints(inherited) ?? '')}pt`
+      : typeof inherited === 'boolean'
+        ? inherited
+          ? labels.on
+          : labels.off
+        : shown(inherited);
   const common = {
     label: setting.label,
     labelLayout: 'control-only' as const,
@@ -285,13 +250,34 @@ export function SettingControl(props: SettingRowProps): ReactNode {
     isDisabled: props.isDisabled,
     size: 'sm' as const,
     density: 'compact' as const,
-    // While the field inherits, what it inherits and from where describe it, in its Help.
+    // While the field inherits, what it inherits and from where describe it, in its Help; a
+    // switch says so in its caption.
     help:
-      isUnset(value) && !hasNothing(inherited)
+      isUnset(value) && !hasNothing(inherited) && setting.kind.type !== 'boolean'
         ? props.inheritedLabel(inheritedText, props.inheritedFrom)
         : undefined,
     showHelpButton: false as const,
+    menu: [
+      ...defaultFieldMenu,
+      ...(isUnset(value) || hasNothing(inherited)
+        ? []
+        : [{ id: INHERIT, label: labels.resetToInherited }]),
+    ],
+    onMenuAction: (key: Key) => {
+      if (key === INHERIT) props.onChange(null);
+    },
   };
   const Control = CONTROLS[props.setting.kind.type];
-  return <Control {...props} common={common} placeholder={placeholder} />;
+  const inherits = isUnset(value) && !hasNothing(inherited);
+  return (
+    // While it inherits, hovering the field says from where and how to override it.
+    <span
+      {...hooks.slot('setting', { inherited: inherits })}
+      title={
+        inherits && props.inheritedFrom ? labels.inheritedTitle(props.inheritedFrom) : setting.tip
+      }
+    >
+      <Control {...props} fieldLabels={labels} common={common} placeholder={placeholder} />
+    </span>
+  );
 }

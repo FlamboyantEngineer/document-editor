@@ -22,6 +22,10 @@ describe('Rows of the comments panel', () => {
       'Suggestion by Ada Lovelaceon “epsilon”',
     ]);
     expect(items.map((item) => item.dataset.annotation)).toEqual(['thread', 'suggestion']);
+    // Each row leads with its glyph: a speech bubble, a pencil.
+    const glyphs = items.map((item) => item.querySelector('svg')?.innerHTML);
+    expect(glyphs.every(Boolean)).toBe(true);
+    expect(glyphs[0]).not.toBe(glyphs[1]);
     // No second card of the thread, and no empty state while rows are listed.
     expect(within(panel()).queryByText('Is blue right?')).not.toBeInTheDocument();
     expect(within(panel()).queryByRole('group', { name: 'Suggestion' })).not.toBeInTheDocument();

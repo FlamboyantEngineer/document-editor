@@ -43,8 +43,21 @@ describe('numbering formats', () => {
     expect(changes.at(-1)).toBe('I.');
     await user.clear(field);
     await user.type(field, 'Ab.1x');
-    // A format keeps only what numbers.
+    // A format keeps only what numbers, and a typed one waits for Enter.
     expect(field).toHaveValue('A.1');
+    expect(changes.at(-1)).toBe('I.');
+    await user.keyboard('{Enter}');
     expect(changes.at(-1)).toBe('A.1');
+  });
+
+  it('DOCE-TEMPLATE-EDITOR-1.7 keeps the separators . - ) _ and the space, and nothing else', async () => {
+    const user = userEvent.setup();
+    const changes: unknown[] = [];
+    render(<FormatField changes={changes} />);
+    const field = screen.getByRole('combobox', { name: 'Format' });
+    await user.type(field, '1:a/A_i I)1-1.');
+    expect(field).toHaveValue('1aA_i I)1-1.');
+    await user.tab();
+    expect(changes.at(-1)).toBe('1aA_i I)1-1.');
   });
 });

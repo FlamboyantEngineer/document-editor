@@ -4,15 +4,13 @@
 import type { ReactNode, Ref } from 'react';
 import type { TemplateFile } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
-import type { TemplateScope } from '../template-editor/template-editor.js';
+import type { TemplateDraftState, TemplateScope } from '../template-editor/template-editor.js';
 import { TemplateHistory } from './template-history.js';
 import { TemplateSectionTabs } from './template-section-tabs.js';
 import type { TemplateWorkspaceParts, TemplateWorkspaceProps } from './template-workspace-types.js';
 import type { TemplateWorkspaceState } from './use-template-workspace.js';
-import type { useJsonView } from './use-workspace-controls.js';
 import type { TemplateWorkspaceLabels } from './workspace-labels.js';
 import {
-  WorkspaceJson,
   WorkspaceMessages,
   WorkspacePreview,
   WorkspaceProperties,
@@ -30,7 +28,8 @@ interface WorkspaceAssembly {
   readonly scope: TemplateScope;
   readonly onScopeChange: (scope: TemplateScope) => void;
   readonly layout: DocumentLayout;
-  readonly json: ReturnType<typeof useJsonView>;
+  /** The state of the settings fields' drafts, and what hears it change. */
+  readonly drafts: { state: TemplateDraftState; onChange: (state: TemplateDraftState) => void };
   readonly save: () => Promise<unknown>;
   readonly saveError: { id?: string; parent?: string };
   readonly idInput: Ref<HTMLInputElement>;
@@ -43,7 +42,6 @@ function bandParts({
   workspace,
   labels,
   listed,
-  json,
   save,
   onRestore,
   ...rest
@@ -64,7 +62,8 @@ function bandParts({
         {...parts}
         catalog={props.catalog ?? {}}
         canDelete={props.canDelete ?? false}
-        canSave={json.errors.length === 0}
+        canSave={rest.drafts.state !== 'invalid'}
+        hasDraft={rest.drafts.state === 'pending'}
         onSave={save}
         saveAsFields={props.saveAsFields}
       />
@@ -75,13 +74,11 @@ function bandParts({
 
 /** The workspace's parts. */
 export function workspacePartsOf(assembly: WorkspaceAssembly): TemplateWorkspaceParts {
-  const { props, workspace, labels, scope, layout, json } = assembly;
+  const { props, workspace, labels, scope, layout } = assembly;
   const parts = { workspace, labels };
   return {
     ...bandParts(assembly),
-    preview: json.isShown ? (
-      <WorkspaceJson {...parts} onValidityChange={json.setErrors} />
-    ) : (
+    preview: (
       <WorkspacePreview
         {...parts}
         scope={scope}
@@ -107,6 +104,7 @@ export function workspacePartsOf(assembly: WorkspaceAssembly): TemplateWorkspace
         fonts={props.fonts}
         referenceTypes={props.referenceTypes}
         saveError={assembly.saveError}
+        onDraftsChange={assembly.drafts.onChange}
         idInputRef={assembly.idInput}
         isNameReadOnly={
           assembly.listed !== null && (props.isNameReadOnly?.(assembly.listed) ?? false)

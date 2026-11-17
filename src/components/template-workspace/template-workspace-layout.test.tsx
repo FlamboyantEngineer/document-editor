@@ -7,7 +7,6 @@ import { installEditorDom } from '../../../test/editor-dom.js';
 import {
   LOADED,
   nameField,
-  saveButton,
   SLOW,
   storeOf,
   type User,
@@ -40,7 +39,7 @@ installEditorDom();
 
 describe('TemplateWorkspace layout', () => {
   it(
-    'DOCE-TEMPLATE-EDITOR-3.10 shows a tab per section and edits sections from their tabs',
+    'DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-2.3 shows a tab per section and edits sections from their tabs',
     async () => {
       const user = userEvent.setup();
       const onTemplateIdChange = vi.fn();
@@ -99,6 +98,16 @@ describe('TemplateWorkspace layout', () => {
       await user.clear(label);
       await user.type(label, 'Front{Enter}');
       await waitFor(() => expect(tabNames()[1]).toBe('Front'), LOADED);
+      // A tab renamed to nothing keeps its name.
+      await tabMenu(user, 'annex_a', 'Rename the section');
+      const emptied = await screen.findByRole('textbox', { name: /Rename/ }, LOADED);
+      await user.clear(emptied);
+      await user.keyboard('{Enter}');
+      await waitFor(
+        () => expect(screen.queryByRole('textbox', { name: /Rename/ })).not.toBeInTheDocument(),
+        LOADED,
+      );
+      expect(tabNames().at(-1)).toBe('annex_a');
       // Deleting asks first, then shows the document's settings.
       await tabMenu(user, 'annex_a', 'Delete the section');
       const confirm = await screen.findByRole('alertdialog', {}, LOADED);
@@ -211,14 +220,13 @@ describe('TemplateWorkspace layout', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.13 DOCE-ENTRY-2.5 shows the template as JSON with Control+Alt+B when allowed',
+    'DOCE-TEMPLATE-EDITOR-3.13 shows no JSON in place of the preview, this being withdrawn',
     async () => {
       const user = userEvent.setup();
       render(
         <TemplateWorkspace
           store={storeOf(LETTER)}
           defaultTemplateId="letter"
-          debug
           defaultPanelExpanded
           renderPreview={() => <p>Pages</p>}
         />,
@@ -226,16 +234,9 @@ describe('TemplateWorkspace layout', () => {
       expect(await screen.findByText('Pages', {}, LOADED)).toBeInTheDocument();
       await user.click(await nameField());
       await user.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
-      const json = await screen.findByRole('region', { name: 'Template JSON' }, LOADED);
-      expect(screen.queryByText('Pages')).not.toBeInTheDocument();
-      expect(root()).toHaveAttribute('data-view', 'json');
-      const text = within(json).getByRole('textbox');
-      await user.click(text);
-      await user.keyboard('{Control>}a{/Control}x');
-      await user.click(await nameField());
-      await waitFor(() => expect(saveButton()).toBeDisabled(), LOADED);
-      await user.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
-      expect(await screen.findByText('Pages', {}, LOADED)).toBeInTheDocument();
+      expect(screen.getByText('Pages')).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Template JSON' })).not.toBeInTheDocument();
+      expect(root()).not.toHaveAttribute('data-view');
     },
     SLOW,
   );

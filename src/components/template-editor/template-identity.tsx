@@ -1,4 +1,4 @@
-// The template's identity rows: its id while the host has not saved it yet, its name and its
+// The template's identity rows: its id, which may change until the host saves it, its name and its
 // parent, with why a parent cannot be picked or could not be loaded.
 
 import type { Key } from '@flamboyantengineer/ui-components/core';
@@ -7,15 +7,26 @@ import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { type ReactNode, type Ref, useState } from 'react';
 import type { TemplateFile } from '../../model/index.js';
+import { useTemplateDraft, useTextDraft } from './setting-drafts.js';
 import { withSetting } from './template-settings.js';
 
 /** The identity rows' text. */
 export interface TemplateIdentityLabels {
   readonly identity: string;
   readonly id: string;
+  /** Shows in the empty id field. */
+  readonly idPlaceholder: string;
   /** Says an id needs a letter or digit. */
   readonly idEmpty: string;
+  /** Says what an id is written with, while what is typed holds other characters. */
+  readonly idCharacters: string;
   readonly name: string;
+  /** Shows in the empty name field. */
+  readonly namePlaceholder: string;
+  /** Says what a name may hold, once a character typed was refused. */
+  readonly nameCharacters: string;
+  /** The name an emptied name field gives the template. */
+  readonly defaultName: string;
   readonly parent: string;
   readonly noParent: string;
   /** Says why a parent that inherits from the template cannot be picked. */
@@ -28,8 +39,14 @@ export interface TemplateIdentityLabels {
 export const DEFAULT_TEMPLATE_IDENTITY_LABELS: TemplateIdentityLabels = {
   identity: 'Identity',
   id: 'Id',
+  idPlaceholder: 'Type an id',
   idEmpty: 'An id needs a letter or a digit.',
+  idCharacters:
+    'An id starts with a letter, then letters, digits and _; other characters become _.',
   name: 'Name',
+  namePlaceholder: 'Type a name',
+  nameCharacters: 'A name holds up to 120 visible characters.',
+  defaultName: 'New template',
   parent: 'Parent template',
   noParent: 'Base template',
   parentCycle: 'Inherits from this template',
@@ -80,8 +97,8 @@ export function templateIdOf(text: string): string {
     .replace(/_+$/, '');
 }
 
-// The id while it may change, committed on Enter or on leaving the field; an id with nothing left
-// empties the template's, so it cannot be saved until it has one.
+// The id while it may change, committed on Enter or on leaving the field; an emptied id empties
+// the template's, so it cannot be saved until it has one. A saved template's id shows read-only.
 function IdRow(props: TemplateIdentityProps) {
   const { template, onChange, isDisabled, labels } = props;
   const [draft, setDraft] = useState(template.id);
@@ -93,28 +110,78 @@ function IdRow(props: TemplateIdentityProps) {
   }
   const id = templateIdOf(draft);
   const commit = () => {
-    setRefused(!id);
+    setRefused(draft.trim() !== '' && !id);
     setDraft(id);
     if (id !== template.id) onChange({ ...template, id });
   };
-  const problem = id ? undefined : isRefused || draft ? labels.idEmpty : props.idError;
+  const problem =
+    isRefused || (draft.trim() && !id) ? labels.idEmpty : id ? undefined : props.idError;
+  const isSaved = !props.isNew;
   return (
-    <PropertyRow label={labels.id}>
+    <PropertyRow label={labels.id} isRequired={!isSaved}>
       <TextField
         label={labels.id}
         labelLayout="control-only"
         density="compact"
         tracksChanges={false}
         value={draft}
+        placeholder={labels.idPlaceholder}
         isDisabled={isDisabled}
-        isRequired
+        isReadOnly={isSaved}
+        isRequired={!isSaved}
         inputRef={props.idInputRef}
+        description={!isSaved && draft !== id && id ? labels.idCharacters : undefined}
         errorMessage={problem}
-        onChange={setDraft}
-        onBlur={commit}
+        onChange={(text) => {
+          setDraft(text);
+          setRefused(false);
+        }}
+        onBlur={isSaved ? undefined : commit}
         onKeyDown={(event) => {
+          if (isSaved || event.nativeEvent.isComposing) return;
           if (event.key === 'Enter') commit();
           if (event.key === 'Escape') setDraft(template.id);
+        }}
+      />
+    </PropertyRow>
+  );
+}
+
+// What a name may not hold: control and formatting characters.
+const NOT_IN_NAME = /[\p{Cc}\p{Cf}]/gu;
+const NAME_LENGTH = 120;
+
+// The name, committed on Enter or on leaving the field and put back by Escape; a typed character
+// it may not hold is refused, saying what it may hold, and an emptied name commits the default.
+function NameRow(props: TemplateIdentityProps) {
+  const { template, onChange, isDisabled, labels } = props;
+  const name = template.name ?? '';
+  const [text, setText] = useTextDraft(name);
+  const [isRefused, setRefused] = useState(false);
+  useTemplateDraft(text === name ? 'clean' : 'pending');
+  return (
+    <PropertyRow label={labels.name}>
+      <TextField
+        label={labels.name}
+        labelLayout="control-only"
+        density="compact"
+        committedValue={name}
+        value={text}
+        changeLayout="hidden"
+        placeholder={labels.namePlaceholder}
+        isDisabled={isDisabled}
+        isReadOnly={props.isNameReadOnly}
+        description={isRefused ? labels.nameCharacters : undefined}
+        onChange={(typed) => {
+          const kept = typed.replace(NOT_IN_NAME, '').slice(0, NAME_LENGTH);
+          setRefused(kept !== typed);
+          setText(kept);
+        }}
+        onCommit={(typed) => {
+          setRefused(false);
+          const next = typed.trim() ? typed : labels.defaultName;
+          if (next === name) setText(name);
+          else onChange(withSetting(template, ['name'], next));
         }}
       />
     </PropertyRow>
@@ -155,24 +222,12 @@ function ParentRow(props: TemplateIdentityProps) {
   );
 }
 
-/** The identity rows: the id before the first save, the name and the parent. */
+/** The identity rows: the id, read-only once saved, the name and the parent. */
 export function TemplateIdentity(props: TemplateIdentityProps) {
-  const { template, onChange, isDisabled, labels } = props;
   return (
-    <PropertySection id="identity" title={labels.identity} defaultExpanded>
-      {props.isNew ? <IdRow key="id" {...props} /> : null}
-      <PropertyRow label={labels.name}>
-        <TextField
-          label={labels.name}
-          labelLayout="control-only"
-          density="compact"
-          tracksChanges={false}
-          value={template.name ?? ''}
-          isDisabled={isDisabled}
-          isReadOnly={props.isNameReadOnly}
-          onChange={(name) => onChange(withSetting(template, ['name'], name || null))}
-        />
-      </PropertyRow>
+    <PropertySection id="identity" title={props.labels.identity} defaultExpanded>
+      <IdRow key={props.isNew ? 'new' : 'saved'} {...props} />
+      <NameRow {...props} />
       {props.parentOptions ? <ParentRow {...props} /> : null}
       {props.children}
     </PropertySection>

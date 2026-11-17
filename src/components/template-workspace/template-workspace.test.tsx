@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { openSections } from '../../../test/property-sections.js';
 import {
   LOADED,
   nameField,
@@ -143,10 +144,12 @@ describe('TemplateWorkspace', () => {
       await user.paste('memo');
       await user.keyboard('{Enter}');
       await user.click(saveButton());
+      // Once saved, the id shows and cannot change.
       await waitFor(
-        () => expect(screen.queryByRole('textbox', { name: 'Id' })).not.toBeInTheDocument(),
+        () => expect(screen.getByRole('textbox', { name: 'Id' })).toHaveAttribute('readonly'),
         LOADED,
       );
+      expect(screen.getByRole('textbox', { name: 'Id' })).toHaveValue('memo');
       await expect(store.load('memo')).resolves.toMatchObject({
         value: { template: { id: 'memo', sections: [{ name: 'section_1', editable: true }] } },
       });
@@ -310,6 +313,7 @@ describe('TemplateWorkspace', () => {
         />,
       );
       const settings = await screen.findByRole('region', { name: 'Document settings' }, LOADED);
+      await openSections(user);
       await waitFor(() => expect(previews.at(-1)?.template.name).toBe('Article'), LOADED);
       // A root inherits nothing, not even the base template's page size, and has no parent row.
       expect(previews.at(-1)?.template.page?.size).toBeUndefined();
@@ -340,7 +344,7 @@ describe('TemplateWorkspace', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.10 keeps each section’s own page settings through quick tab switches and a reopen',
+    'DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-1.13 keeps each section’s own page settings through quick tab switches and a reopen',
     async () => {
       const user = userEvent.setup();
       const store = storeOf({
@@ -355,6 +359,7 @@ describe('TemplateWorkspace', () => {
       const topOf = async (tab: string, value: string) => {
         await user.click(await screen.findByRole('tab', { name: tab }, LOADED));
         const settings = await screen.findByRole('region', { name: 'Section settings' }, LOADED);
+        await openSections(user, 'Page');
         const top = within(settings).getByRole('textbox', { name: 'Top margin' });
         await user.clear(top);
         await user.type(top, value);
@@ -379,6 +384,7 @@ describe('TemplateWorkspace', () => {
       ] as const) {
         await user.click(await screen.findByRole('tab', { name: tab }, LOADED));
         const settings = await screen.findByRole('region', { name: 'Section settings' }, LOADED);
+        await openSections(user, 'Page');
         expect(within(settings).getByRole('textbox', { name: 'Top margin' })).toHaveValue(value);
       }
     },
@@ -404,20 +410,29 @@ describe('TemplateWorkspace', () => {
       const view = render(
         <TemplateWorkspace store={store} defaultTemplateId="child" defaultPanelExpanded />,
       );
-      const card = await screen.findByRole('button', { name: /^lead\b.*inherited/ }, LOADED);
+      await screen.findByRole('region', { name: 'Document settings' }, LOADED);
+      await openSections(user, 'Custom styles');
+      const card = screen.getByRole('button', { name: /^lead\b.*inherited/ });
       await user.click(card);
+      // The style's card is the one open.
+      const size = screen.getByRole('textbox', { name: 'Size' });
+      // Read-only until overridden, then overridden field by field.
+      expect(size).toBeDisabled();
       await user.click(screen.getByRole('button', { name: 'Override the inherited style' }));
+      await user.type(size, '9{Enter}');
       await user.click(saveButton());
       await waitFor(async () => {
         const loaded = await store.load('child');
         expect(loaded.ok && loaded.value.template.styles?.custom).toEqual({
-          lead: { size: '13pt' },
+          lead: { size: '9pt' },
         });
       }, LOADED);
       await expect(store.load('house')).resolves.toMatchObject({ value: { template: house } });
       view.unmount();
       render(<TemplateWorkspace store={store} defaultTemplateId="child" defaultPanelExpanded />);
-      const own = await screen.findByRole('button', { name: /^lead\b/ }, LOADED);
+      await screen.findByRole('region', { name: 'Document settings' }, LOADED);
+      await openSections(user, 'Custom styles');
+      const own = screen.getByRole('button', { name: /^lead\b/ });
       expect(own).not.toHaveAccessibleName(/inherited/);
       expect(
         screen.queryByRole('button', { name: 'Override the inherited style' }),
