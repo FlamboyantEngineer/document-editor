@@ -29,6 +29,13 @@ import { markReadyWhenSettled } from './lab-ready.js';
 
 const DOCUMENT_ID = 'lab';
 
+// A small image for the lab's figure, whose caption the writer edits in place.
+const PANEL =
+  'data:image/svg+xml;charset=utf-8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="100%" height="100%" fill="#2563eb"/></svg>',
+  );
+
 const DOCUMENT: DocumentFile = {
   formatVersion: 1,
   sections: [
@@ -40,6 +47,16 @@ const DOCUMENT: DocumentFile = {
           type: 'paragraph',
           attrs: { id: 'a0000002' },
           content: [text('The system shall report each fault within one second.')],
+        },
+        {
+          type: 'figure',
+          attrs: {
+            id: 'a0000003',
+            src: PANEL,
+            alt: 'Fault panel',
+            width: 200,
+            caption: 'Fault panel',
+          },
         },
       ],
     },

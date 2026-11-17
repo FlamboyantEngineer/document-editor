@@ -3,6 +3,7 @@
 // one text, as when deciding a suggested split joins two blocks' text into one.
 
 import { Mark, type Node } from 'prosemirror-model';
+import { storedInline } from './room-change-footnotes.js';
 
 /** One character of text, one inline node, or the start of a text block. */
 export interface Unit {
@@ -40,7 +41,7 @@ export function unitsOf(block: Node, withStart = false): Unit[] {
 /** Whether two units are the same but for their marks; block starts by their type alone. */
 function isSameUnit(a: Unit, b: Unit): boolean {
   if (a.isBlock || b.isBlock) return a.isBlock && b.isBlock && a.node?.type === b.node?.type;
-  if (a.node && b.node) return a.node.mark(Mark.none).eq(b.node.mark(Mark.none));
+  if (a.node && b.node) return storedInline(a.node).eq(storedInline(b.node));
   return a.text !== null && a.text === b.text;
 }
 

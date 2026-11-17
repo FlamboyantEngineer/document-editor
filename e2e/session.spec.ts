@@ -30,6 +30,51 @@ test.describe('session lab', () => {
     await expect(status(page)).toHaveText('ready · idle');
   });
 
+  test('DOCE-OBJECTS-2.5 DOCE-SESSION-2.6 keeps a figure caption edited in place across a reopen', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
+    const caption = editor(page).locator('figure figcaption, figure .doc-caption-line').first();
+    const text = caption.locator('.doc-caption-text');
+    await caption.scrollIntoViewIfNeeded();
+    // A press on the label puts the caret at the start of the text.
+    const line = await caption.boundingBox();
+    if (!line) throw new Error('The caption is not drawn');
+    await page.mouse.click(line.x + 2, line.y + line.height / 2);
+    await expect(text).toBeFocused();
+    await page.keyboard.type('Main ');
+    await page.keyboard.press('Enter');
+    await expect(text).toHaveText('Main Fault panel');
+    await expect(status(page)).toHaveText('ready · saved');
+    await page.getByRole('button', { name: 'Reopen' }).click();
+    await expect(editor(page).locator('figure .doc-caption-text')).toHaveText('Main Fault panel');
+  });
+
+  test('DOCE-FOOTNOTES-1.1 DOCE-SESSION-2.3 keeps footnotes, an empty one too, across a reopen', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await typeAtEnd(page, ' Noted');
+    await page.keyboard.press('ControlOrMeta+Alt+f');
+    await page.keyboard.type('Within the cycle.');
+    await editor(page).locator('.pm-footnote-entry').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Go to footnote reference' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' and kept');
+    await page.keyboard.press('ControlOrMeta+Alt+f');
+    const entries = editor(page).locator('.pm-footnote-entry');
+    await expect(entries).toHaveCount(2);
+    await expect(status(page)).toHaveText('ready · saved');
+    await page.getByRole('button', { name: 'Reopen' }).click();
+    await expect(editor(page).locator('.footnote-reference')).toHaveCount(2);
+    await expect(entries).toHaveCount(2);
+    await expect(entries.filter({ hasText: 'Within the cycle.' })).toHaveCount(1);
+    await expect(entries.filter({ hasNotText: 'Within' })).toHaveCount(1);
+  });
+
   test('DOCE-SESSION-2.2 reports a failed save and saves on retry', async ({ lab, page }) => {
     await lab.open('session');
     await page.getByRole('button', { name: 'Fail next save' }).click();

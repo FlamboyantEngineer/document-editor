@@ -6,10 +6,10 @@ Inserting footnotes, keeping their entries with their markers and in order, numb
 
 ### DOCE-FOOTNOTES-1.1 - Inserting a footnote
 
-`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, before the entries of footnotes cited after it, so the area lists its entries in marker order, both numbered in document order, with the caret in the entry. A marker inserted inside a comment or a suggestion, whose marks the text on both sides of the caret carries, takes those marks, so it belongs to that comment or suggestion. Mod-Alt-F inserts one.
+`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, before the entries of footnotes cited after it, so the area lists its entries in marker order, both numbered in document order, with the caret in the entry. A marker inserted inside a comment or a suggestion, whose marks the text on both sides of the caret carries, takes those marks, so it belongs to that comment or suggestion. Mod-Alt-F inserts one. An entry is one run of text: it takes inline formatting, the toolbar offers no block objects in it, Enter and Shift+Enter add nothing, and an entry whose text is all deleted stays, empty, while its marker does.
 
-Implementation: `src/engine/footnotes.ts`
-Verification: `src/engine/footnotes.test.ts`
+Implementation: `src/engine/footnotes.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/footnotes.test.ts`, `e2e/objects.spec.ts`, `e2e/session.spec.ts`
 
 ### DOCE-FOOTNOTES-1.2 - Where a footnote may be cited
 
@@ -33,14 +33,14 @@ After each of the writer's changes, `createFootnotes()`, which the editing plugi
 Changes that only type or delete text inside one text block (`isInlineTextOnly`) shall not walk the document, and remote changes (`isRemote`, `isRemoteTransaction` by default) are left to the writer who made them.
 
 Implementation: `src/engine/footnotes.ts`, `src/engine/footnote-reconcile.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/footnote-reconcile.test.ts`
+Verification: `src/engine/footnote-reconcile.test.ts`, `e2e/shared-room.spec.ts`
 
 ### DOCE-FOOTNOTES-1.4 - Finding, editing and deleting
 
-`listFootnotes(doc)` shall give each footnote's marker and entry positions by id, `footnoteAt(state)` the footnote whose marker is selected or whose entry holds the selection, `editFootnote(id)` put the caret at the end of its entry, `goToFootnoteMarker(id)` put the caret after its marker, and `deleteFootnote(id)` delete both. The part the reader arrives at carries `data-de-revealed` (`entry` or `marker`) until the writer moves the selection or edits.
+`listFootnotes(doc)` shall give each footnote's marker and entry positions by id, `footnoteAt(state)` the footnote whose marker is selected or whose entry holds the selection, `editFootnote(id)` put the caret at the end of its entry, `goToFootnoteMarker(id)` put the caret after its marker, and `deleteFootnote(id)` delete both. Backspace after a marker or with it selected, and Delete before it, delete the marker, and its entry goes with it (DOCE-FOOTNOTES-1.3). The part the reader arrives at carries `data-de-revealed` (`entry` or `marker`) until the writer moves the selection or edits.
 
 Implementation: `src/engine/footnotes.ts`
-Verification: `src/engine/footnotes.test.ts`
+Verification: `src/engine/footnotes.test.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-FOOTNOTES-1.5 - Typing beside a marker
 

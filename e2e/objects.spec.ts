@@ -43,6 +43,116 @@ test.describe('objects', () => {
     await expect(marker).toHaveCount(0);
   });
 
+  test('DOCE-FOOTNOTES-1.3 DOCE-FOOTNOTES-1.4 deletes a footnote with Backspace after or on its marker and Delete before it', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Drift is small');
+    await toolbar(page).getByRole('button', { name: 'Footnote' }).click();
+    await page.keyboard.type('Measured at start-up.');
+    const entry = content(page).locator('.pm-footnote-entry', { hasText: 'Measured at start-up.' });
+    const marker = content(page)
+      .locator('p', { hasText: 'Drift is small' })
+      .locator('.footnote-reference');
+    const toMarker = async () => {
+      await entry.click({ button: 'right' });
+      await item(page, 'Go to footnote reference').click();
+    };
+    // Backspace after the marker deletes it, and its entry with it.
+    await toMarker();
+    await page.keyboard.press('Backspace');
+    await expect(marker).toHaveCount(0);
+    await expect(entry).toHaveCount(0);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect(marker).toHaveCount(1);
+    await expect(entry).toHaveCount(1);
+    // The marker selected, Backspace deletes it; before the marker, Delete does.
+    await toMarker();
+    await page.keyboard.press('ArrowLeft');
+    await expect(marker).toHaveClass(/ProseMirror-selectednode/);
+    await page.keyboard.press('Backspace');
+    await expect(marker).toHaveCount(0);
+    await expect(entry).toHaveCount(0);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect(entry).toHaveCount(1);
+    await toMarker();
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Delete');
+    await expect(marker).toHaveCount(0);
+    await expect(entry).toHaveCount(0);
+    await expect(content(page).locator('p', { hasText: 'Drift is small' })).toHaveCount(1);
+  });
+
+  test('DOCE-FOOTNOTES-1.1 keeps a footnote entry one run of text, and keeps it when emptied', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Drift is small');
+    await toolbar(page).getByRole('button', { name: 'Footnote' }).click();
+    await page.keyboard.type('Measured');
+    const entries = content(page).locator('.pm-footnote-entry');
+    const count = await entries.count();
+    const entry = entries.filter({ hasText: 'Measured' });
+    // Block objects are not offered in an entry; inline formatting is.
+    await expect(toolbar(page).getByRole('button', { name: 'Insert table' })).toBeDisabled();
+    await page.keyboard.press('ControlOrMeta+B');
+    await page.keyboard.type(' hot');
+    await expect(entry.locator('strong')).toHaveText(' hot');
+    // Enter adds nothing, and clearing the text keeps the entry.
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Shift+Enter');
+    await expect(entry.locator('p, br:not(.ProseMirror-trailingBreak)')).toHaveCount(0);
+    await expect(entry).toHaveText(/Measured hot$/);
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.press('Backspace');
+    await expect(entries).toHaveCount(count);
+    await expect(
+      content(page).locator('p', { hasText: 'Drift is small' }).locator('.footnote-reference'),
+    ).toHaveCount(1);
+  });
+
+  test('DOCE-FOOTNOTES-1.1 DOCE-PAGINATION-7.2 lays a footnote inserted on a full page out at once, apart from the text', async ({
+    page,
+  }) => {
+    const first = content(page).locator('.pm-page').first();
+    const blocks = first.locator('.pm-page-content p:not(td p, th p)');
+    const last = blocks.last();
+    const text = (await last.textContent()) ?? '';
+    await last.scrollIntoViewIfNeeded();
+    await last.click();
+    await page.keyboard.press('End');
+    const area = first.locator('.pm-page-footnotes');
+    const height = (region: typeof area) =>
+      region.evaluate((element) => element.getBoundingClientRect().height);
+    await expect.poll(() => height(area)).toBe(0);
+    await toolbar(page).getByRole('button', { name: 'Footnote' }).click();
+    // Before anything is typed, the marker's page holds the entry, its text ending above it: the
+    // block that no longer fits with the entry moves on, here to the next page.
+    const marker = content(page)
+      .locator('p', { hasText: text.trim() })
+      .locator('.footnote-reference');
+    await expect(marker).toHaveCount(1);
+    const pages = content(page).locator('.pm-page');
+    const index = await marker.evaluate((element) => {
+      const all = [...document.querySelectorAll('.de-document-editor__content .pm-page')];
+      return all.indexOf(element.closest('.pm-page') as Element);
+    });
+    expect(index).toBe(1);
+    const cited = pages.nth(index).locator('.pm-page-footnotes');
+    await expect(cited.locator('.pm-footnote-entry')).toHaveCount(1);
+    await expect.poll(() => height(cited)).toBeGreaterThan(0);
+    const [bottom, top] = await pages.nth(index).evaluate((element) => {
+      const body = element.querySelector('.pm-page-content');
+      const notes = element.querySelector('.pm-page-footnotes');
+      const ends = [...(body?.children ?? [])].map((child) => child.getBoundingClientRect().bottom);
+      return [Math.max(...ends), notes?.getBoundingClientRect().top ?? 0];
+    });
+    expect(bottom).toBeLessThanOrEqual(top + 0.5);
+    // The page that cites none now keeps no room for footnotes.
+    await expect.poll(() => height(area)).toBe(0);
+    await page.keyboard.type('Noted.');
+    await expect(cited.locator('.pm-footnote-entry')).toContainText('Noted.');
+  });
+
   test('DOCE-EDITOR-4.5 DOCE-OBJECTS-1.7 inserts math from its dialog, typeset, and DOCE-EDITOR-3.8 converts it', async ({
     page,
   }) => {
@@ -235,6 +345,9 @@ test.describe('objects', () => {
       .first()
       .click();
     await expect(content(page).locator('p', { hasText: 'Tolerance ±' })).toHaveCount(1);
+    // Focus is back in the document after the character.
+    await page.keyboard.type(' 2');
+    await expect(content(page).locator('p', { hasText: 'Tolerance ± 2' })).toHaveCount(1);
     await toolbar(page).getByRole('button', { name: 'Code' }).click();
     await item(page, 'Code block').click();
     await page.keyboard.type('let x = 1;');

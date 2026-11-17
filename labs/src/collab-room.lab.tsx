@@ -90,6 +90,7 @@ function Canonical({ name, state }: { name: string; state: EditorState }) {
 function WriterPane({ person }: { person: Writer }) {
   const [zoom, setZoom] = useState(person.zoom);
   const [web, setWeb] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const session = useDocumentSession({
     host: HOSTS.get(person.id) ?? hostOf(person),
     documentId: DOCUMENT_ID,
@@ -108,6 +109,15 @@ function WriterPane({ person }: { person: Writer }) {
           onChange={(event) => setWeb(event.currentTarget.checked)}
         />{' '}
         {`${person.name}'s web layout`}
+      </label>{' '}
+      <label>
+        <input
+          type="checkbox"
+          name={`${person.id}-suggesting`}
+          checked={suggesting}
+          onChange={(event) => setSuggesting(event.currentTarget.checked)}
+        />{' '}
+        {`${person.name} suggests`}
       </label>
       <DocumentSessionBoundary
         session={session}
@@ -125,6 +135,7 @@ function WriterPane({ person }: { person: Writer }) {
               zoom={zoom}
               onZoomChange={setZoom}
               layout={web ? 'web' : 'page'}
+              suggesting={suggesting}
             />
           </>
         )}

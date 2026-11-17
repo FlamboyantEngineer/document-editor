@@ -27,6 +27,22 @@ import { markReadyWhenSettled } from './lab-ready.js';
 
 const text = (value: string) => ({ type: 'text', text: value });
 
+// A table of one row of two cells 120 pixels wide, captioned, aligned as given.
+const benchTable = (caption: string, cells: string[], layout?: string) => ({
+  type: 'table',
+  attrs: { caption, captionEnabled: true, ...(layout ? { layout } : {}) },
+  content: [
+    {
+      type: 'tableRow',
+      content: cells.map((value) => ({
+        type: 'tableCell',
+        attrs: { colwidth: [120] },
+        content: [{ type: 'paragraph', content: [text(value)] }],
+      })),
+    },
+  ],
+});
+
 const OWN: TemplateFile = {
   formatVersion: 1,
   id: 'lab-template',
@@ -51,6 +67,12 @@ const OWN: TemplateFile = {
       },
     ],
   },
+  // Caption and footnote typography: the document's, which the appendix section overrides in part.
+  styles: {
+    table: { caption: { label: { weight: 700 }, text: { italic: true } } },
+    codeBlock: { caption: { label: { weight: 700 } } },
+  },
+  footnotes: { suffix: ')', text: { size: '11px' } },
   sections: [
     {
       name: 'summary',
@@ -65,6 +87,27 @@ const OWN: TemplateFile = {
       content: [
         { type: 'heading', attrs: { level: 1 }, content: [text('Approvals')] },
         { type: 'paragraph', content: [text('Approved by the reviewers.')] },
+      ],
+    },
+    {
+      name: 'appendix',
+      label: 'Appendix',
+      editable: false,
+      styles: {
+        table: { caption: { alignment: 'center', text: { italic: false, weight: 300 } } },
+      },
+      footnotes: { text: { size: '13px' } },
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            text('Measured on the bench.'),
+            { type: 'footnote', attrs: { id: 'appendix-note' }, content: [text('At rest.')] },
+          ],
+        },
+        // Narrower than the page: one as laid out, one aligned right, each caption centred on it.
+        benchTable('Bench limits', ['Load', 'Limit']),
+        benchTable('Bench steps', ['Step', 'Time'], 'right'),
       ],
     },
   ],

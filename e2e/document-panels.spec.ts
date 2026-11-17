@@ -110,4 +110,40 @@ test.describe('document panels', () => {
     await expect(content(page).locator('[data-author-slot]').first()).toBeVisible();
     await expect(page.getByLabel('Authorship')).toBeChecked();
   });
+
+  test('DOCE-COLLAB-3.4 keeps the same contributor rows while the writer types, and opens a row’s card on hover', async ({
+    page,
+  }) => {
+    const details = page.getByRole('region', { name: 'Details' });
+    await details.getByRole('tab', { name: 'Contributors' }).click();
+    const pane = details.getByRole('region', { name: 'Contributors' });
+    const rows = pane.getByRole('listitem');
+    await expect(rows.first()).toBeVisible();
+    // Tag each row element, so a row drawn again in place of the old one shows.
+    const tagged = await rows.evaluateAll((elements) =>
+      elements.map((element, index) => {
+        element.setAttribute('data-test-row', String(index));
+        return [String(index), element.getAttribute('data-author')];
+      }),
+    );
+    await content(page).locator('p').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' More words.');
+    await expect(content(page).locator('p').first()).toContainText('More words.');
+    await expect
+      .poll(() =>
+        rows.evaluateAll((elements) =>
+          elements.map((element) => [
+            element.getAttribute('data-test-row'),
+            element.getAttribute('data-author'),
+          ]),
+        ),
+      )
+      .toEqual(tagged);
+    await rows.filter({ hasText: 'Grace Hopper' }).getByRole('button').hover();
+    const card = page.getByRole('dialog', { name: 'Grace Hopper' });
+    await expect(card).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(card).toBeHidden();
+  });
 });
