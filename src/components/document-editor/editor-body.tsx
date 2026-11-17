@@ -13,7 +13,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { canInsertReference, matchesShortcut, shortcutsOf } from '../../engine/index.js';
+import { matchesShortcut, shortcutsOf } from '../../engine/index.js';
 import { inputAfterFocusKeeper } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
@@ -27,10 +27,12 @@ import type { CommentRefs } from './editor-handle.js';
 import { editorKeys } from './editor-keys.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
+import { refuseInFootnote } from './footnote-keys.js';
 import { useHeldSelection } from './held-selection.js';
 import { ObjectEditors } from './object-editors.js';
 import { useOpeningAbbreviations } from './opening-abbreviations.js';
 import { PagesView } from './pages-view.js';
+import { plainPaste, plainPasteCancels } from './plain-paste.js';
 import { debugParts } from './root-data.js';
 import { useStaleScripts } from './script-entries.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
@@ -117,25 +119,33 @@ function useBodyViewProps({
   const decorations = useWritingDecorations(props, labels, held);
   // One per view, so the focus it saw outlives new props (DOCE-PAGINATION-7.22).
   const [keepInput] = useState(inputAfterFocusKeeper);
+  const [plain] = useState(plainPaste);
   return useMemo(() => {
     const images = figurePasteOptions({ assets, feedback }, labels);
+    const figures = images ? figurePasteHandlers(images) : null;
     return {
-      ...(images ? figurePasteHandlers(images) : {}),
+      ...figures,
+      // An unformatted paste the writer asked for skips the pasted images (DOCE-EDITING-5.6).
+      handlePaste: (view: EditorView, event: ClipboardEvent) =>
+        plain.paste(view, event) || (figures?.handlePaste(view, event) ?? false),
       editable: () => editable,
       // Always given, so helpers turned off take their decorations off the pages too.
       decorations: decorations ?? noDecorations,
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
+        plain.keydown(view, event);
         if (menuTakesKey(menuKeys, event)) return true;
         if (host.handleKeyDown?.(view, event)) return true;
+        if (refuseInFootnote(view, event, { labels, feedback })) return true;
         const table = shortcutsOf(view.state);
         const action = editorKeys({
           startComment: startCommentRef.current,
           onDialog,
           scripts,
           copyLink: onCopyLink ? () => copyContentLink(view, onCopyLink) : null,
-          reference: canInsertReference(view.state),
+          state: view.state,
+          run: (command) => command(view.state, view.dispatch, view),
         }).find(([id]) => matchesShortcut(table, id, event))?.[1];
         if (!action) return false;
         event.preventDefault();
@@ -148,7 +158,7 @@ function useBodyViewProps({
       handleDOMEvents: keepingInput(keepInput, {
         ...READ_SELECTION_FIRST,
         ...(host.focus ? { focus: host.focus } : {}),
-        ...(host.blur ? { blur: host.blur } : {}),
+        ...plainPasteCancels(plain, host.blur),
       }),
     };
   }, [
@@ -164,6 +174,7 @@ function useBodyViewProps({
     decorations,
     onCopyLink,
     keepInput,
+    plain,
   ]);
 }
 

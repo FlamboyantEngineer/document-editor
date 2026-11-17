@@ -5,6 +5,7 @@
 
 import { Fragment, type ResolvedPos, Slice } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { catalogDocument, type TemplateFile } from '../model/index.js';
 import { isReviewMark } from './clipboard-copies.js';
 import { contentsRowsAt } from './contents.js';
@@ -89,14 +90,32 @@ export function copiedText(state: EditorState, options: CopiedTextOptions = {}):
   return lines.join('\n');
 }
 
+// Whether the text being pasted is a plain paste the writer asked for, which takes no marks.
+let unformatted = false;
+
+/**
+ * Pastes text into the view as a plain paste the writer asked for (DOCE-EDITING-5.7): the lines
+ * become paragraphs where they may, as any pasted text does, without the formatting marks at the
+ * paste position.
+ */
+export function pasteUnformattedText(view: EditorView, text: string): void {
+  unformatted = true;
+  try {
+    view.pasteText(text);
+  } finally {
+    unformatted = false;
+  }
+}
+
 /**
  * Pasted plain text as paragraphs, one for each line, empty lines kept (DOCE-EDITING-5.3), with
- * the formatting marks at the paste position: the text is new, so it joins no comment and no
- * suggestion there, and is not left out as text a suggestion deletes.
+ * the formatting marks at the paste position, unless the writer asked for an unformatted paste:
+ * the text is new, so it joins no comment and no suggestion there, and is not left out as text a
+ * suggestion deletes.
  */
 export function parsePastedText(text: string, $context: ResolvedPos): Slice {
   const { schema } = $context.doc.type;
-  const marks = $context.marks().filter((mark) => !isReviewMark(mark));
+  const marks = unformatted ? [] : $context.marks().filter((mark) => !isReviewMark(mark));
   const paragraph = schema.nodes.paragraph;
   if (!paragraph) return new Slice(Fragment.from(schema.text(text, marks)), 0, 0);
   const blocks = text

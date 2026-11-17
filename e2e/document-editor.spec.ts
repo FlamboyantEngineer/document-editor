@@ -246,6 +246,25 @@ test.describe('document editor lab', () => {
     await expect(items.nth(2)).toContainText('Degraded');
   });
 
+  test('DOCE-EDITING-5.6 pastes without the formatting at the caret on Mod-Shift-v, and with it on Mod-v', async ({
+    lab,
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await lab.open('document-editor');
+    const point = await pointAt(page, 'Maintenance');
+    await page.mouse.click(point.right, point.y);
+    await page.keyboard.press('ControlOrMeta+b');
+    await page.keyboard.type('Bold');
+    await page.evaluate(() => navigator.clipboard.writeText('Kept'));
+    await page.keyboard.press('ControlOrMeta+v');
+    await page.evaluate(() => navigator.clipboard.writeText('Plain'));
+    await page.keyboard.press('ControlOrMeta+Shift+v');
+    const line = content(page).locator('li', { hasText: 'BoldKeptPlain' });
+    await expect(line.locator('strong')).toHaveText('BoldKept');
+  });
+
   test('DOCE-EDITOR-3.3 decides a suggestion and starts a comment from the menu', async ({
     lab,
     page,

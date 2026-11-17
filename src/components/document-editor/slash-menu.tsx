@@ -14,8 +14,13 @@ import { createHooks } from '../../utils/hooks.js';
 import { blockStyles } from './block-styles.js';
 import type { EditorContext } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
-import { builtInToolbarGroups } from './toolbar-controls.js';
-import { isItemEnabled, type ToolbarGroup, type ToolbarItem } from './toolbar-items.js';
+import { builtInToolbarGroups } from './toolbar-groups.js';
+import {
+  ALL_OPTIONAL,
+  isItemEnabled,
+  type ToolbarGroup,
+  type ToolbarItem,
+} from './toolbar-items.js';
 import { type MenuKeys, TriggerMenu, useTriggerMatch } from './trigger-menu.js';
 
 const hooks = createHooks('document-editor', ['slash-menu']);
@@ -44,7 +49,7 @@ export interface SlashMenuOptions {
 }
 
 // The toolbar groups whose items the menu offers, in its order after the text styles.
-const OFFERED_GROUPS = new Set(['lists', 'insert']);
+const OFFERED_GROUPS = new Set(['lists', 'references', 'insert']);
 
 const TABLE: Parameters<typeof insertTable>[0] = { rows: 3, columns: 3 };
 
@@ -155,7 +160,13 @@ function useSlashItems(
   const { labels } = context;
   const shortcuts = shortcutsOf(context.state);
   const groups = useMemo(
-    () => builtInToolbarGroups(schema, labels, { templateStyle, features, shortcuts }),
+    () =>
+      builtInToolbarGroups(schema, labels, {
+        templateStyle,
+        features,
+        shortcuts,
+        optional: ALL_OPTIONAL,
+      }),
     [schema, labels, templateStyle, features, shortcuts],
   );
   if (!match) return [];

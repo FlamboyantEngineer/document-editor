@@ -11,6 +11,7 @@ import { DEFAULT_FIGURE_LABELS, type FigureLabels } from './figure-labels.js';
 import { DEFAULT_MATH_LABELS, type MathLabels } from './math-labels.js';
 import { DEFAULT_OBJECT_LABELS, type ObjectLabels } from './object-labels.js';
 import { DEFAULT_SHELL_LABELS, type ShellLabels } from './shell-labels.js';
+import { DEFAULT_TOOLBAR_LABELS, type ToolbarLabels } from './toolbar-labels.js';
 
 /** The text of the editor's toolbar, menus and handles. */
 export interface DocumentEditorLabels
@@ -22,6 +23,7 @@ export interface DocumentEditorLabels
     ShellLabels,
     BannerLabels,
     ExportLabels,
+    ToolbarLabels,
     DebuggingLabels {
   readonly toolbar: string;
   readonly undo: string;
@@ -266,4 +268,5 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   ...DEFAULT_DEBUGGING_LABELS,
   ...DEFAULT_ABBREVIATION_LABELS,
   ...DEFAULT_EXPORT_LABELS,
+  ...DEFAULT_TOOLBAR_LABELS,
 };

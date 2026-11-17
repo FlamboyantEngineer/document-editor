@@ -10,6 +10,7 @@ import type { DocumentContextMenuOptions } from './context-providers.js';
 import { contextFeatures, DocumentContextMenu } from './document-context-menu.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentFindBar, type FindBarMode, type FindRequest } from './document-find-bar.js';
+import type { DocumentMenuFeatures } from './document-menu.js';
 import { DocumentMenubar } from './document-menubar.js';
 import {
   DocumentStatusBar,
@@ -123,10 +124,15 @@ function TopChrome({
   exports,
 }: TopChromeProps) {
   const features = useInsertFeatures(props);
-  const { onModeChange, modeReasons, onMarkupChange } = props;
+  const { onModeChange, modeReasons, onMarkupChange, modes } = props;
   const shell = useMemo<ShellFeatures>(
-    () => ({ onModeChange, modeReasons, onMarkupChange }),
-    [onModeChange, modeReasons, onMarkupChange],
+    () => ({ onModeChange, modeReasons, onMarkupChange, modes }),
+    [onModeChange, modeReasons, onMarkupChange, modes],
+  );
+  const { template, scriptRunner } = props;
+  const documentMenu = useMemo<DocumentMenuFeatures>(
+    () => ({ template, scriptRunner, exports }),
+    [template, scriptRunner, exports],
   );
   return (
     <>
@@ -156,6 +162,7 @@ function TopChrome({
           templateStyle={templateStyle}
           features={features}
           shell={shell}
+          documentMenu={documentMenu}
         />
       ) : null}
       {props.find && findRequest ? (

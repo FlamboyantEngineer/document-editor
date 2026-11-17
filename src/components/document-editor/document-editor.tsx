@@ -21,7 +21,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { shortcutsOf } from '../../engine/index.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
@@ -189,6 +188,11 @@ export interface DocumentEditorProps
    */
   session?: EditorSession | undefined;
   /**
+   * Saves the document of an editor without a `session`: Mod-S runs it, and without it the key
+   * does nothing, the browser's own save never opening over the document.
+   */
+  onSave?: (() => void) | undefined;
+  /**
    * What the reader may do, as the session's live capabilities say: without `decide` the editor
    * offers no accept or reject. Defaults to every capability.
    */
@@ -213,11 +217,13 @@ export interface DocumentEditorProps
   onMarkupChange?: ((markup: DocumentMarkup) => void) | undefined;
   /**
    * Lets the writer switch the editing mode: the toolbar's and the View menu's mode control offer
-   * editing, suggesting, commenting and reading. The host then sets `editable` and `suggesting`.
+   * the `modes`. The host then sets `editable` and `suggesting`.
    */
   onModeChange?: ((mode: EditingMode) => void) | undefined;
   /** Why a mode is unavailable, by mode: the mode control offers it disabled with the reason. */
   modeReasons?: Readonly<Partial<Record<EditingMode, string>>> | undefined;
+  /** The modes the mode control lists, in order. Defaults to editing, suggesting and reading. */
+  modes?: readonly EditingMode[] | undefined;
   /** The host's telemetry, which the editor reports its layout times to. */
   telemetry?: TelemetryAdapter | undefined;
   /**
@@ -414,7 +420,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
-  useSaveShortcut(root, { session: props.session, shortcuts: shortcutsOf(state) });
+  useSaveShortcut(root, props);
   useDebugShortcut(root, props);
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props, tap);

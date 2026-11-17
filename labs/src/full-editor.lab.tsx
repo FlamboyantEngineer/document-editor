@@ -341,6 +341,7 @@ function initialState(): EditorState {
 const TOOLBAR = {
   ...HOST_TOOLBAR,
   items: [...(HOST_TOOLBAR.items ?? []), NOTE_ITEM, inlineCompletionItem()],
+  optional: ['link', 'checklist'] as const,
   overflow: 'scroll' as const,
 };
 

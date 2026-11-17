@@ -49,7 +49,7 @@ export const PageJump = memo(function PageJump({
       <Button size="sm" variant="ghost" tooltip={labels.goToPage}>
         {labels.pageStatus(page, pages)}
       </Button>
-      <Popover placement="top start" aria-label={labels.goToPage}>
+      <Popover placement="top start" aria-label={labels.goToPage} isNonModal>
         <NumberField
           label={labels.goToPage}
           autoFocus

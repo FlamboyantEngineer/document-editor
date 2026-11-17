@@ -62,7 +62,7 @@ test.describe('DocumentEditor on the projection', () => {
     page,
   }) => {
     await openProjected(page);
-    await page.getByLabel('Suggesting').check();
+    await page.getByLabel('Suggesting', { exact: true }).check();
     await content(page).locator('h1', { hasText: 'Timing' }).click();
     await page.keyboard.press('End');
     await page.keyboard.type(' plan');
