@@ -87,6 +87,7 @@ export function contentsSettings(kind: string | null, level = 0): TemplateSettin
   return {
     id: 'contents',
     title: 'Contents',
+    pagesOnly: true,
     scope: ['styles', 'contents', ...(kind === null ? [] : ['kinds', kind])],
     documentOnly: true,
     settings: [
