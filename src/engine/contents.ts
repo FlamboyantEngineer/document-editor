@@ -41,6 +41,7 @@ import {
   copyRows,
   draw,
   type Drawing,
+  partRows,
   rowsIn,
 } from './contents-view.js';
 
@@ -156,8 +157,11 @@ type GroupsOf = (state: EditorState, node: ProseMirrorNode) => ContentsGroup[];
 
 /** The rows the list of contents at a position shows; none without a contents plugin. */
 export function contentsRowsAt(state: EditorState, pos: number): ContentsRows {
-  const size = state.doc.nodeAt(pos)?.nodeSize ?? 0;
-  return rowsIn(contentsKey.getState(state)?.decorations.find(pos, pos + size) ?? []);
+  const node = state.doc.nodeAt(pos);
+  const rows = rowsIn(
+    contentsKey.getState(state)?.decorations.find(pos, pos + (node?.nodeSize ?? 0)) ?? [],
+  );
+  return node ? partRows(rows, node) : rows;
 }
 
 // What a list block draws, by its kind: the kind's labels and title, its levels' leaders and
@@ -224,14 +228,14 @@ export function createContents({
     dom.className = 'de-contents';
     dom.contentEditable = 'false';
     let current = node;
-    let rows = rowsIn(decorations);
+    let rows = partRows(rowsIn(decorations), node);
     const navigate = (index: number) => {
       const entry = rows.entries[index];
       if (entry) goTo(editor, entry);
     };
     const render = (next: ProseMirrorNode, decos: readonly Decoration[]) => {
       current = next;
-      rows = rowsIn(decos);
+      rows = partRows(rowsIn(decos), next);
       dom.dataset.contentsType = kinds.of(next);
       draw(dom, next, drawingFor(next, rows, navigate));
     };

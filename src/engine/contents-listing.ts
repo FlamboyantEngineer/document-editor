@@ -116,6 +116,7 @@ function rowsOf(
   return {
     entries: listed.slice(start, end),
     empty: listed.length === 0,
+    whole: start === 0 && end >= listed.length,
     showPage: kinds.all[key]?.showPage !== false,
     separator: kinds.all[key]?.separator ?? '',
   };
