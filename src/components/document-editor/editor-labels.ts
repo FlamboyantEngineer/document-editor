@@ -146,6 +146,8 @@ export interface DocumentEditorLabels
   readonly proofingStatus: (issues: number, pending: boolean) => string;
   /** Names the status bar's button that selects the next proofing issue. */
   readonly nextIssue: string;
+  /** The proofing status's tooltip while it has no issue to go to. */
+  readonly noIssue: string;
   /** Read out when the next issue is selected: its kind and text, and where it stands. */
   readonly proofingIssueAnnouncement: (revealed: RevealedProofingIssue) => string;
 }
@@ -253,11 +255,13 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   replacedCount: (count) => `Replaced ${count} ${count === 1 ? 'match' : 'matches'}`,
   zoom: 'Zoom',
   proofingStatus: (issues, pending) => {
-    if (pending) return 'Checking…';
-    if (issues === 0) return 'No issues';
-    return `${count.format(issues)} ${issues === 1 ? 'issue' : 'issues'}`;
+    const known =
+      issues === 0 ? 'No issues' : `${count.format(issues)} ${issues === 1 ? 'issue' : 'issues'}`;
+    if (!pending) return known;
+    return issues === 0 ? 'Checking…' : `${known} · Checking…`;
   },
   nextIssue: 'Go to the next issue',
+  noIssue: 'No issue to go to',
   proofingIssueAnnouncement: ({ issue, index, total }) =>
     `${issue.message ?? PROOFING_KINDS[issue.kind]}: ${issue.text}, ${count.format(index + 1)} of ${count.format(total)}`,
   ...DEFAULT_OBJECT_LABELS,

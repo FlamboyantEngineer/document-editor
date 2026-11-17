@@ -33,7 +33,7 @@ export interface EditorZoom {
 }
 
 /** The zoom levels the reader steps through by default, in percent. */
-export const ZOOM_LEVELS = [50, 75, 90, 100, 110, 125, 150, 200] as const;
+export const ZOOM_LEVELS = [50, 75, 100, 125, 150] as const;
 
 /** An item of the status bar: the editor's (`STATUS_BAR_ITEMS`) or the host's. */
 export interface StatusBarItem {

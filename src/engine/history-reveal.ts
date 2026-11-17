@@ -5,6 +5,7 @@
 import type { Node } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { frameOf, scrollerOf } from '../utils/scroll-frame.js';
 
 // The documents an undo or a redo made, which the view then reveals as one.
 const revealed = new WeakSet<Node>();
@@ -23,26 +24,6 @@ export function revealingChange(tr: Transaction): Transaction {
   return tr.scrollIntoView();
 }
 
-// The nearest ancestor that scrolls the view, else the window's own scrolling element.
-function scrollerOf(view: EditorView): Element | null {
-  const { ownerDocument } = view.dom;
-  const owner = ownerDocument.defaultView;
-  for (let at = view.dom.parentElement; at && owner; at = at.parentElement) {
-    if (/auto|scroll/.test(owner.getComputedStyle(at).overflowY)) return at;
-  }
-  return ownerDocument.scrollingElement;
-}
-
-// The part of the window the scroller shows.
-function frameOf(scroller: Element): { top: number; bottom: number } {
-  const owner = scroller.ownerDocument;
-  if (scroller === owner.scrollingElement) {
-    return { top: 0, bottom: owner.defaultView?.innerHeight ?? scroller.clientHeight };
-  }
-  const { top } = scroller.getBoundingClientRect();
-  return { top, bottom: top + scroller.clientHeight };
-}
-
 /**
  * Scrolls an undo's or a redo's change into view (a `handleScrollToSelection` prop): its selection
  * a third of the way down the area that scrolls the view, unless it shows there already. Any other
@@ -52,7 +33,7 @@ export function revealHistoryChange(view: EditorView): boolean {
   const { doc, selection } = view.state;
   // Revealed once: a later scroll of the same document, as a caret moved by a key, is the view's.
   if (!revealed.delete(doc)) return false;
-  const scroller = scrollerOf(view);
+  const scroller = scrollerOf(view.dom);
   if (!scroller) return false;
   const caret = view.coordsAtPos(selection.head);
   const frame = frameOf(scroller);

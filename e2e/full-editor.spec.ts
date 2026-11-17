@@ -284,7 +284,7 @@ test.describe('full editor lab', () => {
     // View switches the layout; the host's File menu saves.
     await menubar.getByRole('menuitem', { name: 'View' }).click();
     await page.getByRole('menuitem', { name: 'Zoom in' }).click();
-    await expect(page.locator('.de-document-editor__zoom')).toContainText('110');
+    await expect(page.locator('.de-document-editor__zoom')).toContainText('125');
     await menubar.getByRole('menuitem', { name: 'File' }).click();
     await page.getByRole('menuitem', { name: 'Save' }).click();
     await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText('Saved');
