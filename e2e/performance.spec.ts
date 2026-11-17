@@ -104,9 +104,10 @@ test.describe('performance', () => {
     lab,
     page,
   }) => {
-    const growth = await measureStyleScope(lab, page);
-    report(BUDGETS.styleScope, growth);
-    expect(growth).toBeGreaterThan(0);
+    const { keys, enter } = await measureStyleScope(lab, page);
+    report(BUDGETS.styleScope, keys);
+    report(BUDGETS.styleScopeEnter, enter);
+    expect(keys).toBeGreaterThan(0);
   });
 
   // The typing budgets are enforced, on each key's own work (`keystrokeWork`).

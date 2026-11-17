@@ -105,6 +105,12 @@ export const BUDGETS = {
     target: '≤ 3',
     meets: atMost(3),
   },
+  styleScopeEnter: {
+    bar: 'Typing style scope',
+    metric: 'restyled elements for an Enter, 40 pages',
+    target: '≤ 800',
+    meets: atMost(800),
+  },
   latency40: {
     bar: 'Keystroke latency',
     metric: 'p95 keystroke work, 40 pages (ms)',
@@ -509,16 +515,38 @@ export async function measureWheel(lab: LabFixture, page: Page) {
 /** How many times as many elements a keystroke restyles on 40 pages as on 5. */
 export async function measureStyleScope(lab: LabFixture, page: Page) {
   const perKey: number[] = [];
+  const perEnter: number[] = [];
+  const heights: { before: number; after: number }[] = [];
   for (const size of [SIZE.pages5, SIZE.pages40]) {
     await openScale(lab, page, size);
     await caretAtEnd(page, 2);
     const keys = 10;
+    // The keys typed put back the text deleted first, so the block keeps its height.
+    for (let key = 0; key < keys; key += 1) await page.keyboard.press('Shift+ArrowLeft');
+    const text = await page.evaluate(() => getSelection()?.toString() ?? '');
+    await page.keyboard.press('Backspace');
+    await settle(page);
+    const height = () =>
+      blocks(page)
+        .nth(2)
+        .evaluate((block) => block.getBoundingClientRect().height);
+    const before = await height();
     const elements = await recalculatedElements(page, async () => {
-      await page.keyboard.type('y'.repeat(keys), { delay: 60 });
+      await page.keyboard.type(text, { delay: 60 });
       await settle(page);
     });
+    heights.push({ before, after: await height() });
     perKey.push(elements / keys);
+    // Enter starts a block, which moves the blocks after it from page to page: the structural cost
+    // of a key, which grows with the pages after the caret (137 elements on 5 pages, 677 on 40).
+    perEnter.push(
+      await recalculatedElements(page, async () => {
+        await page.keyboard.press('Enter');
+        await settle(page);
+      }),
+    );
   }
-  const [five = 0, forty = 0] = perKey;
-  return Math.round((forty / Math.max(five, 1)) * 100) / 100;
+  const growth = ([five = 0, forty = 0]: readonly number[]) =>
+    Math.round((forty / Math.max(five, 1)) * 100) / 100;
+  return { keys: growth(perKey), enter: perEnter[1] ?? 0, heights };
 }
