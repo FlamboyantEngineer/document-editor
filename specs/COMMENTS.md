@@ -116,7 +116,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `sr
 While text is selected, the margin shall offer Comment beside it, inside another thread's text too and on exactly another thread's text, since threads may overlap. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes and its portable target (DOCE-COMMENTS-1.10), then anchor it in the document, or, for a reader who may not change the document but may comment (an editor that is not editable), leave the document as it was and place the anchor by its target (DOCE-COMMENTS-1.12), removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-anchoring.test.tsx`
 
 ### DOCE-COMMENTS-2.3 - Answering and resolving
 
