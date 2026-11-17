@@ -18,15 +18,26 @@ const CharacterGrid = /* @__PURE__ */ lazy(async () => ({
 }));
 
 // The font of the text at the caret, which the symbols show in.
-function fontAtCaret({ view }: EditorContext): string | undefined {
-  if (!view) return undefined;
+// The look of the text at the caret, which the characters show in.
+function lookAtCaret({ view }: EditorContext) {
+  if (!view) return {};
   const { node } = view.domAtPos(view.state.selection.from);
   const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
   const window = element?.ownerDocument.defaultView;
-  return element && window ? window.getComputedStyle(element).fontFamily || undefined : undefined;
+  if (!element || !window) return {};
+  const style = window.getComputedStyle(element);
+  return {
+    fontFamily: style.fontFamily || undefined,
+    fontWeight: style.fontWeight || undefined,
+    fontStyle: style.fontStyle || undefined,
+    color: style.color || undefined,
+  };
 }
 
-/** The symbol picker: a button opening the characters, shown in the font at the caret. */
+// The symbols' grid is eight characters wide.
+const COLUMNS = 8;
+
+/** The symbol picker: a button opening the characters, eight to a row, in the look of the text at the caret. */
 export function SymbolButton({
   context,
   symbols,
@@ -55,7 +66,8 @@ export function SymbolButton({
           <CharacterGrid
             aria-label={labels.symbol}
             categories={symbols}
-            fontFamily={isOpen ? fontAtCaret(context) : undefined}
+            {...(isOpen ? lookAtCaret(context) : {})}
+            columns={COLUMNS}
             autoFocus
             onSelect={({ char }) => {
               choose(insertCharacter(char));

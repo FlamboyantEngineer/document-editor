@@ -1,6 +1,7 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, parseMarkup } from '../../../test/document-markup.js';
+import { caretAt, footnoteState, note, paragraph, text } from '../../../test/footnote-fixtures.js';
 import { DEFAULT_SHORTCUTS } from '../../engine/index.js';
 import { readDocumentFile } from '../../model/index.js';
 import { blockStyles } from './block-styles.js';
@@ -107,6 +108,21 @@ describe('disabled reasons', () => {
     const own = { ...item, isEnabled: () => false, disabledReason: () => 'Not yet' };
     expect(isItemEnabled(own, contextOf({ editable: true }))).toBe(false);
     expect(disabledReasonOf(own, contextOf({ editable: true }))).toBe('Not yet');
+  });
+
+  it('DOCE-EDITOR-4.14 says a block cannot go in a footnote, in its text', () => {
+    const state = caretAt(
+      footnoteState([paragraph(text('Body'), note('note-1', 'Note text'))]),
+      'Note text',
+      2,
+    );
+    const context = createEditorContext(null, state, {
+      editable: true,
+      labels: DEFAULT_EDITOR_LABELS,
+    });
+    const blocked = { ...item, isEnabled: () => false };
+    expect(disabledReasonOf(blocked, context)).toBe(DEFAULT_EDITOR_LABELS.reasonFootnote);
+    expect(disabledReasonOf(blocked, contextOf({ editable: true }))).toBeUndefined();
   });
 });
 

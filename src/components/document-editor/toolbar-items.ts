@@ -6,6 +6,7 @@ import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { ReactNode } from 'react';
 import { type EditorContext, unavailableReason } from './editor-context.js';
+import { inFootnote } from './footnote-keys.js';
 
 interface ToolbarItemBase {
   /** Unique in the toolbar. */
@@ -141,7 +142,8 @@ export const disabledReasonOf = (
     ? undefined
     : item.disabledReason
       ? item.disabledReason(context)
-      : unavailableReason(context);
+      : (unavailableReason(context) ??
+        (inFootnote(context.state) ? context.labels.reasonFootnote : undefined));
 
 /** The groups with the host's items joined to them, then arranged as the host asks. */
 export function arrangeToolbar(

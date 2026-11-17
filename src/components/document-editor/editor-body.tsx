@@ -27,6 +27,7 @@ import type { CommentRefs } from './editor-handle.js';
 import { editorKeys } from './editor-keys.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
+import { refuseInFootnote } from './footnote-keys.js';
 import { useHeldSelection } from './held-selection.js';
 import { ObjectEditors } from './object-editors.js';
 import { useOpeningAbbreviations } from './opening-abbreviations.js';
@@ -136,6 +137,7 @@ function useBodyViewProps({
         plain.keydown(view, event);
         if (menuTakesKey(menuKeys, event)) return true;
         if (host.handleKeyDown?.(view, event)) return true;
+        if (refuseInFootnote(view, event, { labels, feedback })) return true;
         const table = shortcutsOf(view.state);
         const action = editorKeys({
           startComment: startCommentRef.current,
