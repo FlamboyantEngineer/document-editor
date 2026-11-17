@@ -472,7 +472,7 @@
         "spaceBefore": "0pt",
         "spaceAfter": "12pt"
       },
-      "station-note": {
+      "station_note": {
         "font": "Georgia",
         "size": "9pt",
         "weight": 400,

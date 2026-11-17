@@ -198,7 +198,6 @@ export function ScopePicker(props: ScopeProps) {
         onChange={(key: Key | null) =>
           onScopeChange(typeof key === 'string' && key !== DOCUMENT_KEY ? key : null)
         }
-        isDisabled={isDisabled}
       />
       <Button
         size="sm"

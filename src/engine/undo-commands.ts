@@ -5,6 +5,7 @@
 import { redo as historyRedo, undo as historyUndo } from 'prosemirror-history';
 import type { Command, EditorState, Plugin } from 'prosemirror-state';
 import { editLockKey, type HistoryDirection, isRefusedBy } from './edit-lock.js';
+import { revealingChange } from './history-reveal.js';
 import { captureTransaction } from './table-parts.js';
 
 /** An undo and a redo command. */
@@ -57,10 +58,19 @@ const HISTORY_COMMANDS: UndoCommands = {
   redo: underLock('redo', historyRedo),
 };
 
-/** Undoes the writer's last change, with the state's undo (`undoCommandsOf`). */
-export const undoCommand: Command = (state, dispatch, view) =>
-  undoCommandsOf(state).undo(state, dispatch, view);
+// A command whose change comes into view as an undo's does (DOCE-EDITING-2.11).
+function revealing(command: Command): Command {
+  return (state, dispatch, view) =>
+    command(state, dispatch && ((tr) => dispatch(revealingChange(tr))), view);
+}
 
-/** Redoes the writer's last undone change, with the state's redo (`undoCommandsOf`). */
+/**
+ * Undoes the writer's last change, with the state's undo (`undoCommandsOf`), and brings it into
+ * view (`revealHistoryChange`).
+ */
+export const undoCommand: Command = (state, dispatch, view) =>
+  revealing(undoCommandsOf(state).undo)(state, dispatch, view);
+
+/** Redoes the writer's last undone change likewise. */
 export const redoCommand: Command = (state, dispatch, view) =>
-  undoCommandsOf(state).redo(state, dispatch, view);
+  revealing(undoCommandsOf(state).redo)(state, dispatch, view);

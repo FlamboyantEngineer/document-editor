@@ -7,7 +7,6 @@ import { installEditorDom } from '../../../test/editor-dom.js';
 import {
   LOADED,
   nameField,
-  saveButton,
   SLOW,
   storeOf,
   type User,
@@ -221,14 +220,13 @@ describe('TemplateWorkspace layout', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.13 DOCE-ENTRY-2.5 shows the template as JSON with Control+Alt+B when allowed',
+    'DOCE-TEMPLATE-EDITOR-3.13 shows no JSON in place of the preview, this being withdrawn',
     async () => {
       const user = userEvent.setup();
       render(
         <TemplateWorkspace
           store={storeOf(LETTER)}
           defaultTemplateId="letter"
-          debug
           defaultPanelExpanded
           renderPreview={() => <p>Pages</p>}
         />,
@@ -236,16 +234,9 @@ describe('TemplateWorkspace layout', () => {
       expect(await screen.findByText('Pages', {}, LOADED)).toBeInTheDocument();
       await user.click(await nameField());
       await user.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
-      const json = await screen.findByRole('region', { name: 'Template JSON' }, LOADED);
-      expect(screen.queryByText('Pages')).not.toBeInTheDocument();
-      expect(root()).toHaveAttribute('data-view', 'json');
-      const text = within(json).getByRole('textbox');
-      await user.click(text);
-      await user.keyboard('{Control>}a{/Control}x');
-      await user.click(await nameField());
-      await waitFor(() => expect(saveButton()).toBeDisabled(), LOADED);
-      await user.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
-      expect(await screen.findByText('Pages', {}, LOADED)).toBeInTheDocument();
+      expect(screen.getByText('Pages')).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Template JSON' })).not.toBeInTheDocument();
+      expect(root()).not.toHaveAttribute('data-view');
     },
     SLOW,
   );

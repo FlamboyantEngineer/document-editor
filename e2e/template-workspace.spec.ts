@@ -3,8 +3,9 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.js';
 import {
   closeCard,
+  offeredOnly,
   openCard,
-  sectionOf,
+  openSection,
   withoutEmptyText,
   writeFields,
 } from './template-settings-steps.js';
@@ -136,7 +137,7 @@ test.describe('template workspace lab', () => {
     test.setTimeout(180_000);
     await lab.open('template-workspace');
     await showPane(page, 'Properties');
-    const styles = sectionOf(settings(page), 'Text styles');
+    const styles = await openSection(settings(page), 'Text styles');
     // Each card's size shows on its block in the preview before anything is saved.
     for (const { card, block, points } of TEXT_STYLE_SIZES) {
       const opened = await openCard(styles, card);
@@ -181,19 +182,22 @@ test.describe('template workspace lab', () => {
     await expect.poll(() => fontSizeOf(page, 'h1[data-doc-title]')).toBe(pixels(inherited));
   });
 
-  test('DOCE-TEMPLATE-EDITOR-1.9 DOCE-TEMPLATE-EDITOR-1.10 DOCE-TEMPLATE-EDITOR-1.11 DOCE-TEMPLATE-EDITOR-3.2 DOCE-TEMPLATE-EDITOR-3.13 DOCE-TEMPLATE-EDITOR-3.16 writes every field beside the preview, saves it, and reads it back without the samples', async ({
+  test('DOCE-TEMPLATE-EDITOR-1.9 DOCE-TEMPLATE-EDITOR-1.10 DOCE-TEMPLATE-EDITOR-1.11 DOCE-TEMPLATE-EDITOR-3.2 DOCE-TEMPLATE-EDITOR-3.16 writes every field beside the preview, saves it, and reads it back without the samples', async ({
     lab,
     page,
   }) => {
     // About 350 fields, each typed, picked or pressed, the preview following each: about 5 minutes
     // here, 3 to 4 on a CI runner.
     test.setTimeout(900_000);
-    // An emptied field inherits, so a template written field by field holds no empty text.
-    const fixture = withoutEmptyText(
-      JSON.parse(
-        readFileSync(
-          new URL('../test/fixtures/templates/field-report.json', import.meta.url),
-          'utf8',
+    // An emptied field inherits, so a template written field by field holds no empty text, and
+    // none of the settings the editor offers no field for.
+    const fixture = offeredOnly(
+      withoutEmptyText(
+        JSON.parse(
+          readFileSync(
+            new URL('../test/fixtures/templates/field-report.json', import.meta.url),
+            'utf8',
+          ),
         ),
       ),
     ) as Record<string, Record<string, Record<string, unknown>>>;
@@ -220,15 +224,14 @@ test.describe('template workspace lab', () => {
       .toBe(rgbOf(String(heading1?.color)));
     await saveButton(page).click();
     await expect(workspace(page)).not.toHaveAttribute('data-dirty', 'true');
-    // Opened again from the store, the template reads back as written, with none of the
-    // preview's samples in it.
+    // Opened again from the store, the template is stored as written, with none of the preview's
+    // samples in it.
     await pick(page, 'Letter');
     await expect(nameField(page)).toHaveValue('Letter');
     await pick(page, String(fixture.name));
     await expect(nameField(page)).toHaveValue(String(fixture.name));
-    await page.keyboard.press('Control+Alt+B');
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
-    const text = await json.inputValue();
+    await page.getByRole('button', { name: 'Show the stored template' }).click();
+    const text = (await page.getByLabel('Stored template').textContent()) ?? '';
     for (const sample of ['First item', 'Heading 2', 'Each requirement']) {
       expect(text).not.toContain(sample);
     }

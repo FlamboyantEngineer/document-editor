@@ -5,7 +5,7 @@ import { DEFAULT_TEMPLATE_SETTINGS_LABELS as LABELS } from './template-settings.
 
 const lead = (text: string) => ({
   type: 'paragraph',
-  attrs: { className: 'lead' },
+  attrs: { style: 'lead' },
   content: [{ type: 'text', text }],
 });
 
@@ -29,10 +29,8 @@ describe('withCustomStyleRenamed', () => {
     const next = withCustomStyleRenamed(TEMPLATE, 'lead', 'opening');
     expect(Object.keys(next.styles?.custom ?? {})).toEqual(['opening', 'note']);
     expect(next.sections?.[0]?.styles?.custom).toEqual({ opening: { color: '#333333' } });
-    expect(next.header?.content).toEqual([{ ...lead('Top'), attrs: { className: 'opening' } }]);
-    expect(next.sections?.[0]?.content).toEqual([
-      { ...lead('Body'), attrs: { className: 'opening' } },
-    ]);
+    expect(next.header?.content).toEqual([{ ...lead('Top'), attrs: { style: 'opening' } }]);
+    expect(next.sections?.[0]?.content).toEqual([{ ...lead('Body'), attrs: { style: 'opening' } }]);
     // The host's extensions are its own.
     expect(next.extensions).toEqual(TEMPLATE.extensions);
   });
@@ -41,7 +39,21 @@ describe('withCustomStyleRenamed', () => {
     const next = withCustomStyleRenamed(TEMPLATE, 'lead', null);
     expect(next.styles?.custom).toEqual({ note: { size: '9pt' } });
     expect(next.sections?.[0]?.styles?.custom).toEqual({});
-    expect(next.header?.content).toEqual([{ ...lead('Top'), attrs: { className: '' } }]);
+    expect(next.header?.content).toEqual([{ type: 'paragraph', content: lead('Top').content }]);
+  });
+
+  it('DOCE-TEMPLATE-EDITOR-1.10 turns a heading that took a deleted style into a paragraph', () => {
+    const heading = {
+      type: 'heading',
+      attrs: { level: 2, numbered: false, style: 'lead' },
+      content: [{ type: 'text', text: 'Note' }],
+    };
+    const next = withCustomStyleRenamed(
+      { ...TEMPLATE, footer: { content: [heading] } },
+      'lead',
+      null,
+    );
+    expect(next.footer?.content).toEqual([{ type: 'paragraph', content: heading.content }]);
   });
 });
 
@@ -54,5 +66,9 @@ describe('customStyleNameError', () => {
     expect(check('opening')).toBeNull();
     expect(check('note')).toBe(LABELS.styleNameTaken);
     expect(check('1st')).toBe(LABELS.styleNameInvalid);
+    // Letters, digits and underscores only, up to 16.
+    expect(check('side-note')).toBe(LABELS.styleNameInvalid);
+    expect(check('side_note')).toBeNull();
+    expect(check('a'.repeat(17))).toBe(LABELS.styleNameInvalid);
   });
 });

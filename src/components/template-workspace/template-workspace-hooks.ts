@@ -10,7 +10,6 @@ export const workspaceHooks = createHooks('template-workspace', [
   'main',
   'settings',
   'preview',
-  'json',
   'panel',
   'history',
   'open-dialog',

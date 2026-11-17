@@ -62,7 +62,6 @@ const CONSUMERS = [
     entry: use(['TemplateWorkspace']),
     // What the workspace loads the first time it shows (DOCE-ENTRY-2.5).
     lazy: [
-      'dist/components/template-editor/template-json-editor\\.js',
       `${UI}/code-editor/`,
       'dist/components/template-workspace/template-open-list\\.js',
       'dist/components/template-workspace/template-preview-editor\\.js',

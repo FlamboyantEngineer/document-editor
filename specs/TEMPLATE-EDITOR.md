@@ -6,10 +6,10 @@ The template editor edits a template's own settings beside the document it style
 
 ### DOCE-TEMPLATE-EDITOR-1.1 - Settings and inheritance
 
-`TemplateEditor` shall show a template's settings in a searchable `PropertyPanel` (`de-template-editor`, named by `panel`), by section (`TEMPLATE_SECTIONS`), each setting a property row with the base library's field for its kind: text, a length (kept once it reads as one, such as `12pt` or `20mm`), a number, a colour, a yes-or-no that may be unset, a choice from a list, or one of a few as segments (DOCE-TEMPLATE-EDITOR-1.7), a row marked overridden while the template sets its value. A field holds the template's own value and, while it has none, shows the value `resolved` gives it from its parents (`inherited`); a field emptied, or whose menu's Reset to inherited value is picked, inherits again (`withSetting` given null leaves the setting out, and the objects it leaves empty), and a row has no reset button of its own (DOCE-TEMPLATE-EDITOR-1.13). After page setup, the Text styles section shall hold a card for each built-in style, in reading order (`TEXT_STYLES`: title, headings 1 to 6, paragraph), named by the style and summing up its font, size and spacing, marked overridden while the scope sets any of it. A card's rows are its font and size (in points); its weight, slant and underline as toggles that go from inherited, shown mixed, to on, off and inherited again, and its alignment as segments drawn as the base library's text alignment glyphs, justified for the paragraph only; its colour; its space before and after (in points); its line height; for the paragraph its indentation; and for a heading its numbering: whether it numbers, the text before the number, its format and the text after. The other sections' cards take the same rows for the parts of a style they hold (`StylePart`). The code block's text is in the Code blocks section.
+`TemplateEditor` shall show a template's settings in a searchable `PropertyPanel` (`de-template-editor`, named by `panel`), by section (`TEMPLATE_SECTIONS`), each setting a property row with the base library's field for its kind: text, a length (kept once it reads as one, such as `12pt` or `20mm`), a number, a colour, a yes-or-no that may be unset, a choice from a list, or one of a few as segments (DOCE-TEMPLATE-EDITOR-1.7), a row marked overridden while the template sets its value. A field holds the template's own value and, while it has none, shows the value `resolved` gives it from its parents (`inherited`); a field emptied, or whose menu's Reset to inherited value is picked, inherits again (`withSetting` given null leaves the setting out, and the objects it leaves empty), and a row has no reset button of its own (DOCE-TEMPLATE-EDITOR-1.13). With `isDisabled`, such as while a saved version is shown, every field shall be locked, the root publishing `data-disabled`, while the filter and the scope picker stay usable; the picker's add, move and delete buttons are locked. After page setup, the Text styles section shall hold a card for each built-in style, in reading order (`TEXT_STYLES`: title, headings 1 to 6, paragraph), named by the style and summing up its font, size and spacing, marked overridden while the scope sets any of it. A card's rows are, in order: its font, its size (in points) and its weight, slant and underline as toggles that go from inherited, shown mixed, to on, off and inherited again, on one row that wraps; its alignment as segments drawn as the base library's text alignment glyphs, justified for the paragraph only, the title and headings keeping an inert justify segment so their rows line up, with the paragraph's line height after it; its space before and after (in points), labelled `before` and `after`; its colour; for the paragraph its indentation; and for a heading its numbering: whether it numbers, the text before the number, its format and the text after. The title and headings have no line height of their own: they follow the paragraph's. The other sections' cards take the same rows for the parts of a style they hold (`StylePart`). The code block's text is in the Code blocks section.
 
-Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/setting-row.tsx`, `src/components/template-editor/template-settings.ts`, `src/components/template-editor/style-sections.tsx`, `src/components/template-editor/style-fields.tsx`, `src/components/template-editor/style-rows.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`, `src/components/template-editor/setting-row.test.tsx`, `e2e/template-workspace.spec.ts`
+Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/setting-row.tsx`, `src/components/template-editor/template-settings.ts`, `src/components/template-editor/style-sections.tsx`, `src/components/template-editor/style-fields.tsx`, `src/components/template-editor/style-face.tsx`, `src/components/template-editor/style-rows.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`, `src/components/template-editor/setting-row.test.tsx`, `src/components/template-editor/custom-style-section.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.2 - Following the document
 
@@ -20,10 +20,10 @@ Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.3 - Sections and the parent
 
-The editor shall edit the whole document's settings or one template section's (`Settings of`, DOCE-TEMPLATE-EDITOR-2.1); a section's own rows set its name (DOCE-TEMPLATE-EDITOR-2.3), its label and whether every document has it, writers may edit it, add and remove it, and it restarts the numbering, an unset restart showing the restart the section's own heading or paragraph styles imply (`sectionRestartsNumbering`) and a change saving the explicit flag, and its page, header and footer, list, table, code and footnote settings, which show the document's values while it sets none; footnote numbering is the document's only (`documentOnly`), so a section never shows it. While the template has no list of sections of its own, the editor shall list the sections it inherits (those of `resolved`), and an added section, or the first change to an inherited one, shall write the whole inherited list into the template with it (`withListedSections`): a template's list replaces its parent's whole (DOCE-FORMAT-3.1), so a list of the changed section alone would drop the others. The root publishes `data-scope`. With `parentOptions`, the identity rows pick the template's parent among them, never the template itself (DOCE-TEMPLATE-EDITOR-2.5).
+The editor shall edit the whole document's settings or one template section's (`Settings of`, DOCE-TEMPLATE-EDITOR-2.1); a section's own rows set its name (DOCE-TEMPLATE-EDITOR-2.3), its label and whether every document has it, writers may edit it, add and remove it, and it restarts the numbering, an unset restart showing the restart the section's own heading or paragraph styles imply (`sectionRestartsNumbering`) and a change saving the explicit flag, and its page, header and footer, list, table, code and footnote settings, which show the document's values while it sets none; A section's settings shall hold its heading numbering together after the text styles (`headingNumbering`): a row for each heading level with the text before the number, its format and the text after, a field emptied inheriting the document's again; its heading cards keep only whether each numbers. While the template has no list of sections of its own, the editor shall list the sections it inherits (those of `resolved`), and an added section, or the first change to an inherited one, shall write the whole inherited list into the template with it (`withListedSections`): a template's list replaces its parent's whole (DOCE-FORMAT-3.1), so a list of the changed section alone would drop the others. The root publishes `data-scope`. With `parentOptions`, the identity rows pick the template's parent among them, never the template itself (DOCE-TEMPLATE-EDITOR-2.5).
 
-Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/template-scope.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`
+Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/template-scope.tsx`, `src/components/template-editor/style-sections.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`, `src/components/template-editor/custom-style-section.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.4 - Header and footer content
 
@@ -34,16 +34,16 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/tem
 
 ### DOCE-TEMPLATE-EDITOR-1.5 - The template as JSON
 
-`TemplateJsonEditor` shall edit a template as JSON in the base library's code editor, check the text as it is typed (`validateTemplateFile`), show its errors, or that the text is not JSON only when it cannot be parsed, and tell them to `onValidityChange`, and hand the template to `onChange` once focus leaves the editor (DOCE-TEMPLATE-EDITOR-2.7).
+Withdrawn. A template is written through its rows and edited in place on the preview (DOCE-TEMPLATE-EDITOR-1.9, DOCE-TEMPLATE-EDITOR-3.16); the library offers no JSON editor, and the package exports none.
 
-Implementation: `src/components/template-editor/template-json-editor.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`
+Implementation: `src/components/index.ts`
+Verification: `src/components/template-editor/template-editor.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.6 - Custom styles
 
-A Custom styles section, after the text styles, shall hold a card for each custom style the scope has or inherits, with the rows of the paragraph's card and its name, which renames the style once committed when it is a letter followed by up to fifteen letters, digits, `_` or `-` and no other style has it (DOCE-TEMPLATE-EDITOR-1.10); its header adds a style with a new name, starting at 11pt, each card's header deletes the style, or, for an inherited one, overrides it in the scope with a copy of the inherited style, and without styles the section says it has none.
+A Custom styles section, after the text styles, shall hold a card for each custom style the scope has or inherits, with the rows of the paragraph's card but its colour, and its name, which renames the style once committed when it is a letter followed by up to fifteen letters, digits or `_` and no other style has it (DOCE-TEMPLATE-EDITOR-1.10); its header adds a style with a new name and its defaults (DOCE-TEMPLATE-EDITOR-1.10), each card's header deletes one of the scope's own styles, or, for an inherited one, lets the scope override it field by field, and without styles the section says it has none.
 
-Implementation: `src/components/template-editor/style-sections.tsx`
+Implementation: `src/components/template-editor/custom-style-section.tsx`
 Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.7 - Fields for sizes, fonts, numbering and pages
@@ -62,27 +62,29 @@ Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.9 - Every setting as a row
 
-Every setting of the template format (`TEMPLATE_SHAPE`) shall have a row, so a template is written without its JSON, apart from what other parts of the editor edit (its identity, its sections, the content of its regions and sections, and the host's extensions). `TEMPLATE_SECTIONS` holds them as data, each section a list of settings and of cards (`TemplateSettingCard`), and `SettingSections` shows them after the scope, with the text and custom styles after the page setup and a host's rows at the end of a section (`extra`):
+Every setting of the template format (`TEMPLATE_SHAPE`) shall have a row, so a template is written without its JSON, apart from what other parts of the editor edit (its identity, its sections, the content of its regions and sections, and the host's extensions) and what the editor leaves to the template's file: the title's and headings' own line height, a custom style's colour, and a footnote's numbering mode, text after the number, colours, underline and text spacing, which keep their meaning when a template sets them. `TEMPLATE_SECTIONS` holds them as data, each section a list of settings and of cards (`TemplateSettingCard`), and `SettingSections` shows them after the scope, with the text and custom styles after the page setup and a host's rows at the end of a section (`extra`). Only the identity sections and the scope picker start expanded; a person opens the others:
 
-- Paragraph numbering: whether paragraphs are numbered, so a template section may switch it on or off, its text before the number, format and text after, and a card for each of its six levels with its format, number indent and text indent.
-- Header & footer: whether each takes its parent's (the parent template's, or the document's for a section), its height and its space to the content.
-- Lists: the bullet, the text before the number, the numbering format, the text after, the indentation and the space before and after.
-- Tables, Figures, Code blocks and Equations: their own settings (a table's borders, padding, header and rows, a figure's default width, a code block's background and its text, an equation's brackets around the number), and for each a card for its numbering (whether it numbers, the text before, format and text after), its caption (placement, alignment and the text after a continued caption) and the font of the caption's label and of its text.
-- Footnotes: the numbering, the text after the number, the separator line, its thickness and colour, the space above and between notes, and cards for the marker's font and the note text.
+- Page setup: the page size and orientation under a Paper heading (Page in a template section), then the margins.
+- Paragraph numbering: whether paragraphs are numbered, so a template section may switch it on or off, its text before the number, format and text after on one row labelled Before, Format and After, and a card for each of its six levels with its format, number indent and text indent.
+- Header & footer: whether each takes its parent's, labelled Use the parent's header (or footer) in the document's settings and Use the document's header (or footer) in a section's, its height and its space to the content.
+- References (DOCE-TEMPLATE-EDITOR-1.11).
+- Lists: the text before the number, the numbering format and the text after on one row labelled Before, Format and After, then the bullet, the indentation, and the space before and after on one Spacing row.
+- Tables, Figures, Code blocks and Equations: their own settings (a table's borders, padding, header and rows, a figure's default width, a code block's background and its text, an equation's brackets around the number), and for each a card for its numbering (whether it numbers, the text before, format and text after) and one for its caption (its placement, picked from a list, its alignment and the text after a continued caption), then, under the Caption label and Caption text headings in the section, the font of the caption's label and of its text.
+- Footnotes: the separator line and its thickness, the space above and between notes, a card for the marker's font, size, bold and italic, and one for the note text's, with its alignment and line height.
 - Contents: the leader, its spacing and the space before and after it, the padding and spacing, cards for the title's and the entries' fonts, a card for each of six levels (indentation, spacing and leader), and a card for each kind of list (`DEFAULT_CONTENTS_KINDS`) with its title, its leader and each level's leader.
-- References (DOCE-TEMPLATE-EDITOR-1.11) and Change bars.
+- Change bars: for each kind of change, its switch beside its colour on one row, then the side, picked from a list, the offset and the width.
 
-A setting of a level writes that entry of the list, with `null` for each earlier entry the template does not set, so it inherits its parent's entry at that index; a list whose entries all inherit is left out. A template section shows only what a section may set: not the contents, the references or the footnote numbering.
+A setting of a level writes that entry of the list, with `null` for each earlier entry the template does not set, so it inherits its parent's entry at that index; a list whose entries all inherit is left out. A template section shows only what a section may set: not the contents or the references.
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/object-settings.ts`, `src/components/template-editor/template-rows.tsx`, `src/components/template-editor/template-settings.ts`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/settings-catalog.test.ts`, `src/components/template-editor/template-settings.test.ts`, `e2e/template-workspace.spec.ts`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/settings-catalog.test.ts`, `src/components/template-editor/layout-rows.test.tsx`, `src/components/template-editor/template-settings.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.10 - Renaming and deleting a custom style
 
-Renaming a custom style of the document's settings shall rename it with what refers to it in the template (`withCustomStyleRenamed`): a section's override of the style, and each block of the template's content in the style; deleting it shall take it out of the sections too and take it off those blocks. In a section's settings, renaming or deleting changes the section's own styles. While the name typed may not be taken, the field shall say why (`customStyleNameError`): it is not a letter followed by up to fifteen letters, digits, `_` or `-`, or another style has it.
+Adding a custom style shall name it `custom_style_1`, or the first such name with a free number, and set its font to Arial, its size to 12pt, its line height to 1.5, its space before and after to 6pt and its alignment to left (`NEW_CUSTOM_STYLE`); a custom style's card has a running text style's rows without a colour. Renaming a custom style of the document's settings shall rename it with what refers to it in the template (`withCustomStyleRenamed`): a section's override of the style, and each block of the template's content in the style (its stored `attrs.style`); deleting it shall take it out of the sections too and take it off those blocks, a heading in the style becoming a paragraph of the same text. In a section's settings, renaming or deleting changes the section's own styles. While the name typed may not be taken, the field shall say why (`customStyleNameError`): it is not a letter followed by up to fifteen letters, digits or `_`, or another style has it; a stored name with a hyphen, which the format allows, keeps it. A custom style the scope inherits shall be read-only, with no delete, until it is overridden (`overrideCustomStyle`); a field set then writes only that field, so the others keep following the inherited style, and in a section's settings the override goes back to the inherited style (`resetCustomStyle`).
 
-Implementation: `src/components/template-editor/custom-style-names.ts`, `src/components/template-editor/style-sections.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/custom-style-names.test.ts`, `e2e/template-workspace.spec.ts`
+Implementation: `src/components/template-editor/custom-style-names.ts`, `src/components/template-editor/custom-style-section.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/custom-style-names.test.ts`, `src/components/template-editor/custom-style-section.test.tsx`, `e2e/template-workspace.spec.ts`, `src/components/template-workspace/template-workspace.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.11 - References
 
@@ -151,10 +153,10 @@ Verification: `src/components/template-editor/template-structure.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-2.7 - Committing the JSON
 
-`TemplateJsonEditor` shall hand the template its text reads as to `onChange` once focus leaves the editor, and only when it is valid; an invalid text stays, with its errors. The keys the host locks (`lockedKeys`, by default `formatVersion` and `id`) keep the host's values, or stay out while its template has none, whatever the text says (`readTemplateText`); a text that cannot be parsed says it is not JSON, and one that can shows the template's own errors. The text follows a template changed elsewhere while it holds no edit of its own, and keeps an edit in progress.
+Withdrawn with DOCE-TEMPLATE-EDITOR-1.5.
 
-Implementation: `src/components/template-editor/template-json-editor.tsx`, `src/components/template-editor/template-json-text.ts`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-structure.test.tsx`, `src/components/template-editor/template-json-text.test.ts`
+Implementation: `src/components/index.ts`
+Verification: `src/components/template-editor/template-editor.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-2.8 - The preview follows the scope
 
@@ -251,10 +253,10 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 
 ### DOCE-TEMPLATE-EDITOR-3.13 - The JSON view
 
-With `debug`, Control+Alt+B in the workspace shall show the open template's JSON editor (`json`, a region named by `json`, DOCE-TEMPLATE-EDITOR-2.7) in place of the preview, and the preview again on the next press; the root publishes `data-view="json"` while it shows. Save is disabled while the text is not a valid template. A held key's repeats and a key pressed during a text composition do nothing, and without `debug` the keys do nothing.
+Withdrawn. The workspace shows no JSON in place of the preview: it has no `debug` view, and Control+Alt+B does nothing in it.
 
-Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/workspace-json.tsx`
-Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
+Implementation: `src/components/template-workspace/template-workspace.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-3.14 - The open dialog
 
@@ -293,29 +295,28 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`
 
 ## Hooks
 
-| Hook                                 | Kind      | Values                | Description                                              |
-| ------------------------------------ | --------- | --------------------- | -------------------------------------------------------- |
-| `de-template-editor`                 | root      |                       | The template editor's settings panel.                    |
-| `de-template-json-editor`            | root      |                       | The template's JSON editor.                              |
-| `data-scope`                         | attribute | `document`, `section` | On the template editor: whose settings it shows.         |
-| `de-template-editor__setting`        | slot      |                       | A setting's field, with its hover text.                  |
-| `de-template-editor__font-option`    | slot      |                       | A font's name in the font list, drawn in that font.      |
-| `--de-font-option`                   | property  |                       | On a font option: the font it names.                     |
-| `data-inherited`                     | attribute | `true`                | On a setting's row and field: it inherits its value.     |
-| `de-template-workspace`              | root      |                       | The template workspace.                                  |
-| `de-template-workspace__band`        | slot      |                       | The band of scope tabs and the toolbar.                  |
-| `de-template-workspace__toolbar`     | slot      |                       | The workspace's toolbar of template actions.             |
-| `de-template-workspace__messages`    | slot      |                       | The workspace's banners.                                 |
-| `de-template-workspace__main`        | slot      |                       | The scope tabs' panel.                                   |
-| `de-template-workspace__body`        | slot      |                       | The preview beside the side panel.                       |
-| `de-template-workspace__panel`       | slot      |                       | The side panel of properties and history.                |
-| `de-template-workspace__json`        | slot      |                       | The template's JSON, shown in place of the preview.      |
-| `de-template-workspace__open-dialog` | slot      |                       | The open dialog's search and tree.                       |
-| `de-template-workspace__settings`    | slot      |                       | The open template's settings.                            |
-| `de-template-workspace__preview`     | slot      |                       | The host's preview of the template shown.                |
-| `de-template-workspace__history`     | slot      |                       | The open template's saved versions.                      |
-| `de-template-picker`                 | root      |                       | The template picker's field.                             |
-| `data-dirty`                         | attribute | `true`                | On the workspace: the open template has unsaved changes. |
-| `data-layout`                        | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.  |
-| `data-loading`                       | attribute | `true`                | On the workspace: a template it asked for is loading.    |
-| `data-view`                          | attribute | `json`                | On the workspace: the JSON view shows.                   |
+| Hook                                 | Kind      | Values                | Description                                                   |
+| ------------------------------------ | --------- | --------------------- | ------------------------------------------------------------- |
+| `de-template-editor`                 | root      |                       | The template editor's settings panel.                         |
+| `data-scope`                         | attribute | `document`, `section` | On the template editor: whose settings it shows.              |
+| `de-template-editor__setting`        | slot      |                       | A setting's field, with its hover text.                       |
+| `de-template-editor__font-option`    | slot      |                       | A font's name in the font list, drawn in that font.           |
+| `de-template-editor__unit`           | slot      |                       | The unit after a style's size, on its font row.               |
+| `de-template-editor__strip`          | slot      |                       | A row of fields, such as a number's before, format and after. |
+| `--de-font-option`                   | property  |                       | On a font option: the font it names.                          |
+| `data-inherited`                     | attribute | `true`                | On a setting's row and field: it inherits its value.          |
+| `de-template-workspace`              | root      |                       | The template workspace.                                       |
+| `de-template-workspace__band`        | slot      |                       | The band of scope tabs and the toolbar.                       |
+| `de-template-workspace__toolbar`     | slot      |                       | The workspace's toolbar of template actions.                  |
+| `de-template-workspace__messages`    | slot      |                       | The workspace's banners.                                      |
+| `de-template-workspace__main`        | slot      |                       | The scope tabs' panel.                                        |
+| `de-template-workspace__body`        | slot      |                       | The preview beside the side panel.                            |
+| `de-template-workspace__panel`       | slot      |                       | The side panel of properties and history.                     |
+| `de-template-workspace__open-dialog` | slot      |                       | The open dialog's search and tree.                            |
+| `de-template-workspace__settings`    | slot      |                       | The open template's settings.                                 |
+| `de-template-workspace__preview`     | slot      |                       | The host's preview of the template shown.                     |
+| `de-template-workspace__history`     | slot      |                       | The open template's saved versions.                           |
+| `de-template-picker`                 | root      |                       | The template picker's field.                                  |
+| `data-dirty`                         | attribute | `true`                | On the workspace: the open template has unsaved changes.      |
+| `data-layout`                        | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.       |
+| `data-loading`                       | attribute | `true`                | On the workspace: a template it asked for is loading.         |

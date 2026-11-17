@@ -22,6 +22,17 @@ function shapePaths(shape: SettingShape, path: string[] = []): string[] {
 // sections, the sections themselves and the host's extensions.
 const ELSEWHERE = /^(formatVersion|id|name|parent|sections|extensions)\b|\.content$/;
 
+// What the format holds that the editor offers no row for, set in the template's file only: the
+// title's and headings' own line height, a custom style's colour, and a footnote's numbering mode,
+// text after the number, colours, underline and text spacing.
+const NOT_IN_EDITOR = [
+  /^styles\.(title|heading[1-6])\.lineHeight$/,
+  /^styles\.custom\.\*\.color$/,
+  /^footnotes\.(numbering|suffix|separator\.color)$/,
+  /^footnotes\.(marker|text)\.(underline|color)$/,
+  /^footnotes\.text\.(spaceBefore|spaceAfter)$/,
+];
+
 // The text styles' cards and the custom styles' rows, which are not in the sections' data.
 const STYLE_ROWS = [
   'title',
@@ -35,11 +46,11 @@ const STYLE_ROWS = [
     'weight',
     'italic',
     'underline',
-    'color',
+    ...(style === 'custom.*' ? [] : ['color']),
     'alignment',
     'spaceBefore',
     'spaceAfter',
-    'lineHeight',
+    ...(style === 'paragraph' || style === 'custom.*' ? ['lineHeight'] : []),
     ...(style.startsWith('heading')
       ? ['numbering.enabled', 'numbering.format', 'numbering.prefix', 'numbering.suffix']
       : []),
@@ -51,10 +62,13 @@ const NUMBERING = ['enabled', 'format', 'prefix', 'suffix'];
 const SIDES = ['top', 'right', 'bottom', 'left'];
 
 // The paths a setting's row writes.
-const settingPaths = (base: string[], setting: TemplateSetting): string[][] =>
-  setting.kind.type === 'sides'
-    ? SIDES.map((side) => [...base, ...setting.path, side])
-    : [[...base, ...setting.path]];
+const settingPaths = (base: string[], setting: TemplateSetting): string[][] => {
+  const { kind } = setting;
+  if (kind.type === 'sides') return SIDES.map((side) => [...base, ...setting.path, side]);
+  if (kind.type === 'strip')
+    return kind.cells.flatMap((each) => settingPaths([...base, ...setting.path], each));
+  return [[...base, ...setting.path]];
+};
 
 // The paths a card's rows write.
 const cardPaths = (scope: readonly string[], card: TemplateSettingCard): string[][] => {
@@ -94,16 +108,36 @@ describe('TEMPLATE_SECTIONS', () => {
         ])
         .map(asShapePath),
     ]);
+    const offered = (path: string) => !NOT_IN_EDITOR.some((rule) => rule.test(path));
     const missing = shapePaths(TEMPLATE_SHAPE).filter(
-      (path) => !ELSEWHERE.test(path) && !rows.has(path),
+      (path) => !ELSEWHERE.test(path) && offered(path) && !rows.has(path),
     );
     expect(missing).toEqual([]);
+    // And no row for what it leaves out.
+    expect([...rows].filter((path) => !offered(path))).toEqual([]);
+  });
+
+  it('DOCE-TEMPLATE-EDITOR-1.9 orders the sections from the page setup to the change bars', () => {
+    expect(TEMPLATE_SECTIONS.map((section) => section.title)).toEqual([
+      'Page setup',
+      'Paragraph numbering',
+      'Header & footer',
+      'References',
+      'Lists',
+      'Tables',
+      'Figures',
+      'Code blocks',
+      'Equations',
+      'Footnotes',
+      'Contents',
+      'Change bars',
+    ]);
   });
 
   it('DOCE-TEMPLATE-EDITOR-1.3 leaves what only the document sets out of a section', () => {
     const documentOnly = TEMPLATE_SECTIONS.filter((section) => section.documentOnly).map(
       (section) => section.id,
     );
-    expect(documentOnly).toEqual(['contents', 'references']);
+    expect(documentOnly).toEqual(['references', 'contents']);
   });
 });

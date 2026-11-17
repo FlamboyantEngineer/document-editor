@@ -44,7 +44,7 @@ export interface TemplateWorkspaceParts {
   readonly toolbar: ReactNode;
   /** The banners: a conflict, a failure, the version shown. */
   readonly messages: ReactNode;
-  /** The preview of the tab shown (or the JSON while the debug view is on). */
+  /** The preview of the tab shown. */
   readonly preview: ReactNode;
   /**
    * The tabs' panel, around everything the layout shows below the tabs and the toolbar: the
@@ -108,8 +108,6 @@ export interface TemplateWorkspaceProps {
   readonly canDelete?: boolean | undefined;
   /** Who saved a version, from its author id. */
   readonly personOf?: ((author: string) => AvatarIdentity | undefined) | undefined;
-  /** Whether Control+Alt+B shows the template's JSON in place of the preview. Defaults to false. */
-  readonly debug?: boolean | undefined;
   /** Whether the side panel starts expanded. Defaults to false: a rail of its tabs. */
   readonly defaultPanelExpanded?: boolean | undefined;
   /** Where the side panel's tab is remembered, in the provider's storage. */

@@ -56,8 +56,6 @@ export interface TemplateWorkspaceLabels extends RevisionLabels {
   readonly sectionSettings: string;
   /** Says a template has no saved versions before its first save. */
   readonly noHistory: string;
-  /** Names the template's JSON shown in place of the preview. */
-  readonly json: string;
   readonly saveAs: string;
   readonly saveAsTitle: string;
   /** Names the id field of the save-as dialog. */
@@ -123,7 +121,6 @@ export const DEFAULT_TEMPLATE_WORKSPACE_LABELS: TemplateWorkspaceLabels = {
   documentSettings: 'Document settings',
   sectionSettings: 'Section settings',
   noHistory: 'Saved versions show here once the template is saved.',
-  json: 'Template JSON',
   saveAs: 'Save as…',
   saveAsTitle: 'Save as a new template',
   copyId: 'Id',

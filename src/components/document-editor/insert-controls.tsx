@@ -37,11 +37,11 @@ import {
 } from '../../engine/index.js';
 import type { AssetAdapter } from '../../host/index.js';
 import { DEFAULT_CONTENTS_KINDS, type TemplateFile } from '../../model/index.js';
-import type { EditorContext, ReferenceKind } from './editor-context.js';
+import { type EditorContext, type ReferenceKind, unavailableReason } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { isMarkActive } from './format-items.js';
 import { SymbolButton } from './symbol-button.js';
-import { TemplateImageButton } from './template-image-button.js';
+import { imageAssetItem } from './template-image-button.js';
 import type { ToolbarButtonItem, ToolbarItem } from './toolbar-items.js';
 import { type VariableFeatures, variableItem } from './variable-menu.js';
 
@@ -230,7 +230,11 @@ function hostItems(
             label: labels.script,
             icon: TerminalGlyph,
             shortcut: shortcutLabel(shortcuts, 'script'),
-            run: (context: EditorContext) => context.openDialog({ kind: 'script' }),
+            // An empty script block goes in at once, and its dialog opens on it (DOCE-EDITOR-4.8).
+            run: (context: EditorContext) => {
+              context.run(insertScriptBlock(''));
+              context.openDialog({ kind: 'script' });
+            },
             isEnabled: (context: EditorContext) =>
               can(context, insertScriptBlock('')) && !scriptBlockAt(context.state),
           },
@@ -239,7 +243,50 @@ function hostItems(
   ];
 }
 
-/** The insert group's items after the table and the page break. */
+/** The reference menu: an internal reference, an external one and the host's kinds. */
+export function referenceItem(
+  labels: DocumentEditorLabels,
+  features: InsertFeatures,
+  shortcuts: ShortcutTable,
+): ToolbarItem {
+  return {
+    kind: 'menu',
+    id: 'reference',
+    label: labels.reference,
+    icon: CrossReferenceGlyph,
+    isEnabled: (context) =>
+      context.editable && !context.locked && canInsertReference(context.state),
+    // Where the writer can edit, a reference is refused only by the place (DOCE-EDITOR-4.3).
+    disabledReason: (context) =>
+      context.editable && !context.locked
+        ? labels.referencesUnavailable
+        : unavailableReason(context),
+    entries: (context) => [
+      {
+        id: 'internal-reference',
+        label: labels.internalReference,
+        shortcut: shortcutLabel(shortcuts, 'reference'),
+        onAction: () => context.openDialog({ kind: 'reference', reference: 'internal' }),
+      },
+      ...(features.references
+        ? [
+            {
+              id: 'external-reference',
+              label: labels.externalReference,
+              onAction: () => context.openDialog({ kind: 'reference', reference: 'external' }),
+            },
+          ]
+        : []),
+      ...(features.referenceKinds ?? []).map(({ refType, label, dialog }) => ({
+        id: `reference-${refType}`,
+        label,
+        onAction: () => context.openDialog({ kind: 'host', name: dialog, data: { refType } }),
+      })),
+    ],
+  };
+}
+
+/** The insert group's items but the table and the page break. */
 export function insertItems(
   labels: DocumentEditorLabels,
   features: InsertFeatures,
@@ -277,36 +324,6 @@ export function insertItems(
       icon: TableOfContentsGlyph,
       entries: contentsEntries,
     },
-    {
-      kind: 'menu',
-      id: 'reference',
-      label: labels.reference,
-      icon: CrossReferenceGlyph,
-      isEnabled: (context) =>
-        context.editable && !context.locked && canInsertReference(context.state),
-      entries: (context) => [
-        {
-          id: 'internal-reference',
-          label: labels.internalReference,
-          shortcut: shortcutLabel(shortcuts, 'reference'),
-          onAction: () => context.openDialog({ kind: 'reference', reference: 'internal' }),
-        },
-        ...(features.references
-          ? [
-              {
-                id: 'external-reference',
-                label: labels.externalReference,
-                onAction: () => context.openDialog({ kind: 'reference', reference: 'external' }),
-              },
-            ]
-          : []),
-        ...(features.referenceKinds ?? []).map(({ refType, label, dialog }) => ({
-          id: `reference-${refType}`,
-          label,
-          onAction: () => context.openDialog({ kind: 'host', name: dialog, data: { refType } }),
-        })),
-      ],
-    },
     ...hostItems(labels, features, shortcuts),
     sectionItem(labels, features),
     variableItem(labels, features),
@@ -317,15 +334,4 @@ export function insertItems(
     },
     imageAssetItem(features),
   ];
-}
-
-// The button that places one of the host's images, while a template's own content is edited.
-function imageAssetItem({ imageSearch, templateContent }: InsertFeatures): ToolbarItem {
-  return {
-    kind: 'custom',
-    id: 'image-asset',
-    isVisible: () => Boolean(templateContent && imageSearch),
-    render: (context) =>
-      imageSearch ? <TemplateImageButton context={context} search={imageSearch} /> : null,
-  };
 }

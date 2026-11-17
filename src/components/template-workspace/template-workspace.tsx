@@ -22,7 +22,7 @@ import { scopeOf, tabOf } from './template-section-tabs.js';
 import { workspaceHooks } from './template-workspace-hooks.js';
 import type { TemplateWorkspaceProps } from './template-workspace-types.js';
 import { type TemplateWorkspaceState, useTemplateWorkspace } from './use-template-workspace.js';
-import { useJsonView, usePanel, useRoute, useSave } from './use-workspace-controls.js';
+import { usePanel, useRoute, useSave } from './use-workspace-controls.js';
 import { workspacePartsOf } from './workspace-assembly.js';
 import { DEFAULT_TEMPLATE_WORKSPACE_LABELS } from './workspace-labels.js';
 import { WorkspaceLayout } from './workspace-layout.js';
@@ -68,7 +68,6 @@ function Workspace(props: TemplateWorkspaceProps) {
   };
   const [scope, setScope] = useState<TemplateScope>(null);
   const panel = usePanel(props);
-  const json = useJsonView(props.debug ?? false);
   // The settings fields' drafts: one not committed yet may be saved, one not valid holds the save.
   const [drafts, setDrafts] = useState<TemplateDraftState>('clean');
   const { save, saveError, idInput } = useSave(workspace, panel, {
@@ -92,7 +91,6 @@ function Workspace(props: TemplateWorkspaceProps) {
     scope: shownScope,
     onScopeChange: setScope,
     layout,
-    json,
     drafts: { state: drafts, onChange: setDrafts },
     save,
     saveError,
@@ -103,10 +101,9 @@ function Workspace(props: TemplateWorkspaceProps) {
     <div
       {...workspaceHooks.root({
         className: props.className,
-        data: { dirty: workspace.isDirty, layout, loading: workspace.isLoading, view: json.view },
+        data: { dirty: workspace.isDirty, layout, loading: workspace.isLoading },
       })}
       aria-busy={workspace.isLoading || undefined}
-      onKeyDown={json.onKeyDown}
     >
       <Tabs
         selectedKey={tabOf(shownScope)}

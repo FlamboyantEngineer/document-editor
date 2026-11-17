@@ -611,11 +611,30 @@
   font-family: var(--de-font-option), sans-serif;
 }
 
-/* The template's JSON editor fills the panel it is in. */
-.de-template-json-editor {
+/* The unit after a style's size, on its font row. */
+.de-template-editor__unit {
+  color: var(--ref-text-muted);
+  font-size: 0.85em;
+}
+
+/* A strip of the template editor's fields shares its row, each field's short label above it. */
+.de-template-editor__strip {
   display: flex;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+
+.de-template-editor__strip > .ui-property-strip-cell {
+  flex: 1 1 0;
   flex-direction: column;
-  min-height: 0;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+}
+
+.de-template-editor__strip > .ui-property-strip-cell * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* The template workspace: a band of scope tabs with the toolbar at its end, the messages, then the

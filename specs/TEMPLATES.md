@@ -216,7 +216,7 @@ Verification: `src/engine/template-variables.test.ts`
 
 ### DOCE-TEMPLATES-8.5 - Inserting a variable
 
-`insertVariable(key)` shall put a live variable of the key in place of the selection, the caret after it, and refuse a key a `{{key}}` token cannot hold, a selection in code or across blocks, and a place the schema allows no variable. The toolbar's variable menu (`variable`, in the insert group, so also in the menubar's Insert menu) shall list the catalog, labelled by `editorVariables` and the host, each entry inserting its variable, while the host lists variables or the template's content is edited in place (`onRegionChange`).
+`insertVariable(key)` shall put a live variable of the key in place of the selection, the caret after it, and refuse a key a `{{key}}` token cannot hold, a selection in code or across blocks, and a place the schema allows no variable. The toolbar's variable menu (`variable`, in the insert group, so also in the menubar's Insert menu) shall list the catalog, labelled by `editorVariables` and the host, grouped by the namespace before the first dot of each key under its name, each entry showing its raw `{{key}}` token and inserting its variable, while the host lists variables or the template's content is edited in place (`onRegionChange`), and the document is editable.
 
 Implementation: `src/engine/template-variables.ts`, `src/components/document-editor/variable-menu.ts`, `src/components/document-editor/insert-controls.tsx`
 Verification: `src/engine/template-variables.test.ts`, `src/components/document-editor/variable-menu.test.tsx`, `e2e/template-content.spec.ts`
@@ -297,9 +297,9 @@ Verification: `src/model/format/template-format.test.ts`, `src/model/templates/t
 
 ### DOCE-TEMPLATES-10.3 - Custom style names
 
-A custom style's name shall start with a letter, then up to 15 letters, digits, underscores or hyphens (`CUSTOM_STYLE_NAME`). `validateTemplateFile` shall report each custom style of the template's or a section's styles named otherwise, and the template editor shall rename a style only to such a name.
+A custom style's name shall start with a letter, then up to 15 letters, digits, underscores or hyphens (`CUSTOM_STYLE_NAME`). `validateTemplateFile` shall report each custom style of the template's or a section's styles named otherwise. The template editor shall rename a style only to such a name without a hyphen (DOCE-TEMPLATE-EDITOR-1.10).
 
-Implementation: `src/model/format/template-format-validate.ts`, `src/components/template-editor/style-sections.tsx`
+Implementation: `src/model/format/template-format-validate.ts`, `src/components/template-editor/custom-style-names.ts`
 Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-TEMPLATES-10.4 - Lists of contents per kind

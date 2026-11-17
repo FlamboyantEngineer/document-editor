@@ -23,10 +23,11 @@ import {
 } from 'react';
 import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import type { DocumentMenuFeatures } from './document-menu.js';
 import type { EditorContext } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { ShellFeatures } from './mode-controls.js';
-import { builtInToolbarGroups } from './toolbar-controls.js';
+import { builtInToolbarGroups } from './toolbar-groups.js';
 import {
   arrangeToolbar,
   disabledReasonOf,
@@ -50,6 +51,8 @@ interface DocumentToolbarProps {
   features?: InsertFeatures | undefined;
   /** What the mode and markup controls change. */
   shell?: ShellFeatures | undefined;
+  /** What the document menu acts with. */
+  documentMenu?: DocumentMenuFeatures | undefined;
   className?: string | undefined;
 }
 
@@ -171,17 +174,26 @@ function Item({ item }: { item: ToolbarItem }) {
 }
 
 // The groups the editor's own items and the host's make, as the host arranges them.
-function useGroups({ context, options, templateStyle, features, shell }: DocumentToolbarProps) {
+function useGroups(props: DocumentToolbarProps) {
+  const { context, options, templateStyle, features, shell, documentMenu } = props;
   const { schema } = context.state;
   const { labels } = context;
   const shortcuts = shortcutsOf(context.state);
+  const { optional } = options;
   return useMemo(
     () =>
       arrangeToolbar(
-        builtInToolbarGroups(schema, labels, { templateStyle, features, shortcuts, shell }),
+        builtInToolbarGroups(schema, labels, {
+          templateStyle,
+          features,
+          shortcuts,
+          shell,
+          documentMenu,
+          optional,
+        }),
         options,
       ),
-    [schema, labels, templateStyle, features, shortcuts, shell, options],
+    [schema, labels, templateStyle, features, shortcuts, shell, documentMenu, optional, options],
   );
 }
 
@@ -202,7 +214,7 @@ function useShownGroups(groups: readonly ToolbarGroup[], context: EditorContext)
 function GroupList({ groups }: { groups: readonly ToolbarGroup[] }) {
   return groups.map((group, index) => (
     <Fragment key={group.id}>
-      {index > 0 ? <ToolbarRowSeparator /> : null}
+      {index > 0 && group.divided !== false ? <ToolbarRowSeparator /> : null}
       <ToolbarRowGroup
         aria-label={group.label}
         attached={group.attached ?? false}

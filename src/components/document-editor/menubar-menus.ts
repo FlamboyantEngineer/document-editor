@@ -13,6 +13,7 @@ import {
   shortcutLabel,
   shortcutsOf,
 } from '../../engine/index.js';
+import { exportEntries } from './document-menu.js';
 import type { EditorZoom } from './document-status-bar.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
 import { markupEntries, modeEntries, type ShellFeatures } from './mode-controls.js';
@@ -110,15 +111,8 @@ const groupEntries = (features: MenubarFeatures, id: string, context: EditorCont
 
 // File > Export: the host's exports, each disabled while it runs.
 function fileEntries(context: EditorContext, exports: DocumentExports | undefined): MenuEntry[] {
-  if (!exports || exports.entries.length === 0) return [];
-  const { labels } = context;
-  const items: MenuEntry[] = exports.entries.map((entry) => ({
-    id: `export-${entry.id}`,
-    label: entry.label,
-    isDisabled: entry.isRunning,
-    onAction: () => exports.run(entry.id, labels),
-  }));
-  return [{ id: 'export', label: labels.exportMenu, items }];
+  const items = exportEntries(context, exports);
+  return items.length === 0 ? [] : [{ id: 'export', label: context.labels.exportMenu, items }];
 }
 
 function editMenu(context: EditorContext, features: MenubarFeatures): DocumentMenu {
@@ -255,6 +249,7 @@ export function menubarMenus(
           ...unavailable(context, !context.canRun(insertTable({ rows: 3, columns: 3 }))),
           onAction: () => context.run(insertTable({ rows: 3, columns: 3 })),
         },
+        ...groupEntries(features, 'references', context),
         ...groupEntries(features, 'insert', context),
       ],
     },

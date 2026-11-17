@@ -226,8 +226,9 @@ const CONTROLS = {
   text: TextControl,
   length: LengthControl,
   numbering: NumberingControl,
-  // Four sides have a row of their own (`SidesRow`).
+  // Four sides and strips have rows of their own (`SidesRow`, `StripRow`).
   sides: TextControl,
+  strip: TextControl,
 } as const;
 
 /** A setting's field. */

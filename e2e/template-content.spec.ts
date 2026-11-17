@@ -86,8 +86,8 @@ test.describe('template content lab', () => {
     await part(page, 'approvals', 'content').locator('p').first().click();
     await page.keyboard.press('End');
     await page.getByRole('button', { name: 'Variable' }).click();
-    await expect(page.getByRole('menuitem', { name: 'Page number' })).toBeVisible();
-    await page.getByRole('menuitem', { name: 'Document name' }).click();
+    await expect(page.getByRole('menuitem', { name: /^Page number/ })).toBeVisible();
+    await page.getByRole('menuitem', { name: /^Document name/ }).click();
     await expect(
       part(page, 'approvals', 'content').locator('[data-template-variable="document.name"]'),
     ).toHaveText('Interface notes');

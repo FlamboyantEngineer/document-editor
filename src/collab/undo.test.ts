@@ -1,6 +1,6 @@
 import * as Y from '@y/y';
 import type { Node } from 'prosemirror-model';
-import { EditorState, Plugin } from 'prosemirror-state';
+import { EditorState, Plugin, Selection, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import {
@@ -175,6 +175,30 @@ describe('shared document undo', () => {
     expect(view.dom).not.toHaveTextContent(/Once\./);
     expect(redoCommand(view.state, (tr) => view.dispatch(tr))).toBe(true);
     expect(view.dom).toHaveTextContent(/Once\./);
+    view.destroy();
+  });
+
+  it('DOCE-EDITING-2.11 puts the caret at what an undo or a redo changed, and scrolls to it', () => {
+    const scrolled: number[] = [];
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({
+        doc: readFixture(FILE),
+        plugins: [createCollabSync({ doc: new Y.Doc() }), createCollabUndo({ captureTimeout: 0 })],
+      }),
+    });
+    const dispatch = (tr: Transaction) => {
+      if (tr.scrolledIntoView) scrolled.push(tr.selection.head);
+      view.dispatch(tr);
+    };
+    const end = paragraphEnd(view.state.doc, 1);
+    view.dispatch(view.state.tr.insertText(' Once.', end));
+    view.dispatch(view.state.tr.setSelection(Selection.atStart(view.state.doc)));
+    expect(undoCommand(view.state, dispatch, view)).toBe(true);
+    expect(view.state.selection.head).toBe(end);
+    view.dispatch(view.state.tr.setSelection(Selection.atStart(view.state.doc)));
+    expect(redoCommand(view.state, dispatch, view)).toBe(true);
+    expect(view.state.selection.head).toBe(end + ' Once.'.length);
+    expect(scrolled).toEqual([end, end + ' Once.'.length]);
     view.destroy();
   });
 

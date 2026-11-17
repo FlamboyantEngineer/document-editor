@@ -51,10 +51,12 @@ export interface TemplateEditorLabels
   readonly panel: string;
   readonly filter: string;
   readonly textStyles: string;
+  /** Names a section's heading numbering rows. */
+  readonly headingNumbering: string;
   readonly numbering: string;
   readonly font: string;
   readonly size: string;
-  /** Names the weight, slant and underline toggles and the alignment together. */
+  /** Names the weight, slant and underline toggles together. */
   readonly face: string;
   readonly bold: string;
   readonly italic: string;
@@ -65,6 +67,10 @@ export interface TemplateEditorLabels
   readonly spacing: string;
   readonly spaceBefore: string;
   readonly spaceAfter: string;
+  /** The short label of the space before, beside its field. */
+  readonly before: string;
+  /** The short label of the space after, beside its field. */
+  readonly after: string;
   readonly lineHeight: string;
   readonly styleName: string;
   readonly overrideCustomStyle: string;
@@ -78,6 +84,8 @@ export interface TemplateEditorLabels
   readonly customStyle: string;
   readonly addCustomStyle: string;
   readonly deleteCustomStyle: string;
+  /** Drops a scope's override of an inherited custom style, so the inherited one shows again. */
+  readonly resetCustomStyle: string;
 }
 
 /** The template editor's English text. */
@@ -88,10 +96,11 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   panel: 'Template settings',
   filter: 'Filter settings',
   textStyles: 'Text styles',
+  headingNumbering: 'Heading numbering',
   numbering: 'Numbering',
   font: 'Font',
   size: 'Size',
-  face: 'Weight & align',
+  face: 'Bold, italic and underline',
   bold: 'Bold',
   italic: 'Italic',
   underline: 'Underline',
@@ -101,6 +110,8 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   spacing: 'Spacing',
   spaceBefore: 'Space before',
   spaceAfter: 'Space after',
+  before: 'Before',
+  after: 'After',
   lineHeight: 'Line height',
   styleName: 'Name',
   overrideCustomStyle: 'Override the inherited style',
@@ -112,6 +123,7 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   customStyle: 'Custom styles',
   addCustomStyle: 'Add a style',
   deleteCustomStyle: 'Delete the style',
+  resetCustomStyle: 'Use the inherited style',
   inherited: (value, source) =>
     source ? `Inherited from ${source}: ${value}` : `Inherited: ${value}`,
 };
@@ -239,6 +251,9 @@ export function withRegionChange(
   return withSetting(template, [change.region, 'content'], change.content);
 }
 
+// The sections of the panel that start open.
+const OPEN_SECTIONS = ['identity', 'scope', 'section'];
+
 /** Edits a template's settings, handing each change to the host. */
 export function TemplateEditor(props: TemplateEditorProps) {
   const labels = { ...DEFAULT_TEMPLATE_EDITOR_LABELS, ...props.labels };
@@ -268,11 +283,13 @@ export function TemplateEditor(props: TemplateEditorProps) {
         searchable
         {...hooks.root({
           className: props.className,
-          data: { scope: scope === null ? 'document' : 'section' },
+          // Each field locks itself while the editor is disabled, so the scope picker stays usable.
+          data: { scope: scope === null ? 'document' : 'section', disabled: isDisabled },
         })}
         aria-label={labels.panel}
         searchPlaceholder={labels.filter}
-        isDisabled={isDisabled}
+        // Only the identity, the scope and a section's own rows start open.
+        defaultExpandedKeys={OPEN_SECTIONS}
       >
         <TemplateIdentity
           template={props.template}
@@ -309,7 +326,6 @@ export function TemplateEditor(props: TemplateEditorProps) {
 
 export type { TemplateDraftState } from './setting-drafts.js';
 export { templateIdOf } from './template-identity.js';
-export { TemplateJsonEditor } from './template-json-editor.js';
 export { DEFAULT_TEMPLATE_SCOPE_LABELS, withListedSections } from './template-scope.js';
 export type { TemplateScope } from './template-scope-state.js';
 export {
