@@ -13,7 +13,7 @@ import {
   createDocumentEditing,
   templatePreviewLockOf,
 } from '../../engine/index.js';
-import type { AssetAdapter, VariablesAdapter } from '../../host/index.js';
+import type { AssetAdapter, ScriptRunnerAdapter, VariablesAdapter } from '../../host/index.js';
 import {
   createDocumentSchema,
   readDocumentFile,
@@ -68,6 +68,8 @@ export interface TemplatePreviewEditorProps {
   readonly assets?: AssetAdapter | undefined;
   /** The host's variables, which the variable menu lists after the editor's own. */
   readonly variables?: VariablesAdapter | undefined;
+  /** The host's script runner, which previews each template script beside it. */
+  readonly scriptRunner?: ScriptRunnerAdapter | undefined;
   readonly 'aria-label'?: string | undefined;
 }
 
@@ -109,6 +111,7 @@ export function TemplatePreviewEditor({
   preview,
   assets,
   variables,
+  scriptRunner,
   ...rest
 }: TemplatePreviewEditorProps) {
   const { template, scope } = preview;
@@ -140,6 +143,7 @@ export function TemplatePreviewEditor({
       onTemplatePartChange={preview.onTemplatePartChange}
       assets={assets}
       variables={variables}
+      scriptRunner={scriptRunner}
       toolbar={editable ? TEMPLATE_PREVIEW_TOOLBAR : false}
       statusBar={TEMPLATE_PREVIEW_STATUS_BAR}
       scrollable

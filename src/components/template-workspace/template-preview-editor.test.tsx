@@ -7,7 +7,7 @@ import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { LOADED, saveButton, SLOW, storeOf } from '../../../test/template-workspace.js';
 import { createDocumentEditing } from '../../engine/index.js';
-import type { AssetAdapter } from '../../host/index.js';
+import type { AssetAdapter, ScriptRunnerAdapter } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
 import {
@@ -193,6 +193,48 @@ describe('the preview’s toolbar and status bar', () => {
       await user.click(within(picker).getByRole('button', { name: 'Insert' }));
       await waitFor(
         () => expect(editor.querySelector('img[data-template-file-id="logo"]')).not.toBeNull(),
+        LOADED,
+      );
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATES-8.9 previews a template script beside it with the host’s runner',
+    async () => {
+      const signed: TemplateFile = {
+        ...REPORT,
+        sections: [
+          {
+            name: 'cover',
+            label: 'Cover page',
+            content: [{ type: 'script', attrs: { source: 'render.paragraph("Signed.")' } }],
+          },
+        ],
+      };
+      const runner: ScriptRunnerAdapter = {
+        run: () =>
+          Promise.resolve({
+            ok: true,
+            value: {
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Signed.' }] }],
+            },
+          }),
+      };
+      render(
+        <TemplateWorkspace
+          store={storeOf(signed)}
+          defaultTemplateId="report"
+          scriptRunner={runner}
+        />,
+      );
+      const document = await screen.findByRole(
+        'textbox',
+        { name: 'Template preview document' },
+        LOADED,
+      );
+      await waitFor(
+        () => expect(document.querySelector('.de-script-preview')).toHaveTextContent('Signed.'),
         LOADED,
       );
     },

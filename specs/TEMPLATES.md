@@ -242,6 +242,20 @@ The preview document (DOCE-TEMPLATES-8.2) shall also hold a bulleted and a numbe
 Implementation: `src/model/templates/template-preview-samples.ts`, `src/model/templates/template-preview.ts`
 Verification: `src/model/templates/template-preview.test.ts`, `src/engine/version-compare.test.ts`
 
+### DOCE-TEMPLATES-8.9 - Script previews in a template
+
+While a template's content is edited in place (DOCE-SECTIONS-5.2) beside a runner (`scriptRunner`), each script block of its starting content or placeholder that holds no output shall show what its script produces: `createTemplateScriptPreviews({ runner, enabled })`, which the editor's layout installs while it hands on template part changes, runs each script once with the purpose `preview` against the template's preview, and draws its output after the block's start as view-only markup (`de-script-preview`, the block marked `data-script-preview`) that is never part of the document, its changes or its undo history. A preview is kept by its script for the runner, so showing the template again, such as after the editor remounts, runs no script whose source did not change, and a changed script runs again. Such a block shows no message that its script produced nothing (DOCE-OBJECTS-4.3), and a failed or empty run shows no preview. The template workspace's own preview (DOCE-TEMPLATE-EDITOR-3.16) previews them with the host's `scriptRunner`, given to `TemplateWorkspace`.
+
+Implementation: `src/engine/template-script-previews.ts`, `src/components/document-editor/layout-own-plugins.ts`, `src/components/document-editor/writing-decorations.ts`, `src/components/template-workspace/template-preview-editor.tsx`
+Verification: `src/engine/template-script-previews.test.ts`, `e2e/template-content.spec.ts`, `src/components/template-workspace/template-preview-editor.test.tsx`
+
+### DOCE-TEMPLATES-8.10 - Templates keep scripts without output
+
+A part of a template's section that is edited in place shall be handed on with each script block's output, and what its run recorded (`renderedAt`, `provenance`, `signatures`), left out (`withoutScriptOutput`), so the template keeps the script alone and a document made from it runs its scripts itself.
+
+Implementation: `src/engine/template-script-previews.ts`, `src/engine/template-content-editing.ts`
+Verification: `src/engine/template-script-previews.test.ts`, `e2e/template-content.spec.ts`
+
 ## DOCE-TEMPLATES-9 - Template blocks
 
 ### DOCE-TEMPLATES-9.1 - Rendering a template block

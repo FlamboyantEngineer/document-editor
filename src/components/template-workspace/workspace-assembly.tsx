@@ -89,6 +89,7 @@ export function workspacePartsOf(assembly: WorkspaceAssembly): TemplateWorkspace
         renderPreview={props.renderPreview}
         assets={props.assets}
         variables={props.variables}
+        scriptRunner={props.scriptRunner}
       />
     ),
     panel: (content: ReactNode) => (

@@ -3,7 +3,11 @@
 import type { AvatarIdentity } from '@flamboyantengineer/ui-components/avatar';
 import type { ReactNode } from 'react';
 import type { RegionChange } from '../../engine/index.js';
-import type { TemplateStoreAdapter, VariablesAdapter } from '../../host/adapters.js';
+import type {
+  ScriptRunnerAdapter,
+  TemplateStoreAdapter,
+  VariablesAdapter,
+} from '../../host/adapters.js';
 import type { AssetAdapter } from '../../host/asset-adapters.js';
 import type { TemplateFile, TemplatePartChange } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
@@ -84,6 +88,11 @@ export interface TemplateWorkspaceProps {
   readonly assets?: AssetAdapter | undefined;
   /** The host's variables, which the own preview's variable menu lists. */
   readonly variables?: VariablesAdapter | undefined;
+  /**
+   * The host's script runner, which the own preview runs a template script with, for its preview
+   * beside the script (DOCE-TEMPLATES-8.9).
+   */
+  readonly scriptRunner?: ScriptRunnerAdapter | undefined;
   /** How the open dialog lists the templates: their folders, icons and the pinned ones. */
   readonly catalog?: TemplateCatalog | undefined;
   /** The host's own fields in the save-as dialog, such as the copy's folder. */

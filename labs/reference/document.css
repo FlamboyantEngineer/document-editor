@@ -1638,6 +1638,21 @@ a.de-contents__entry {
   white-space: pre-wrap;
 }
 
+/* What a template's script would produce, shown beside it while the template is edited. */
+.de-script-preview {
+  display: block;
+  border-left: 2px dashed #94a3b8;
+  padding-left: 0.5em;
+  color: #475569;
+  user-select: none;
+}
+
+@media print {
+  .de-script-preview {
+    display: none;
+  }
+}
+
 @media print {
   .script-block {
     outline: none;
