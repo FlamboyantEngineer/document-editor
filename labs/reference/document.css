@@ -2120,3 +2120,18 @@ a.de-contents__entry {
   min-width: calc(var(--doc-paragraph-text-indent, 0pt) - var(--doc-paragraph-number-indent, 0pt));
   text-indent: 0;
 }
+
+/*
+ * Paged documents: the pages and the comments margin are one pair centred in the stage, with
+ * equal space on either side. With markers and no card open the margin reserves no width, so the
+ * pages return to the centre and the markers sit beside the page in the space around it.
+ */
+.de-document-editor[data-layout='page'] .de-document-comments {
+  grid-template-columns: max-content minmax(200px, 280px);
+  justify-content: center;
+}
+
+.de-document-editor[data-layout='page'] .de-document-comments[data-cards-open='false'] {
+  grid-template-columns: max-content 0;
+  column-gap: 0;
+}

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { EditorState } from 'prosemirror-state';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
@@ -8,6 +8,7 @@ import { createDocumentEditing, createProofing } from '../../engine/index.js';
 import type { ProoferAdapter } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
+import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
 
@@ -28,8 +29,25 @@ const stateWith = (proofer: ProoferAdapter) =>
     plugins: [...createDocumentEditing(documentSchema), createProofing({ proofer, delay: 0 })],
   });
 
-function Harness({ proofer, editable = true }: { proofer: ProoferAdapter; editable?: boolean }) {
+// Types at the document's end from outside the editor, once the harness is drawn.
+const typing: { atEnd: (text: string) => void } = { atEnd: () => undefined };
+
+function Harness({
+  proofer,
+  editable = true,
+  labels,
+}: {
+  proofer: ProoferAdapter;
+  editable?: boolean;
+  labels?: Partial<DocumentEditorLabels>;
+}) {
   const [state, setState] = useState(() => stateWith(proofer));
+  useEffect(() => {
+    typing.atEnd = (text) =>
+      setState((current) =>
+        current.apply(current.tr.insertText(text, current.doc.content.size - 2)),
+      );
+  });
   return (
     <DocumentEditor
       state={state}
@@ -38,6 +56,7 @@ function Harness({ proofer, editable = true }: { proofer: ProoferAdapter; editab
       layout="web"
       aria-label="Report"
       editable={editable}
+      labels={labels}
       statusBar
     />
   );
@@ -59,6 +78,7 @@ describe('proofing status', () => {
     };
     const { container } = render(<Harness proofer={proofer} />);
     await vi.waitFor(() => expect(status(container)).toHaveTextContent('Checking…'));
+    expect(status(container)).toHaveAttribute('data-checking', 'true');
     await vi.waitFor(() => expect(fail).not.toBeNull());
     (fail as ((reason: Error) => void) | null)?.(new Error('The checker is down.'));
     expect(await screen.findByText('Proofing unavailable')).toBeInTheDocument();
@@ -139,5 +159,51 @@ describe('proofing status', () => {
     );
     expect(container.querySelector('.de-embed')).toHaveTextContent('Rows of set 7');
     expect(container.querySelector('.de-document-editor__toolbar')).toBeNull();
+  });
+
+  it('DOCE-PROOFING-3.1 keeps the known count beside checking and beside unavailable', async () => {
+    expect(DEFAULT_EDITOR_LABELS.proofingStatus(2, true)).toBe('2 issues · Checking…');
+    expect(DEFAULT_EDITOR_LABELS.proofingStatus(0, true)).toBe('Checking…');
+    let calls = 0;
+    const proofer: ProoferAdapter = {
+      check: async (texts) => {
+        calls += 1;
+        if (calls > 1) throw new Error('The checker is down.');
+        return texts.map(({ text }) => {
+          const at = text.indexOf('teh');
+          return at < 0
+            ? []
+            : [{ from: at, to: at + 3, kind: 'spelling' as const, suggestions: [] }];
+        });
+      },
+    };
+    const { container } = render(<Harness proofer={proofer} />);
+    await vi.waitFor(() => expect(status(container)).toHaveTextContent('1 issue'));
+    expect(status(container)).not.toHaveAttribute('data-checking');
+    typing.atEnd(' more');
+    await vi.waitFor(() =>
+      expect(status(container)).toHaveTextContent('Proofing unavailable · 1 issue'),
+    );
+  });
+
+  it('DOCE-PROOFING-3.1 says why the status is disabled while it has no issue to go to', async () => {
+    const proofer: ProoferAdapter = { check: (texts) => Promise.resolve(texts.map(() => [])) };
+    const { container } = render(<Harness proofer={proofer} />);
+    await vi.waitFor(() => expect(status(container)).toHaveTextContent('No issues'));
+    const button = status(container);
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    // Disabled, but it stays focusable so its tooltip can say why.
+    (button as HTMLElement).focus();
+    expect(button).toHaveFocus();
+  });
+
+  it("DOCE-PROOFING-3.1 says the count in the host's wording", async () => {
+    const proofer: ProoferAdapter = { check: (texts) => Promise.resolve(texts.map(() => [])) };
+    const labels = {
+      proofingStatus: (issues: number, pending: boolean) =>
+        pending ? 'Checking...' : `${issues === 0 ? 'No' : issues} writing issues`,
+    };
+    const { container } = render(<Harness proofer={proofer} labels={labels} />);
+    await vi.waitFor(() => expect(status(container)).toHaveTextContent('No writing issues'));
   });
 });

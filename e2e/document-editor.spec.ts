@@ -828,7 +828,7 @@ test.describe('document editor lab', () => {
     expect(await zoomOf()).toBe('1');
     const zoom = page.getByRole('group', { name: 'Zoom' });
     await zoom.getByRole('button', { name: /Zoom in/i }).click();
-    await expect.poll(zoomOf).toBe('1.1');
+    await expect.poll(zoomOf).toBe('1.25');
     await content(page).hover();
     await page.keyboard.down('Control');
     await page.mouse.wheel(0, 100);
@@ -969,6 +969,17 @@ test.describe('document editor lab', () => {
     page,
   }) => {
     await lab.open('document-editor');
+    // Going to a page scrolls the editor's own frame, not every area around it as
+    // scrollIntoView would.
+    await page.evaluate(() => {
+      const calls = { intoView: 0 };
+      Object.assign(window, { calls });
+      const original = Element.prototype.scrollIntoView;
+      Element.prototype.scrollIntoView = function (this: Element, ...args) {
+        if (this.classList.contains('pm-page')) calls.intoView += 1;
+        original.apply(this, args);
+      };
+    });
     const status = page.getByRole('group', { name: 'Document status' });
     await status.getByRole('button', { name: /Page 1 of/ }).click();
     const field = page.getByRole('textbox', { name: 'Go to page' });
@@ -987,10 +998,41 @@ test.describe('document editor lab', () => {
           }),
       )
       .toBeLessThan(80);
+    expect(
+      await page.evaluate(() => (window as unknown as { calls: { intoView: number } }).calls),
+    ).toEqual({ intoView: 0 });
     await status.getByRole('button', { name: 'Web view' }).click();
     await expect(editor(page)).toHaveAttribute('data-layout', 'web');
     await status.getByRole('button', { name: 'Page view' }).click();
     await expect(editor(page)).toHaveAttribute('data-layout', 'page');
+  });
+
+  test('DOCE-EDITOR-5.3 cancels going to a page on Escape, which stops at the field', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const viewport = page.locator('.de-document-editor .ui-scroll-region__viewport').first();
+    const before = await viewport.evaluate((element) => element.scrollTop);
+    await page.evaluate(() => {
+      const seen = { escapes: 0 };
+      Object.assign(window, { seen });
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') seen.escapes += 1;
+      });
+    });
+    const status = page.getByRole('group', { name: 'Document status' });
+    await status.getByRole('button', { name: /Page 1 of/ }).click();
+    const field = page.getByRole('textbox', { name: 'Go to page' });
+    await field.fill('3');
+    await field.press('Escape');
+    await expect(field).toHaveCount(0);
+    // Closing the field by Escape commits nothing as it loses focus.
+    await page.waitForTimeout(600);
+    expect(await viewport.evaluate((element) => element.scrollTop)).toBe(before);
+    expect(
+      await page.evaluate(() => (window as unknown as { seen: { escapes: number } }).seen.escapes),
+    ).toBe(0);
   });
 
   test('DOCE-PAGINATION-7.4 shows what each page takes of its height while debugging', async ({

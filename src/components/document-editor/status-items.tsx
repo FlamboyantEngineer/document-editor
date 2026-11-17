@@ -142,6 +142,20 @@ export function DocumentProofingStatus() {
   );
 }
 
+// The status's text: the known count stays beside a notice that the proofers do not all answer.
+function proofingText(
+  labels: DocumentEditorLabels,
+  { status, issues, pending }: { status: ProofingStatus; issues: number; pending: boolean },
+): string {
+  if (status === 'unavailable') {
+    return issues > 0
+      ? `${labels.proofingUnavailable} · ${labels.proofingStatus(issues, false)}`
+      : labels.proofingUnavailable;
+  }
+  const count = labels.proofingStatus(issues, pending);
+  return status === 'degraded' ? `${labels.proofingDegraded} · ${count}` : count;
+}
+
 // The proofing status as its values show it, drawn again only when they change (DOCE-EDITOR-1.7).
 const ProofingStatusButton = memo(function ProofingStatusButton({
   view,
@@ -158,17 +172,15 @@ const ProofingStatusButton = memo(function ProofingStatusButton({
   pending: boolean;
   announce: (message: string) => void;
 }) {
-  const text =
-    status === 'unavailable'
-      ? labels.proofingUnavailable
-      : `${status === 'degraded' ? `${labels.proofingDegraded} · ` : ''}${labels.proofingStatus(issues, pending)}`;
+  const text = proofingText(labels, { status, issues, pending });
   return (
     <Button
-      {...hooks.slot('proofing-status', { pending, issues: issues > 0, status })}
+      {...hooks.slot('proofing-status', { checking: pending, issues: issues > 0, status })}
       variant="ghost"
       size="sm"
-      tooltip={labels.nextIssue}
+      tooltip={issues === 0 ? labels.noIssue : labels.nextIssue}
       isDisabled={issues === 0 || view === null}
+      focusableWhenDisabled={issues === 0}
       preventFocusOnPress
       onPress={() => {
         if (!view) return;

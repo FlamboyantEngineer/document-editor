@@ -109,6 +109,13 @@ A footnote's text (DOCE-FOOTNOTES-1.1) shall take comment threads and suggestion
 Implementation: `src/engine/comment-targets.ts`
 Verification: `src/engine/footnote-comments.test.ts`, `src/components/document-comments/comment-anchoring.test.tsx`
 
+### DOCE-COMMENTS-1.16 - Typing over commented text
+
+Text typed in place of a selection shall keep every comment anchor the replaced text was in, so a thread whose whole anchor is typed over stays on the typed text rather than losing its anchor; what is typed after an anchor is still no part of it. An anchor on an inline object, such as a glossary reference, covers the whole object, and resolving, reopening, deleting and removing the thread change the mark on it as on text.
+
+Implementation: `src/engine/comment-typing.ts`, `src/engine/comment-anchors.ts`
+Verification: `src/engine/comment-typing.test.ts`, `e2e/comments.spec.ts`
+
 ## DOCE-COMMENTS-2 - The comments margin
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
@@ -211,10 +218,10 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.15 - Changes the store refuses
 
-A change the comment store refuses shall show on its thread, on a suggestion's card too, as an error row (the base library's `CommentThread` activity) with the store's message, or the `failed` label, until the reader dismisses it, and leave the thread as it was. A refused reply resolves with nothing and offers Retry, which posts it again; every other refused change also rejects, so its caller leaves the document's anchors as they were, and a refused decision offers Retry each time it is refused. A reply written for the reader that the store could not cancel or retry (`settleEntry`) shows as a refused change. A thread the store refuses to start shows no row, since the composer that started it reports the refusal, so the thread made on a later try starts without one. A listing that fails gives its message, the `failed` label when the store throws instead of answering, and keeps the threads listed before. No refusal is left as a rejection nobody handles.
+A change the comment store refuses shall show on its thread, on a suggestion's card too, as an error row (the base library's `CommentThread` activity) with the store's message, or the `failed` label, until the reader dismisses it, and leave the thread as it was. A refused reply resolves with nothing and offers Retry, which posts it again; every other refused change also rejects, so its caller leaves the document's anchors as they were, and a refused decision offers Retry each time it is refused. A reply written for the reader that the store could not cancel or retry (`settleEntry`) shows as a refused change. A thread the store refuses to start shows no row: the card that started it keeps the text typed in its composer and shows the store's message under it until it is submitted again, so the thread made on a later try starts without one. A listing that fails gives its message, the `failed` label when the store throws instead of answering, and keeps the threads listed before. No refusal is left as a rejection nobody handles.
 
-Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-thread-actions.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`
-Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `src/components/document-comments/document-comments.test.tsx`
+Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-thread-actions.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`, `src/components/document-comments/new-thread-cards.tsx`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-review-states.test.tsx`
 
 ### DOCE-COMMENTS-2.16 - Stale listings
 
@@ -235,7 +242,7 @@ Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `
 While the store can, the thread state shall record how a thread's suggestion was decided (`decide`), change a thread's quote, target or change (`update`), react to a whole thread (`react` without a comment) and tell others the reader is writing (`setTyping`), each keeping the thread as the store returns it.
 
 Implementation: `src/components/document-comments/comment-thread-actions.ts`
-Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `src/components/document-comments/comment-review-states.test.tsx`
 
 ### DOCE-COMMENTS-2.19 - Decisions recorded on threads
 
@@ -267,10 +274,10 @@ Verification: `src/components/document-comments/thread-permissions.test.ts`, `sr
 
 ### DOCE-COMMENTS-2.23 - Cards that open on request
 
-With markers, no card shall be open when the document loads; a card opens only when the reader asks for it: its marker, a click on its thread's or suggestion's text, the comments panel or a link (`openThread`), or starting a thread, whose composer always shows. Opening a card from its text or a link shall focus the card, not its reply box; a click on the text of a card already open focuses its reply box. The marker offering Comment on a selection starts the thread at once.
+With markers, no card shall be open when the document loads; a card opens only when the reader asks for it: its marker, a click on its thread's or suggestion's text, the comments panel or a link (`openThread`), or starting a thread, whose composer always shows. Opening a card from its text or a link shall focus the card, not its reply box; a click on the text of a card already open focuses its reply box. The marker offering Comment on a selection starts the thread at once. The markers stay whatever markup the document is shown with, none included. With markers the root says whether a card is open (`data-cards-open`); the reference stylesheet then centres paged documents' pages and margin as one pair, giving the margin no width while no card is open, so the pages return to the centre.
 
-Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`
-Verification: `src/components/document-comments/comment-opening.test.tsx`
+Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`, `labs/reference/document.css`
+Verification: `src/components/document-comments/comment-opening.test.tsx`, `e2e/comment-layout.spec.ts`
 
 ### DOCE-COMMENTS-2.24 - Putting a thread being started away
 
@@ -347,7 +354,7 @@ Verification: `src/components/document-comments/comment-card-headers.test.tsx`, 
 A card's reply box shall show only while the card is the active one, staying mounted with its draft otherwise; a click on a card, or keyboard focus moving into it, makes it the active one, in the margin and the panel, until the caret moves. The box starts one row high, its buttons showing while it has focus or a draft, and shows the `replyPlaceholder` label as its hint. The button posting a thread's opening comment shall say `submitComment`, apart from the `comment` label of the offer to start one.
 
 Implementation: `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/comments-labels.ts`
-Verification: `src/components/document-comments/comment-card-headers.test.tsx`
+Verification: `src/components/document-comments/comment-card-headers.test.tsx`, `src/components/document-comments/comment-review-states.test.tsx`
 
 ### DOCE-COMMENTS-2.35 - Decided suggestions' threads
 
@@ -402,14 +409,14 @@ Verification: `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-3.5 - Beside each page
 
-In the full editor lab, whose appendix is on landscape pages between portrait ones, each thread's card shall sit beside the page its text is on, the same gap from that page's edge, portrait or landscape; with comment markers, each thread is a marker that opens its card.
+In the full editor lab, whose appendix is on landscape pages between portrait ones, each thread's card shall sit beside the page its text is on, the same gap from that page's edge, portrait or landscape; with comment markers, each thread is a marker that opens its card. Folding and unfolding the side panels, scrolling meanwhile, keeps each card at that gap beside its text and keeps the same card rather than drawing a new one; zoomed or at a narrow width, each card stays level with its text, and a marker opens its card in view.
 
 Implementation: `src/components/document-comments/anchor-rects.ts`, `src/components/document-comments/document-comments.tsx`, `labs/reference/document.css`, `labs/src/full-editor.lab.tsx`
-Verification: `e2e/full-editor.spec.ts`
+Verification: `e2e/full-editor.spec.ts`, `e2e/comment-layout.spec.ts`
 
 ### DOCE-COMMENTS-3.6 - The active anchor drawn
 
-In the comments lab, opening a thread shall draw its anchor's text with `data-comment-active`, and moving the caret out of it shall stop. The margin measures every anchor in one pass over the document, however many threads it shows.
+In the comments lab, opening a thread shall draw its anchor's text with `data-comment-active`, and moving the caret out of it shall stop. The margin measures every anchor in one pass over the document, however many threads it shows. Neither an anchor's highlight nor a suggestion's marking changes the height or the lines of the block it is in.
 
 Implementation: `src/engine/comment-anchors.ts`, `src/components/document-comments/anchor-rects.ts`, `labs/src/comments.lab.tsx`
 Verification: `e2e/comments.spec.ts`
@@ -442,7 +449,7 @@ Verification: `src/components/document-comments/comments-panel.test.tsx`
 The margin's `filter` and the panel's filter shall show the open threads (the default), all of them, or the reader's own: those with a comment the reader wrote or one that mentions them, with suggestions the reader made or whose thread is theirs. The margin's `mine` shows open threads only; the panel's shows resolved ones too. Each of the panel's filter choices shall show how many items it keeps. Given `audience(thread, me)`, threads the reader is not among the audience of shall show nowhere and count nowhere.
 
 Implementation: `src/components/document-comments/comment-filters.ts`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/comments-panel.test.tsx`
+Verification: `src/components/document-comments/comments-panel.test.tsx`, `src/components/document-comments/comment-review-states.test.tsx`
 
 ### DOCE-COMMENTS-4.3 - Markdown bodies
 
@@ -453,10 +460,10 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-4.4 - Mention cards
 
-A mention's chip shall open a card about what it names: by default the base library's `UserIdentity` with its name and the picture the identity gives, the host's own with `mentionCard(target)`, and none, a plain chip, with `mentionCard: null`.
+A mention's chip shall open a card about what it names: by default the base library's `UserIdentity` with its name and the picture the identity gives, the host's own with `mentionCard(target)`, and none, a plain chip, with `mentionCard: null`. The card stays beside its chip while the stage scrolls, and a thread's card shows no scrollbar while nothing in it overflows.
 
 Implementation: `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-4.5 - Whitespace suggestions
 
@@ -477,7 +484,7 @@ Verification: `src/components/document-comments/comments-panel.test.tsx`
 With `placement: 'pane'`, the editor shall show no margin, leaving the document its whole width, and a comments panel given the same placement shall hold the threads alone: Mod-Alt-M, the context menu's Comment and the handle's `startComment()` start a thread whose composer shows in the panel, and the panel offers Comment on a selection. In an editor whose side panel holds the comments pane (DOCE-EDITOR-8.3), starting a thread so, or opening one (`openThread`), reveals that pane, expanding its panel, without moving focus from the composer.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`, `src/components/document-editor/editor-body.tsx`
-Verification: `src/components/document-comments/comment-focus.test.tsx`, `src/components/document-panels/document-side-panel.test.tsx`, `e2e/comments.spec.ts`
+Verification: `src/components/document-comments/comment-focus.test.tsx`, `src/components/document-panels/document-side-panel.test.tsx`, `e2e/comments.spec.ts`, `src/components/document-comments/comment-review-states.test.tsx`
 
 ### DOCE-COMMENTS-4.8 - Opening a thread at a comment
 
@@ -523,20 +530,21 @@ Verification: `src/components/document-comments/panel-rows.test.tsx`, `e2e/comme
 
 ## Hooks
 
-| Hook                             | Kind      | Values | Description                                                                                               |
-| -------------------------------- | --------- | ------ | --------------------------------------------------------------------------------------------------------- |
-| `de-document-comments`           | root      |        | The annotation layer around the document and margin.                                                      |
-| `de-document-comments__margin`   | slot      |        | The margin of cards.                                                                                      |
-| `de-document-comments__card`     | slot      |        | A card, beside its anchor's page.                                                                         |
-| `de-document-comments__change`   | slot      |        | The post a suggestion's card opens with.                                                                  |
-| `de-document-comments__decision` | slot      |        | How a decided suggestion's thread was decided, with `data-decision` (`accept`, `reject`).                 |
-| `--de-comment-offset`            | property  |        | On a card: how far it moves across to sit beside its page.                                                |
-| `de-comments-panel`              | root      |        | The comments panel.                                                                                       |
-| `de-comments-panel__list`        | slot      |        | The list of the panel's cards.                                                                            |
-| `de-comments-panel__thread`      | slot      |        | A thread of the panel, with `data-anchored`, and `data-draft` on one being started on the whole document. |
-| `de-comments-panel__suggestion`  | slot      |        | A suggestion of the panel, with `data-anchored`.                                                          |
-| `de-comments-panel__in-document` | slot      |        | The rows of the threads and suggestions beside the text (DOCE-COMMENTS-4.13).                             |
-| `de-comments-panel__heading`     | slot      |        | The heading of those rows.                                                                                |
-| `de-comments-panel__row`         | slot      |        | One of those rows, with `data-annotation` `thread` or `suggestion`.                                       |
-| `data-comment-active`            | attribute | `true` | On the text of the anchor holding the caret.                                                              |
-| `data-comment-placed`            | attribute | `true` | On an anchor placed by its thread's target, not stored.                                                   |
+| Hook                             | Kind      | Values          | Description                                                                                                    |
+| -------------------------------- | --------- | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `de-document-comments`           | root      |                 | The annotation layer around the document and margin.                                                           |
+| `de-document-comments__margin`   | slot      |                 | The margin of cards.                                                                                           |
+| `de-document-comments__card`     | slot      |                 | A card, beside its anchor's page.                                                                              |
+| `de-document-comments__change`   | slot      |                 | The post a suggestion's card opens with.                                                                       |
+| `de-document-comments__decision` | slot      |                 | How a decided suggestion's thread was decided, with `data-decision` (`accept`, `reject`).                      |
+| `--de-comment-offset`            | property  |                 | On a card: how far it moves across to sit beside its page.                                                     |
+| `de-comments-panel`              | root      |                 | The comments panel.                                                                                            |
+| `de-comments-panel__list`        | slot      |                 | The list of the panel's cards.                                                                                 |
+| `de-comments-panel__thread`      | slot      |                 | A thread of the panel, with `data-anchored`, and `data-draft` on one being started on the whole document.      |
+| `de-comments-panel__suggestion`  | slot      |                 | A suggestion of the panel, with `data-anchored`.                                                               |
+| `de-comments-panel__in-document` | slot      |                 | The rows of the threads and suggestions beside the text (DOCE-COMMENTS-4.13).                                  |
+| `de-comments-panel__heading`     | slot      |                 | The heading of those rows.                                                                                     |
+| `de-comments-panel__row`         | slot      |                 | One of those rows, with `data-annotation` `thread` or `suggestion`.                                            |
+| `data-comment-active`            | attribute | `true`          | On the text of the anchor holding the caret.                                                                   |
+| `data-comment-placed`            | attribute | `true`          | On an anchor placed by its thread's target, not stored.                                                        |
+| `data-cards-open`                | attribute | `true`, `false` | With markers, on the root: whether a card is open, so a stylesheet can give the margin no width while none is. |
