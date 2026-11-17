@@ -18,6 +18,15 @@ async function openMenuOn(page: Page, text: string) {
   await expect(menu(page)).toBeVisible();
 }
 
+// Opens the context menu inside a marked word, then its Spelling submenu.
+async function openSpelling(page: Page, text: string) {
+  await openMenuOn(page, text);
+  await menu(page).getByRole('menuitem', { name: 'Spelling', exact: true }).click();
+  const spelling = page.getByRole('menu').last();
+  await expect(spelling).not.toHaveAccessibleName('Document actions');
+  return spelling;
+}
+
 test.describe('proofing', () => {
   test('DOCE-PROOFING-3.1 marks the issues the proofer finds and counts them', async ({
     lab,
@@ -67,8 +76,8 @@ test.describe('proofing', () => {
     }).toPass({ timeout: 1000 });
     await expect(flashed).toHaveCount(0);
     // A correction checks the text again, and the new count is announced.
-    await openMenuOn(page, 'recieve');
-    await menu(page).getByRole('menuitem', { name: 'receive', exact: true }).click();
+    const spelling = await openSpelling(page, 'recieve');
+    await spelling.getByRole('menuitem', { name: 'receive', exact: true }).click();
     await expect(status(page)).toHaveText('4 issues');
     await expect(announcer).toHaveText('4 issues');
   });
@@ -78,17 +87,16 @@ test.describe('proofing', () => {
     page,
   }) => {
     await lab.open('document-editor');
-    await openMenuOn(page, 'teh');
-    await expect(menu(page).getByRole('group', { name: 'Spelling' })).toBeVisible();
-    await menu(page).getByRole('menuitem', { name: 'the', exact: true }).click();
+    let spelling = await openSpelling(page, 'teh');
+    await expect(spelling.getByRole('group', { name: 'Spelling' })).toBeVisible();
+    await spelling.getByRole('menuitem', { name: 'the', exact: true }).click();
     await expect(content(page)).toContainText('the proofer suggests');
     await expect(issues(page, 'teh')).toHaveCount(1);
-    await openMenuOn(page, 'a error');
-    await expect(menu(page).getByRole('menuitem', { name: 'Add to dictionary' })).toHaveCount(0);
-    await menu(page).getByRole('menuitem', { name: 'Ignore', exact: true }).click();
+    spelling = await openSpelling(page, 'a error');
+    await spelling.getByRole('menuitem', { name: 'Ignore', exact: true }).click();
     await expect(issues(page, 'a error')).toHaveCount(0);
-    await openMenuOn(page, 'recieve');
-    await menu(page).getByRole('menuitem', { name: 'Add to dictionary' }).click();
+    spelling = await openSpelling(page, 'recieve');
+    await spelling.getByRole('menuitem', { name: 'Add to dictionary' }).click();
     await expect(issues(page, 'recieve')).toHaveCount(0);
     await expect(status(page)).toHaveText('2 issues');
     // A misspelling typed later, at the end of the paragraph holding the caret, is checked too.
@@ -104,13 +112,13 @@ test.describe('proofing', () => {
     await lab.open('document-editor');
     await expect(issue(page, 'TBD')).toHaveAttribute('data-proofing-issue', 'style');
     await expect(issues(page, 'teh')).toHaveCount(2);
-    await openMenuOn(page, 'teh');
-    await menu(page).getByRole('menuitem', { name: 'Replace all' }).click();
+    let spelling = await openSpelling(page, 'teh');
+    await spelling.getByRole('menuitem', { name: 'Replace all' }).click();
     await page.getByRole('menu').last().getByRole('menuitem', { name: 'the', exact: true }).click();
     await expect(issues(page, 'teh')).toHaveCount(0);
     await expect(content(page)).toContainText('the team says');
-    await openMenuOn(page, 'a error');
-    await menu(page).getByRole('menuitem', { name: 'Turn off this rule' }).click();
+    spelling = await openSpelling(page, 'a error');
+    await spelling.getByRole('menuitem', { name: 'Turn off this rule' }).click();
     await expect(issues(page, 'a error')).toHaveCount(0);
   });
 
@@ -128,5 +136,27 @@ test.describe('proofing', () => {
       .click();
     await expect(issues(page, 'recieve')).toHaveCount(0);
     await expect(issue(page, 'operation')).toBeAttached();
+  });
+
+  test('DOCE-PROOFING-3.2 offers no Spelling submenu on clean text', async ({ lab, page }) => {
+    await lab.open('document-editor');
+    await expect(issues(page, 'recieve')).toHaveCount(1);
+    const clean = content(page).locator('p', { hasText: 'proofer suggests' }).first();
+    await clean.scrollIntoViewIfNeeded();
+    // The middle of the paragraph's first word, which no issue marks.
+    const box = await clean.evaluate((paragraph) => {
+      const walker = paragraph.ownerDocument.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+      const first = walker.nextNode();
+      const range = paragraph.ownerDocument.createRange();
+      range.setStart(first ?? paragraph, 0);
+      range.setEnd(first ?? paragraph, Math.min(5, first?.textContent?.length ?? 0));
+      const { x, y, width, height } = range.getBoundingClientRect();
+      return { x, y, width, height };
+    });
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await expect(menu(page)).toBeVisible();
+    await expect(menu(page).getByRole('menuitem', { name: 'Spelling', exact: true })).toHaveCount(
+      0,
+    );
   });
 });

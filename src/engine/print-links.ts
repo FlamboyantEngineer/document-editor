@@ -1,7 +1,8 @@
 // The links a printed snapshot keeps: an anchor on each element with an element id, internal
 // references linking to their targets and citations of other documents to where the host says,
-// footnote markers linking to their entries and each entry's number back to its marker, and the
-// numbers the stylesheet's counters print, written on their elements as static text.
+// footnote markers linking to their entries and each entry's number back to its marker,
+// abbreviations linking to their list rows, and the numbers the stylesheet's counters print,
+// written on their elements as static text.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { catalogDocument, ELEMENT_KINDS, type TemplateFile } from '../model/index.js';
@@ -16,10 +17,14 @@ import {
 export const PRINT_LINK_ATTRIBUTE = 'data-print-link';
 
 /**
- * What a printed link links: a reference's target, a footnote's entry or back to its marker, or a
- * list of contents entry's element.
+ * What a printed link links: a reference's target, a footnote's entry or back to its marker, a
+ * list of contents entry's element, or an abbreviation's row in a list of abbreviations.
  */
-type PrintLinkKind = 'reference' | 'citation' | 'footnote' | 'footnote-back' | 'contents';
+type PrintLinkKind =
+  'reference' | 'citation' | 'footnote' | 'footnote-back' | 'contents' | 'abbreviation';
+
+/** The link inside each abbreviation, which goes to its row in a list of abbreviations. */
+const ABBREVIATION_LINK = 'span[data-abbreviation-ref] > a[href^="#"]';
 
 // Wraps an element's content in a link, which a snapshot's print rules leave styled as the text.
 function linkContent(element: Element, href: string, kind: PrintLinkKind) {
@@ -76,6 +81,18 @@ function linkContents(copy: Element, taken: ReadonlySet<string>) {
   }
 }
 
+// Marks each abbreviation's link to a row the snapshot holds as a printed link; one whose list is
+// not in the snapshot gives way to its text. Its abbreviation keeps its expansion
+// (`data-abbr`, `data-expansion`) and the link its tooltip (`data-abbr-tooltip`).
+function linkAbbreviations(copy: Element) {
+  const ids = new Set([...copy.querySelectorAll('[id]')].map((element) => element.id));
+  for (const link of copy.querySelectorAll(ABBREVIATION_LINK)) {
+    if (ids.has((link.getAttribute('href') ?? '').slice(1)))
+      link.setAttribute(PRINT_LINK_ATTRIBUTE, 'abbreviation');
+    else link.replaceWith(...link.childNodes);
+  }
+}
+
 /** The number the template gives each numbered heading and object, by its element id. */
 export function elementNumbers(
   doc: ProseMirrorNode,
@@ -104,8 +121,9 @@ interface PrintLinkOptions {
  * Adds a snapshot's links to a copy of the pages' markup: an anchor, the element id, on the first
  * element carrying each element id, links from internal references to their targets and from
  * citations to the host's address, footnote markers and entries linked both ways, and each
- * numbered element's number in `data-number` beside its anchor, and each list of contents row
- * linked to the element it names.
+ * numbered element's number in `data-number` beside its anchor, each list of contents row
+ * linked to the element it names, and each abbreviation linked to its row in a list of
+ * abbreviations.
  */
 export function addPrintLinks(copy: Element, { numbers, href }: PrintLinkOptions): void {
   const taken = new Set<string>();
@@ -119,4 +137,5 @@ export function addPrintLinks(copy: Element, { numbers, href }: PrintLinkOptions
   linkReferences(copy, href);
   linkFootnotes(copy, taken);
   linkContents(copy, taken);
+  linkAbbreviations(copy);
 }
