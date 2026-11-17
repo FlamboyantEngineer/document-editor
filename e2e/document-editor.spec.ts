@@ -655,7 +655,9 @@ test.describe('document editor lab', () => {
   }) => {
     await lab.open('document-editor');
     const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
-    await expect(toolbar.locator('[data-group="marks"] [data-item="code"]')).toHaveCount(0);
+    await expect(toolbar.locator('[data-group="marks"] [data-item="strikethrough"]')).toHaveCount(
+      0,
+    );
     await expect(toolbar.locator('[data-group="marks"] [data-item="bold"]')).toHaveCount(1);
     const saved = page.locator('.de-document-editor__toolbar-end');
     await expect(saved).toHaveText('Saved');
@@ -672,7 +674,7 @@ test.describe('document editor lab', () => {
     await expect(heading(page, 'Timing')).toContainText(/Timing \d{4}-\d{2}-\d{2}/);
     await expect(saved).toHaveText('Edited');
     await page.getByLabel('Host items').uncheck();
-    await expect(toolbar.locator('[data-item="code"]')).toHaveCount(1);
+    await expect(toolbar.locator('[data-item="strikethrough"]')).toHaveCount(1);
     await expect(toolbar.locator('[data-item="insert-date"]')).toHaveCount(0);
     await expect(saved).toHaveCount(0);
   });

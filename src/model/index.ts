@@ -18,7 +18,7 @@ export {
 export { scaleColumns } from './layout/column-widths.js';
 export * from './layout/layout-sections.js';
 export { fitStoredTables } from './layout/stored-table-widths.js';
-export { parseCodeLines, sliceCodeLines } from './linked-code.js';
+export { codeLanguageOfUrl, parseCodeLines, sliceCodeLines } from './linked-code.js';
 export type { CaptionPlacement } from './numbering/caption-placement.js';
 export {
   buildCaptionPlacementVariables,

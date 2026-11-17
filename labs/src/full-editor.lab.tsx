@@ -106,6 +106,11 @@ const CODE = {
     '  return elapsed / PERIOD;',
     '}',
   ].join('\n'),
+  // A whole file, longer than the dialog's preview shows at once.
+  'https://example.com/firmware/schedule.ts': Array.from(
+    { length: 120 },
+    (_, index) => `export const slot${String(index + 1)} = ${String(index * 15)}; // minutes`,
+  ).join('\n'),
 };
 
 // The glossary abbreviations cite.

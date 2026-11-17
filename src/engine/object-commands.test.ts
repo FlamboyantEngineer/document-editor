@@ -88,15 +88,41 @@ describe('object commands', () => {
     expect(outline(state)).toEqual(['paragraph:Text', 'code_block:']);
   });
 
-  it('DOCE-OBJECTS-1.1 takes the whole text of the blocks a selection only partly covers', () => {
+  it('DOCE-OBJECTS-1.1 takes exactly the text selected, leaving the rest of its blocks around it', () => {
     let state = stateOf(paragraph('Keep this. let a = 1;'), paragraph('let b = 2; keep that.'));
     const from = find(state, 'let a');
     const to = find(state, 'let b') + 'let b = 2;'.length;
     state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
     state = run(state, insertCodeBlock());
-    expect(outline(state)).toEqual(['code_block:Keep this. let a = 1;\nlet b = 2; keep that.']);
+    expect(outline(state)).toEqual([
+      'paragraph:Keep this. ',
+      'code_block:let a = 1;\nlet b = 2;',
+      'paragraph: keep that.',
+    ]);
     // The caret ends after the code, where the writer goes on typing.
-    expect(state.selection.$from.parentOffset).toBe(state.selection.$from.parent.content.size);
+    const { $from } = state.selection;
+    expect($from.parent.type.name).toBe('code_block');
+    expect($from.parentOffset).toBe($from.parent.content.size);
+    state = run(state, (current, dispatch) => {
+      dispatch?.(current.tr.insertText('!'));
+      return true;
+    });
+    expect(outline(state)[1]).toBe('code_block:let a = 1;\nlet b = 2;!');
+    expect(outline(state)[2]).toBe('paragraph: keep that.');
+  });
+
+  it('DOCE-OBJECTS-1.1 inserts an empty code block at a caret before a figure, the caret in it', () => {
+    const figure: StoredNode = { type: 'figure', attrs: { src: 'https://example.com/a.png' } };
+    let state = stateOf(paragraph('Before'), figure);
+    const end = find(state, 'Before') + 'Before'.length;
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, end)));
+    state = run(state, insertCodeBlock());
+    expect(outline(state)).toEqual(['paragraph:Before', 'code_block:', 'figure:']);
+    state = run(state, (current, dispatch) => {
+      dispatch?.(current.tr.insertText('x = 1'));
+      return true;
+    });
+    expect(outline(state)).toEqual(['paragraph:Before', 'code_block:x = 1', 'figure:']);
   });
 
   it('DOCE-OBJECTS-1.2 inserts linked code and reads the lines a URL names', () => {

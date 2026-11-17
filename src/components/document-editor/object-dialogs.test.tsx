@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
 import { useState } from 'react';
@@ -10,6 +10,7 @@ import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { EditorModal, type HostDialogProps } from './dialog-parts.js';
 import { DocumentEditor } from './document-editor.js';
 import { useDocumentEditor } from './editor-context.js';
+import type { DocumentEditorLabels } from './editor-labels.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
 
@@ -51,11 +52,20 @@ function OpenDetails() {
       <button type="button" onClick={() => editor?.openDialog({ kind: 'figure' })}>
         Open figure
       </button>
+      <button type="button" onClick={() => editor?.openDialog({ kind: 'math', display: true })}>
+        Open math
+      </button>
     </>
   );
 }
 
-function Harness({ editable }: { editable: boolean }) {
+function Harness({
+  editable,
+  labels,
+}: {
+  editable: boolean;
+  labels?: Partial<DocumentEditorLabels>;
+}) {
   const [state, setState] = useState(initial);
   return (
     <DocumentEditor
@@ -65,6 +75,7 @@ function Harness({ editable }: { editable: boolean }) {
       layout="web"
       editable={editable}
       dialogs={DIALOGS}
+      labels={labels}
       aria-label="Report"
     >
       <OpenDetails />
@@ -113,5 +124,50 @@ describe('the dialog the editor shows', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Figure' })).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Report' })).toHaveFocus();
+  });
+
+  it('DOCE-EDITOR-4.5 shows a cheat sheet of common math and a link to the full reference under the preview', async () => {
+    const user = userEvent.setup();
+    render(<Harness editable />);
+    await user.click(screen.getByRole('button', { name: 'Open math' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Display math' });
+    const sheet = within(dialog).getByRole('region', { name: 'Common math' });
+    expect(within(sheet).getByText('Fraction')).toBeInTheDocument();
+    expect(within(sheet).getByText('\\frac{a}{b}')).toBeInTheDocument();
+    expect(within(sheet).getByRole('link', { name: /^Full LaTeX math reference/ })).toHaveAttribute(
+      'href',
+      'https://en.wikibooks.org/wiki/LaTeX/Mathematics',
+    );
+    // The preview says invalid math is invalid, with its reason, and recovers once it is fixed.
+    await user.type(within(dialog).getByRole('textbox', { name: 'LaTeX' }), '\\frac{{a}');
+    expect(await within(dialog).findByText('Invalid math')).toBeInTheDocument();
+    await user.type(within(dialog).getByRole('textbox', { name: 'LaTeX' }), '{{}{{b}');
+    await waitFor(() => expect(within(dialog).queryByText('Invalid math')).not.toBeInTheDocument());
+    // Closed and opened again, the dialog starts afresh.
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Open math' }));
+    const again = await screen.findByRole('dialog', { name: 'Display math' });
+    expect(within(again).getByRole('textbox', { name: 'LaTeX' })).toHaveValue('');
+  });
+
+  it("DOCE-EDITOR-4.5 shows the host's words for the math cheat sheet and its link", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        editable
+        labels={{
+          mathCheatSheet: 'Cheat sheet',
+          mathReference: 'LaTeX documentation',
+          mathReferenceHref: 'https://example.com/latex',
+        }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Open math' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Display math' });
+    const sheet = within(dialog).getByRole('region', { name: 'Cheat sheet' });
+    expect(within(sheet).getByRole('link', { name: /^LaTeX documentation/ })).toHaveAttribute(
+      'href',
+      'https://example.com/latex',
+    );
   });
 });

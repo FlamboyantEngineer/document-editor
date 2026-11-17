@@ -731,6 +731,32 @@ div.de-host-view {
   font-family: var(--doc-paragraph-font-family, inherit);
 }
 
+/* A rule parts a code caption from its code: under the caption above it, over one below it. */
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
+  /* The caption's order is -1 above the code and 1 below it. */
+  --doc-code-caption-rule-below: calc((1 - var(--doc-code-caption-order, -1)) / 2);
+  --doc-code-caption-rule-above: calc((1 + var(--doc-code-caption-order, -1)) / 2);
+  padding-block: calc(var(--doc-code-caption-rule-above) * 4px)
+    calc(var(--doc-code-caption-rule-below) * 4px);
+  margin-block: calc(var(--doc-code-caption-rule-above) * 4px)
+    calc(var(--doc-code-caption-rule-below) * 4px);
+  border-color: var(--doc-code-caption-rule-color, currentColor);
+  border-style: solid none;
+  border-width: calc(var(--doc-code-caption-rule-above) * 1px) 0
+    calc(var(--doc-code-caption-rule-below) * 1px);
+}
+
+/* Inline code: the template's code font on its code background, padded. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content :not(pre) > code {
+  padding: 0 3px;
+  border-radius: 2px;
+  background: var(--doc-code-background);
+  color: var(--doc-code-color, inherit);
+  font-family: var(--doc-code-font-family, monospace);
+  font-size: var(--doc-code-font-size, inherit);
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
   content: var(--doc-table-counter-content, 'Table ' counter(table)) ' - ';
 }
@@ -897,7 +923,7 @@ div.de-host-view {
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
-  pre[data-code-block-continued='true']
+  :is(pre[data-code-block-continued='true'], [data-code-block-continued='true'] > pre)
   .doc-caption-continued::after {
   content: var(--doc-code-caption-continued, '');
 }
@@ -1444,7 +1470,7 @@ a.de-contents__entry {
   pointer-events: none;
 }
 
-/* Display math stands centred on its own line; math that does not typeset shows its source. */
+/* Display math stands centred on its own line, with no background of its own. */
 .de-math[data-display='display'] {
   display: block;
   margin: 6px 0;
@@ -1471,32 +1497,55 @@ a.de-contents__entry {
 
 .de-math[data-state='invalid'] {
   color: #b91c1c;
-  font-family: monospace;
 }
 
-/* Code with line numbers: the numbers in a gutter beside the lines, which do not wrap. */
+/* Math under the pointer, inline or a block, takes the selection's highlight. */
+.de-document-editor .de-math:hover {
+  background: var(--doc-math-hover-background, color-mix(in srgb, #2563eb 18%, transparent));
+}
+
+/* Code with line numbers: the gutter takes no room of its own and lies over the code's left padding,
+   as wide as the code. Each of its lines holds the line's number, then a hidden copy of the line's
+   text that wraps as the code does, so a wrapped line's later rows keep a blank gutter. The
+   gutter is three digits wide and 6px more, or wider for a higher number. */
 :where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 8px;
+  --de-code-gutter-width: calc(var(--de-code-gutter-digits, 3) * 1ch + 6px);
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  pre:has(> .de-code-gutter)
-  > .doc-caption-line {
-  grid-column: 1 / -1;
+:where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) > code,
+.de-code-gutter__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 :where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) > code {
-  white-space: pre;
-  overflow-x: auto;
+  padding-left: calc(var(--de-code-gutter-width) + 8px);
 }
 
 .de-code-gutter {
+  flex: 0 0 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+}
+
+.de-code-gutter__line {
+  display: flex;
+  column-gap: 8px;
+}
+
+.de-code-gutter__number {
+  flex: none;
+  width: var(--de-code-gutter-width);
   color: #94a3b8;
   text-align: right;
-  white-space: pre;
-  user-select: none;
+}
+
+.de-code-gutter__text {
+  flex: 1;
+  min-width: 0;
+  visibility: hidden;
 }
 
 /* Highlighted code: each token kind in its colour, on linked code's token elements and in the

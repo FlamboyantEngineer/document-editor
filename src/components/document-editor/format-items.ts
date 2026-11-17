@@ -47,7 +47,7 @@ const LISTS = [
 ] as const;
 
 // Whether a mark holds over the whole selection, or is one the caret types with.
-function isMarkActive(state: EditorState, type: MarkType): boolean {
+export function isMarkActive(state: EditorState, type: MarkType): boolean {
   const { empty, from, to, $from } = state.selection;
   if (empty) return Boolean(type.isInSet(state.storedMarks ?? $from.marks()));
   return state.doc.rangeHasMark(from, to, type);

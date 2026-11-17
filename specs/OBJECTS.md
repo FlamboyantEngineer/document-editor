@@ -6,17 +6,17 @@ Inserting and changing the document's objects: code blocks and linked code, inli
 
 ### DOCE-OBJECTS-1.1 - Code blocks
 
-`insertCodeBlock(language)` shall turn the text blocks the selection covers, even in part, into one code block holding their whole text, line by line, or insert an empty code block where a new block goes, with the caret in it; Mod-Alt-C inserts one. `setCodeLanguage(language)` sets the language of the code block or linked code holding, or selected at, the selection.
+`insertCodeBlock(language)` shall put a code block holding exactly the text selected, line by line, in its place, leaving the rest of the blocks it came from before and after it, or insert an empty code block where a new block goes; the caret ends inside the block at the end of its text, so the next key edits the code and never the block after it. Mod-Alt-C inserts one. `setCodeLanguage(language)` sets the language of the code block or linked code holding, or selected at, the selection.
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.2 - Linked code
 
-`setLinkedCode({ url, code, language, startLine })` shall insert linked code where a new block goes, selected, or change the linked code selected. `parseCodeLines(url)` reads the lines a URL's fragment names, such as `#L10-L20` or `#L7`. Typing while linked code, or any other block object, is selected leaves it, so a stray key never replaces it; the object views, which the editing plugins install, keep the writer's typed text from replacing a selected node unless its type replaces on typing: as its node spec's `replaceOnType` says, or else for inline nodes, such as inline math, only.
+`setLinkedCode({ url, code, language, startLine })` shall insert linked code where a new block goes, selected, or change the linked code selected. `parseCodeLines(url)` reads the lines a URL's fragment names, such as `#L10-L20` or `#L7`. `codeLanguageOfUrl(url)` reads a language from the URL's file extension, such as `typescript` for `.ts`, which linked code takes when the host's code source names none. Typing while linked code, or any other block object, is selected leaves it, so a stray key never replaces it; the object views, which the editing plugins install, keep the writer's typed text from replacing a selected node unless its type replaces on typing: as its node spec's `replaceOnType` says, or else for inline nodes, such as inline math, only.
 
 Implementation: `src/engine/object-commands.ts`, `src/model/linked-code.ts`, `src/engine/object-views.ts`
-Verification: `src/engine/object-commands.test.ts`, `src/engine/object-views.test.ts`
+Verification: `src/engine/object-commands.test.ts`, `src/engine/object-views.test.ts`, `src/model/linked-code.test.ts`
 
 ### DOCE-OBJECTS-1.3 - Math
 
@@ -50,10 +50,10 @@ Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.7 - Typeset math
 
-`createMathViews({ render })`, which the editing plugins install, shall draw each inline and display math node (`de-math`, with `data-display`) as its typeset MathML, through the base library's KaTeX renderer by default, in every view, the pages' measuring view too: the LaTeX source shows while it typesets (`data-state="pending"`), the MathML once it has (`ready`), built by the base library's `renderMathElement`, which keeps only MathML's own elements and attributes, and the source, with the renderer's reason, when it does not typeset (`invalid`). A math node or an image whose size changes once drawn has the pages measured again (`de-remeasure`).
+`createMathViews({ render })`, which the editing plugins install, shall draw each inline and display math node (`de-math`, with `data-display`) as its typeset MathML, through the base library's KaTeX renderer by default, in every view, the pages' measuring view too: the LaTeX source shows while it typesets (`data-state="pending"`), the MathML once it has (`ready`), built by the base library's `renderMathElement`, which keeps only MathML's own elements and attributes, and, when it does not typeset (`invalid`), a fixed text saying so in place of the math, `invalid` given to `createMathViews` or `invalidMath` to the editing plugins (`DEFAULT_INVALID_MATH_TEXT` by default, one for inline math and one for a block), with the renderer's reason as its title; the writer corrects it in place or in the math dialog. A math node or an image whose size changes once drawn has the pages measured again (`de-remeasure`).
 
 Implementation: `src/engine/math-views.ts`, `src/pagination/layout-triggers.ts`, `src/utils/remeasure.ts`
-Verification: `e2e/objects.spec.ts`
+Verification: `src/engine/math-views.test.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-OBJECTS-1.8 - Math as it is typed
 
@@ -117,10 +117,10 @@ Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`, `e2e/s
 
 ### DOCE-OBJECTS-3.1 - Line numbers
 
-`createObjectViews({ lineNumbers })`, which the editing plugins install, shall draw a gutter of line numbers (`de-code-gutter`) before the code of linked code (the default), all code (`all`) or none (`none`), numbered from the code's first line (`startLine`, or a continued block's `codeLineStart`) and kept in step with its text, in every view; `lineNumbers(code, first)` gives them.
+`createObjectViews({ lineNumbers })`, which the editing plugins install with their own `lineNumbers` option, shall draw a gutter of line numbers (`de-code-gutter`) before the code of all code (`all`, the default), linked code only (`linked`) or none (`none`), numbered from the code's first line (`startLine`, or a continued block's `codeLineStart`) and kept in step with its text in the same update, in every view, filled as the view is built; `lineNumbers(code, first)` gives them. Each line of code has a line in the gutter (`de-code-gutter__line`, with `data-line-number`) holding its number (`de-code-gutter__number`) and a hidden copy of its text (`de-code-gutter__text`), so a stylesheet that lays the gutter over the code, as wide as it, wraps each copy as the code wraps: a wrapped line shows its number on its first row and blank gutter rows after it, with no measuring. The code keeps one `code` element holding its text alone. The gutter publishes the digits of its highest number, at least three, on the code's `pre` as `--de-code-gutter-digits`. The reference stylesheet wraps numbered code, so it never loses text on paper, and sizes the gutter at three digits and 6px, or more for a higher number.
 
-Implementation: `src/engine/object-views.ts`
-Verification: `e2e/objects.spec.ts`
+Implementation: `src/engine/object-views.ts`, `src/engine/document-editing.ts`, `labs/reference/document.css`
+Verification: `src/engine/object-views.test.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-OBJECTS-3.2 - Signatures
 
@@ -135,6 +135,13 @@ The object views shall highlight the text of each code block and the code of lin
 
 Implementation: `src/engine/code-highlighting.ts`, `src/engine/object-views.ts`
 Verification: `src/engine/code-highlighting.test.ts`, `e2e/objects.spec.ts`
+
+### DOCE-OBJECTS-3.4 - Pressing beside code
+
+The object views shall put the caret at the code position nearest to a press on a code block's padding, gutter or caption line, never in the caption or beside the block, and a drag that starts there shall select the code from that position to the pointer, as a press in the text would. A double press on the caption line still edits the caption (DOCE-OBJECTS-2.3), and linked code, which takes no caret, is left to the editor's selection of it.
+
+Implementation: `src/engine/object-views.ts`
+Verification: `e2e/objects.spec.ts`
 
 ## DOCE-OBJECTS-4 - Script blocks
 
@@ -196,15 +203,20 @@ Verification: `src/components/document-editor/script-panes.test.tsx`
 
 ## Hooks
 
-| Hook                 | Kind      | Values                                                                                       | Description                                                                                                      |
-| -------------------- | --------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `de-math`            | root      |                                                                                              | A math node, typeset.                                                                                            |
-| `data-display`       | attribute | `inline`, `display`                                                                          | On math: inline or a block.                                                                                      |
-| `data-state`         | state     | `pending`, `ready`, `invalid`                                                                | On math: whether it is typeset yet.                                                                              |
-| `de-code-gutter`     | root      |                                                                                              | The line numbers beside code.                                                                                    |
-| `de-code-token`      | root      |                                                                                              | A token of highlighted linked code; a code block's tokens are painted with the highlight `de-code-<kind>` (3.3). |
-| `data-token`         | attribute | `keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link`, `invalid` | On a code token: its kind.                                                                                       |
-| `de-signature`       | root      |                                                                                              | A signature.                                                                                                     |
-| `de-signature__name` | slot      |                                                                                              | The signer's name.                                                                                               |
-| `data-signed`        | state     | `true`, `false`                                                                              | On a signature: whether it holds strokes.                                                                        |
-| `data-script-state`  | state     | `running`, `error`, `stale`, `empty`                                                         | On a script block: its last run.                                                                                 |
+| Hook                      | Kind      | Values                                                                                       | Description                                                                                                      |
+| ------------------------- | --------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `de-math`                 | root      |                                                                                              | A math node, typeset.                                                                                            |
+| `data-display`            | attribute | `inline`, `display`                                                                          | On math: inline or a block.                                                                                      |
+| `data-state`              | state     | `pending`, `ready`, `invalid`                                                                | On math: whether it is typeset yet.                                                                              |
+| `de-code-gutter`          | root      |                                                                                              | The line numbers beside code.                                                                                    |
+| `de-code-gutter__line`    | slot      |                                                                                              | A line of the gutter: its number, then a hidden copy of the line's text.                                         |
+| `de-code-gutter__number`  | slot      |                                                                                              | A line's number.                                                                                                 |
+| `de-code-gutter__text`    | slot      |                                                                                              | The hidden copy of a line's text, which wraps as the code does.                                                  |
+| `data-line-number`        | attribute | a number                                                                                     | On a gutter line: its number.                                                                                    |
+| `--de-code-gutter-digits` | property  | a number                                                                                     | On numbered code's `pre`: the digits of its highest line number, at least three.                                 |
+| `de-code-token`           | root      |                                                                                              | A token of highlighted linked code; a code block's tokens are painted with the highlight `de-code-<kind>` (3.3). |
+| `data-token`              | attribute | `keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link`, `invalid` | On a code token: its kind.                                                                                       |
+| `de-signature`            | root      |                                                                                              | A signature.                                                                                                     |
+| `de-signature__name`      | slot      |                                                                                              | The signer's name.                                                                                               |
+| `data-signed`             | state     | `true`, `false`                                                                              | On a signature: whether it holds strokes.                                                                        |
+| `data-script-state`       | state     | `running`, `error`, `stale`, `empty`                                                         | On a script block: its last run.                                                                                 |

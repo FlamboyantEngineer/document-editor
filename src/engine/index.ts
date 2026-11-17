@@ -47,6 +47,7 @@ export { setTextblockType } from './block-type.js';
 export { CAPTION_HOST_TYPES, commitCaptionDraft } from './caption-hosts.js';
 export type { CaptionedObject } from './captions.js';
 export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
+export { codeTokenizerOf } from './code-highlighting.js';
 export { activeCommentThread, commentAnchors, createCommentAnchors } from './comment-anchors.js';
 export type { CommentDraft } from './comment-draft.js';
 export {
@@ -205,8 +206,8 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
-export type { MathViewsOptions } from './math-views.js';
-export { createMathViews } from './math-views.js';
+export type { InvalidMathText, MathViewsOptions } from './math-views.js';
+export { createMathViews, DEFAULT_INVALID_MATH_TEXT } from './math-views.js';
 export { cancelMathEditing, commitMathEditing, mathEditingAt } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
 export {

@@ -5,6 +5,7 @@
 import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { safeHref } from '../model/schema/dom-attributes.js';
+import { placeBlockAt } from './block-place.js';
 import { laidOutColumnWidths, writeColumnWidths } from './table-resize.js';
 import { newBlockRange } from './tables.js';
 
@@ -38,21 +39,22 @@ function selectedBlocks(state: EditorState) {
 }
 
 /**
- * Inserts a code block: in place of the text blocks the selection covers, whose text it takes in,
- * line by line, or empty where a new block goes, with the caret in it.
+ * Inserts a code block: holding exactly the text selected, line by line, which leaves the text it
+ * came from, or empty where a new block goes, with the caret at the end of its text.
  */
 export function insertCodeBlock(language = 'plaintext'): Command {
   return (state, dispatch) => {
     const type = state.schema.nodes.code_block;
     if (!type) return false;
-    const blocks = selectedBlocks(state);
-    if (!blocks) return insertBlock(type.create({ language }))(state, dispatch);
+    if (!selectedBlocks(state)) return insertBlock(type.create({ language }))(state, dispatch);
+    const { from, to } = state.selection;
+    const text = state.doc.textBetween(from, to, '\n', ' ');
+    const node = type.create({ language }, text ? state.schema.text(text) : null);
+    const tr = state.tr.delete(from, to);
+    const at = placeBlockAt(tr, tr.mapping.map(from), node);
+    if (at === null) return false;
     if (dispatch) {
-      // The blocks go whole, so the code takes all their text, not only what is selected of it.
-      const text = state.doc.textBetween(blocks.from, blocks.to, '\n', ' ');
-      const node = type.create({ language }, text ? state.schema.text(text) : null);
-      const tr = state.tr.replaceWith(blocks.from, blocks.to, node);
-      tr.setSelection(TextSelection.create(tr.doc, blocks.from + 1 + text.length));
+      tr.setSelection(TextSelection.create(tr.doc, at + 1 + text.length));
       dispatch(tr.scrollIntoView());
     }
     return true;

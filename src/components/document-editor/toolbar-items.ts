@@ -69,16 +69,7 @@ export interface ToolbarGroup {
 export const TOOLBAR_GROUPS = {
   history: ['undo', 'redo'],
   'block-style': ['block-style'],
-  marks: [
-    'bold',
-    'italic',
-    'underline',
-    'strikethrough',
-    'code',
-    'superscript',
-    'subscript',
-    'link',
-  ],
+  marks: ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'link'],
   lists: ['bullet-list', 'numbered-list', 'checklist'],
   insert: [
     'insert-table',

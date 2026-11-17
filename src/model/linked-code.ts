@@ -24,3 +24,41 @@ export function sliceCodeLines(source: string, url: string): { code: string; sta
     startLine: lines.from,
   };
 }
+
+// The language of each file extension linked code is commonly read from.
+const EXTENSION_LANGUAGES: Readonly<Record<string, string>> = {
+  ts: 'typescript',
+  tsx: 'typescript',
+  mts: 'typescript',
+  js: 'javascript',
+  jsx: 'javascript',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  py: 'python',
+  java: 'java',
+  c: 'c',
+  h: 'c',
+  cpp: 'cpp',
+  cc: 'cpp',
+  cxx: 'cpp',
+  hpp: 'cpp',
+  html: 'html',
+  htm: 'html',
+  css: 'css',
+  json: 'json',
+  xml: 'xml',
+  sql: 'sql',
+  yml: 'yaml',
+  yaml: 'yaml',
+  sh: 'shell',
+  md: 'markdown',
+};
+
+/** The language a URL's file extension names, such as `typescript` for `.ts`; null for none. */
+export function codeLanguageOfUrl(url: string): string | null {
+  const path = url.trim().replace(/[?#].*$/, '');
+  const name = path.slice(path.lastIndexOf('/') + 1);
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0) return null;
+  return EXTENSION_LANGUAGES[name.slice(dot + 1).toLowerCase()] ?? null;
+}

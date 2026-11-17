@@ -12,7 +12,7 @@ import {
 } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type EditorState, NodeSelection } from 'prosemirror-state';
+import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
   captionedAt,
@@ -41,21 +41,16 @@ import { commandEntry } from './table-actions.js';
 /** The languages a code block's language menu offers by default. */
 export const CODE_LANGUAGES: readonly string[] = [
   'plaintext',
-  'typescript',
   'javascript',
   'python',
   'java',
   'c',
   'cpp',
-  'csharp',
-  'go',
-  'rust',
+  'html',
+  'css',
   'json',
   'xml',
-  'yaml',
   'sql',
-  'shell',
-  'markdown',
 ];
 
 /** What the element entries may offer. */
@@ -149,13 +144,61 @@ function codeEntries(view: EditorView, options: ElementEntriesOptions): MenuEntr
       items: languages.map((language) => ({
         ...commandEntry(
           view,
-          { id: `language-${language}`, label: language },
+          { id: `language-${language}`, label: labels.codeLanguageNames[language] ?? language },
           setCodeLanguage(language),
         ),
         isSelected: language === current,
       })),
     },
     ...linked,
+  ];
+}
+
+// The run of inline code holding the selection, as one range; null outside inline code.
+function inlineCodeAt(state: EditorState): { from: number; to: number } | null {
+  const type = state.schema.marks.code;
+  const { $from, $to } = state.selection;
+  if (!type || $from.parent !== $to.parent || !$from.parent.isTextblock) return null;
+  if ($from.parent.type.spec.code) return null;
+  const parent = $from.parent;
+  const start = $from.start();
+  const ranges: { from: number; to: number }[] = [];
+  parent.forEach((child, offset) => {
+    if (!type.isInSet(child.marks)) return;
+    const last = ranges.at(-1);
+    const from = start + offset;
+    if (last && last.to === from) last.to = from + child.nodeSize;
+    else ranges.push({ from, to: from + child.nodeSize });
+  });
+  const inside = (pos: number, side: 'from' | 'to') =>
+    ranges.find((range) =>
+      side === 'from' ? pos >= range.from && pos < range.to : pos > range.from && pos <= range.to,
+    );
+  const at = state.selection.empty
+    ? (inside($from.pos, 'from') ?? inside($from.pos, 'to'))
+    : inside($from.pos, 'from');
+  return at && (state.selection.empty || $to.pos <= at.to) ? at : null;
+}
+
+// Deleting the inline code at the selection: the whole run of code text.
+function inlineCodeEntries(view: EditorView, { labels }: ElementEntriesOptions): MenuEntry[] {
+  const run = inlineCodeAt(view.state);
+  if (!run) return [];
+  const remove: Command = (state, dispatch) => {
+    dispatch?.(state.tr.delete(run.from, run.to).scrollIntoView());
+    return true;
+  };
+  return [
+    commandEntry(
+      view,
+      {
+        id: 'delete-inline-code',
+        label: labels.deleteInlineCode,
+        icon: DeleteGlyph,
+        tone: 'danger',
+      },
+      remove,
+    ),
   ];
 }
 
@@ -269,6 +312,7 @@ export function elementEntries(view: EditorView, options: ElementEntriesOptions)
     ...footnoteEntries(view, options),
     ...mathEntries(view, options),
     ...codeEntries(view, options),
+    ...inlineCodeEntries(view, options),
     ...figureEntries(view, options),
     ...contentsEntries(view, around(view.state, ['toc_block']), options.labels),
     ...captionEntries(view, options),

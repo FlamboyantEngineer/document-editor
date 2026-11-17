@@ -1,10 +1,7 @@
 // The keys of a document and the plugins that make it editable: the undo history, element ids,
 // table editing and the keymap, as one extension a document kit installs.
 
-import type {
-  RichTextExtension,
-  RichTextPluginContribution,
-} from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
 import {
   baseKeymap,
   chainCommands,
@@ -29,7 +26,7 @@ import {
 } from '../model/index.js';
 import { addParagraphNear, deleteEmptyParagraph } from './block-keys.js';
 import { BODY_EDGE_KEYS } from './body-edge.js';
-import { createChecklists, splitChecklistItem } from './checklists.js';
+import { splitChecklistItem } from './checklists.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentAnchors } from './comment-anchors.js';
 import { createCommentDraft } from './comment-draft.js';
@@ -41,12 +38,11 @@ import {
   splitBlockKeepingLevel,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
-import { createEmbeds } from './embeds.js';
 import { createFootnotes } from './footnotes.js';
-import { createMathViews } from './math-views.js';
-import { createObjectViews } from './object-views.js';
+import type { InvalidMathText } from './math-views.js';
+import { objectPlugins } from './object-plugins.js';
+import type { LineNumbers } from './object-views.js';
 import { createParagraphNumbering } from './paragraph-numbering.js';
-import { createScripts } from './scripts.js';
 import { boundKeys } from './shortcut-commands.js';
 import {
   createShortcuts,
@@ -95,6 +91,10 @@ export interface DocumentEditingOptions {
    * table, a figure or another block that is no paragraph. Defaults to false.
    */
   trailingParagraph?: boolean | undefined;
+  /** Which code shows line numbers: all of it (the default), linked code only, or none. */
+  lineNumbers?: LineNumbers | undefined;
+  /** What math that does not typeset shows, inline and as a block (`DEFAULT_INVALID_MATH_TEXT`). */
+  invalidMath?: InvalidMathText | undefined;
   /** Refuses local changes that take the body past this many words or characters. */
   limit?: ContentLimit | undefined;
   /**
@@ -235,15 +235,6 @@ const tableWidth = (template: () => TemplateFile) => ({
 const numbersInOrder = (template: (() => TemplateFile) | undefined) => () =>
   !template || resolveFootnoteSettings(template(), null).numbering !== 'page';
 
-// The object plugins, which take no options: math, object views, scripts and embeds.
-const OBJECT_PLUGINS: readonly RichTextPluginContribution[] = [
-  { name: 'math-views', priority: 500, build: () => [createMathViews()] },
-  { name: 'object-views', priority: 505, build: () => [createObjectViews()] },
-  { name: 'scripts', priority: 512, build: () => [createScripts()] },
-  { name: 'embeds', priority: 513, build: () => [createEmbeds()] },
-  { name: 'checklists', priority: 514, build: () => [createChecklists()] },
-];
-
 // Numbered paragraphs, when given the template, after the custom styles.
 const paragraphNumberingPlugin = (template: (() => TemplateFile) | undefined) => ({
   name: 'paragraph-numbering',
@@ -298,7 +289,7 @@ export function createDocumentEditingExtension<C = unknown>(
       { name: 'footnotes', priority: 490, build: () => [createFootnotes(footnotes)] },
       { name: 'comment-draft', priority: 495, build: () => [createCommentDraft()] },
       { name: 'comment-anchors', priority: 496, build: () => [createCommentAnchors()] },
-      ...OBJECT_PLUGINS,
+      ...objectPlugins(options),
       {
         name: 'clipboard',
         priority: 510,
