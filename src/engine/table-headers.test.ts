@@ -80,28 +80,44 @@ describe('header rows and columns', () => {
     expect(headersOf(state)).toEqual({ rows: 1, columns: 2 });
   });
 
-  it('DOCE-TABLES-3.8 makes a row a header with the rows before it, and plain with those after', () => {
+  it('DOCE-TABLES-3.8 makes exactly the rows chosen headers, and plain again when all of them are', () => {
     const doc = read(
       row(head('A1'), head('B1')),
       row(cell('A2'), cell('B2')),
       row(cell('A3'), cell('B3')),
     );
     let state = run(stateAt(doc, 'A3'), toggleHeaderLines('row'));
-    expect(kinds(state)).toEqual(['HH', 'HH', 'HH']);
+    expect(kinds(state)).toEqual(['HH', '--', 'HH']);
     state = run(stateAt(state.doc, 'B2'), toggleHeaderLines('row'));
-    expect(kinds(state)).toEqual(['HH', '--', '--']);
-    state = run(selectCells(state, 'A2', 'B3'), toggleHeaderLines('row'));
     expect(kinds(state)).toEqual(['HH', 'HH', 'HH']);
+    // Every column is of header cells only, so none keeps the row's cells.
     state = run(stateAt(state.doc, 'A1'), toggleHeaderLines('row'));
+    expect(kinds(state)).toEqual(['--', 'HH', 'HH']);
+    state = run(selectCells(state, 'A2', 'B3'), toggleHeaderLines('row'));
     expect(kinds(state)).toEqual(['--', '--', '--']);
+    state = run(selectCells(state, 'A1', 'B2'), toggleHeaderLines('row'));
+    expect(kinds(state)).toEqual(['HH', 'HH', '--']);
   });
 
-  it('DOCE-TABLES-3.8 keeps a header column when the header rows change', () => {
+  it('DOCE-TABLES-3.8 keeps a header cell where a row made plain crosses a header column', () => {
     let state = run(stateAt(headed(), 'B1'), toggleHeaderLines('row'));
     expect(kinds(state)).toEqual(['H--', 'H--']);
     state = run(stateAt(state.doc, 'B2'), toggleHeaderLines('column'));
     expect(kinds(state)).toEqual(['HH-', 'HH-']);
     state = run(stateAt(state.doc, 'A1'), toggleHeaderLines('column'));
-    expect(kinds(state)).toEqual(['---', '---']);
+    expect(kinds(state)).toEqual(['-H-', '-H-']);
+    state = run(stateAt(state.doc, 'C1'), toggleHeaderLines('column'));
+    expect(kinds(state)).toEqual(['-HH', '-HH']);
+  });
+
+  it('DOCE-TABLES-3.3 DOCE-TABLES-3.8 gives a row inserted beside a header row elsewhere header cells only across header columns', () => {
+    const doc = read(
+      row(cell('A1'), cell('B1')),
+      row(head('A2'), head('B2')),
+      row(head('A3'), cell('B3')),
+    );
+    const state = run(stateAt(doc, 'B2'), insertTableLines('row', 'after'));
+    expect(kinds(state)).toEqual(['--', 'HH', '--', 'H-']);
+    expect(headersOf(state)).toEqual({ rows: 0, columns: 0 });
   });
 });
