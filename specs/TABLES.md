@@ -101,10 +101,10 @@ Verification: `src/engine/table-format.test.ts`
 
 ### DOCE-TABLES-3.3 - Inserting as many as selected
 
-`insertTableLines(axis, side)` shall insert rows above or below the selection, or columns before or after it, as many as the selected cells span, one at the caret, keeping the headers leading (DOCE-TABLES-3.8): a row or column inserted before a header row or column is a header one, any other is not, and its cells in a header column or row are header cells. The context menu's and the grips' insert entries use it.
+`insertTableLines(axis, side)` shall insert rows above or below the selection, or columns before or after it, as many as the selected cells span, one at the caret, keeping the leading headers leading (DOCE-TABLES-3.8): a row or column inserted before a leading header row or column is a header one, any other is not, and its cells across a column or row of header cells only are header cells. The context menu's and the grips' insert entries use it.
 
-Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-format.test.ts`, `e2e/table-selection.spec.ts`
+Implementation: `src/engine/table-format.ts`, `src/engine/table-headers.ts`, `src/components/document-editor/table-actions.ts`
+Verification: `src/engine/table-format.test.ts`, `src/engine/table-headers.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.4 - Inserting a table from the keyboard
 
@@ -136,7 +136,7 @@ Verification: `src/model/layout/column-widths.test.ts`, `src/engine/table-format
 
 ### DOCE-TABLES-3.8 - Header rows and columns
 
-A table's header rows are its leading rows of header cells only, and its header columns its leading columns whose cells below the header rows are header cells. `toggleHeaderLines(axis)` shall make the rows (columns) the selection covers header rows, with every row before them, or, when the first of them is a header already, make it and every row after it plain, as one change on the whole table; a cell in a header row or a header column stays a header cell. The context menu's `Header` entries and the grips' header entries use it.
+Any row or column of a table may be one of header cells. `toggleHeaderLines(axis)` shall make every cell in the rows (columns) the selection covers a header cell, or, when every one of them is a header cell already, make them plain cells, keeping a header cell where it crosses a column (row) of header cells only, unless every column (row) is one, as in a table of header cells only; one change on the whole table. The table's header rows are its leading rows of header cells only, which a table split across pages repeats (DOCE-PAGINATION-4), and its header columns its leading columns whose cells below the header rows are header cells. The context menu's `Header` entries and the grips' header entries use it.
 
 Implementation: `src/engine/table-headers.ts`, `src/components/document-editor/table-actions.ts`
 Verification: `src/engine/table-headers.test.ts`, `e2e/table-selection.spec.ts`
