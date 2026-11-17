@@ -90,6 +90,16 @@ function healthOf(doc: ProseMirrorNode, answer: GlossaryAnswer): HealthState {
   return { answer, issues, decorations: DecorationSet.create(doc, decorations) };
 }
 
+/** Whether a state checks its abbreviations' glossary entries (`createAbbreviationHealth`). */
+export function hasAbbreviationHealth(state: EditorState): boolean {
+  return healthKey.getState(state) !== undefined;
+}
+
+/** The document's abbreviations whose glossary entry needs the writer, in document order. */
+export function listAbbreviationIssues(state: EditorState): readonly AbbreviationIssue[] {
+  return healthKey.getState(state)?.issues ?? [];
+}
+
 /** The issue of the abbreviation selected, or null. */
 export function abbreviationIssueAt(state: EditorState): AbbreviationIssueKind | null {
   const found = abbreviationAt(state);

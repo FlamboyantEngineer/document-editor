@@ -65,4 +65,9 @@ describe('snapshot allow-list', () => {
     expect(isAllowedAttribute('style', 'width: expression(run())')).toBe(false);
     expect(isAllowedAttribute('srcset', 'a.png 1x')).toBe(false);
   });
+
+  it('DOCE-EDITOR-6.23 leaves out the tooltips drawn for the screen', () => {
+    expect(isAllowedAttribute('title', 'Footnote 1')).toBe(false);
+    expect(isAllowedAttribute('data-abbr-tooltip', 'API: Programming interface')).toBe(true);
+  });
 });

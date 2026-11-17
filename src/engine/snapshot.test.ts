@@ -290,4 +290,14 @@ describe('documentSnapshot', () => {
     expect(root?.style.getPropertyValue('color')).toBe('rgb(1, 2, 3)');
     view.destroy();
   });
+
+  it('DOCE-EDITOR-6.33 prints a manual page break as its place only, and cells statically', () => {
+    const { view, template: sectioned } = sectionedView();
+    const { style } = parse(documentSnapshot(view, { template: sectioned }));
+    expect(style).toContain(
+      '[data-print="true"] :is(hr.manual-page-break, [data-page-break])::after { content: none !important; display: none !important; }',
+    );
+    expect(style).toContain('[data-print="true"] :is(td, th) { position: static !important; }');
+    view.destroy();
+  });
 });

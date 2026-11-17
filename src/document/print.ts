@@ -15,6 +15,7 @@ import {
 } from '../engine/print-allow-list.js';
 import type { ResolveImage } from '../engine/print-images.js';
 import { elementNumbers } from '../engine/print-links.js';
+import { PRINT_MARKER_RULES } from '../engine/print-view.js';
 import {
   createDocumentSchema,
   type DocumentFile,
@@ -109,6 +110,27 @@ function addLinks(
       if (number) link(number, `#${footnoteMarkerAnchor(footnote)}`, 'footnote-back');
     }
     if (element.tag === 'img') image(element, options.resolveImage);
+  }
+  linkAbbreviations(trees);
+}
+
+// Each abbreviation's link to a row the page holds, marked as a printed link; one whose list is
+// not on the page gives way to its text (DOCE-EDITOR-6.21).
+function linkAbbreviations(trees: PrintTree[]) {
+  const ids = new Set<string>();
+  for (const element of printElements(trees)) {
+    const id = element.attrs.get('id');
+    if (id) ids.add(id);
+  }
+  for (const element of printElements(trees)) {
+    if (!element.attrs.has('data-abbreviation-ref')) continue;
+    element.children = element.children.flatMap((child) => {
+      if (!isPrintElement(child) || child.tag !== 'a') return [child];
+      const target = (child.attrs.get('href') ?? '').replace(/^#/, '');
+      if (!ids.has(target)) return child.children;
+      child.attrs.set('data-print-link', 'abbreviation');
+      return [child];
+    });
   }
 }
 
@@ -223,6 +245,7 @@ export function renderPrintPage(
     '.de-static .pm-page { width: auto !important; height: auto !important; min-height: 0 !important;',
     ' padding: 0 !important; margin: 0 !important; overflow: visible !important; }',
     '.de-static .pm-section { break-before: page; } .de-static .pm-section:first-child { break-before: auto; }',
+    PRINT_MARKER_RULES,
     '</style>',
     links,
     styles,

@@ -178,7 +178,7 @@ export function contextGroups(
     : given;
   const objects = objectGroups(view, options);
   return [
-    { id: 'proofing', entries: proofingEntries(view, options) },
+    { id: 'proofing', entries: proofingEntries(view, target, options) },
     { id: 'suggestion', entries: suggestionEntries(view, options) },
     { id: 'clipboard', entries: clipboardEntries(view, options) },
     { id: 'editing', entries: editingEntries(view, options) },

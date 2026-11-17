@@ -3,6 +3,7 @@
 
 import type { SuggestionsMode } from '../left-out.js';
 import type { WriterValues } from '../writer-values.js';
+import type { CitedAbbreviation } from './abbreviations.js';
 
 export interface Writing {
   readonly suggestions: SuggestionsMode;
@@ -13,6 +14,8 @@ export interface Writing {
   readonly inTable?: boolean;
   /** Whether a heading is being written, which is one line. */
   readonly inHeading?: boolean;
+  /** The entries the document's abbreviations cite, for its lists of abbreviations. */
+  readonly abbreviations?: readonly CitedAbbreviation[];
 }
 
 /** A stored value as text: a string as it is, anything else as none. */

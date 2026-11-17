@@ -99,3 +99,15 @@ export function removeViewOnlyDecorations(copy: Element, view: EditorView): void
 export function isViewStateAttribute(name: string): boolean {
   return VIEW_STATE_ATTRIBUTES.has(name);
 }
+
+/**
+ * The print rules for what the editor draws only as a marker or for editing, which every printed
+ * page carries (DOCE-EDITOR-6.33): a manual page break keeps its place but draws no line or label,
+ * and table cells are positioned statically, so their backgrounds paint under collapsed borders.
+ */
+export const PRINT_MARKER_RULES = [
+  '[data-print="true"] :is(hr.manual-page-break, [data-page-break])::before,',
+  '[data-print="true"] :is(hr.manual-page-break, [data-page-break])::after',
+  '{ content: none !important; display: none !important; }',
+  '[data-print="true"] :is(td, th) { position: static !important; }',
+].join(' ');
