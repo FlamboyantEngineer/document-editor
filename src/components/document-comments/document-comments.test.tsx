@@ -377,6 +377,27 @@ describe('DocumentComments', () => {
     expect(await within(margin).findByText('(2 spaces)')).toBeInTheDocument();
   });
 
+  it('DOCE-COMMENTS-4.5 names a suggestion with the host’s words, whitespace included', async () => {
+    render(
+      <Harness
+        host={host()}
+        options={{
+          labels: {
+            insert: 'Added',
+            whitespace: (value) => (/^ +$/.test(value) ? 'space(s)' : value),
+          },
+        }}
+        content={[
+          ...PARAGRAPH.slice(0, 5),
+          text('  ', [{ type: 'insertion', attrs: { id: 's1', author: 'ada' } }]),
+        ]}
+      />,
+    );
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    expect(await within(margin).findByText('space(s)')).toBeInTheDocument();
+    expect(within(margin).getByText('Added')).toBeInTheDocument();
+  });
+
   it('DOCE-COMMENTS-2.19 records a decision once on the thread of the suggestion in the store', async () => {
     const user = userEvent.setup();
     const store = host();
