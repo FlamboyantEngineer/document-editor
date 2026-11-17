@@ -317,4 +317,64 @@ describe('TemplateWorkspace layout', () => {
     },
     SLOW,
   );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-3.15 lets a host put a view of its own beside the scope tabs, in place of the preview and properties',
+    async () => {
+      const user = userEvent.setup();
+      // A host's own view, such as a list of its fields, with its tab after the scope tabs.
+      function Host() {
+        const [isFields, setFields] = useState(false);
+        return (
+          <TemplateWorkspace
+            store={storeOf(LETTER)}
+            defaultTemplateId="letter"
+            renderPreview={() => <p>Pages</p>}
+            renderLayout={(parts) => (
+              <>
+                <header aria-label="Host band">
+                  {parts.tabs}
+                  <button
+                    type="button"
+                    aria-pressed={isFields}
+                    onClick={() => setFields(!isFields)}
+                  >
+                    Fields
+                  </button>
+                  {isFields ? null : parts.toolbar}
+                </header>
+                {parts.panel(
+                  isFields ? (
+                    <>
+                      <main aria-label="Host fields">Field list</main>
+                      <aside aria-label="Host properties">Field properties</aside>
+                    </>
+                  ) : (
+                    <>
+                      <main>{parts.preview}</main>
+                      <aside aria-label="Host properties">{parts.properties}</aside>
+                    </>
+                  ),
+                )}
+              </>
+            )}
+          />
+        );
+      }
+      render(<Host />);
+      await screen.findByRole('tab', { name: 'Document' }, LOADED);
+      expect(screen.getByText('Pages')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Fields' }));
+      expect(screen.getByRole('main', { name: 'Host fields' })).toHaveTextContent('Field list');
+      expect(screen.getByRole('complementary', { name: 'Host properties' })).toHaveTextContent(
+        'Field properties',
+      );
+      expect(screen.queryByText('Pages')).not.toBeInTheDocument();
+      // The scope tabs stay, and going back shows the template again.
+      expect(screen.getByRole('tab', { name: 'Document' })).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Fields' }));
+      expect(screen.getByText('Pages')).toBeInTheDocument();
+    },
+    SLOW,
+  );
 });

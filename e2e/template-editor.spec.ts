@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, type LabFixture, test } from './fixtures.js';
-import { openSections, sectionOf } from './template-settings-steps.js';
+import { openSection, openSections, sectionOf } from './template-settings-steps.js';
 
 const panel = (page: Page) =>
   page.getByRole('region', { name: 'Template settings' }).or(page.locator('.de-template-editor'));
@@ -141,6 +141,29 @@ test.describe('template editor lab', () => {
     await expect(headers.nth(1)).toContainText('Programme review');
     await page.getByLabel('Show as JSON').check();
     await expect(templateJson(page)).toContainText('Programme review');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-1.4 DOCE-FORMAT-6.3 edits the header as HTML in a dialog', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    const regionsSection = await openSection(panel(page).first(), 'Header & footer');
+    await regionsSection.getByRole('button', { name: 'Header HTML' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Header HTML' });
+    const field = dialog.getByRole('textbox', { name: 'HTML' });
+    // The lab's template takes the base template's empty header.
+    await expect(field).toHaveValue('');
+    await field.fill(
+      '<p onclick="window.hit = 1">Source review</p><script>window.hit = 1</script>',
+    );
+    await dialog.getByRole('button', { name: 'Apply' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(content(page).locator('.pm-page-header').first()).toHaveText('Source review');
+    expect(await page.evaluate(() => 'hit' in window)).toBe(false);
+    // Opened again, it shows the header's own content as the schema wrote it.
+    await regionsSection.getByRole('button', { name: 'Header HTML' }).click();
+    await expect(field).toHaveValue('<p>Source review</p>');
   });
 
   test('DOCE-TEMPLATE-EDITOR-1.6 DOCE-TEMPLATES-7.1 adds a custom style and applies it to a paragraph', async ({

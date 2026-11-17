@@ -6,7 +6,6 @@ import {
   type Annotation,
   AnnotationLayer,
   AnnotationMargin,
-  type AnnotationRect,
 } from '@flamboyantengineer/ui-components/annotation-layer';
 import type { CommentTextFormat } from '@flamboyantengineer/ui-components/comment-thread';
 import type { Key } from '@flamboyantengineer/ui-components/core';
@@ -14,15 +13,9 @@ import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useMemo, useState } from 'react';
 import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter, MentionsAdapter } from '../../host/index.js';
-import {
-  type AnchorTarget,
-  isSameMeasurement,
-  isSameOffsets,
-  measureLayer,
-} from './anchor-rects.js';
 import {
   type CommentActionTarget,
   DEFAULT_COMMENTS_LABELS,
@@ -34,13 +27,14 @@ import {
 import { useCommentControls } from './comment-controls.js';
 import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
 import { type OpenComment, type StartComment, useCommentFocus } from './comment-focus.js';
-import { caretKey, listCommentItems } from './comment-items.js';
+import { caretKey, type CommentItem, listCommentItems } from './comment-items.js';
 import { useCommentPointer } from './comment-pointer-controls.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import type { CommentPointer } from './document-pointer.js';
 import { MarginCard, useCardPolicy, useStableCallbacks } from './margin-card.js';
 import type { ReplyStart, ShownActivity } from './thread-card-hooks.js';
 import type { ThreadPermissionPolicy } from './thread-permissions.js';
+import { type MeasureOptions, useAnchorRects } from './use-anchor-rects.js';
 import { useCardContext } from './use-card-context.js';
 import {
   type CommentThreads,
@@ -200,64 +194,6 @@ function useCaretActive(caret: string | null, setActive: (key: Key) => void) {
   }
 }
 
-interface Measured {
-  /** Each anchor's rectangles. */
-  readonly rects: ReadonlyMap<string, readonly AnnotationRect[]>;
-  /** How far each card moves to sit beside its anchor's page. */
-  readonly offsets: ReadonlyMap<string, number>;
-}
-
-const NOTHING_MEASURED: Measured = { rects: new Map(), offsets: new Map() };
-
-// The anchors' rectangles and the cards' offsets, measured after each change of the document or
-// of the cards, and again when the layer resizes.
-function useAnchorRects(
-  layer: HTMLElement | null,
-  targets: ReadonlyMap<string, AnchorTarget>,
-  gap: number | undefined,
-): Measured {
-  const [measured, setMeasured] = useState<Measured>(NOTHING_MEASURED);
-  const latest = useRef(targets);
-  // Measures again at the next frame, once the observers are set up on the layer.
-  const remeasure = useRef<(() => void) | null>(null);
-  useLayoutEffect(() => {
-    latest.current = targets;
-    remeasure.current?.();
-  }, [targets]);
-  // The observers stay while the layer does, rather than being set up again for each state.
-  useLayoutEffect(() => {
-    const view = layer?.ownerDocument.defaultView;
-    if (!layer || !view) return;
-    let frame = 0;
-    const measure = () => {
-      view.cancelAnimationFrame(frame);
-      frame = view.requestAnimationFrame(() => {
-        const { rects, offsets } = measureLayer(layer, latest.current, gap);
-        setMeasured((current) =>
-          isSameMeasurement(current.rects, rects) && isSameOffsets(current.offsets, offsets)
-            ? current
-            : { rects, offsets },
-        );
-      });
-    };
-    remeasure.current = measure;
-    measure();
-    // Without resize observers, as in a test document, only changes of its content measure again.
-    const observer =
-      typeof view.ResizeObserver === 'function' ? new view.ResizeObserver(measure) : null;
-    observer?.observe(layer);
-    const content = new view.MutationObserver(measure);
-    content.observe(layer, { subtree: true, childList: true, characterData: true });
-    return () => {
-      remeasure.current = null;
-      view.cancelAnimationFrame(frame);
-      observer?.disconnect();
-      content.disconnect();
-    };
-  }, [layer, gap]);
-  return measured;
-}
-
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread
  * and each suggestion level with its text, and, while text is selected, a button that starts a
@@ -310,6 +246,30 @@ const startedThen =
     reveal?.();
   };
 
+// Each item's annotation, measured in the layer, with where its card and its marker sit.
+function useMarginGeometry(
+  layer: HTMLElement | null,
+  items: readonly CommentItem[],
+  { open, ...options }: MeasureOptions & { readonly open: ReadonlySet<Key> },
+) {
+  const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
+  const { rects, offsets, markers } = useAnchorRects(layer, targets, options);
+  const annotations = useMemo<Annotation[]>(
+    () => items.map((item) => ({ id: item.key, rects: rects.get(item.key) ?? [] })),
+    [items, rects],
+  );
+  // With markers, each marker is set beside its page and its card opens beneath it unmoved; an
+  // open card stays beside its page, where showing the card shows the page's edge too.
+  const place = (key: string) => (open.has(key) ? offsets : markers).get(key);
+  return {
+    annotations,
+    cardOffset: (key: string) => (options.markers ? undefined : offsets.get(key)),
+    markerOffset: options.markers
+      ? (annotation: Annotation) => place(String(annotation.id))
+      : undefined,
+  };
+}
+
 function CommentsMargin(props: DocumentCommentsProps) {
   const { state, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
@@ -340,12 +300,11 @@ function CommentsMargin(props: DocumentCommentsProps) {
     setActive,
     active,
   });
-  const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
-  const { rects, offsets } = useAnchorRects(layer, targets, props.cardGap);
-  const annotations = useMemo<Annotation[]>(
-    () => items.map((item) => ({ id: item.key, rects: rects.get(item.key) ?? [] })),
-    [items, rects],
-  );
+  const { annotations, cardOffset, markerOffset } = useMarginGeometry(layer, items, {
+    gap: props.cardGap,
+    markers: cards.markers,
+    open: cards.openKeys,
+  });
   useCaretActive(caretKey(items, state), setActive);
   const byKey = new Map(items.map((item) => [item.key, item]));
   const policy = useCardPolicy(props.suggestionPolicy, comments.threads);
@@ -376,13 +335,14 @@ function CommentsMargin(props: DocumentCommentsProps) {
         presentation={cards.markers ? 'icons' : 'cards'}
         openKeys={cards.openKeys}
         onOpenChange={cards.onOpenChange}
+        getInlineOffset={markerOffset}
         clearsActiveOnBlur={props.clearsActiveOnBlur}
         renderCard={(annotation, { isActive }) => {
           const item = byKey.get(String(annotation.id));
           return item ? (
             <MarginCard
               item={item}
-              offset={offsets.get(item.key)}
+              offset={cardOffset(item.key)}
               actions={{ context, isActive, policy, ...commands }}
             />
           ) : null;

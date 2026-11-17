@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { openSections } from '../../../test/property-sections.js';
-import type { TemplateFile } from '../../model/index.js';
+import { resolveFontStack, type TemplateFile } from '../../model/index.js';
 import { TemplateEditor } from './template-editor.js';
 
 const SLOW = 20_000;
@@ -118,6 +118,51 @@ describe('the template editor’s layout rows', () => {
       await user.click(within(tables).getByRole('button', { name: /Placement$/ }));
       await user.click(screen.getByRole('option', { name: 'Below' }));
       expect(written.at(-1)?.styles?.table?.caption?.placement).toBe('below');
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-1.1 keeps a size of any non-negative decimal',
+    async () => {
+      const user = userEvent.setup();
+      const written: TemplateFile[] = [];
+      render(<Host written={written} />);
+      await openSections(user, 'Text styles');
+      const [paragraph] = screen.getAllByRole('button', { name: /^Paragraph\b/ });
+      if (paragraph) await user.click(paragraph);
+      const size = screen.getByRole('textbox', { name: 'Size' });
+      await user.type(size, '10.25{Enter}');
+      expect(written.at(-1)?.styles?.paragraph?.size).toBe('10.25pt');
+      await user.clear(size);
+      await user.type(size, '500{Enter}');
+      expect(written.at(-1)?.styles?.paragraph?.size).toBe('500pt');
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-1.7 DOCE-TEMPLATES-1.2 offers a font the host serves, keeps its name and draws it with the host’s stack',
+    async () => {
+      const user = userEvent.setup();
+      const written: TemplateFile[] = [];
+      render(
+        <TemplateEditor
+          template={PLAIN}
+          fonts={['Titillium Web', 'Arial']}
+          onChange={(next) => written.push(next)}
+        />,
+      );
+      await openSections(user, 'Text styles');
+      const [paragraph] = screen.getAllByRole('button', { name: /^Paragraph\b/ });
+      if (paragraph) await user.click(paragraph);
+      const card = paragraph?.closest('.ui-property-card');
+      if (!(card instanceof HTMLElement)) throw new Error('No paragraph card.');
+      await user.click(within(card).getByRole('button', { name: /Font$/ }));
+      await user.click(screen.getByRole('option', { name: 'Titillium Web' }));
+      expect(written.at(-1)?.styles?.paragraph?.font).toBe('Titillium Web');
+      const stack = '"Titillium Web", Arial, Helvetica, sans-serif';
+      expect(resolveFontStack('Titillium Web', '', { 'Titillium Web': stack })).toBe(stack);
     },
     SLOW,
   );

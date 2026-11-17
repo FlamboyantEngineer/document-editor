@@ -65,29 +65,37 @@ function anchorElement(layer: HTMLElement, marking: Marking, target: AnchorTarge
 /** The space between a page's edge and the cards beside it, in pixels, unless the host sets one. */
 const DEFAULT_CARD_GAP = 20;
 
+// The class of the margin of cards, a child of the annotation layer.
+const MARGIN_CLASS = 'de-document-comments__margin';
+
+/** The layer's margin of cards, if it has one. */
+export const marginOf = (layer: HTMLElement): Element | null =>
+  layer.querySelector(`:scope > .${MARGIN_CLASS}`);
+
+/** The layer's own scale, when an ancestor scales it: the cards move in the layer's pixels. */
+export function layerScale(layer: HTMLElement): number {
+  return (layer.offsetWidth && layer.getBoundingClientRect().width / layer.offsetWidth) || 1;
+}
+
 /**
  * How far each card moves across from the margin's start to sit beside the page its anchor is on,
  * `gap` pixels from the page's end edge, by annotation key: pages of another size or
  * orientation have their own edge. A card whose anchor is on no page does not move.
  */
-// The class of the margin of cards, a child of the annotation layer.
-const MARGIN_CLASS = 'de-document-comments__margin';
-
 function measureCardOffsets(
   layer: HTMLElement,
   targets: ReadonlyMap<string, AnchorTarget>,
   { marking, gap }: { marking: Marking; gap: number },
 ): Map<string, number> {
   const offsets = new Map<string, number>();
-  const margin = layer.querySelector(`:scope > .${MARGIN_CLASS}`);
+  const margin = marginOf(layer);
   if (!margin) return offsets;
-  // The layer's own scale, when an ancestor scales it: the card moves in the layer's pixels.
-  const scale = layer.offsetWidth ? layer.getBoundingClientRect().width / layer.offsetWidth : 1;
+  const scale = layerScale(layer);
   const start = margin.getBoundingClientRect().left;
   for (const [key, target] of targets) {
     const page = anchorElement(layer, marking, target)?.closest('.pm-page');
     if (!page) continue;
-    offsets.set(key, Math.round((page.getBoundingClientRect().right - start) / (scale || 1)) + gap);
+    offsets.set(key, Math.round((page.getBoundingClientRect().right - start) / scale) + gap);
   }
   return offsets;
 }

@@ -7,6 +7,7 @@ import { Fragment, type ReactNode, useCallback, useLayoutEffect, useRef } from '
 import type { TemplateFile } from '../../model/index.js';
 import { ContentsSection } from './contents-section.js';
 import { CustomStyleSection } from './custom-style-section.js';
+import { RegionSourceRows } from './region-source.js';
 import { SettingCard } from './setting-card.js';
 import { rows } from './setting-row.js';
 import { referenceSection, TEMPLATE_SECTIONS } from './settings-catalog.js';
@@ -113,7 +114,16 @@ export function SettingSections({
           section={section}
           inSection={inSection}
           onPages={onPages}
-          extra={extra?.(section.id)}
+          extra={
+            section.id === 'regions' ? (
+              <>
+                <RegionSourceRows context={context} />
+                {extra?.(section.id)}
+              </>
+            ) : (
+              extra?.(section.id)
+            )
+          }
         />
       )}
       {section.id === 'page' ? (

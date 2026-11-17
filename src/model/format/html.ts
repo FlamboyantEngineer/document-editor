@@ -5,10 +5,12 @@
 import {
   DOMParser,
   DOMSerializer,
+  Fragment,
   type Node as ProseMirrorNode,
   type Schema,
 } from 'prosemirror-model';
 import type { StoredContent } from './document-format.js';
+import { readStoredContent } from './document-format-convert.js';
 import { writeStoredContent } from './document-format-write.js';
 
 /** The markup a document's content writes, as HTML text. */
@@ -47,6 +49,20 @@ export function readHtmlContent(html: string, schema: Schema, owner: Document): 
   const container = (schema.nodes.page_content ?? schema.topNodeType).create();
   const content = DOMParser.fromSchema(schema).parse(body, { topNode: container });
   return writeStoredContent(content.content);
+}
+
+/**
+ * Stored content, such as a template region's or section's, as the HTML its blocks write, which
+ * `readHtmlContent` reads back.
+ */
+export function writeHtmlContent(content: StoredContent, schema: Schema, owner: Document): string {
+  const inert = owner.implementation.createHTMLDocument('');
+  const container = inert.createElement('div');
+  const nodes = readStoredContent(content, schema);
+  container.appendChild(
+    DOMSerializer.fromSchema(schema).serializeFragment(Fragment.from(nodes), { document: inert }),
+  );
+  return container.innerHTML;
 }
 
 /** Whether HTML comes from a word processor that writes its own Office markup. */
