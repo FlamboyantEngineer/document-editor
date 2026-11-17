@@ -45,6 +45,7 @@ import { useCardContext } from './use-card-context.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
 import { useMarginOpening } from './use-open-cards.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
+import { useTargetWriteBack } from './use-target-write-back.js';
 
 export type {
   OpenComment,
@@ -249,6 +250,7 @@ function PaneComments(props: DocumentCommentsProps) {
   });
   // The reader's suggestions get their threads wherever the threads are shown.
   useSuggestionThreads({ state: props.state, comments, run, options: props });
+  useTargetWriteBack({ state: props.state, comments, editable: props.view?.editable ?? false });
   // Commented text, clicked, takes the reader to its thread in the pane, ready to answer.
   useCommentPointer(props, {
     run,
@@ -278,6 +280,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
     onStart: setActive,
   });
   useSuggestionThreads({ state, comments, run, options: props });
+  useTargetWriteBack({ state, comments, editable: props.view?.editable ?? false });
   const items = useMemo(
     () => listCommentItems(state, { threads: comments.threads, canComment, filter }),
     [state, comments.threads, canComment, filter],

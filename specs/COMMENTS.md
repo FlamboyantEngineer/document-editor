@@ -83,7 +83,7 @@ Verification: `src/engine/comment-targets.test.ts`
 
 ### DOCE-COMMENTS-1.12 - Threads placed by their targets
 
-`anchorThreads(threads)` shall place the anchors of the listed text threads that no mark anchors where their targets are found, without changing the document, as when the reader may write only a shared room's comments: the index lists them with the marked anchors, draws them as stored anchors are drawn (`mark` with `data-comment-id`, `data-comment-state` and `data-comment-placed`), and maps them through edits; a mark anchoring the thread takes over from its placed anchor. Each call drops the threads no longer listed, keeps the place of each thread placed before, which edits have moved with its text, and places the others where their targets are found (`unplacedThreads` lists the text threads with a target that are neither marked nor placed). The comments margin and panel call it with the store's threads whenever they change, when any has a target, and whenever the document loses a thread placed before, as when it is replaced, so every reader sees the threads placed without marks. Limit: the stored target is not written back as the text moves, so once the editor is opened again, a thread whose text moved is found by its text nearest its stored offsets in its element, else by its quote in any text block, and one whose text changed may not be found.
+`anchorThreads(threads)` shall place the anchors of the listed text threads that no mark anchors where their targets are found, without changing the document, as when the reader may write only a shared room's comments: the index lists them with the marked anchors, draws them as stored anchors are drawn (`mark` with `data-comment-id`, `data-comment-state` and `data-comment-placed`), and maps them through edits; a mark anchoring the thread takes over from its placed anchor. Each call drops the threads no longer listed, keeps the place of each thread placed before, which edits have moved with its text, and places the others where their targets are found (`unplacedThreads` lists the text threads with a target that are neither marked nor placed). The comments margin and panel call it with the store's threads whenever they change, when any has a target, and whenever the document loses a thread placed before, as when it is replaced, so every reader sees the threads placed without marks. An editor that writes keeps the stored targets to where the text now is (DOCE-COMMENTS-1.14); a thread whose stored target no longer matches is found by its text nearest its stored offsets in its element, else by its quote in any text block, and one whose text changed meanwhile may not be found.
 
 Implementation: `src/engine/comment-targets.ts`, `src/engine/comment-anchors.ts`, `src/components/document-comments/comment-controls.ts`
 Verification: `src/engine/comment-targets.test.ts`, `src/components/document-comments/document-comments.test.tsx`
@@ -94,6 +94,13 @@ Verification: `src/engine/comment-targets.test.ts`, `src/components/document-com
 
 Implementation: `src/engine/review-changes.ts`, `src/engine/edit-lock.ts`
 Verification: `src/engine/review-changes.test.ts`
+
+### DOCE-COMMENTS-1.14 - Targets kept to the text
+
+While the reader edits the document and the store can change a thread (`update`), the comments margin and the pane placement shall, once the reader pauses, describe each stored thread's target again from its anchor (`describeCommentTarget`) and give the store the new target and quote of each thread whose text moved or changed, or that was stored without a target; each new target is asked for once, so a store that refuses it is not asked again until the text moves again. Deleted threads and threads on the whole document are left as they are. A reader who may not edit writes nothing back.
+
+Implementation: `src/components/document-comments/use-target-write-back.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/use-target-write-back.test.tsx`
 
 ## DOCE-COMMENTS-2 - The comments margin
 
