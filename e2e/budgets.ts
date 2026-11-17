@@ -197,6 +197,7 @@ export const SIZE = {
   remote1600: 6,
   review300: 7,
   pages18: 8,
+  shortLists100: 9,
 } as const;
 
 export const pages = (page: Page) => page.locator('.de-document-editor__content .pm-page');

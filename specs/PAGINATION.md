@@ -71,10 +71,10 @@ Verification: `src/model/pagination/page-layout.test.ts`
 
 ### DOCE-PAGINATION-2.2 - Margins
 
-Blocks on a page shall take their heights plus, between two blocks, the larger of their facing margins (`stackedHeight`); the first block's top margin and the last block's bottom margin shall not count. Measuring shall read the margins at the start and end of the block axis (`margin-block-start`, `margin-block-end`), and the reference stylesheet shall zero those of a page's first and last block, so the rule holds in any writing mode.
+Blocks on a page shall take their heights plus, between two blocks, the larger of their facing margins (`stackedHeight`); the first block's top margin and the last block's bottom margin shall not count. Measuring shall read the margins at the start and end of the block axis (`margin-block-start`, `margin-block-end`), and the reference stylesheet shall zero those of a page's first and last block, and those of a list item's first and last block, so no margin inside a list, such as a nested list's ending an item, collapses out past the end of a page the list ends; the rule holds in any writing mode.
 
 Implementation: `src/model/pagination/page-layout.ts`, `src/pagination/measure-cache.ts`, `labs/reference/document.css`
-Verification: `src/model/pagination/page-layout.test.ts`, `src/pagination/measure-cache.test.ts`
+Verification: `src/model/pagination/page-layout.test.ts`, `src/pagination/measure-cache.test.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-PAGINATION-2.3 - Splitting
 

@@ -87,10 +87,10 @@ Verification: `e2e/performance.spec.ts`, `src/engine/text-change-locality.test.t
 
 ### DOCE-LABS-2.4 - Scale lab
 
-The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks, 1600 blocks in eight sections, and about 300 pages beside 500 open comment threads, each the same on every load; and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer, a character at a time or up to the end of a line (`window.stressLab`).
+The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks, 1600 blocks in eight sections, about 300 pages beside 500 open comment threads, and about 100 pages of short lists (a paragraph and a list of eight items or fewer each, ordered and bulleted in turn, some nested), to profile list pagination apart from long lists, each the same on every load; and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer, a character at a time or up to the end of a line (`window.stressLab`).
 
 Implementation: `labs/src/stress-scale.lab.tsx`, `labs/stress-scale.html`, `labs/src/stress/scale-documents.ts`, `labs/src/stress/stress-probe.ts`, `labs/src/stress/stress-lab.tsx`
-Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`
+Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-LABS-2.5 - Counter budgets
 

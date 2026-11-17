@@ -1,10 +1,11 @@
 // The document editor at the sizes the performance budgets name: one section of 5000 blocks, 25
 // sections of 200, 1600 blocks under a remote writer, documents of 5, 18, 24, 40 and 300 pages,
-// and 300 pages beside 500 comment threads.
+// 300 pages beside 500 comment threads, and about 100 pages of short lists.
 
 import {
   reviewDocument,
   sectionsDocument,
+  shortListsDocument,
   singleSectionDocument,
 } from './stress/scale-documents.js';
 import { mountStressLab } from './stress/stress-lab.js';
@@ -24,6 +25,7 @@ const SCENARIOS = [
   { label: '1600 blocks', build: () => sectionsDocument(8, 200) },
   { label: 'About 300 pages, 500 comment threads', build: () => REVIEW.file },
   { label: 'About 18 pages', build: () => singleSectionDocument(265) },
+  { label: 'About 100 pages of short lists', build: () => shortListsDocument(560) },
 ] as const;
 
 mountStressLab({
