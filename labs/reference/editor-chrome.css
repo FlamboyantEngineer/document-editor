@@ -595,11 +595,14 @@
   font-style: italic;
 }
 
-.de-template-editor__setting[data-inherited] :is(.ui-field__control, .ui-select-field__frame) {
+/* A switch's caption says it inherits, and keeps the panel's background for its contrast. */
+.de-template-editor__setting[data-inherited]
+  :is(.ui-field__control, .ui-select-field__frame):not(.ui-boolean-field, .ui-boolean-field *) {
   background: var(--ref-hover);
 }
 
-.de-template-editor__setting[data-inherited] .ui-boolean-field__switch {
+/* An inherited switch dims its track only, so its caption keeps its contrast. */
+.de-template-editor__setting[data-inherited] .ui-switch__track {
   opacity: 0.6;
 }
 

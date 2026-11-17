@@ -263,7 +263,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
   // A host's own settings are the document's: a template section has no `extensions`.
   const slots = scope === null ? extensions : undefined;
   return (
-    <TemplateDrafts onDraftsChange={props.onDraftsChange}>
+    <TemplateDrafts onDraftsChange={props.onDraftsChange} scope={scope ?? ''}>
       <PropertyPanel
         searchable
         {...hooks.root({
@@ -293,10 +293,9 @@ export function TemplateEditor(props: TemplateEditorProps) {
             <ScopePicker {...scoped} />
           </PropertySection>
         )}
-        {/* A scope's fields are its own: turning to another scope commits their drafts. */}
+        {/* A scope's own rows are its own: turning to another scope commits their drafts. */}
         <SectionRows key={`rows:${scope ?? ''}`} {...scoped} />
         <SettingSections
-          key={`settings:${scope ?? ''}`}
           context={context}
           inSection={scope !== null}
           onPages={props.layout !== 'web'}

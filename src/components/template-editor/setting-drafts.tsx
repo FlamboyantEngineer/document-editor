@@ -24,15 +24,21 @@ type Report = (id: string, state: TemplateDraftState) => void;
 
 const DraftsContext = createContext<Report | null>(null);
 
+// The scope the fields edit, such as a template section's name: a draft belongs to one.
+const ScopeContext = createContext('');
+
 /**
  * Collects the drafts of the fields inside it and tells `onDraftsChange` the state of them all
- * whenever it changes.
+ * whenever it changes. When `scope` changes, each field writes its draft into the scope it was
+ * typed in and starts afresh.
  */
 export function TemplateDrafts({
   onDraftsChange,
+  scope = '',
   children,
 }: {
   onDraftsChange: ((state: TemplateDraftState) => void) | undefined;
+  scope?: string | undefined;
   children: ReactNode;
 }) {
   const drafts = useRef(new Map<string, TemplateDraftState>());
@@ -47,7 +53,11 @@ export function TemplateDrafts({
     const after = stateOf(drafts.current);
     if (before !== after) latest.current?.(after);
   });
-  return <DraftsContext value={report}>{children}</DraftsContext>;
+  return (
+    <DraftsContext value={report}>
+      <ScopeContext value={scope}>{children}</ScopeContext>
+    </DraftsContext>
+  );
 }
 
 function stateOf(drafts: ReadonlyMap<string, TemplateDraftState>): TemplateDraftState {
@@ -73,25 +83,29 @@ export function useTemplateDraft(state: TemplateDraftState): void {
 
 /**
  * A field's text while it is typed, apart from the value it shows: the draft follows the value
- * whenever the value changes from outside, such as by an undo or a change elsewhere.
+ * whenever the value, or the scope, changes, such as by an undo or a change elsewhere.
  */
 export function useTextDraft(value: string): readonly [string, (text: string) => void] {
-  const [draft, setDraft] = useState({ text: value, from: value });
-  // A value that changes drops the draft for good, so it does not come back with the old value,
-  // such as when a card turns to another style and back.
-  if (draft.from !== value) setDraft({ text: value, from: value });
-  return [draft.from === value ? draft.text : value, (text) => setDraft({ text, from: value })];
+  const from = `${useContext(ScopeContext)}\u0000${value}`;
+  const [draft, setDraft] = useState({ text: value, from, value });
+  // A value that changes drops a draft typed over it for good, so it does not come back with the
+  // old value, such as when a card turns to another style and back. A field with no draft keeps
+  // its state, so turning to another scope renders it once.
+  if (draft.from !== from && draft.text !== draft.value) setDraft({ text: value, from, value });
+  return [draft.from === from ? draft.text : value, (text) => setDraft({ text, from, value })];
 }
 
 /**
- * Commits a field's draft when the field goes, such as when the editor turns to another scope
- * before the field loses focus: the draft is written where it was typed.
+ * Commits a field's draft when the editor turns to another scope, before the field loses focus,
+ * or when the field goes: the draft is written where it was typed. It runs before the editor's
+ * own handlers follow the new scope, as a child's layout effects run before its parent's.
  */
 export function useCommitOnLeave(commit: () => void): void {
-  const latest = useRef(commit);
+  const scope = useContext(ScopeContext);
+  const latest = useRef({ commit, scope });
   useLayoutEffect(() => {
-    latest.current = commit;
+    if (latest.current.scope !== scope) latest.current.commit();
+    latest.current = { commit, scope };
   });
-  // A layout cleanup runs before the next scope's handlers take over.
-  useLayoutEffect(() => () => latest.current(), []);
+  useLayoutEffect(() => () => latest.current.commit(), []);
 }
