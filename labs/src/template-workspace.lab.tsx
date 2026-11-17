@@ -5,7 +5,7 @@
 // Article template is for the web layout, which the lab keeps in the template's own
 // `extensions.layout`, so it previews as the web layout shows a document, with its margins in
 // pixels; it inherits nothing, keeps its name, and is pinned first in the open dialog. "Save elsewhere" saves the open template as another writer would, so the next
-// save meets a conflict. Control+Alt+B shows the JSON.
+// save meets a conflict. "Show the stored template" shows the open template as the store holds it.
 
 import { LockGlyph } from '@flamboyantengineer/ui-components/core';
 import { useEffect, useState } from 'react';
@@ -87,6 +87,12 @@ async function readFolders() {
 function Lab() {
   const [openId, setOpenId] = useState<string | null>('report');
   const [, setRead] = useState(0);
+  const [stored, setStored] = useState<string | null>(null);
+  const showStored = async () => {
+    if (!openId) return;
+    const loaded = await store.load(openId);
+    setStored(loaded.ok ? JSON.stringify(loaded.value.template, null, 2) : null);
+  };
   useEffect(() => {
     void readFolders().then(() => setRead((count) => count + 1));
   }, [openId]);
@@ -105,6 +111,9 @@ function Lab() {
       <p>
         <button type="button" onClick={() => void saveElsewhere()}>
           Save elsewhere
+        </button>{' '}
+        <button type="button" onClick={() => void showStored()}>
+          Show the stored template
         </button>
       </p>
       <TemplateWorkspace
@@ -134,7 +143,6 @@ function Lab() {
           </label>
         )}
         canDelete
-        debug
         personOf={(author) => ({ name: author === 'me' ? 'You' : author })}
         assets={assets}
         extensions={{
@@ -147,6 +155,7 @@ function Lab() {
         }}
         className="lab-template-workspace"
       />
+      {stored === null ? null : <pre aria-label="Stored template">{stored}</pre>}
     </>
   );
 }

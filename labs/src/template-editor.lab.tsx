@@ -5,8 +5,9 @@
 // template's, edited in place. The settings panel's scope is held here: while the preview shows,
 // picking a section scrolls the preview to it. The template's own `extensions.folder` is a host
 // setting in an extension slot. Host options mark the template as never saved, fail its parent's
-// load, disable the editor, lock the parent in the JSON text, and report renames, the fonts the
-// font fields suggest and whether the JSON text reads as a template.
+// load, disable the editor, put a table in the header and footer, and report renames; the fonts
+// the font fields suggest are the lab's. "Show as JSON" shows the template the editor holds, read
+// only, beside it.
 
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -16,7 +17,6 @@ import {
   type DocumentEditorHandle,
   type DocumentLayout,
   TemplateEditor,
-  TemplateJsonEditor,
   type TemplateScope,
   withRegionChange,
 } from '../../src/components/index.js';
@@ -100,6 +100,18 @@ function sectionElement(state: EditorState, name: TemplateScope): string | null 
   return id;
 }
 
+// The template with a paragraph and a table of two cells in its header and footer.
+function withRegionTables(template: TemplateFile): TemplateFile {
+  const cell = { type: 'tableCell', content: [{ type: 'paragraph' }] };
+  const region = (name: string) => ({
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: name }] },
+      { type: 'table', content: [{ type: 'tableRow', content: [cell, cell] }] },
+    ],
+  });
+  return { ...template, header: region('Head'), footer: region('Foot') };
+}
+
 function Lab() {
   const [state, setState] = useState(() => initialState());
   const [own, setOwn] = useState<TemplateFile>(OWN);
@@ -109,7 +121,6 @@ function Lab() {
   const [isNew, setIsNew] = useState(false);
   const [parentFails, setParentFails] = useState(false);
   const [isDisabled, setDisabled] = useState(false);
-  const [locksParent, setLocksParent] = useState(false);
   const [report, setReport] = useState('none');
   const handle = useRef<DocumentEditorHandle>(null);
   // The section to show once the preview's pages are drawn.
@@ -139,7 +150,7 @@ function Lab() {
             checked={json}
             onChange={(event) => setJson(event.currentTarget.checked)}
           />{' '}
-          Edit as JSON
+          Show as JSON
         </label>
         <fieldset>
           <legend>Host options</legend>
@@ -167,14 +178,9 @@ function Lab() {
             />{' '}
             Disable the template editor
           </label>{' '}
-          <label>
-            <input
-              type="checkbox"
-              checked={locksParent}
-              onChange={(e) => setLocksParent(e.currentTarget.checked)}
-            />{' '}
-            Lock the parent in JSON
-          </label>
+          <button type="button" onClick={() => setOwn(withRegionTables)}>
+            Put a table in the header and footer
+          </button>
           <p>
             Template report:{' '}
             <output aria-label="Template report" role="status">
@@ -192,44 +198,31 @@ function Lab() {
         >
           Preview the template
         </button>
-        {json ? (
-          <TemplateJsonEditor
-            template={own}
-            onChange={setOwn}
-            onValidityChange={(errors) =>
-              setReport(
-                errors.length ? `JSON invalid, ${String(errors.length)} errors` : 'JSON valid',
-              )
-            }
-            lockedKeys={locksParent ? ['formatVersion', 'id', 'parent'] : undefined}
-            isDisabled={isDisabled}
-          />
-        ) : (
-          <TemplateEditor
-            template={own}
-            resolved={resolved}
-            onChange={setOwn}
-            scope={scope}
-            onScopeChange={(next) => {
-              setScope(next);
-              const id = previewing ? sectionElement(state, next) : null;
-              if (id) handle.current?.revealElement(id, { behavior: 'instant' });
-            }}
-            parentOptions={[{ id: BASE_TEMPLATE_ID, label: 'Base template' }]}
-            parentError={parentFails ? 'The base template could not be loaded.' : undefined}
-            isNew={isNew}
-            isDisabled={isDisabled}
-            fonts={FONTS}
-            onSectionRename={(from, to) => setReport(`Renamed ${from} to ${to}`)}
-            extensions={{
-              rows: {
-                identity: [
-                  { id: 'folder', label: 'Folder', path: ['folder'], kind: { type: 'text' } },
-                ],
-              },
-            }}
-          />
-        )}
+        {json ? <pre aria-label="Template JSON">{JSON.stringify(own, null, 2)}</pre> : null}
+        <TemplateEditor
+          template={own}
+          resolved={resolved}
+          onChange={setOwn}
+          scope={scope}
+          onScopeChange={(next) => {
+            setScope(next);
+            const id = previewing ? sectionElement(state, next) : null;
+            if (id) handle.current?.revealElement(id, { behavior: 'instant' });
+          }}
+          parentOptions={[{ id: BASE_TEMPLATE_ID, label: 'Base template' }]}
+          parentError={parentFails ? 'The base template could not be loaded.' : undefined}
+          isNew={isNew}
+          isDisabled={isDisabled}
+          fonts={FONTS}
+          onSectionRename={(from, to) => setReport(`Renamed ${from} to ${to}`)}
+          extensions={{
+            rows: {
+              identity: [
+                { id: 'folder', label: 'Folder', path: ['folder'], kind: { type: 'text' } },
+              ],
+            },
+          }}
+        />
       </div>
       <DocumentEditor
         state={state}
