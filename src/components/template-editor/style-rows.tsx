@@ -18,7 +18,12 @@ import {
   type StyleScope,
   styleValue,
 } from './style-fields.js';
-import { NUMBERING_HINT, type StylePart } from './template-settings.js';
+import {
+  NUMBER_PREFIX_TIP,
+  NUMBER_SUFFIX_TIP,
+  NUMBERING_HINT,
+  type StylePart,
+} from './template-settings.js';
 
 /**
  * Numbering: whether it numbers, then the text before its number, its format and the text after.
@@ -28,11 +33,7 @@ function NumberingRow({ scope }: { scope: StyleScope }) {
   const enabled = styleValue(scope, ['numbering', 'enabled']);
   return (
     <>
-      <PropertyRow
-        label={labels.numbered}
-        isOverridden={enabled.own !== undefined}
-        onReset={() => enabled.set(null)}
-      >
+      <PropertyRow label={labels.numbered} isOverridden={enabled.own !== undefined}>
         <Field
           scope={scope}
           name="numbering.enabled"
@@ -48,6 +49,7 @@ function NumberingRow({ scope }: { scope: StyleScope }) {
               name="numbering.prefix"
               label={labels.numberPrefix}
               kind={{ type: 'text' }}
+              tip={NUMBER_PREFIX_TIP}
             />
           </PropertyStripCell>
           <PropertyStripCell letter="1" label={labels.numbering}>
@@ -56,6 +58,7 @@ function NumberingRow({ scope }: { scope: StyleScope }) {
               name="numbering.format"
               label={labels.numbering}
               kind={{ type: 'numbering' }}
+              tip={NUMBERING_HINT}
             />
           </PropertyStripCell>
           <PropertyStripCell letter="»" label={labels.numberSuffix}>
@@ -64,6 +67,7 @@ function NumberingRow({ scope }: { scope: StyleScope }) {
               name="numbering.suffix"
               label={labels.numberSuffix}
               kind={{ type: 'text' }}
+              tip={NUMBER_SUFFIX_TIP}
             />
           </PropertyStripCell>
         </PropertyStrip>

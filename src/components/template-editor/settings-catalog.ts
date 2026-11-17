@@ -11,6 +11,7 @@ import {
 import { contentsSettings } from './contents-catalog.js';
 import { FONT_PARTS, OBJECT_SECTIONS, RUNNING_PARTS } from './object-settings.js';
 import {
+  affixSetting,
   choice,
   numberingSetting,
   PAGE_SIZES,
@@ -180,9 +181,9 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     scope: ['styles', 'paragraph', 'numbering'],
     settings: [
       setting('enabled', 'Number paragraphs', boolean),
-      setting('prefix', 'Before the number', text),
+      affixSetting('prefix', 'Before the number', 'prefix'),
       numberingSetting('format', 'Format'),
-      setting('suffix', 'After the number', text),
+      affixSetting('suffix', 'After the number', 'suffix'),
     ],
     cards: PARAGRAPH_LEVELS,
   },
@@ -202,9 +203,9 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     scope: ['styles', 'list'],
     settings: [
       setting('bullet', 'Bullet', select(...BULLETS)),
-      setting('prefix', 'Before the number', text),
+      affixSetting('prefix', 'Before the number', 'prefix'),
       numberingSetting('format', 'Numbering format'),
-      setting('suffix', 'After the number', text),
+      affixSetting('suffix', 'After the number', 'suffix'),
       setting('indentation', 'Indentation', length),
       setting('spaceBefore', 'Space before', length),
       setting('spaceAfter', 'Space after', length),

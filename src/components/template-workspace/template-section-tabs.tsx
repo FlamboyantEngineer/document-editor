@@ -46,6 +46,7 @@ const labelOf = (section: TemplateSection) => section.label || section.name;
 function renamed(template: TemplateFile, section: TemplateSection, text: string) {
   if (section.label) {
     const label = text.trim();
+    if (!label) return { problem: 'empty' as const };
     return { template: withNamedSection(template, section.name, (each) => ({ ...each, label })) };
   }
   return renameSection(template, section.name, text);
@@ -126,7 +127,10 @@ export function TemplateSectionTabs(props: SectionTabsProps) {
         validateName={(key, text) => {
           const section = sectionOf(key);
           const result = section ? renamed(template, section, text) : null;
-          return result && 'problem' in result ? labels.sectionNameProblems[result.problem] : '';
+          // A name with nothing left to it is no problem: the tab keeps its name.
+          return result && 'problem' in result && result.problem !== 'empty'
+            ? labels.sectionNameProblems[result.problem]
+            : '';
         }}
         getMenuItems={isDisabled ? undefined : menu}
       >

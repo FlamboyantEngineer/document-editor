@@ -13,7 +13,11 @@ import {
   useUnsavedChangesGuard,
 } from '@flamboyantengineer/ui-components/unsaved-changes-guard';
 import { useState } from 'react';
-import { type TemplateScope, withListedSections } from '../template-editor/template-editor.js';
+import {
+  type TemplateDraftState,
+  type TemplateScope,
+  withListedSections,
+} from '../template-editor/template-editor.js';
 import { scopeOf, tabOf } from './template-section-tabs.js';
 import { workspaceHooks } from './template-workspace-hooks.js';
 import type { TemplateWorkspaceProps } from './template-workspace-types.js';
@@ -65,7 +69,12 @@ function Workspace(props: TemplateWorkspaceProps) {
   const [scope, setScope] = useState<TemplateScope>(null);
   const panel = usePanel(props);
   const json = useJsonView(props.debug ?? false);
-  const { save, saveError, idInput } = useSave(workspace, panel, labels);
+  // The settings fields' drafts: one not committed yet may be saved, one not valid holds the save.
+  const [drafts, setDrafts] = useState<TemplateDraftState>('clean');
+  const { save, saveError, idInput } = useSave(workspace, panel, {
+    labels,
+    settingsValid: drafts !== 'invalid',
+  });
   useRoute(props, workspace);
   const draft = workspace.open?.draft;
   useUnsavedChanges({
@@ -84,6 +93,7 @@ function Workspace(props: TemplateWorkspaceProps) {
     onScopeChange: setScope,
     layout,
     json,
+    drafts: { state: drafts, onChange: setDrafts },
     save,
     saveError,
     idInput,

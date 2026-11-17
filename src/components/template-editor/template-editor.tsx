@@ -10,9 +10,10 @@ import { PropertyPanel, PropertySection } from '@flamboyantengineer/ui-component
 import type { Ref } from 'react';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
-import { createHooks } from '../../utils/hooks.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
+import { TemplateDrafts, type TemplateDraftState } from './setting-drafts.js';
 import type { TemplateReferenceType } from './settings-catalog.js';
+import { templateEditorHooks as hooks } from './template-editor-hooks.js';
 import {
   extensionRows,
   ExtensionSections,
@@ -43,8 +44,6 @@ import {
   type TemplateSettingsLabels,
   withSetting,
 } from './template-settings.js';
-
-const hooks = createHooks('template-editor');
 
 /** The template editor's own text. */
 export interface TemplateEditorLabels
@@ -166,6 +165,12 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly referenceTypes?: readonly TemplateReferenceType[] | undefined;
   /** The fonts the code font fields suggest, monospace ones; others may be typed. */
   readonly codeFonts?: readonly string[] | undefined;
+  /**
+   * Hears the state of the fields' drafts: `pending` while a field holds a draft it has not
+   * committed, so a host can offer to save, and `invalid` while one is not valid, such as a length
+   * that does not read as one, so the host can hold a save until it is corrected.
+   */
+  readonly onDraftsChange?: ((state: TemplateDraftState) => void) | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly className?: string | undefined;
@@ -258,47 +263,51 @@ export function TemplateEditor(props: TemplateEditorProps) {
   // A host's own settings are the document's: a template section has no `extensions`.
   const slots = scope === null ? extensions : undefined;
   return (
-    <PropertyPanel
-      searchable
-      {...hooks.root({
-        className: props.className,
-        data: { scope: scope === null ? 'document' : 'section' },
-      })}
-      aria-label={labels.panel}
-      searchPlaceholder={labels.filter}
-      isDisabled={isDisabled}
-    >
-      <TemplateIdentity
-        template={props.template}
-        onChange={onChange}
-        parentOptions={props.parentOptions}
-        parentError={props.parentError}
-        isNew={props.isNew}
-        idError={props.idError}
-        idInputRef={props.idInputRef}
-        isNameReadOnly={props.isNameReadOnly}
+    <TemplateDrafts onDraftsChange={props.onDraftsChange} scope={scope ?? ''}>
+      <PropertyPanel
+        searchable
+        {...hooks.root({
+          className: props.className,
+          data: { scope: scope === null ? 'document' : 'section' },
+        })}
+        aria-label={labels.panel}
+        searchPlaceholder={labels.filter}
         isDisabled={isDisabled}
-        labels={labels}
       >
-        {slots?.rows?.identity ? extensionRows(context, slots.rows.identity) : null}
-      </TemplateIdentity>
-      {props.showsScopePicker === false ? null : (
-        <PropertySection id="scope" title={labels.scope} defaultExpanded>
-          <ScopePicker {...scoped} />
-        </PropertySection>
-      )}
-      <SectionRows {...scoped} />
-      <SettingSections
-        context={context}
-        inSection={scope !== null}
-        onPages={props.layout !== 'web'}
-        extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
-      />
-      {slots ? <ExtensionSections context={context} slots={slots} /> : null}
-    </PropertyPanel>
+        <TemplateIdentity
+          template={props.template}
+          onChange={onChange}
+          parentOptions={props.parentOptions}
+          parentError={props.parentError}
+          isNew={props.isNew}
+          idError={props.idError}
+          idInputRef={props.idInputRef}
+          isNameReadOnly={props.isNameReadOnly}
+          isDisabled={isDisabled}
+          labels={labels}
+        >
+          {slots?.rows?.identity ? extensionRows(context, slots.rows.identity) : null}
+        </TemplateIdentity>
+        {props.showsScopePicker === false ? null : (
+          <PropertySection id="scope" title={labels.scope} defaultExpanded>
+            <ScopePicker {...scoped} />
+          </PropertySection>
+        )}
+        {/* A scope's own rows are its own: turning to another scope commits their drafts. */}
+        <SectionRows key={`rows:${scope ?? ''}`} {...scoped} />
+        <SettingSections
+          context={context}
+          inSection={scope !== null}
+          onPages={props.layout !== 'web'}
+          extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
+        />
+        {slots ? <ExtensionSections context={context} slots={slots} /> : null}
+      </PropertyPanel>
+    </TemplateDrafts>
   );
 }
 
+export type { TemplateDraftState } from './setting-drafts.js';
 export { templateIdOf } from './template-identity.js';
 export { TemplateJsonEditor } from './template-json-editor.js';
 export { DEFAULT_TEMPLATE_SCOPE_LABELS, withListedSections } from './template-scope.js';

@@ -40,7 +40,7 @@ installEditorDom();
 
 describe('TemplateWorkspace layout', () => {
   it(
-    'DOCE-TEMPLATE-EDITOR-3.10 shows a tab per section and edits sections from their tabs',
+    'DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-2.3 shows a tab per section and edits sections from their tabs',
     async () => {
       const user = userEvent.setup();
       const onTemplateIdChange = vi.fn();
@@ -99,6 +99,16 @@ describe('TemplateWorkspace layout', () => {
       await user.clear(label);
       await user.type(label, 'Front{Enter}');
       await waitFor(() => expect(tabNames()[1]).toBe('Front'), LOADED);
+      // A tab renamed to nothing keeps its name.
+      await tabMenu(user, 'annex_a', 'Rename the section');
+      const emptied = await screen.findByRole('textbox', { name: /Rename/ }, LOADED);
+      await user.clear(emptied);
+      await user.keyboard('{Enter}');
+      await waitFor(
+        () => expect(screen.queryByRole('textbox', { name: /Rename/ })).not.toBeInTheDocument(),
+        LOADED,
+      );
+      expect(tabNames().at(-1)).toBe('annex_a');
       // Deleting asks first, then shows the document's settings.
       await tabMenu(user, 'annex_a', 'Delete the section');
       const confirm = await screen.findByRole('alertdialog', {}, LOADED);

@@ -45,6 +45,8 @@ export interface TemplateWorkspaceLabels extends RevisionLabels {
   readonly idNeeded: string;
   /** Says the parent inherits from the template, so it cannot be saved. */
   readonly parentCycle: string;
+  /** Says a setting holds a value that is not valid, so the template cannot be saved. */
+  readonly settingsInvalid: string;
   /** Names the side panel of the template's properties and history. */
   readonly panel: string;
   readonly properties: string;
@@ -115,6 +117,7 @@ export const DEFAULT_TEMPLATE_WORKSPACE_LABELS: TemplateWorkspaceLabels = {
   saveFailed: (message) => `Not saved: ${message}`,
   idNeeded: 'Give the template an id to save it.',
   parentCycle: 'The parent template inherits from this one.',
+  settingsInvalid: 'Correct the setting marked as not valid to save the template.',
   panel: 'Template panel',
   properties: 'Properties',
   documentSettings: 'Document settings',
