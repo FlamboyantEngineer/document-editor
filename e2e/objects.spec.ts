@@ -235,6 +235,9 @@ test.describe('objects', () => {
       .first()
       .click();
     await expect(content(page).locator('p', { hasText: 'Tolerance ±' })).toHaveCount(1);
+    // Focus is back in the document after the character.
+    await page.keyboard.type(' 2');
+    await expect(content(page).locator('p', { hasText: 'Tolerance ± 2' })).toHaveCount(1);
     await toolbar(page).getByRole('button', { name: 'Code' }).click();
     await item(page, 'Code block').click();
     await page.keyboard.type('let x = 1;');

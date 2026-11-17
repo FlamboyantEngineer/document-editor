@@ -220,4 +220,130 @@ test.describe('selecting in tables', () => {
     await expect(heading).toContainText(' typed');
     await expect(cell(page, 'Start')).toHaveText('Start');
   });
+
+  test('DOCE-PAGINATION-7.11 keeps one cell selected when a drag comes back to its first cell', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await cell(page, 'Stop').scrollIntoViewIfNeeded();
+    const from = await padding(page, 'Run');
+    const to = await padding(page, 'Stop');
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 6 });
+    await expect(selected(page)).toHaveCount(2);
+    await page.mouse.move(from.x + 4, from.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(selected(page)).toHaveCount(1);
+    await expect(cell(page, 'Run')).toHaveClass(/selectedCell/);
+  });
+
+  test('DOCE-PAGINATION-7.11 DOCE-TABLES-3.11 drags cells across the pages and back, and selects the split table from either part', async ({
+    lab,
+    page,
+  }) => {
+    // Tall enough that both parts of the lab's first table, on facing pages, are in view.
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    await lab.open('document-editor');
+    await cell(page, 'Start').scrollIntoViewIfNeeded();
+    const id = await cell(page, 'Start').evaluate((element) => element.closest('table')?.dataset.id);
+    const parts = content(page).locator(`table[data-id="${String(id)}"]`);
+    expect(await parts.count()).toBeGreaterThanOrEqual(2);
+    const to = await padding(page, 'Run');
+    const from = await padding(page, 'Start');
+    expect(await padding(page, 'Run')).toEqual(to);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await expect(cell(page, 'Run')).toHaveClass(/selectedCell/);
+    await page.mouse.move(from.x + 4, from.y, { steps: 8 });
+    await page.mouse.up();
+    await expect(selected(page)).toHaveCount(1);
+    await expect(cell(page, 'Start')).toHaveClass(/selectedCell/);
+    // A double click in a cell's padding, on the second part, selects every cell of every part;
+    // the header row the second part repeats is a drawing of the first part's.
+    await settle(page);
+    await page.mouse.dblclick(to.x, to.y);
+    const first = parts.nth(0).locator('td, th');
+    await expect(parts.nth(0).locator('.selectedCell')).toHaveCount(await first.count());
+    const rest = parts.nth(1).locator('td');
+    await expect(parts.nth(1).locator('td.selectedCell')).toHaveCount(await rest.count());
+  });
+
+  test('DOCE-PAGINATION-7.11 lets a text selection after a cell drag stand, and follow each new drag', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await cell(page, 'Stop').scrollIntoViewIfNeeded();
+    const from = await padding(page, 'Run');
+    const to = await padding(page, 'Stop');
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(selected(page)).toHaveCount(2);
+    // Each drag over a paragraph's text outside the table selects from where it was pressed.
+    const paragraphs = content(page).locator('p:not(td p, th p)');
+    for (const index of [0, 1]) {
+      const paragraph = paragraphs.nth(index);
+      await paragraph.scrollIntoViewIfNeeded();
+      const box = await paragraph.boundingBox();
+      if (!box) throw new Error('The paragraph is not drawn');
+      await settle(page);
+      await page.mouse.move(box.x + 1, box.y + 8);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 60, box.y + 8, { steps: 6 });
+      await page.mouse.up();
+      await expect(selected(page)).toHaveCount(0);
+      const text = (await paragraph.textContent()) ?? '';
+      await expect.poll(() => selectedText(page)).not.toBe('');
+      await page.waitForTimeout(300);
+      const chosen = await selectedText(page);
+      expect(text.startsWith(chosen)).toBe(true);
+    }
+    // Typing replaces the text selection, not the cells.
+    const last = paragraphs.nth(1);
+    const before = (await last.textContent()) ?? '';
+    const chosen = await selectedText(page);
+    await page.keyboard.type('Typed');
+    await expect(last).toHaveText(`Typed${before.slice(chosen.length)}`);
+    await expect(cell(page, 'Run')).toHaveText('Run');
+  });
+
+  test('DOCE-TABLES-1.6 DOCE-EDITOR-4.5 inserts a table of the size hovered in the toolbar at the caret', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const heading = content(page).locator('h1').first();
+    await heading.click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Lead text');
+    const tables = await content(page).locator('table').count();
+    await page
+      .getByRole('toolbar', { name: 'Formatting' })
+      .getByRole('button', { name: 'Insert table' })
+      .click();
+    const picker = page.getByRole('grid', { name: 'Insert table' });
+    // Focus in the picker leaves the document's selection behind; the editor's caret stands.
+    await page.evaluate(() => window.getSelection()?.removeAllRanges());
+    const size = picker.getByRole('gridcell', { name: '3 rows by 2 columns' });
+    await size.hover();
+    await expect(picker.locator('[data-in-range]')).toHaveCount(6);
+    await size.click();
+    await expect(picker).toBeHidden();
+    await expect(content(page).locator('table')).toHaveCount(tables + 1);
+    const lead = content(page).locator('p', { hasText: 'Lead text' });
+    await expect(lead).toHaveText('Lead text');
+    const table = lead.locator('xpath=following-sibling::*[1]').locator('table').or(
+      lead.locator('xpath=following-sibling::table[1]'),
+    );
+    await expect(table.locator('tr')).toHaveCount(3);
+    await expect(table.locator('tr').first().locator('td, th')).toHaveCount(2);
+    await page.keyboard.type('First');
+    await expect(table.locator('td, th').first()).toHaveText('First');
+  });
 });

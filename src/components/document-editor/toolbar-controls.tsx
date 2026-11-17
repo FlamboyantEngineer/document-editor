@@ -22,7 +22,6 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 import {
   customStyleAt,
@@ -38,6 +37,7 @@ import {
 import { createHooks } from '../../utils/hooks.js';
 import { blockStyle, blockStyles } from './block-styles.js';
 import type { EditorContext } from './editor-context.js';
+import { usePopoverCommand } from './popover-command.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { checklistItems, commandItem, listItems, markItems } from './format-items.js';
 import { type InsertFeatures, insertItems, linkItem } from './insert-controls.js';
@@ -160,7 +160,7 @@ function BlockStyleSelect({
 }
 
 function TableButton({ context }: { context: EditorContext }) {
-  const [isOpen, setOpen] = useState(false);
+  const { isOpen, setOpen, choose } = usePopoverCommand(context);
   const { labels } = context;
   return (
     <PopoverTrigger isOpen={isOpen && context.editable} onOpenChange={setOpen}>
@@ -176,8 +176,7 @@ function TableButton({ context }: { context: EditorContext }) {
           aria-label={labels.insertTable}
           autoFocus
           onSelect={({ rows, columns }) => {
-            setOpen(false);
-            context.run(insertTable({ rows, columns }));
+            choose(insertTable({ rows, columns }));
           }}
         />
       </Popover>
