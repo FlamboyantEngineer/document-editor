@@ -63,6 +63,9 @@ const DOCUMENTS: readonly RegressionDocumentName[] = [
   'code-block-stress',
   'mixed-geometry-repeated-sections',
   'comments-and-suggestions',
+  'caption-numbering',
+  'template-blocks-and-variables',
+  'section-settings',
 ];
 
 test.describe('change bars on the regression set', () => {

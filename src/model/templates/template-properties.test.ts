@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BASE_TEMPLATE,
+  BASE_TEMPLATE_ID,
   resolveTemplateFile,
   type TemplateFile,
   templatePageMetrics,
@@ -183,6 +184,18 @@ describe('template properties', () => {
     expect(right['--doc-change-bar-insertions-color']).toBe('transparent');
     expect(right['--doc-change-bar-left']).toBe('auto');
     expect(right['--doc-change-bar-right']).toBe('calc(-1 * (8px + 4px))');
+    // A template that sets no change bars draws the base template's.
+    const plain = resolveTemplateFile(
+      { formatVersion: 1, id: 'plain' },
+      {
+        loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
+        baseTemplateId: BASE_TEMPLATE_ID,
+      },
+    );
+    expect(templateProperties(plain)).toMatchObject({
+      '--doc-change-bar-insertions-color': '#00dd00',
+      '--doc-change-bar-width': '5px',
+    });
     expect(templateProperties(BASE_TEMPLATE, { section: { name: 'appendix' } })).not.toHaveProperty(
       '--doc-change-bar-width',
     );
