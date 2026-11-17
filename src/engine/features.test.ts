@@ -30,8 +30,14 @@ const EDITING_KEYS = [
   'embeds',
   'checklists',
 ];
-// Column resizing, cell selection, the table pointer and the table keys.
-const TABLE_KEYS = ['table-column-resize', 'selectingCells', 'table-pointer', 'plugin'];
+// Column and row resizing, cell selection, the table pointer and the table keys.
+const TABLE_KEYS = [
+  'table-column-resize',
+  'table-row-resize',
+  'selectingCells',
+  'table-pointer',
+  'plugin',
+];
 // The gap cursor, the document's keys with its shortcut table, and the base keymap.
 const LAST_KEYS = ['plugin', 'document-shortcuts', 'plugin'];
 // The typing shortcuts' input rules, the last shortcut they made, and Backspace taking it back.

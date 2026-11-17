@@ -81,6 +81,21 @@ export function projectionSelection(
   return TextSelection.between(doc.resolve(anchor), doc.resolve(head));
 }
 
+/**
+ * Whether the projection shows a canonical cell selection as the caret it is drawn with, not moved
+ * since, so mirroring the projection's selection back would only lose the cells.
+ */
+export function showsCellSelection(
+  map: ProjectionMap,
+  canonical: Selection,
+  projection: Selection,
+): boolean {
+  return (
+    canonical instanceof CellSelection &&
+    projectionSelection(map, canonical, projection).eq(projection)
+  );
+}
+
 /** A projection selection as a selection of the canonical document; null when it maps nowhere. */
 export function canonicalSelection(
   map: ProjectionMap,

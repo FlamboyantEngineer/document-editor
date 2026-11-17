@@ -1,15 +1,17 @@
 // Tables under the pointer: a Ctrl or Cmd click selects the cell clicked, or grows the cells
-// selected in the same table to it, and dragging a row's bottom border sets the row's height.
+// selected in the same table to it; a click in a cell's padding, outside its content, selects the
+// cell, and a double click selects the cell's content as text, or in the padding the whole table.
+// An empty cell keeps the caret either way, and a secondary press on selected cells keeps them
+// selected. Cells a host's lock covers are never selected as cells.
 
-import { type Command, Plugin, PluginKey } from 'prosemirror-state';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { type Command, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { CellSelection, TableMap } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
+import { isCellLocked } from './table-border-hover.js';
 
 /** The nearest a row can be dragged to, in pixels. */
 export const MIN_ROW_HEIGHT = 16;
-
-// How close to a cell's bottom border a press starts a row drag, in pixels.
-const BORDER_GRAB = 4;
 
 /**
  * Selects the cell at a position before it, or, when cells of the same table are selected, grows
@@ -74,44 +76,107 @@ function cellAt(view: EditorView, target: EventTarget | null) {
   return null;
 }
 
-// Drags a row's bottom border, setting its height once the pointer is released. The document may
-// change under the drag, as a collaborator's edit does, so the row is where the cell pressed is at
-// the release; a cell no longer drawn sets nothing.
-function dragRow(view: EditorView, event: MouseEvent, pressed: Element) {
-  const owner = view.dom.ownerDocument;
-  const start = event.clientY;
-  const height = pressed.getBoundingClientRect().height;
-  const done = (up: MouseEvent) => {
-    owner.removeEventListener('mouseup', done);
-    const cell = view.isDestroyed ? null : cellAt(view, pressed);
-    if (!cell || Math.abs(up.clientY - start) <= 1) return;
-    setRowHeight(cell.table, cell.row, height + up.clientY - start)(view.state, view.dispatch);
-  };
-  owner.addEventListener('mouseup', done);
+// Whether a cell holds nothing but one empty paragraph, where a click keeps the caret.
+function isEmptyCell(cell: ProseMirrorNode): boolean {
+  const only = cell.childCount === 1 ? cell.firstChild : null;
+  return Boolean(only?.isTextblock && only.content.size === 0);
 }
 
-/** Selects cells with Ctrl or Cmd clicks and sets row heights by dragging their bottom border. */
+// The cell a click or double click is on, when it is not empty and no lock covers it, with whether
+// the press is in its padding, outside its content blocks.
+function clickedCell(view: EditorView, event: MouseEvent) {
+  const cell = cellAt(view, event.target);
+  const node = cell && view.state.doc.nodeAt(cell.pos);
+  if (!cell || !node || isEmptyCell(node) || isCellLocked(view.state, cell.pos)) return null;
+  return { ...cell, node, inPadding: event.target === cell.element };
+}
+
+/** Selects the content of the cell at a position before it as text, from its start to its end. */
+export function selectCellContent(cellPos: number): Command {
+  return (state, dispatch) => {
+    const cell = state.doc.nodeAt(cellPos);
+    if (!cell || !String(cell.type.spec.tableRole).includes('cell')) return false;
+    const start = Selection.findFrom(state.doc.resolve(cellPos + 1), 1, true);
+    const end = Selection.findFrom(state.doc.resolve(cellPos + cell.nodeSize - 1), -1, true);
+    if (!start || !end) return false;
+    dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, start.from, end.to)));
+    return true;
+  };
+}
+
+/** Selects every cell of the table at a position before it. */
+export function selectWholeTable(table: number): Command {
+  return (state, dispatch) => {
+    const node = state.doc.nodeAt(table);
+    if (node?.type.spec.tableRole !== 'table') return false;
+    const { map } = TableMap.get(node);
+    const first = table + 1 + (map[0] ?? 0);
+    const last = table + 1 + (map[map.length - 1] ?? 0);
+    const $first = state.doc.resolve(first);
+    dispatch?.(state.tr.setSelection(new CellSelection($first, state.doc.resolve(last))));
+    return true;
+  };
+}
+
+// A secondary press on a selected cell keeps the cells selected for the menu it opens: the press
+// would otherwise move the browser's caret, which the view then takes for its selection.
+function keepSelectedCells(view: EditorView, event: MouseEvent): boolean {
+  const { selection } = view.state;
+  const cell = selection instanceof CellSelection ? cellAt(view, event.target) : null;
+  if (!cell) return false;
+  let inside = false;
+  (selection as CellSelection).forEachCell((_node, pos) => (inside ||= pos === cell.pos));
+  if (inside) event.preventDefault();
+  return inside;
+}
+
+// A cell selection in cells a lock covers falls back to a caret at its head.
+function unlockedSelection(state: Parameters<Command>[0]) {
+  const { selection } = state;
+  if (!(selection instanceof CellSelection) || !isCellLocked(state, selection.$headCell.pos)) {
+    return null;
+  }
+  return state.tr.setSelection(TextSelection.near(state.doc.resolve(selection.$headCell.pos + 1)));
+}
+
+/**
+ * Selects cells with Ctrl or Cmd clicks and with clicks in their padding, and a cell's content
+ * or its whole table with a double click.
+ */
 export function createTablePointer(): Plugin {
   return new Plugin({
     key: new PluginKey('table-pointer'),
+    appendTransaction: (transactions, _before, state) =>
+      transactions.some((tr) => tr.selectionSet) ? unlockedSelection(state) : null,
     props: {
       handleDOMEvents: {
         mousedown(view, event) {
-          if (event.button !== 0 || !view.editable) return false;
+          if (event.button === 2) return keepSelectedCells(view, event);
+          if (event.button !== 0 || !view.editable || !(event.ctrlKey || event.metaKey)) {
+            return false;
+          }
           const cell = cellAt(view, event.target);
-          if (!cell) return false;
           // A Ctrl click on a reference follows it instead.
           const onReference = (event.target as Element).closest?.('[data-reference]');
-          if ((event.ctrlKey || event.metaKey) && !onReference) {
-            event.preventDefault();
-            return selectCellTo(cell.pos)(view.state, view.dispatch);
-          }
-          const { bottom } = cell.element.getBoundingClientRect();
-          if (bottom - event.clientY > BORDER_GRAB || event.clientY > bottom) return false;
+          if (!cell || onReference || isCellLocked(view.state, cell.pos)) return false;
           event.preventDefault();
-          dragRow(view, event, cell.element);
-          return true;
+          return selectCellTo(cell.pos)(view.state, view.dispatch);
         },
+      },
+      handleClick(view, _pos, event) {
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+        const cell = clickedCell(view, event);
+        if (!cell?.inPadding) return false;
+        const $cell = view.state.doc.resolve(cell.pos);
+        view.dispatch(view.state.tr.setSelection(new CellSelection($cell)));
+        return true;
+      },
+      handleDoubleClick(view, _pos, event) {
+        if (event.button !== 0) return false;
+        const cell = clickedCell(view, event);
+        if (!cell) return false;
+        const select = cell.inPadding ? selectWholeTable(cell.table) : selectCellContent(cell.pos);
+        return select(view.state, view.dispatch);
       },
     },
   });

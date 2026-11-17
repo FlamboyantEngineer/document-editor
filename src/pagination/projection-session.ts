@@ -29,7 +29,11 @@ import {
 import { layOutProjection } from './projection-layout.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { mirrorChange } from './projection-mirror.js';
-import { canonicalSelection, selectionAcrossBreak } from './selection-mirror.js';
+import {
+  canonicalSelection,
+  selectionAcrossBreak,
+  showsCellSelection,
+} from './selection-mirror.js';
 import type { TypingProbe } from './typing-probe.js';
 
 /** Marks the transactions the projection takes: a layout's, or a canonical change mirrored. */
@@ -160,10 +164,14 @@ export function showsNewerSelection(session: Session): boolean {
   return !session.projection.selection.eq(before);
 }
 
-/** Mirrors the projection's selection onto the canonical state, unless a cell selection stands. */
+/**
+ * Mirrors the projection's selection onto the canonical state, unless a cell selection stands: one
+ * a drag holds, or one the projection still shows as the caret it is drawn with, which the writer
+ * has not moved since, as when a menu acts on the cells.
+ */
 function syncSelection(session: Session): void {
   const { map, projection, canonical, cells } = session;
-  if (cells.held()) return;
+  if (cells.held() || showsCellSelection(map, canonical.selection, projection.selection)) return;
   const mapped = canonicalSelection(map, projection.selection, canonical.doc);
   if (mapped && !mapped.eq(canonical.selection)) send(session, canonical.tr.setSelection(mapped));
 }

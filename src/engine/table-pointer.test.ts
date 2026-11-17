@@ -1,54 +1,41 @@
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
+import { CellSelection } from 'prosemirror-tables';
 import { EditorView } from 'prosemirror-view';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { createEditLock } from './edit-lock.js';
 import { createTablePointer } from './table-pointer.js';
-import { markRemote } from './transaction-kind.js';
 
 const cell = (value: string): StoredNode => ({
   type: 'tableCell',
-  content: [{ type: 'paragraph', content: [{ type: 'text', text: value }] }],
+  content: [{ type: 'paragraph', content: value ? [{ type: 'text', text: value }] : [] }],
 });
 const row = (...cells: StoredNode[]): StoredNode => ({ type: 'tableRow', content: cells });
 
-// A view of a paragraph and a table of two rows, each cell 20 pixels high with its bottom at 40.
-function tableView() {
+const pointer = createTablePointer();
+
+// A view of a paragraph and a table of two rows and an empty cell; a lock may cover it all.
+function tableView(locked = false) {
   const content: StoredNode[] = [
     { type: 'paragraph', content: [{ type: 'text', text: 'Parts' }] },
-    { type: 'table', content: [row(cell('Pump'), cell('P-1')), row(cell('Valve'), cell('V-1'))] },
+    { type: 'table', content: [row(cell('Pump'), cell('P-1')), row(cell('Valve'), cell(''))] },
   ];
   const { doc } = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
   );
   const view = new EditorView(document.body.appendChild(document.createElement('div')), {
-    state: EditorState.create({ doc, plugins: [createTablePointer()] }),
+    state: EditorState.create({
+      doc,
+      plugins: [pointer, ...(locked ? [createEditLock({ isLocked: () => true })] : [])],
+    }),
   });
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
-    new DOMRect(0, 20, 100, 20),
-  );
   return view;
 }
 
 const cellElement = (view: EditorView, text: string) =>
   [...view.dom.querySelectorAll('td')].find((each) => each.textContent === text) as HTMLElement;
-
-// Each row's first cell's text with the height its cells carry.
-function rowHeights(view: EditorView): [string, unknown][] {
-  const heights: [string, unknown][] = [];
-  view.state.doc.descendants((node) => {
-    if (node.type.name === 'table_row') {
-      heights.push([node.firstChild?.textContent ?? '', node.firstChild?.attrs.rowHeight]);
-    }
-  });
-  return heights;
-}
-
-const press = (element: Element, clientY: number) =>
-  element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientY }));
-const release = (clientY: number) =>
-  document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientY }));
 
 // The position before the table.
 function tableAt(view: EditorView): number {
@@ -60,59 +47,63 @@ function tableAt(view: EditorView): number {
 }
 
 afterEach(() => {
-  vi.restoreAllMocks();
   document.body.replaceChildren();
 });
 
-describe('dragging a row border', () => {
-  it('DOCE-TABLES-3.6 sets the height of the row dragged once the pointer is released', () => {
+// A click or double click on an element, as the view hands it to the plugin.
+function clickOn(view: EditorView, target: Element, kind: 'handleClick' | 'handleDoubleClick') {
+  const event = { button: 0, target, ctrlKey: false, metaKey: false, shiftKey: false };
+  return pointer.props[kind]?.call(pointer, view, 0, event as unknown as MouseEvent) ?? false;
+}
+
+const paragraphIn = (view: EditorView, text: string) =>
+  cellElement(view, text).querySelector('p') as HTMLElement;
+
+describe('clicks in cells', () => {
+  it('DOCE-TABLES-3.11 selects a cell clicked in its padding, and leaves a click on its text', () => {
     const view = tableView();
-    press(cellElement(view, 'Valve'), 39);
-    release(60);
-    expect(rowHeights(view)).toEqual([
-      ['Pump', null],
-      ['Valve', 41],
-    ]);
+    expect(clickOn(view, paragraphIn(view, 'Pump'), 'handleClick')).toBe(false);
+    expect(clickOn(view, cellElement(view, 'Valve'), 'handleClick')).toBe(true);
+    const { selection } = view.state;
+    expect(selection).toBeInstanceOf(CellSelection);
+    expect((selection as CellSelection).$anchorCell.nodeAfter?.textContent).toBe('Valve');
     view.destroy();
   });
 
-  it('DOCE-TABLES-3.6 sets the height of the row dragged when rows were added above it meanwhile', () => {
+  it('DOCE-TABLES-3.11 selects the content of a cell as text with a double click on it', () => {
     const view = tableView();
-    press(cellElement(view, 'Valve'), 39);
-    const { tr, schema } = view.state;
-    const empty = schema.nodes.table_cell?.createAndFill();
-    const added = empty && schema.nodes.table_row?.create(null, [empty, empty]);
-    if (added) view.dispatch(markRemote(tr.insert(tableAt(view) + 1, added)));
-    release(60);
-    expect(rowHeights(view)).toEqual([
-      ['', null],
-      ['Pump', null],
-      ['Valve', 41],
-    ]);
+    expect(clickOn(view, paragraphIn(view, 'Valve'), 'handleDoubleClick')).toBe(true);
+    const { selection } = view.state;
+    expect(selection).toBeInstanceOf(TextSelection);
+    expect(view.state.doc.textBetween(selection.from, selection.to)).toBe('Valve');
     view.destroy();
   });
 
-  it('DOCE-TABLES-3.6 sets the height of the row dragged when text was typed above the table meanwhile', () => {
+  it('DOCE-TABLES-3.11 selects every cell of the table with a double click in a padding', () => {
     const view = tableView();
-    press(cellElement(view, 'Valve'), 39);
-    view.dispatch(markRemote(view.state.tr.insertText('Spare ', tableAt(view) - 1)));
-    release(60);
-    expect(rowHeights(view)).toEqual([
-      ['Pump', null],
-      ['Valve', 41],
-    ]);
+    expect(clickOn(view, cellElement(view, 'P-1'), 'handleDoubleClick')).toBe(true);
+    const { selection } = view.state;
+    expect(selection).toBeInstanceOf(CellSelection);
+    let cells = 0;
+    (selection as CellSelection).forEachCell(() => (cells += 1));
+    expect(cells).toBe(4);
     view.destroy();
   });
 
-  it('DOCE-TABLES-3.6 sets no height when the row dragged was removed meanwhile', () => {
+  it('DOCE-TABLES-3.11 keeps the caret in an empty cell', () => {
     const view = tableView();
-    press(cellElement(view, 'Valve'), 39);
-    const table = view.state.doc.nodeAt(tableAt(view));
-    const first = table?.firstChild?.nodeSize ?? 0;
-    const from = tableAt(view) + 1 + first;
-    view.dispatch(markRemote(view.state.tr.delete(from, from + (table?.lastChild?.nodeSize ?? 0))));
-    release(60);
-    expect(rowHeights(view)).toEqual([['Pump', null]]);
+    const empty = [...view.dom.querySelectorAll('td')].find((each) => !each.textContent) as Element;
+    expect(clickOn(view, empty, 'handleClick')).toBe(false);
+    expect(clickOn(view, empty, 'handleDoubleClick')).toBe(false);
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-3.11 selects no cells a lock covers', () => {
+    const view = tableView(true);
+    expect(clickOn(view, cellElement(view, 'Valve'), 'handleClick')).toBe(false);
+    const $cell = view.state.doc.resolve(tableAt(view) + 2);
+    view.dispatch(view.state.tr.setSelection(new CellSelection($cell)));
+    expect(view.state.selection).toBeInstanceOf(TextSelection);
     view.destroy();
   });
 });

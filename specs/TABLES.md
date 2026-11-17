@@ -6,7 +6,7 @@ A document's tables are edited through the plugins `createTableEditing()` return
 
 ### DOCE-TABLES-1.1 - Moving between cells
 
-Tab shall move the caret to the next cell and Shift-Tab to the previous one; Tab in a table's last cell shall add a row after it and move into its first cell. Outside a table both keys are left to the document's keys.
+Tab shall move to the next cell and Shift-Tab to the previous one, selecting the cell's content so typing replaces it; Tab in a table's last cell shall add a body row after it, whose cells take new element ids, and move into its first cell. Shift-Tab in the first cell, and Tab in the last cell of a view the writer cannot edit, such as a version shown or reading mode, shall do nothing: inside a table neither key reaches the document's own Tab, which indents a list or changes a paragraph's level, and a view the writer cannot edit only moves between cells. Outside a table both keys are left to the document's keys.
 
 Implementation: `src/engine/tables.ts`
 Verification: `src/engine/tables.test.ts`
@@ -78,9 +78,9 @@ Verification: `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-2.4 - Column widths
 
-Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. While the pointer is on a border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`. On release the widths are kept in every cell of the whole table (`setColumnWidths`); a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags.
+While the pointer is on a cell's side border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers (DOCE-EDITING) offers no border. Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. On release the widths are kept in every cell of the whole table (`setColumnWidths`); a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags.
 
-Implementation: `src/engine/table-resize.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
+Implementation: `src/engine/table-resize.ts`, `src/engine/table-border-hover.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
 Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
 
 ## DOCE-TABLES-3 - Formatting tables
@@ -122,14 +122,14 @@ Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-3.6 - Row heights
 
-Dragging a row's bottom border in an editable document shall set the row's height (`setRowHeight`) on each of its cells once the pointer is released, never below `MIN_ROW_HEIGHT` (16 pixels). The row is the one the pressed cell is in at the release, whatever changed meanwhile, such as rows a collaborator added above it; a cell no longer in the document sets nothing.
+While the pointer is near a row's bottom border in an editable document, from the cell above it or from the cell below it in the same drawn table, the editor shall carry `data-row-resize` and each cell of the row draw a `de-row-resize-handle` along the border; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers offers none. Dragging the border shall show the row at the height it would take, and releasing set the row's height (`setRowHeight`) on each of its cells, never below `MIN_ROW_HEIGHT` (16 pixels); a release where it was pressed sets nothing. The row is the one the pressed cell is in at the release, whatever changed meanwhile, such as rows a collaborator added above it; a cell no longer in the document sets nothing.
 
-Implementation: `src/engine/table-pointer.ts`
-Verification: `src/engine/table-format.test.ts`, `src/engine/table-pointer.test.ts`, `e2e/tables.spec.ts`
+Implementation: `src/engine/table-row-resize.ts`, `src/engine/table-pointer.ts`, `src/engine/table-border-hover.ts`
+Verification: `src/engine/table-format.test.ts`, `src/engine/table-row-resize.test.ts`, `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-3.7 - Within the page
 
-After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history. Dragging the last column's right border shall widen or narrow the table, never wider than the content box the table sits in. A resize starts from the widths the columns are laid out at, and a table fitted to the page width (`fit-page-width`) that has a column resized leaves the fit and is aligned left, at those widths.
+After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history. Dragging the last column's right border shall widen or narrow the table, never wider than the content box the table sits in. A resize starts from the widths the columns are laid out at. A table fitted to the page width (`fit-page-width`) keeps the fit when a border between two of its columns moves, which changes only their proportions, and leaves it, aligned left at the widths it was laid out at, when its last column's border changes its outer width (`setColumnWidths(table, widths, { keepFit })`).
 
 Implementation: `src/model/layout/column-widths.ts`, `src/engine/table-width.ts`, `src/engine/table-resize.ts`, `src/engine/document-editing.ts`
 Verification: `src/model/layout/column-widths.test.ts`, `src/engine/table-format.test.ts`, `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
@@ -155,6 +155,27 @@ Verification: `src/engine/table-split.test.ts`
 Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
 Verification: `src/engine/table-format.test.ts`
 
+### DOCE-TABLES-3.11 - Clicks in cells
+
+A click in a cell's padding, outside its content blocks, shall select the cell; a double click on the cell's content shall select all its content as text (`selectCellContent`), however many paragraphs it holds, and a double click in its padding every cell of its table (`selectWholeTable`), replacing a cell selection either way. A click or double click on a paragraph, its blank end included, places the caret as ever. An empty cell, one empty paragraph, keeps the caret for both, so it can be typed into. A Ctrl or Cmd click is DOCE-TABLES-3.5's. A cell a host's lock covers is never selected as a cell: a cell selection there becomes a caret at its head.
+
+Implementation: `src/engine/table-pointer.ts`, `src/engine/table-border-hover.ts`
+Verification: `src/engine/table-pointer.test.ts`, `e2e/table-selection.spec.ts`
+
+### DOCE-TABLES-3.12 - Aligning a fitted table
+
+`setObjectLayout` aligning a table fitted to the page width left, centred or right shall keep the column widths it was laid out at while fitted, written on its cells, when it runs with the view.
+
+Implementation: `src/engine/object-commands.ts`, `src/engine/table-resize.ts`
+Verification: `src/engine/table-resize.test.ts`
+
+### DOCE-TABLES-3.13 - The cells a menu acts on
+
+A command the context menu or a grip offers on selected cells, such as aligning them, making them headers or inserting rows or columns beside them, shall keep those cells selected, and only those, after it runs, unless it deletes them.
+
+Implementation: `src/engine/table-format.ts`, `src/engine/table-headers.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/table-selection.spec.ts`
+
 ## DOCE-TABLES-4 - Tables from other data
 
 ### DOCE-TABLES-4.1 - Rows of text cells
@@ -177,3 +198,5 @@ Verification: `src/document/stored-table.test.ts`
 | `--de-table-handles-left`          | property  |                 | The left edge of a grip's row or column, or of the line.   |
 | `--de-table-handles-width`         | property  |                 | The width of a grip's column, or of a row's drop line.     |
 | `--de-table-handles-height`        | property  |                 | The height of a grip's row, or of a column's drop line.    |
+| `data-row-resize`                  | state     | `true`          | On the editor while the pointer is on a row's border.      |
+| `de-row-resize-handle`             | root      |                 | Drawn in each cell along the row border under the pointer. |
