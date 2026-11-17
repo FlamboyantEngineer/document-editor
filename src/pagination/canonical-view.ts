@@ -7,6 +7,7 @@
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { ProjectionMap } from './projection-map.js';
+import { canonicalNodeAt } from './selection-mirror.js';
 
 /** What the canonical view reads and where its transactions go. */
 export interface CanonicalViewSource {
@@ -45,7 +46,11 @@ function mappedMethods(view: EditorView, source: CanonicalViewSource) {
       const map = source.map();
       const pos = map.toCanonical(found.pos);
       if (pos === null) return null;
-      const inside = found.inside < 0 ? -1 : map.toCanonical(found.inside, 1);
+      // The node the point is inside, a continued fragment of a split atom being its whole block.
+      const inside =
+        found.inside < 0
+          ? -1
+          : (canonicalNodeAt(map, found.inside, map.canonical) ?? map.toCanonical(found.inside, 1));
       return { pos, inside: inside ?? -1 };
     },
   };
