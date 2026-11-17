@@ -126,7 +126,7 @@ export interface TemplateSettingsLabels {
 /** The English text of the template editor's rows. */
 export const DEFAULT_TEMPLATE_SETTINGS_LABELS: TemplateSettingsLabels = {
   styleNameTaken: 'Another style has this name.',
-  styleNameInvalid: 'Start with a letter; then up to 15 letters, digits, _ or -.',
+  styleNameInvalid: 'Start with a letter; then up to 15 letters, digits or _.',
   sides: { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' },
   numbered: 'Numbered',
   on: 'On',

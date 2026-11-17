@@ -45,7 +45,7 @@
       }
     },
     "custom": {
-      "station-note": {
+      "station_note": {
         "color": "#0f766e"
       },
       "checklist": {

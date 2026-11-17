@@ -611,6 +611,12 @@
   font-family: var(--de-font-option), sans-serif;
 }
 
+/* The unit after a style's size, on its font row. */
+.de-template-editor__unit {
+  color: var(--ref-text-muted);
+  font-size: 0.85em;
+}
+
 /* The template workspace: a band of scope tabs with the toolbar at its end, the messages, then the
    tabs' panel, where the preview fills the room beside the side panel. */
 .de-template-workspace {
