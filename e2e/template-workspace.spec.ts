@@ -3,20 +3,32 @@ import { expect, test } from './fixtures.js';
 
 const workspace = (page: Page) => page.locator('.de-template-workspace');
 const toolbar = (page: Page) => page.getByRole('toolbar', { name: 'Template actions' });
+const panel = (page: Page) => page.locator('.de-template-workspace__panel');
 const nameField = (page: Page) =>
   page.locator('.de-template-workspace__settings').getByRole('textbox', { name: 'Name' });
 const preview = (page: Page) => page.getByRole('region', { name: 'Template preview' });
+const saveButton = (page: Page) =>
+  toolbar(page).getByRole('button', { name: /^(Save|Saved|Not saved: .*)$/ });
+
+// Shows a pane of the side panel, expanding it from its rail when it is collapsed.
+async function showPane(page: Page, name: 'Properties' | 'History') {
+  const tab = panel(page).getByRole('tab', { name });
+  if (await tab.isVisible()) await tab.click();
+  else await panel(page).getByRole('button', { name }).click();
+}
 
 async function rename(page: Page, name: string) {
+  await showPane(page, 'Properties');
   await nameField(page).fill(name);
   await nameField(page).press('Enter');
 }
 
 async function pick(page: Page, name: string) {
-  await toolbar(page)
-    .getByRole('button', { name: /Template/ })
-    .click();
-  await page.getByRole('option', { name: new RegExp(`^${name}`) }).click();
+  await toolbar(page).getByRole('button', { name: 'Open' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Open a template' });
+  // The search opens the folders a template sits in.
+  await dialog.getByRole('searchbox', { name: 'Search templates' }).fill(name);
+  await dialog.getByRole('row', { name: new RegExp(`^${name}`) }).dblclick();
 }
 
 test.describe('template workspace lab', () => {
@@ -25,9 +37,12 @@ test.describe('template workspace lab', () => {
     page,
   }) => {
     await lab.open('template-workspace');
-    await expect(nameField(page)).toHaveValue('Report');
+    // The side panel starts collapsed to its rail, beside the preview.
     await expect(preview(page).locator('.de-document-editor')).toBeVisible();
-    const save = toolbar(page).getByRole('button', { name: 'Save', exact: true });
+    await expect(nameField(page)).toBeHidden();
+    await showPane(page, 'Properties');
+    await expect(nameField(page)).toHaveValue('Report');
+    const save = saveButton(page);
     await expect(save).toBeDisabled();
     await rename(page, 'Annual report');
     await expect(workspace(page)).toHaveAttribute('data-dirty', 'true');
@@ -54,24 +69,31 @@ test.describe('template workspace lab', () => {
   }) => {
     await lab.open('template-workspace');
     await toolbar(page).getByRole('button', { name: 'Save as…' }).click();
-    const dialog = page.getByRole('dialog');
+    const dialog = page.getByRole('dialog', { name: 'Save as a new template' });
     await expect(dialog.getByRole('textbox', { name: 'Id' })).toHaveValue('report_copy');
     await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(dialog).toBeHidden();
+    await showPane(page, 'Properties');
     await expect(nameField(page)).toHaveValue('Copy of Report');
     await pick(page, 'Report');
     await expect(nameField(page)).toHaveValue('Report');
     // The Report template has two saved versions; the older one shows read-only and is restored.
-    await toolbar(page).getByRole('button', { name: 'History' }).click();
+    await showPane(page, 'History');
     const history = page.locator('.de-template-workspace__history');
     await expect(history.getByRole('row')).toHaveCount(2);
-    await history.getByRole('row').nth(1).click();
+    await history.getByRole('row').nth(1).getByRole('button', { name: 'Version actions' }).click();
+    await page.getByRole('menuitem', { name: 'View version' }).click();
     await expect(page.getByText('Version 1, read only')).toBeVisible();
+    await showPane(page, 'Properties');
     await expect(nameField(page)).toBeDisabled();
+    // Restoring stages the version's settings; Save stores them as the newest version.
     await page.getByRole('button', { name: 'Restore this version' }).click();
     await expect(page.getByText('Version 1, read only')).toBeHidden();
-    await expect(history.getByRole('row')).toHaveCount(3);
+    await expect(workspace(page)).toHaveAttribute('data-dirty', 'true');
     await expect(nameField(page)).toBeEnabled();
+    await saveButton(page).click();
+    await showPane(page, 'History');
+    await expect(history.getByRole('row')).toHaveCount(3);
   });
 
   test('DOCE-TEMPLATE-EDITOR-3.6 DOCE-TEMPLATE-EDITOR-3.7 guards changes and previews a web-layout template', async ({
@@ -96,6 +118,39 @@ test.describe('template workspace lab', () => {
       'data-layout',
       'web',
     );
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-3.11 DOCE-TEMPLATE-EDITOR-3.14 edits sections from their tabs and opens templates from folders', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-workspace');
+    await pick(page, 'Letter');
+    const tabs = page.getByRole('tablist', { name: 'Template parts' });
+    await expect(tabs.getByRole('tab')).toHaveText(['Document', 'Cover page', 'body']);
+    // The band holds the tabs and the actions, in order.
+    expect(
+      await toolbar(page)
+        .getByRole('button')
+        .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))),
+    ).toEqual(['New template', 'Open', 'Save as…', 'Save', 'Delete']);
+    await tabs.getByRole('tab', { name: 'body' }).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Insert a section before' }).click();
+    await expect(tabs.getByRole('tab')).toHaveText(['Document', 'Cover page', 'section_3', 'body']);
+    await showPane(page, 'Properties');
+    await expect(page.getByRole('region', { name: 'Section settings' })).toBeVisible();
+    const add = tabs.locator('..').getByRole('button', { name: 'Add tab' });
+    await add.click();
+    await expect(add).toBeFocused();
+    await expect(tabs.getByRole('tab').last()).toHaveText('section_4');
+    // The open dialog: Article pinned first, then the folders; the search reads folder paths.
+    await toolbar(page).getByRole('button', { name: 'Open' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Open a template' });
+    await expect(dialog.getByRole('row').first()).toHaveText('Article');
+    await dialog.getByRole('searchbox', { name: 'Search templates' }).fill('mail');
+    await expect(dialog.getByRole('row')).toHaveText(['Outgoing', 'Mail', 'Letter']);
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
   });
 
   test('DOCE-TEMPLATES-8.8 previews nested lists, continued objects and a change bar of each kind', async ({

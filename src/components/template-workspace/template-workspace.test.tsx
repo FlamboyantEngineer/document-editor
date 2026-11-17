@@ -1,16 +1,21 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { createMemoryHost } from '../../host/memory-host.js';
+import {
+  LOADED,
+  nameField,
+  openFromDialog,
+  rename,
+  saveButton,
+  showHistory,
+  SLOW,
+  storeOf,
+  versionAction,
+  workspaceRoot as root,
+} from '../../../test/template-workspace.js';
 import type { TemplateFile } from '../../model/index.js';
 import { TemplatePicker } from './template-picker.js';
 import { type TemplatePreview, TemplateWorkspace } from './template-workspace.js';
-
-// The whole template editor renders in each test, which takes seconds on a shared CI runner.
-const SLOW = 45_000;
-// Opening a template loads it from the store and renders the editor again, which a busy runner
-// can take over a second to finish: waits on that use a longer window than the default second.
-const LOADED = { timeout: 10_000 };
 
 const REPORT: TemplateFile = { formatVersion: 1, id: 'report', name: 'Report' };
 const LETTER: TemplateFile = { formatVersion: 1, id: 'letter', name: 'Letter', parent: 'report' };
@@ -20,19 +25,6 @@ const ARTICLE: TemplateFile = {
   name: 'Article',
   extensions: { layout: 'web' },
 };
-
-const storeOf = (...templates: TemplateFile[]) =>
-  createMemoryHost({ templates, now: () => new Date('2026-01-02T03:04:05Z') }).templates;
-
-const root = () => document.querySelector('.de-template-workspace');
-
-// Renames the open template through its Name row.
-async function rename(user: ReturnType<typeof userEvent.setup>, name: string) {
-  const field = await screen.findByRole('textbox', { name: 'Name' }, LOADED);
-  await user.clear(field);
-  await user.paste(name);
-  await user.keyboard('{Enter}');
-}
 
 describe('TemplateWorkspace', () => {
   it(
@@ -45,17 +37,17 @@ describe('TemplateWorkspace', () => {
           store={storeOf(REPORT, LETTER)}
           defaultTemplateId="report"
           onTemplateIdChange={onTemplateIdChange}
+          defaultPanelExpanded
         />,
       );
-      expect(await screen.findByRole('textbox', { name: 'Name' }, LOADED)).toHaveValue('Report');
+      expect(await nameField()).toHaveValue('Report');
       expect(root()).toHaveAttribute('data-layout', 'page');
       expect(document.querySelector('.de-template-workspace__toolbar')).toHaveAttribute(
         'role',
         'toolbar',
       );
       expect(document.querySelector('.de-template-workspace__settings')).not.toBeNull();
-      await user.click(screen.getByRole('button', { name: /Template/ }));
-      await user.click(await screen.findByRole('option', { name: /Letter/ }, LOADED));
+      await openFromDialog(user, /Letter/);
       await waitFor(
         () => expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Letter'),
         LOADED,
@@ -70,12 +62,14 @@ describe('TemplateWorkspace', () => {
     async () => {
       const user = userEvent.setup();
       const store = storeOf(REPORT);
-      render(<TemplateWorkspace store={store} defaultTemplateId="report" />);
-      const save = screen.getByRole('button', { name: 'Save' });
+      render(<TemplateWorkspace store={store} defaultTemplateId="report" defaultPanelExpanded />);
       await rename(user, 'Annual report');
+      const save = saveButton();
       expect(root()).toHaveAttribute('data-dirty', 'true');
       await user.click(save);
       await waitFor(() => expect(save).toBeDisabled(), LOADED);
+      // Save says for a moment that it saved, through its name and icon.
+      expect(save).toHaveAccessibleName('Saved');
       await expect(store.load('report')).resolves.toMatchObject({
         value: { revision: 'rev-2', template: { name: 'Annual report' } },
       });
@@ -89,6 +83,7 @@ describe('TemplateWorkspace', () => {
       expect(
         await screen.findByText(/Someone else saved this template/, {}, LOADED),
       ).toBeInTheDocument();
+      expect(save).toHaveAccessibleName(/^Not saved/);
       await user.click(screen.getByRole('button', { name: 'Keep my changes' }));
       await waitFor(
         () => expect(screen.queryByText(/Someone else saved/)).not.toBeInTheDocument(),
@@ -115,29 +110,47 @@ describe('TemplateWorkspace', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.3 creates a template on its first save and saves one as a copy',
+    'DOCE-TEMPLATE-EDITOR-3.3 starts a blank template, needs an id to save it, and saves a copy',
     async () => {
       const user = userEvent.setup();
       const store = storeOf(REPORT);
-      render(<TemplateWorkspace store={store} />);
+      render(
+        <TemplateWorkspace
+          store={store}
+          saveAsFields={(copy, onChange) => (
+            <button
+              type="button"
+              onClick={() => onChange({ ...copy, extensions: { folder: 'Letters' } })}
+            >
+              In Letters
+            </button>
+          )}
+        />,
+      );
       await user.click(screen.getByRole('button', { name: 'New template' }));
-      expect(await screen.findByRole('textbox', { name: 'Id' }, LOADED)).toHaveValue('template');
-      await user.click(screen.getByRole('button', { name: 'Save' }));
+      // A blank template: no id or name yet, and one section of its own.
+      expect(await screen.findByRole('tab', { name: 'section_1' }, LOADED)).toBeInTheDocument();
+      await user.click(saveButton());
+      const id = await screen.findByRole('textbox', { name: 'Id' }, LOADED);
+      await waitFor(() => expect(id).toHaveFocus(), LOADED);
+      expect(id).toHaveAccessibleDescription('Give the template an id to save it.');
+      await expect(store.load('template')).resolves.toMatchObject({ ok: false });
+      await user.paste('memo');
+      await user.keyboard('{Enter}');
+      await user.click(saveButton());
       await waitFor(
         () => expect(screen.queryByRole('textbox', { name: 'Id' })).not.toBeInTheDocument(),
         LOADED,
       );
-      await expect(store.load('template')).resolves.toMatchObject({
-        value: { template: { name: 'New template' } },
+      await expect(store.load('memo')).resolves.toMatchObject({
+        value: { template: { id: 'memo', sections: [{ name: 'section_1', editable: true }] } },
       });
       await user.click(screen.getByRole('button', { name: 'Save as…' }));
       const dialog = await screen.findByRole('dialog', {}, LOADED);
-      const id = within(dialog).getByRole('textbox', { name: 'Id' });
-      expect(id).toHaveValue('template_copy');
-      expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveValue(
-        'Copy of New template',
-      );
-      await user.clear(id);
+      const copyId = within(dialog).getByRole('textbox', { name: 'Id' });
+      expect(copyId).toHaveValue('memo_copy');
+      expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveValue('Copy of memo');
+      await user.clear(copyId);
       await user.paste('report');
       await user.click(within(dialog).getByRole('button', { name: 'Save' }));
       expect(
@@ -147,12 +160,21 @@ describe('TemplateWorkspace', () => {
           LOADED,
         ),
       ).toBeInTheDocument();
-      await user.clear(id);
-      await user.paste('memo');
+      await user.clear(copyId);
+      await user.paste('note');
+      await user.click(within(dialog).getByRole('button', { name: 'In Letters' }));
       await user.click(within(dialog).getByRole('button', { name: 'Save' }));
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), LOADED);
-      await expect(store.load('memo')).resolves.toMatchObject({
-        value: { template: { id: 'memo', name: 'Copy of New template' } },
+      await waitFor(
+        () =>
+          expect(
+            screen.queryByRole('dialog', { name: 'Save as a new template' }),
+          ).not.toBeInTheDocument(),
+        LOADED,
+      );
+      await expect(store.load('note')).resolves.toMatchObject({
+        value: {
+          template: { id: 'note', name: 'Copy of memo', extensions: { folder: 'Letters' } },
+        },
       });
     },
     SLOW,
@@ -163,8 +185,11 @@ describe('TemplateWorkspace', () => {
     async () => {
       const user = userEvent.setup();
       const store = storeOf(REPORT, LETTER);
-      render(<TemplateWorkspace store={store} defaultTemplateId="report" />);
-      await screen.findByRole('textbox', { name: 'Name' }, LOADED);
+      const { rerender } = render(<TemplateWorkspace store={store} defaultTemplateId="report" />);
+      await waitFor(() => expect(root()).not.toHaveAttribute('data-loading'), LOADED);
+      // Delete is the host's to offer.
+      expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+      rerender(<TemplateWorkspace store={store} defaultTemplateId="report" canDelete />);
       await user.click(screen.getByRole('button', { name: 'Delete' }));
       const confirm = await screen.findByRole('alertdialog', {}, LOADED);
       await user.click(within(confirm).getByRole('button', { name: 'Delete' }));
@@ -175,26 +200,39 @@ describe('TemplateWorkspace', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.5 shows a saved version read-only and restores it',
+    'DOCE-TEMPLATE-EDITOR-3.5 shows a saved version read-only and stages a restore',
     async () => {
       const user = userEvent.setup();
       const store = storeOf(REPORT, { ...REPORT, name: 'Second' });
-      render(<TemplateWorkspace store={store} defaultTemplateId="report" />);
-      await screen.findByRole('textbox', { name: 'Name' }, LOADED);
-      await user.click(screen.getByRole('button', { name: 'History' }));
-      const history = await screen.findByRole('grid', { name: 'History' }, LOADED);
-      expect(document.querySelector('.de-template-workspace__history')).not.toBeNull();
+      render(
+        <TemplateWorkspace
+          store={store}
+          defaultTemplateId="report"
+          defaultPanelExpanded
+          personOf={(author) => ({ name: `Person ${author}` })}
+        />,
+      );
+      await nameField();
+      const history = await showHistory(user);
       const rows = await within(history).findAllByRole('row', {}, LOADED);
       expect(rows).toHaveLength(2);
-      await user.click(rows[1] as HTMLElement);
+      expect(within(rows[0] as HTMLElement).getByText(/^Person /)).toBeInTheDocument();
+      await versionAction(user, rows[1] as HTMLElement, 'View version');
       expect(await screen.findByText('Version 1, read only', {}, LOADED)).toBeInTheDocument();
+      await user.click(screen.getByRole('tab', { name: 'Properties' }));
       expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Report');
       expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+      // Restoring stages the version's settings as unsaved changes; Save stores them.
       await user.click(screen.getByRole('button', { name: 'Restore this version' }));
       await waitFor(
         () => expect(screen.queryByText('Version 1, read only')).not.toBeInTheDocument(),
         LOADED,
       );
+      expect(root()).toHaveAttribute('data-dirty', 'true');
+      expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Report');
+      await expect(store.load('report')).resolves.toMatchObject({ value: { revision: 'rev-2' } });
+      await user.click(saveButton());
+      await waitFor(() => expect(root()).not.toHaveAttribute('data-dirty'), LOADED);
       await expect(store.load('report')).resolves.toMatchObject({
         value: { revision: 'rev-3', template: { name: 'Report' } },
       });
@@ -211,6 +249,7 @@ describe('TemplateWorkspace', () => {
         <TemplateWorkspace
           store={storeOf(REPORT, ARTICLE)}
           defaultTemplateId="article"
+          defaultPanelExpanded
           layoutOf={(template) => (template.extensions?.layout === 'web' ? 'web' : 'page')}
           renderPreview={(preview) => {
             previews.push(preview);
@@ -235,8 +274,7 @@ describe('TemplateWorkspace', () => {
       expect(last).toMatchObject({ layout: 'web', scope: null });
       last?.onRegionChange?.({ region: 'header', section: null, content: [] });
       await waitFor(() => expect(root()).toHaveAttribute('data-dirty', 'true'), LOADED);
-      await user.click(screen.getByRole('button', { name: /Template/ }));
-      await user.click(await screen.findByRole('option', { name: /Report/ }, LOADED));
+      await openFromDialog(user, /Report/);
       expect(await screen.findByRole('alertdialog', {}, LOADED)).toBeInTheDocument();
     },
     SLOW,
@@ -246,10 +284,15 @@ describe('TemplateWorkspace', () => {
     'DOCE-TEMPLATE-EDITOR-3.7 asks before opening another template over unsaved changes',
     async () => {
       const user = userEvent.setup();
-      render(<TemplateWorkspace store={storeOf(REPORT, LETTER)} defaultTemplateId="report" />);
+      render(
+        <TemplateWorkspace
+          store={storeOf(REPORT, LETTER)}
+          defaultTemplateId="report"
+          defaultPanelExpanded
+        />,
+      );
       await rename(user, 'Unsaved');
-      await user.click(screen.getByRole('button', { name: /Template/ }));
-      await user.click(await screen.findByRole('option', { name: /Letter/ }, LOADED));
+      await openFromDialog(user, /Letter/);
       const dialog = await screen.findByRole('alertdialog', {}, LOADED);
       expect(within(dialog).getByText('Changes to Unsaved')).toBeInTheDocument();
       await user.click(within(dialog).getByRole('button', { name: /Stay/ }));
@@ -258,8 +301,7 @@ describe('TemplateWorkspace', () => {
         LOADED,
       );
       expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Unsaved');
-      await user.click(screen.getByRole('button', { name: /Template/ }));
-      await user.click(await screen.findByRole('option', { name: /Letter/ }, LOADED));
+      await openFromDialog(user, /Letter/);
       await user.click(
         within(await screen.findByRole('alertdialog', {}, LOADED)).getByRole('button', {
           name: /Discard/,

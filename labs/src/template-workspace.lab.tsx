@@ -1,10 +1,12 @@
-// The template workspace over the in-memory host's template store: pick a template, edit it, save
-// it, save it as a copy, delete it, and browse and restore its versions, with the template's
-// preview document beside the settings. The Article template is for the web layout, which the lab
-// keeps in the template's own `extensions.layout`, so it previews as the web layout shows a
-// document. "Save elsewhere" saves the open template as another writer would, so the next save
-// meets a conflict.
+// The template workspace over the in-memory host's template store: open a template from the
+// folders the lab keeps in `extensions.folder`, edit its scopes from their tabs, save it, save it
+// as a copy into a folder, delete it, and browse and restore its versions, with the template's
+// preview document beside the side panel. The Article template is for the web layout, which the
+// lab keeps in the template's own `extensions.layout`, so it previews as the web layout shows a
+// document; it is pinned first in the open dialog. "Save elsewhere" saves the open template as
+// another writer would, so the next save meets a conflict. Control+Alt+B shows the JSON.
 
+import { LockGlyph } from '@flamboyantengineer/ui-components/core';
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -39,6 +41,8 @@ const TEMPLATES: TemplateFile[] = [
     name: 'Letter',
     parent: 'report',
     page: { size: 'US Letter' },
+    sections: [{ name: 'cover', label: 'Cover page' }, { name: 'body' }],
+    extensions: { folder: 'Outgoing/Mail' },
   },
   {
     formatVersion: 1,
@@ -98,8 +102,24 @@ function Preview({ preview }: { preview: TemplatePreview }) {
   );
 }
 
+// The folders of the stored templates, by id, read again after each save.
+const folders = new Map<string, readonly string[]>();
+async function readFolders() {
+  const listed = await store.list();
+  if (!listed.ok) return;
+  for (const summary of listed.value) {
+    const loaded = await store.load(summary.id);
+    const folder = loaded.ok ? loaded.value.template.extensions?.folder : undefined;
+    folders.set(summary.id, typeof folder === 'string' && folder ? folder.split('/') : []);
+  }
+}
+
 function Lab() {
   const [openId, setOpenId] = useState<string | null>('report');
+  const [, setRead] = useState(0);
+  useEffect(() => {
+    void readFolders().then(() => setRead((count) => count + 1));
+  }, [openId]);
   const saveElsewhere = async () => {
     if (!openId) return;
     const loaded = await store.load(openId);
@@ -122,12 +142,37 @@ function Lab() {
         defaultTemplateId="report"
         onTemplateIdChange={setOpenId}
         layoutOf={(template) => (template.extensions?.layout === 'web' ? 'web' : 'page')}
+        catalog={{
+          pinned: ['article'],
+          iconOf: (template) => (template.id === 'article' ? LockGlyph : undefined),
+          pathOf: (template) => folders.get(template.id) ?? [],
+        }}
+        saveAsFields={(copy, onChange) => (
+          <label>
+            Folder{' '}
+            <input
+              value={String(copy.extensions?.folder ?? '')}
+              onChange={(event) =>
+                onChange({
+                  ...copy,
+                  extensions: { ...copy.extensions, folder: event.target.value },
+                })
+              }
+            />
+          </label>
+        )}
+        canDelete
+        debug
+        personOf={(author) => ({ name: author === 'me' ? 'You' : author })}
         renderPreview={(preview) => (
           <Preview key={`${preview.template.id}:${preview.layout}`} preview={preview} />
         )}
         extensions={{
           rows: {
-            identity: [{ id: 'layout', label: 'Layout', path: ['layout'], kind: { type: 'text' } }],
+            identity: [
+              { id: 'layout', label: 'Layout', path: ['layout'], kind: { type: 'text' } },
+              { id: 'folder', label: 'Folder', path: ['folder'], kind: { type: 'text' } },
+            ],
           },
         }}
         className="lab-template-workspace"

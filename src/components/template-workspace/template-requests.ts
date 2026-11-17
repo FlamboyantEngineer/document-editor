@@ -60,14 +60,6 @@ export async function loadInherited(
   return resolveTemplateFileAsync(parent, { loadTemplate: load, baseTemplateId: BASE_TEMPLATE_ID });
 }
 
-/** A template id that no stored template has, from `base`: `base`, then `base-2` and on. */
-export function freeTemplateId(base: string, templates: readonly TemplateSummary[]): string {
-  const taken = new Set(templates.map((template) => template.id));
-  let id = base;
-  for (let count = 2; taken.has(id); count += 1) id = `${base}-${String(count)}`;
-  return id;
-}
-
 /**
  * The templates a template may inherit from, by id: every other stored template, one that inherits
  * from it marked as a cycle.

@@ -241,6 +241,11 @@ describe('identity', () => {
       await user.clear(id);
       await user.type(id, '2 My template-one!{Enter}');
       expect(log.templates.at(-1)?.id).toBe('My_template_one');
+      // An id with nothing left is refused, saying why, and empties the template's own.
+      await user.clear(id);
+      await user.type(id, '42{Enter}');
+      expect(id).toHaveAccessibleDescription('An id needs a letter or a digit.');
+      expect(log.templates.at(-1)?.id).toBe('');
       expect(templateIdOf(`a${'b'.repeat(80)}`)).toHaveLength(64);
       expect(templateIdOf('42')).toBe('');
       unmount();

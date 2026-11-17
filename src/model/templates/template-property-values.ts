@@ -9,7 +9,7 @@ import {
   isTemplateLength,
   isTemplateLineHeight,
   isTemplateWeight,
-} from '../format/template-format-validate.js';
+} from '../format/template-format-values.js';
 
 /** A length with its unit as a CSS value, or null. */
 export const cssLength = (value: unknown): string | null =>
