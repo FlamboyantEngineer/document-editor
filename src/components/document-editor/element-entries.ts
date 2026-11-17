@@ -35,7 +35,7 @@ import {
 } from '../../engine/index.js';
 import { abbreviationEntries } from './abbreviation-entries.js';
 import { contentsEntries } from './contents-entries.js';
-import type { ObjectDialog } from './editor-context.js';
+import type { ObjectDialog, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { commandEntry } from './table-actions.js';
 
@@ -66,6 +66,8 @@ interface ElementEntriesOptions {
   readonly openDialog: ((dialog: ObjectDialog) => void) | null;
   /** Whether the host resolves linked code. */
   readonly linkedCode: boolean;
+  /** The host's own reference types, whose references its dialogs edit. */
+  readonly referenceKinds: readonly ReferenceKind[];
   readonly codeLanguages: readonly string[];
 }
 
@@ -234,11 +236,13 @@ function referenceEntries(view: EditorView, options: ElementEntriesOptions): Men
   if (!reference) return [];
   const { labels } = options;
   const target = internalTargetId(reference.mark);
+  const refType = String(reference.mark.attrs.refType);
+  const hosted = options.referenceKinds.find((each) => each.refType === refType);
   return [
     ...dialogEntry(
       options,
       { id: 'edit-reference', label: labels.editReference },
-      { kind: 'reference' },
+      hosted ? { kind: 'host', name: hosted.dialog, data: { refType } } : { kind: 'reference' },
     ),
     commandEntry(view, { id: 'remove-reference', label: labels.removeReference }, removeReference),
     ...(referenceStatusAt(view.state) === 'update'

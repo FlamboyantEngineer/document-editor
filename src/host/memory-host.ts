@@ -2,6 +2,7 @@ import type { StoredContent } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import { sliceCodeLines } from '../model/linked-code.js';
+import type { ReferenceTargetBaseline } from '../model/reference-format.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
@@ -11,7 +12,6 @@ import type {
   ExternalReference,
   GlossaryAdapter,
   IdentityAdapter,
-  ReferenceSourceAdapter,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptRunRequest,
@@ -30,6 +30,7 @@ import {
   createMemoryVersions,
   notFound,
 } from './memory-documents.js';
+import { createMemoryReferences, matchesQuery } from './memory-references.js';
 import {
   createMemoryDrafts,
   createMemorySessionParts,
@@ -53,6 +54,8 @@ export interface MemoryHostOptions {
   glossary?: readonly GlossaryEntry[] | undefined;
   /** The citations of other documents the reference source finds. */
   citations?: readonly ExternalReference[] | undefined;
+  /** The targets each cited document holds, by the document's id, which a citation may name. */
+  citationTargets?: Readonly<Record<string, readonly ReferenceTargetBaseline[]>> | undefined;
   /** Source files the code source resolves, by URL without its fragment. */
   code?: Readonly<Record<string, string>> | undefined;
   /** Produces a script's content; without it the host runs no scripts. A throw is a failure. */
@@ -108,11 +111,6 @@ function createMemoryAssets(): AssetAdapter {
   };
 }
 
-const matches = (query: string, ...values: string[]) => {
-  const wanted = query.trim().toLowerCase();
-  return values.some((value) => value.toLowerCase().includes(wanted));
-};
-
 /** Keeps a glossary in memory: entries found by their abbreviation or expansion, added with ids. */
 function createMemoryGlossary(initial: readonly GlossaryEntry[], now: () => Date): GlossaryAdapter {
   const entries = new Map(initial.map((entry) => [entry.id, { ...entry }]));
@@ -123,7 +121,8 @@ function createMemoryGlossary(initial: readonly GlossaryEntry[], now: () => Date
         ok: true,
         value: [...entries.values()]
           .filter(
-            (entry) => !entry.archivedAt && matches(query, entry.abbreviation, entry.expansion),
+            (entry) =>
+              !entry.archivedAt && matchesQuery(query, entry.abbreviation, entry.expansion),
           )
           .map(copy),
       }),
@@ -147,30 +146,6 @@ function createMemoryGlossary(initial: readonly GlossaryEntry[], now: () => Date
         value: ids.flatMap((id) => {
           const entry = entries.get(id);
           return entry ? [copy(entry)] : [];
-        }),
-      }),
-  };
-}
-
-/** Finds citations of other documents among those it is given. */
-function createMemoryReferences(citations: readonly ExternalReference[]): ReferenceSourceAdapter {
-  return {
-    search: (query) =>
-      Promise.resolve({
-        ok: true,
-        value: citations
-          .filter((citation) => matches(query, citation.label))
-          .map((citation) => structuredClone(citation)),
-      }),
-    resolve: (wanted) =>
-      Promise.resolve({
-        ok: true,
-        value: wanted.map(({ documentId, targetId }) => {
-          const found = citations.find(
-            ({ baseline }) =>
-              baseline.documentId === documentId && (baseline.target?.id ?? null) === targetId,
-          );
-          return found ? structuredClone(found.baseline) : null;
         }),
       }),
   };
@@ -298,7 +273,7 @@ export function createMemoryHost(options: MemoryHostOptions = {}): MemoryHost {
     assets: createMemoryAssets(),
     codeSource: createMemoryCodeSource(options.code ?? {}),
     glossary: createMemoryGlossary(options.glossary ?? [], now),
-    references: createMemoryReferences(options.citations ?? []),
+    references: createMemoryReferences(options),
     comments,
     ...(options.scripts ? { scripts: createMemoryScripts(options.scripts, options) } : {}),
     ...(options.complete ? { completion: createMemoryCompletion(options.complete) } : {}),
