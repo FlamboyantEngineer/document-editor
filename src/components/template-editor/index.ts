@@ -15,8 +15,6 @@ export type {
 } from './template-extensions.js';
 export type { TemplateIdentityLabels, TemplateParentOption } from './template-identity.js';
 export { templateIdOf } from './template-identity.js';
-export type { TemplateJsonEditorLabels, TemplateJsonEditorProps } from './template-json-editor.js';
-export { TemplateJsonEditor } from './template-json-editor.js';
 export type { TemplateScopeLabels } from './template-scope.js';
 export { SECTION_SETTINGS } from './template-scope.js';
 export type { TemplateScope, TemplateScopeProps } from './template-scope-state.js';

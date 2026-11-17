@@ -103,6 +103,31 @@ describe('DocumentCommentsPanel', () => {
     expect(within(list).queryByText('Old')).not.toBeInTheDocument();
   });
 
+  it('DOCE-COMMENTS-4.2 names the filters with the host’s words', async () => {
+    const labels = { filterOpen: 'Unresolved', filterAll: 'Every thread', filterMine: 'Mine only' };
+    render(<Harness host={mentioning()} panel={{ labels }} />);
+    const filter = await within(panel()).findByRole('radiogroup', { name: 'Show' });
+    expect(within(filter).getByRole('radio', { name: /Unresolved/ })).toBeChecked();
+    expect(within(filter).getByRole('radio', { name: /Every thread/ })).toBeInTheDocument();
+    expect(within(filter).getByRole('radio', { name: /Mine only/ })).toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-2.11 offers no decision on a suggestion’s thread whose marks are gone, which stays open', async () => {
+    const store = createMemoryHost({
+      person: { id: 'ada', name: 'Ada Lovelace' },
+      comments: {
+        threads: { doc: [{ ...thread('lost', 'open', 'Still here'), suggestion: 'gone' }] },
+      },
+    });
+    render(<Harness host={store} panel />);
+    const card = (await within(panel()).findByText('Still here')).closest('[role="group"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The thread should be listed.');
+    expect(within(card).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+    const listed = await store.comments?.list('doc');
+    expect(listed?.ok && listed.value[0]?.state).toBe('open');
+  });
+
   it('DOCE-COMMENTS-4.2 hides the threads the reader is not the audience of', async () => {
     render(
       <Harness

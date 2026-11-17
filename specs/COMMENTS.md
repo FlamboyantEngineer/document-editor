@@ -421,6 +421,13 @@ In the scale lab's document of about 300 pages beside 500 open threads, typing s
 Implementation: `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/use-card-context.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`, `src/components/document-comments/comment-filters.ts`, `labs/src/stress-scale.lab.tsx`, `labs/src/stress/scale-documents.ts`, `playwright.config.ts`
 Verification: `e2e/review-scale.performance.spec.ts`, `e2e/performance.spec.ts`, `src/components/document-comments/comments-panel.test.tsx`
 
+### DOCE-COMMENTS-3.8 - Cards shown sideways
+
+Where the stage is narrower than the pages with their margin, the margin shall scroll the nearest scroller along its inline axis, the page's own included, just enough to show the active card when it becomes active or opens, and again when that scroller is resized while it is active; it never scrolls up or down for it. The offer to comment on selected text is not a card shown this way: selecting text, as a double click does, never scrolls the stage.
+
+Implementation: `src/components/document-comments/reveal-card.ts`, `src/components/document-comments/use-open-cards.ts`
+Verification: `e2e/comments.spec.ts`
+
 ## DOCE-COMMENTS-4 - Reviewing
 
 ### DOCE-COMMENTS-4.1 - Suggestions in the comments panel
@@ -509,7 +516,7 @@ Verification: `src/components/document-comments/comment-pane.test.tsx`
 
 ### DOCE-COMMENTS-4.13 - Rows for the threads beside the text
 
-With the threads placed in the margin, the comments panel shall list the threads and suggestions the margin shows beside their text (open threads and standing suggestions) not as a second card but as one row each (`de-comments-panel__row`, with `data-annotation` `thread` or `suggestion`), after its cards, in reading order, in a list headed `inDocument` (`de-comments-panel__in-document`, its heading `de-comments-panel__heading`): the row names who wrote it (`threadRow`, `suggestionRow`) and the text it is on (`onText`, or `showInDocument` when there is none), each on one line, and is current while its card is the active one. Activating a row puts the caret at its text, scrolling it into view, and opens its card in the margin, focused, as a link to it does. Resolved threads, which the margin does not show, keep their full cards, and the panel says it lists nothing only when it lists neither a card nor a row. With the threads in the pane alone, or `anchoredAs: 'cards'`, every thread and suggestion is a full card.
+With the threads placed in the margin, the comments panel shall list the threads and suggestions the margin shows beside their text (open threads and standing suggestions) not as a second card but as one row each (`de-comments-panel__row`, with `data-annotation` `thread` or `suggestion`), a thread's row with a speech bubble and a suggestion's with a pencil, after its cards, in reading order, in a list headed `inDocument` (`de-comments-panel__in-document`, its heading `de-comments-panel__heading`): the row names who wrote it (`threadRow`, `suggestionRow`) and the text it is on (`onText`, or `showInDocument` when there is none), each on one line, and is current while its card is the active one. Activating a row puts the caret at its text, scrolling it into view, and opens its card in the margin, focused, as a link to it does. Resolved threads, which the margin does not show, keep their full cards, and the panel says it lists nothing only when it lists neither a card nor a row. With the threads in the pane alone, or `anchoredAs: 'cards'`, every thread and suggestion is a full card.
 
 Implementation: `src/components/document-comments/panel-rows.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comment-focus.tsx`, `src/components/document-comments/use-open-cards.ts`
 Verification: `src/components/document-comments/panel-rows.test.tsx`, `e2e/comments.spec.ts`
