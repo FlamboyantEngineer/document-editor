@@ -386,6 +386,45 @@ describe('TemplateWorkspace', () => {
   );
 
   it(
+    'DOCE-TEMPLATE-EDITOR-3.6 overrides a style its parent defines, kept apart from the parent through a reopen',
+    async () => {
+      const user = userEvent.setup();
+      const house: TemplateFile = {
+        formatVersion: 1,
+        id: 'house',
+        name: 'House',
+        styles: { custom: { lead: { size: '13pt' } } },
+      };
+      const store = storeOf(house, {
+        formatVersion: 1,
+        id: 'child',
+        name: 'Child',
+        parent: 'house',
+      });
+      const view = render(
+        <TemplateWorkspace store={store} defaultTemplateId="child" defaultPanelExpanded />,
+      );
+      const card = await screen.findByRole('button', { name: /^lead\b.*inherited/ }, LOADED);
+      await user.click(card);
+      await user.click(screen.getByRole('button', { name: 'Override the inherited style' }));
+      await user.click(saveButton());
+      await waitFor(async () => {
+        const loaded = await store.load('child');
+        expect(loaded.ok && loaded.value.template.styles?.custom).toEqual({
+          lead: { size: '13pt' },
+        });
+      }, LOADED);
+      await expect(store.load('house')).resolves.toMatchObject({ value: { template: house } });
+      view.unmount();
+      render(<TemplateWorkspace store={store} defaultTemplateId="child" defaultPanelExpanded />);
+      const own = await screen.findByRole('button', { name: /^lead\b/ }, LOADED);
+      expect(own).not.toHaveAccessibleName(/inherited/);
+      expect(screen.queryByRole('button', { name: 'Override the inherited style' })).toBeNull();
+    },
+    SLOW,
+  );
+
+  it(
     'DOCE-TEMPLATE-EDITOR-3.7 asks before opening another template over unsaved changes',
     async () => {
       const user = userEvent.setup();
