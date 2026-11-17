@@ -254,13 +254,12 @@ div.de-host-view {
   margin-block-end: 0;
 }
 
-/* Nor does a list item's first or last block, such as a nested list ending the item: its margin
-   would collapse out of the list, past the edge of a page the list ends. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li > :first-child {
-  margin-block-start: 0;
-}
-
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li > :last-child {
+/* Nor does a block ending a list's last item, such as a nested list: its margin would collapse
+   out of the list, past the edge of a page the list ends. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  li:last-child
+  > :last-child {
   margin-block-end: 0;
 }
 
