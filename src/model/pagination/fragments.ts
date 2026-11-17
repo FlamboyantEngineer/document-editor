@@ -8,8 +8,9 @@ import {
   type Node as ProseMirrorNode,
   type NodeType,
   type Schema,
+  Slice,
 } from 'prosemirror-model';
-import { Transform } from 'prosemirror-transform';
+import { ReplaceStep, Transform } from 'prosemirror-transform';
 
 type Attrs = Record<string, unknown>;
 
@@ -257,6 +258,27 @@ function joinTables(tr: Transform, pos: number) {
   tr.delete(pos - 1, pos - 1 + size);
 }
 
+// A table with its caption joins as its tables join: the caption a later part repeats goes, and
+// the later table's rows join the first's, through the boundary between the two, in one step.
+function joinTableFigures(tr: Transform, pos: number, rules: FragmentRules) {
+  const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
+  const first = previous?.lastChild;
+  const repeated = next?.firstChild;
+  const later = next?.lastChild;
+  if (!previous || !first || !repeated || !later || next.childCount !== 2) return;
+  const header = headerRows(first);
+  const rows = children(later);
+  const repeats =
+    header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
+  // Inside the first table after its rows, to inside the later one before its rows.
+  tr.step(new ReplaceStep(pos - 2, pos + 2 + repeated.nodeSize, Slice.empty));
+  if (repeats) {
+    const size = header.reduce((sum, row) => sum + row.nodeSize, 0);
+    tr.delete(pos - 2, pos - 2 + size);
+  }
+  makeWhole(tr, pos - previous.nodeSize + 1 + (previous.firstChild?.nodeSize ?? 0), rules);
+}
+
 // A code block splits at a line break and drops it, so joining puts it back.
 function joinCodeBlocks(tr: Transform, pos: number) {
   tr.insert(pos - 1, tr.doc.type.schema.text('\n'));
@@ -291,6 +313,7 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   },
   linked_code_block: { whole: { ...PART, codeBlockContinued: false }, join: joinLinkedCode },
   table: { whole: PART, join: joinTables },
+  table_figure: { whole: PART, join: joinTableFigures },
   blockquote: { whole: PART, join: joinContainers },
   script_block: { whole: PART, join: joinContainers },
   embed: { whole: PART, join: joinContainers },

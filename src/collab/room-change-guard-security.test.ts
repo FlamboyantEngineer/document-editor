@@ -1346,3 +1346,116 @@ describe('DOCE-COLLAB-7.2 DOCE-EMBEDS-1.4 an inline embed in a guarded room', ()
     expect(allowed(before, before.tr.delete(at, at + 1).doc, 'writer', editor)).toBe(true);
   });
 });
+
+describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
+  const suggestOnly = { edit: false, suggest: true, comment: true, decide: false };
+  const editor = { edit: true, suggest: true, comment: true, decide: false };
+  const captioned = (caption: string): DocumentFile['sections'][number]['content'][number] => ({
+    type: 'table',
+    attrs: { id: 't0000001' },
+    content: [
+      { type: 'caption', attrs: { id: 'c0000001' }, content: [text(caption)] },
+      {
+        type: 'tableRow',
+        attrs: { id: 'r0000001' },
+        content: [
+          {
+            type: 'tableCell',
+            attrs: { id: 'd0000001' },
+            content: [{ type: 'paragraph', attrs: { id: 'p0000001' }, content: [text('Cell')] }],
+          },
+        ],
+      },
+    ],
+  });
+  const stateOf = (caption: string) =>
+    EditorState.create({
+      doc: readDocumentFile(
+        { formatVersion: 1, sections: [{ name: null, content: [captioned(caption)] }] },
+        schema,
+      ).doc,
+    });
+  // The caption's text: where it starts and ends.
+  const captionText = (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'table_caption') at = pos + 1;
+      return at < 0;
+    });
+    return { from: at, to: at + 'Limits'.length };
+  };
+  const allowed = (before: EditorState, after: EditorState['doc'], granted = suggestOnly) =>
+    checkDocumentChange({ before: before.doc, after, actor: 'writer', permissions: granted });
+
+  it('lets a caption’s text change as any text does: edited by an editor, suggested by a suggester', () => {
+    const before = stateOf('Limits');
+    const { from, to } = captionText(before);
+    const edited = before.tr.insertText('Power limits', from, to);
+    expect(allowed(before, edited.doc)).toBe(false);
+    expect(allowed(before, edited.doc, editor)).toBe(true);
+    const suggestion = suggestTransaction(before.tr.insertText('Power ', from), before, {
+      author: 'writer',
+      newId: () => 's0000001',
+    });
+    if (!suggestion) throw new Error('The change was not suggested.');
+    expect(allowed(before, before.apply(suggestion).doc)).toBe(true);
+  });
+
+  it('refuses even an editor a caption showing text only the pages draw, or a table marked as a part of one split', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+      if (figure?.type.name !== 'table_figure') throw new Error('No table with its caption.');
+      // Inserts a table after the room's paragraph.
+      const insert = (node: typeof figure) =>
+        change(room.doc, (state) => {
+          let end = -1;
+          state.doc.descendants((each, pos) => {
+            if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+            return end < 0;
+          });
+          return state.apply(state.tr.insert(end, node));
+        });
+      const caption = figure.firstChild;
+      const table = figure.lastChild;
+      if (!caption || !table) throw new Error('No caption.');
+      const shown = caption.type.create({ ...caption.attrs, continuedText: 'Not its text' });
+      for (const attack of [
+        figure.type.create(figure.attrs, [shown, table]),
+        figure.type.create({ splitPartIndex: 1 }, [caption, table]),
+      ]) {
+        insert(attack);
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
+      }
+    } finally {
+      await room.close();
+    }
+  });
+
+  it('accepts a whole table with its caption from an editor', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+      if (figure?.type.name !== 'table_figure') throw new Error('No table with its caption.');
+      change(room.doc, (state) => {
+        let end = -1;
+        state.doc.descendants((each, pos) => {
+          if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+          return end < 0;
+        });
+        return state.apply(state.tr.insert(end, figure));
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBeNull();
+      const stored = yjsToDocument(room.handle.snapshot(), { schema });
+      expect(stored?.sections[0]?.content[1]?.content?.[0]).toMatchObject({
+        type: 'caption',
+        content: [{ type: 'text', text: 'Limits' }],
+      });
+    } finally {
+      await room.close();
+    }
+  });
+});

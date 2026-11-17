@@ -194,9 +194,9 @@ describe('object commands', () => {
     expect(figure().attrs).toMatchObject({
       figureType: 'diagram',
       fileAssetId: 'd1',
-      caption: 'Flow',
       objectLayout: 'right',
     });
+    expect(figure()?.textBetween(0, figure()?.content.size ?? 0)).toBe('Flow');
     state = run(state, setObjectLayout('fit'));
     expect(figure().attrs.objectLayout).toBe('fit-page-width');
   });

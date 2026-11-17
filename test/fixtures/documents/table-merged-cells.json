@@ -23,11 +23,21 @@
           "type": "table",
           "attrs": {
             "border": "table-border-1px",
-            "caption": "Merged and styled cells",
-            "captionId": "cap-0001",
             "id": "7768326b"
           },
           "content": [
+            {
+              "type": "caption",
+              "attrs": {
+                "id": "c0a10001"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Merged and styled cells"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

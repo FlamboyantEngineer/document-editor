@@ -55,8 +55,9 @@ const row = (cell: 'tableCell' | 'tableHeader', values: string[]): StoredNode =>
 });
 const table = (id: string, rows: number): StoredNode => ({
   type: 'table',
-  attrs: { id, caption: `Readings, part ${id}`, captionEnabled: true },
+  attrs: { id, captionEnabled: true },
   content: [
+    { type: 'caption', content: [{ type: 'text', text: `Readings, part ${id}` }] },
     row('tableHeader', ['Room', 'Reading']),
     ...Array.from({ length: rows }, (_, index) =>
       row('tableCell', [`Room ${String(index + 1)}`, String(index * 3)]),

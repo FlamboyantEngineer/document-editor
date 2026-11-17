@@ -217,7 +217,11 @@ describe('inserting tables', () => {
     const after = run(stateAt(text, 'Intro'), insertTable({ rows: 3, columns: 2 }));
     const blocks = after.doc.child(0).child(0).child(1);
     expect(blocks.childCount).toBe(2);
-    const table = blocks.child(1);
+    // The table comes with its caption, empty, in the node holding both.
+    const held = blocks.child(1);
+    expect(held.type.name).toBe('table_figure');
+    expect(held.firstChild?.type.name).toBe('table_caption');
+    const table = held.child(1);
     expect(table.childCount).toBe(3);
     expect(table.child(0).child(0).type.name).toBe('table_header');
     expect(table.child(1).childCount).toBe(2);
@@ -226,7 +230,7 @@ describe('inserting tables', () => {
     const empty = read({ type: 'paragraph' });
     const state = EditorState.create({ doc: empty });
     const replaced = run(state, insertTable({ rows: 1, columns: 1 }));
-    expect(replaced.doc.child(0).child(0).child(1).firstChild?.type.name).toBe('table');
+    expect(replaced.doc.child(0).child(0).child(1).firstChild?.type.name).toBe('table_figure');
     expect(insertTable({ rows: 0, columns: 2 })(state)).toBe(false);
   });
 });

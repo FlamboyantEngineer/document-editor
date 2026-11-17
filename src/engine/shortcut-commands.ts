@@ -1,10 +1,11 @@
 // The commands the shortcut table's document actions run, bound to the table's keys for the
 // document's keymap.
 
-import { toggleMark } from 'prosemirror-commands';
+import { chainCommands, toggleMark } from 'prosemirror-commands';
 import type { Schema } from 'prosemirror-model';
 import type { Command } from 'prosemirror-state';
 import { setTextblockType } from './block-type.js';
+import { selectAllInCaption } from './caption-editing.js';
 import { checklistCommands } from './checklists.js';
 import {
   clearFormatting,
@@ -58,7 +59,8 @@ function shortcutCommands(schema: Schema): Partial<Record<ShortcutId, Command>> 
     ...checklistCommands(schema),
     undo: undoCommand,
     redo: redoCommand,
-    'select-all': selectBody,
+    // In a caption, its text first; then the body.
+    'select-all': chainCommands(selectAllInCaption, selectBody),
     'clear-formatting': clearFormatting,
     'page-break': insertPageBreak,
     'code-block': insertCodeBlock(),

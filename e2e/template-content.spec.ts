@@ -265,7 +265,7 @@ test.describe('template content lab', () => {
     await expect(tables).toHaveCount(2);
     const boxes = await tables.evaluateAll((all) =>
       all.map((table) => {
-        const caption = table.querySelector('caption');
+        const caption = table.parentElement?.querySelector(':scope > .doc-caption-line');
         const body = table.querySelector('tbody')?.getBoundingClientRect();
         const line = caption?.getBoundingClientRect();
         const content = table.closest('.pm-page-content')?.getBoundingClientRect();

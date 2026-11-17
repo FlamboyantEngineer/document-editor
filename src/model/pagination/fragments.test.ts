@@ -61,13 +61,20 @@ describe('split block fragments', () => {
 
   it('DOCE-PAGINATION-1.4 keeps a split table header once', () => {
     const fragment = (index: number, text: string) =>
-      node('table', { dataId: 't1', splitPartIndex: index }, [
-        row('table_header', 'Name'),
-        row('table_cell', text),
+      node('table_figure', { splitPartIndex: index }, [
+        node('table_caption', index ? { continuedText: 'Totals' } : null, [
+          ...(index ? [] : [documentSchema.text('Totals')]),
+        ]),
+        node('table', { dataId: 't1', splitPartIndex: index }, [
+          row('table_header', 'Name'),
+          row('table_cell', text),
+        ]),
       ]);
     const [joined] = joinFragments([fragment(0, 'One'), fragment(1, 'Two')]);
-    expect(joined?.childCount).toBe(3);
-    expect(joined?.textContent).toBe('NameOneTwo');
+    expect(joined?.attrs.splitPartIndex).toBeNull();
+    expect(joined?.lastChild?.childCount).toBe(3);
+    expect(joined?.lastChild?.attrs.splitPartIndex).toBeNull();
+    expect(joined?.textContent).toBe('TotalsNameOneTwo');
   });
 
   it('DOCE-PAGINATION-1.5 joins a split list item by item and child by child', () => {

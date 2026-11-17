@@ -64,9 +64,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Site map",
-            "caption": "Site map",
             "id": "ca910007"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Site map"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "mathBlock",
@@ -109,17 +119,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 0",
-            "caption": "Plan of the north beds, soil",
             "id": "ca91000b"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the north beds, soil"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, soil",
             "id": "ca91001b"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, soil"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -305,17 +333,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 3",
-            "caption": "Plan of the west beds, soil again",
             "id": "ca91001f"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the west beds, soil again"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, soil again",
             "id": "ca91002f"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, soil again"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -491,6 +537,9 @@
           },
           "content": [
             {
+              "type": "caption"
+            },
+            {
               "type": "tableRow",
               "attrs": {
                 "id": "ca910032"
@@ -617,17 +666,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 1",
-            "caption": "Plan of the south beds, water",
             "id": "ca91003f"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the south beds, water"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, water",
             "id": "ca91004f"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, water"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -813,17 +880,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 4",
-            "caption": "Plan of the north beds, water again",
             "id": "ca910053"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the north beds, water again"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, water again",
             "id": "ca910063"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, water again"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -999,6 +1084,9 @@
           },
           "content": [
             {
+              "type": "caption"
+            },
+            {
               "type": "tableRow",
               "attrs": {
                 "id": "ca910066"
@@ -1125,17 +1213,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 2",
-            "caption": "Plan of the east beds, seeds",
             "id": "ca910073"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the east beds, seeds"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, seeds",
             "id": "ca910083"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, seeds"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1321,17 +1427,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 5",
-            "caption": "Plan of the south beds, seeds again",
             "id": "ca910087"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the south beds, seeds again"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, seeds again",
             "id": "ca910097"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, seeds again"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1507,6 +1631,9 @@
           },
           "content": [
             {
+              "type": "caption"
+            },
+            {
               "type": "tableRow",
               "attrs": {
                 "id": "ca91009a"
@@ -1638,17 +1765,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 7",
-            "caption": "Plan of the west beds, annex",
             "id": "ca9100a7"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the west beds, annex"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, annex",
             "id": "ca9100b7"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, annex"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

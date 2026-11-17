@@ -52,7 +52,7 @@ function sourceAttributes(node: ProseMirrorNode, className: string): DomAttribut
 
 // What an embed may hold: blocks of text, lists, tables and objects, but no other embed.
 const EMBED_CONTENT =
-  '(paragraph | heading | bullet_list | ordered_list | table | figure | math_display | code_block | horizontal_rule)+';
+  '(paragraph | heading | bullet_list | ordered_list | table_figure | figure | math_display | code_block | horizontal_rule)+';
 
 const embed: NodeSpec = {
   group: 'block',

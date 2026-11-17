@@ -272,12 +272,12 @@ test.describe('document editor lab', () => {
     await page.keyboard.type('Before the limits');
     const block = content(page).locator('p', { hasText: 'Before the limits' });
     await expect(block).toHaveCount(1);
-    // The next block, on the same page or the next, is the table.
+    // The next block, on the same page or the next, is the table with its caption.
     const next = () =>
       content(page).evaluate((element) => {
         const blocks = Array.from(element.querySelectorAll('.pm-page-content > *'));
         const index = blocks.findIndex((each) => each.textContent === 'Before the limits');
-        return blocks[index + 1]?.tagName ?? null;
+        return blocks[index + 1]?.querySelector(':scope > table') ? 'TABLE' : null;
       });
     await expect.poll(next).toBe('TABLE');
   });

@@ -29,7 +29,11 @@ const initial = () =>
                   { type: 'math', attrs: { source: 'x^2' } },
                 ],
               },
-              { type: 'figure', attrs: { src: 'board.png', alt: 'Board', caption: 'The board' } },
+              {
+                type: 'codeBlock',
+                attrs: { caption: 'The board' },
+                content: [{ type: 'text', text: 'x = 1' }],
+              },
             ],
           },
         ],
@@ -104,7 +108,7 @@ describe('ObjectEditors', () => {
   it('DOCE-OBJECTS-2.3 keeps the caption being typed while a change before its object moves it', async () => {
     const user = userEvent.setup();
     const editor = mounted();
-    selectNode(editor, 'figure');
+    selectNode(editor, 'code_block');
     // The command a double click on the caption line runs; the field then takes focus.
     act(() => {
       editCaption(editor.view.state, editor.view.dispatch);

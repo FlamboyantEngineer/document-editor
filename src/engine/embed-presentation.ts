@@ -1,15 +1,22 @@
 // How a table an embed holds is presented in the document: its column widths, row heights, cell
-// alignment, header cells, layout and caption are the writer's, while its cells' content is the
-// host's. The writer may change that presentation inside an embed, and an update keeps it where
+// alignment, header cells, layout and caption, the caption's text included, are the writer's, while
+// its cells' content is the host's. The writer may change that presentation inside an embed, and an update keeps it where
 // the table the host loads still has the row, column or table it was set on.
 
 import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from 'prosemirror-model';
 import { TableMap } from 'prosemirror-tables';
-import { AttrStep, ReplaceAroundStep, type Step } from 'prosemirror-transform';
+import {
+  AddMarkStep,
+  AttrStep,
+  RemoveMarkStep,
+  ReplaceAroundStep,
+  ReplaceStep,
+  type Step,
+} from 'prosemirror-transform';
 import { isEmbed } from '../model/index.js';
 
 // The attributes of a table, and of its cells, that present it rather than say what it holds.
-const TABLE_PRESENTATION = ['objectLayout', 'caption', 'captionEnabled', 'tableBorderClass'];
+const TABLE_PRESENTATION = ['objectLayout', 'captionEnabled', 'tableBorderClass'];
 const CELL_PRESENTATION = ['colwidth', 'rowHeight', 'textAlign', 'verticalAlign'];
 
 const CELL_ROLES = new Set(['cell', 'header_cell']);
@@ -31,11 +38,21 @@ function onlyPresents(before: ProseMirrorNode, after: ProseMirrorNode): boolean 
   return [...keys].every((key) => free.has(key) || before.attrs[key] === after.attrs[key]);
 }
 
+// Whether a step edits the text of one table's caption, which is the writer's.
+function inCaption(step: Step, doc: ProseMirrorNode): boolean {
+  const ranged =
+    step instanceof ReplaceStep || step instanceof AddMarkStep || step instanceof RemoveMarkStep;
+  if (!ranged) return false;
+  const $from = doc.resolve(step.from);
+  return $from.sameParent(doc.resolve(step.to)) && $from.parent.type.name === 'table_caption';
+}
+
 /**
  * Whether a step only changes how a table is presented, by setting its, a row's or a cell's
  * presentation attributes or turning cells into header cells and back, keeping what they hold.
  */
 export function isPresentationStep(step: Step, doc: ProseMirrorNode): boolean {
+  if (inCaption(step, doc)) return true;
   if (step instanceof AttrStep) {
     const node = doc.nodeAt(step.pos);
     return Boolean(node && presentationOf(node).includes(step.attr));
@@ -111,13 +128,31 @@ function keepTable(before: ProseMirrorNode, after: ProseMirrorNode): ProseMirror
 export function keepEmbeddedPresentation(before: Fragment, after: Fragment): Fragment {
   const old: ProseMirrorNode[] = [];
   before.forEach((node) => {
-    if (roleOf(node) === 'table') old.push(node);
+    if (tableIn(node)) old.push(node);
   });
   let index = 0;
   const kept: ProseMirrorNode[] = [];
   after.forEach((node) => {
-    const was = roleOf(node) === 'table' ? old[index++] : undefined;
-    kept.push(was ? keepTable(was, node) : node);
+    const was = tableIn(node) ? old[index++] : undefined;
+    kept.push(was ? keepCaptioned(was, node) : node);
   });
   return Fragment.from(kept);
+}
+
+// The table a block is, or holds with its caption; null for any other block.
+function tableIn(node: ProseMirrorNode): ProseMirrorNode | null {
+  if (roleOf(node) === 'table') return node;
+  return node.type.name === 'table_figure' ? node.lastChild : null;
+}
+
+// A table the host loaded, with its caption, presented as the one it replaces: its table as
+// `keepTable` keeps it, and the caption the writer gave the table it replaces.
+function keepCaptioned(before: ProseMirrorNode, after: ProseMirrorNode): ProseMirrorNode {
+  const was = tableIn(before);
+  const now = tableIn(after);
+  if (!was || !now) return after;
+  const table = keepTable(was, now);
+  if (after === now) return table;
+  const caption = before === was ? after.firstChild : before.firstChild;
+  return caption ? after.copy(Fragment.from([caption, table])) : after;
 }

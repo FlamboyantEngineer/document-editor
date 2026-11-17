@@ -101,10 +101,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Shifts",
             "id": "0ec6550b"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Shifts"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -2348,10 +2356,18 @@
           "type": "table",
           "attrs": {
             "layout": "fit-page-width",
-            "caption": "Wide readings",
             "id": "53b7c148"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Wide readings"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

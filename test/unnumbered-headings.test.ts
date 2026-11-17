@@ -12,6 +12,7 @@ import {
   type StoredNode,
   writeDocumentFile,
 } from '../src/model/index.js';
+import { storedCaption } from '../src/model/schema/caption-content.js';
 import { documentSchema } from './document-markup.js';
 
 const STYLESHEET = readFileSync(new URL('../labs/reference/document.css', import.meta.url), 'utf8');
@@ -23,8 +24,8 @@ const heading = (level: number, text: string, id: string, numbered = true): Stor
 });
 const table = (caption: string): StoredNode => ({
   type: 'table',
-  attrs: { caption },
   content: [
+    storedCaption(caption),
     { type: 'tableRow', content: [{ type: 'tableCell', content: [{ type: 'paragraph' }] }] },
   ],
 });

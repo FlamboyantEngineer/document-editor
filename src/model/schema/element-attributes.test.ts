@@ -26,12 +26,16 @@ const ORIGIN: IdentityAttribute = { name: 'origin', dom: 'data-origin', onCopy: 
 describe('element attributes', () => {
   it('DOCE-SCHEMA-2.1 gives every node type but text an id, its author and its split part', () => {
     for (const [name, type] of Object.entries(documentSchema.nodes)) {
-      if (name === 'text') continue;
+      // The node holding a table and its caption is not stored, and is no element of its own.
+      if (name === 'text' || name === 'table_figure') continue;
       expect(Object.keys(type.spec.attrs ?? {}), name).toEqual(
         expect.arrayContaining(['dataId', 'dataAuthor', 'dataAiSession', 'splitPartIndex']),
       );
     }
     expect(documentSchema.nodes.text?.spec.attrs).toBeUndefined();
+    expect(Object.keys(documentSchema.nodes.table_figure?.spec.attrs ?? {})).toEqual([
+      'splitPartIndex',
+    ]);
   });
 
   it('DOCE-SCHEMA-2.1 reads and writes them on the element', () => {

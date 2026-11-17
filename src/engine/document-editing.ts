@@ -126,13 +126,17 @@ const always =
     return true;
   };
 
+// The objects Backspace or Delete selects before deleting, beside the atoms: a figure and a table
+// with their captions.
+const CAPTIONED_OBJECTS = new Set(['figure', 'table_figure']);
+
 // Whether a block beside a text block is an object Backspace or Delete selects before deleting: an
-// atom, such as an equation or a figure, or a table.
+// atom, such as an equation, a figure, or a table with its caption.
 const isObjectBlock = (node: ProseMirrorNode) =>
   !node.isTextblock &&
   !node.isInline &&
   NodeSelection.isSelectable(node) &&
-  (node.isAtom || node.type.spec.tableRole === 'table');
+  (node.isAtom || CAPTIONED_OBJECTS.has(node.type.name));
 
 // At the edge of a text block beside an object, Backspace or Delete selects the object first; a
 // second press deletes it.
@@ -152,16 +156,19 @@ const selectAtom =
     return true;
   };
 
-// Inside a footnote entry, which is one paragraph of text: Enter and Shift+Enter add nothing, and
-// Backspace at its start and Delete at its end join nothing.
-const inFootnoteEntry: Command = (state) =>
-  state.selection.$from.parent.type.name === 'footnote_entry';
+// The text blocks that are one line of text each: a footnote entry and a figure's or a table's
+// caption.
+const ONE_LINE = new Set(['footnote_entry', 'figure_caption', 'table_caption']);
 
-const atFootnoteEdge =
+// Inside a footnote entry or a caption, which is one paragraph of text: Enter and Shift+Enter add
+// nothing, and Backspace at its start and Delete at its end join nothing.
+const inOneLine: Command = (state) => ONE_LINE.has(state.selection.$from.parent.type.name);
+
+const atOneLineEdge =
   (side: -1 | 1): Command =>
   (state) => {
     const { $from, empty } = state.selection;
-    if (!empty || $from.parent.type.name !== 'footnote_entry') return false;
+    if (!empty || !ONE_LINE.has($from.parent.type.name)) return false;
     return side < 0 ? $from.parentOffset === 0 : $from.parentOffset === $from.parent.content.size;
   };
 
@@ -186,10 +193,10 @@ export function documentKeys(
     item ? command(item) : () => false;
   return {
     ...boundKeys(schema, table),
-    'Shift-Enter': inFootnoteEntry,
+    'Shift-Enter': inOneLine,
     Enter: keepIdentityWithContent(
       chainCommands(
-        inFootnoteEntry,
+        inOneLine,
         newlineInCode,
         noteSplitSource(listKey(splitChecklistItem)),
         addParagraphNear,
@@ -200,7 +207,7 @@ export function documentKeys(
     ),
     Backspace: chainCommands(
       deleteSelection,
-      atFootnoteEdge(-1),
+      atOneLineEdge(-1),
       deleteEmptyListItem,
       selectAtom(-1),
       joinBackward,
@@ -208,7 +215,7 @@ export function documentKeys(
     ),
     Delete: chainCommands(
       deleteSelection,
-      atFootnoteEdge(1),
+      atOneLineEdge(1),
       deleteEmptyParagraph(1),
       selectAtom(1),
       joinForward,

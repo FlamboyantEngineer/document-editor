@@ -188,12 +188,41 @@ export function blockMargin(style: CSSStyleDeclaration | undefined, side: 'start
   return (side === 'start' ? style?.marginTop : style?.marginBottom) ?? '';
 }
 
-/** An element's margins at the start and end of its block axis, in any writing mode. */
-export function margins(element: HTMLElement) {
+// Whether a side of a block lets its first or last child's margin through it, as a plain block
+// with no border or padding there does in a horizontal writing mode.
+function passesMargin(style: CSSStyleDeclaration, side: 'top' | 'bottom'): boolean {
+  if (style.display !== 'block' || !['', 'visible'].includes(style.overflow)) return false;
+  if (/^(vertical|sideways)/.test(style.writingMode)) return false;
+  const padding = side === 'top' ? style.paddingTop : style.paddingBottom;
+  const border = side === 'top' ? style.borderTopWidth : style.borderBottomWidth;
+  return px(padding) === 0 && px(border) === 0;
+}
+
+// A child's margin that passes through the side of the block holding it, or none.
+function passedMargin(style: CSSStyleDeclaration, child: Element | null, side: 'top' | 'bottom') {
+  if (!child || !passesMargin(style, side)) return 0;
+  const { marginTop, marginBottom } = margins(child as HTMLElement);
+  return side === 'top' ? marginTop : marginBottom;
+}
+
+/**
+ * An element's margins at the start and end of its block axis, in any writing mode. The node that
+ * holds a table and its caption (`doc-table-figure`) takes its caption's and its table's margins
+ * too when a stylesheet leaves it a plain block, which they pass through.
+ */
+export function margins(element: HTMLElement): { marginTop: number; marginBottom: number } {
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  return {
+  const own = {
     marginTop: px(blockMargin(style, 'start')),
     marginBottom: px(blockMargin(style, 'end')),
+  };
+  if (!style || !element.classList.contains('doc-table-figure')) return own;
+  return {
+    marginTop: Math.max(own.marginTop, passedMargin(style, element.firstElementChild, 'top')),
+    marginBottom: Math.max(
+      own.marginBottom,
+      passedMargin(style, element.lastElementChild, 'bottom'),
+    ),
   };
 }
 

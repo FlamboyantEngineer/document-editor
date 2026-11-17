@@ -47,11 +47,13 @@ const embedOf = (state: EditorState) => {
   if (!found) throw new Error('no embed');
   return found;
 };
+// The table an embed holds, after its caption, and where its caption is.
 const tableOf = (state: EditorState) => {
   const { pos, node } = embedOf(state);
-  const held = node.firstChild;
-  if (!held) throw new Error('no table');
-  return { pos: pos + 1, node: held };
+  const caption = node.firstChild?.firstChild;
+  const held = node.firstChild?.lastChild;
+  if (!held || !caption) throw new Error('no table');
+  return { pos: pos + 2 + caption.nodeSize, node: held, caption: { pos: pos + 2, node: caption } };
 };
 const cells = (node: Node, attr: string) => {
   const found: unknown[] = [];
@@ -117,13 +119,15 @@ describe('tables an embed holds', () => {
     state = run(state, setColumnWidths(pos, [200, 100]));
     state = run(state, setRowHeight(pos, 0, 50));
     state = run(inCell(state, '2'), setCellAlignment({ textAlign: 'right' }));
-    const captioned = state.tr.setNodeMarkup(pos, undefined, {
+    const aligned = state.tr.setNodeMarkup(pos, undefined, {
       ...tableOf(state).node.attrs,
-      caption: 'Stock',
       objectLayout: 'center',
     });
-    state = state.apply(captioned);
-    expect(tableOf(state).node.attrs.caption).toBe('Stock');
+    state = state.apply(aligned);
+    // The writer types the caption of the table the embed holds.
+    state = state.apply(state.tr.insertText('Stock', tableOf(state).caption.pos + 1));
+    const { node: caption } = tableOf(state).caption;
+    expect(caption.textBetween(0, caption.content.size)).toBe('Stock');
     expect(node.childCount).toBe(2);
     const loaded = {
       snapshot: 'r2',
@@ -133,7 +137,9 @@ describe('tables an embed holds', () => {
     state = run(state, applyEmbedUpdate(embedOf(state).pos, loaded));
     const updated = tableOf(state).node;
     expect(textOf(updated)).toBe('Pump5Valve3Tank1');
-    expect(updated.attrs).toMatchObject({ caption: 'Stock', objectLayout: 'center' });
+    expect(updated.attrs).toMatchObject({ objectLayout: 'center' });
+    const { node: kept } = tableOf(state).caption;
+    expect(kept.textBetween(0, kept.content.size)).toBe('Stock');
     // Widths are the columns': the loaded row takes them too.
     expect(cells(updated, 'colwidth')).toEqual([[200], [100], [200], [100], [200], [100]]);
     expect(cells(updated, 'rowHeight')).toEqual([50, 50, null, null, null, null]);

@@ -174,8 +174,9 @@ describe('linked spreadsheet bridge', () => {
     const captured = capture();
     captured.table.rows = [[{ text: '<script>text</script>', colspan: 2, rowspan: 2 }], []];
     const embed = createLinkedSpreadsheetEmbed(captured);
-    expect(embed.content[0]?.content).toHaveLength(1);
-    expect(embed.content[0]?.content?.[0]?.content?.[0]?.attrs).toEqual({ colspan: 2 });
+    // The caption, empty, then the one row left.
+    expect(embed.content[0]?.content).toHaveLength(2);
+    expect(embed.content[0]?.content?.[1]?.content?.[0]?.attrs).toEqual({ colspan: 2 });
     const restored = readDocumentFile(
       { formatVersion: 1, sections: [{ name: null, content: embed.content }] },
       documentSchema,
@@ -199,7 +200,7 @@ describe('linked spreadsheet bridge', () => {
       ],
     ];
     const table = createLinkedSpreadsheetEmbed(captured).content[0];
-    const [first, second] = table?.content?.[0]?.content ?? [];
+    const [first, second] = table?.content?.[1]?.content ?? [];
     expect(first?.content?.[0]?.content?.[0]).toEqual({
       type: 'text',
       text: 'Total',

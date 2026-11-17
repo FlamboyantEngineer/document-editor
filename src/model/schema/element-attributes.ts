@@ -251,6 +251,8 @@ function withElementAttributes(
     identityAttributes: [
       ...BUILT_IN_IDENTITY.filter((attribute) => inScope(attribute, name)),
       ...own,
+      // A type's own, such as what only the pages draw, which a copy clears.
+      ...((spec.identityAttributes as readonly IdentityAttribute[] | undefined) ?? []),
     ],
     parseDOM: parseDOM?.map((rule) => ('tag' in rule ? withElementParseRule(rule, read) : rule)),
     toDOM: toDOM ? (node) => withElementOutput(node, toDOM, write) : toDOM,
@@ -258,7 +260,8 @@ function withElementAttributes(
 }
 
 /**
- * Gives every node type but text the element attributes, and the host's identity attributes to the
+ * Gives every node type but text, and a type the stored format does not store (`unstored`, such as
+ * the node holding a table and its caption), the element attributes, and the host's identity attributes to the
  * types in their scope. A host attribute may not reuse a built-in one's name.
  */
 export function createElementAttributesExtension(
@@ -269,6 +272,8 @@ export function createElementAttributesExtension(
   return {
     name: 'element-attributes',
     refineNode: (name, spec) =>
-      name === 'text' ? spec : withElementAttributes(name, spec, hostIdentity),
+      name === 'text' || spec.unstored === true
+        ? spec
+        : withElementAttributes(name, spec, hostIdentity),
   };
 }

@@ -46,8 +46,11 @@ describe('object blocks', () => {
     expect(objectBlockAt(caret)).toBeNull();
     const inCell = TextSelection.create(doc, positionOf(doc, 'Cell'));
     const at = objectBlockAt(inCell);
-    expect(at === null ? null : doc.nodeAt(at)?.type.name).toBe('table');
+    // A table is the node holding it and its caption, selected as either.
+    expect(at === null ? null : doc.nodeAt(at)?.type.name).toBe('table_figure');
     expect(objectBlockAt(NodeSelection.create(doc, at ?? 0))).toBe(at);
+    const caption = doc.nodeAt(at ?? 0)?.firstChild?.nodeSize ?? 0;
+    expect(objectBlockAt(NodeSelection.create(doc, (at ?? 0) + 1 + caption))).toBe(at);
   });
 
   it('DOCE-EDITOR-3.4 adds a paragraph before or after an object and deletes it', () => {
@@ -57,10 +60,10 @@ describe('object blocks', () => {
       selection: TextSelection.create(doc, positionOf(doc, 'Cell')),
     });
     const before = run(state, insertParagraphBesideObject('before'));
-    expect(outline(before)).toEqual(['paragraph:', 'table:Cell']);
+    expect(outline(before)).toEqual(['paragraph:', 'table_figure:Cell']);
     expect(before.selection.$from.parent.type.name).toBe('paragraph');
     const after = run(state, insertParagraphBesideObject('after'));
-    expect(outline(after)).toEqual(['table:Cell', 'paragraph:']);
+    expect(outline(after)).toEqual(['table_figure:Cell', 'paragraph:']);
     const deleted = run(state, deleteObject);
     expect(outline(deleted)).toEqual(['paragraph:']);
     const outside = EditorState.create({ doc: read(paragraph('Text')) });

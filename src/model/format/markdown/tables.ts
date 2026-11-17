@@ -2,9 +2,10 @@
 // written in its first place and the places it covers are left empty, keeping every row as wide
 // as the table and every column where it belongs.
 
+import { storedBodyOf, storedCaptionText } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
 import { escapeText } from './escape.js';
-import { text, type Writing } from './writing.js';
+import type { Writing } from './writing.js';
 
 /** Writes a run of blocks as Markdown, one string for each block written. */
 type BlocksWriter = (content: readonly StoredNode[] | undefined, writing: Writing) => string[];
@@ -16,7 +17,7 @@ function grid(node: StoredNode, writing: Writing, blocks: BlocksWriter): string[
   const inTable: Writing = { ...writing, inTable: true };
   // How many more rows each column is covered by a cell above that spans rows.
   const covered: number[] = [];
-  return (node.content ?? []).map((row) => {
+  return storedBodyOf(node).map((row) => {
     const cells: string[] = [];
     let column = 0;
     const skipCovered = () => {
@@ -50,7 +51,7 @@ export function tableOf(node: StoredNode, writing: Writing, blocks: BlocksWriter
   const line = (cells: readonly string[]) =>
     `| ${Array.from({ length: width }, (_, index) => cells[index] ?? '').join(' | ')} |`;
   const [head = [], ...body] = rows;
-  const caption = text(node.attrs?.caption);
+  const caption = storedCaptionText(node);
   return [
     ...(caption ? [`*${escapeText(caption)}*`, ''] : []),
     line(head),

@@ -85,17 +85,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "A",
-            "caption": "Captioned figure",
             "id": "68292ec2"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Captioned figure"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Captioned table",
             "id": "f9e8864b"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Captioned table"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

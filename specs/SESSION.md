@@ -85,10 +85,10 @@ Verification: `src/session/document-session.test.ts`, `src/session/store-refresh
 
 ### DOCE-SESSION-2.6 - Edits held back by the editor
 
-`holdPendingEdits(commit)` shall add a commit of what the editor holds outside the document until the writer commits it, such as a caption being typed in place (DOCE-OBJECTS-2.5), and return its release. The session runs every held commit before it reads the document to save it, by a save, an automatic save or a flush, before a version is taken (which flushes first), before another writer's save is merged with the reader's changes, and, in room mode, before a flush, so what the session keeps holds what the writer typed. The document editor holds one for its view while it is given the session (`session.holdPendingEdits`).
+`holdPendingEdits(commit)` shall add a commit of what the editor or the host holds outside the document until the writer commits it, such as a field being typed in, and return its release. The session runs every held commit before it reads the document to save it, by a save, an automatic save or a flush, before a version is taken (which flushes first), before another writer's save is merged with the reader's changes, and, in room mode, before a flush, so what the session keeps holds what the writer typed.
 
-Implementation: `src/session/pending-edits.ts`, `src/session/store-session.ts`, `src/session/store-refresh.ts`, `src/session/room-session.ts`, `src/components/document-editor/pending-caption.ts`
-Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
+Implementation: `src/session/pending-edits.ts`, `src/session/store-session.ts`, `src/session/store-refresh.ts`, `src/session/room-session.ts`
+Verification: `src/session/document-session.test.ts`
 
 ## DOCE-SESSION-3 - Modes
 

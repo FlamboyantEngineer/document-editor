@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { storedCaption } from '../schema/caption-content.js';
 import type { StoredNode } from './document-format.js';
 import { type MarkdownOptions, writeMarkdown } from './markdown.js';
 
@@ -109,11 +110,12 @@ describe('writeMarkdown fidelity', () => {
     const content: StoredNode[] = [
       {
         type: 'figure',
-        attrs: { assetId: 'a1', assetRevision: 'r2', alt: 'Map', caption: 'Site' },
+        attrs: { assetId: 'a1', assetRevision: 'r2', alt: 'Map' },
+        content: [storedCaption('Site')],
       },
       paragraph(text('Icon '), { type: 'image', attrs: { assetId: 'a2', alt: 'Icon' } }),
       paragraph({ type: 'image', attrs: { src: 'local.png', alt: 'Local' } }),
-      { type: 'figure', attrs: { assetId: 'missing', caption: 'Lost' } },
+      { type: 'figure', attrs: { assetId: 'missing' }, content: [storedCaption('Lost')] },
     ];
     expect(written(content, { values: { asset } })).toBe(
       [

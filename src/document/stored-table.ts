@@ -2,6 +2,7 @@
 // such as a range of a spreadsheet (DOCE-TABLES-4.1).
 
 import type { StoredNode } from '../model/index.js';
+import { storedCaption } from '../model/schema/caption-content.js';
 import { isCssColor } from '../model/schema/css-color.js';
 import { MAX_SPAN } from '../model/schema/table-nodes.js';
 
@@ -150,6 +151,9 @@ export function tableFromRows(rows: readonly (readonly TableRowCell[])[]): Store
   if (cells.length === 0) throw new RangeError('A table needs at least one cell.');
   return {
     type: 'table',
-    content: cells.map((row) => ({ type: 'tableRow', content: row.map(storedCell) })),
+    content: [
+      storedCaption(''),
+      ...cells.map((row) => ({ type: 'tableRow', content: row.map(storedCell) })),
+    ],
   };
 }

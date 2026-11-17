@@ -80,6 +80,7 @@ const STORED: StoredNode[] = [
     type: 'table',
     attrs: { sourceId: 'set-7', sourceSnapshot: 'snap-3' },
     content: [
+      { type: 'caption' },
       {
         type: 'tableRow',
         content: [

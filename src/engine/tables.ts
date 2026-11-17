@@ -19,6 +19,7 @@ import {
 } from 'prosemirror-tables';
 import { Mapping } from 'prosemirror-transform';
 import { TABLE_BORDER_1PX_CLASS } from '../model/index.js';
+import { createTableFigure } from '../model/schema/caption-content.js';
 import { newBlockRange } from './block-place.js';
 import { appendTransaction, captureTransaction } from './table-parts.js';
 import { createTablePointer } from './table-pointer.js';
@@ -154,6 +155,23 @@ export function moveSelectedTableLine(axis: TableAxis, direction: -1 | 1): Comma
 }
 
 /**
+ * Deletes the table holding the selection with its caption, and puts the caret where it was; false
+ * when the selection is in no table.
+ */
+export const deleteTableWithCaption: Command = (state, dispatch) => {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.spec.tableRole !== 'table') continue;
+    // The table's caption goes with it: the node holding both, when it has one.
+    const held = depth > 1 && $from.node(depth - 1).type.name === 'table_figure';
+    const at = held ? depth - 1 : depth;
+    if (dispatch) dispatch(state.tr.delete($from.before(at), $from.after(at)).scrollIntoView());
+    return true;
+  }
+  return false;
+};
+
+/**
  * Inserts a table of `rows` rows, the first of header cells, and `columns` columns, with a one pixel
  * border, in place of the empty paragraph holding the caret or after the block holding it, with
  * the caret in its first cell.
@@ -170,10 +188,13 @@ export function insertTable({ rows, columns }: { rows: number; columns: number }
         Array.from({ length: columns }, () => type.createAndFill() ?? type.create()),
       );
     const lines = [line(header), ...Array.from({ length: rows - 1 }, () => line(cell))];
+    const figure = createTableFigure(state.schema, table.create(attrs, lines));
+    if (!figure) return false;
     if (dispatch) {
-      const tr = state.tr.replaceWith(range.from, range.to, table.create(attrs, lines));
-      // The first cell's paragraph opens after the table, its row and its cell.
-      tr.setSelection(TextSelection.near(tr.doc.resolve(range.from + 4)));
+      const tr = state.tr.replaceWith(range.from, range.to, figure);
+      // The first cell's paragraph opens after the caption, the table, its row and its cell.
+      const caption = figure.firstChild?.nodeSize ?? 0;
+      tr.setSelection(TextSelection.near(tr.doc.resolve(range.from + 1 + caption + 4)));
       dispatch(tr.scrollIntoView());
     }
     return true;

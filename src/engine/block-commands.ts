@@ -6,6 +6,7 @@ import { type Command, NodeSelection, type Selection, TextSelection } from 'pros
 
 /** The block types a reader acts on as one object rather than as text. */
 export const OBJECT_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  'table_figure',
   'table',
   'figure',
   'code_block',
@@ -19,11 +20,12 @@ export const OBJECT_BLOCK_TYPES: ReadonlySet<string> = new Set([
 
 /**
  * The position before the object block a selection selects, or else the outermost object block
- * holding its start; null when it is in no object.
+ * holding its start; null when it is in no object. A table is the node holding it and its caption.
  */
 export function objectBlockAt(selection: Selection): number | null {
   if (selection instanceof NodeSelection && OBJECT_BLOCK_TYPES.has(selection.node.type.name)) {
-    return selection.from;
+    const { $from } = selection;
+    return $from.parent.type.name === 'table_figure' ? $from.before() : selection.from;
   }
   const { $from } = selection;
   for (let depth = 1; depth <= $from.depth; depth += 1) {

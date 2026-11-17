@@ -2,6 +2,7 @@
 // indented code, `$$` display math, quotes, lists, GitHub tables, rules, and the figures and
 // captions the library's writer gives. HTML blocks are left out with a warning.
 
+import { storedBodyOf, storedCaption, storedCaptionText } from '../schema/caption-content.js';
 import type { StoredNode } from './document-format.js';
 import { closesFence, openingFence } from './markdown-read-fence.js';
 import { type InlineContext, readInline } from './markdown-read-inline.js';
@@ -210,7 +211,7 @@ const table: BlockReader = (lines, context) => {
     rows.push(rowOf(lines.lines[lines.at] ?? '', 'tableCell'));
     lines.at += 1;
   }
-  return [{ type: 'table', content: rows }];
+  return [{ type: 'table', content: [storedCaption(''), ...rows] }];
 };
 
 const indentedCode: BlockReader = (lines) => {
@@ -309,11 +310,11 @@ function captioned(last: StoredNode | undefined, block: StoredNode): StoredNode 
   const caption = captionText(block);
   if (caption !== null && last?.type === 'figure' && last.attrs?.captionEnabled === false) {
     const { captionEnabled: _, ...attrs } = last.attrs;
-    return { ...last, attrs: { ...attrs, caption } };
+    return { ...last, attrs, content: [storedCaption(caption)] };
   }
   const above = captionText(last);
-  if (block.type === 'table' && above !== null && !block.attrs?.caption) {
-    return { ...block, attrs: { ...block.attrs, caption: above } };
+  if (block.type === 'table' && above !== null && !storedCaptionText(block)) {
+    return { ...block, content: [storedCaption(above), ...storedBodyOf(block)] };
   }
   return null;
 }
@@ -328,7 +329,11 @@ function withObjects(blocks: readonly StoredNode[]): StoredNode[] {
     const joined = captioned(out[out.length - 1], block);
     if (joined) out[out.length - 1] = joined;
     else if (image?.type === 'image') {
-      out.push({ type: 'figure', attrs: { ...image.attrs, captionEnabled: false } });
+      out.push({
+        type: 'figure',
+        attrs: { ...image.attrs, captionEnabled: false },
+        content: [storedCaption('')],
+      });
     } else out.push(block);
   }
   return out;

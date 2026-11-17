@@ -12,10 +12,18 @@
           "attrs": {
             "border": "table-border-none",
             "layout": "center",
-            "caption": "Cells holding blocks",
             "id": "e6689070"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Cells holding blocks"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -314,6 +322,9 @@
                       },
                       "content": [
                         {
+                          "type": "caption"
+                        },
+                        {
                           "type": "tableRow",
                           "attrs": {
                             "id": "675c8f90"
@@ -421,10 +432,18 @@
           "type": "table",
           "attrs": {
             "layout": "fit-page-width",
-            "caption": "Fitted table",
             "id": "ef6add32"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Fitted table"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -527,10 +546,18 @@
           "type": "table",
           "attrs": {
             "layout": "right",
-            "caption": "Right aligned",
             "id": "f56ae6a4"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Right aligned"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

@@ -74,10 +74,12 @@ function generate(rng: Random): Generated {
         create(type, null, [create('paragraph', null, text)]);
       const row = (type: string, prefix: string) =>
         create('table_row', null, [cell(type, `${prefix} one`), cell(type, `${prefix} two`)]);
-      const node = create('table', { dataId: id }, [
+      const table = create('table', { dataId: id }, [
         row('table_header', 'Head'),
         ...Array.from({ length: rows }, (_, at) => row('table_cell', `R${String(at)}`)),
       ]);
+      const caption = create('table_caption', { dataId: `c${String(index)}` }, `Cap ${id}`);
+      const node = create('table_figure', null, [caption, table]);
       const measurement: ContainerMeasurement = {
         children: Array.from({ length: rows + 1 }, (_, at) => ({
           top: at * 20,

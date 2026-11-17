@@ -19,7 +19,7 @@ describe('stored-file readers on the stored JSON', () => {
     const file = readRegressionDocument('cross-references');
     const cell = findStoredElement(file, 'c52657e3');
     expect(cell?.node.type).toBe('paragraph');
-    expect(cell?.path).toBe('sections[0].content[2].content[0].content[0].content[0]');
+    expect(cell?.path).toBe('sections[0].content[2].content[1].content[0].content[0]');
     expect(cell?.parentId).toBe('ca265fc2');
     expect(cell?.section.name).toBe('body');
     expect(findStoredElement(file, 'c7265b09')?.parentId).toBeNull();

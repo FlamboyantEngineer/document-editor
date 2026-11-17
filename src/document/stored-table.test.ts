@@ -2,12 +2,21 @@
 import { TableMap } from 'prosemirror-tables';
 import { describe, expect, it } from 'vitest';
 import ranges from '../../test/fixtures/tables/spreadsheet-ranges.json' with { type: 'json' };
-import { createDocumentSchema, type DocumentFile, readStoredContent } from '../model/index.js';
+import {
+  createDocumentSchema,
+  type DocumentFile,
+  readStoredContent,
+  type StoredNode,
+} from '../model/index.js';
+import { storedBodyOf } from '../model/schema/caption-content.js';
 import { MAX_SPAN } from '../model/schema/table-nodes.js';
 import { applyStoredEdits } from './automation.js';
 import { tableFromRows, type TableRowCell } from './stored-table.js';
 
 const schema = createDocumentSchema();
+
+// A stored table as the schema reads it: the table after its caption, in the node holding both.
+const readTable = (stored: StoredNode) => readStoredContent([stored], schema)[0]?.lastChild ?? null;
 
 // A spreadsheet range as its document insertion hands it over: A1:C3 with A1:B1 merged and C2:C3
 // merged, calculated values as text.
@@ -25,11 +34,11 @@ const cellTexts = (rows: readonly { content?: readonly unknown[] }[]) =>
   );
 
 // A stored table's cells as the fixture writes them: text, and spans above 1.
-const fixtureCells = (table: { content?: readonly { content?: readonly unknown[] }[] }) =>
-  cellTexts(table.content ?? []).map((row, y) =>
+const fixtureCells = (table: StoredNode) =>
+  cellTexts(storedBodyOf(table)).map((row, y) =>
     row.map((text, x) => ({
       text,
-      ...((table.content?.[y]?.content?.[x] as { attrs?: object } | undefined)?.attrs ?? {}),
+      ...((storedBodyOf(table)[y]?.content?.[x] as { attrs?: object } | undefined)?.attrs ?? {}),
     })),
   );
 
@@ -38,7 +47,7 @@ describe('tables from rows', () => {
     'DOCE-TABLES-4.1 turns the shared spreadsheet range "$name" into its stored table',
     ({ rows, table, size }) => {
       const stored = tableFromRows(rows);
-      const [node] = readStoredContent([stored], schema);
+      const node = readTable(stored);
       const map = node ? TableMap.get(node) : null;
 
       expect(fixtureCells(stored)).toEqual(table);
@@ -56,18 +65,20 @@ describe('tables from rows', () => {
 
   it('DOCE-TABLES-4.1 turns rows of text cells with spans into a stored table the schema reads', () => {
     const table = tableFromRows(RANGE);
-    const [node] = readStoredContent([table], schema);
+    const node = readTable(table);
 
-    expect(table.content?.[0]?.content?.[0]).toEqual({
+    expect(storedBodyOf(table)[0]?.content?.[0]).toEqual({
       type: 'tableCell',
       attrs: { colspan: 2 },
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Region' }] }],
     });
-    expect(table.content?.[2]?.content?.[1]).toEqual({
+    expect(storedBodyOf(table)[2]?.content?.[1]).toEqual({
       type: 'tableCell',
       content: [{ type: 'paragraph' }],
     });
     expect(node?.type.name).toBe('table');
+    // The table is written with its caption, empty, as its first child.
+    expect(table.content?.[0]).toEqual({ type: 'caption' });
     const map = node ? TableMap.get(node) : null;
     expect([map?.width, map?.height, map?.problems ?? null]).toEqual([3, 3, null]);
   });
@@ -75,8 +86,8 @@ describe('tables from rows', () => {
   it('DOCE-TABLES-4.1 keeps the lines of a cell as paragraphs', () => {
     const table = tableFromRows([[{ text: 'First line\nSecond line' }]]);
 
-    expect(cellTexts(table.content ?? [])).toEqual([['First line\nSecond line']]);
-    expect(table.content?.[0]?.content?.[0]?.content).toHaveLength(2);
+    expect(cellTexts(storedBodyOf(table))).toEqual([['First line\nSecond line']]);
+    expect(storedBodyOf(table)[0]?.content?.[0]?.content).toHaveLength(2);
   });
 
   it('DOCE-TABLES-4.1 drops a row that only spanned cells cover, and shortens their spans', () => {
@@ -88,9 +99,9 @@ describe('tables from rows', () => {
       [],
       [{ text: 'Below' }],
     ]);
-    const [node] = readStoredContent([table], schema);
+    const node = readTable(table);
 
-    expect(table.content?.map((row) => row.content?.map((cell) => cell.attrs ?? {}))).toEqual([
+    expect(storedBodyOf(table).map((row) => row.content?.map((cell) => cell.attrs ?? {}))).toEqual([
       [{ rowspan: 2 }, {}],
       [{}],
     ]);
@@ -137,12 +148,15 @@ describe('tables from rows', () => {
     const inserted = result.content.sections[0]?.content[1];
     expect(inserted?.type).toBe('table');
     expect(inserted?.attrs?.id).toMatch(/^[0-9a-f]{8}$/);
-    expect(cellTexts(inserted?.content ?? [])).toEqual([
+    // The writer gives the table its caption, empty, as its first child.
+    const [caption, ...rows] = inserted?.content ?? [];
+    expect(caption?.type).toBe('caption');
+    expect(cellTexts(rows)).toEqual([
       ['Region', 'Total'],
       ['North', '12', '30'],
       ['South', ''],
     ]);
-    expect(inserted?.content?.[1]?.content?.[2]?.attrs).toMatchObject({ rowspan: 2 });
+    expect(rows[1]?.content?.[2]?.attrs).toMatchObject({ rowspan: 2 });
   });
   it.each<{ name: string; rows: TableRowCell[][] }>([
     { name: 'a colspan above the schema limit', rows: [[{ text: 'x', colspan: MAX_SPAN + 1 }]] },
@@ -168,7 +182,7 @@ describe('tables from rows', () => {
       y === 0 ? [{ text: 'Down', rowspan: MAX_SPAN }, { text: 'Beside' }] : [{ text: 'Beside' }],
     );
     for (const cells of [rows, [[{ text: 'Wide', colspan: MAX_SPAN }]]]) {
-      const [node] = readStoredContent([tableFromRows(cells)], schema);
+      const node = readTable(tableFromRows(cells));
       expect(node ? (TableMap.get(node).problems ?? null) : 'unread').toBeNull();
     }
   });

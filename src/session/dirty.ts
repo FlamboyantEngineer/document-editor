@@ -9,7 +9,7 @@ import { writeDocumentFile } from '../model/format/document-format-write.js';
 import { elementIdKey } from './stored-elements.js';
 
 // The stored attributes that record an element's authorship rather than its content.
-const AUTHORSHIP_ATTRS: ReadonlySet<string> = new Set(['author', 'aiSession', 'captionId']);
+const AUTHORSHIP_ATTRS: ReadonlySet<string> = new Set(['author', 'aiSession']);
 
 // Marks that record who wrote a text rather than what it says.
 const AUTHORSHIP_MARKS: ReadonlySet<string> = new Set(['contributor']);

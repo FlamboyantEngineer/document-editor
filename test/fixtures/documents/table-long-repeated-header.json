@@ -22,10 +22,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Station readings",
             "id": "4ff34ad2"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Station readings"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

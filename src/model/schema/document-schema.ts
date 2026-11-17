@@ -9,6 +9,7 @@ import {
 } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Schema } from 'prosemirror-model';
 import { blockLayoutNodesExtension } from './block-layout-nodes.js';
+import { captionNodesExtension } from './caption-nodes.js';
 import { codeNodesExtension } from './code-nodes.js';
 import { coreNodesExtension } from './core-nodes.js';
 import { createElementAttributesExtension } from './element-attributes.js';
@@ -52,6 +53,7 @@ export function createDocumentSchemaExtensions(
     codeNodesExtension,
     createFigureNodesExtension(options),
     tableNodesExtension,
+    captionNodesExtension,
     mathNodesExtension,
     createInlineAtomNodesExtension(options),
     scriptNodesExtension,

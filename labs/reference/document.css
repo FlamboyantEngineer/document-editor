@@ -669,20 +669,24 @@ div.de-host-view {
 /*
  * Captions. Each captioned object counts its kind, but for a later part of one the pages split,
  * and its caption line reads "<label> <number> - <text>": the label and number from the template's
- * counter content, then a later part's continued suffix. Figures and code place their caption
- * above or below as the template says.
+ * counter content, then a later part's continued suffix. Tables, figures and code place their
+ * caption above or below as the template says. A table is counted by what holds it with its
+ * caption, which comes first.
  */
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  table:not([data-split-part-index], [data-caption-enabled='false']),
+  .doc-table-figure:not([data-split-part-index]):has(> table:not([data-caption-enabled='false'])),
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  table[data-split-part-index='0']:not([data-caption-enabled='false']) {
+  .doc-table-figure[data-split-part-index='0']:has(> table:not([data-caption-enabled='false'])) {
   counter-increment: table;
 }
 
 /* A table inside a cell or a list item is part of what holds it: it is not counted. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content :is(td, th, li) table {
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  :is(td, th, li)
+  .doc-table-figure {
   counter-increment: none;
 }
 
@@ -702,8 +706,46 @@ div.de-host-view {
   counter-increment: codeblock;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content table > caption {
-  caption-side: var(--doc-table-caption-side, top);
+/*
+ * A table and its caption: as wide as the table, placed as the table is aligned, the caption above
+ * or below it. A table across the content width takes all of it; one its columns or its layout
+ * size, its own width, which its caption's text wraps within rather than widening it.
+ */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-table-figure {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .doc-table-figure
+  > table {
+  margin-bottom: 0;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .doc-table-figure:has(> table[style*='width:']:not([data-object-layout='fit-page-width'])) {
+  width: fit-content;
+  max-width: 100%;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .doc-table-figure:has(> table[data-object-layout='center']) {
+  margin-inline: auto;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .doc-table-figure:has(> table[data-object-layout='right']) {
+  margin-left: auto;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line {
+  order: var(--doc-table-caption-order, -1);
+  contain: inline-size;
   text-align: var(--doc-table-caption-text-align, left);
   padding: 2px 0;
 }
@@ -718,26 +760,26 @@ div.de-host-view {
   margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line {
+:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-slot {
   order: var(--doc-figure-caption-order, 1);
 }
 
 /* A figure's caption spans the content width; its text sits where the figure is aligned. */
 :where(.de-document-editor, .de-document-editor__measure)
   figure[data-object-layout='center']
-  > .doc-figure-caption-line {
+  > .doc-figure-caption-slot {
   text-align: center;
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
   figure[data-object-layout='right']
-  > .doc-figure-caption-line {
+  > .doc-figure-caption-slot {
   text-align: right;
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
   figure[data-object-layout='left']
-  > .doc-figure-caption-line {
+  > .doc-figure-caption-slot {
   text-align: left;
 }
 
@@ -918,6 +960,12 @@ div.de-host-view {
   [data-caption-enabled='false']
   > .doc-caption-line,
 :where(.de-document-editor, .de-document-editor__measure)
+  figure[data-caption-enabled='false']
+  > .doc-figure-caption-slot,
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-table-figure:has(> table[data-caption-enabled='false'])
+  > .doc-caption-line,
+:where(.de-document-editor, .de-document-editor__measure)
   [data-caption-enabled='false']
   > pre
   > .doc-caption-line {
@@ -925,16 +973,24 @@ div.de-host-view {
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
-  table[data-split-part-index]:not([data-split-part-index='0'])
+  .doc-table-figure[data-split-part-index]:not([data-split-part-index='0'])
   .doc-caption-continued::after {
   content: var(--doc-table-caption-continued, '');
+}
+
+/* A later part's caption shows the caption's text, which only the first part holds. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-caption-text[data-continued-text]::before {
+  content: attr(data-continued-text);
 }
 
 /* A later part of a split table repeats its caption only with its header rows: a part that opens
    with a body row shows none. */
 :where(.de-document-editor, .de-document-editor__measure)
-  table[data-split-part-index]:not([data-split-part-index='0']):has(> tbody > tr:first-child > td)
-  > caption {
+  .doc-table-figure[data-split-part-index]:not([data-split-part-index='0']):has(
+    > table > tbody > tr:first-child > td
+  )
+  > .doc-caption-line {
   display: none;
 }
 

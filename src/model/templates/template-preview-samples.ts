@@ -5,6 +5,7 @@
 
 import type { StoredNode } from '../format/document-format.js';
 import type { TemplateFile } from '../format/template-format.js';
+import { storedCaption } from '../schema/caption-content.js';
 
 /** The text a preview document is written in. */
 export interface TemplatePreviewText {
@@ -104,8 +105,9 @@ function table(words: TemplatePreviewText): StoredNode {
   const [condition, limit] = words.tableHeader;
   return {
     type: 'table',
-    attrs: { caption: words.table, captionEnabled: true },
+    attrs: { captionEnabled: true },
     content: [
+      storedCaption(words.table),
       { type: 'tableRow', content: [cell('tableHeader', condition), cell('tableHeader', limit)] },
       ...Array.from({ length: CONTINUED }, (_, index) => ({
         type: 'tableRow',
@@ -125,7 +127,8 @@ function objects(words: TemplatePreviewText): StoredNode[] {
     nestedList('orderedList', words),
     {
       type: 'figure',
-      attrs: { src: FIGURE_SOURCE, alt: words.figure, caption: words.figure, captionEnabled: true },
+      attrs: { src: FIGURE_SOURCE, alt: words.figure, captionEnabled: true },
+      content: [storedCaption(words.figure)],
     },
     table(words),
     {
