@@ -73,4 +73,34 @@ describe('Comment store seams', () => {
     // What the editor sends is the reader's text and the quote, never the document's markup.
     expect(JSON.stringify(calls)).not.toMatch(/<[a-z]/i);
   });
+
+  it('DOCE-COMMENTS-2.33 holds Resolve pending while the store answers, asking it once', async () => {
+    const user = userEvent.setup();
+    const store = host();
+    const comments = store.comments as CommentStoreAdapter;
+    let answer: () => void = () => undefined;
+    const asked: string[] = [];
+    const slow: CommentStoreAdapter = {
+      ...comments,
+      setState: (documentId, threadId, state) => {
+        asked.push(state);
+        return new Promise((resolve) => {
+          answer = () => resolve(comments.setState(documentId, threadId, state));
+        });
+      },
+    };
+    render(<Harness host={{ ...store, comments: slow }} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('Is blue right?')).closest('[role="group"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The thread should show.');
+    const resolve = within(card).getByRole('button', { name: 'Resolve' });
+    await user.click(resolve);
+    expect(within(resolve).getByRole('progressbar')).toBeInTheDocument();
+    await user.click(resolve);
+    expect(asked).toEqual(['resolved']);
+    answer();
+    await waitFor(() =>
+      expect(within(margin).queryByText('Is blue right?')).not.toBeInTheDocument(),
+    );
+  });
 });
