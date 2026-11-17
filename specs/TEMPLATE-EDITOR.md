@@ -86,10 +86,10 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/cus
 
 ### DOCE-TEMPLATE-EDITOR-1.11 - References
 
-A References section shall hold a card for each reference format key (`referenceFormatKeys`), named by what it points to, with its format and whether the reference links to its target; a format that is not valid (`referenceFormatError`) shall show why on its field.
+A References section shall hold a Format card, with the format of each reference format key (`referenceFormatKeys`), named by what it points to, then a card (`Links to the target`) with whether each links to its target. The host's reference types besides other documents (`referenceTypes`, each with what its targets are in) add their keys. The first format says which tokens a format may use and that an empty one inherits; a format that is not valid (`referenceFormatError`) shall show why on its field.
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/setting-controls.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`, `src/components/template-editor/template-editor.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.12 - Lists of contents
 

@@ -179,6 +179,7 @@ export type {
   TemplateExtensionSlots,
   TemplateIdentityLabels,
   TemplateParentOption,
+  TemplateReferenceType,
   TemplateScope,
   TemplateScopeProps,
 } from './template-editor/index.js';

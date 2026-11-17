@@ -12,6 +12,7 @@ import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
+import type { TemplateReferenceType } from './settings-catalog.js';
 import {
   extensionRows,
   ExtensionSections,
@@ -158,6 +159,11 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly layout?: DocumentLayout | undefined;
   /** The fonts the font fields suggest; others may be typed. */
   readonly fonts?: readonly string[] | undefined;
+  /**
+   * The host's reference types besides other documents, as the schema knows them
+   * (`referenceTypes`), each with a format and a link switch in the references section.
+   */
+  readonly referenceTypes?: readonly TemplateReferenceType[] | undefined;
   /** The fonts the code font fields suggest, monospace ones; others may be typed. */
   readonly codeFonts?: readonly string[] | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;

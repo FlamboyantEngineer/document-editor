@@ -3,6 +3,7 @@
 // contents, references and change bars.
 
 import {
+  EXTERNAL_DOCUMENT_REFERENCE_TYPE,
   PAGE_SIZE_DIMENSIONS,
   referenceFormatError,
   referenceFormatKeys,
@@ -77,29 +78,72 @@ const TARGETS: Readonly<Record<string, string>> = {
   equation: 'equations',
 };
 
-// What a reference format key reads as: its target, and the document it is in.
-function referenceTitle(key: string): string {
-  const [, internal] = /^internal-(.+)$/.exec(key) ?? [];
-  if (internal) return `To ${TARGETS[internal] ?? internal}`;
-  const external = Object.keys(TARGETS).find((kind) => key.endsWith(`-${kind}`));
-  if (!external) return 'To other documents';
-  return `To ${TARGETS[external] ?? external} in other documents`;
+/** A host's reference type besides other documents, with what its targets are in. */
+export interface TemplateReferenceType {
+  /** The type references record, as the schema knows it (`referenceTypes`). */
+  readonly type: string;
+  /** What its targets are in, after `in`, such as `the catalog`. */
+  readonly label: string;
 }
 
-// Each reference format key's card: its format and whether it links to its target.
-const REFERENCE_CARDS: TemplateSettingCard[] = referenceFormatKeys().map((key) => ({
-  id: key,
-  title: referenceTitle(key),
-  path: [],
-  settings: [
-    {
-      ...setting(`formats.${key}`, 'Format', text),
-      hint: 'Such as Figure {{ref.numbering}}',
-      check: (value) => (typeof value === 'string' ? referenceFormatError(value) : null),
-    },
-    setting(`links.${key}`, 'Links to the target', boolean),
-  ],
-}));
+const OTHER_DOCUMENTS: TemplateReferenceType = {
+  type: EXTERNAL_DOCUMENT_REFERENCE_TYPE,
+  label: 'other documents',
+};
+
+// What a reference format key reads as: its target, and where it is.
+function referenceTitle(key: string, types: readonly TemplateReferenceType[]): string {
+  const [, internal] = /^internal-(.+)$/.exec(key) ?? [];
+  if (internal) return `To ${TARGETS[internal] ?? internal}`;
+  const { type, label } =
+    [...types]
+      .sort((one, other) => other.type.length - one.type.length)
+      .find((entry) => key === entry.type || key.startsWith(`${entry.type}-`)) ?? OTHER_DOCUMENTS;
+  const kind = key.slice(type.length + 1);
+  return kind ? `To ${TARGETS[kind] ?? kind} in ${label}` : `To ${label}`;
+}
+
+// What a reference format may use, said under the first format.
+const REFERENCE_TOKENS =
+  'Uses {{ref.numbering}}, {{ref.title}}, {{ref.revision}}, {{doc.numbering}} and {{doc.title}}; left empty, it inherits';
+
+/**
+ * The references section for the host's reference types besides other documents (DOCUMENT-FORMAT
+ * reference types): the format of each kind of reference, then whether each links to its target.
+ */
+export function referenceSection(
+  types: readonly TemplateReferenceType[] = [],
+): TemplateSettingSection {
+  const all = [OTHER_DOCUMENTS, ...types];
+  const keys = referenceFormatKeys(types.map(({ type }) => type));
+  return {
+    id: 'references',
+    title: 'References',
+    scope: ['references'],
+    documentOnly: true,
+    pagesOnly: true,
+    settings: [],
+    cards: [
+      {
+        id: 'formats',
+        title: 'Format',
+        path: ['formats'],
+        settings: keys.map((key, index) => ({
+          ...setting(key, referenceTitle(key, all), text),
+          ...(index === 0 ? { hint: REFERENCE_TOKENS } : {}),
+          check: (value: unknown) =>
+            typeof value === 'string' ? referenceFormatError(value) : null,
+        })),
+      },
+      {
+        id: 'links',
+        title: 'Links to the target',
+        path: ['links'],
+        settings: keys.map((key) => setting(key, referenceTitle(key, all), boolean)),
+      },
+    ],
+  };
+}
 
 const CHANGE_KINDS = ['insertions', 'deletions', 'modifications', 'formatting'] as const;
 
@@ -194,15 +238,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     ],
   },
   contentsSettings(null),
-  {
-    id: 'references',
-    title: 'References',
-    pagesOnly: true,
-    scope: ['references'],
-    documentOnly: true,
-    settings: [],
-    cards: REFERENCE_CARDS,
-  },
+  referenceSection(),
   {
     id: 'change-bars',
     title: 'Change bars',

@@ -111,6 +111,8 @@ export interface TemplateWorkspaceProps {
   readonly extensions?: TemplateEditorProps['extensions'];
   /** The fonts the font fields suggest. */
   readonly fonts?: readonly string[] | undefined;
+  /** The host's reference types besides other documents, for the references settings. */
+  readonly referenceTypes?: TemplateEditorProps['referenceTypes'];
   readonly labels?: Partial<TemplateWorkspaceLabels> | undefined;
   readonly className?: string | undefined;
 }

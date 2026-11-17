@@ -104,6 +104,7 @@ export function workspacePartsOf(assembly: WorkspaceAssembly): TemplateWorkspace
         layout={layout}
         extensions={props.extensions}
         fonts={props.fonts}
+        referenceTypes={props.referenceTypes}
         saveError={assembly.saveError}
         idInputRef={assembly.idInput}
         isNameReadOnly={
