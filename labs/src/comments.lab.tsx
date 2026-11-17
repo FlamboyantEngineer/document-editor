@@ -234,18 +234,6 @@ function Lab() {
         <label>
           <input
             type="checkbox"
-            name="panel-cards"
-            checked={panelCards}
-            onChange={(event) => {
-              setPanelCards(event.currentTarget.checked);
-              if (event.currentTarget.checked) setPanel(true);
-            }}
-          />{' '}
-          Full cards in the panel
-        </label>
-        <label>
-          <input
-            type="checkbox"
             name="mine"
             checked={mine}
             onChange={(event) => setMine(event.currentTarget.checked)}
@@ -368,6 +356,19 @@ function Lab() {
         >
           Ask to confirm the selection
         </button>
+        {/* Last, so the controls before it keep their places beside the floating panel. */}
+        <label>
+          <input
+            type="checkbox"
+            name="panel-cards"
+            checked={panelCards}
+            onChange={(event) => {
+              setPanelCards(event.currentTarget.checked);
+              if (event.currentTarget.checked) setPanel(true);
+            }}
+          />{' '}
+          Full cards in the panel
+        </label>
       </fieldset>
       <DocumentEditor
         state={state}
