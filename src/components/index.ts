@@ -196,9 +196,12 @@ export {
   withSectionMoved,
 } from './template-editor/index.js';
 export type {
+  SaveAsFields,
+  TemplateCatalog,
   TemplatePickerProps,
   TemplatePreview,
   TemplateWorkspaceLabels,
+  TemplateWorkspaceParts,
   TemplateWorkspaceProps,
 } from './template-workspace/index.js';
 export {

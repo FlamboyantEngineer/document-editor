@@ -57,12 +57,18 @@ export {
 export type { SettingShape } from './template-format-shape.js';
 export { TEMPLATE_SHAPE } from './template-format-shape.js';
 export type { TemplateValidationOptions } from './template-format-validate.js';
+export { validateTemplateFile } from './template-format-validate.js';
+export * from './template-format-validate.js';
 export {
+  CUSTOM_STYLE_NAME,
+  isBulletKeyword,
+  isNumberingFormat,
+  isTemplateBullet,
   isTemplateColor,
   isTemplateLength,
-  validateTemplateFile,
-} from './template-format-validate.js';
-export * from './template-format-validate.js';
+  isTemplateLineHeight,
+  isTemplateWeight,
+} from './template-format-values.js';
 export type { WriterAsset, WriterValues } from './writer-values.js';
 export { assetAddress, variableText } from './writer-values.js';
 export type { ZipEntry } from './zip.js';
