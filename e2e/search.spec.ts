@@ -70,12 +70,17 @@ test.describe('find bar and search pane', () => {
 
     // Mod-F from the toolbar opens the find bar and focuses its box. The toolbar's buttons wait
     // for a caret in the document, so the writer places one first.
+    // The toolbar follows the caret a moment later, so Bold is focused once it is enabled, and
+    // again should that update take focus back.
     await content(page).locator('p').first().click();
-    await page
+    const bold = page
       .getByRole('toolbar', { name: 'Formatting' })
-      .getByRole('button', { name: 'Bold' })
-      .focus();
-    await expect(page.getByRole('button', { name: 'Bold' })).toBeFocused();
+      .getByRole('button', { name: 'Bold' });
+    await expect(bold).toBeEnabled();
+    await expect(async () => {
+      await bold.focus();
+      await expect(bold).toBeFocused({ timeout: 500 });
+    }).toPass();
     await page.keyboard.press('ControlOrMeta+f');
     const find = page.getByRole('searchbox', { name: 'Find in document' });
     await expect(find).toBeFocused();
