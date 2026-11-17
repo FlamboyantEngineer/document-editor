@@ -88,9 +88,15 @@ test.describe('performance', () => {
   });
 
   test('DOCE-LABS-2.3 scrolls 5 and 40 pages by the wheel', async ({ lab, page }) => {
-    const { five, forty } = await measureWheel(lab, page);
+    const { five, forty, runs } = await measureWheel(lab, page);
     report(BUDGETS.wheel5, five);
     report(BUDGETS.wheel40, forty);
+    for (const run of runs) {
+      test.info().annotations.push({
+        type: 'wheel',
+        description: `${String(run.pagesBefore)} pages: ${run.restylesPerWheel.toFixed(2)} style recalculations per wheel`,
+      });
+    }
     expect(five).toBeGreaterThanOrEqual(0);
   });
 
@@ -98,9 +104,10 @@ test.describe('performance', () => {
     lab,
     page,
   }) => {
-    const growth = await measureStyleScope(lab, page);
-    report(BUDGETS.styleScope, growth);
-    expect(growth).toBeGreaterThan(0);
+    const { keys, enter } = await measureStyleScope(lab, page);
+    report(BUDGETS.styleScope, keys);
+    report(BUDGETS.styleScopeEnter, enter);
+    expect(keys).toBeGreaterThan(0);
   });
 
   // The typing budgets are enforced, on each key's own work (`keystrokeWork`).

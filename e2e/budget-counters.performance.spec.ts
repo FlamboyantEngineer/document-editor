@@ -69,15 +69,23 @@ test.describe('counter budgets', () => {
     lab,
     page,
   }) => {
-    const { five, forty } = await measureWheel(lab, page);
+    const { five, forty, runs } = await measureWheel(lab, page);
     expectMeets(BUDGETS.wheel5, five);
     expectMeets(BUDGETS.wheel40, forty);
+    // Scrolling lays out no pages: each document keeps its pages, the large one more of them.
+    const [small, large] = runs;
+    for (const run of runs) expect(run.pagesAfter).toBe(run.pagesBefore);
+    expect(large?.pagesBefore ?? 0).toBeGreaterThan(small?.pagesBefore ?? 0);
   });
 
-  test('DOCE-LABS-2.5 restyles at most three times as many elements per keystroke on 40 pages as on 5', async ({
+  test('DOCE-LABS-2.5 restyles at most three times as many elements per keystroke on 40 pages as on 5, and at most 800 for an Enter', async ({
     lab,
     page,
   }) => {
-    expectMeets(BUDGETS.styleScope, await measureStyleScope(lab, page));
+    const { keys, enter, heights } = await measureStyleScope(lab, page);
+    expectMeets(BUDGETS.styleScope, keys);
+    expectMeets(BUDGETS.styleScopeEnter, enter);
+    // The keys typed keep their block's height, so they lay nothing out.
+    for (const { before, after } of heights) expect(after).toBe(before);
   });
 });

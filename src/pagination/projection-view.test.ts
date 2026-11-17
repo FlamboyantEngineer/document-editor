@@ -178,6 +178,34 @@ describe('projection view', () => {
     expect(projection.stats().relaid).toBe(0);
   });
 
+  it('DOCE-PAGINATION-7.12 keeps the elements of unchanged paragraphs when the host replaces the state', () => {
+    const { projection } = mount();
+    const shown = (text: string) =>
+      [...projection.view.dom.querySelectorAll('p')].find((each) => each.textContent === text);
+    const kept = ['Gamma three', 'Delta four', 'Epsilon five'];
+    const before = kept.map(shown);
+    expect(before.every(Boolean)).toBe(true);
+    const keeps = () => expect(kept.map(shown)).toEqual(before);
+    // An equal document, read again.
+    const equal = EditorState.create({
+      doc: documentSchema.nodeFromJSON(projection.state.doc.toJSON()),
+      plugins: projection.state.plugins,
+    });
+    projection.update(equal);
+    keeps();
+    // An edited one: the second paragraph's text changes.
+    const beta = positionOf(projection.state.doc, 'Beta');
+    projection.update(projection.state.apply(projection.state.tr.insertText('Edited ', beta)));
+    keeps();
+    expect(shown('Edited Beta two')).toBeDefined();
+    // A prefixed one: a paragraph comes before the others.
+    const start = positionOf(projection.state.doc, 'Alpha') - 1;
+    const prefix = documentSchema.node('paragraph', null, [documentSchema.text('Prefix')]);
+    projection.update(projection.state.apply(projection.state.tr.insert(start, prefix)));
+    keeps();
+    expect(inSync(projection)).toBe(true);
+  });
+
   it('DOCE-PAGINATION-7.12 lays the pages out again when a change cannot be placed on pages that no longer join into the document', () => {
     // A footnote entry no marker cites is left off the pages, so they do not join into the
     // document, and the change that removes it maps outside them.
@@ -526,6 +554,21 @@ describe('projection view', () => {
 });
 
 describe('projection layouts', () => {
+  it('DOCE-PAGINATION-7.5 lays out a change that adds a page and numbers the pages again once, with no layout after it', () => {
+    const { projection, drain } = mount();
+    const pages = pageCount(projection.view.state.doc);
+    const { layouts } = projection.stats();
+    const end = positionOf(projection.state.doc, 'Epsilon') + 'Epsilon five'.length + 1;
+    // Five paragraphs take three pages, two to a page; two more take a fourth.
+    const added = ['Zeta six', 'Eta seven'].map((text) =>
+      documentSchema.node('paragraph', null, [documentSchema.text(text)]),
+    );
+    edit(projection, (state) => layoutNow(state.tr.insert(end, added)));
+    drain();
+    expect(pageCount(projection.view.state.doc)).toBeGreaterThan(pages);
+    expect(projection.stats().layouts).toBe(layouts + 1);
+  });
+
   it('DOCE-PAGINATION-7.5 counts layouts, measured and cached blocks, sections and pages', () => {
     const { projection, drain } = mount();
     // The first layout runs while the projection is made.
