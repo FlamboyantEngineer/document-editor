@@ -1,6 +1,5 @@
 // The parts of the template workspace that a layout places: the messages, the open template's
-// properties for the scope shown, its preview (or its JSON while the debug view is on) and the
-// tabs' panel that holds it.
+// properties for the scope shown, its preview and the tabs' panel that holds it.
 
 import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
@@ -188,23 +187,6 @@ export function WorkspacePreview({ workspace, labels, scope, layout, ...props }:
         </Suspense>
       )}
     </div>
-  );
-}
-
-// The JSON view loads the first time it shows, so the workspace's own code does not carry its code
-// editor (DOCE-ENTRY-2.2).
-const LazyJson = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./workspace-json.js')).WorkspaceJson,
-}));
-
-/** The open template's JSON in place of the preview, once it has loaded. */
-export function WorkspaceJson(
-  props: PartProps & { onValidityChange: (errors: readonly string[]) => void },
-) {
-  return (
-    <Suspense fallback={null}>
-      <LazyJson {...props} />
-    </Suspense>
   );
 }
 

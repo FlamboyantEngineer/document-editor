@@ -309,7 +309,6 @@ export function TemplateEditor(props: TemplateEditorProps) {
 
 export type { TemplateDraftState } from './setting-drafts.js';
 export { templateIdOf } from './template-identity.js';
-export { TemplateJsonEditor } from './template-json-editor.js';
 export { DEFAULT_TEMPLATE_SCOPE_LABELS, withListedSections } from './template-scope.js';
 export type { TemplateScope } from './template-scope-state.js';
 export {

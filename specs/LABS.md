@@ -104,7 +104,7 @@ Verification: `e2e/budget-counters.performance.spec.ts`
 
 ### DOCE-LABS-3.1 - The template editor beside a document
 
-The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once. Host options mark the template as never saved, fail its parent's load, disable the editor and lock the parent in the JSON text; the lab offers its own fonts and reports section renames and whether the JSON text reads as a template.
+The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once. Host options mark the template as never saved, fail its parent's load, disable the editor and put a table in the header and footer; the lab offers its own fonts, reports section renames, and shows the template it holds as JSON, read only.
 
 Implementation: `labs/src/template-editor.lab.tsx`, `labs/template-editor.html`
 Verification: `e2e/template-editor.spec.ts`

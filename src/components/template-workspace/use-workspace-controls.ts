@@ -1,10 +1,10 @@
 // The workspace's controls beyond its state: the side panel's pane, remembered in the provider's
 // storage; the template and version a host names; Save, which says at its field what keeps a
-// template from being saved; and the JSON view's keys.
+// template from being saved.
 
 import { useUiStorage } from '@flamboyantengineer/ui-components/core';
 import { useUnsavedChangesGuard } from '@flamboyantengineer/ui-components/unsaved-changes-guard';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TemplateWorkspaceProps } from './template-workspace-types.js';
 import type { TemplateWorkspaceState } from './use-template-workspace.js';
 import type { TemplateWorkspaceLabels } from './workspace-labels.js';
@@ -90,25 +90,4 @@ export function useSave(
     await workspace.save();
   };
   return { save, saveError: workspace.saveProblem ? saveError : {}, idInput };
-}
-
-// Control+Alt+B turns the JSON view on and off, outside a composition and a held key's repeats.
-export function useJsonView(isEnabled: boolean) {
-  const [isShown, setShown] = useState(false);
-  const [errors, setErrors] = useState<readonly string[]>([]);
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (!isEnabled || event.repeat || event.nativeEvent.isComposing) return;
-    if (!event.ctrlKey || !event.altKey || event.key.toLowerCase() !== 'b') return;
-    event.preventDefault();
-    setShown((shown) => !shown);
-    setErrors([]);
-  };
-  const shows = isEnabled && isShown;
-  return {
-    isShown: shows,
-    view: shows ? ('json' as const) : undefined,
-    errors,
-    setErrors,
-    onKeyDown,
-  };
 }

@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { TemplateFile } from '../../model/index.js';
 import { TemplateEditor, type TemplateEditorProps, templateIdOf } from './template-editor.js';
-import { TemplateJsonEditor } from './template-json-editor.js';
-import { templateText } from './template-json-text.js';
 import type { TemplateScope } from './template-scope-state.js';
 
 // The whole editor renders in each test, which takes seconds on a shared CI runner.
@@ -375,63 +373,4 @@ describe('extension slots', () => {
     },
     SLOW,
   );
-});
-
-// The JSON editor beside a host that changes the template elsewhere.
-function JsonHost({ changes }: { changes: TemplateFile[] }) {
-  const [template, setTemplate] = useState<TemplateFile>({ formatVersion: 1, id: 'plain' });
-  return (
-    <>
-      <button type="button" onClick={() => setTemplate({ ...template, name: 'Renamed' })}>
-        Rename
-      </button>
-      <TemplateJsonEditor
-        template={template}
-        onChange={(next) => {
-          changes.push(next);
-          setTemplate(next);
-        }}
-      />
-      <button type="button">Elsewhere</button>
-    </>
-  );
-}
-
-describe('TemplateJsonEditor', () => {
-  it('DOCE-TEMPLATE-EDITOR-2.7 hands the template over once focus leaves, keeping locked keys', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    render(<JsonHost changes={changes} />);
-    const text = screen.getByRole('textbox');
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,"id":"other","name":"Typed"}');
-    expect(changes).toEqual([]);
-    await user.click(screen.getByRole('button', { name: 'Elsewhere' }));
-    expect(changes).toEqual([{ formatVersion: 1, id: 'plain', name: 'Typed' }]);
-    expect(text).toHaveValue(templateText({ formatVersion: 1, id: 'plain', name: 'Typed' }));
-  });
-
-  it('DOCE-TEMPLATE-EDITOR-2.7 keeps an invalid text and hands nothing over', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    render(<JsonHost changes={changes} />);
-    const text = screen.getByRole('textbox');
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,');
-    await user.click(screen.getByRole('button', { name: 'Elsewhere' }));
-    expect(changes).toEqual([]);
-    expect(text).toHaveValue('{"formatVersion":1,');
-    expect(screen.getByText('The text is not valid JSON.')).toBeInTheDocument();
-  });
-
-  it('DOCE-TEMPLATE-EDITOR-2.7 follows a template changed elsewhere while it holds no edit', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    render(<JsonHost changes={changes} />);
-    await user.click(screen.getByRole('button', { name: 'Rename' }));
-    expect(screen.getByRole('textbox')).toHaveValue(
-      templateText({ formatVersion: 1, id: 'plain', name: 'Renamed' }),
-    );
-    expect(changes).toEqual([]);
-  });
 });
