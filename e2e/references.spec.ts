@@ -242,4 +242,44 @@ test.describe('references', () => {
     await item(page, 'Show short').click();
     await expect(abbreviation).toHaveAttribute('data-abbr-display', 'short');
   });
+
+  test('DOCE-REFERENCES-3.2 DOCE-REFERENCES-3.4 makes selected words an abbreviation of the entry the glossary has', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Load the Ground support equipment');
+    await expect(async () => {
+      if (await dialog(page).isVisible()) await page.keyboard.press('Escape');
+      await selectWords(page, 'Ground support equipment');
+      await page.keyboard.press('Shift+F10');
+      await item(page, 'Create abbreviation…').click({ timeout: 2000 });
+      await expect(dialog(page).getByRole('textbox', { name: 'Expansion' })).toHaveValue(
+        'Ground support equipment',
+        { timeout: 2000 },
+      );
+    }).toPass();
+    // The host's notice shows, and the entry written is the glossary's own, so it is used.
+    await expect(dialog(page)).toContainText('Glossary entries are shared by every document.');
+    await dialog(page).getByRole('textbox', { name: 'Abbreviation' }).fill('gse');
+    await expect(dialog(page).locator('[data-abbreviation-duplicate]')).toContainText(
+      'GSE: Ground support equipment is already in the glossary.',
+    );
+    await expect(dialog(page).getByRole('button', { name: 'Add to glossary' })).toHaveCount(0);
+    // Short, as the preview reads.
+    await dialog(page).getByRole('radio', { name: 'Short' }).click();
+    await expect(dialog(page).locator('[data-abbreviation-preview]')).toContainText('GSE');
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    const abbreviation = content(page).locator('[data-abbreviation-ref="glossary-gse"]');
+    await expect(abbreviation).toHaveAttribute('data-abbr-display', 'short');
+    await expect(abbreviation).toHaveText('GSE');
+    // Reached from the keyboard, it shows its tooltip, and leaving it hides it.
+    const tip = page.locator('.de-document-editor__abbreviation-tip');
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
+    await expect(tip).toHaveText('GSE — Ground support equipment');
+    await page.keyboard.press('ArrowLeft');
+    await expect(tip).toHaveCount(0);
+    // Every abbreviation offers to cite another entry.
+    await abbreviation.click({ button: 'right' });
+    await expect(item(page, 'Cite another entry…')).toBeVisible();
+  });
 });

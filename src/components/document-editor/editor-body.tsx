@@ -18,6 +18,7 @@ import { inputAfterFocusKeeper } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import { useEditorPanesContext } from '../document-panels/document-panels.js';
+import { AbbreviationTip } from './abbreviation-tip.js';
 import { copyContentLink } from './copy-link.js';
 import { DebugTooltip } from './debug-tooltip.js';
 import type { DocumentEditorProps } from './document-editor.js';
@@ -339,6 +340,7 @@ export function EditorBody({
         scale={(props.zoom ?? 100) / 100}
         labels={labels}
       />
+      {props.glossary ? <AbbreviationTip view={view} state={state} /> : null}
       {editable && !suggesting && props.tableHandles ? (
         <TableHandles view={view} state={state} labels={labels} />
       ) : null}

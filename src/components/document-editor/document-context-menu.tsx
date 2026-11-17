@@ -32,6 +32,12 @@ interface DocumentContextMenuProps extends Omit<ContextEntriesOptions, 'startCom
   shown: EditorContextOptions;
 }
 
+/** What the host provides that the context menu offers: linked code and abbreviations. */
+export const contextFeatures = (props: { codeSource?: unknown; glossary?: unknown }) => ({
+  linkedCode: Boolean(props.codeSource),
+  glossary: Boolean(props.glossary),
+});
+
 // Whether a document position is inside the selection, a selected cell included.
 function isSelected(view: EditorView, pos: number): boolean {
   const { selection } = view.state;

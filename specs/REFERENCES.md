@@ -99,7 +99,7 @@ Verification: `src/engine/references.test.ts`, `src/engine/abbreviation-health.t
 
 ### DOCE-REFERENCES-2.2 - Refreshing from the glossary
 
-`refreshAbbreviations(entries)` shall bring the abbreviations of the entries given up to date with them, and `documentAbbreviations(doc)` give the entries the document cites, as they last read.
+`refreshAbbreviations(entries, asRead)` shall bring the abbreviations of the entries given up to date with them, leaving those that read as none of the readings `asRead` gives their entry, which changed while the glossary was asked; `documentAbbreviations(doc)` gives the entries the document cites, as they last read, and `abbreviationReadings(doc)` every reading of them.
 
 Implementation: `src/engine/abbreviations.ts`
 Verification: `src/engine/references.test.ts`
@@ -118,6 +118,13 @@ Verification: `src/engine/abbreviation-health.test.ts`, `src/engine/proofing-opt
 Implementation: `src/model/glossary.ts`
 Verification: `src/model/glossary.test.ts`
 
+### DOCE-REFERENCES-2.5 - Refreshing abbreviations a writer adds
+
+`createAbbreviationRefresh({ glossary, enabled })` shall, after each of the writer's own changes that puts in an abbreviation (inserting, pasting, undoing a deletion), resolve the entries those abbreviations cite through the glossary and bring the abbreviations whose entry reads otherwise now up to date (`refreshAbbreviations`), as one change marked `ABBREVIATION_CACHE_REFRESH_META` that undo does not take back and suggestion tracking leaves; an abbreviation that changed while the glossary was asked is left as it is. Remote, derived and system changes and its own refreshes ask nothing, nor does a writer who cannot edit or who suggests (`enabled`). The document editor installs it while the host gives a `glossary`, for a writer who edits directly.
+
+Implementation: `src/engine/abbreviation-refresh.ts`, `src/components/document-editor/layout-own-plugins.ts`
+Verification: `src/engine/abbreviation-refresh.test.ts`, `e2e/references.spec.ts`
+
 ## DOCE-REFERENCES-3 - In the editor
 
 ### DOCE-REFERENCES-3.1 - The reference dialog
@@ -129,10 +136,10 @@ Verification: `e2e/references.spec.ts`
 
 ### DOCE-REFERENCES-3.2 - The abbreviation dialog
 
-While the host gives a `glossary`, the toolbar's abbreviation button shall open the abbreviation dialog, which finds the glossary's entries, or adds one, prefilled from the selected text (`prefillAbbreviation`), and inserts its abbreviation. The context menu on an abbreviation switches its form and turns it into text.
+While the host gives a `glossary`, the toolbar's abbreviation button, and the context menu's `createAbbreviation` entry on text selected within one block where an abbreviation may go, shall open the abbreviation dialog. It finds the glossary's entries, or writes a new one prefilled from the selected text (`prefillAbbreviation`), and shows the host's notice on what the glossary may hold (`glossaryNotice`, none when empty). The writer picks whether the abbreviation reads in full or short (`abbreviationDisplay`, the selected abbreviation's form or full by default) and sees how it will read (`data-abbreviation-preview`). Its one primary action inserts the entry picked (`useGlossaryEntry`), or, with none picked, adds the entry written and inserts it (`addToGlossary`, unavailable while the abbreviation or expansion is blank). An entry written as the glossary already has it, ignoring case and outer spaces, is not added again: the dialog says so (`glossaryDuplicate`, `data-abbreviation-duplicate`) and its action inserts that entry; and when the glossary refuses a new entry as a `conflict` because another writer added it meanwhile, that entry is inserted. A failed search shows `glossarySearchFailed` (or the host's message) until a search succeeds; a failed add shows `glossaryFailed`. The context menu on an abbreviation offers to cite another entry through the dialog (`relinkAbbreviation`), its form and turning it into text, each with its glyph.
 
-Implementation: `src/components/document-editor/abbreviation-dialog.tsx`, `src/components/document-editor/element-entries.ts`
-Verification: `e2e/references.spec.ts`
+Implementation: `src/components/document-editor/abbreviation-dialog.tsx`, `src/components/document-editor/abbreviation-entries.ts`, `src/components/document-editor/context-entries.ts`
+Verification: `e2e/references.spec.ts`, `src/components/document-editor/abbreviation-entries.test.ts`
 
 ### DOCE-REFERENCES-3.3 - Refreshing abbreviations on opening
 
@@ -140,3 +147,10 @@ With `refreshAbbreviationsOnOpen` and a glossary, the document editor shall, onc
 
 Implementation: `src/components/document-editor/opening-abbreviations.ts`
 Verification: `src/components/document-editor/opening-abbreviations.test.tsx`
+
+### DOCE-REFERENCES-3.4 - An abbreviation's tooltip from the keyboard
+
+While the host gives a `glossary`, the abbreviation the keyboard is on, the one selected in the focused editor or the one a reader tabs to, shall show its tooltip, the abbreviation and its expansion as hovering shows them (`de-document-editor__abbreviation-tip`, `role="tooltip"`), below its left edge in the editor body (`--de-abbreviation-tip-x`, `--de-abbreviation-tip-y`). Moving off it or leaving the editor hides it.
+
+Implementation: `src/components/document-editor/abbreviation-tip.tsx`
+Verification: `e2e/references.spec.ts`

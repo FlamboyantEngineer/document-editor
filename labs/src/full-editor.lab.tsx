@@ -339,6 +339,9 @@ const TOOLBAR = {
 // The host's dialogs: its note and its catalogue references.
 const DIALOGS = { ...HOST_DIALOGS, ...CITATION_DIALOGS };
 
+// The host's notice on what its glossary may hold, which the abbreviation dialog shows.
+const LABELS = { glossaryNotice: 'Glossary entries are shared by every document.' };
+
 // Why the writer may not edit, while the lab restricts editing.
 const RESTRICTED = { edit: 'The host lets this writer only suggest' };
 
@@ -482,6 +485,7 @@ function Lab() {
         onMarkupChange={setMarkup}
         toolbar={TOOLBAR}
         dialogs={DIALOGS}
+        labels={LABELS}
         referenceKinds={REFERENCE_KINDS}
         menubar={menubar}
         exports={exports}

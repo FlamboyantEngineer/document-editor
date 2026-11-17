@@ -1,4 +1,5 @@
-// The engine's proofing and abbreviation-health exports, re-exported by its features.
+// The engine's proofing, abbreviation-health and abbreviation refresh exports, re-exported by its
+// features.
 
 export type {
   AbbreviationHealthOptions,
@@ -15,6 +16,10 @@ export {
   listAbbreviationIssues,
   recordGlossaryEntries,
 } from './abbreviation-health.js';
+export {
+  type AbbreviationRefreshOptions,
+  createAbbreviationRefresh,
+} from './abbreviation-refresh.js';
 export type {
   ProofingDecision,
   ProofingIssueAt,

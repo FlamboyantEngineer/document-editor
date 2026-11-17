@@ -1,12 +1,14 @@
 // The plugins a document's layout adds to the editor's own: its page debugging, list starts, page
 // variables and dynamic template content, footnote numbers by section, search, authorship, region
-// and template content editing, sections, template edit defaults, change lines, version changes
-// and, unless the host installs its own, its lists of contents.
+// and template content editing, sections, template edit defaults, change lines, version changes,
+// the refresh of abbreviations a writer adds and, unless the host installs its own, its lists of
+// contents.
 
 import type { Plugin } from 'prosemirror-state';
 import type { RefObject } from 'react';
 import { createTemplateEditDefaults } from '../../engine/figure-defaults.js';
 import {
+  createAbbreviationRefresh,
   createAuthorship,
   createChangeLines,
   createDocumentSections,
@@ -67,6 +69,10 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
       suggestions: () => latest.current.compare?.suggestions ?? 'rejected',
       generated: () => latest.current.compare?.generated ?? false,
       scope: () => latest.current.compare?.scope ?? null,
+    }),
+    createAbbreviationRefresh({
+      glossary: () => latest.current.glossary,
+      enabled: () => latest.current.editable !== false && latest.current.suggesting !== true,
     }),
   ];
 }

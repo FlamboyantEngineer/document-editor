@@ -1918,6 +1918,27 @@ a.de-contents__entry {
   transform: translateX(-100%);
 }
 
+/* The tooltip of the abbreviation the keyboard is on, below it. */
+.de-document-editor__abbreviation-tip {
+  position: absolute;
+  top: calc(var(--de-abbreviation-tip-y) + 4px);
+  left: var(--de-abbreviation-tip-x);
+  z-index: 4;
+  max-width: 32ch;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #1f2937;
+  color: #f9fafb;
+  font: 12px/1.4 var(--ui-font-family, sans-serif);
+  pointer-events: none;
+}
+
+/* The abbreviation dialog's notice of a duplicate and its preview. */
+[data-abbreviation-duplicate],
+[data-abbreviation-preview] {
+  margin: 0;
+}
+
 /*
  * The debugging pane beside the pages, after its resize handle, at its own width: the measuring
  * view at the width it measures at, or the pages' markup. Without a view the pane takes no box, and
