@@ -1,6 +1,7 @@
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import {
   BASE_TEMPLATE,
@@ -10,7 +11,9 @@ import {
   type StoredNode,
   writeDocumentFile,
 } from '../model/index.js';
+import { createDocumentEditing } from './document-editing.js';
 import { proofedBlocks } from './proofing-text.js';
+import { runScripts } from './scripts.js';
 import { createSearch, searchState, setSearch } from './search.js';
 
 // The recipe for a host's own domain nodes, in generic terms: a refinement of a built-in type that
@@ -120,5 +123,24 @@ describe('host domain nodes', () => {
     expect(catalogDocument(doc, BASE_TEMPLATE).toc?.map((entry) => entry.text)).toEqual([
       'Status: Approved',
     ]);
+  });
+
+  it('DOCE-OBJECTS-4.2 DOCE-SCHEMA-1.3 keeps the host atoms a script writes as the host nodes', async () => {
+    const script: StoredNode = { type: 'script', attrs: { id: 'a0000001', source: 'status' } };
+    const { doc } = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [script] }] },
+      schema,
+    );
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: createDocumentEditing(schema) }),
+    });
+    const output = { type: 'paragraph', content: [text('Pump: '), status('Approved')] };
+    const runner = {
+      run: () => Promise.resolve({ ok: true as const, value: { content: [output] } }),
+    };
+    expect(await runScripts(view, runner)).toEqual([]);
+    const written = writeDocumentFile(view.state.doc).sections[0]?.content[0]?.content?.[0];
+    expect(written?.content?.[1]).toMatchObject(status('Approved'));
+    view.destroy();
   });
 });

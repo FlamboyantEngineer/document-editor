@@ -45,10 +45,8 @@ export function insertAbbreviation(
         null,
         $from.parent.type.allowedMarks(marks),
       );
-      const tr = state.tr.replaceSelectionWith(node, false);
-      const pos = tr.mapping.map(state.selection.from, -1);
-      tr.setSelection(NodeSelection.create(tr.doc, pos));
-      dispatch(tr.scrollIntoView());
+      // The caret stays right after it, so the writer's typing goes on after the abbreviation.
+      dispatch(state.tr.replaceSelectionWith(node, false).scrollIntoView());
     }
     return true;
   };

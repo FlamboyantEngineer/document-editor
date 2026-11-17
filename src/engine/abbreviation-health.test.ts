@@ -147,6 +147,7 @@ describe('abbreviation health', () => {
     const [pos] = atoms(state);
     if (pos === undefined) throw new Error('An abbreviation');
     expect(state.doc.nodeAt(pos)?.marks.map((mark) => mark.type.name)).toEqual(['strong']);
+    state = select(state, pos);
     unlinkAbbreviation(state, (tr) => {
       state = state.apply(tr);
     });

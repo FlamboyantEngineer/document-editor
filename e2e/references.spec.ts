@@ -114,6 +114,31 @@ test.describe('references', () => {
     await expect(content(page).locator('p', { hasText: /See .*Timing budget/ })).toHaveCount(1);
   });
 
+  test('DOCE-REFERENCES-3.1 a dismissed reference dialog keeps the selection it would replace', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'See the scope');
+    const paragraph = content(page).locator('p', { hasText: 'See the' });
+    const selected = () => page.evaluate(() => document.getSelection()?.toString());
+    for (const dismiss of ['Escape', 'outside'] as const) {
+      await selectWords(page, 'scope');
+      await toolbar(page).getByRole('button', { name: 'Reference' }).click();
+      // Both of the library's own dialogs, this document's and another document's.
+      await item(
+        page,
+        dismiss === 'Escape' ? 'Reference in this document…' : 'Reference to another document…',
+      ).click();
+      await expect(dialog(page)).toBeVisible();
+      if (dismiss === 'Escape') await page.keyboard.press('Escape');
+      else await page.mouse.click(4, 4);
+      await expect(dialog(page)).toHaveCount(0);
+      await expect.poll(selected).toBe('scope');
+    }
+    // The writer types over the selection as before the dialog opened.
+    await page.keyboard.type('plan');
+    await expect(paragraph).toHaveText('See the plan');
+  });
+
   test('DOCE-REFERENCES-3.1 DOCE-REFERENCES-1.10 cites another document the host finds', async ({
     page,
   }) => {
@@ -288,9 +313,10 @@ test.describe('references', () => {
     const abbreviation = content(page).locator('[data-abbreviation-ref="glossary-gse"]');
     await expect(abbreviation).toHaveAttribute('data-abbr-display', 'short');
     await expect(abbreviation).toHaveText('GSE');
-    // Reached from the keyboard, it shows its tooltip, and leaving it hides it.
+    // Reached from the keyboard, it shows its tooltip, and leaving it hides it: the caret is right
+    // after it once inserted.
     const tip = page.locator('.de-document-editor__abbreviation-tip');
-    await page.keyboard.press('End');
+    await expect(tip).toHaveCount(0);
     await page.keyboard.press('ArrowLeft');
     await expect(tip).toHaveText('GSE — Ground support equipment');
     await page.keyboard.press('ArrowLeft');
@@ -298,6 +324,28 @@ test.describe('references', () => {
     // Every abbreviation offers to cite another entry.
     await abbreviation.click({ button: 'right' });
     await expect(item(page, 'Cite another entry…')).toBeVisible();
+  });
+
+  test('DOCE-REFERENCES-2.1 typing right after inserting an abbreviation goes on after it', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Load the GSE');
+    await expect(async () => {
+      if (await dialog(page).isVisible()) await page.keyboard.press('Escape');
+      await selectWords(page, 'GSE');
+      await toolbar(page).getByRole('button', { name: 'Abbreviation…' }).click();
+      await expect(dialog(page).getByRole('textbox', { name: 'Abbreviation' })).toHaveValue('GSE', {
+        timeout: 2000,
+      });
+    }).toPass();
+    await dialog(page).getByRole('combobox', { name: 'Glossary entry' }).fill('GSE');
+    await page.getByRole('option', { name: /GSE/ }).click();
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await page.keyboard.type(' first');
+    const paragraph = content(page).locator('p', { hasText: 'Load the' });
+    await expect(paragraph).toHaveText(/^Load the Ground support equipment \(GSE\) first$/);
+    await expect(paragraph.locator('[data-abbreviation-ref]')).toHaveCount(1);
   });
 
   test('DOCE-PAGINATION-7.23 types after a trailing inline atom, and joins a paragraph holding only one', async ({

@@ -1,4 +1,4 @@
-import { type Command, EditorState, type NodeSelection, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
@@ -178,7 +178,18 @@ describe('abbreviations', () => {
 
   it('DOCE-REFERENCES-2.1 inserts an abbreviation, switches its form and turns it into text', () => {
     let state = run(at(stateOf(paragraph('Use the  here.')), ' here'), insertAbbreviation(entry));
-    expect(selected(state).attrs).toMatchObject({ entryId: 'g1', display: 'full', abbr: 'GSE' });
+    // The caret is right after it, so typing goes on after the abbreviation.
+    const { $from, empty } = state.selection;
+    expect(empty).toBe(true);
+    expect($from.nodeBefore?.attrs).toMatchObject({ entryId: 'g1', display: 'full', abbr: 'GSE' });
+    const typed = state.apply(state.tr.insertText('s'));
+    expect(typed.doc.resolve($from.pos).nodeBefore?.type.name).toBe('abbreviation_reference');
+    expect(typed.doc.resolve($from.pos).nodeAfter?.text).toMatch(/^s here/);
+    state = state.apply(
+      state.tr.setSelection(
+        NodeSelection.create(state.doc, $from.pos - ($from.nodeBefore?.nodeSize ?? 0)),
+      ),
+    );
     state = run(state, setAbbreviationDisplay());
     expect(selected(state).attrs.display).toBe('short');
     state = run(state, unlinkAbbreviation);
