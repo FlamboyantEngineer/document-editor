@@ -613,7 +613,7 @@ test.describe('document editor lab', () => {
     expect(await target.boundingBox()).toEqual(before);
   });
 
-  test('DOCE-EDITOR-4.18 DOCE-EDITOR-4.19 shows the lead, then the pages, with the overview over the frame', async ({
+  test('DOCE-EDITOR-4.18 DOCE-EDITOR-4.19 shows the lead, then the pages, with the overview beside the native scrollbar', async ({
     lab,
     page,
   }) => {
@@ -624,8 +624,17 @@ test.describe('document editor lab', () => {
     );
     await expect(page.locator('.de-document-editor__placeholder')).toHaveCount(0);
     await expect(pages(page).first()).toBeVisible();
-    const overview = page.locator('.de-document-editor__overview');
+    const overview = page.locator('.de-document-editor .ui-scroll-region__overview');
     await expect(overview).toHaveCount(1);
+    // The frame keeps its native scrollbar: the overview is painted beside it, with no control.
+    await expect(page.locator('.de-document-editor .ui-scroll-region')).toHaveAttribute(
+      'data-scrollbar',
+      'native',
+    );
+    await expect(page.locator('.de-document-editor .ui-scroll-region__overview')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
     // The word-list proofer's issues are marked on the overview's track.
     await expect(page.locator('[data-proofing-issue]').first()).toBeAttached();
     await expect

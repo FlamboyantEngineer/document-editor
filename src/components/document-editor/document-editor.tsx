@@ -274,6 +274,11 @@ export interface DocumentEditorProps
   contents?: EditorContentsOptions | undefined;
   /** The glossary abbreviations cite; without it the editor offers no abbreviations. */
   glossary?: GlossaryAdapter | undefined;
+  /**
+   * Whether opening a document brings the abbreviations it cites up to date with the glossary, for
+   * a writer who edits directly; off by default, when only the Tools menu does it.
+   */
+  refreshAbbreviationsOnOpen?: boolean | undefined;
   /** Runs the script blocks: from their dialog and the context menu, and on opening for those that ask. */
   scriptRunner?: ScriptRunnerAdapter | undefined;
   /**
