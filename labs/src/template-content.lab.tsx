@@ -51,6 +51,12 @@ const OWN: TemplateFile = {
       },
     ],
   },
+  // Caption and footnote typography: the document's, which the appendix section overrides in part.
+  styles: {
+    table: { caption: { label: { weight: 700 }, text: { italic: true } } },
+    codeBlock: { caption: { label: { weight: 700 } } },
+  },
+  footnotes: { suffix: ')', text: { size: '11px' } },
   sections: [
     {
       name: 'summary',
@@ -65,6 +71,35 @@ const OWN: TemplateFile = {
       content: [
         { type: 'heading', attrs: { level: 1 }, content: [text('Approvals')] },
         { type: 'paragraph', content: [text('Approved by the reviewers.')] },
+      ],
+    },
+    {
+      name: 'appendix',
+      label: 'Appendix',
+      editable: false,
+      styles: { table: { caption: { text: { italic: false, weight: 300 } } } },
+      footnotes: { text: { size: '13px' } },
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            text('Measured on the bench.'),
+            { type: 'footnote', attrs: { id: 'appendix-note' }, content: [text('At rest.')] },
+          ],
+        },
+        {
+          type: 'table',
+          attrs: { caption: 'Bench limits', captionEnabled: true },
+          content: [
+            {
+              type: 'tableRow',
+              content: ['Load', 'Limit'].map((value) => ({
+                type: 'tableCell',
+                content: [{ type: 'paragraph', content: [text(value)] }],
+              })),
+            },
+          ],
+        },
       ],
     },
   ],
