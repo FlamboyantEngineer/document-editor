@@ -409,9 +409,9 @@ Verification: `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-3.5 - Beside each page
 
-In the full editor lab, whose appendix is on landscape pages between portrait ones, each thread's card shall sit beside the page its text is on, the same gap from that page's edge, portrait or landscape; with comment markers, each thread is a marker that opens its card. Folding and unfolding the side panels, scrolling meanwhile, keeps each card at that gap beside its text and keeps the same card rather than drawing a new one; zoomed or at a narrow width, each card stays level with its text, and a marker opens its card in view.
+In the full editor lab, whose appendix is on landscape pages between portrait ones, each thread's card shall sit beside the page its text is on, the same gap from that page's edge, portrait or landscape; with comment markers, each thread is a marker that opens its card beneath it, and each marker sits where its card would, beside its page (`getInlineOffset`). Where the stage is scrolled sideways so that a page's edge is out of view, its markers move back inside what the stage shows, so each stays in view and pressable, while a marker whose card is open stays beside its page, which showing the card brings into view (DOCE-COMMENTS-3.8); a sideways scroll places the markers again and measures nothing else, and a scroll up or down does nothing (`placeMarkers`). Folding and unfolding the side panels, scrolling meanwhile, keeps each card at that gap beside its text and keeps the same card rather than drawing a new one; zoomed or at a narrow width, each card stays level with its text, and a marker opens its card in view.
 
-Implementation: `src/components/document-comments/anchor-rects.ts`, `src/components/document-comments/document-comments.tsx`, `labs/reference/document.css`, `labs/src/full-editor.lab.tsx`
+Implementation: `src/components/document-comments/anchor-rects.ts`, `src/components/document-comments/marker-placement.ts`, `src/components/document-comments/use-anchor-rects.ts`, `src/components/document-comments/document-comments.tsx`, `labs/reference/document.css`, `labs/src/full-editor.lab.tsx`
 Verification: `e2e/full-editor.spec.ts`, `e2e/comment-layout.spec.ts`
 
 ### DOCE-COMMENTS-3.6 - The active anchor drawn

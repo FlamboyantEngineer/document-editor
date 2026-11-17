@@ -1369,6 +1369,14 @@ a.de-contents__entry {
   translate: var(--de-comment-offset, 0px) 0;
 }
 
+/*
+ * DOCE-COMMENTS-3.5: with markers, each entry starts where its marker is placed beside its page,
+ * and the card it opens hangs from the marker's start rather than its end.
+ */
+.de-document-comments__margin > [role='listitem'] {
+  justify-items: start;
+}
+
 /* A suggestion's opening post: what it does above the text it changes. */
 .de-document-comments__change p {
   margin: 0 0 4px;

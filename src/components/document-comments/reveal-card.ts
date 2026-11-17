@@ -4,24 +4,8 @@
 
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import { useEffect } from 'react';
+import { inlineScroller, shownEdges } from './inline-scroller.js';
 import { cardElementId } from './use-open-cards.js';
-
-// The nearest ancestor that scrolls along the inline axis, the page's own scroller included, or
-// null.
-function inlineScroller(element: HTMLElement): Element | null {
-  const { defaultView: view, scrollingElement: root } = element.ownerDocument;
-  for (let box = element.parentElement; box && view; box = box.parentElement) {
-    if (box.scrollWidth <= box.clientWidth) continue;
-    if (box === root || /auto|scroll/.test(view.getComputedStyle(box).overflowX)) return box;
-  }
-  return null;
-}
-
-// What a scroller shows, by its inline edges: the viewport for the page's own scroller.
-function shownEdges(scroller: Element): { left: number; right: number } {
-  if (scroller !== scroller.ownerDocument.scrollingElement) return scroller.getBoundingClientRect();
-  return { left: 0, right: scroller.clientWidth };
-}
 
 /**
  * Scrolls the element's inline scroller sideways just enough to show it, its start first when it
