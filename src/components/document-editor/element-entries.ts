@@ -31,7 +31,6 @@ import {
   setLink,
   setObjectLayout,
   toggleCaption,
-  updateReference,
 } from '../../engine/index.js';
 import { abbreviationEntries } from './abbreviation-entries.js';
 import { contentsEntries } from './contents-entries.js';
@@ -246,13 +245,11 @@ function referenceEntries(view: EditorView, options: ElementEntriesOptions): Men
     ),
     commandEntry(view, { id: 'remove-reference', label: labels.removeReference }, removeReference),
     ...(referenceStatusAt(view.state) === 'update'
-      ? [
-          commandEntry(
-            view,
-            { id: 'update-reference', label: labels.updateReference },
-            updateReference,
-          ),
-        ]
+      ? dialogEntry(
+          options,
+          { id: 'update-reference', label: labels.updateReference },
+          { kind: 'reference-update' },
+        )
       : []),
     ...(target
       ? [

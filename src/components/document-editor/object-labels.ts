@@ -9,6 +9,11 @@ export interface ObjectLabels {
   /** Names the outline panel. */
   readonly outline: string;
   readonly updateReference: string;
+  /** Names the text a reference reads now, and once its update is taken. */
+  readonly referenceReadsNow: string;
+  readonly referenceWillRead: string;
+  /** Takes the update of a reference. */
+  readonly updateAction: string;
   readonly section: string;
   /** Names the variable menu, which inserts a live variable at the caret. */
   readonly variable: string;
@@ -179,7 +184,10 @@ const CODE_STATUS = {
 /** The object controls' English text. */
 export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   outline: 'Outline',
-  updateReference: 'Update reference',
+  updateReference: 'Update reference…',
+  referenceReadsNow: 'Reads now',
+  referenceWillRead: 'Will read',
+  updateAction: 'Update',
   section: 'Section',
   variable: 'Variable',
   editorVariables: {

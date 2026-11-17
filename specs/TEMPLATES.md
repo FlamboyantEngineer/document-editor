@@ -344,6 +344,13 @@ Each kind of list shall have its own title and entry type, padding, spacing and 
 Implementation: `src/model/templates/template-settings.ts`, `src/model/templates/base-template.ts`, `labs/reference/document.css`
 Verification: `src/model/templates/template-settings.test.ts`, `e2e/contents.spec.ts`
 
+### DOCE-TEMPLATES-10.12 - References as links or plain text
+
+`templateProperties` shall write, for each reference format key the template shows as plain text (`references.links` false), `--doc-reference-<key>-decoration`, `--doc-reference-<key>-color` and `--doc-reference-<key>-background`; a key it shows as a link, the default, sets none, and an unset key inherits the parent's setting (DOCE-FORMAT-3.1). The reference stylesheet shall show a reference as a link, underlined in the link color, and a plain one in the surrounding text's color without an underline and with a light highlight that does not print; both take the link pointer, and changing the setting restyles every reference of the key without editing the document.
+
+Implementation: `src/model/templates/template-properties.ts`, `labs/reference/document.css`
+Verification: `src/model/templates/template-properties.test.ts`
+
 ## DOCE-TEMPLATES-11 - Template pinning
 
 ### DOCE-TEMPLATES-11.1 - Pinned revisions

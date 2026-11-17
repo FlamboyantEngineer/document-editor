@@ -334,7 +334,7 @@ describe('createMemoryHost', () => {
     ]);
     expect(
       current?.ok &&
-        current.value.map((each) => (each && each !== 'no-access' ? each.numbering : null)),
+        current.value.map((each) => (typeof each === 'object' && each ? each.numbering : each)),
     ).toEqual(['SPEC-1', null]);
   });
 
@@ -375,7 +375,7 @@ describe('createMemoryHost', () => {
     ]);
     expect(
       resolved?.ok &&
-        resolved.value.map((each) => (each && each !== 'no-access' ? each.target : each)),
+        resolved.value.map((each) => (typeof each === 'object' && each ? each.target : each)),
     ).toEqual([heading, null]);
   });
 
@@ -439,7 +439,7 @@ describe('createMemoryHost', () => {
       ok: true,
       value: {
         content: [{ type: 'paragraph', content: [{ type: 'text', text: 'stored 1' }] }],
-        provenance: null,
+        provenance: 'broken',
       },
     });
     await expect(

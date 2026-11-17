@@ -193,18 +193,24 @@ describe('external references', () => {
         refType: 'external-document',
         baseline: baseline('A'),
         text: 'PWR-100 A',
+        includeRevision: true,
       }),
     );
     state = at(state, 'PWR-100', 3);
     const key = citationKey({ documentId: 'pwr-100', targetId: null });
     state = run(state, resolveCitations(new Map([[key, baseline('B')]])));
     expect(referenceStatusAt(state)).toBe('update');
-    state = run(state, updateReference);
+    // The update reads as the template formats the citation now.
+    const revised: TemplateFile = {
+      ...BASE_TEMPLATE,
+      references: { formats: { 'external-document': '{{doc.numbering}} {{ref.revision}}' } },
+    };
+    state = run(state, updateReference(revised));
     expect(state.doc.textBetween(0, state.doc.content.size)).toContain('See PWR-100 B.');
     expect(referenceStatusAt(at(state, 'PWR-100', 3))).toBe('current');
     state = run(state, resolveCitations(new Map([[key, null]])));
     expect(referenceStatusAt(at(state, 'PWR-100', 3))).toBe('unavailable');
-    expect(updateReference(at(state, 'PWR-100', 3))).toBe(false);
+    expect(updateReference(revised)(at(state, 'PWR-100', 3))).toBe(false);
   });
 
   it('DOCE-REFERENCES-1.9 marks a citation out of reach, asks again, and moves to a new target', () => {
@@ -236,14 +242,14 @@ describe('external references', () => {
     const key = citationKey({ documentId: 'pwr-100', targetId: 't1' });
     state = run(state, resolveCitations(new Map([[key, 'no-access']])));
     expect(referenceStatusAt(state)).toBe('no-access');
-    expect(updateReference(state)).toBe(false);
-    // The host asks again: nothing is known until it answers.
+    expect(updateReference(TEMPLATE)(state)).toBe(false);
+    // The host asks again: the reference keeps its status until it answers.
     state = run(state, refreshReferenceStatus);
-    expect(referenceStatusAt(state)).toBeNull();
+    expect(referenceStatusAt(state)).toBe('no-access');
     const moved = { ...baseline('B'), target: { ...target, id: 't2', title: 'Power bus' } };
     state = run(state, resolveCitations(new Map([[key, moved]])));
     expect(referenceStatusAt(state)).toBe('update');
-    state = run(state, updateReference);
+    state = run(state, updateReference(TEMPLATE));
     expect(referenceAt(at(state, 'PWR-100', 2))?.mark.attrs.targetId).toBe('t2');
   });
 

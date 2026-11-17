@@ -35,7 +35,11 @@ async function selectWords(page: Page, wanted: string) {
   }, wanted);
 }
 
-const reference = (page: Page) => content(page).locator('[data-reference="true"]');
+// The references the tests insert, apart from the lab's paragraph of citations.
+const reference = (page: Page) =>
+  content(page).locator('p', { hasNotText: 'Background is in' }).locator('[data-reference="true"]');
+const cited = (page: Page, text: string) =>
+  content(page).locator('[data-reference="true"]', { hasText: text });
 
 test.describe('references', () => {
   test.beforeEach(async ({ lab }) => {
@@ -182,6 +186,33 @@ test.describe('references', () => {
     await item(page, 'Edit reference…').click();
     await expect(page.locator('[data-dialog="catalogue-reference"]')).toBeVisible();
     await expect(dialog(page).getByRole('button', { name: /Revision/ })).toContainText('Rev B');
+  });
+
+  test('DOCE-REFERENCES-1.5 marks citations the host resolved, and takes an update once confirmed', async ({
+    page,
+  }) => {
+    const thermal = cited(page, 'THM-200');
+    const gone = cited(page, 'Removed section');
+    await expect(
+      content(page).locator('[data-reference-status="update"]', { hasText: 'THM-200' }),
+    ).toHaveAttribute('title', 'The cited document has changed since it was cited');
+    await expect(
+      content(page).locator('[data-reference-status="broken"]', { hasText: 'Removed section' }),
+    ).toHaveCount(1);
+    await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText(
+      'A cited document no longer holds a target',
+    );
+    await expect(gone).toHaveCount(1);
+    await thermal.click({ button: 'right' });
+    await item(page, 'Update reference…').click();
+    await expect(dialog(page)).toHaveAccessibleName('Update reference');
+    await expect(dialog(page)).toContainText('THM-200 - Thermal notes');
+    await expect(dialog(page)).toContainText('THM-200 - Thermal design notes');
+    // Nothing changes until it is confirmed.
+    await expect(thermal).toHaveText('THM-200 - Thermal notes');
+    await dialog(page).getByRole('button', { name: 'Update' }).click();
+    await expect(thermal).toHaveText('THM-200 - Thermal design notes');
+    await expect(content(page).locator('[data-reference-status="update"]')).toHaveCount(0);
   });
 
   test('DOCE-REFERENCES-3.2 DOCE-REFERENCES-2.1 adds a glossary entry from the selection and switches its form', async ({

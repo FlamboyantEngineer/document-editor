@@ -20,7 +20,7 @@ Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
 
 ### DOCE-REFERENCES-1.3 - Following the target
 
-After each change, `createReferences({ template })` shall bring every internal reference up to date, out of the undo history (`updateReferences`): its text as its target reads now, or, when the target is gone, marked broken with its text kept. A click on an internal reference in a read document, or a Ctrl or Cmd click in an edited one, takes the reader to its target (`revealElement`).
+After each change, `createReferences({ template })` shall bring every internal reference up to date, out of the undo history (`updateReferences`): its text as its target reads now, or, when the target is gone, marked broken with its text kept, telling the host the targets whose references became broken (`onBroken`). A click on an internal reference in a read document, or a Ctrl or Cmd click in an edited one, takes the reader to its target (`revealElement`).
 
 Implementation: `src/engine/references.ts`, `src/engine/reveal.ts`
 Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
@@ -34,7 +34,7 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-1.5 - Citations as they are now
 
-`createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, a new request aborting the one in flight, and mark a reference whose document or target is gone `unavailable` and one whose document's revision, number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`); `updateReference` takes the update of the reference at the selection, recording the citation as it is now and reading as its label. The context menu offers it. Typing walks no reference: a change that only types or deletes text moves the marks, unless it inserts text carrying an external reference, as a paste may, which marks it as the host resolved it.
+`createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, a new request aborting the one in flight, and mark a reference whose document or target cannot be found `unavailable`, one whose document the reader can read but no longer holds its target `broken`, and one whose document's revision, as named or as a snapshot of it (`revisionId`), number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`), each with a hint the pointer and assistive technology read (`title`, `REFERENCE_STATUS_HINTS`, `hints`), and tell the host each broken citation once (`onBroken`). The marks are derived: they change no text, mark, history or saved state. `updateReference(template)` takes the update of the reference at the selection, and of that run of text only, recording the citation as it is now and reading as the template formats it (`referenceUpdateText`, DOCE-REFERENCES-1.10), rewriting only the text that changes. The context menu offers it through a dialog that shows what the reference reads now and what it will read, and changes nothing until it is confirmed. Typing walks no reference: a change that only types or deletes text moves the marks, unless it inserts text carrying an external reference, as a paste may, which marks it as the host resolved it.
 
 Implementation: `src/engine/reference-status.ts`, `src/engine/host-status.ts`, `src/components/document-editor/element-entries.ts`
 Verification: `src/engine/references.test.ts`
@@ -62,7 +62,7 @@ Verification: `src/engine/reference-places.test.ts`
 
 ### DOCE-REFERENCES-1.9 - Citations out of reach and asked again
 
-A reference whose citation the host resolves as `no-access` (DOCE-HOST-1.9) shall be marked `no-access`, and takes no update. `refreshReferenceStatus` shall forget how the host resolved every citation and ask it again at once, also when nothing was resolved before, as when the host knows its documents changed. `updateReference` shall cite the target as the host names it now (`targetId`), so a citation whose target moved follows it.
+A reference whose citation the host resolves as `no-access` (DOCE-HOST-1.9) shall be marked `no-access`, and takes no update. `refreshReferenceStatus` shall ask the host again for every citation, also when nothing was resolved before, as when the host knows its documents changed, keeping each reference's status until the host answers, and keeping it when the host fails. `updateReference` shall cite the target as the host names it now (`targetId`), so a citation whose target moved follows it.
 
 Implementation: `src/engine/reference-status.ts`
 Verification: `src/engine/references.test.ts`

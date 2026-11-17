@@ -1636,10 +1636,151 @@ a.de-contents__entry {
   }
 }
 
-/* A reference whose document is gone, or has changed since it was cited. */
-[data-reference-status='unavailable'] {
+/*
+ * A reference shows as a link, or as plain text with a light highlight where its template says
+ * so for its type (DOCE-TEMPLATES-10.12); either takes the link pointer.
+ */
+:root {
+  --doc-reference-plain-background: rgb(37 99 235 / 10%);
+}
+
+.inline-reference {
+  text-decoration: var(--doc-reference-decoration, underline);
+  color: var(--doc-reference-color, var(--doc-link-color, #1d4ed8));
+  background: var(--doc-reference-background, transparent);
+  cursor: pointer;
+}
+
+[data-reference-format='internal-heading'] {
+  --doc-reference-decoration: var(--doc-reference-internal-heading-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-internal-heading-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(--doc-reference-internal-heading-background, transparent);
+}
+
+[data-reference-format='internal-figure'] {
+  --doc-reference-decoration: var(--doc-reference-internal-figure-decoration, underline);
+  --doc-reference-color: var(--doc-reference-internal-figure-color, var(--doc-link-color, #1d4ed8));
+  --doc-reference-background: var(--doc-reference-internal-figure-background, transparent);
+}
+
+[data-reference-format='internal-table'] {
+  --doc-reference-decoration: var(--doc-reference-internal-table-decoration, underline);
+  --doc-reference-color: var(--doc-reference-internal-table-color, var(--doc-link-color, #1d4ed8));
+  --doc-reference-background: var(--doc-reference-internal-table-background, transparent);
+}
+
+[data-reference-format='internal-codeblock'] {
+  --doc-reference-decoration: var(--doc-reference-internal-codeblock-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-internal-codeblock-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(--doc-reference-internal-codeblock-background, transparent);
+}
+
+[data-reference-format='internal-equation'] {
+  --doc-reference-decoration: var(--doc-reference-internal-equation-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-internal-equation-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(--doc-reference-internal-equation-background, transparent);
+}
+
+[data-reference-format='external-document'] {
+  --doc-reference-decoration: var(--doc-reference-external-document-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-external-document-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(--doc-reference-external-document-background, transparent);
+}
+
+[data-reference-format='external-document-heading'] {
+  --doc-reference-decoration: var(--doc-reference-external-document-heading-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-external-document-heading-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(
+    --doc-reference-external-document-heading-background,
+    transparent
+  );
+}
+
+[data-reference-format='external-document-figure'] {
+  --doc-reference-decoration: var(--doc-reference-external-document-figure-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-external-document-figure-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(--doc-reference-external-document-figure-background, transparent);
+}
+
+[data-reference-format='external-document-table'] {
+  --doc-reference-decoration: var(--doc-reference-external-document-table-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-external-document-table-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(--doc-reference-external-document-table-background, transparent);
+}
+
+[data-reference-format='external-document-codeblock'] {
+  --doc-reference-decoration: var(
+    --doc-reference-external-document-codeblock-decoration,
+    underline
+  );
+  --doc-reference-color: var(
+    --doc-reference-external-document-codeblock-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(
+    --doc-reference-external-document-codeblock-background,
+    transparent
+  );
+}
+
+[data-reference-format='external-document-equation'] {
+  --doc-reference-decoration: var(--doc-reference-external-document-equation-decoration, underline);
+  --doc-reference-color: var(
+    --doc-reference-external-document-equation-color,
+    var(--doc-link-color, #1d4ed8)
+  );
+  --doc-reference-background: var(
+    --doc-reference-external-document-equation-background,
+    transparent
+  );
+}
+
+@media print {
+  .inline-reference {
+    background: none;
+  }
+}
+
+/* A reference whose target is gone from this document. */
+.inline-reference.reference-broken {
   text-decoration: line-through;
   color: #b91c1c;
+}
+
+/*
+ * A citation whose document cannot be found, no longer holds its target, is out of the reader's
+ * reach, or has changed since it was cited. The marks are the editor's; they do not print.
+ */
+[data-reference-status='unavailable'],
+[data-reference-status='broken'] {
+  text-decoration: line-through;
+  color: #b91c1c;
+}
+
+[data-reference-status='no-access'] {
+  text-decoration: underline dashed #6b7280;
+  color: #6b7280;
 }
 
 [data-reference-status='update'] {

@@ -71,6 +71,9 @@ const FigureDialog = /* @__PURE__ */ lazy(async () => ({
 const ReferenceDialog = /* @__PURE__ */ lazy(async () => ({
   default: (await SURFACE_LOADERS.reference()).ReferenceDialog,
 }));
+const ReferenceUpdateDialog = /* @__PURE__ */ lazy(async () => ({
+  default: (await SURFACE_LOADERS.reference()).ReferenceUpdateDialog,
+}));
 const AbbreviationDialog = /* @__PURE__ */ lazy(async () => ({
   default: (await SURFACE_LOADERS.abbreviation()).AbbreviationDialog,
 }));
@@ -269,6 +272,8 @@ function OpenDialog({
           reference={dialog.reference}
         />
       );
+    case 'reference-update':
+      return <ReferenceUpdateDialog {...shared} template={hosted.template} />;
     case 'caption':
       return <CaptionDialog {...shared} />;
     case 'abbreviation':

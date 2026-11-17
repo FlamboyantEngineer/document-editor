@@ -13,7 +13,7 @@ export const matchesQuery = (query: string, ...values: string[]): boolean => {
 
 /**
  * Finds citations of other documents among those it is given, and the targets each document holds;
- * a citation of a target resolves while its document holds it.
+ * a citation of a target resolves while its document holds it, and is broken once it does not.
  */
 export function createMemoryReferences({
   citations = [],
@@ -28,7 +28,7 @@ export function createMemoryReferences({
     const document = { ...structuredClone(found.baseline), target: null };
     if (targetId === null) return document;
     const target = citationTargets[documentId]?.find((each) => each.id === targetId);
-    return target ? { ...document, target: structuredClone(target) } : null;
+    return target ? { ...document, target: structuredClone(target) } : ('broken' as const);
   };
   return {
     search: (query) =>

@@ -205,7 +205,11 @@ function currentMark(reference: ReferenceAt, target: ReferenceTarget | undefined
  * target is gone. A reference where none may go (`isReferencePlace`), as in a heading, is left as
  * it reads, so a heading that cites itself never grows. Returns whether any changed.
  */
-export function updateReferences(tr: Transaction, template: TemplateFile): boolean {
+export function updateReferences(
+  tr: Transaction,
+  template: TemplateFile,
+  broken?: string[],
+): boolean {
   const references = listReferences(tr.doc).filter(
     (each) => internalTargetId(each.mark) && isReferencePlace(tr.doc.resolve(each.from)),
   );
@@ -218,6 +222,8 @@ export function updateReferences(tr: Transaction, template: TemplateFile): boole
     const text = target ? internalReferenceText(target, template) : current;
     const mark = currentMark(reference, target);
     if (mark.eq(reference.mark) && text === current) continue;
+    if (mark.attrs.broken && !reference.mark.attrs.broken)
+      broken?.push(String(mark.attrs.targetId));
     rewriteReference(tr, { from: reference.from, to: reference.to, text, mark });
     changed = true;
   }
@@ -252,6 +258,8 @@ export interface ReferencesOptions {
    * `isRemoteTransaction` by default.
    */
   readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
+  /** Told of the targets whose references a change marked broken, so the host can tell the writer. */
+  readonly onBroken?: ((targetIds: readonly string[]) => void) | undefined;
 }
 
 /**
@@ -263,6 +271,7 @@ export function createReferences({
   template,
   reveal = (view, id) => revealElement(view, id),
   isRemote = isRemoteTransaction,
+  onBroken,
 }: ReferencesOptions): Plugin {
   return new Plugin({
     key: referencesKey,
@@ -271,7 +280,9 @@ export function createReferences({
       if (!local.some(touchesReferences)) return null;
       const tr = after.tr;
       const pasted = renderPastedCitations(tr, { template: template(), transactions });
-      if (!updateReferences(tr, template()) && !pasted) return null;
+      const broken: string[] = [];
+      if (!updateReferences(tr, template(), broken) && !pasted) return null;
+      if (broken.length && onBroken) onBroken([...new Set(broken)]);
       return tr.setMeta(referencesKey, true).setMeta('addToHistory', false);
     },
     props: {

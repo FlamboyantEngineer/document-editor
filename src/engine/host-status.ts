@@ -9,9 +9,14 @@ import type { DecorationSet } from 'prosemirror-view';
 import type { HostResult } from '../host/index.js';
 import { isInlineTextOnly } from './transaction-kind.js';
 
-/** What a status keeps: the host's answers by key, the marks drawn from them, and its refreshes. */
+/**
+ * What a status keeps: the host's answers by key, those a refresh asks for again, the marks drawn
+ * from them, and its refreshes.
+ */
 export interface HostStatusState<Answer> {
   readonly resolved: ReadonlyMap<string, Answer>;
+  /** The answers a refresh asks for again, which keep their marks until the host answers anew. */
+  readonly stale: ReadonlySet<string>;
   readonly decorations: DecorationSet;
   /** How many refreshes the host asked for: the view asks again at each. */
   readonly refreshes: number;
@@ -33,6 +38,8 @@ interface HostStatusSpec<Item, Answer> {
    * pasted text carrying a mark the status reads. Without it, such a change only moves the marks.
    */
   addsMarked?: ((tr: Transaction) => boolean) | undefined;
+  /** Told each time the host answers, with the answers by key. */
+  onAnswered?: ((answered: ReadonlyMap<string, Answer | null>) => void) | undefined;
 }
 
 type Meta<Answer> = ReadonlyMap<string, Answer> | 'refresh';
@@ -47,14 +54,22 @@ function apply<Item, Answer>(
   if (!meta && isInlineTextOnly(tr) && !spec.addsMarked?.(tr)) {
     return { ...value, decorations: value.decorations.map(tr.mapping, tr.doc) };
   }
-  const resolved =
-    meta === 'refresh'
-      ? new Map<string, Answer>()
-      : meta
-        ? new Map([...value.resolved, ...meta])
-        : value.resolved;
-  const refreshes = value.refreshes + (meta === 'refresh' ? 1 : 0);
-  return { resolved, decorations: spec.decorate(tr.doc, resolved), refreshes };
+  const refresh = meta === 'refresh';
+  const resolved = meta && !refresh ? new Map([...value.resolved, ...meta]) : value.resolved;
+  const stale = refresh
+    ? new Set(value.resolved.keys())
+    : meta
+      ? new Set([...value.stale].filter((each) => !meta.has(each)))
+      : value.stale;
+  const refreshes = value.refreshes + (refresh ? 1 : 0);
+  return { resolved, stale, decorations: spec.decorate(tr.doc, resolved), refreshes };
+}
+
+// The answers a status still holds as current: those no refresh asks for again.
+function freshOf<Answer>(value: HostStatusState<Answer> | undefined): ReadonlyMap<string, Answer> {
+  if (!value) return new Map();
+  if (!value.stale.size) return value.resolved;
+  return new Map([...value.resolved].filter(([each]) => !value.stale.has(each)));
 }
 
 /** The plugin that asks the host after each change and marks the document by its answers. */
@@ -67,6 +82,7 @@ export function createHostStatus<Item, Answer>(
     state: {
       init: (_config, state) => ({
         resolved: new Map(),
+        stale: new Set(),
         decorations: spec.decorate(state.doc, new Map()),
         refreshes: 0,
       }),
@@ -77,7 +93,7 @@ export function createHostStatus<Item, Answer>(
       let timer = 0;
       let controller: AbortController | null = null;
       const check = () => {
-        const wanted = spec.wanted(view.state.doc, key.getState(view.state)?.resolved ?? new Map());
+        const wanted = spec.wanted(view.state.doc, freshOf(key.getState(view.state)));
         if (!wanted.size || !owner) return;
         controller?.abort();
         controller = new owner.AbortController();
@@ -90,6 +106,7 @@ export function createHostStatus<Item, Answer>(
               keys.map((each, index) => [each, result.value[index] ?? null]),
             );
             view.dispatch(view.state.tr.setMeta(key, answered).setMeta('addToHistory', false));
+            spec.onAnswered?.(answered);
           },
           () => undefined,
         );
@@ -115,7 +132,10 @@ export function createHostStatus<Item, Answer>(
   });
 }
 
-/** Asks the host for every answer again, and marks the document by its new answers. */
+/**
+ * Asks the host for every answer again, and marks the document by its new answers; until it answers,
+ * or when it fails, the marks stay as they were.
+ */
 export function refreshHostStatus<Answer>(key: PluginKey<HostStatusState<Answer>>): Command {
   return (state, dispatch) => {
     if (!key.getState(state)) return false;

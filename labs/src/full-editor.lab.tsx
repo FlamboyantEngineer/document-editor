@@ -25,6 +25,7 @@ import {
   createPresence,
   createProofing,
   createReferences,
+  createReferenceStatus,
 } from '../../src/engine/index.js';
 import { createMemoryHost, createWordListProofer, type EditingMode } from '../../src/host/index.js';
 import {
@@ -49,6 +50,7 @@ import {
   CITATION_DIALOGS,
   CITATION_TARGETS,
   CITATIONS,
+  citingParagraph,
   REFERENCE_KINDS,
 } from './lab-citations.js';
 import { chapter, heading, sampleDocument, text } from './lab-document.js';
@@ -162,6 +164,8 @@ const DIAGRAMS = ASSETS && labDiagrams(ASSETS);
 // A provider that completes one sentence, as a language model would.
 // Whether the writer suggests, which a taken completion follows.
 const SUGGESTING = { current: false };
+// Tells the reader what the references found, once the lab shows.
+const NOTICES = { current: (message: string): void => void message };
 
 const COMPLETER = {
   agent: 'lab-assistant',
@@ -227,6 +231,8 @@ function initialState(): EditorState {
       type: 'paragraph',
       content: [text('Locked by its workflow state: this paragraph cannot change.')],
     },
+    // Citations of other documents: one has an update, one names a target that is gone.
+    citingParagraph(),
     // A script block the host runs each time the document opens.
     {
       type: 'script',
@@ -290,7 +296,19 @@ function initialState(): EditorState {
     doc: readDocumentFile(file, schema).doc,
     plugins: [
       createContents({ template: () => TEMPLATE }),
-      createReferences({ template: () => TEMPLATE }),
+      createReferences({
+        template: () => TEMPLATE,
+        onBroken: () => NOTICES.current('A reference lost its target'),
+      }),
+      ...(HOST.references
+        ? [
+            createReferenceStatus({
+              source: HOST.references,
+              delay: 100,
+              onBroken: () => NOTICES.current('A cited document no longer holds a target'),
+            }),
+          ]
+        : []),
       createInlineCompletion({
         provider: COMPLETER,
         delay: 300,
@@ -343,6 +361,9 @@ function Lab() {
   // What the host's feedback last told the reader, such as a failed upload.
   const [notice, setNotice] = useState('');
   const [snapshot, setSnapshot] = useState('');
+  useEffect(() => {
+    NOTICES.current = setNotice;
+  }, []);
   const feedback = useMemo(
     () => ({ notify: ({ text: message }: { text: string }) => setNotice(message) }),
     [],
