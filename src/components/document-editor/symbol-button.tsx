@@ -5,10 +5,11 @@ import { Button } from '@flamboyantengineer/ui-components/button';
 import type { CharacterGridCategory } from '@flamboyantengineer/ui-components/character-grid';
 import { SpecialCharacterGlyph } from '@flamboyantengineer/ui-components/core';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense } from 'react';
 import { insertCharacter } from '../../engine/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
 import { SURFACE_LOADERS } from './lazy-surfaces.js';
+import { usePopoverCommand } from './popover-command.js';
 
 // The grid loads the first time the picker opens, so the editor's own code does not carry it
 // (DOCE-ENTRY-2.2).
@@ -33,7 +34,7 @@ export function SymbolButton({
   context: EditorContext;
   symbols: readonly CharacterGridCategory[];
 }) {
-  const [isOpen, setOpen] = useState(false);
+  const { isOpen, setOpen, choose } = usePopoverCommand(context);
   const { labels } = context;
   const isDisabled = !context.canRun(insertCharacter('Ω'));
   // Disabled, the button stays focusable and says why in its tooltip, as the toolbar's buttons do.
@@ -57,8 +58,7 @@ export function SymbolButton({
             fontFamily={isOpen ? fontAtCaret(context) : undefined}
             autoFocus
             onSelect={({ char }) => {
-              setOpen(false);
-              context.run(insertCharacter(char));
+              choose(insertCharacter(char));
             }}
           />
         </Suspense>

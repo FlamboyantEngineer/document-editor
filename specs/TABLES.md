@@ -44,7 +44,7 @@ Verification: `src/engine/tables.test.ts`
 `insertTable({ rows, columns })` shall insert a table of that many rows, the first of header cells, and columns, with a one pixel border (`TABLE_BORDER_1PX_CLASS`), in place of the empty paragraph holding the caret or after the top-level block holding it, with the caret in its first cell. A table without rows or columns is refused.
 
 Implementation: `src/engine/tables.ts`
-Verification: `src/engine/tables.test.ts`
+Verification: `src/engine/tables.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-1.7 - Remote changes
 
@@ -78,10 +78,10 @@ Verification: `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-2.4 - Column widths
 
-While the pointer is on a cell's side border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers (DOCE-EDITING) offers no border. Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. On release the widths are kept in every cell of the whole table (`setColumnWidths`); a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags.
+While the pointer is on a cell's side border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers (DOCE-EDITING) offers no border. Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. On release the widths are kept in every cell of the whole table (`setColumnWidths`); a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags, on every part of a table the pages split, found by the table's id.
 
 Implementation: `src/engine/table-resize.ts`, `src/engine/table-border-hover.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
-Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
+Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`, `e2e/regression.spec.ts`
 
 ## DOCE-TABLES-3 - Formatting tables
 
