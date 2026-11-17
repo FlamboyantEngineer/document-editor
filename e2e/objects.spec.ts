@@ -199,9 +199,14 @@ test.describe('objects', () => {
   }) => {
     await newParagraph(page, 'Power', 'See the datasheet');
     await page.keyboard.press('Shift+ControlOrMeta+ArrowLeft');
+    // Under load the word may not be selected yet when the button is pressed: wait for it.
+    await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe('datasheet');
     await toolbar(page).getByRole('button', { name: 'Link' }).click();
-    await dialog(page).getByRole('textbox', { name: 'Address' }).fill('https://example.com/sheet');
-    await page.keyboard.press('Enter');
+    const address = dialog(page).getByRole('textbox', { name: 'Address' });
+    await address.fill('https://example.com/sheet');
+    await expect(address).toHaveValue('https://example.com/sheet');
+    await address.press('Enter');
+    await expect(dialog(page)).toHaveCount(0);
     const link = content(page).locator('a[href="https://example.com/sheet"]', {
       hasText: 'datasheet',
     });
