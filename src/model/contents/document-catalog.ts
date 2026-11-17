@@ -263,8 +263,8 @@ function countSections(template: TemplateFile, counting: Counting) {
   }
 }
 
-// Each kind's entries: after the first table of contents if it asks, then its first one of each
-// identity alone if it asks, in the order it asks, group by group if it groups them.
+// Each kind's entries: after the first table of contents if it asks, without those it drops, then
+// its first one of each identity alone if it asks, in the order it asks, group by group if it groups them.
 function arrangeEntries(
   catalog: DocumentCatalog,
   kinds: Readonly<Record<string, ContentsKind>>,
@@ -277,6 +277,7 @@ function arrangeEntries(
       if (kind?.after && firstContents !== null) {
         arranged = arranged.filter((entry) => entry.pos > firstContents);
       }
+      if (kind?.drop) arranged = kind.drop(arranged);
       if (kind?.unique) {
         const seen = new Set<string>();
         arranged = arranged.filter((entry) => {

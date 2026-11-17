@@ -71,6 +71,64 @@ describe('room conversion', () => {
     },
   );
 
+  it('DOCE-COLLAB-6.2 keeps every attribute of a citation, an abbreviation and an embed through a room, twice', () => {
+    const { doc } = readDocumentFile(
+      small([
+        paragraph('a0000001', 'See PWR-100 and GSE.'),
+        {
+          type: 'embed',
+          attrs: { id: 'a0000002', kind: 'record', source: 'r-1', snapshot: 's-2', label: 'Rig' },
+          content: [paragraph('a0000003', 'Held.')],
+        },
+      ]),
+      schema,
+    );
+    const { reference } = schema.marks;
+    const { abbreviation_reference: abbreviation } = schema.nodes;
+    if (!reference || !abbreviation) throw new Error('The schema has references and abbreviations');
+    const cited = reference.create({
+      refType: 'catalogue-entry',
+      targetId: 'doc-7',
+      subTarget: 'clause-4',
+      includeRevision: true,
+      referenceBaseline: JSON.stringify({ version: 1, documentId: 'doc-7', numbering: 'PWR-100' }),
+      libraryRevisionId: 'pwr-100@B',
+      libraryLabel: 'PWR-100 Rev B',
+      docPublisher: 'Standards office',
+      docNumber: 'PWR-100',
+      docRevision: 'Rev B',
+      docTitle: 'Power interface',
+      docAuthors: 'A. Writer',
+      docPages: '4-7',
+    });
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (at < 0 && node.isText) at = pos + (node.text?.indexOf('PWR-100') ?? 0);
+      return at < 0;
+    });
+    const marked = EditorState.create({ doc })
+      .tr.addMark(at, at + 'PWR-100'.length, cited)
+      .replaceWith(
+        at + 'PWR-100 and '.length,
+        at + 'PWR-100 and GSE'.length,
+        abbreviation.create({
+          entryId: 'glossary-gse',
+          display: 'short',
+          abbr: 'GSE',
+          expansion: 'Ground support equipment',
+        }),
+      );
+    const file = writeDocumentFile(marked.doc, { template: { id: 'report', revision: '3' } });
+    const once = yjsToDocument(documentToYjs(file, { schema, newId: sequence() }), { schema });
+    if (!once) throw new Error('The room holds the document');
+    const twice = yjsToDocument(documentToYjs(once, { schema, newId: sequence() }), { schema });
+    // The inline atom takes its id in the seed, as the editor gives it one on opening.
+    expect(once).toEqual(asOpened(file, sequence()));
+    expect(JSON.stringify(twice)).toBe(JSON.stringify(once));
+    expect(JSON.stringify(once)).toContain('"text":"PWR-100","marks"');
+    expect(JSON.stringify(once)).toContain('"targetRevision":"pwr-100@B"');
+  });
+
   it('DOCE-COLLAB-6.2 gives an element without an id one in the seed', () => {
     let next = 0;
     const newId = () => `0000000${String(++next)}`;

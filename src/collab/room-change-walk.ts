@@ -5,6 +5,11 @@
 
 import type { Mark, Node } from 'prosemirror-model';
 import {
+  entryFootnote,
+  type FootnoteSuggestions,
+  readFootnoteSuggestions,
+} from './room-change-footnotes.js';
+import {
   type Alignment,
   alignUnits,
   commonEnds,
@@ -46,7 +51,7 @@ interface ContentInspection {
 }
 
 // What a change records as it is read.
-function createTally(inspection: ContentInspection = {}) {
+function createTally(inspection: ContentInspection = {}, footnotes?: FootnoteSuggestions) {
   const needs = new Set<RoomChangePermission>();
   const proposed = new Set<string | null>();
   const withdrawn = new Set<string | null>();
@@ -54,6 +59,7 @@ function createTally(inspection: ContentInspection = {}) {
     inspectMarks: inspection.marks ?? (() => undefined),
     inspectNode: inspection.nodes ?? (() => undefined),
     inspectInserted: inspection.inserted ?? (() => undefined),
+    footnotes: footnotes ?? { come: new Map<string, string | null>(), gone: new Map() },
     need(permission: RoomChangePermission | null) {
       if (permission) needs.add(permission);
     },
@@ -95,7 +101,10 @@ function suggestionAuthor(node: Node): string | null {
 // edit.
 function readAttrs(tally: Tally, a: Node, b: Node): void {
   const names = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
-  const changed = [...names].filter((name) => !sameValue(a.attrs[name], b.attrs[name]));
+  // A footnote's number is not stored content: each editor numbers its footnotes again.
+  const changed = [...names].filter(
+    (name) => name !== 'footnoteNumber' && !sameValue(a.attrs[name], b.attrs[name]),
+  );
   if (changed.length === 0) return;
   if (!changed.some((name) => SUGGESTION_ATTRS.has(name))) return tally.need('edit');
   if (b.attrs.suggestionSplitKind || b.attrs.suggestionFormat) tally.proposed(suggestionAuthor(b));
@@ -149,6 +158,9 @@ function readGone(tally: Tally, unit: Unit): void {
 // suggested, so withdrawing or deciding the text takes the block with it.
 function readGoneBlock(tally: Tally, node: Node): void {
   const kind: unknown = node.attrs.suggestionSplitKind;
+  const footnote = entryFootnote(node);
+  if (footnote !== null && tally.footnotes.gone.has(footnote))
+    return tally.withdrawn(tally.footnotes.gone.get(footnote) ?? null);
   if (kind === 'deletion') return tally.need('decide');
   if (kind) return tally.withdrawn(suggestionAuthor(node));
   if (!isSuggestedBlock(node)) return tally.need('edit');
@@ -159,19 +171,22 @@ function readGoneBlock(tally: Tally, node: Node): void {
   });
 }
 
-// The writer of a unit that comes as a suggested insertion, or undefined when it is not one.
-function comeAuthor(unit: Unit): string | null | undefined {
+// The writer of a unit that comes as a suggested insertion, or undefined when it is not one: the
+// entry of a footnote the change suggests comes with its marker.
+function comeAuthor(unit: Unit, footnotes: FootnoteSuggestions): string | null | undefined {
   if (!unit.isBlock || !unit.node) {
     const mark = unit.marks.find((each) => each.type.name === 'insertion');
     return mark ? authorOf(mark.attrs) : undefined;
   }
+  const footnote = entryFootnote(unit.node);
+  if (footnote !== null && footnotes.come.has(footnote)) return footnotes.come.get(footnote);
   if (unit.node.attrs.suggestionSplitKind !== 'insertion') return undefined;
   return authorOf(unit.node.attrs);
 }
 
 // What a unit needs as an alignment reads it, to cost it; the writer is not known yet.
-function costOfReading(read: (tally: Tally) => void): number {
-  const tally = createTally();
+function costOfReading(read: (tally: Tally) => void, footnotes: FootnoteSuggestions): number {
+  const tally = createTally({}, footnotes);
   read(tally);
   const { needs, proposed, withdrawn } = tally.result();
   if (needs.has('edit')) return COSTS.edit;
@@ -184,11 +199,11 @@ function costOfReading(read: (tally: Tally) => void): number {
 // the way that needs the least: a suggestion copied into the halves of a suggested split reads as
 // kept, not as deleted text accepted and suggested again.
 const COSTS = { comment: 1, suggest: 100, decide: 150, edit: 10_000 } as const;
-const UNIT_COSTS: UnitCosts = {
-  gone: (unit) => costOfReading((tally) => readGone(tally, unit)),
-  come: (unit) => (comeAuthor(unit) === undefined ? COSTS.edit : COSTS.suggest),
-  kept: (a, b) => costOfReading((tally) => readKept(tally, a, b)),
-};
+const unitCosts = (footnotes: FootnoteSuggestions): UnitCosts => ({
+  gone: (unit) => costOfReading((tally) => readGone(tally, unit), footnotes),
+  come: (unit) => (comeAuthor(unit, footnotes) === undefined ? COSTS.edit : COSTS.suggest),
+  kept: (a, b) => costOfReading((tally) => readKept(tally, a, b), footnotes),
+});
 
 // Keeping a unit with other marks, or a block with other attributes.
 function readKept(tally: Tally, a: Unit, b: Unit): void {
@@ -206,7 +221,7 @@ function readUnits(tally: Tally, { pairs, gone, come }: Alignment): void {
   for (const unit of come) {
     tally.inspectMarks([], unit.marks);
     if (unit.isBlock && unit.node) tally.inspectInserted(unit.node);
-    const author = comeAuthor(unit);
+    const author = comeAuthor(unit, tally.footnotes);
     if (author === undefined) tally.need('edit');
     else tally.proposed(author);
   }
@@ -214,7 +229,7 @@ function readUnits(tally: Tally, { pairs, gone, come }: Alignment): void {
 
 // Reads aligned units; false, reading nothing, when they are too long to align.
 function readAligned(tally: Tally, before: Unit[], after: Unit[]): boolean {
-  const alignment = alignUnits(before, after, UNIT_COSTS);
+  const alignment = alignUnits(before, after, unitCosts(tally.footnotes));
   if (alignment) readUnits(tally, alignment);
   return alignment !== null;
 }
@@ -309,7 +324,7 @@ export function readContentChange(
   after: Node,
   inspection: ContentInspection = {},
 ): ContentChange {
-  const tally = createTally(inspection);
+  const tally = createTally(inspection, readFootnoteSuggestions(before, after));
   readNode(tally, before, after);
   return tally.result();
 }

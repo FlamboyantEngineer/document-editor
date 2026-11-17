@@ -346,13 +346,14 @@ export interface ReferenceSourceAdapter {
   search(query: string, signal?: AbortSignal): Promise<HostResult<ExternalReference[]>>;
   /**
    * Each citation, by the document and target it names, as the host has it now, in the order
-   * given; null for one whose document or target is gone, and `no-access` for one the reader may
-   * not read.
+   * given; null for one whose document or target cannot be found, `broken` for one whose document
+   * the reader can read but no longer holds the target, and `no-access` for one the reader may not
+   * read.
    */
   resolve?(
     citations: readonly { documentId: string; targetId: string | null }[],
     signal?: AbortSignal,
-  ): Promise<HostResult<(ReferenceBaseline | null | 'no-access')[]>>;
+  ): Promise<HostResult<(ReferenceBaseline | null | 'broken' | 'no-access')[]>>;
   /**
    * The targets a reference may cite in a document, by the document's id: its headings, figures,
    * tables, code blocks and equations, in reading order, each as a citation records it.

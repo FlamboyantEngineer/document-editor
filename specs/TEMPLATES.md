@@ -76,7 +76,7 @@ Verification: `src/model/templates/template-scopes.test.ts`
 `buildCaptionCssVarEntries(styles, fontStacks)` shall set the caption label and text font family, size, weight and style of tables, figures and code blocks (`--doc-<kind>-caption-<label|text>-font-*`, kind `table`, `figure` or `code`) the table caption alignment (`--doc-table-caption-text-align`), and the text after the caption of a later part of a split object (`--doc-<kind>-caption-continued`, as CSS content, without a leading dash). An unset value, or one that is not of its setting's kind (DOCE-TEMPLATES-5.2), shall be null, so a section inherits the document's and a caption falls back from label to text to paragraph.
 
 Implementation: `src/model/templates/template-scopes.ts`, `src/model/templates/template-property-values.ts`
-Verification: `src/model/templates/template-scopes.test.ts`
+Verification: `src/model/templates/template-scopes.test.ts`, `e2e/template-content.spec.ts`
 
 ## DOCE-TEMPLATES-4 - Sections
 
@@ -122,7 +122,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 `templateProperties` with a section shall apply the section's styles, page and footnote settings over the template's, so a host sets them on that section.
 
 Implementation: `src/model/templates/template-properties.ts`
-Verification: `src/model/templates/template-properties.test.ts`
+Verification: `src/model/templates/template-properties.test.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-TEMPLATES-5.5 - Styled pages
 
@@ -343,6 +343,13 @@ Each kind of list shall have its own title and entry type, padding, spacing and 
 
 Implementation: `src/model/templates/template-settings.ts`, `src/model/templates/base-template.ts`, `labs/reference/document.css`
 Verification: `src/model/templates/template-settings.test.ts`, `e2e/contents.spec.ts`
+
+### DOCE-TEMPLATES-10.12 - References as links or plain text
+
+`templateProperties` shall write, for each reference format key the template shows as plain text (`references.links` false), `--doc-reference-<key>-decoration`, `--doc-reference-<key>-color` and `--doc-reference-<key>-background`; a key it shows as a link, the default, sets none, and an unset key inherits the parent's setting (DOCE-FORMAT-3.1). The reference stylesheet shall show a reference as a link, underlined in the link color, and a plain one in the surrounding text's color without an underline and with a light highlight that does not print; both take the link pointer, and changing the setting restyles every reference of the key without editing the document.
+
+Implementation: `src/model/templates/template-properties.ts`, `labs/reference/document.css`
+Verification: `src/model/templates/template-properties.test.ts`
 
 ## DOCE-TEMPLATES-11 - Template pinning
 

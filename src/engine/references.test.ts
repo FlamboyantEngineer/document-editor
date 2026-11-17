@@ -1,4 +1,4 @@
-import { type Command, EditorState, type NodeSelection, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
@@ -109,6 +109,37 @@ describe('references', () => {
     expect(canInsertReference(at(code, 'x'))).toBe(false);
   });
 
+  it('DOCE-REFERENCES-1.6 takes a reference off text moved into a heading, and leaves one already there', () => {
+    let state = stateOf(heading('h0000001', 'Scope'), paragraph('See .'));
+    const [scope] = referenceTargets(state.doc, TEMPLATE);
+    if (!scope) throw new Error('The document has a heading');
+    state = run(at(state, '.'), insertReference({ kind: 'internal', target: scope, text: 'x' }));
+    const headingType = documentSchema.nodes.heading;
+    const reference = documentSchema.marks.reference;
+    if (!headingType || !reference) throw new Error('The schema has them');
+    const from = at(state, 'See').selection.from;
+    const inHeading = state.apply(state.tr.setBlockType(from, from, headingType, { level: 2 }));
+    expect(listReferences(inHeading.doc)).toHaveLength(0);
+    expect(inHeading.doc.textBetween(0, inHeading.doc.content.size)).toContain('section 1. Scope');
+    // A reference a host wrote in a heading stays when the heading is split, and may be changed.
+    const mark = reference.create({
+      refType: 'internal-heading',
+      targetId: 'h0000001',
+    });
+    let hosted = stateOf(heading('h0000002', 'Power and more'));
+    hosted = hosted.apply(
+      hosted.tr.addMark(
+        at(hosted, 'Power').selection.from,
+        at(hosted, 'Power').selection.from + 5,
+        mark,
+      ),
+    );
+    expect(canInsertReference(at(hosted, 'ower'))).toBe(true);
+    expect(canInsertReference(at(hosted, 'more'))).toBe(false);
+    const split = hosted.apply(hosted.tr.split(at(hosted, 'more').selection.from));
+    expect(listReferences(split.doc)).toHaveLength(1);
+  });
+
   it('DOCE-REFERENCES-1.3 follows its target, and is marked broken when the target is gone', () => {
     let state = stateOf(
       heading('h0000001', 'Scope'),
@@ -147,7 +178,18 @@ describe('abbreviations', () => {
 
   it('DOCE-REFERENCES-2.1 inserts an abbreviation, switches its form and turns it into text', () => {
     let state = run(at(stateOf(paragraph('Use the  here.')), ' here'), insertAbbreviation(entry));
-    expect(selected(state).attrs).toMatchObject({ entryId: 'g1', display: 'full', abbr: 'GSE' });
+    // The caret is right after it, so typing goes on after the abbreviation.
+    const { $from, empty } = state.selection;
+    expect(empty).toBe(true);
+    expect($from.nodeBefore?.attrs).toMatchObject({ entryId: 'g1', display: 'full', abbr: 'GSE' });
+    const typed = state.apply(state.tr.insertText('s'));
+    expect(typed.doc.resolve($from.pos).nodeBefore?.type.name).toBe('abbreviation_reference');
+    expect(typed.doc.resolve($from.pos).nodeAfter?.text).toMatch(/^s here/);
+    state = state.apply(
+      state.tr.setSelection(
+        NodeSelection.create(state.doc, $from.pos - ($from.nodeBefore?.nodeSize ?? 0)),
+      ),
+    );
     state = run(state, setAbbreviationDisplay());
     expect(selected(state).attrs.display).toBe('short');
     state = run(state, unlinkAbbreviation);
@@ -193,18 +235,24 @@ describe('external references', () => {
         refType: 'external-document',
         baseline: baseline('A'),
         text: 'PWR-100 A',
+        includeRevision: true,
       }),
     );
     state = at(state, 'PWR-100', 3);
     const key = citationKey({ documentId: 'pwr-100', targetId: null });
     state = run(state, resolveCitations(new Map([[key, baseline('B')]])));
     expect(referenceStatusAt(state)).toBe('update');
-    state = run(state, updateReference);
+    // The update reads as the template formats the citation now.
+    const revised: TemplateFile = {
+      ...BASE_TEMPLATE,
+      references: { formats: { 'external-document': '{{doc.numbering}} {{ref.revision}}' } },
+    };
+    state = run(state, updateReference(revised));
     expect(state.doc.textBetween(0, state.doc.content.size)).toContain('See PWR-100 B.');
     expect(referenceStatusAt(at(state, 'PWR-100', 3))).toBe('current');
     state = run(state, resolveCitations(new Map([[key, null]])));
     expect(referenceStatusAt(at(state, 'PWR-100', 3))).toBe('unavailable');
-    expect(updateReference(at(state, 'PWR-100', 3))).toBe(false);
+    expect(updateReference(revised)(at(state, 'PWR-100', 3))).toBe(false);
   });
 
   it('DOCE-REFERENCES-1.9 marks a citation out of reach, asks again, and moves to a new target', () => {
@@ -236,14 +284,14 @@ describe('external references', () => {
     const key = citationKey({ documentId: 'pwr-100', targetId: 't1' });
     state = run(state, resolveCitations(new Map([[key, 'no-access']])));
     expect(referenceStatusAt(state)).toBe('no-access');
-    expect(updateReference(state)).toBe(false);
-    // The host asks again: nothing is known until it answers.
+    expect(updateReference(TEMPLATE)(state)).toBe(false);
+    // The host asks again: the reference keeps its status until it answers.
     state = run(state, refreshReferenceStatus);
-    expect(referenceStatusAt(state)).toBeNull();
+    expect(referenceStatusAt(state)).toBe('no-access');
     const moved = { ...baseline('B'), target: { ...target, id: 't2', title: 'Power bus' } };
     state = run(state, resolveCitations(new Map([[key, moved]])));
     expect(referenceStatusAt(state)).toBe('update');
-    state = run(state, updateReference);
+    state = run(state, updateReference(TEMPLATE));
     expect(referenceAt(at(state, 'PWR-100', 2))?.mark.attrs.targetId).toBe('t2');
   });
 

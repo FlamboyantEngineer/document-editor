@@ -29,7 +29,12 @@ import {
   sectionFootnoteNumbersKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
-import type { FontsAdapter, ReferenceSourceAdapter, VariablesAdapter } from '../../host/index.js';
+import type {
+  FontsAdapter,
+  GlossaryAdapter,
+  ReferenceSourceAdapter,
+  VariablesAdapter,
+} from '../../host/index.js';
 import {
   type FragmentRules,
   joinDocumentPages,
@@ -147,6 +152,11 @@ export interface DocumentLayoutOptions {
   readonly contents?: EditorContentsOptions | undefined;
   /** Where a list of references links each cited document. */
   readonly referenceSource?: ReferenceSourceAdapter | undefined;
+  /** The glossary the abbreviations a writer adds are refreshed from. */
+  readonly glossary?: Pick<GlossaryAdapter, 'resolve'> | undefined;
+  /** Whether the writer edits, and edits directly rather than suggesting. */
+  readonly editable?: boolean | undefined;
+  readonly suggesting?: boolean | undefined;
 }
 
 /** An older version to show a document's changes from, as change bars or marked in place. */

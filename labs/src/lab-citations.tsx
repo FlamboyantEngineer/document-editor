@@ -11,7 +11,11 @@ import {
 } from '../../src/components/index.js';
 import { insertReference, referenceAt, referenceBaselineOf } from '../../src/engine/index.js';
 import type { ExternalReference } from '../../src/host/index.js';
-import type { ReferenceBaseline, ReferenceTargetBaseline } from '../../src/model/index.js';
+import type {
+  ReferenceBaseline,
+  ReferenceTargetBaseline,
+  StoredNode,
+} from '../../src/model/index.js';
 
 const document = (documentId: string, numbering: string, title: string): ReferenceBaseline => ({
   version: 1,
@@ -152,3 +156,41 @@ export const CITATION_DIALOGS = { 'catalogue-reference': CatalogueDialog };
 export const REFERENCE_KINDS: readonly ReferenceKind[] = [
   { refType: CATALOGUE_TYPE, label: 'Catalogue entry…', dialog: 'catalogue-reference' },
 ];
+
+// A citation of a document, recorded as it read when it was cited.
+const citationOf = (baseline: ReferenceBaseline, label: string): StoredNode => ({
+  type: 'text',
+  text: label,
+  marks: [
+    {
+      type: 'reference',
+      attrs: {
+        referenceType: 'external-document',
+        baseline: JSON.stringify(baseline),
+        target: baseline.target?.id ?? baseline.documentId,
+      },
+    },
+  ],
+});
+
+/**
+ * A paragraph citing a document whose title changed since it was cited, which has an update, and
+ * a heading its document no longer holds, which is broken.
+ */
+export function citingParagraph(): StoredNode {
+  const thermal = { ...document('thm-200', 'THM-200', 'Thermal notes') };
+  const gone = {
+    ...document('pwr-100', 'PWR-100', 'Power interface specification'),
+    target: target('pwr-h9', 'heading', '9.', 'Removed section'),
+  };
+  return {
+    type: 'paragraph',
+    content: [
+      { type: 'text', text: 'Background is in ' },
+      citationOf(thermal, 'THM-200 - Thermal notes'),
+      { type: 'text', text: ' and ' },
+      citationOf(gone, 'PWR-100 - Power interface specification § 9. Removed section'),
+      { type: 'text', text: '.' },
+    ],
+  };
+}

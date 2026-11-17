@@ -114,8 +114,8 @@ export interface FootnoteNumbering {
   readonly restartEach?: 'section' | undefined;
 }
 
-// Each footnote's rank: in document order, or within its section.
-function numberingRanks(doc: ProseMirrorNode, restartEach: 'section' | undefined) {
+/** Each footnote's rank: in document order, or within its section. */
+export function numberingRanks(doc: ProseMirrorNode, restartEach: 'section' | undefined) {
   if (restartEach !== 'section') return markerRanks(doc);
   const ranks = new Map<string, number>();
   for (const section of documentSections(doc)) {

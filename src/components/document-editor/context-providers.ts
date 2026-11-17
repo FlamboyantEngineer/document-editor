@@ -33,6 +33,11 @@ export interface DocumentContextMenuOptions {
   readonly arrange?:
     | ((groups: readonly ContextMenuGroup[], target: ContextTarget) => readonly ContextMenuGroup[])
     | undefined;
+  /**
+   * Whether a secondary click on an element keeps the selection where it is rather than moving it
+   * to the click, as for a link to a host record inside generated or embedded content.
+   */
+  readonly keepSelection?: ((element: Element) => boolean) | undefined;
 }
 
 // Puts a provider's group where it asks.

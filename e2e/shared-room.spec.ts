@@ -215,4 +215,56 @@ test.describe('shared room lab', () => {
     await expectOnce(page, 'Startup conditions alpha');
     await expectSameDocument(page);
   });
+
+  test('DOCE-COLLAB-6.4 DOCE-FOOTNOTES-1.3 keeps the footnotes two writers insert in marker order, also suggesting', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    // Grace suggests: her footnote's marker and entry are her insertion.
+    await page.getByLabel('Grace suggests').check();
+    await typeAfter(page, 'Grace', 'Shutdown conditions', '');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Grace cites');
+    await page.keyboard.press('ControlOrMeta+Alt+f');
+    await page.keyboard.type('Second note');
+    await typeAfter(page, 'Ada', 'Startup conditions', '');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Ada cites');
+    await page.keyboard.press('ControlOrMeta+Alt+f');
+    await page.keyboard.type('First note');
+    for (const name of ['Ada', 'Grace']) {
+      const entries = editor(page, name).locator('.pm-footnote-entry');
+      await expect(entries).toHaveCount(2);
+      // Each writer sees the entries in the order of their markers, numbered alike.
+      await expect(entries.nth(0)).toContainText('First note');
+      await expect(entries.nth(1)).toContainText('Second note');
+      await expect(entries.nth(0)).toHaveAttribute('data-footnote-number', '1');
+      await expect(entries.nth(1)).toHaveAttribute('data-footnote-number', '2');
+    }
+    // Grace's marker is in her suggested insertion, in her view and in Ada's document.
+    const suggestedMarker = (name: string) =>
+      editor(page, name)
+        .locator('p', { hasText: 'Grace cites' })
+        .locator('ins .footnote-reference');
+    await expect(suggestedMarker('Grace')).toHaveCount(1);
+    await page.getByLabel("Ada's web layout").check();
+    await expect(suggestedMarker('Ada')).toHaveCount(1);
+    await expect(editor(page, 'Ada').locator('ins .footnote-reference')).toHaveCount(1);
+    await page.getByLabel("Ada's web layout").uncheck();
+    await expectSameDocument(page);
+    // Deleting a marker takes its entry away for both.
+    await editor(page, 'Ada').locator('.pm-footnote-entry', { hasText: 'First note' }).click({
+      button: 'right',
+    });
+    await page.getByRole('menuitem', { name: 'Go to footnote reference' }).click();
+    await page.keyboard.press('Backspace');
+    for (const name of ['Ada', 'Grace']) {
+      const entries = editor(page, name).locator('.pm-footnote-entry');
+      await expect(entries).toHaveCount(1);
+      await expect(entries.first()).toContainText('Second note');
+      await expect(entries.first()).toHaveAttribute('data-footnote-number', '1');
+    }
+    await expectSameDocument(page);
+  });
 });

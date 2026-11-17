@@ -4,7 +4,9 @@
 // table and object it is in. Groups are separated, and a group with nothing to offer is left
 // out.
 
+import { AbbreviationGlyph } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
+import { TextSelection } from 'prosemirror-state';
 import { findTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
@@ -12,6 +14,7 @@ import {
   clearFormatting,
   decideWithPolicy,
   type EditAddress,
+  insertAbbreviation,
   listSuggestions,
   objectBlockAt,
   shortcutLabel,
@@ -50,6 +53,8 @@ export interface ContextEntriesOptions {
   readonly openDialog?: ((dialog: ObjectDialog) => void) | null | undefined;
   /** Whether the host resolves linked code. Defaults to false. */
   readonly linkedCode?: boolean | undefined;
+  /** Whether the host has a glossary, which selected text may then become an abbreviation of. */
+  readonly glossary?: boolean | undefined;
   /** The host's own reference types, whose references its dialogs edit. */
   readonly referenceKinds?: readonly ReferenceKind[] | undefined;
   /** The languages a code block's language menu offers. */
@@ -92,9 +97,29 @@ function suggestionEntries(view: EditorView, { labels, suggestionPolicy }: Conte
   return entries;
 }
 
+// An entry to ask where an abbreviation may go.
+const PROBE = { id: '', abbreviation: '', expansion: '' };
+
+// Making the selected words an abbreviation of a glossary entry, through the abbreviation dialog.
+function abbreviationEntry(view: EditorView, options: ContextEntriesOptions): MenuEntry[] {
+  const { labels, editable, glossary, openDialog } = options;
+  const { selection } = view.state;
+  if (!editable || !glossary || !openDialog || !(selection instanceof TextSelection)) return [];
+  if (selection.empty || !selection.$from.sameParent(selection.$to)) return [];
+  if (!insertAbbreviation(PROBE)(view.state)) return [];
+  return [
+    {
+      id: 'create-abbreviation',
+      label: labels.createAbbreviation,
+      icon: AbbreviationGlyph,
+      onAction: () => openDialog({ kind: 'abbreviation' }),
+    },
+  ];
+}
+
 function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuEntry[] {
   const { labels, editable, startComment, copyLink } = options;
-  const entries: MenuEntry[] = [];
+  const entries: MenuEntry[] = [...abbreviationEntry(view, options)];
   if (startComment) {
     entries.push({
       id: 'comment',

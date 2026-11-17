@@ -9,6 +9,11 @@ export interface ObjectLabels {
   /** Names the outline panel. */
   readonly outline: string;
   readonly updateReference: string;
+  /** Names the text a reference reads now, and once its update is taken. */
+  readonly referenceReadsNow: string;
+  readonly referenceWillRead: string;
+  /** Takes the update of a reference. */
+  readonly updateAction: string;
   readonly section: string;
   /** Names the variable menu, which inserts a live variable at the caret. */
   readonly variable: string;
@@ -137,19 +142,6 @@ export interface ObjectLabels {
   readonly wholeDocument: string;
   /** Shows the cited document's revision in a reference to it. */
   readonly includeRevision: string;
-  readonly abbreviation: string;
-  readonly abbreviationText: string;
-  readonly expansion: string;
-  readonly glossaryEntry: string;
-  readonly addToGlossary: string;
-  readonly glossaryFailed: string;
-  /** Shows the abbreviation selected in full or short. */
-  readonly abbreviationForm: (full: boolean) => string;
-  readonly unlinkAbbreviation: string;
-  /** Opens the abbreviation dialog to cite another entry, for an abbreviation whose entry needs it. */
-  readonly relinkAbbreviation: string;
-  /** Cites another entry the document cites that reads the same, for a duplicate. */
-  readonly useAbbreviation: (entry: { abbreviation: string; expansion: string }) => string;
   readonly goToPage: string;
   readonly pageLayout: string;
   readonly menubar: string;
@@ -187,7 +179,10 @@ const CODE_STATUS = {
 /** The object controls' English text. */
 export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   outline: 'Outline',
-  updateReference: 'Update reference',
+  updateReference: 'Update reference…',
+  referenceReadsNow: 'Reads now',
+  referenceWillRead: 'Will read',
+  updateAction: 'Update',
   section: 'Section',
   variable: 'Variable',
   editorVariables: {
@@ -302,16 +297,6 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   otherDocument: 'Document',
   wholeDocument: 'Whole document',
   includeRevision: 'Include revision',
-  abbreviation: 'Abbreviation…',
-  abbreviationText: 'Abbreviation',
-  expansion: 'Expansion',
-  glossaryEntry: 'Glossary entry',
-  addToGlossary: 'Add to glossary',
-  glossaryFailed: 'The entry could not be added.',
-  abbreviationForm: (full) => (full ? 'Show in full' : 'Show short'),
-  unlinkAbbreviation: 'Turn into text',
-  relinkAbbreviation: 'Cite another entry…',
-  useAbbreviation: ({ abbreviation, expansion }) => `Use ${abbreviation}: ${expansion}`,
   goToPage: 'Go to page',
   pageLayout: 'Page view',
   menubar: 'Menu',

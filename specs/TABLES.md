@@ -44,7 +44,7 @@ Verification: `src/engine/tables.test.ts`
 `insertTable({ rows, columns })` shall insert a table of that many rows, the first of header cells, and columns, with a one pixel border (`TABLE_BORDER_1PX_CLASS`), in place of the empty paragraph holding the caret or after the top-level block holding it, with the caret in its first cell. A table without rows or columns is refused.
 
 Implementation: `src/engine/tables.ts`
-Verification: `src/engine/tables.test.ts`
+Verification: `src/engine/tables.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-1.7 - Remote changes
 

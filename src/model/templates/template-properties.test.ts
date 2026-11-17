@@ -25,6 +25,29 @@ const compact: TemplateFile = {
 };
 
 describe('template properties', () => {
+  it('DOCE-TEMPLATES-10.12 writes how each reference type shown as plain text presents', () => {
+    const plain: TemplateFile = {
+      ...BASE_TEMPLATE,
+      references: {
+        links: { 'internal-heading': false, 'external-document': true, 'bad key': false },
+      },
+    };
+    const properties = templateProperties(plain);
+    expect(properties).toMatchObject({
+      '--doc-reference-internal-heading-decoration': 'none',
+      '--doc-reference-internal-heading-color': 'inherit',
+      '--doc-reference-internal-heading-background': 'var(--doc-reference-plain-background)',
+    });
+    expect(
+      Object.keys(properties).filter((name) => name.startsWith('--doc-reference-')),
+    ).toHaveLength(3);
+    expect(
+      Object.keys(templateProperties(BASE_TEMPLATE)).some((name) =>
+        name.startsWith('--doc-reference-'),
+      ),
+    ).toBe(false);
+  });
+
   it('DOCE-TEMPLATES-5.1 measures a scope page in pixels, turned for landscape', () => {
     const base = templatePageMetrics(BASE_TEMPLATE);
     expect(base.width).toBeCloseTo(A4_WIDTH);

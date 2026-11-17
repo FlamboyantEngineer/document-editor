@@ -45,10 +45,8 @@ export function insertAbbreviation(
         null,
         $from.parent.type.allowedMarks(marks),
       );
-      const tr = state.tr.replaceSelectionWith(node, false);
-      const pos = tr.mapping.map(state.selection.from, -1);
-      tr.setSelection(NodeSelection.create(tr.doc, pos));
-      dispatch(tr.scrollIntoView());
+      // The caret stays right after it, so the writer's typing goes on after the abbreviation.
+      dispatch(state.tr.replaceSelectionWith(node, false).scrollIntoView());
     }
     return true;
   };
@@ -118,19 +116,33 @@ export const unlinkAbbreviation: Command = (state, dispatch) => {
   return true;
 };
 
+// Whether an abbreviation still reads as one of its entry's abbreviations did when the entry was
+// looked up; any does when none was recorded.
+const readsAs = (node: ProseMirrorNode, read: readonly AbbreviationEntry[] | undefined) =>
+  !read ||
+  read.some(
+    (each) => node.attrs.abbr === each.abbreviation && node.attrs.expansion === each.expansion,
+  );
+
 /**
  * Brings the document's abbreviations up to date with the glossary's entries, by id: their
  * abbreviation and expansion as the glossary has them now. Abbreviations of entries it does not
- * give are left as they are.
+ * give are left as they are, and so are those that read as none of the readings `asRead` gives
+ * their entry, which changed while the glossary was asked.
  */
-export function refreshAbbreviations(entries: readonly AbbreviationEntry[]): Command {
+export function refreshAbbreviations(
+  entries: readonly AbbreviationEntry[],
+  asRead: readonly AbbreviationEntry[] = [],
+): Command {
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const read = new Map<string, AbbreviationEntry[]>();
+  for (const entry of asRead) read.set(entry.id, [...(read.get(entry.id) ?? []), entry]);
   return (state, dispatch) => {
     const changes: { pos: number; attrs: Record<string, unknown> }[] = [];
     state.doc.descendants((node, pos) => {
       if (node.type.name !== 'abbreviation_reference') return true;
       const entry = byId.get(String(node.attrs.entryId));
-      if (!entry) return false;
+      if (!entry || !readsAs(node, read.get(entry.id))) return false;
       const { abbreviation: abbr, expansion } = entry;
       if (node.attrs.abbr !== abbr || node.attrs.expansion !== expansion) {
         changes.push({ pos, attrs: { ...node.attrs, abbr, expansion } });
@@ -145,6 +157,22 @@ export function refreshAbbreviations(entries: readonly AbbreviationEntry[]): Com
     }
     return true;
   };
+}
+
+/** Every reading of an abbreviation in the document: its entry's id, abbreviation and expansion. */
+export function abbreviationReadings(doc: ProseMirrorNode): AbbreviationEntry[] {
+  const found = new Map<string, AbbreviationEntry>();
+  doc.descendants((node) => {
+    if (node.type.name !== 'abbreviation_reference') return true;
+    const reading = {
+      id: String(node.attrs.entryId),
+      abbreviation: String(node.attrs.abbr),
+      expansion: String(node.attrs.expansion),
+    };
+    found.set(JSON.stringify(reading), reading);
+    return false;
+  });
+  return [...found.values()];
 }
 
 /** The glossary entries the document's abbreviations cite, by id, as they last read. */

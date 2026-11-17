@@ -145,7 +145,7 @@ Verification: `e2e/panels.spec.ts`
 
 ### DOCE-LABS-3.7 - Template content in place
 
-The template content lab shall show a template's preview in parts beside the template as JSON: a read-only sample, then each template section's content and placeholder, edited in place with the toolbar and its variable menu, and the headers and footers, each edit written into the template.
+The template content lab shall show a template's preview in parts beside the template as JSON: a read-only sample, then each template section's content and placeholder, edited in place with the toolbar and its variable menu, and the headers and footers, each edit written into the template. Its template sets caption and footnote typography, which a read-only appendix section overrides in part, citing a footnote and showing two narrow captioned tables, one aligned right, their captions centred.
 
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
@@ -229,7 +229,7 @@ Verification: `e2e/regression.spec.ts`
 The reference stylesheet shall draw what a template sets as properties: table body rows in the odd and even row backgrounds; each caption's label and number in the caption label style and its text in the text style, each falling back to the other and then to the paragraph's; footnote entries in the footnote text style (colour, weight, style and alignment), the template's entry spacing apart, each number in the marker style followed by the numbering suffix; and each display equation's number at its line's end (DOCE-OBJECTS-1.10).
 
 Implementation: `labs/reference/document.css`
-Verification: `e2e/regression.spec.ts`
+Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-LABS-4.12 - Roman numbering
 

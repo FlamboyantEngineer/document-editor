@@ -189,6 +189,19 @@ function changeBarProperties(bars: ChangeBarSettings | null | undefined): Custom
   return properties;
 }
 
+// How each reference type the template shows as plain text presents: in the surrounding text's color
+// without an underline, with a light highlight in the editor. A type shown as a link sets none.
+function referenceProperties(references: TemplateFile['references']): CustomProperties {
+  const properties: CustomProperties = {};
+  for (const [key, link] of Object.entries(references?.links ?? {})) {
+    if (link !== false || !/^[a-z0-9-]+$/.test(key)) continue;
+    properties[`--doc-reference-${key}-decoration`] = 'none';
+    properties[`--doc-reference-${key}-color`] = 'inherit';
+    properties[`--doc-reference-${key}-background`] = 'var(--doc-reference-plain-background)';
+  }
+  return properties;
+}
+
 /**
  * The custom properties a scope of a resolved template sets: the template's for the document, or a
  * section's, with its own settings over the template's. Settings no scope sets are left out.
@@ -210,6 +223,7 @@ export function templateProperties(
         ? section.changeBars && mergeTemplateSettings(template.changeBars, section.changeBars)
         : template.changeBars,
     ),
+    ...(section ? {} : referenceProperties(template.references)),
   };
   for (const [name, value] of buildCaptionCssVarEntries(styles, fontStacks)) {
     if (value) properties[name] = value;

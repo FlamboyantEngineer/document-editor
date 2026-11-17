@@ -90,7 +90,7 @@ Verification: `src/engine/table-format.test.ts`, `e2e/captions.spec.ts`
 A caption line shall read the object's label and number, from the template's numbering of its kind (`--doc-<kind>-counter-content`), then its text, `Table 1.1 - Limits`; the reference stylesheet counts each kind, a later part of a split object and a table with its caption hidden excepted, places captions as the template says, and ends a later part's caption with the template's continued suffix (`--doc-<kind>-caption-continued`).
 
 Implementation: `src/model/schema/table-nodes.ts`, `labs/reference/document.css`
-Verification: `e2e/captions.spec.ts`
+Verification: `e2e/captions.spec.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-OBJECTS-2.3 - Captions edited in a field
 
@@ -111,7 +111,7 @@ Verification: `src/model/schema/caption-text.test.ts`
 In an editable view, a table's or a figure's caption text shall be edited in the caption itself, which becomes its own editing host while the writer edits it (`captionHostView`, installed by the object views for `CAPTION_HOST_TYPES`): a click puts the caret where it is pressed, a double click selects a word, a press and drag selects text that stays selected, and a press on the label or beside the text puts the caret at the start of the text. `editCaption`, given the view, starts there with the text selected. Select All selects the caption's text only, and newlines typed or pasted become spaces. The document holds the caption's text only once Enter or focus leaving the caption commits it, as one change that shows the caption; Enter and Escape select the object after, and Escape puts the text back. Until then nothing reaches the document: the view ignores the caption's own DOM changes, and a change of the object's attributes while the writer types, such as a column resized by another writer, redraws all of the object but its caption. `commitCaptionDraft(view)` commits the caption being typed, which the session runs before it saves (DOCE-SESSION-2.6). A code block's caption keeps its field (DOCE-OBJECTS-2.3).
 
 Implementation: `src/engine/caption-hosts.ts`, `src/engine/object-views.ts`, `src/components/document-editor/pending-caption.ts`
-Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`
+Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`, `e2e/session.spec.ts`
 
 ## DOCE-OBJECTS-3 - Object views
 
@@ -150,7 +150,7 @@ Verification: `src/engine/scripts.test.ts`
 `runScripts(view, runner, { ids })` shall run the scripts of the document, or those of the blocks with the ids given, one at a time in document order, each against the document as it is, then put what they produced in their blocks as one change the writer can undo, never recorded as a suggestion, with when it was produced (`renderedAt`); it resolves with the ids that failed, a script the host could not run or whose runner threw, or an output the document cannot read, which `scriptsState` keeps with their messages until their blocks run again. A failure never stops the run nor leaves a block marked running. One run goes at a time: while a run of the view's scripts is in flight, another runs nothing and rejects with a `ScriptsBusyError` (`isScriptsBusyError`). A block whose script changed while it ran, or whose inputs did, the runner's inputs key for it (DOCE-OBJECTS-4.7) asked as it started differing from the one once all answered, or whose output is the same as the one it shows, keeps what it shows, and every block does when the view is no longer editable once the run answered, or shows another document: outputs are compared by their nodes, text, marks and attributes, the attributes that identify an element (`dataId`, `dataAuthor`, `dataAiSession`, `captionDataId`) aside, so a rerun that produces the same content leaves the document unchanged. The elements of an output put in take element ids made from the block's id and their place in the output, in document order, so the same output in the same block always has the same ids. Scripts run only when asked: opening, reloading or bringing a document in step with its template runs none, whatever a block's stored refresh policy, and a new block is run by hand.
 
 Implementation: `src/engine/scripts.ts`, `src/components/document-editor/script-entries.ts`
-Verification: `src/engine/scripts.test.ts`, `src/components/document-editor/script-entries.test.tsx`
+Verification: `src/engine/scripts.test.ts`, `src/components/document-editor/script-entries.test.tsx`, `src/engine/host-domain-recipe.test.ts`
 
 ### DOCE-OBJECTS-4.3 - The script's output
 

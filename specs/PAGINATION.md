@@ -368,10 +368,10 @@ Verification: `e2e/pagination.spec.ts`, `e2e/document-editor.spec.ts`, `src/pagi
 
 ### DOCE-PAGINATION-7.2 - Room for footnotes
 
-Each page shall leave room for the footnote entries it holds: their measured heights, each with the space before the next but the page's last without it, and the area's own height beyond them (`measureFootnotes`, `footnoteAreaHeight`). An entry shall be on the first page that cites it, numbered through the document, unless footnotes are numbered on each page.
+Each page shall leave room for the footnote entries it holds: their measured heights, each with the space before the next but the page's last without it, and the area's own height beyond them (`measureFootnotes`, `footnoteAreaHeight`). An entry shall be on the first page that cites it, numbered through the document, unless footnotes are numbered on each page. A page that holds none leaves no room, and a footnote inserted where its page is full moves the block that no longer fits on before the writer types in it.
 
 Implementation: `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `src/model/pagination/page-projection.ts`
-Verification: `e2e/pagination.spec.ts`, `e2e/split-paragraphs.spec.ts`, `src/pagination/measure-footnotes.test.ts`
+Verification: `e2e/pagination.spec.ts`, `e2e/split-paragraphs.spec.ts`, `src/pagination/measure-footnotes.test.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-PAGINATION-7.3 - A caret in a moving footnote
 
@@ -512,6 +512,13 @@ A click or key that comes right after the editor takes focus, on the pages or in
 
 Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/editor-body.tsx`
 Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`, `e2e/presence.spec.ts`
+
+### DOCE-PAGINATION-7.23 - Inline atoms at a paragraph's edge
+
+On the pages, text typed with the caret after an inline atom that ends its paragraph, such as an abbreviation, shall go after the atom, in what the pages show and in the document; and Backspace at the start of a paragraph holding only one inline atom shall join it into the paragraph before, keeping that paragraph's text and exactly one atom.
+
+Implementation: `src/components/document-editor/pages-view.tsx`
+Verification: `e2e/references.spec.ts`
 
 ## DOCE-PAGINATION-8 - Page headers and footers
 

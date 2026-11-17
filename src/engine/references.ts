@@ -19,7 +19,7 @@ import {
   type TemplateFile,
 } from '../model/index.js';
 import { isScriptOutputAt } from './host-content.js';
-import { isReferencePlace } from './reference-places.js';
+import { isReferencePlace, repairMovedReferences } from './reference-places.js';
 import {
   internalBaseline,
   internalReferenceText,
@@ -80,14 +80,17 @@ export function referenceAt(state: EditorState): ReferenceAt | null {
 }
 
 /**
- * Whether a reference may go at the selection: in body text that takes marks
- * (`isReferencePlace`), not in a heading, a header cell, code or a page header or footer.
+ * Whether a reference may be inserted or changed at the selection, as the toolbar, Mod-K and the
+ * dialog ask: a reference already holding it is changed wherever it is, and a new one goes in body
+ * text that takes marks (`isReferencePlace`), not in a heading, a header cell, code or a page
+ * header or footer.
  */
 export function canInsertReference(state: EditorState): boolean {
   const type = state.schema.marks.reference;
   const { $from, $to } = state.selection;
-  if (!type || !$from.sameParent($to) || !isReferencePlace($from)) return false;
-  return $from.parent.type.allowsMarkType(type);
+  if (!type || !$from.sameParent($to)) return false;
+  if (referenceAt(state)) return true;
+  return isReferencePlace($from) && $from.parent.type.allowsMarkType(type);
 }
 
 /** The citation attributes a host's own reference type may record beside its baseline. */
@@ -149,7 +152,7 @@ export function insertReference(source: ReferenceSource): Command {
   return (state, dispatch) => {
     const type = state.schema.marks.reference;
     const current = referenceAt(state);
-    if (!type || !source.text || (!current && !canInsertReference(state))) return false;
+    if (!type || !source.text || !canInsertReference(state)) return false;
     if (dispatch) {
       const { from, to } = current ?? state.selection;
       const marks = state.doc
@@ -207,7 +210,11 @@ function currentMark(reference: ReferenceAt, target: ReferenceTarget | undefined
  * it reads, so a heading that cites itself never grows, and so is one in a script block's output,
  * which only its script changes. Returns whether any changed.
  */
-export function updateReferences(tr: Transaction, template: TemplateFile): boolean {
+export function updateReferences(
+  tr: Transaction,
+  template: TemplateFile,
+  broken?: string[],
+): boolean {
   const references = listReferences(tr.doc).filter(
     (each) =>
       internalTargetId(each.mark) &&
@@ -223,6 +230,8 @@ export function updateReferences(tr: Transaction, template: TemplateFile): boole
     const text = target ? internalReferenceText(target, template) : current;
     const mark = currentMark(reference, target);
     if (mark.eq(reference.mark) && text === current) continue;
+    if (mark.attrs.broken && !reference.mark.attrs.broken)
+      broken?.push(String(mark.attrs.targetId));
     rewriteReference(tr, { from: reference.from, to: reference.to, text, mark });
     changed = true;
   }
@@ -257,6 +266,8 @@ export interface ReferencesOptions {
    * `isRemoteTransaction` by default.
    */
   readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
+  /** Told of the targets whose references a change marked broken, so the host can tell the writer. */
+  readonly onBroken?: ((targetIds: readonly string[]) => void) | undefined;
 }
 
 /**
@@ -268,20 +279,24 @@ export function createReferences({
   template,
   reveal = (view, id) => revealElement(view, id),
   isRemote = isRemoteTransaction,
+  onBroken,
 }: ReferencesOptions): Plugin {
   return new Plugin({
     key: referencesKey,
-    appendTransaction(transactions, _before, after) {
+    appendTransaction(transactions, before, after) {
       const local = transactions.filter((tr) => !isRemote(tr) && !isReferenceUpdate(tr));
       if (!local.some(touchesReferences)) return null;
       const tr = after.tr;
+      const moved = repairMovedReferences(tr, { before, transactions: local });
       const pasted = renderPastedCitations(tr, { template: template(), transactions });
-      if (!updateReferences(tr, template()) && !pasted) return null;
+      const broken: string[] = [];
+      if (!updateReferences(tr, template(), broken) && !pasted && !moved) return null;
+      if (broken.length && onBroken) onBroken([...new Set(broken)]);
       return tr.setMeta(referencesKey, true).setMeta('addToHistory', false);
     },
     props: {
       handleClick(view, pos, event) {
-        if (view.editable && !event.ctrlKey && !event.metaKey) return false;
+        if (event.button !== 0 || event.shiftKey || event.altKey) return false;
         const $pos = view.state.doc.resolve(pos);
         const mark = [...$pos.marks(), ...($pos.nodeAfter?.marks ?? [])].find(
           (each) => each.type.name === 'reference',
