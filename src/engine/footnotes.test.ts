@@ -1,6 +1,6 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
   caretAt,
@@ -20,6 +20,7 @@ import {
   createFootnotes,
   deleteFootnote,
   editFootnote,
+  FOOTNOTE_FLASH_MS,
   footnoteAt,
   goToFootnoteMarker,
   insertFootnote,
@@ -71,6 +72,24 @@ describe('footnotes', () => {
     expect(footnoteParts(state)).toEqual(['marker:n1', 'marker:n2', 'entry:n1:First', 'entry:n2:']);
   });
 
+  it('DOCE-FOOTNOTES-1.1 gives a marker inside a comment or suggestion that comment or suggestion', () => {
+    const plain = footnoteState([paragraph(text('Inside the remark.'))]);
+    const comment = documentSchema.mark('comment_highlight', { commentId: 'c1' });
+    const from = textPos(plain, 'Inside');
+    const marked = plain.apply(plain.tr.addMark(from, from + 'Inside the remark'.length, comment));
+    const state = runCommand(caretAt(marked, 'the', -1), insertFootnote({ newId: () => 'n1' }));
+    let marks: readonly string[] = [];
+    state.doc.descendants((node) => {
+      if (node.type.name === 'footnote_reference') marks = node.marks.map((m) => m.type.name);
+    });
+    expect(marks).toEqual(['comment_highlight']);
+    const edge = runCommand(caretAt(marked, 'remark', 6), insertFootnote({ newId: () => 'n2' }));
+    edge.doc.descendants((node) => {
+      if (node.type.name === 'footnote_reference') marks = node.marks.map((m) => m.type.name);
+    });
+    expect(marks).toEqual([]);
+  });
+
   it('DOCE-FOOTNOTES-1.2 is refused outside a paragraph of the body', () => {
     const state = caretAt(
       footnoteState([{ type: 'heading', attrs: { level: 1 }, content: [text('Title')] }]),
@@ -80,7 +99,7 @@ describe('footnotes', () => {
     expect(insertFootnote()(state)).toBe(false);
   });
 
-  it('DOCE-FOOTNOTES-1.2 is refused in a header cell and in script output, allowed in a body cell', () => {
+  it('DOCE-FOOTNOTES-1.2 is refused in script output, allowed in body and header cells', () => {
     const block = documentSchema.node.bind(documentSchema);
     const para = (value: string) => block('paragraph', null, documentSchema.text(value));
     const row = block('table_row', null, [
@@ -94,7 +113,7 @@ describe('footnotes', () => {
     const start = caretAt(state, 'Body').selection.$from.before();
     state = state.apply(state.tr.insert(start, [table, script]));
     expect(canInsertFootnote(caretAt(state, 'Cell', 1))).toBe(true);
-    expect(canInsertFootnote(caretAt(state, 'Head', 1))).toBe(false);
+    expect(canInsertFootnote(caretAt(state, 'Head', 1))).toBe(true);
     expect(canInsertFootnote(caretAt(state, 'Output', 1))).toBe(false);
   });
 
@@ -140,24 +159,35 @@ describe('footnotes', () => {
     view.destroy();
   });
 
-  it('DOCE-FOOTNOTES-1.4 goes by double click from a marker to its entry and from its number back', () => {
-    const state = footnoteState([paragraph(text('One'), note('n1', 'First'))]);
-    const view = new EditorView(document.createElement('div'), { state });
-    const plugin = createFootnotes();
-    const click = (selector: string) => {
-      const target = view.dom.querySelector(selector);
-      if (!target || !plugin.props.handleDoubleClick) throw new Error(`No ${selector}`);
-      const event = new MouseEvent('dblclick');
-      Object.defineProperty(event, 'target', { value: target });
-      return plugin.props.handleDoubleClick.call(plugin, view, 0, event);
-    };
-    expect(click('.pm-footnote-entry-content')).toBe(false);
-    expect(click('.pm-footnote-entry-number')).toBe(true);
-    expect(view.state.selection.$from.nodeBefore?.attrs.footnoteId).toBe('n1');
-    expect(click('[data-footnote-reference]')).toBe(true);
-    expect(footnoteAt(view.state)?.entry).not.toBeNull();
-    expect(view.state.selection.$from.parent.type.name).toBe('footnote_entry');
-    view.destroy();
+  it("DOCE-FOOTNOTES-1.7 shows by double click a marker's entry and an entry's marker, for a moment, the caret staying", () => {
+    vi.useFakeTimers();
+    try {
+      const state = caretAt(footnoteState([paragraph(text('One'), note('n1', 'First'))]), 'One');
+      const view = new EditorView(document.createElement('div'), { state, editable: () => false });
+      const plugin = createFootnotes();
+      const click = (selector: string) => {
+        const target = view.dom.querySelector(selector);
+        if (!target || !plugin.props.handleDoubleClick) throw new Error(`No ${selector}`);
+        const event = new MouseEvent('dblclick');
+        Object.defineProperty(event, 'target', { value: target });
+        return plugin.props.handleDoubleClick.call(plugin, view, 0, event);
+      };
+      const caret = view.state.selection;
+      const revealed = () =>
+        view.dom.querySelector('[data-de-revealed]')?.getAttribute('data-de-revealed');
+      expect(click('.pm-footnote-entry-content')).toBe(false);
+      expect(click('[data-footnote-reference]')).toBe(true);
+      expect(revealed()).toBe('entry');
+      expect(view.state.selection.eq(caret)).toBe(true);
+      vi.advanceTimersByTime(FOOTNOTE_FLASH_MS);
+      expect(revealed()).toBeUndefined();
+      expect(click('.pm-footnote-entry-number')).toBe(true);
+      expect(revealed()).toBe('marker');
+      expect(view.state.selection.eq(caret)).toBe(true);
+      view.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('DOCE-FOOTNOTES-1.4 refuses to go to a footnote that is not there', () => {

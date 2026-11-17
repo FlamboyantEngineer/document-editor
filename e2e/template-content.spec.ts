@@ -96,7 +96,7 @@ test.describe('template content lab', () => {
       .toContain('"key":"document.name"');
   });
 
-  test('DOCE-SECTIONS-5.4 shows the cells of a borderless footer table by a dashed guide while editing', async ({
+  test('DOCE-SECTIONS-5.4 DOCE-LABS-4.14 shows the cells of a borderless footer table by a dashed guide while editing', async ({
     lab,
     page,
   }) => {
@@ -114,6 +114,8 @@ test.describe('template content lab', () => {
         return [computed.borderTopStyle, computed.outlineStyle];
       }),
     ).toEqual(['none', 'dashed']);
+    // DOCE-LABS-4.14: a header or footer table's cells take no padding.
+    expect(await cell.evaluate((element) => getComputedStyle(element).paddingTop)).toBe('0px');
   });
 
   test('DOCE-SECTIONS-5.3 runs the toolbar inside headers and template content', async ({

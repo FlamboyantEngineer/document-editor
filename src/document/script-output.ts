@@ -79,13 +79,33 @@ export function buildScriptList(
   };
 }
 
-/** A table with a row for each list of cells, its first row a header row when `header`. */
+/**
+ * A captioned object's caption: its text, which the template's label and number lead; none when
+ * the script gives none, and a hidden caption when it gives `false`.
+ */
+export type ScriptCaption = string | false | undefined;
+
+// The stored caption attributes for a script's caption: none, its text, or a hidden caption.
+function captionAttrs(caption: ScriptCaption): Record<string, unknown> {
+  if (caption === undefined) return {};
+  return caption === false
+    ? { captionEnabled: false }
+    : { caption: caption.replace(/\s+/g, ' ').trim() };
+}
+
+const withAttrs = (attrs: Record<string, unknown>) => (Object.keys(attrs).length ? { attrs } : {});
+
+/**
+ * A table with a row for each list of cells, its first row a header row when `header`, and its
+ * caption (`ScriptCaption`).
+ */
 export function buildScriptTable(
   rows: readonly (readonly ScriptText[])[],
-  { header = false }: { header?: boolean | undefined } = {},
+  { header = false, caption }: { header?: boolean | undefined; caption?: ScriptCaption } = {},
 ): StoredNode {
   return {
     type: 'table',
+    ...withAttrs(captionAttrs(caption)),
     content: rows.map((cells, index) => ({
       type: 'tableRow',
       content: cells.map((cell) => ({
@@ -93,5 +113,38 @@ export function buildScriptTable(
         content: [buildScriptParagraph(cell)],
       })),
     })),
+  };
+}
+
+/** A figure a script shows: an image by its address, and its caption. */
+export interface ScriptFigure {
+  readonly src: string;
+  readonly alt?: string | undefined;
+  readonly caption?: ScriptCaption;
+  /** Its width in pixels; its own when left out. */
+  readonly width?: number | undefined;
+}
+
+/** A figure showing an image, with its caption (`ScriptCaption`). */
+export function buildScriptFigure({ src, alt, caption, width }: ScriptFigure): StoredNode {
+  const attrs = {
+    src,
+    ...(alt ? { alt } : {}),
+    ...(width ? { width } : {}),
+    ...captionAttrs(caption),
+  };
+  return { type: 'figure', attrs };
+}
+
+/** A code block holding the code, in its language, with its caption (`ScriptCaption`). */
+export function buildScriptCode(
+  code: string,
+  { language, caption }: { language?: string | undefined; caption?: ScriptCaption } = {},
+): StoredNode {
+  const attrs = { ...(language ? { language } : {}), ...captionAttrs(caption) };
+  return {
+    type: 'codeBlock',
+    ...withAttrs(attrs),
+    ...(code ? { content: [{ type: 'text', text: code }] } : {}),
   };
 }

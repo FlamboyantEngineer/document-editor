@@ -14,6 +14,7 @@ import {
 } from 'prosemirror-state';
 import { DecorationSet, type EditorView, type NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
+import { CAPTION_HOST_TYPES, captionHostView, focusCaptionHost } from './caption-hosts.js';
 import {
   cancelCaptionOf,
   captionDoubleClick,
@@ -179,8 +180,13 @@ export function captionEditingAt(state: EditorState): CaptionedObject | null {
   return captionEditingOf(objectViewsKey, state);
 }
 
-/** Edits the caption of the table, figure or code block at the selection in place. */
-export const editCaption: Command = editCaptionOf(objectViewsKey);
+/**
+ * Edits the caption of the table, figure or code block at the selection in place: a table's or a
+ * figure's in its caption, a code block's in a field over it.
+ */
+export const editCaption: Command = (state, dispatch, view) =>
+  (view !== undefined && focusCaptionHost(view, state, dispatch)) ||
+  editCaptionOf(objectViewsKey)(state, dispatch, view);
 
 /** Commits the caption edited in place with its text, shown; the object is selected after. */
 export const commitCaptionEditing = (text: string): Command =>
@@ -218,6 +224,7 @@ export function createObjectViews({
       handleTextInput: ({ state }) =>
         state.selection instanceof NodeSelection && !isReplacedOnType(state.selection.node),
       nodeViews: {
+        ...Object.fromEntries(CAPTION_HOST_TYPES.map((type) => [type, captionHostView])),
         signature: (node, view) => signatureView(node, view),
         linked_code_block: linked,
         ...(numbered === 'all' ? { code_block: code } : {}),

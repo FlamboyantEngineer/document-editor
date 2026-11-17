@@ -63,6 +63,16 @@ test.describe('table handles', () => {
     await expect(page.locator('.de-table-handles__grip')).toHaveCount(0);
   });
 
+  test('DOCE-TABLES-2.1 shows no grips unless the host asks for them', async ({ lab, page }) => {
+    await lab.open('document-editor');
+    await page.getByRole('checkbox', { name: 'Table handles' }).uncheck();
+    await cell(page, 'Start').scrollIntoViewIfNeeded();
+    await cell(page, 'Start').hover();
+    await expect(cell(page, 'Start')).toBeVisible();
+    await expect(page.locator('.de-table-handles__grip')).toHaveCount(0);
+    await expect(page.locator('.de-table-handles')).toHaveCount(0);
+  });
+
   test('DOCE-TABLES-2.2 drags a row and a column, in every part of a split table', async ({
     lab,
     page,

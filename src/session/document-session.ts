@@ -140,6 +140,12 @@ export interface DocumentSession {
   flush(): Promise<boolean>;
   /** Whether the document has changes that are not kept yet, for an unsaved-changes guard. */
   hasUnsavedChanges(): boolean;
+  /**
+   * Adds a commit of edits the editor holds outside the document, such as a caption being typed
+   * in place, which the session runs before it saves, flushes, takes a version or merges another
+   * writer's save; returns its release (DOCE-SESSION-2.6). The editor holds one for itself.
+   */
+  holdPendingEdits(commit: () => void): () => void;
   /** Stops following the host and stops saving. */
   close(): void;
 }

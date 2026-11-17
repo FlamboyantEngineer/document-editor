@@ -92,9 +92,9 @@ A caption line shall read the object's label and number, from the template's num
 Implementation: `src/model/schema/table-nodes.ts`, `labs/reference/document.css`
 Verification: `e2e/captions.spec.ts`
 
-### DOCE-OBJECTS-2.3 - Captions edited in place
+### DOCE-OBJECTS-2.3 - Captions edited in a field
 
-A double click on a caption line, or `editCaption`, shall edit the caption of the table, figure or code block it belongs to, or at the selection, in place: `captionEditingAt(state)` gives that object, kept through changes until it goes, and marks it `data-caption-editing`; `commitCaptionEditing(text)` sets its caption text as `setCaption` does, in one change, with the object selected after, and `cancelCaptionEditing` leaves it as it was. While the editor is editable, it shows the base library's `InlineTextField` (named by `caption`) over the caption line (`de-object-editors__field`, `data-kind="caption"`, placed as DOCE-OBJECTS-1.8 says), focused, holding the caption text: Enter commits the text, focus leaving the field commits a changed text and otherwise cancels, and Escape cancels; focus then goes back to the document. Select all and paste stay inside the field, which keeps what the writer typed while a change elsewhere moves the object (DOCE-OBJECTS-1.8).
+A double click on a code block's caption line, or `editCaption` for a code block, or for a table or figure in a view that cannot edit its caption in place, shall edit the caption in place in a field: `captionEditingAt(state)` gives that object, kept through changes until it goes, and marks it `data-caption-editing`; `commitCaptionEditing(text)` sets its caption text as `setCaption` does, in one change, with the object selected after, and `cancelCaptionEditing` leaves it as it was. While the editor is editable, it shows the base library's `InlineTextField` (named by `caption`) over the caption line (`de-object-editors__field`, `data-kind="caption"`, placed as DOCE-OBJECTS-1.8 says), focused, holding the caption text: Enter commits the text, focus leaving the field commits a changed text and otherwise cancels, and Escape cancels; focus then goes back to the document. Select all and paste stay inside the field, which keeps what the writer typed while a change elsewhere moves the object (DOCE-OBJECTS-1.8).
 
 Implementation: `src/engine/caption-views.ts`, `src/engine/object-views.ts`, `src/components/document-editor/object-editors.tsx`
 Verification: `src/engine/caption-views.test.ts`, `src/components/document-editor/object-editors.test.tsx`, `e2e/captions.spec.ts`
@@ -105,6 +105,13 @@ Verification: `src/engine/caption-views.test.ts`, `src/components/document-edito
 
 Implementation: `src/model/schema/caption-text.ts`, `src/model/schema/object-layout.ts`
 Verification: `src/model/schema/caption-text.test.ts`
+
+### DOCE-OBJECTS-2.5 - Table and figure captions edited in the caption
+
+In an editable view, a table's or a figure's caption text shall be edited in the caption itself, which becomes its own editing host while the writer edits it (`captionHostView`, installed by the object views for `CAPTION_HOST_TYPES`): a click puts the caret where it is pressed, a double click selects a word, a press and drag selects text that stays selected, and a press on the label or beside the text puts the caret at the start of the text. `editCaption`, given the view, starts there with the text selected. Select All selects the caption's text only, and newlines typed or pasted become spaces. The document holds the caption's text only once Enter or focus leaving the caption commits it, as one change that shows the caption; Enter and Escape select the object after, and Escape puts the text back. Until then nothing reaches the document: the view ignores the caption's own DOM changes, and a change of the object's attributes while the writer types, such as a column resized by another writer, redraws all of the object but its caption. `commitCaptionDraft(view)` commits the caption being typed, which the session runs before it saves (DOCE-SESSION-2.6). A code block's caption keeps its field (DOCE-OBJECTS-2.3).
+
+Implementation: `src/engine/caption-hosts.ts`, `src/engine/object-views.ts`, `src/components/document-editor/pending-caption.ts`
+Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`
 
 ## DOCE-OBJECTS-3 - Object views
 
@@ -161,7 +168,7 @@ Verification: `src/document/scripts.test.ts`
 
 ### DOCE-OBJECTS-4.5 - Building a script's output
 
-The script output builders, in `./document`, shall write the stored content a script gives without the stored format's names: `buildScriptText(text)` the inline content of plain text or runs, each run bold, italic, code or linking to `href` as it says, empty runs left out; `buildScriptParagraph(text)` a paragraph; `buildScriptHeading(text, { level, numbered })` a heading of level 1 to 6, a level outside them taking the nearer, unnumbered when `numbered` is false (DOCE-SCHEMA-3.10); `buildScriptList(items, { ordered })` a bulleted or numbered list with a paragraph in each item; and `buildScriptTable(rows, { header })` a table with a paragraph in each cell, its first row of header cells when `header`. What they build is content the document reads.
+The script output builders, in `./document`, shall write the stored content a script gives without the stored format's names: `buildScriptText(text)` the inline content of plain text or runs, each run bold, italic, code or linking to `href` as it says, empty runs left out; `buildScriptParagraph(text)` a paragraph; `buildScriptHeading(text, { level, numbered })` a heading of level 1 to 6, a level outside them taking the nearer, unnumbered when `numbered` is false (DOCE-SCHEMA-3.10); `buildScriptList(items, { ordered })` a bulleted or numbered list with a paragraph in each item; `buildScriptTable(rows, { header, caption })` a table with a paragraph in each cell, its first row of header cells when `header`; `buildScriptFigure({ src, alt, caption, width })` a figure of an image; and `buildScriptCode(code, { language, caption })` a code block. A `caption` is the object's caption text, its spaces collapsed, which the template's label and number lead as any caption (DOCE-OBJECTS-2.2), or `false` for a hidden caption; left out, the object has the default, an empty shown caption. What they build is content the document reads.
 
 Implementation: `src/document/script-output.ts`
 Verification: `src/document/script-output.test.ts`

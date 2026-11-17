@@ -204,6 +204,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
   stores.connection.set(CONNECTING);
   const { status, document } = stores;
   const flush = () => {
+    stores.pending.commit();
     const opened = run.current.room;
     return opened ? whenKept(opened.connection) : Promise.resolve(true);
   };
@@ -274,6 +275,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     flush,
     ...pause,
     hasUnsavedChanges: () => room()?.connection.state().hasUnconfirmedChanges ?? false,
+    holdPendingEdits: stores.pending.hold,
     ...NO_DRAFT_OFFER,
     resolveConflict: (id, choice) => run.drafts.resolve(room(), id, choice),
     close,
