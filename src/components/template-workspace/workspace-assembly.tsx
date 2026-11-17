@@ -4,7 +4,7 @@
 import type { ReactNode, Ref } from 'react';
 import type { TemplateFile } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
-import type { TemplateScope } from '../template-editor/template-editor.js';
+import type { TemplateDraftState, TemplateScope } from '../template-editor/template-editor.js';
 import { TemplateHistory } from './template-history.js';
 import { TemplateSectionTabs } from './template-section-tabs.js';
 import type { TemplateWorkspaceParts, TemplateWorkspaceProps } from './template-workspace-types.js';
@@ -31,6 +31,8 @@ interface WorkspaceAssembly {
   readonly onScopeChange: (scope: TemplateScope) => void;
   readonly layout: DocumentLayout;
   readonly json: ReturnType<typeof useJsonView>;
+  /** The state of the settings fields' drafts, and what hears it change. */
+  readonly drafts: { state: TemplateDraftState; onChange: (state: TemplateDraftState) => void };
   readonly save: () => Promise<unknown>;
   readonly saveError: { id?: string; parent?: string };
   readonly idInput: Ref<HTMLInputElement>;
@@ -64,7 +66,8 @@ function bandParts({
         {...parts}
         catalog={props.catalog ?? {}}
         canDelete={props.canDelete ?? false}
-        canSave={json.errors.length === 0}
+        canSave={json.errors.length === 0 && rest.drafts.state !== 'invalid'}
+        hasDraft={rest.drafts.state === 'pending'}
         onSave={save}
         saveAsFields={props.saveAsFields}
       />
@@ -107,6 +110,7 @@ export function workspacePartsOf(assembly: WorkspaceAssembly): TemplateWorkspace
         fonts={props.fonts}
         referenceTypes={props.referenceTypes}
         saveError={assembly.saveError}
+        onDraftsChange={assembly.drafts.onChange}
         idInputRef={assembly.idInput}
         isNameReadOnly={
           assembly.listed !== null && (props.isNameReadOnly?.(assembly.listed) ?? false)

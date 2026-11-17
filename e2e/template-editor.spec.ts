@@ -9,6 +9,7 @@ import {
   setField,
   type SettingStep,
   settingSteps,
+  withoutEmptyText,
 } from './template-settings-steps.js';
 
 const panel = (page: Page) =>
@@ -235,12 +236,17 @@ test.describe('template editor lab', () => {
     await expect(
       settings.getByText(/^Inherited from Base template: /, { exact: false }).first(),
     ).toBeAttached();
-    // A font typed or picked.
+    // A font picked from those offered, each drawn in its own font.
     const paragraph = await card(page, 'Paragraph');
-    const font = paragraph.getByRole('combobox', { name: 'Font' });
-    await font.fill('Georgia');
+    await paragraph.getByRole('button', { name: /Font$/ }).click();
+    const georgia = page.getByRole('option', { name: 'Georgia', exact: true });
+    expect(
+      await georgia
+        .locator('.de-template-editor__font-option')
+        .evaluate((element) => getComputedStyle(element).fontFamily),
+    ).toContain('Georgia');
+    await georgia.click();
     await expect.poll(() => style(page, 'p', 'font-family')).toContain('Georgia');
-    await page.keyboard.press('Tab');
     // Space before and after, in points, typed as numbers.
     const after = paragraph.getByRole('textbox', { name: 'Space after' });
     await after.fill('20');
@@ -262,8 +268,10 @@ test.describe('template editor lab', () => {
     const heading = await card(page, 'Heading 1');
     const numbering = heading.getByRole('combobox', { name: 'Numbering', exact: true });
     await numbering.fill('Ab.1x');
+    // Escape closes the list the typing opened and keeps the draft; Enter commits it.
     await page.keyboard.press('Escape');
     await expect(numbering).toHaveValue('A.1');
+    await numbering.press('Enter');
     await numbering.fill('');
     await page.getByRole('option', { name: /^I\.\s*I\., II\., III\./ }).click();
     await expect(numbering).toHaveValue('I.');
@@ -347,10 +355,12 @@ test.describe('template editor lab', () => {
     // About 350 fields, each typed, picked or pressed: some 2 minutes here, several times that on a
     // shared CI runner.
     test.setTimeout(600_000);
-    const fixture = JSON.parse(
-      readFileSync(
-        new URL('../test/fixtures/templates/field-report.json', import.meta.url),
-        'utf8',
+    const fixture = withoutEmptyText(
+      JSON.parse(
+        readFileSync(
+          new URL('../test/fixtures/templates/field-report.json', import.meta.url),
+          'utf8',
+        ),
       ),
     ) as Record<string, unknown>;
     // What other parts of the editor set: the identity, the sections, the regions' content and
@@ -361,9 +371,9 @@ test.describe('template editor lab', () => {
     await page.goto('template-editor.html?document=none');
     await waitForLab(page);
     const settings = panel(page).first();
-    await sectionOf(settings, 'Identity')
-      .getByRole('textbox', { name: 'Name' })
-      .fill(String(fixture.name));
+    const name = sectionOf(settings, 'Identity').getByRole('textbox', { name: 'Name' });
+    await name.fill(String(fixture.name));
+    await name.press('Enter');
     // Each custom style, added and renamed.
     const styles = sectionOf(settings, 'Custom styles');
     const custom = Object.keys((fixture.styles as { custom: Record<string, unknown> }).custom);

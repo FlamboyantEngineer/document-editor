@@ -583,6 +583,31 @@
   min-width: 0;
 }
 
+/* A setting's field box takes no room of its own: the field sits in the row as before. */
+.de-template-editor__setting {
+  display: contents;
+}
+
+/* A setting that inherits reads as inherited: its field greyed, the value it shows in italics. */
+.de-template-editor__setting[data-inherited] :is(input, button, [role='combobox'])::placeholder,
+.de-template-editor__setting[data-inherited] .ui-select-field__value,
+.de-template-editor__setting[data-inherited] .ui-segmented-choice {
+  font-style: italic;
+}
+
+.de-template-editor__setting[data-inherited] :is(.ui-field__control, .ui-select-field__frame) {
+  background: var(--ref-hover);
+}
+
+.de-template-editor__setting[data-inherited] .ui-boolean-field__switch {
+  opacity: 0.6;
+}
+
+/* A font's name in the font list is drawn in that font. */
+.de-template-editor__font-option {
+  font-family: var(--de-font-option), sans-serif;
+}
+
 /* The template's JSON editor fills the panel it is in. */
 .de-template-json-editor {
   display: flex;

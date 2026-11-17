@@ -1,7 +1,7 @@
 // One setting of the template editor as a property row: the base library's field for its kind,
 // holding the template's own value and showing the value it inherits while it has none, with
-// where it comes from as the field's help. A row with its own value, even an empty one, over an
-// inherited one offers to inherit again (the row's reset).
+// where it comes from as the field's help and hover text. A field with its own value over an
+// inherited one inherits again from its context menu, or once it is cleared.
 
 import { PropertyRow } from '@flamboyantengineer/ui-components/property-panel';
 import type { ReactNode } from 'react';
@@ -16,7 +16,6 @@ export type { SettingRowProps } from './setting-controls.js';
 /** A setting's row. */
 export function SettingRow(props: SettingRowProps) {
   const { setting, value, inherited } = props;
-  const canInherit = !isUnset(value) && !isUnset(inherited) && !props.isDisabled;
   return (
     <PropertyRow
       label={setting.label}
@@ -24,7 +23,7 @@ export function SettingRow(props: SettingRowProps) {
       hint={setting.hint}
       unit={setting.kind.type === 'points' ? 'pt' : undefined}
       isOverridden={!isUnset(value)}
-      onReset={canInherit ? () => props.onChange(null) : undefined}
+      data-inherited={isUnset(value) && !isUnset(inherited) ? true : undefined}
     >
       <SettingControl {...props} />
     </PropertyRow>
@@ -59,6 +58,7 @@ export function rows(
         inherited={target.inherited ? settingAt(target.inherited, path) : undefined}
         onChange={(value) => target.set(path, value)}
         inheritedLabel={labels.inherited}
+        fieldLabels={labels}
         inheritedFrom={target.source}
         fonts={fontsOf(context, setting.kind.type === 'font' && setting.kind.code)}
         isDisabled={props.isDisabled}

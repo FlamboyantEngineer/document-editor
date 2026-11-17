@@ -1,3 +1,4 @@
+export { type TemplateDraftState, useTemplateDraft } from './setting-drafts.js';
 export { TEMPLATE_SECTIONS, type TemplateReferenceType } from './settings-catalog.js';
 export type { TemplateEditorLabels, TemplateEditorProps } from './template-editor.js';
 export {

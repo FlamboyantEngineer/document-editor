@@ -32,7 +32,12 @@ import {
   withSectionAt,
   withSectionMoved,
 } from './template-section-list.js';
-import { settingAt, type TemplateSetting, withSetting } from './template-settings.js';
+import {
+  settingAt,
+  type TemplateSetting,
+  type TemplateSettingsLabels,
+  withSetting,
+} from './template-settings.js';
 
 /** The scope's text. */
 export interface TemplateScopeLabels {
@@ -117,7 +122,7 @@ interface ScopeProps {
   readonly onChange: (template: TemplateFile) => void;
   /** Receives a section's old and new name once a rename is committed. */
   readonly onSectionRename?: ((from: string, to: string) => void) | undefined;
-  readonly labels: TemplateScopeLabels;
+  readonly labels: TemplateScopeLabels & TemplateSettingsLabels;
   readonly isDisabled?: boolean | undefined;
 }
 
@@ -308,6 +313,7 @@ export function SectionRows(props: ScopeProps) {
             onChange(withNamedSection(template, scope, () => next));
           }}
           inheritedLabel={labels.inherited}
+          fieldLabels={labels}
           isDisabled={isDisabled}
         />
       ))}

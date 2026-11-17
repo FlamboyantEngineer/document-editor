@@ -103,9 +103,12 @@ describe('TemplateEditor', () => {
         onChange={(next) => changes.push(next)}
       />,
     );
-    const [reset] = screen.getAllByRole('button', { name: 'Reset to inherited value' });
-    if (!reset) throw new Error('No reset button');
-    await user.click(reset);
+    // The field's menu inherits again.
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('button', { name: /Page size/ }),
+    });
+    await user.click(await screen.findByRole('menuitem', { name: 'Reset to inherited value' }));
     expect(changes.at(-1)).not.toHaveProperty('page');
     // The whole editor renders here, which takes over 5 s on a shared CI runner.
   }, 15_000);
@@ -152,6 +155,7 @@ describe('TemplateEditor', () => {
     // A zero height is a value of the template's own, not an unset one.
     const height = screen.getByRole('textbox', { name: 'Header height' });
     await user.type(height, '0pt');
+    await user.tab();
     expect(changes.at(-1)?.header).toEqual({ height: '0pt' });
   }, 15_000);
 });
@@ -216,12 +220,13 @@ describe('the references settings', () => {
     await openCard(/^Format/);
     await user.click(screen.getByRole('textbox', { name: 'To figures in the catalog' }));
     await user.paste('Item {{ref.numbering}}');
+    await user.tab();
     expect(changes.at(-1)?.references?.formats?.['catalog-figure']).toBe('Item {{ref.numbering}}');
     expect(
       screen.getByRole('textbox', { name: 'To figures in other documents' }),
     ).toBeInTheDocument();
     await openCard(/^Links to the target/);
-    await user.click(screen.getByRole('checkbox', { name: 'To the catalog' }));
+    await user.click(screen.getByRole('switch', { name: 'To the catalog' }));
     expect(changes.at(-1)?.references?.links?.catalog).toBe(true);
   }, 15_000);
 });
