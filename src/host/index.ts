@@ -45,7 +45,9 @@ export type {
 export type {
   AssetAdapter,
   AssetSearchPage,
+  AssetUploadOptions,
   DiagramAdapter,
+  DiagramEditOptions,
   FoundAsset,
   StoredAsset,
   StoredDiagram,

@@ -5,8 +5,9 @@ import { CodeBlock } from '@flamboyantengineer/ui-components/code-block';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useState } from 'react';
-import { setLinkedCode } from '../../engine/index.js';
+import { codeTokenizerOf, setLinkedCode } from '../../engine/index.js';
 import type { CodeSourceAdapter, ResolvedCode } from '../../host/index.js';
+import { codeLanguageOfUrl } from '../../model/index.js';
 import { applying, type DialogProps, EditorModal, selectedNode, titleOf } from './dialog-parts.js';
 
 type CodeState =
@@ -58,9 +59,42 @@ function linkedCode(url: string, code: ResolvedCode | null, language: unknown) {
   return setLinkedCode({
     url: url.trim(),
     code: code?.code ?? '',
-    language: code?.language ?? (typeof language === 'string' ? language : undefined),
+    language:
+      code?.language ??
+      codeLanguageOfUrl(url) ??
+      (typeof language === 'string' ? language : undefined),
     startLine: code?.startLine,
   });
+}
+
+// The code the address resolved to, highlighted and numbered from its first line in its file, in
+// the only part of the dialog that scrolls; a placeholder until then.
+function CodePreview({
+  url,
+  code,
+  labels,
+}: {
+  url: string;
+  code: CodeState;
+  labels: DialogProps['labels'];
+}) {
+  const ready = code.status === 'ready' ? code.code : null;
+  const language = ready ? (ready.language ?? codeLanguageOfUrl(url) ?? undefined) : undefined;
+  return (
+    <div className="de-linked-code-preview" data-state={code.status}>
+      {ready ? (
+        <CodeBlock
+          code={ready.code}
+          language={language}
+          tokenize={codeTokenizerOf(language)}
+          lineNumbers
+          firstLineNumber={ready.startLine}
+        />
+      ) : (
+        <p className="de-linked-code-preview__empty">{labels.codePreviewEmpty}</p>
+      )}
+    </div>
+  );
 }
 
 /** Inserts linked code, or changes the linked code selected. */
@@ -90,13 +124,14 @@ export function LinkedCodeDialog({
     >
       <TextField
         label={labels.codeAddress}
+        description={labels.codeAddressHint}
         type="url"
         autoFocus
         tracksChanges={false}
         value={url}
         onChange={setUrl}
       />
-      {ready ? <CodeBlock code={ready.code} language={ready.language} lineNumbers /> : null}
+      <CodePreview url={url} code={code} labels={labels} />
     </EditorModal>
   );
 }

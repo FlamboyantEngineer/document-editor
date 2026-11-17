@@ -3,7 +3,7 @@
 // same paste holds, one picture for each such image, in order.
 
 /** An image tag of pasted HTML, and the file its bytes make. */
-export interface PastedImage {
+interface PastedImage {
   /** The tag as the HTML writes it. */
   readonly tag: string;
   /** Its bytes as a file, or null when the paste does not carry them. */

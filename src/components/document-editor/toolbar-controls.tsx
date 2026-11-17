@@ -238,7 +238,14 @@ export function builtInToolbarGroups(
         },
       ],
     },
-    { id: 'marks', items: [...markItems(schema, labels, shortcuts), linkItem(labels)] },
+    // Inline code is the code menu's first entry (DOCE-EDITOR-4.3), not a button of its own.
+    {
+      id: 'marks',
+      items: [
+        ...markItems(schema, labels, shortcuts).filter((item) => item.id !== 'code'),
+        linkItem(labels),
+      ],
+    },
     {
       id: 'lists',
       items: [

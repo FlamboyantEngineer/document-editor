@@ -235,6 +235,11 @@ export function useWritingDecorations(
     readonly template?: TemplateFile | undefined;
     /** Runs the document's scripts; script blocks say they produced nothing only beside one. */
     readonly scriptRunner?: object | undefined;
+    /**
+     * Edits a template's content in place, where a script block keeps no output and shows its
+     * preview instead (`createTemplateScriptPreviews`), so none says it produced nothing.
+     */
+    readonly onTemplatePartChange?: object | undefined;
   },
   labels: {
     readonly insertBlock: string;
@@ -251,7 +256,8 @@ export function useWritingDecorations(
   // Sections are added only while the writer edits the document, not while suggesting.
   const template = editable && !props.suggesting ? props.template : undefined;
   const { insertBlock, addSection } = labels;
-  const empty = editable && props.scriptRunner ? labels.scriptEmpty : null;
+  const empty =
+    editable && props.scriptRunner && !props.onTemplatePartChange ? labels.scriptEmpty : null;
   return useMemo(
     () =>
       writingDecorations({

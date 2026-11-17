@@ -1155,3 +1155,83 @@
 .de-document-editor:focus-within [data-caret-block] {
   background: color-mix(in srgb, var(--ref-accent, #0969da) 6%, transparent);
 }
+
+/* The linked code dialog: the address and its example stay, and only the preview scrolls. */
+.ui-modal[data-dialog='linked-code'] .ui-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.de-linked-code-preview {
+  flex: 1 1 auto;
+  min-height: 6rem;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.de-linked-code-preview__empty {
+  margin: 0;
+  padding: 24px 16px;
+  border: 1px dashed var(--ref-border, #cbd5e1);
+  border-radius: 6px;
+  color: var(--ref-muted, #64748b);
+  text-align: center;
+}
+
+/* The math dialog's sheet of common math: names beside their LaTeX, in two columns. */
+.de-math-help {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+.de-math-help__examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.de-math-help__example {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.de-math-help__example dt {
+  color: #475569;
+}
+
+.de-math-help__example dd {
+  margin: 0;
+}
+
+/* The figure dialog's preview: the image shrunk to fit a fixed box, or a placeholder. */
+.de-figure-preview {
+  display: grid;
+  place-items: center;
+  min-height: 6rem;
+  max-height: 240px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--ref-border, #cbd5e1);
+  border-radius: 6px;
+  background: var(--ref-sunken, #f8fafc);
+}
+
+.de-figure-preview__image {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+.de-figure-preview__empty {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--ref-muted, #64748b);
+  text-align: center;
+}

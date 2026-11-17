@@ -1,5 +1,5 @@
 // The text of the editor's chrome for the document's objects: inserting and changing footnotes,
-// code, math, figures, links, lists of contents, captions, references and abbreviations, and the
+// code, figures, links, lists of contents, captions, references and abbreviations, and the
 // dialogs that do it. Part of the editor's labels (`DocumentEditorLabels`).
 
 import type { EditorVariable } from '../../engine/index.js';
@@ -62,42 +62,24 @@ export interface ObjectLabels {
   readonly goToFootnoteReference: string;
   readonly deleteFootnote: string;
   readonly insertCode: string;
+  /** The code menu's entry that formats the selection as inline code. */
+  readonly inlineCode: string;
+  /** Deletes the inline code at the selection. */
+  readonly deleteInlineCode: string;
   readonly codeBlock: string;
   readonly linkedCode: string;
   readonly editLinkedCode: string;
   readonly codeAddress: string;
+  /** Under the code address: an example of an address, with a range of lines. */
+  readonly codeAddressHint: string;
+  /** Where the preview shows before an address resolves. */
+  readonly codePreviewEmpty: string;
   /** Says the code at an address is loading, or why it could not be. */
   readonly codeStatus: (status: 'loading' | 'missing' | 'failed') => string;
   readonly codeLanguage: string;
-  readonly insertMath: string;
-  readonly inlineMath: string;
-  readonly displayMath: string;
-  readonly editMath: string;
-  readonly mathSource: string;
-  /** Converts the math selected to a block or to inline math. */
-  readonly convertMath: (toDisplay: boolean) => string;
-  readonly figure: string;
-  /** The figure menu's entries, which insert an image or a diagram. */
-  readonly imageFigure: string;
-  readonly diagramFigure: string;
-  /** Names the choice between an image and a diagram, and each kind. */
-  readonly figureType: string;
-  readonly figureTypes: Readonly<Record<'image' | 'diagram', string>>;
-  readonly chooseImage: string;
-  /** Opens the host's diagram editor on a new diagram, or on the figure's. */
-  readonly drawDiagram: (existing: boolean) => string;
-  readonly diagramEditing: string;
-  readonly diagramFailed: string;
-  readonly height: string;
-  readonly keepProportions: string;
-  readonly editFigure: string;
-  readonly figureFile: string;
-  readonly figureAddress: string;
-  readonly altText: string;
+  /** The language menu's name for each language, by its id; other ids show as they are. */
+  readonly codeLanguageNames: Readonly<Record<string, string>>;
   readonly caption: string;
-  readonly width: string;
-  readonly uploading: string;
-  readonly uploadFailed: string;
   readonly align: string;
   /** Keeps the figure's alignment inherited from its template or stylesheet. */
   readonly alignDefault: string;
@@ -231,37 +213,35 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   goToFootnoteReference: 'Go to footnote reference',
   deleteFootnote: 'Delete footnote',
   insertCode: 'Code',
+  inlineCode: 'Inline code',
+  deleteInlineCode: 'Delete inline code',
   codeBlock: 'Code block',
   linkedCode: 'Linked code…',
   editLinkedCode: 'Edit linked code…',
   codeAddress: 'Code address',
+  codeAddressHint: 'For example https://example.com/project/src/main.ts#L10-L20',
+  codePreviewEmpty: 'The code shows here once its address is found.',
   codeStatus: (status) => CODE_STATUS[status],
   codeLanguage: 'Language',
-  insertMath: 'Math',
-  inlineMath: 'Inline math…',
-  displayMath: 'Display math…',
-  editMath: 'Edit math…',
-  mathSource: 'LaTeX',
-  convertMath: (toDisplay) => (toDisplay ? 'Convert to display math' : 'Convert to inline math'),
-  figure: 'Figure',
-  imageFigure: 'Image…',
-  diagramFigure: 'Diagram…',
-  figureType: 'Figure type',
-  figureTypes: { image: 'Image', diagram: 'Diagram' },
-  chooseImage: 'Choose an image…',
-  drawDiagram: (existing) => (existing ? 'Edit diagram…' : 'Draw diagram…'),
-  diagramEditing: 'Editing the diagram…',
-  diagramFailed: 'The diagram could not be saved.',
-  height: 'Height (px)',
-  keepProportions: 'Keep proportions',
-  editFigure: 'Edit figure…',
-  figureFile: 'Upload an image',
-  figureAddress: 'Image address',
-  altText: 'Alternative text',
+  codeLanguageNames: {
+    plaintext: 'Plain text',
+    javascript: 'JavaScript',
+    typescript: 'TypeScript',
+    python: 'Python',
+    java: 'Java',
+    c: 'C',
+    cpp: 'C++',
+    csharp: 'C#',
+    html: 'HTML',
+    css: 'CSS',
+    json: 'JSON',
+    xml: 'XML',
+    sql: 'SQL',
+    yaml: 'YAML',
+    shell: 'Shell',
+    markdown: 'Markdown',
+  },
   caption: 'Caption',
-  width: 'Width (px)',
-  uploading: 'Uploading…',
-  uploadFailed: 'The image could not be uploaded.',
   align: 'Align',
   alignDefault: 'Default',
   alignLeft: 'Left',

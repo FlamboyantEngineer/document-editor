@@ -11,9 +11,11 @@ import {
   NodeSelection,
   Plugin,
   PluginKey,
+  TextSelection,
 } from 'prosemirror-state';
 import { DecorationSet, type EditorView, type NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
+import { isElement } from '../utils/is-element.js';
 import { CAPTION_HOST_TYPES, captionHostView, focusCaptionHost } from './caption-hosts.js';
 import {
   cancelCaptionOf,
@@ -65,6 +67,36 @@ function drawLinkedCode(code: HTMLElement, node: ProseMirrorNode): void {
   code.replaceChildren(...parts);
 }
 
+// The gutter's lines, one per line of code: its number, then a hidden copy of the line's text,
+// which the stylesheet lays out as wide as the code so a wrapped line keeps its rows blank after
+// its number. A line whose number and text stay keeps its element.
+function drawGutter(gutter: HTMLElement, text: string, first: number): void {
+  const owner = gutter.ownerDocument;
+  const lines = text.split('\n');
+  const kept = [...gutter.children] as HTMLElement[];
+  lines.forEach((line, index) => {
+    const number = String(first + index);
+    const existing = kept[index];
+    if (existing?.dataset.lineNumber === number && existing.lastChild?.textContent === line) return;
+    const row = owner.createElement('span');
+    row.className = 'de-code-gutter__line';
+    row.dataset.lineNumber = number;
+    const label = owner.createElement('span');
+    label.className = 'de-code-gutter__number';
+    label.textContent = number;
+    const copy = owner.createElement('span');
+    copy.className = 'de-code-gutter__text';
+    copy.textContent = line;
+    row.append(label, copy);
+    if (existing) existing.replaceWith(row);
+    else gutter.appendChild(row);
+  });
+  for (const extra of kept.slice(lines.length)) extra.remove();
+  // The digits of the highest number, at least three, from which the stylesheet sizes the gutter.
+  const digits = Math.max(3, String(first + lines.length - 1).length);
+  gutter.parentElement?.style.setProperty('--de-code-gutter-digits', String(digits));
+}
+
 // A code block as its markup draws it, with a gutter of line numbers before its code when asked,
 // and linked code's text highlighted.
 function codeView(node: ProseMirrorNode, view: EditorView, numbered: boolean): NodeView {
@@ -84,7 +116,7 @@ function codeView(node: ProseMirrorNode, view: EditorView, numbered: boolean): N
   let current = node;
   const draw = (next: ProseMirrorNode) => {
     current = next;
-    gutter.textContent = lineNumbers(codeText(next), firstLine(next));
+    if (numbered) drawGutter(gutter, codeText(next), firstLine(next));
   };
   draw(node);
   return {
@@ -152,6 +184,52 @@ function signatureView(node: ProseMirrorNode, view: EditorView): NodeView {
   };
 }
 
+// A press on a code block's padding or caption line, outside its text, puts the caret at the code
+// position nearest to it, as a press on the gutter does, so it never lands in the caption or
+// beside the block. Linked code, which takes no caret, and double presses are left alone.
+function codePress(view: EditorView, event: MouseEvent): boolean {
+  if (event.button !== 0 || event.detail > 1 || !view.editable) return false;
+  const target = isElement(event.target) ? event.target : null;
+  const pre = target?.closest('pre');
+  const code = pre?.querySelector(':scope > code');
+  if (!pre || !code || code.contains(target) || !view.dom.contains(pre)) return false;
+  if (pre.closest('[data-linked-code-block]')) return false;
+  const box = code.getBoundingClientRect();
+  const left = Math.min(Math.max(event.clientX, box.left + 1), box.right - 1);
+  const top = Math.min(Math.max(event.clientY, box.top + 1), box.bottom - 1);
+  const found = view.posAtCoords({ left, top });
+  if (!found) return false;
+  const $pos = view.state.doc.resolve(found.pos);
+  if ($pos.parent.type.name !== 'code_block') return false;
+  event.preventDefault();
+  view.focus();
+  const anchor = found.pos;
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, anchor)));
+  followDrag(view, anchor);
+  return true;
+}
+
+// Extends the selection from an anchor to the text under the pointer until the button is released,
+// as a native drag would have from a press in the text.
+function followDrag(view: EditorView, anchor: number): void {
+  const owner = view.dom.ownerDocument;
+  const move = (event: MouseEvent) => {
+    const head = view.posAtCoords({ left: event.clientX, top: event.clientY });
+    if (!head || anchor > view.state.doc.content.size) return;
+    const selection = TextSelection.between(
+      view.state.doc.resolve(anchor),
+      view.state.doc.resolve(head.pos),
+    );
+    if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection));
+  };
+  const stop = () => {
+    owner.removeEventListener('mousemove', move);
+    owner.removeEventListener('mouseup', stop);
+  };
+  owner.addEventListener('mousemove', move);
+  owner.addEventListener('mouseup', stop);
+}
+
 // Whether typing replaces a selected node: as its type's spec says (`replaceOnType`), or else for
 // inline nodes only, so typing over a selected block object, such as linked code, leaves it.
 function isReplacedOnType(node: ProseMirrorNode): boolean {
@@ -164,7 +242,7 @@ export type LineNumbers = 'all' | 'linked' | 'none';
 
 /** How the object views draw. */
 export interface ObjectViewsOptions {
-  /** Which code shows line numbers: all of it, linked code only (the default), or none. */
+  /** Which code shows line numbers: all of it (the default), linked code only, or none. */
   readonly lineNumbers?: LineNumbers | undefined;
 }
 
@@ -201,7 +279,7 @@ export const cancelCaptionEditing: Command = cancelCaptionOf(objectViewsKey);
  * selected node that is not replaced on typing (`isReplacedOnType`) from the writer's typing.
  */
 export function createObjectViews({
-  lineNumbers: numbered = 'linked',
+  lineNumbers: numbered = 'all',
 }: ObjectViewsOptions = {}): Plugin<ObjectViewsState> {
   const code = (node: ProseMirrorNode, view: EditorView) =>
     codeView(node, view, numbered === 'all');
@@ -220,7 +298,7 @@ export function createObjectViews({
         const editing = captionEditingDecorations(captionEditingAt(state));
         return editing.length ? DecorationSet.create(state.doc, editing) : undefined;
       },
-      handleDOMEvents: { dblclick: captionDoubleClick(key) },
+      handleDOMEvents: { dblclick: captionDoubleClick(key), mousedown: codePress },
       handleTextInput: ({ state }) =>
         state.selection instanceof NodeSelection && !isReplacedOnType(state.selection.node),
       nodeViews: {
