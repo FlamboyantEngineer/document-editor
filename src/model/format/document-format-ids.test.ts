@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignStoredIds, checkStoredIds, type DocumentFile } from '../index.js';
+import { assignStoredIds, checkStoredIds, copyDocumentFile, type DocumentFile } from '../index.js';
 
 const FILE: DocumentFile = {
   formatVersion: 1,
@@ -61,5 +61,57 @@ describe('stored element ids', () => {
     const once = assignStoredIds(FILE, { newId: counter() });
     expect(assignStoredIds(FILE, { newId: counter() })).toEqual(once);
     expect(once.sections[0]?.content[1]?.attrs).toEqual({ id: '00000000' });
+  });
+
+  it('DOCE-EDITING-1.6 copies a document as a new one, with fresh ids and no comment highlights', () => {
+    const commented: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: 'body',
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: '0000000d', author: 'ana', aiSession: 's1' },
+              content: [
+                {
+                  type: 'text',
+                  text: 'Noted',
+                  marks: [{ type: 'comment', attrs: { thread: 't1' } }, { type: 'strong' }],
+                },
+                { type: 'text', text: ' here', marks: [{ type: 'comment', attrs: { thread: 't1' } }] },
+              ],
+            },
+          ],
+        },
+        ...FILE.sections,
+      ],
+    };
+    let next = 0x100;
+    const copy = copyDocumentFile(commented, {
+      newId: () => (next++).toString(16).padStart(8, '0'),
+      author: 'cy',
+    });
+    const [noted] = copy.sections[0]?.content ?? [];
+    expect(noted).toEqual({
+      type: 'paragraph',
+      attrs: { id: '00000100', author: 'cy' },
+      content: [
+        { type: 'text', text: 'Noted', marks: [{ type: 'strong' }] },
+        { type: 'text', text: ' here' },
+      ],
+    });
+    expect(checkStoredIds(copy)).toEqual([]);
+    const original = new Set<unknown>();
+    const copied = new Set<unknown>();
+    const collect = (file: DocumentFile, into: Set<unknown>) =>
+      JSON.stringify(file, (key, value: unknown) => {
+        if (key === 'id' || key === 'elementId') into.add(value);
+        return value;
+      });
+    collect(commented, original);
+    collect(copy, copied);
+    expect([...copied].filter((id) => original.has(id) && id !== 'fn1')).toEqual([]);
+    expect(commented.sections[0]?.content[0]?.attrs?.id).toBe('0000000d');
   });
 });

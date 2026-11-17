@@ -320,6 +320,36 @@ describe('store-mode saving', () => {
     expect(session.status.get()).toMatchObject({ save: 'saved', error: null });
   });
 
+  it('DOCE-SESSION-1.2 shows nothing of a document the host refuses to load', async () => {
+    const host = hostWith();
+    const versions = vi.spyOn(host.versions ?? { list: () => undefined }, 'list');
+    host.memory.failNext('documents.load', { kind: 'denied' });
+    const session = open(host);
+    expect(await session.ready).toBe(false);
+    expect(session.status.get()).toMatchObject({ load: 'failed', error: { kind: 'denied' } });
+    expect(session.document.get()).toBeNull();
+    expect(versions).not.toHaveBeenCalled();
+  });
+
+  it('DOCE-SESSION-2.2 keeps editing while the host refuses every save, leaving the store as it was', async () => {
+    const host = hostWith();
+    const stored = await storedText(host);
+    const session = open(host);
+    await session.ready;
+    host.memory.failNext('documents.save', { kind: 'denied' }, 3);
+    typeText(session, 'Oh ');
+    await session.save();
+    expect(session.status.get()).toMatchObject({ save: 'error', error: { kind: 'denied' } });
+    typeText(session, 'Ah ');
+    await session.save();
+    const document = shown(session);
+    expect(document.capabilities.edit).toBe(true);
+    expect(document.editingMode).toBe('edit');
+    expect(document.state.doc.textContent).toBe('HAh Oh ello');
+    expect(session.hasUnsavedChanges()).toBe(true);
+    expect(await storedText(host)).toBe(stored);
+  });
+
   it('DOCE-SESSION-2.3 saves by itself after a pause in the changes', async () => {
     vi.useFakeTimers();
     const host = hostWith();

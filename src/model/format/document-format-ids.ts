@@ -90,3 +90,38 @@ export function assignStoredIds(
   });
   return copy;
 }
+
+// Drops the comment highlights of a run of stored nodes, and every mark list it empties.
+function dropComments(nodes: readonly StoredNode[] | undefined): void {
+  for (const node of nodes ?? []) {
+    if (node.marks) {
+      node.marks = node.marks.filter((mark) => mark.type !== 'comment');
+      if (!node.marks.length) delete node.marks;
+    }
+    dropComments(node.content);
+  }
+}
+
+/**
+ * A new document made from a stored one, as a host's "copy from" makes it: every element gets a
+ * fresh id from `newId` and is attributed to `author`, as a copy is (DOCE-EDITING-1.5), dropping its
+ * assistant session, and the text keeps no comment highlights, since the copy has no threads.
+ */
+export function copyDocumentFile(
+  file: DocumentFile,
+  { newId, author = null }: StoredIdOptions,
+): DocumentFile {
+  const copy = cloneJson(file);
+  const taken = new Set<string>();
+  forEachElement(copy, ({ node }) => {
+    let fresh = newId();
+    while (taken.has(fresh)) fresh = newId();
+    taken.add(fresh);
+    const attrs: Record<string, unknown> = { ...node.attrs, [idKey(node)]: fresh, author };
+    delete attrs.aiSession;
+    if (author === null) delete attrs.author;
+    node.attrs = attrs;
+  });
+  for (const section of copy.sections) dropComments(section.content);
+  return copy;
+}
