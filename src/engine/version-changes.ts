@@ -164,7 +164,6 @@ function followsOnly(tr: Transaction, scope: readonly VersionSpan[] | null): boo
 // decorations on the node and move the start of its change.
 const setsMarkup = (step: Step | undefined) =>
   step instanceof ReplaceAroundStep &&
-  step.structure &&
   step.insert === 1 &&
   step.slice.size === 2 &&
   step.gapFrom === step.from + 1 &&

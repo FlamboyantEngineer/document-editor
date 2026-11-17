@@ -20,6 +20,7 @@ const lineBars = (page: Page) => content(page).locator('.de-change-lines__line')
 async function openCompared(page: Page, name: RegressionDocumentName) {
   await page.goto(`regression.html?document=${name}&compare`);
   await waitForLab(page);
+  await expect(page.getByRole('combobox', { name: 'Document' })).toHaveValue(name);
 }
 
 const settle = (page: Page) =>
@@ -58,14 +59,13 @@ const DOCUMENTS: readonly RegressionDocumentName[] = [
   'table-long-repeated-header',
   'table-merged-cells',
   'footnote-heavy',
-  'figures',
-  'math',
+  'footnotes-in-structures',
   'code-block-stress',
-  'mixed-geometry-repeated-sections',
-  'comments-and-suggestions',
   'caption-numbering',
-  'template-blocks-and-variables',
-  'section-settings',
+  'roman-numbering-coverage',
+  'page-breaks-and-rules',
+  'mixed-geometry',
+  'mixed-geometry-repeated-sections',
 ];
 
 test.describe('change bars on the regression set', () => {

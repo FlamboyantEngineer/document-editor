@@ -345,7 +345,8 @@ describe('store-mode saving', () => {
     const document = shown(session);
     expect(document.capabilities.edit).toBe(true);
     expect(document.editingMode).toBe('edit');
-    expect(document.state.doc.textContent).toBe('HAh Oh ello');
+    const { doc } = document.state;
+    expect(doc.textBetween(0, doc.content.size)).toBe('HAh Oh ello');
     expect(session.hasUnsavedChanges()).toBe(true);
     expect(await storedText(host)).toBe(stored);
   });

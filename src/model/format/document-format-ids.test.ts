@@ -79,7 +79,11 @@ describe('stored element ids', () => {
                   text: 'Noted',
                   marks: [{ type: 'comment', attrs: { thread: 't1' } }, { type: 'strong' }],
                 },
-                { type: 'text', text: ' here', marks: [{ type: 'comment', attrs: { thread: 't1' } }] },
+                {
+                  type: 'text',
+                  text: ' here',
+                  marks: [{ type: 'comment', attrs: { thread: 't1' } }],
+                },
               ],
             },
           ],

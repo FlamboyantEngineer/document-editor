@@ -73,7 +73,7 @@ describe('DocumentPresence', () => {
     render(editor(many));
     const people = screen.getByRole('group', { name: 'People in this document' });
     expect(within(people).getByRole('button', { name: /Eve/ })).toBeInTheDocument();
-    expect(within(people).queryByRole('button', { name: /^Fay/ })).toBeNull();
+    expect(within(people).queryByRole('button', { name: /^Fay/ })).not.toBeInTheDocument();
     expect(people).toHaveTextContent('+2');
   });
 
