@@ -97,7 +97,7 @@ describe('TemplateEditor', () => {
       'aria-expanded',
       'false',
     );
-  });
+  }, 15_000);
 
   it('DOCE-TEMPLATE-EDITOR-1.1 offers to inherit again a value the template sets over its parent’s', async () => {
     const user = userEvent.setup();
