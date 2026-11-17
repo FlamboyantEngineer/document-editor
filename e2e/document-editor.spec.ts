@@ -383,9 +383,9 @@ test.describe('document editor lab', () => {
     await expect(list).toBeVisible();
     await page.keyboard.type('head');
     await expect(list.getByRole('option').first()).toHaveText('Heading 1');
-    // Below the slash, focus still in the document.
-    const box = await list.boundingBox();
-    expect(box?.y).toBeGreaterThan(point.y);
+    // Below the slash, focus still in the document. The unfiltered list may open above the slash,
+    // where it fits, and moves below once filtering shortens it, a frame after its options change.
+    await expect.poll(async () => (await list.boundingBox())?.y ?? 0).toBeGreaterThan(point.y);
     await expect(content(page)).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
