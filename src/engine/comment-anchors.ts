@@ -16,6 +16,7 @@ import {
   type Step,
 } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { keepCommentsTyped } from './comment-typing.js';
 import {
   type CommentAnchor,
   type CommentRange,
@@ -276,6 +277,7 @@ export function createCommentAnchors(): Plugin<AnchorsState> {
       apply: applyAnchors,
     },
     props: {
+      handleTextInput: (...input) => keepCommentsTyped(input),
       decorations(state) {
         const value = anchorsKey.getState(state);
         const thread = activeCommentThread(state);

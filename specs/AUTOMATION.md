@@ -80,9 +80,9 @@ Verification: `src/engine/completion-text.test.ts`
 
 ### DOCE-AUTOMATION-3.2 - Taking or dismissing an offer
 
-An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, unless the edit lock would refuse that change (DOCE-EDITING-4.1), when it takes nothing and Tab is left to the editor, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it.
+An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, unless the edit lock would refuse that change (DOCE-EDITING-4.1), when it takes nothing and Tab is left to the editor, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it, as does starting a comment at the caret (DOCE-COMMENTS-1.6). Taking or dismissing an offer leaves a comment being started as it is, and typing in a comment's composer asks nothing, since it is not the document's text.
 
-Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-ghost.ts`
+Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-ghost.ts`, `src/engine/comment-draft.ts`
 Verification: `src/engine/inline-completion.test.ts`
 
 ### DOCE-AUTOMATION-3.3 - Asking the host's provider
