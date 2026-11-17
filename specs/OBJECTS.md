@@ -111,7 +111,7 @@ Verification: `src/model/schema/caption-text.test.ts`
 In an editable view, a table's or a figure's caption text shall be edited in the caption itself, which becomes its own editing host while the writer edits it (`captionHostView`, installed by the object views for `CAPTION_HOST_TYPES`): a click puts the caret where it is pressed, a double click selects a word, a press and drag selects text that stays selected, and a press on the label or beside the text puts the caret at the start of the text. `editCaption`, given the view, starts there with the text selected. Select All selects the caption's text only, and newlines typed or pasted become spaces. The document holds the caption's text only once Enter or focus leaving the caption commits it, as one change that shows the caption; Enter and Escape select the object after, and Escape puts the text back. Until then nothing reaches the document: the view ignores the caption's own DOM changes, and a change of the object's attributes while the writer types, such as a column resized by another writer, redraws all of the object but its caption. `commitCaptionDraft(view)` commits the caption being typed, which the session runs before it saves (DOCE-SESSION-2.6). A code block's caption keeps its field (DOCE-OBJECTS-2.3).
 
 Implementation: `src/engine/caption-hosts.ts`, `src/engine/object-views.ts`, `src/components/document-editor/pending-caption.ts`
-Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`
+Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`, `e2e/session.spec.ts`
 
 ## DOCE-OBJECTS-3 - Object views
 

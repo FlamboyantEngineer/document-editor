@@ -9,7 +9,7 @@ Inserting footnotes, keeping their entries with their markers and in order, numb
 `insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, before the entries of footnotes cited after it, so the area lists its entries in marker order, both numbered in document order, with the caret in the entry. A marker inserted inside a comment or a suggestion, whose marks the text on both sides of the caret carries, takes those marks, so it belongs to that comment or suggestion. Mod-Alt-F inserts one. An entry is one run of text: it takes inline formatting, the toolbar offers no block objects in it, Enter and Shift+Enter add nothing, and an entry whose text is all deleted stays, empty, while its marker does.
 
 Implementation: `src/engine/footnotes.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/footnotes.test.ts`, `e2e/objects.spec.ts`
+Verification: `src/engine/footnotes.test.ts`, `e2e/objects.spec.ts`, `e2e/session.spec.ts`
 
 ### DOCE-FOOTNOTES-1.2 - Where a footnote may be cited
 
