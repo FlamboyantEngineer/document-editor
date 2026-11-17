@@ -123,7 +123,7 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/tem
 
 ### DOCE-TEMPLATE-EDITOR-2.3 - Renaming a section
 
-A section's name shall be committed once, on Enter or on leaving the field, not as it is typed; written in lower case with underscores for other characters (`sectionNameOf`); and refused, saying why under the field, when nothing is left or another section has it (`renameSection`). Escape restores the name. A committed rename hands the template to `onChange`, the old and new names to `onSectionRename`, so the host follows the section in what names it, and moves the scope to the new name.
+A section's name shall be committed once, on Enter or on leaving the field, not as it is typed; written in lower case with underscores for other characters (`sectionNameOf`); and refused, saying why under the field, when another section has it (`renameSection`). Escape restores the name, and so does a name committed with nothing left to it, such as an emptied field, in the section's row and in its tab. A committed rename hands the template to `onChange`, the old and new names to `onSectionRename`, so the host follows the section in what names it, and moves the scope to the new name.
 
 Implementation: `src/components/template-editor/template-scope.tsx`, `src/components/template-editor/template-section-list.ts`
 Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-structure.test.tsx`, `src/components/template-editor/template-section-list.test.ts`
@@ -140,11 +140,11 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/tem
 A parent option marked `cycle`, one that inherits from the template, shall be listed, disabled, with why; a parent the template names that is not among the options shall be said to be unavailable under the field, and `parentError`, such as a parent the host could not load, shall show there instead.
 
 Implementation: `src/components/template-editor/template-identity.tsx`
-Verification: `src/components/template-editor/template-structure.test.tsx`
+Verification: `src/components/template-editor/template-structure.test.tsx`, `src/components/template-editor/template-identity.test.tsx`, `src/components/template-workspace/template-workspace.test.tsx`
 
-### DOCE-TEMPLATE-EDITOR-2.6 - The id before the first save
+### DOCE-TEMPLATE-EDITOR-2.6 - The id and the name
 
-While the host has never saved the template (`isNew`), the identity rows shall start with its id, committed on Enter or on leaving the field and written as a letter and then up to 63 letters, digits and underscores, other characters becoming underscores and what comes before the first letter left out (`templateIdOf`); an id with nothing left is refused, saying why, and empties the template's id, so a host cannot save it until it has one. `idError` says under the field why the id cannot be saved, and `idInputRef` reaches its input, so a host can focus it. A saved template's id has no row.
+The identity rows shall start with the template's id, shown read-only once the host has saved the template. While the host has never saved it (`isNew`), the id may change, committed on Enter or on leaving the field and put back by Escape, may be left empty while it is edited, and is and written as a letter and then up to 63 letters, digits and underscores, other characters becoming underscores and what comes before the first letter left out (`templateIdOf`); while what is typed holds other characters, the field says what an id is written with (`idCharacters`); an id typed with nothing left is refused, saying why (`idEmpty`), and an emptied or refused id empties the template's id, so a host cannot save it until it has one. `idError` says under the field why the id cannot be saved, and `idInputRef` reaches its input, so a host can focus it. The name shall be a draft committed on Enter or on leaving the field and put back by Escape; it may be empty while it is edited, and an emptied name commits the default name (`defaultName`). A name holds at most 120 characters and no control or formatting characters: a character it may not hold is refused as it is typed, and the field says what a name may hold (`nameCharacters`). Both fields show a placeholder while empty (`idPlaceholder`, `namePlaceholder`), and every text is a label a host may replace.
 
 Implementation: `src/components/template-editor/template-identity.tsx`
 Verification: `src/components/template-editor/template-structure.test.tsx`

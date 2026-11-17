@@ -143,10 +143,12 @@ describe('TemplateWorkspace', () => {
       await user.paste('memo');
       await user.keyboard('{Enter}');
       await user.click(saveButton());
+      // Once saved, the id shows and cannot change.
       await waitFor(
-        () => expect(screen.queryByRole('textbox', { name: 'Id' })).not.toBeInTheDocument(),
+        () => expect(screen.getByRole('textbox', { name: 'Id' })).toHaveAttribute('readonly'),
         LOADED,
       );
+      expect(screen.getByRole('textbox', { name: 'Id' })).toHaveValue('memo');
       await expect(store.load('memo')).resolves.toMatchObject({
         value: { template: { id: 'memo', sections: [{ name: 'section_1', editable: true }] } },
       });

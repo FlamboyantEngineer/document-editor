@@ -137,6 +137,28 @@ describe('section names', () => {
   );
 
   it(
+    'DOCE-TEMPLATE-EDITOR-2.3 puts the name back on Escape and on a name with nothing left',
+    async () => {
+      const user = userEvent.setup();
+      const log = newLog();
+      render(<Host log={log} initialScope="annex" />);
+      const name = screen.getByRole('textbox', { name: 'Section name' });
+      await user.clear(name);
+      await user.type(name, 'Appendix{Escape}');
+      expect(name).toHaveValue('annex');
+      await user.clear(name);
+      await user.tab();
+      expect(name).toHaveValue('annex');
+      await user.clear(name);
+      await user.type(name, ' ?! {Enter}');
+      expect(name).toHaveValue('annex');
+      expect(name).not.toHaveAccessibleDescription(/needs a letter/);
+      expect(log.templates).toEqual([]);
+    },
+    SLOW,
+  );
+
+  it(
     'DOCE-TEMPLATE-EDITOR-2.3 refuses a name another section has, saying why',
     async () => {
       const user = userEvent.setup();
@@ -250,7 +272,7 @@ describe('identity', () => {
       expect(templateIdOf('42')).toBe('');
       unmount();
       render(<TemplateEditor template={TEMPLATE} onChange={() => {}} />);
-      expect(screen.queryByRole('textbox', { name: 'Id' })).not.toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'Id' })).toHaveAttribute('readonly');
     },
     SLOW,
   );

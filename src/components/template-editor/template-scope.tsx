@@ -247,6 +247,12 @@ function SectionNameRow({ section, props }: { section: TemplateSection; props: S
   const [problem, setProblem] = useState<SectionNameProblem | null>(null);
   const commit = () => {
     const renamed = renameSection(template, section.name, draft);
+    // A name with nothing left to it puts the section's name back.
+    if ('problem' in renamed && renamed.problem === 'empty') {
+      setDraft(section.name);
+      setProblem(null);
+      return;
+    }
     if ('problem' in renamed) {
       setProblem(renamed.problem);
       return;
