@@ -50,6 +50,8 @@ interface WorkspaceToolbarProps {
   readonly canDelete: boolean;
   /** Whether the open template may be saved: no field holds a draft it refuses. */
   readonly canSave: boolean;
+  /** Whether a settings field holds a draft it has not committed yet, which a save takes along. */
+  readonly hasDraft: boolean;
   /** Saves the open template, rejecting when it was not saved. */
   readonly onSave: () => Promise<unknown>;
   readonly saveAsFields?: SaveAsFields | undefined;
@@ -107,7 +109,7 @@ export function WorkspaceToolbar(props: WorkspaceToolbarProps) {
         label={look.label}
         tooltip={look.label}
         data-save={feedback?.kind}
-        isDisabled={!workspace.isDirty || viewing || !props.canSave}
+        isDisabled={(!workspace.isDirty && !props.hasDraft) || viewing || !props.canSave}
         onPress={save}
       />
       {props.canDelete ? (

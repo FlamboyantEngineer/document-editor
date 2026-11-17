@@ -11,6 +11,7 @@ import type { AssetAdapter } from '../../host/asset-adapters.js';
 import { withTemplatePart } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
 import {
+  type TemplateDraftState,
   TemplateEditor,
   type TemplateEditorProps,
   type TemplateScope,
@@ -92,6 +93,8 @@ interface PropertiesProps extends PartProps {
   /** Why the template cannot be saved, shown at its field. */
   readonly saveError: { id?: string; parent?: string };
   readonly idInputRef: Ref<HTMLInputElement>;
+  /** Hears the state of the fields' drafts. */
+  readonly onDraftsChange: (state: TemplateDraftState) => void;
   readonly isNameReadOnly: boolean;
   /** Whether the template inherits nothing, so it has no parent to pick. */
   readonly isRoot: boolean;
@@ -127,6 +130,7 @@ export function WorkspaceProperties(props: PropertiesProps) {
         fonts={props.fonts}
         referenceTypes={props.referenceTypes}
         layout={props.layout}
+        onDraftsChange={props.onDraftsChange}
       />
     </div>
   );

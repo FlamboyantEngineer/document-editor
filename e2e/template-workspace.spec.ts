@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.js';
-import { closeCard, openCard, sectionOf, writeFields } from './template-settings-steps.js';
+import {
+  closeCard,
+  openCard,
+  sectionOf,
+  withoutEmptyText,
+  writeFields,
+} from './template-settings-steps.js';
 
 const workspace = (page: Page) => page.locator('.de-template-workspace');
 const toolbar = (page: Page) => page.getByRole('toolbar', { name: 'Template actions' });
@@ -182,10 +188,13 @@ test.describe('template workspace lab', () => {
     // About 350 fields, each typed, picked or pressed, the preview following each: about 5 minutes
     // here, 3 to 4 on a CI runner.
     test.setTimeout(900_000);
-    const fixture = JSON.parse(
-      readFileSync(
-        new URL('../test/fixtures/templates/field-report.json', import.meta.url),
-        'utf8',
+    // An emptied field inherits, so a template written field by field holds no empty text.
+    const fixture = withoutEmptyText(
+      JSON.parse(
+        readFileSync(
+          new URL('../test/fixtures/templates/field-report.json', import.meta.url),
+          'utf8',
+        ),
       ),
     ) as Record<string, Record<string, Record<string, unknown>>>;
     const leftOut = ['formatVersion', 'id', 'parent', 'sections', 'extensions'];

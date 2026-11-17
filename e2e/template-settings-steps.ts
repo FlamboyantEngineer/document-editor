@@ -63,7 +63,7 @@ const SIDES: Readonly<Record<string, string>> = {
 // The field of a style's part, by its key below the style.
 function styleField(key: string, value: unknown): Field | null {
   const fields: Readonly<Record<string, Field>> = {
-    font: { label: 'Font', kind: 'combobox', value },
+    font: { label: 'Font', kind: 'select', value },
     size: { label: 'Size', kind: 'points', value },
     weight: { label: 'Bold', kind: 'toggle', value: Number(value) >= 600 },
     italic: { label: 'Italic', kind: 'toggle', value },
@@ -99,6 +99,7 @@ function settingField(setting: TemplateSetting, value: unknown): Field {
     case 'color':
       return { label: setting.label, kind: kind.type, value };
     case 'font':
+      return { label: setting.label, kind: 'select', value };
     case 'numbering':
       return { label: setting.label, kind: 'combobox', value };
     default:
@@ -269,6 +270,27 @@ async function typeIn(field: Locator, text: string) {
   await field.press('Enter');
 }
 
+/**
+ * A template without its empty texts, and the objects they leave empty: an emptied field
+ * inherits, so a template written field by field holds none.
+ */
+export function withoutEmptyText(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutEmptyText);
+  if (typeof value !== 'object' || value === null) return value;
+  // An object left empty goes too, as the editor leaves it out.
+  const isGone = (entry: unknown) =>
+    entry === '' ||
+    (typeof entry === 'object' &&
+      entry !== null &&
+      !Array.isArray(entry) &&
+      !Object.keys(entry).length);
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, entry]) => [key, withoutEmptyText(entry)] as const)
+      .filter(([, entry]) => !isGone(entry)),
+  );
+}
+
 /** Makes a section's picks, so the fields of a step show. */
 export async function pickIn(section: Locator, picks: readonly Pick[] = []): Promise<void> {
   const page = section.page();
@@ -284,13 +306,9 @@ export async function setField(scope: Locator, step: SettingStep): Promise<void>
   const { label, value } = step;
   const page = scope.page();
   switch (step.kind) {
-    case 'text': {
-      const field = scope.getByRole('textbox', { name: label, exact: true });
-      // An empty value is typed and taken back, so the template has its own empty value.
-      if (value === '') await field.fill('1');
-      await field.fill(String(value));
-      return;
-    }
+    case 'text':
+      // An emptied field inherits, so a template written field by field holds no empty text.
+      return typeIn(scope.getByRole('textbox', { name: label, exact: true }), String(value));
     case 'points':
       return typeIn(scope.getByRole('textbox', { name: label, exact: true }), pointsOf(value));
     case 'number':
@@ -301,19 +319,17 @@ export async function setField(scope: Locator, step: SettingStep): Promise<void>
     case 'color':
       return typeIn(scope.getByRole('textbox', { name: label, exact: true }), String(value));
     case 'combobox': {
+      // Enter commits a typed format, open list or not, while no format in it is picked; the list
+      // then closes. While it is open it hides the rest of the panel, so Enter goes to the page.
       const field = scope.getByRole('combobox', { name: label, exact: true });
-      // An empty value is typed and taken back, so the template has its own empty value. The
-      // list a typed text opens is closed each time, since it hides the rest of the panel.
-      if (value === '') {
-        await field.fill('1');
-        await page.keyboard.press('Escape');
-      }
       await field.fill(String(value));
-      await page.keyboard.press('Escape');
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(field).toHaveValue(String(value));
       return;
     }
     case 'check':
-      return cycle(scope.getByRole('checkbox', { name: label, exact: true }), value, 'Space');
+      return cycle(scope.getByRole('switch', { name: label, exact: true }), value, 'Space');
     case 'toggle':
       return cycle(scope.getByRole('button', { name: label, exact: true }), value);
     case 'segment':
@@ -338,9 +354,10 @@ export async function writeFields(
   leftOut: readonly string[],
 ): Promise<void> {
   const steps = settingSteps(template, [...leftOut, 'name', 'header.content', 'footer.content']);
-  await sectionOf(settings, 'Identity')
-    .getByRole('textbox', { name: 'Name' })
-    .fill(String(template.name));
+  // A name is written on Enter.
+  const name = sectionOf(settings, 'Identity').getByRole('textbox', { name: 'Name' });
+  await name.fill(String(template.name));
+  await name.press('Enter');
   const styles = sectionOf(settings, 'Custom styles');
   const custom = Object.keys(
     (template.styles as { custom?: Record<string, unknown> }).custom ?? {},

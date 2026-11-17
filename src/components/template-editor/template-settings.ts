@@ -45,6 +45,8 @@ export interface TemplateSetting {
   readonly keywords?: readonly string[];
   /** A short caption under the field. */
   readonly hint?: string;
+  /** What the field's hover text says while it has a value of its own, such as examples. */
+  readonly tip?: string;
   /** Whether only the document's settings may set it, never a section's. */
   readonly documentOnly?: boolean;
   /** Whether it applies on pages only, so a template for the web layout has no row for it. */
@@ -107,6 +109,18 @@ export interface TemplateSettingsLabels {
   readonly sides: Readonly<Record<'top' | 'right' | 'bottom' | 'left', string>>;
   /** Names numbering's switch. */
   readonly numbered: string;
+  /** Captions a switch that is on. */
+  readonly on: string;
+  /** Captions a switch that is off. */
+  readonly off: string;
+  /** The field menu's entry that drops the field's own value for the inherited one. */
+  readonly resetToInherited: string;
+  /** Says what a field that inherits shows while hovered: where it comes from, and how to override it. */
+  readonly inheritedTitle: (source: string) => string;
+  /** Says a typed length is not one. */
+  readonly lengthInvalid: string;
+  /** Says a typed number, such as a margin's, is not a number that is zero or more. */
+  readonly numberInvalid: string;
 }
 
 /** The English text of the template editor's rows. */
@@ -115,6 +129,12 @@ export const DEFAULT_TEMPLATE_SETTINGS_LABELS: TemplateSettingsLabels = {
   styleNameInvalid: 'Start with a letter; then up to 15 letters, digits, _ or -.',
   sides: { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' },
   numbered: 'Numbered',
+  on: 'On',
+  off: 'Off',
+  resetToInherited: 'Reset to inherited value',
+  inheritedTitle: (source) => `Inherited from ${source}. Set a value to override it.`,
+  lengthInvalid: 'Type a length such as 12pt or 6mm, or a number of pixels.',
+  numberInvalid: 'Type a number that is zero or more, such as 0.125.',
 };
 
 /** A setting of a kind at a path, written with dots. */
@@ -138,12 +158,32 @@ export const choice = (...options: [string, string][]): SettingKind => ({
 });
 
 /** What a numbering format's characters number with. */
-export const NUMBERING_HINT = '1, a, A, i or I for each level, such as 1.1, A.1 or I-a)';
+export const NUMBERING_HINT =
+  '1, a, A, i or I for each level, parted by . - ) _ or a space, such as 1.1, A.1 or I-a)';
+
+/** How the text before a number reads, with examples. */
+export const NUMBER_PREFIX_TIP =
+  'Text before the number, such as “Chapter ” or “(”; left empty, it inherits';
+
+/** How the text after a number reads, with examples. */
+export const NUMBER_SUFFIX_TIP =
+  'Text after the number, such as “)” or “ –”; left empty, it inherits';
 
 /** A numbering format's setting. */
 export const numberingSetting = (path: string, label: string): TemplateSetting => ({
   ...setting(path, label, { type: 'numbering' }),
   hint: NUMBERING_HINT,
+  tip: NUMBERING_HINT,
+});
+
+/** The text before or after a number. */
+export const affixSetting = (
+  path: string,
+  label: string,
+  side: 'prefix' | 'suffix',
+): TemplateSetting => ({
+  ...setting(path, label, { type: 'text' }),
+  tip: side === 'prefix' ? NUMBER_PREFIX_TIP : NUMBER_SUFFIX_TIP,
 });
 
 /** The page sizes a template may name. */

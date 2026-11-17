@@ -583,6 +583,34 @@
   min-width: 0;
 }
 
+/* A setting's field box takes no room of its own: the field sits in the row as before. */
+.de-template-editor__setting {
+  display: contents;
+}
+
+/* A setting that inherits reads as inherited: its field greyed, the value it shows in italics. */
+.de-template-editor__setting[data-inherited] :is(input, button, [role='combobox'])::placeholder,
+.de-template-editor__setting[data-inherited] .ui-select-field__value,
+.de-template-editor__setting[data-inherited] .ui-segmented-choice {
+  font-style: italic;
+}
+
+/* A switch's caption says it inherits, and keeps the panel's background for its contrast. */
+.de-template-editor__setting[data-inherited]
+  :is(.ui-field__control, .ui-select-field__frame):not(.ui-boolean-field, .ui-boolean-field *) {
+  background: var(--ref-hover);
+}
+
+/* An inherited switch dims its track only, so its caption keeps its contrast. */
+.de-template-editor__setting[data-inherited] .ui-switch__track {
+  opacity: 0.6;
+}
+
+/* A font's name in the font list is drawn in that font. */
+.de-template-editor__font-option {
+  font-family: var(--de-font-option), sans-serif;
+}
+
 /* The template's JSON editor fills the panel it is in. */
 .de-template-json-editor {
   display: flex;

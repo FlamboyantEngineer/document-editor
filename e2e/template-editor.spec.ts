@@ -226,12 +226,17 @@ test.describe('template editor lab', () => {
     await expect(
       settings.getByText(/^Inherited from Base template: /, { exact: false }).first(),
     ).toBeAttached();
-    // A font typed or picked.
+    // A font picked from those offered, each drawn in its own font.
     const paragraph = await card(page, 'Paragraph');
-    const font = paragraph.getByRole('combobox', { name: 'Font' });
-    await font.fill('Georgia');
+    await paragraph.getByRole('button', { name: /Font$/ }).click();
+    const georgia = page.getByRole('option', { name: 'Georgia', exact: true });
+    expect(
+      await georgia
+        .locator('.de-template-editor__font-option')
+        .evaluate((element) => getComputedStyle(element).fontFamily),
+    ).toContain('Georgia');
+    await georgia.click();
     await expect.poll(() => style(page, 'p', 'font-family')).toContain('Georgia');
-    await page.keyboard.press('Tab');
     // Space before and after, in points, typed as numbers.
     const after = paragraph.getByRole('textbox', { name: 'Space after' });
     await after.fill('20');
@@ -253,7 +258,10 @@ test.describe('template editor lab', () => {
     const heading = await card(page, 'Heading 1');
     const numbering = heading.getByRole('combobox', { name: 'Numbering', exact: true });
     await numbering.fill('Ab.1x');
-    await page.keyboard.press('Escape');
+    // Enter commits the draft while no format in the list the typing opened is picked; the open
+    // list hides the rest of the panel, so Enter goes to the page.
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
     await expect(numbering).toHaveValue('A.1');
     await numbering.fill('');
     await page.getByRole('option', { name: /^I\.\s*I\., II\., III\./ }).click();

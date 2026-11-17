@@ -57,20 +57,24 @@ export function Field({
   name,
   label,
   kind,
+  tip,
 }: {
   scope: StyleScope;
   name: string;
   label: string;
   kind: SettingKind;
+  /** The field's hover text while it has a value of its own. */
+  tip?: string | undefined;
 }): ReactNode {
   const { context } = scope;
   const value = styleValue(scope, name.split('.'));
   const props: SettingRowProps = {
-    setting: { id: name, path: name.split('.'), label, kind },
+    setting: { id: name, path: name.split('.'), label, kind, ...(tip ? { tip } : {}) },
     value: value.own,
     inherited: value.inherited,
     onChange: value.set,
     inheritedLabel: context.labels.inherited,
+    fieldLabels: context.labels,
     inheritedFrom: context.target.source,
     fonts: fontsOf(context, kind.type === 'font' && kind.code),
     isDisabled: context.props.isDisabled,
@@ -263,7 +267,7 @@ export function LineHeightRow({ scope }: { scope: StyleScope }) {
         scope={scope}
         name="lineHeight"
         label={labels.lineHeight}
-        kind={{ type: 'number', min: 0.8, max: 3, step: 0.05 }}
+        kind={{ type: 'number', min: 0 }}
       />
     </PropertyRow>
   );

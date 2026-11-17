@@ -57,11 +57,12 @@ export function useRoute(props: TemplateWorkspaceProps, workspace: TemplateWorks
   }, [templateId, revision]);
 }
 
-// Saves the open template, or shows at its field what keeps it from being saved.
+// Saves the open template, or shows at its field what keeps it from being saved; a settings field
+// holding a draft that is not valid keeps it from being saved too.
 export function useSave(
   workspace: TemplateWorkspaceState,
   panel: WorkspacePanelState,
-  labels: TemplateWorkspaceLabels,
+  { labels, settingsValid }: { labels: TemplateWorkspaceLabels; settingsValid: boolean },
 ) {
   const [saveError, setSaveError] = useState<{ id?: string; parent?: string }>({});
   const idInput = useRef<HTMLInputElement>(null);
@@ -79,6 +80,11 @@ export function useSave(
       panel.onExpandedChange(true);
       if (problem === 'no-id') setFocusing(true);
       throw new Error(problem === 'no-id' ? labels.idNeeded : labels.parentCycle);
+    }
+    if (!settingsValid) {
+      panel.onPaneChange('properties');
+      panel.onExpandedChange(true);
+      throw new Error(labels.settingsInvalid);
     }
     setSaveError({});
     await workspace.save();
