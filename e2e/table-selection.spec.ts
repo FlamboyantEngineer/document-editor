@@ -123,16 +123,14 @@ test.describe('selecting in tables', () => {
     await cell(page, 'Run').click({ modifiers: ['ControlOrMeta'] });
     await expect(selected(page)).toHaveCount(2);
     await cell(page, 'Run').click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Table' }).click();
     await page.getByRole('menuitem', { name: 'Align cells' }).click();
     await page.getByRole('menuitem', { name: 'Center', exact: true }).click();
     await expect(selected(page)).toHaveCount(2);
     await expect(cell(page, 'Start')).toHaveAttribute('data-text-align', 'center');
     await expect(cell(page, 'Run')).toHaveAttribute('data-text-align', 'center');
     await cell(page, 'Run').click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Table' }).click();
-    await page.getByRole('menuitem', { name: 'Insert' }).click();
-    await page.getByRole('menuitem', { name: /column.*right/i }).click();
+    await page.getByRole('menuitem', { name: 'Insert column' }).click();
+    await page.getByRole('menuitem', { name: 'Column right' }).click();
     await expect(selected(page)).toHaveCount(2);
     // Typing into a cell the column added puts the text there.
     const added = cell(page, 'Run').locator('xpath=following-sibling::td[1]');

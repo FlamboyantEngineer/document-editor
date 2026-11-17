@@ -52,12 +52,14 @@ describe('pasting where footnotes have rules', () => {
     const marker = nodes.footnote_reference?.create({ footnoteId: 'n9' });
     const inline = new Slice(Fragment.from(marker), 0, 0);
     expect(markers(flattenFootnotePaste(inline, caretAt(heading, 'Title')))).toBe(0);
-    const cell = nodes.table_header?.create(null, nodes.paragraph?.create(null, marker));
-    const row = nodes.table_row?.create(null, cell);
-    const table = nodes.table?.create(null, row);
-    if (!table) throw new Error('No table');
+    const output = nodes.script_block?.create(null, nodes.paragraph?.create(null, marker));
+    if (!output) throw new Error('No script output');
     const body = caretAt(footnoteState([paragraph(text('Body'))]), 'Body');
-    expect(markers(flattenFootnotePaste(new Slice(Fragment.from(table), 0, 0), body))).toBe(0);
+    expect(markers(flattenFootnotePaste(new Slice(Fragment.from(output), 0, 0), body))).toBe(0);
+    const cell = nodes.table_header?.create(null, nodes.paragraph?.create(null, marker));
+    const table = nodes.table?.create(null, nodes.table_row?.create(null, cell));
+    if (!table) throw new Error('No table');
+    expect(markers(flattenFootnotePaste(new Slice(Fragment.from(table), 0, 0), body))).toBe(1);
   });
 
   it('DOCE-FOOTNOTES-1.6 keeps the markers of whole paragraphs pasted with the caret in a heading', () => {
@@ -78,14 +80,13 @@ describe('pasting where footnotes have rules', () => {
   });
 
   it('DOCE-FOOTNOTES-1.6 drops the markers of whole paragraphs that land where none may be cited', () => {
-    const header = nodes.table_header?.create(
+    const output = nodes.script_block?.create(
       null,
       nodes.paragraph?.create(null, schemaText('Head')),
     );
-    const table = nodes.table?.create(null, nodes.table_row?.create(null, header));
-    if (!table) throw new Error('No table');
+    if (!output) throw new Error('No script output');
     const source = footnoteState([paragraph(text('Body'))]);
-    const withTable = source.apply(source.tr.insert(source.selection.from - 1, table));
-    expect(markers(flattenFootnotePaste(copied(), caretAt(withTable, 'Head')))).toBe(0);
+    const withOutput = source.apply(source.tr.insert(source.selection.from - 1, output));
+    expect(markers(flattenFootnotePaste(copied(), caretAt(withOutput, 'Head')))).toBe(0);
   });
 });

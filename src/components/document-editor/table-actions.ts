@@ -197,23 +197,48 @@ function alignmentEntries(view: EditorView, labels: DocumentEditorLabels): MenuE
   );
 }
 
-/** The table entries of the context menu in a table cell: insert, merge, split, header and delete. */
-export function tableCellEntries(view: EditorView, labels: DocumentEditorLabels): MenuEntry[] {
+/**
+ * The table entries of the context menu in a table cell, at the top level in this order: insert a
+ * row, insert a column, delete, merge, split, header, distribute rows and columns, align the
+ * table (`alignTable`, the host's object alignment entry) and align the cells.
+ */
+export function tableCellEntries(
+  view: EditorView,
+  labels: DocumentEditorLabels,
+  alignTable: readonly MenuEntry[] = [],
+): MenuEntry[] {
   const item = (command: Command, entry: EntryOf) => commandEntry(view, entry, command);
   const danger = 'danger' as const;
   return [
     {
-      id: 'table-insert',
-      label: labels.insert,
+      id: 'table-insert-row',
+      label: labels.insertRow,
       icon: PlusGlyph,
       items: [
         item(insertTableLines('row', 'before'), { id: 'row-above', label: labels.rowAbove }),
         item(insertTableLines('row', 'after'), { id: 'row-below', label: labels.rowBelow }),
+      ],
+    },
+    {
+      id: 'table-insert-column',
+      label: labels.insertColumn,
+      icon: PlusGlyph,
+      items: [
         item(insertTableLines('column', 'before'), { id: 'column-left', label: labels.columnLeft }),
         item(insertTableLines('column', 'after'), {
           id: 'column-right',
           label: labels.columnRight,
         }),
+      ],
+    },
+    {
+      id: 'table-delete',
+      label: labels.delete,
+      icon: DeleteGlyph,
+      items: [
+        item(deleteRow, { id: 'delete-row', label: labels.deleteRow, tone: danger }),
+        item(deleteColumn, { id: 'delete-column', label: labels.deleteColumn, tone: danger }),
+        item(deleteTable, { id: 'delete-table', label: labels.deleteTable, tone: danger }),
       ],
     },
     item(mergeCells, { id: 'merge-cells', label: labels.mergeCells, icon: MergeCellsGlyph }),
@@ -227,14 +252,6 @@ export function tableCellEntries(view: EditorView, labels: DocumentEditorLabels)
       ],
     },
     {
-      id: 'align-cells',
-      label: labels.alignCells,
-      icon: CellAlignmentGlyph,
-      items: alignmentEntries(view, labels),
-    },
-    item(distributeColumns, { id: 'distribute-columns', label: labels.distributeColumns }),
-    item(distributeRows, { id: 'distribute-rows', label: labels.distributeRows }),
-    {
       id: 'table-header',
       label: labels.header,
       items: [
@@ -242,15 +259,14 @@ export function tableCellEntries(view: EditorView, labels: DocumentEditorLabels)
         item(toggleHeaderLines('column'), { id: 'header-column', label: labels.headerColumn }),
       ],
     },
+    item(distributeRows, { id: 'distribute-rows', label: labels.distributeRows }),
+    item(distributeColumns, { id: 'distribute-columns', label: labels.distributeColumns }),
+    ...alignTable,
     {
-      id: 'table-delete',
-      label: labels.delete,
-      icon: DeleteGlyph,
-      items: [
-        item(deleteRow, { id: 'delete-row', label: labels.deleteRow, tone: danger }),
-        item(deleteColumn, { id: 'delete-column', label: labels.deleteColumn, tone: danger }),
-        item(deleteTable, { id: 'delete-table', label: labels.deleteTable, tone: danger }),
-      ],
+      id: 'align-cells',
+      label: labels.alignCells,
+      icon: CellAlignmentGlyph,
+      items: alignmentEntries(view, labels),
     },
   ];
 }

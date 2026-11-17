@@ -567,6 +567,31 @@ div.de-host-view {
   outline-offset: -1px;
 }
 
+/* A table set to the one pixel grid draws one pixel lines in the template's border colour. */
+:where(.de-document-editor, .de-document-editor__measure)
+  table.table-border-1px
+  > tbody
+  > tr
+  > :is(td, th) {
+  border-width: 1px;
+}
+
+/* Tables in a page's header and footer take no cell padding. */
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(.pm-page-header, .pm-page-footer)
+  :is(td, th) {
+  padding: 0;
+}
+
+/* A template image in a cell stands on no line of its own (its wrapper is a block of no line
+   height) and takes no paragraph indent. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  :is(td, th)
+  [data-template-asset-image-wrapper] {
+  text-indent: 0;
+}
+
 /* Body rows take the template's odd and even backgrounds; header cells keep the header's. */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content tr:nth-child(odd) > td {
   background: var(--doc-table-row-odd-background);
@@ -647,7 +672,7 @@ div.de-host-view {
 
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  pre:not([data-code-block-continued='true']) {
+  pre:not([data-code-block-continued='true'], [data-code-block-continued='true'] > pre) {
   counter-increment: codeblock;
 }
 
@@ -671,7 +696,27 @@ div.de-host-view {
   order: var(--doc-figure-caption-order, 1);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .doc-code-caption-line {
+/* A figure's caption spans the content width; its text sits where the figure is aligned. */
+:where(.de-document-editor, .de-document-editor__measure)
+  figure[data-object-layout='center']
+  > .doc-figure-caption-line {
+  text-align: center;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  figure[data-object-layout='right']
+  > .doc-figure-caption-line {
+  text-align: right;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  figure[data-object-layout='left']
+  > .doc-figure-caption-line {
+  text-align: left;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
   order: var(--doc-code-caption-order, -1);
   font-family: var(--doc-paragraph-font-family, inherit);
 }
@@ -684,7 +729,9 @@ div.de-host-view {
   content: var(--doc-figure-counter-content, 'Figure ' counter(figure)) ' - ';
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .doc-code-caption-line::before {
+/* Linked code reads as code does, its text the name of its source. */
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
   content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
 }
 
@@ -774,7 +821,8 @@ div.de-host-view {
 
 /* A code caption's label and number in the label style, its text in the text style, each
    falling back to the other and then to the paragraph's. */
-:where(.de-document-editor, .de-document-editor__measure) .doc-code-caption-line::before {
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
   font-family: var(
     --doc-code-caption-label-font-family,
     var(--doc-code-caption-text-font-family, inherit)
@@ -794,7 +842,7 @@ div.de-host-view {
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
-  .doc-code-caption-line
+  :is(.doc-code-caption-line, .doc-linked-code-caption-line)
   > .doc-caption-text {
   font-family: var(
     --doc-code-caption-text-font-family,

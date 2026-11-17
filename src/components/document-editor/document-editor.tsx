@@ -143,6 +143,11 @@ export interface DocumentEditorProps
   active?: boolean | undefined;
   /** Whether an editable document takes changes as suggestions (`suggestTransaction`). */
   suggesting?: boolean | undefined;
+  /**
+   * Shows the grips beside the table cell under the pointer, which drag and open the menus of its
+   * row and column (DOCE-TABLES-2.1). Defaults to false: the context menu offers the same actions.
+   */
+  tableHandles?: boolean | undefined;
   /** The writer suggestions are attributed to. */
   author?: string | null | undefined;
   /** Shows the document's changes from an older version (`createVersionChanges`). */

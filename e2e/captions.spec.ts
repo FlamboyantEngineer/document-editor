@@ -73,7 +73,6 @@ test.describe('captions', () => {
   test('DOCE-TABLES-3.1 aligns a cell from the context menu', async ({ page }) => {
     const cell = firstTable(page).locator('td', { hasText: '25 ms' });
     await cell.click({ button: 'right' });
-    await item(page, 'Table').click();
     await item(page, 'Align cells').click();
     await item(page, 'Bottom right').click();
     await expect(cell).toHaveAttribute('data-text-align', 'right');

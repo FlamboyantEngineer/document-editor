@@ -166,7 +166,12 @@ const LAYOUT_GLYPHS = {
   fit: FitWidthGlyph,
 } as const;
 
-function alignEntry(view: EditorView, labels: DocumentEditorLabels, object: ProseMirrorNode) {
+/** The entry aligning the object, a figure or a table: left, centred, right or fitted. */
+export function alignEntry(
+  view: EditorView,
+  labels: DocumentEditorLabels,
+  object: ProseMirrorNode,
+): MenuEntry {
   const names = {
     left: labels.alignLeft,
     center: labels.alignCenter,
@@ -196,8 +201,8 @@ function figureEntries(view: EditorView, options: ElementEntriesOptions): MenuEn
       alignEntry(view, labels, figure.node),
     ];
   }
-  const table = around(view.state, ['table']);
-  return table && 'objectLayout' in table.node.attrs ? [alignEntry(view, labels, table.node)] : [];
+  // A table's alignment is among the table's own entries (`tableCellEntries`).
+  return [];
 }
 
 function linkEntries(view: EditorView, options: ElementEntriesOptions): MenuEntry[] {

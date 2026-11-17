@@ -1091,4 +1091,41 @@ test.describe('mixed geometry', () => {
     expect(styles.suffix?.content).not.toBe('none');
     expect(styles.label?.family).toBe(styles.text?.family);
   });
+
+  test('DOCE-LABS-4.14 aligns figure captions, labels linked code and draws one pixel tables', async ({
+    page,
+  }) => {
+    const content = page.locator('.de-document-editor__content');
+    await openDocument(page, 'figures');
+    const captions = await content
+      .locator("figure[data-object-layout]:not([data-caption-enabled='false'])")
+      .evaluateAll((figures) =>
+        figures.map((figure) => {
+          const caption = figure.querySelector('.doc-figure-caption-line') as HTMLElement;
+          return [
+            figure.getAttribute('data-object-layout'),
+            getComputedStyle(caption).textAlign,
+            Math.round(
+              caption.getBoundingClientRect().width - figure.getBoundingClientRect().width,
+            ),
+          ];
+        }),
+      );
+    // The regression document's left figure has its caption turned off.
+    for (const layout of ['center', 'right']) {
+      expect(captions.find(([shown]) => shown === layout)).toEqual([layout, layout, 0]);
+    }
+    await openDocument(page, 'linked-code');
+    const label = await content
+      .locator('.doc-linked-code-caption-line')
+      .first()
+      .evaluate((line) => getComputedStyle(line, '::before').content);
+    expect(label).toContain('counter(codeblock)');
+    await openDocument(page, 'table-merged-cells');
+    const widths = await content
+      .locator('table.table-border-1px td')
+      .first()
+      .evaluate((cell) => getComputedStyle(cell).borderTopWidth);
+    expect(widths).toBe('1px');
+  });
 });

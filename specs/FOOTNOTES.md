@@ -6,14 +6,14 @@ Inserting footnotes, keeping their entries with their markers and in order, numb
 
 ### DOCE-FOOTNOTES-1.1 - Inserting a footnote
 
-`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, before the entries of footnotes cited after it, so the area lists its entries in marker order, both numbered in document order, with the caret in the entry. Mod-Alt-F inserts one.
+`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, before the entries of footnotes cited after it, so the area lists its entries in marker order, both numbered in document order, with the caret in the entry. A marker inserted inside a comment or a suggestion, whose marks the text on both sides of the caret carries, takes those marks, so it belongs to that comment or suggestion. Mod-Alt-F inserts one.
 
 Implementation: `src/engine/footnotes.ts`
 Verification: `src/engine/footnotes.test.ts`
 
 ### DOCE-FOOTNOTES-1.2 - Where a footnote may be cited
 
-A footnote may be cited in a paragraph of the page's body, and in a paragraph whose every enclosing block, up to the page's content, is a list, a body cell of a table, a quote or a layout column (`canInsertFootnote`); elsewhere, in a heading, a code block, a header cell, a script block's output, a footnote entry or a page header or footer, inserting one is refused. `createFootnotes({ citingPlaces })` shall replace those enclosing blocks with the host's list of node type names.
+A footnote may be cited in a paragraph of the page's body, and in a paragraph whose every enclosing block, up to the page's content, is a list, a body or header cell of a table, a quote or a layout column (`canInsertFootnote`); elsewhere, in a heading, a code block, a script block's output, a footnote entry or a page header or footer, inserting one is refused. `createFootnotes({ citingPlaces })` shall replace those enclosing blocks with the host's list of node type names.
 
 Implementation: `src/engine/footnote-model.ts`, `src/engine/footnotes.ts`
 Verification: `src/engine/footnotes.test.ts`
@@ -37,7 +37,7 @@ Verification: `src/engine/footnote-reconcile.test.ts`
 
 ### DOCE-FOOTNOTES-1.4 - Finding, editing and deleting
 
-`listFootnotes(doc)` shall give each footnote's marker and entry positions by id, `footnoteAt(state)` the footnote whose marker is selected or whose entry holds the selection, `editFootnote(id)` put the caret at the end of its entry, `goToFootnoteMarker(id)` put the caret after its marker, and `deleteFootnote(id)` delete both. A double click on a marker goes to its entry, and a double click on an entry's number to its marker. The part the reader arrives at carries `data-de-revealed` (`entry` or `marker`) until the writer moves the selection or edits.
+`listFootnotes(doc)` shall give each footnote's marker and entry positions by id, `footnoteAt(state)` the footnote whose marker is selected or whose entry holds the selection, `editFootnote(id)` put the caret at the end of its entry, `goToFootnoteMarker(id)` put the caret after its marker, and `deleteFootnote(id)` delete both. The part the reader arrives at carries `data-de-revealed` (`entry` or `marker`) until the writer moves the selection or edits.
 
 Implementation: `src/engine/footnotes.ts`
 Verification: `src/engine/footnotes.test.ts`
@@ -55,6 +55,13 @@ Verification: `src/engine/footnote-marks.test.ts`
 
 Implementation: `src/engine/footnote-paste.ts`
 Verification: `src/engine/footnote-paste.test.ts`
+
+### DOCE-FOOTNOTES-1.7 - Showing the other part by double click
+
+A double click on a marker shall show its entry, and a double click on an entry's number its marker, without moving the caret or the selection, in an editable or a read-only editor: the part shown scrolls into view and carries `data-de-revealed` (`entry` or `marker`) for `FOOTNOTE_FLASH_MS` (1500 ms). The change is not an undo step.
+
+Implementation: `src/engine/footnotes.ts`
+Verification: `src/engine/footnotes.test.ts`
 
 ## DOCE-FOOTNOTES-2 - Numbering in a layout without pages
 

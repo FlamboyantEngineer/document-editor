@@ -59,7 +59,8 @@ export interface DocumentEditorLabels
   readonly paragraphAfter: string;
   readonly deleteBlock: string;
   readonly table: string;
-  readonly insert: string;
+  readonly insertRow: string;
+  readonly insertColumn: string;
   readonly delete: string;
   readonly header: string;
   readonly rowAbove: string;
@@ -180,7 +181,8 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   paragraphAfter: 'Add paragraph after',
   deleteBlock: 'Delete',
   table: 'Table',
-  insert: 'Insert',
+  insertRow: 'Insert row',
+  insertColumn: 'Insert column',
   delete: 'Delete',
   header: 'Header',
   rowAbove: 'Row above',

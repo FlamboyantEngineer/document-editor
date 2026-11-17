@@ -244,3 +244,10 @@ The regression set's `caption-numbering` document shall hold captioned figures, 
 
 Implementation: `labs/src/regression/regression-documents.ts`
 Verification: `e2e/regression.spec.ts`, `test/fixtures/documents/regression-set.test.ts`
+
+### DOCE-LABS-4.14 - Object presentation in the reference stylesheet
+
+The reference stylesheet shall align a figure's caption text where the figure is aligned (left, centred or right), the caption spanning the content width; label and number linked code as it does code, its text the name of its source, counting each linked code once however the pages split it; draw a table set to `table-border-1px` with one pixel lines in the template's border colour; give a page header's and footer's table cells no padding; and set a template image in a table cell with no paragraph indent.
+
+Implementation: `labs/reference/document.css`
+Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`
