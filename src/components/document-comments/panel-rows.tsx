@@ -2,7 +2,7 @@
 // row each under "In the document", rather than as a second card (DOCE-COMMENTS-4.13): who wrote
 // it and the text it is on, each on one line. Activating a row opens its card in the margin.
 
-import { EditGlyph, type Key } from '@flamboyantengineer/ui-components/core';
+import { ChatBubbleGlyph, EditGlyph, type Key } from '@flamboyantengineer/ui-components/core';
 import { List, ListRow } from '@flamboyantengineer/ui-components/list-row';
 import { memo, useId } from 'react';
 import type { CardContext } from './comment-cards.js';
@@ -46,7 +46,7 @@ const Row = memo(function Row({ id, title, meta, suggestion, isCurrent, onOpen }
       {...hooks.slot('row', { annotation: suggestion ? 'suggestion' : 'thread' })}
       title={title}
       meta={meta}
-      icon={suggestion ? EditGlyph : undefined}
+      icon={suggestion ? EditGlyph : ChatBubbleGlyph}
       isCurrent={isCurrent}
       onPress={() => onOpen(id)}
     />
