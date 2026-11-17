@@ -141,6 +141,11 @@ export interface DocumentCommentsOptions {
    */
   placement?: 'margin' | 'pane' | undefined;
   /**
+   * With the margin, whether starting a thread, opening one or clicking its text also shows the
+   * comments pane of the editor's side panel, as the pane placement always does. Off by default.
+   */
+  revealsPane?: boolean | undefined;
+  /**
    * Starts a thread for each of the reader's suggestions once they pause, `delay` milliseconds
    * (800 by default), and keeps it to what the suggestion does. Off by default.
    */
@@ -164,7 +169,7 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   openRef?: RefObject<OpenComment | null> | undefined;
   /** The editor's view, which the comments' changes go through (`useCommentControls`). */
   view?: EditorView | null | undefined;
-  /** With pane placement, shows the pane holding the comments, for a thread started or opened. */
+  /** Shows the pane holding the comments, for a thread started or opened (`placement`, `revealsPane`). */
   onReveal?: (() => void) | undefined;
   /** Receives what the comments do with pointer presses and clicks in the document. */
   pointerRef?: RefObject<CommentPointer | null> | undefined;
@@ -294,6 +299,17 @@ function PaneComments(props: DocumentCommentsProps) {
   return props.children;
 }
 
+// With the margin, the pane holding the comments shows too only when the host asks.
+const revealOf = (props: Pick<DocumentCommentsProps, 'revealsPane' | 'onReveal'>) =>
+  props.revealsPane ? props.onReveal : undefined;
+
+// Makes the thread just started the active one, and shows the pane holding the comments.
+const startedThen =
+  (setActive: (key: Key) => void, reveal: (() => void) | undefined) => (key: Key) => {
+    setActive(key);
+    reveal?.();
+  };
+
 function CommentsMargin(props: DocumentCommentsProps) {
   const { state, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
@@ -308,7 +324,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
     ...props,
     canComment,
     comments,
-    onStart: setActive,
+    onStart: startedThen(setActive, revealOf(props)),
   });
   useThreadUpkeep(props, comments, run);
   const items = useMemo(

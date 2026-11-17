@@ -282,6 +282,27 @@ describe('DocumentSidePanel', () => {
     await waitFor(() => expect(tab).toHaveAttribute('aria-selected', 'true'));
   });
 
+  it('DOCE-COMMENTS-4.7 reveals the comments pane from the margin only when the host asks', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const panel = { panes: ['properties', 'comments'] as const, defaultExpanded: false };
+    const { unmount } = render(
+      <Harness handleRef={handle} panel={{ ...panel, panes: [...panel.panes] }} />,
+    );
+    await waitFor(() => expect(handle.current?.openThread('one')).toBe(true));
+    expect(within(details()).queryByRole('tab', { name: /Comments/ })).not.toBeInTheDocument();
+    unmount();
+    render(
+      <Harness
+        handleRef={handle}
+        options={{ revealsPane: true }}
+        panel={{ ...panel, panes: [...panel.panes] }}
+      />,
+    );
+    await waitFor(() => expect(handle.current?.openThread('one')).toBe(true));
+    const tab = await within(details()).findByRole('tab', { name: /Comments/ });
+    await waitFor(() => expect(tab).toHaveAttribute('aria-selected', 'true'));
+  });
+
   it('DOCE-EDITOR-8.4 adds the host rows, actions and sections to the properties', async () => {
     const user = userEvent.setup();
     const onPress = vi.fn();
