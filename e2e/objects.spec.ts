@@ -17,6 +17,27 @@ async function newParagraph(page: Page, heading: string, value: string) {
   await page.keyboard.type(value);
 }
 
+// Inserts the lab's wide panel image after the heading, through the image picker, with a caption.
+async function insertWidePanel(page: Page, caption: string) {
+  await newParagraph(page, 'Power', '');
+  await toolbar(page).getByRole('button', { name: 'Figure' }).click();
+  await item(page, 'Image…').click();
+  await dialog(page).getByRole('button', { name: 'Choose an image…' }).click();
+  const picker = page.getByRole('group', { name: 'Choose an image…' });
+  await picker.getByRole('searchbox').fill('wide');
+  await picker.getByRole('row', { name: 'Wide panel' }).click();
+  await picker.getByRole('button', { name: 'Insert' }).click();
+  // The picker closes on its own Insert; under load its fade can outlast the next few steps.
+  await expect(picker).toHaveCount(0);
+  await expect(dialog(page).getByRole('figure', { name: 'Preview' })).toHaveAttribute(
+    'data-state',
+    'ready',
+  );
+  await dialog(page).getByRole('textbox', { name: 'Caption' }).fill(caption);
+  await dialog(page).getByRole('button', { name: 'Insert' }).click();
+  return content(page).locator('figure[data-file-asset-id="library-wide"]');
+}
+
 test.describe('objects', () => {
   test.beforeEach(async ({ lab }) => {
     await lab.open('full-editor');
@@ -211,32 +232,64 @@ test.describe('objects', () => {
     await expect(figure).toHaveAttribute('data-object-layout', 'center');
   });
 
-  test('DOCE-OBJECTS-1.4 places a chosen image clamped to the page and resizes it in proportion', async ({
+  test('DOCE-OBJECTS-1.4 DOCE-OBJECTS-1.11 places a chosen image clamped to the page and resizes it in proportion', async ({
     page,
   }) => {
-    await newParagraph(page, 'Power', '');
-    await toolbar(page).getByRole('button', { name: 'Figure' }).click();
-    await item(page, 'Image…').click();
-    await dialog(page).getByRole('button', { name: 'Choose an image…' }).click();
-    const picker = page.getByRole('group', { name: 'Choose an image…' });
-    await picker.getByRole('searchbox').fill('wide');
-    await picker.getByRole('row', { name: 'Wide panel' }).click();
-    await picker.getByRole('button', { name: 'Insert' }).click();
-    // The picker closes on its own Insert; under load its fade can outlast the next few steps.
-    await expect(picker).toHaveCount(0);
-    const width = dialog(page).getByRole('textbox', { name: 'Width (px)' });
-    const height = dialog(page).getByRole('textbox', { name: 'Height (px)' });
+    const figure = await insertWidePanel(page, 'The panel');
     // The 800 by 400 image is narrower than the page's content once placed.
-    const placed = Number((await width.inputValue()).replace(/,/g, ''));
+    const placed = Number(await figure.getAttribute('data-figure-width'));
     expect(placed).toBeLessThan(800);
-    await expect(height).toHaveValue(String(Math.round(placed / 2)));
+    await expect(figure).toHaveAttribute('data-figure-height', String(Math.round(placed / 2)));
+    await figure.click({ button: 'right' });
+    await item(page, 'Resize…').click();
+    const resize = page.getByRole('dialog', { name: 'Resize figure' });
+    const width = resize.getByRole('textbox', { name: 'Width (px)' });
+    await expect(width).toHaveValue(String(placed));
     await width.fill('300');
     await width.press('Tab');
-    await expect(height).toHaveValue('150');
-    await dialog(page).getByRole('button', { name: 'Insert' }).click();
-    const figure = content(page).locator('figure[data-file-asset-id="library-wide"]');
+    await expect(resize.getByRole('textbox', { name: 'Height (px)' })).toHaveValue('150');
+    await resize.getByRole('button', { name: 'Apply' }).click();
     await expect(figure).toHaveAttribute('data-figure-width', '300');
     await expect(figure).toHaveAttribute('data-figure-height', '150');
+  });
+
+  test('DOCE-OBJECTS-1.11 offers edit, resize and delete on a figure, and keeps the fitted size when aligned', async ({
+    page,
+  }) => {
+    const figure = await insertWidePanel(page, 'The panel');
+    await figure.click({ button: 'right' });
+    const names = await page.getByRole('menu').last().getByRole('menuitem').allTextContents();
+    const at = (name: string) => names.findIndex((each) => each.startsWith(name));
+    expect(at('Edit figure…')).toBeGreaterThanOrEqual(0);
+    expect(at('Resize…')).toBe(at('Edit figure…') + 1);
+    expect(at('Delete')).toBeGreaterThan(at('Resize…'));
+    await item(page, 'Edit figure…').click();
+    await expect(dialog(page).getByRole('textbox', { name: 'Caption' })).toHaveValue('The panel');
+    await expect(dialog(page).getByRole('figure', { name: 'Preview' })).toHaveAttribute(
+      'data-state',
+      'ready',
+    );
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click();
+    await figure.click({ button: 'right' });
+    await item(page, 'Align').click();
+    await choice(page, 'Page width').click();
+    await expect(figure).toHaveAttribute('data-object-layout', 'fit-page-width');
+    const fitted = await figure.locator('img').evaluate((image) => image.getBoundingClientRect());
+    await figure.click({ button: 'right' });
+    await item(page, 'Align').click();
+    await choice(page, 'Left').click();
+    await expect(figure).toHaveAttribute('data-object-layout', 'left');
+    const scale = await content(page).evaluate(
+      (element) => element.getBoundingClientRect().width / (element as HTMLElement).offsetWidth,
+    );
+    await expect(figure).toHaveAttribute(
+      'data-figure-width',
+      String(Math.round(fitted.width / scale)),
+    );
+    await figure.click({ button: 'right' });
+    await item(page, 'Align').click();
+    await choice(page, 'Left').click();
+    await expect(figure).not.toHaveAttribute('data-object-layout');
   });
 
   test('DOCE-OBJECTS-1.4 inserts a diagram from the host diagram editor, then edits it', async ({

@@ -7,6 +7,7 @@ import { type AbbreviationLabels, DEFAULT_ABBREVIATION_LABELS } from './abbrevia
 import { type BannerLabels, DEFAULT_BANNER_LABELS } from './banner-labels.js';
 import { type DebuggingLabels, DEFAULT_DEBUGGING_LABELS } from './debugging-labels.js';
 import { DEFAULT_EXPORT_LABELS, type ExportLabels } from './export-labels.js';
+import { DEFAULT_FIGURE_LABELS, type FigureLabels } from './figure-labels.js';
 import { DEFAULT_MATH_LABELS, type MathLabels } from './math-labels.js';
 import { DEFAULT_OBJECT_LABELS, type ObjectLabels } from './object-labels.js';
 import { DEFAULT_SHELL_LABELS, type ShellLabels } from './shell-labels.js';
@@ -16,6 +17,7 @@ export interface DocumentEditorLabels
   extends
     ObjectLabels,
     MathLabels,
+    FigureLabels,
     AbbreviationLabels,
     ShellLabels,
     BannerLabels,
@@ -258,6 +260,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
     `${issue.message ?? PROOFING_KINDS[issue.kind]}: ${issue.text}, ${count.format(index + 1)} of ${count.format(total)}`,
   ...DEFAULT_OBJECT_LABELS,
   ...DEFAULT_MATH_LABELS,
+  ...DEFAULT_FIGURE_LABELS,
   ...DEFAULT_SHELL_LABELS,
   ...DEFAULT_BANNER_LABELS,
   ...DEFAULT_DEBUGGING_LABELS,

@@ -6,7 +6,6 @@ import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { safeHref } from '../model/schema/dom-attributes.js';
 import { placeBlockAt } from './block-place.js';
-import { laidOutColumnWidths, writeColumnWidths } from './table-resize.js';
 import { newBlockRange } from './tables.js';
 
 // Inserts a block where a new block goes, then places the caret as `caret` asks.
@@ -204,7 +203,7 @@ export interface FigureSource {
 }
 
 // The stored layout of an object: `fit` is stored as fitting the page's width.
-const storedLayout = (layout: 'left' | 'center' | 'right' | 'fit' | null | undefined) =>
+export const storedLayout = (layout: 'left' | 'center' | 'right' | 'fit' | null | undefined) =>
   layout === 'fit' ? 'fit-page-width' : layout;
 
 // A figure source's attributes, leaving out those it does not give.
@@ -244,28 +243,6 @@ export function setFigure(source: FigureSource): Command {
     if (!found) return insertFigure(source)(state, dispatch, view);
     const attrs = { ...found.node.attrs, ...figureAttrs(source) };
     dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, attrs));
-    return true;
-  };
-}
-
-/**
- * Aligns the object selected: left, centred or right, or across the page's width (`fit`). A table
- * leaving the fit keeps the column widths it was fitted at, when the view can measure them.
- */
-export function setObjectLayout(layout: 'left' | 'center' | 'right' | 'fit' | null): Command {
-  return (state, dispatch, view) => {
-    const found = nodeAtSelection(state, ['figure', 'table']);
-    if (!found || !('objectLayout' in found.node.attrs)) return false;
-    if (dispatch) {
-      const tr = state.tr.setNodeMarkup(found.pos, undefined, {
-        ...found.node.attrs,
-        objectLayout: storedLayout(layout),
-      });
-      const leavesFit = found.node.attrs.objectLayout === 'fit-page-width' && layout !== 'fit';
-      const fitted = leavesFit && view ? laidOutColumnWidths(view, found.pos) : null;
-      if (found.node.type.name === 'table' && fitted) writeColumnWidths(tr, found.pos, fitted);
-      dispatch(tr);
-    }
     return true;
   };
 }

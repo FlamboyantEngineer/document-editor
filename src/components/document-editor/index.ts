@@ -39,6 +39,7 @@ export type { DocumentOverviewOptions } from './editor-overview.js';
 export { OVERVIEW_LAYERS } from './editor-overview.js';
 export { useDocumentEditorState } from './editor-store.js';
 export { CODE_LANGUAGES } from './element-entries.js';
+export type { FigureLabels, FigureSizeProblem } from './figure-labels.js';
 export type { LazyEditorSurface } from './lazy-surfaces.js';
 export { preloadEditorSurfaces } from './lazy-surfaces.js';
 export type { MathExample, MathLabels } from './math-labels.js';

@@ -5,7 +5,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { createEditLock } from './edit-lock.js';
-import { setObjectLayout } from './object-commands.js';
+import { setObjectLayout } from './figure-commands.js';
 import { createColumnResize, resizeColumns, setColumnWidths } from './table-resize.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
 import { markRemote } from './transaction-kind.js';

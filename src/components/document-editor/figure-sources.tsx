@@ -210,19 +210,3 @@ export function DiagramSource({
     </Button>
   );
 }
-
-/** The natural size of the image at an address, once it loads; null until then. */
-export function useNaturalSize(document: Document, url: string): FigureSize | null {
-  const [loaded, setLoaded] = useState<{ url: string; size: FigureSize } | null>(null);
-  useEffect(() => {
-    if (!url) return undefined;
-    const image = document.createElement('img');
-    image.onload = () =>
-      setLoaded({ url, size: { width: image.naturalWidth, height: image.naturalHeight } });
-    image.src = url;
-    return () => {
-      image.onload = null;
-    };
-  }, [document, url]);
-  return loaded?.url === url ? loaded.size : null;
-}

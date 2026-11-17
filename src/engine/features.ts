@@ -40,6 +40,8 @@ export {
   createContents,
 } from './contents.js';
 export { setContentsDepth, setContentsGroups } from './contents-commands.js';
+export { setFigureSize, setObjectLayout } from './figure-commands.js';
+export { laidOutFigureSize } from './figure-measure.js';
 export {
   convertMath,
   insertCharacter,
@@ -53,7 +55,6 @@ export {
   setLink,
   setLinkedCode,
   setMathSource,
-  setObjectLayout,
 } from './object-commands.js';
 export type { LineNumbers, ObjectViewsOptions } from './object-views.js';
 export { createObjectViews, lineNumbers } from './object-views.js';

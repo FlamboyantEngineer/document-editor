@@ -225,14 +225,19 @@ export function alignEntry(
   return {
     id: 'align',
     label: labels.align,
-    items: LAYOUTS.map((layout) => ({
-      ...commandEntry(
-        view,
-        { id: `align-${layout}`, label: names[layout], icon: LAYOUT_GLYPHS[layout] },
-        setObjectLayout(layout),
-      ),
-      isSelected: object.attrs.objectLayout === (layout === 'fit' ? 'fit-page-width' : layout),
-    })),
+    // Choosing the alignment checked clears it, back to the template's.
+    items: LAYOUTS.map((layout) => {
+      const isSelected =
+        object.attrs.objectLayout === (layout === 'fit' ? 'fit-page-width' : layout);
+      return {
+        ...commandEntry(
+          view,
+          { id: `align-${layout}`, label: names[layout], icon: LAYOUT_GLYPHS[layout] },
+          setObjectLayout(isSelected ? null : layout),
+        ),
+        isSelected,
+      };
+    }),
   };
 }
 
@@ -242,6 +247,11 @@ function figureEntries(view: EditorView, options: ElementEntriesOptions): MenuEn
   if (figure) {
     return [
       ...dialogEntry(options, { id: 'edit-figure', label: labels.editFigure }, { kind: 'figure' }),
+      ...dialogEntry(
+        options,
+        { id: 'resize-figure', label: labels.resizeFigure },
+        { kind: 'figure-size' },
+      ),
       alignEntry(view, labels, figure.node),
     ];
   }

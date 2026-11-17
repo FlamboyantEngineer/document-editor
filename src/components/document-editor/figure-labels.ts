@@ -1,0 +1,78 @@
+// The text of the editor's chrome for figures: inserting an image or a diagram, the figure dialog
+// and its sources, and the resize dialog. Part of the editor's labels (`DocumentEditorLabels`).
+
+/** Why a figure's size is refused: not whole pixels, below the smallest, or above the widest. */
+export interface FigureSizeProblem {
+  readonly side: 'width' | 'height';
+  readonly kind: 'whole' | 'min' | 'max';
+  /** The smallest or widest size, in pixels. */
+  readonly limit: number;
+}
+
+/** The text of the figure controls, menus and dialogs. */
+export interface FigureLabels {
+  readonly figure: string;
+  /** The figure menu's entries, which insert an image or a diagram. */
+  readonly imageFigure: string;
+  readonly diagramFigure: string;
+  /** Names the choice between an image and a diagram, and each kind. */
+  readonly figureType: string;
+  readonly figureTypes: Readonly<Record<'image' | 'diagram', string>>;
+  readonly chooseImage: string;
+  /** Opens the host's diagram editor on a new diagram, or on the figure's. */
+  readonly drawDiagram: (existing: boolean) => string;
+  readonly diagramEditing: string;
+  readonly diagramFailed: string;
+  readonly height: string;
+  readonly keepProportions: string;
+  readonly editFigure: string;
+  readonly figureFile: string;
+  readonly figureAddress: string;
+  readonly altText: string;
+  readonly width: string;
+  readonly uploading: string;
+  readonly uploadFailed: string;
+  /** Opens the resize dialog of the figure selected, and its title. */
+  readonly resizeFigure: string;
+  readonly resizeFigureTitle: string;
+  /** Under the width field: the widest a figure takes, the page content width, in pixels. */
+  readonly figureMaxWidth: (max: number) => string;
+  /** Why a size the writer typed is refused. */
+  readonly figureSizeProblem: (problem: FigureSizeProblem) => string;
+  /** Names the figure dialog's preview of the image, and what it shows before there is one. */
+  readonly figurePreview: string;
+  readonly figurePreviewEmpty: string;
+}
+
+/** The figure controls' English text. */
+export const DEFAULT_FIGURE_LABELS: FigureLabels = {
+  figure: 'Figure',
+  imageFigure: 'Image…',
+  diagramFigure: 'Diagram…',
+  figureType: 'Figure type',
+  figureTypes: { image: 'Image', diagram: 'Diagram' },
+  chooseImage: 'Choose an image…',
+  drawDiagram: (existing) => (existing ? 'Edit diagram…' : 'Draw diagram…'),
+  diagramEditing: 'Editing the diagram…',
+  diagramFailed: 'The diagram could not be saved.',
+  height: 'Height (px)',
+  keepProportions: 'Keep proportions',
+  editFigure: 'Edit figure…',
+  figureFile: 'Upload an image',
+  figureAddress: 'Image address',
+  altText: 'Alternative text',
+  width: 'Width (px)',
+  uploading: 'Uploading…',
+  uploadFailed: 'The image could not be uploaded.',
+  resizeFigure: 'Resize…',
+  resizeFigureTitle: 'Resize figure',
+  figureMaxWidth: (max) => `At most ${String(max)} px, the page content width.`,
+  figureSizeProblem: ({ side, kind, limit }) => {
+    const name = side === 'width' ? 'The width' : 'The height';
+    if (kind === 'whole') return `${name} must be a whole number of pixels.`;
+    if (kind === 'min') return `${name} must be at least ${String(limit)} px.`;
+    return `${name} can be at most ${String(limit)} px, the page content width.`;
+  },
+  figurePreview: 'Preview',
+  figurePreviewEmpty: 'The image shows here once it is chosen.',
+};

@@ -18,12 +18,14 @@ export type DocumentMarkup = 'all' | 'simple' | 'final' | 'original';
 
 /**
  * A dialog of the editor's that inserts or changes an object at the selection: math, inline or as
- * a block, a figure, a link, linked code, the caption of a table, figure or code block, a reference
+ * a block, a figure or its size, a link, linked code, the caption of a table, figure or code block, a reference
  * or an abbreviation, or one of the host's own. It changes the object selected, or inserts one.
  */
 export type ObjectDialog =
   | { readonly kind: 'math'; readonly display: boolean }
   | { readonly kind: 'figure'; readonly figureType?: 'image' | 'diagram' | undefined }
+  /** Resizes the figure selected. */
+  | { readonly kind: 'figure-size' }
   | { readonly kind: 'link' }
   | { readonly kind: 'linked-code' }
   | { readonly kind: 'caption' }

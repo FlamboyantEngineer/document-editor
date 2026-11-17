@@ -10,6 +10,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { parseCodeLines, readDocumentFile, type StoredNode } from '../model/index.js';
 import { setContentsDepth } from './contents-commands.js';
 import { documentKeys } from './document-editing.js';
+import { setObjectLayout } from './figure-commands.js';
 import {
   convertMath,
   insertCharacter,
@@ -23,7 +24,6 @@ import {
   setLink,
   setLinkedCode,
   setMathSource,
-  setObjectLayout,
 } from './object-commands.js';
 import { suggestTransaction } from './suggestions.js';
 

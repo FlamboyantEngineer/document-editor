@@ -1,48 +1,59 @@
 import { describe, expect, it } from 'vitest';
-import { clampFigureSize, FIGURE_BOUNDS, resizeFigure, sizeRatio } from './figure-size.js';
+import {
+  clampFigureSize,
+  FIGURE_BOUNDS,
+  figureSideProblem,
+  RESIZE_BOUNDS,
+  sizeRatio,
+  typeFigureSide,
+} from './figure-size.js';
 
 const PAGE = { min: 16, maxWidth: 600, maxHeight: 900 };
 
-describe('resizeFigure', () => {
-  it('DOCE-OBJECTS-1.4 keeps the proportions while locked, from either side', () => {
-    const sizing = { locked: true, ratio: 2, bounds: PAGE };
+describe('typeFigureSide', () => {
+  it('DOCE-OBJECTS-1.11 keeps the proportions in whole pixels while locked, from either side', () => {
+    const locked = { locked: true, ratio: 4 / 3 };
     expect(
-      resizeFigure({ width: 400, height: 200 }, { side: 'width', value: 300 }, sizing),
-    ).toEqual({ width: 300, height: 150 });
+      typeFigureSide({ width: 400, height: 300 }, { side: 'width', value: 200 }, locked),
+    ).toEqual({ width: 200, height: 150 });
     expect(
-      resizeFigure({ width: 400, height: 200 }, { side: 'height', value: 100 }, sizing),
-    ).toEqual({ width: 200, height: 100 });
-    expect(
-      resizeFigure({ width: 400, height: 200 }, { side: 'width', value: null }, sizing),
-    ).toEqual({ width: null, height: null });
+      typeFigureSide({ width: 400, height: 300 }, { side: 'height', value: 100 }, locked),
+    ).toEqual({ width: 133, height: 100 });
   });
 
-  it('DOCE-OBJECTS-1.4 sets each side on its own while unlocked or without proportions', () => {
-    const unlocked = { locked: false, ratio: 2, bounds: PAGE };
+  it('DOCE-OBJECTS-1.11 leaves an out-of-bounds size as typed, and each side alone while unlocked', () => {
+    const locked = { locked: true, ratio: 2 };
     expect(
-      resizeFigure({ width: 400, height: 200 }, { side: 'height', value: 300 }, unlocked),
-    ).toEqual({ width: 400, height: 300 });
-    const unknown = { locked: true, ratio: null, bounds: PAGE };
+      typeFigureSide({ width: 400, height: 200 }, { side: 'width', value: 5000 }, locked),
+    ).toEqual({ width: 5000, height: 2500 });
+    const unlocked = { locked: false, ratio: 2 };
     expect(
-      resizeFigure({ width: null, height: null }, { side: 'width', value: 250 }, unknown),
-    ).toEqual({ width: 250, height: null });
+      typeFigureSide({ width: 400, height: 200 }, { side: 'height', value: 0 }, unlocked),
+    ).toEqual({ width: 400, height: 0 });
+  });
+});
+
+describe('figureSideProblem', () => {
+  const bounds = { ...RESIZE_BOUNDS, maxWidth: 600 };
+
+  it('DOCE-OBJECTS-1.11 accepts whole pixels from 1 to the page content width', () => {
+    expect(figureSideProblem('width', 1, bounds)).toBeNull();
+    expect(figureSideProblem('width', 600, bounds)).toBeNull();
+    expect(figureSideProblem('height', 4000, bounds)).toBeNull();
   });
 
-  it('DOCE-OBJECTS-1.4 clamps to the page, keeping the proportions while locked', () => {
-    const locked = { locked: true, ratio: 2, bounds: PAGE };
-    expect(
-      resizeFigure({ width: 400, height: 200 }, { side: 'width', value: 1200 }, locked),
-    ).toEqual({ width: 600, height: 300 });
-    expect(resizeFigure({ width: 400, height: 200 }, { side: 'height', value: 4 }, locked)).toEqual(
-      {
-        width: 32,
-        height: 16,
-      },
-    );
-    const unlocked = { locked: false, ratio: 2, bounds: PAGE };
-    expect(
-      resizeFigure({ width: 400, height: 200 }, { side: 'width', value: 1200 }, unlocked),
-    ).toEqual({ width: 600, height: 200 });
+  it('DOCE-OBJECTS-1.11 says why a side is refused', () => {
+    expect(figureSideProblem('width', 0, bounds)).toEqual({ side: 'width', kind: 'min', limit: 1 });
+    expect(figureSideProblem('width', 601, bounds)).toEqual({
+      side: 'width',
+      kind: 'max',
+      limit: 600,
+    });
+    expect(figureSideProblem('height', 2.5, bounds)).toEqual({
+      side: 'height',
+      kind: 'whole',
+      limit: 1,
+    });
   });
 });
 
