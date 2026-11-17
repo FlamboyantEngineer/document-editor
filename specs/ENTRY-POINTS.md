@@ -61,3 +61,10 @@ Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/obj
 
 Implementation: `src/components/document-editor/lazy-surfaces.ts`, `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `labs/src/host-panel.tsx`
 Verification: `src/components/document-editor/lazy-surfaces.test.ts`
+
+### DOCE-ENTRY-2.4 - A dialog that fails to load
+
+A dialog of DOCE-ENTRY-2.2 whose code fails to load, as a dropped connection may make it, shall close and tell the writer through the host's `feedback` (`dialogUnavailable`), and load again the next time it opens rather than failing for good (`lazyDialog`).
+
+Implementation: `src/components/document-editor/lazy-dialog.tsx`, `src/components/document-editor/object-dialogs.tsx`
+Verification: `src/components/document-editor/lazy-dialog.test.tsx`

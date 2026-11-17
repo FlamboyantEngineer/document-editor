@@ -1,7 +1,14 @@
-// The context menu's entries for the abbreviation selected: its form and turning it into text,
-// and, when its glossary entry needs the writer, citing another entry through the abbreviation
-// dialog or, for a duplicate, one of the other entries the document cites that read the same.
+// The context menu's entries for the abbreviation selected, each with its glyph: citing another
+// entry through the abbreviation dialog and, for a duplicate, one of the other entries the document
+// cites that read the same, then its form and turning it into text.
 
+import {
+  CollapseGlyph,
+  EditGlyph,
+  ExpandGlyph,
+  LinkGlyph,
+  UnlinkGlyph,
+} from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { EditorView } from 'prosemirror-view';
 import {
@@ -23,24 +30,28 @@ interface AbbreviationEntriesOptions {
   readonly openDialog: ((dialog: ObjectDialog) => void) | null;
 }
 
-// Citing another entry, for an abbreviation whose entry is missing, archived or a duplicate.
+// Citing another entry, and, for a duplicate, the other entries the document cites that read the
+// same.
 function relinkEntries(view: EditorView, { labels, openDialog }: AbbreviationEntriesOptions) {
-  const issue = abbreviationIssueAt(view.state);
-  if (!issue) return [];
   const entries: MenuEntry[] = [];
   if (openDialog) {
     entries.push({
       id: 'relink-abbreviation',
       label: labels.relinkAbbreviation,
+      icon: EditGlyph,
       onAction: () => openDialog({ kind: 'abbreviation' }),
     });
   }
-  if (issue !== 'duplicate') return entries;
+  if (abbreviationIssueAt(view.state) !== 'duplicate') return entries;
   return entries.concat(
     abbreviationAlternatives(view.state).map((entry) =>
       commandEntry(
         view,
-        { id: `use-abbreviation-${entry.id}`, label: labels.useAbbreviation(entry) },
+        {
+          id: `use-abbreviation-${entry.id}`,
+          label: labels.useAbbreviation(entry),
+          icon: LinkGlyph,
+        },
         relinkAbbreviation(entry),
       ),
     ),
@@ -60,12 +71,16 @@ export function abbreviationEntries(
     ...relinkEntries(view, options),
     commandEntry(
       view,
-      { id: 'abbreviation-form', label: labels.abbreviationForm(short) },
+      {
+        id: 'abbreviation-form',
+        label: labels.abbreviationForm(short),
+        icon: short ? ExpandGlyph : CollapseGlyph,
+      },
       setAbbreviationDisplay(),
     ),
     commandEntry(
       view,
-      { id: 'unlink-abbreviation', label: labels.unlinkAbbreviation },
+      { id: 'unlink-abbreviation', label: labels.unlinkAbbreviation, icon: UnlinkGlyph },
       unlinkAbbreviation,
     ),
   ];

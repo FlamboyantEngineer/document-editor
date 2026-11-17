@@ -12,6 +12,7 @@ import {
   citedNumber,
   citedOrder,
   citedText,
+  dropUnnamedCitations,
 } from './reference-entries.js';
 
 /**
@@ -52,6 +53,11 @@ export interface ContentsKind {
   readonly unique?: boolean | undefined;
   /** What makes two entries one for `unique`: their number and text by default. */
   readonly identity?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
+  /**
+   * Leaves out the entries another entry of the list already says more about, before `unique`,
+   * such as a citation that recorded no document number beside one of the same document that did.
+   */
+  readonly drop?: ((entries: readonly CatalogEntry[]) => CatalogEntry[]) | undefined;
   /**
    * An entry's group: the entries of a kind that groups are listed group by group, each under a
    * heading its list's labels name, after `sort`, and a list may show only some groups.
@@ -148,6 +154,7 @@ export const DEFAULT_CONTENTS_KINDS = {
     after: true,
     unique: true,
     identity: citedIdentity,
+    drop: dropUnnamedCitations,
     group: citedGroup,
     groups: [EXTERNAL_DOCUMENT_REFERENCE_TYPE],
     order: citedOrder,

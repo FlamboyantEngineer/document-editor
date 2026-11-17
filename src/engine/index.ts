@@ -5,6 +5,7 @@ export type { AbbreviationDisplay, AbbreviationEntry } from './abbreviations.js'
 export {
   abbreviationAlternatives,
   abbreviationAt,
+  abbreviationReadings,
   documentAbbreviations,
   insertAbbreviation,
   refreshAbbreviations,

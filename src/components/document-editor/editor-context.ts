@@ -28,6 +28,8 @@ export type ObjectDialog =
   | { readonly kind: 'linked-code' }
   | { readonly kind: 'caption' }
   | { readonly kind: 'reference'; readonly reference?: 'internal' | 'external' | undefined }
+  /** Confirms taking the update of the citation at the selection. */
+  | { readonly kind: 'reference-update' }
   | { readonly kind: 'abbreviation' }
   | { readonly kind: 'script' }
   /** One of the host's own dialogs (`dialogs`), by its name, with what the opener hands it. */

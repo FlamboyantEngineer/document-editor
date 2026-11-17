@@ -111,7 +111,10 @@ function createMemoryAssets(): AssetAdapter {
   };
 }
 
-/** Keeps a glossary in memory: entries found by their abbreviation or expansion, added with ids. */
+/**
+ * Keeps a glossary in memory: entries found by their abbreviation or expansion, added with ids, an
+ * entry that reads as one it has refused as a conflict.
+ */
 function createMemoryGlossary(initial: readonly GlossaryEntry[], now: () => Date): GlossaryAdapter {
   const entries = new Map(initial.map((entry) => [entry.id, { ...entry }]));
   const copy = (entry: GlossaryEntry): GlossaryEntry => ({ ...entry });
@@ -127,6 +130,15 @@ function createMemoryGlossary(initial: readonly GlossaryEntry[], now: () => Date
           .map(copy),
       }),
     create: ({ abbreviation, expansion }) => {
+      const same = (text: string, other: string) =>
+        text.trim().toLowerCase() === other.trim().toLowerCase();
+      const taken = [...entries.values()].some(
+        (entry) =>
+          !entry.archivedAt &&
+          same(entry.abbreviation, abbreviation) &&
+          same(entry.expansion, expansion),
+      );
+      if (taken) return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
       const at = now().toISOString();
       const entry: GlossaryEntry = {
         id: `glossary-${String(entries.size + 1)}`,

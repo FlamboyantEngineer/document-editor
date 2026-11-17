@@ -13,6 +13,8 @@ import {
   referenceAt,
   type ReferenceSource,
   referenceTargets,
+  referenceUpdateText,
+  updateReference,
 } from '../../engine/index.js';
 import type { ReferenceSourceAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
@@ -54,6 +56,7 @@ function InternalReferenceDialog({
     <EditorModal
       view={view}
       onClose={onClose}
+      isDismissable
       data-dialog="reference"
       data-reference="internal"
       title={titleOf(labels.internalReference)}
@@ -86,6 +89,42 @@ function InternalReferenceDialog({
         defaultInputValue={target?.label}
         onChange={setTargetId}
       />
+    </EditorModal>
+  );
+}
+
+/**
+ * Confirms taking the update of the citation holding the selection: what it reads now and what it
+ * will read, as the template formats it, before only that citation is changed.
+ */
+export function ReferenceUpdateDialog({
+  view,
+  labels,
+  onClose,
+  template,
+}: DialogProps & { template: TemplateFile }) {
+  const [shown] = useState(() => {
+    const current = referenceAt(view.state);
+    const now = current ? view.state.doc.textBetween(current.from, current.to) : '';
+    return { now, next: referenceUpdateText(view.state, template) ?? now };
+  });
+  return (
+    <EditorModal
+      view={view}
+      onClose={onClose}
+      data-dialog="reference-update"
+      title={titleOf(labels.updateReference)}
+      primaryAction={applying(view, {
+        label: labels.updateAction,
+        command: updateReference(template),
+      })}
+    >
+      <dl>
+        <dt>{labels.referenceReadsNow}</dt>
+        <dd>{shown.now}</dd>
+        <dt>{labels.referenceWillRead}</dt>
+        <dd>{shown.next}</dd>
+      </dl>
     </EditorModal>
   );
 }

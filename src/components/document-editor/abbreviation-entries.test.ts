@@ -87,4 +87,29 @@ describe('abbreviation entries', () => {
     });
     view.destroy();
   });
+
+  it('DOCE-REFERENCES-3.2 offers to cite another entry for any abbreviation, each entry with its glyph', () => {
+    const view = viewOf();
+    // The second abbreviation, once its entry reads otherwise, has no issue.
+    recordGlossaryEntries(['g2'], [{ id: 'g2', abbreviation: 'GSU', archivedAt: null }])(
+      view.state,
+      view.dispatch,
+    );
+    let second = -1;
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'abbreviation_reference') second = pos;
+    });
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, second)));
+    const entries = abbreviationEntries(view, {
+      labels: DEFAULT_EDITOR_LABELS,
+      openDialog: vi.fn(),
+    }) as MenuItemEntry[];
+    expect(entries.map((entry) => entry.id)).toEqual([
+      'relink-abbreviation',
+      'abbreviation-form',
+      'unlink-abbreviation',
+    ]);
+    expect(entries.every((entry) => entry.icon)).toBe(true);
+    view.destroy();
+  });
 });

@@ -222,6 +222,7 @@ export function ExternalReferenceDialog({
     <EditorModal
       view={view}
       onClose={onClose}
+      isDismissable
       data-dialog="reference"
       data-reference="external"
       title={titleOf(labels.externalReference)}

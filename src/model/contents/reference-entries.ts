@@ -6,6 +6,7 @@
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { readReferenceBaseline } from '../reference-format.js';
+import type { CatalogEntry } from './contents-kinds.js';
 
 const attrText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
@@ -103,3 +104,25 @@ export const citedAttrs = (
   _node: ProseMirrorNode,
   mark?: Mark,
 ): Readonly<Record<string, unknown>> => mark?.attrs ?? {};
+
+// The document a citation's entry names: its reference type and target.
+const documentOf = (entry: CatalogEntry) =>
+  `${attrText(entry.cites?.refType)}\u0000${attrText(entry.cites?.targetId)}`;
+
+/**
+ * The citations without those that recorded no document number where a citation of the same
+ * document, by its target, did: such a citation, stored before its parts were recorded or pasted from where they
+ * were not, lists as the words it reads, a second and worse row for one document. A document cited
+ * only that way still lists.
+ */
+export function dropUnnamedCitations(entries: readonly CatalogEntry[]): CatalogEntry[] {
+  const named = new Set(
+    entries.filter((entry) => attrText(entry.cites?.docNumber)).map(documentOf),
+  );
+  return entries.filter(
+    (entry) =>
+      Boolean(attrText(entry.cites?.docNumber)) ||
+      !attrText(entry.cites?.targetId) ||
+      !named.has(documentOf(entry)),
+  );
+}

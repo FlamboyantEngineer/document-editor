@@ -230,6 +230,29 @@ describe('copying a link to the content', () => {
     const menu = await openMenu(user);
     expect(within(menu).queryByRole('menuitem', { name: /Copy link/ })).not.toBeInTheDocument();
   });
+
+  it('DOCE-EDITOR-3.1 keeps the selection on a secondary click where the host asks', async () => {
+    const user = userEvent.setup();
+    const handleRef = createRef<DocumentEditorHandle>();
+    const keepSelection = vi.fn((element: Element) => element.textContent === 'Linked');
+    render(
+      <Harness initial={linkedState()} handleRef={handleRef} contextMenu={{ keepSelection }} />,
+    );
+    const view = () => {
+      const current = handleRef.current?.view();
+      if (!current) throw new Error('The editor is mounted');
+      return current;
+    };
+    act(() => {
+      const { state } = view();
+      view().dispatch(state.tr.setSelection(NodeSelection.create(state.doc, 0)));
+    });
+    const before = view().state.selection;
+    await user.pointer({ keys: '[MouseRight]', target: screen.getByText('Linked') });
+    await screen.findByRole('menu');
+    expect(keepSelection).toHaveBeenCalled();
+    expect(view().state.selection.toJSON()).toEqual(before.toJSON());
+  });
 });
 
 // A document of one table, the caret in its first body cell.
