@@ -58,6 +58,22 @@ async function selectText(page: Page, value: string) {
   await page.mouse.up();
 }
 
+// Where a list opened at the caret sits: `below` its line, `above` it, or across it, with the
+// boxes when it is not below so a failure shows them.
+async function listPlacement(page: Page, list: ReturnType<Page['getByRole']>) {
+  const box = await list.locator('xpath=..').boundingBox();
+  const line = await page.evaluate(() => {
+    const selection = document.getSelection();
+    if (!selection?.rangeCount) return null;
+    const { top, bottom } = selection.getRangeAt(0).getBoundingClientRect();
+    return { top, bottom };
+  });
+  if (!box || !line) return 'not shown';
+  if (box.y >= line.bottom) return 'below';
+  const where = box.y + box.height <= line.top ? 'above' : 'across';
+  return `${where}: list ${String(box.y)}+${String(box.height)}, line ${String(line.top)}-${String(line.bottom)}`;
+}
+
 // Opens the context menu with a secondary click inside a text.
 async function openMenuAt(page: Page, value: string) {
   const point = await pointAt(page, value);
@@ -381,9 +397,11 @@ test.describe('document editor lab', () => {
     await expect(list).toBeVisible();
     await page.keyboard.type('head');
     await expect(list.getByRole('option').first()).toHaveText('Heading 1');
-    // Below the slash, focus still in the document. The unfiltered list may open above the slash,
-    // where it fits, and moves below once filtering shortens it, a frame after its options change.
-    await expect.poll(async () => (await list.boundingBox())?.y ?? 0).toBeGreaterThan(point.y);
+    // Below the slash once filtering shortens it enough to fit there, focus still in the
+    // document. The unfiltered list may open above the slash, where it fits, and moves below a
+    // frame after its options change. Measured against the slash's own line as it is now: the
+    // pages may have moved it since the click.
+    await expect.poll(() => listPlacement(page, list)).toBe('below');
     await expect(content(page)).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
