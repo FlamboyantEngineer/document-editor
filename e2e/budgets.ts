@@ -87,6 +87,18 @@ export const BUDGETS = {
     target: '≤ 5',
     meets: atMost(5),
   },
+  suggestSectionsRelaid: {
+    bar: 'Suggested keystroke, link and decision, 1600 blocks',
+    metric: 'sections relaid',
+    target: '≤ 1',
+    meets: atMost(1),
+  },
+  suggestBlocksMeasured: {
+    bar: 'Suggested keystroke, link and decision, 1600 blocks',
+    metric: 'blocks measured',
+    target: '≤ 5',
+    meets: atMost(5),
+  },
   wheel5: {
     bar: 'Wheel scroll',
     metric: 'layouts per wheel, 5 pages',
@@ -467,6 +479,36 @@ export async function measureRemoteKeystrokes(lab: LabFixture, page: Page) {
   return {
     inLineLayouts: Math.max(...inLine.map((each) => each.layouts)),
     newLineMissed: newLine.filter((each) => each.layouts === 0).length,
+    layouts: worst('layouts'),
+    sectionsRelaid: worst('sectionsRelaid'),
+    blocksMeasured: worst('blocksMeasured'),
+  };
+}
+
+/**
+ * A remote writer's suggestion in 1600 blocks, five times over: a suggested keystroke inside a
+ * line, its thread named on it, and its acceptance, none of which changes a block's height. The
+ * most layouts, sections relaid and blocks measured by any one of them.
+ */
+export async function measureSuggestionSteps(lab: LabFixture, page: Page) {
+  await openScale(lab, page, SIZE.remote1600);
+  const step = async (run: () => void) => {
+    const before = await stats(page);
+    await page.evaluate(run);
+    await settle(page);
+    return difference(await stats(page), before);
+  };
+  const suggested = page.locator('.de-document-editor__content ins');
+  const steps: PaginationStats[] = [];
+  for (let index = 0; index < 5; index += 1) {
+    steps.push(await step(() => window.stressLab.suggestRemotely('x')));
+    await expect(suggested).toHaveCount(1);
+    steps.push(await step(() => window.stressLab.linkSuggestions()));
+    steps.push(await step(() => window.stressLab.acceptSuggestions()));
+    await expect(suggested).toHaveCount(0);
+  }
+  const worst = (key: keyof PaginationStats) => Math.max(...steps.map((each) => each[key]));
+  return {
     layouts: worst('layouts'),
     sectionsRelaid: worst('sectionsRelaid'),
     blocksMeasured: worst('blocksMeasured'),

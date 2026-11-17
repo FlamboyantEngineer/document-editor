@@ -47,8 +47,8 @@ const OWN: TemplateFile = {
   parent: BASE_TEMPLATE_ID,
 };
 
-// The fonts the host offers in the font fields.
-const FONTS = ['Geist', 'Source Serif', 'Atkinson Hyperlegible'];
+// The fonts the host offers in the font fields: the lab's served fonts, and Georgia, a system font the field-by-field template uses.
+const FONTS = ['Geist', 'Source Serif', 'Atkinson Hyperlegible', 'Georgia'];
 
 const resolve = (template: TemplateFile) =>
   resolveTemplateFile(template, {

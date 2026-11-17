@@ -5,6 +5,12 @@
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useState } from 'react';
 import type { DocumentEditorHandle } from '../../../src/components/index.js';
+import {
+  acceptAllSuggestions,
+  linkSuggestionThread,
+  listSuggestions,
+  suggestTransaction,
+} from '../../../src/engine/index.js';
 import type { LayoutState, PaginationStats } from '../../../src/pagination/index.js';
 
 /** The stress lab's probe on `window.stressLab`. */
@@ -20,6 +26,12 @@ export interface StressProbe {
    * character would change the block's height.
    */
   typeRemotelyToLineEnd(): void;
+  /** Types text into the middle text block as a suggestion, a character a transaction. */
+  suggestRemotely(text: string): void;
+  /** Names a thread on every suggestion that has none, as the suggestion threads do. */
+  linkSuggestions(): void;
+  /** Accepts every suggestion, which leaves the text as it is drawn. */
+  acceptSuggestions(): void;
 }
 
 // Where the middle text block of a document ends.
@@ -40,6 +52,28 @@ export function typeRemotely(view: EditorView, text: string): void {
     view.dispatch(view.state.tr.insertText(character, at).setMeta('addToHistory', false));
   }
 }
+
+/** Types text as a remote writer's suggestion: each character its own change. */
+export function suggestRemotely(view: EditorView, text: string): void {
+  for (const character of text) {
+    const at = middleEnd(view);
+    if (at === null) return;
+    const { state } = view;
+    const tr = suggestTransaction(state.tr.insertText(character, at), state, { author: 'remote' });
+    if (tr) view.dispatch(tr.setMeta('addToHistory', false));
+  }
+}
+
+// Names a thread on each suggestion without one, then accepts every suggestion.
+const SUGGESTION_STEPS = {
+  link: (view: EditorView) => {
+    for (const suggestion of listSuggestions(view.state.doc)) {
+      if (suggestion.thread) continue;
+      linkSuggestionThread(suggestion.id, `t-${suggestion.id}`)(view.state, view.dispatch);
+    }
+  },
+  accept: (view: EditorView) => acceptAllSuggestions(view.state, view.dispatch),
+};
 
 // The height the middle text block is drawn at, or null when it is not drawn.
 function middleHeight(view: EditorView): number | null {
@@ -80,6 +114,18 @@ export function useStressProbe(
       typeRemotelyToLineEnd: () => {
         const view = handle.current?.view();
         if (view) typeRemotelyToLineEnd(view);
+      },
+      suggestRemotely: (text) => {
+        const view = handle.current?.view();
+        if (view) suggestRemotely(view, text);
+      },
+      linkSuggestions: () => {
+        const view = handle.current?.view();
+        if (view) SUGGESTION_STEPS.link(view);
+      },
+      acceptSuggestions: () => {
+        const view = handle.current?.view();
+        if (view) SUGGESTION_STEPS.accept(view);
       },
     };
     Object.assign(window, { stressLab: probe });

@@ -92,6 +92,14 @@ function byTextBlock(doc: ProseMirrorNode, { from, to }: CommentRange): CommentR
   return parts;
 }
 
+// A text block's element id: its own, or a footnote's text, which has none, by its footnote's id.
+function elementOf(block: ProseMirrorNode): string | null {
+  const id: unknown = block.attrs.dataId;
+  if (typeof id === 'string' && id) return id;
+  const footnote: unknown = block.type.name === 'footnote_entry' ? block.attrs.footnoteId : null;
+  return typeof footnote === 'string' && footnote ? footnote : null;
+}
+
 // The target of ranges, each cut to the text blocks it covers, every one with an element id.
 function targetOf(
   doc: ProseMirrorNode,
@@ -101,8 +109,8 @@ function targetOf(
   const ranges: CommentTargetRange[] = [];
   for (const { from, to } of found.flatMap((range) => byTextBlock(doc, range))) {
     const $from = doc.resolve(from);
-    const element: unknown = $from.parent.attrs.dataId;
-    if (typeof element !== 'string' || !element) return null;
+    const element = elementOf($from.parent);
+    if (!element) return null;
     const start = $from.parentOffset;
     ranges.push({
       element,
@@ -114,16 +122,18 @@ function targetOf(
   return ranges.length ? { ranges, quote } : null;
 }
 
-// The text blocks of a document by element id, found in one walk.
+// The text blocks of a document by element id, found in one walk; a footnote's text by its
+// footnote's id only where no block has that id of its own.
 function blocksById(doc: ProseMirrorNode) {
   const blocks = new Map<string, { node: ProseMirrorNode; start: number }>();
+  const footnotes = new Map<string, { node: ProseMirrorNode; start: number }>();
   doc.descendants((node, pos) => {
-    const id: unknown = node.attrs.dataId;
-    if (node.isTextblock && typeof id === 'string' && !blocks.has(id)) {
-      blocks.set(id, { node, start: pos + 1 });
-    }
+    const id = node.isTextblock ? elementOf(node) : null;
+    const into = node.attrs.dataId === id ? blocks : footnotes;
+    if (id && !into.has(id)) into.set(id, { node, start: pos + 1 });
     return !node.isTextblock;
   });
+  for (const [id, block] of footnotes) if (!blocks.has(id)) blocks.set(id, block);
   return blocks;
 }
 
