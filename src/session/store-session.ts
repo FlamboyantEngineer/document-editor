@@ -25,6 +25,7 @@ import {
   openStoredDocument,
   readStored,
 } from './open-document.js';
+import { createPendingEdits } from './pending-edits.js';
 import { followSession } from './session-follow.js';
 import type { SessionStatus } from './status.js';
 import { createStoreRefresh } from './store-refresh.js';
@@ -94,14 +95,17 @@ export function createSessionStores(
     },
     author: () => options.host.identity.currentPerson().id,
   };
+  const pending = createPendingEdits();
+  // The document as the editor shows it, with the edits it holds back committed.
   const current = () => {
+    pending.commit();
     const shown = document.get();
     return shown ? { doc: shown.state.doc, pin: shown.pin } : null;
   };
   const setLoaded = (template: TemplateFile) => {
     loaded = template;
   };
-  return { status, document, conflicts, connection, context, current, setLoaded };
+  return { status, document, conflicts, connection, context, current, setLoaded, pending };
 }
 
 export type SessionStores = ReturnType<typeof createSessionStores>;
@@ -244,10 +248,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
   const session: DocumentSession = {
     documentId,
     mode: 'store',
-    status,
-    document,
-    conflicts,
-    connection: stores.connection,
+    ...{ status, document, conflicts, connection: stores.connection },
     ready: controller.signal.aborted ? Promise.resolve(false) : load(),
     update: (update) => commitState({ document, saving }, update),
     setTemplate: async (pin) => {
@@ -263,6 +264,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     ...storePause(() => session, controller.signal),
     resolveConflict: (id, choice) => Promise.resolve(refresh.resolve(id, choice)),
     hasUnsavedChanges: () => saving?.hasUnsavedChanges() ?? false,
+    holdPendingEdits: stores.pending.hold,
     close,
   };
   return session;

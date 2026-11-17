@@ -57,7 +57,7 @@ Verification: `src/engine/tables.test.ts`
 
 ### DOCE-TABLES-2.1 - Handles
 
-While the editor is editable and not suggesting, the table cell under the pointer shall show a grip beside its row (`de-table-handles__grip`, `data-axis="row"`) and one above its column (`data-axis="column"`), named by the row's or column's number. They stay while the pointer moves onto them, during a drag and while a grip's menu is open, and go when the pointer leaves the editor. On a table the pages split, each grip sits beside the row or column of the part under the pointer, and the rows other parts draw get none. The handles' layer (`de-table-handles`) covers the editor's body, and each grip publishes the box of its row or column, relative to the layer, as `--de-table-handles-top`, `--de-table-handles-left`, `--de-table-handles-width` and `--de-table-handles-height`. The handles measure the table again only when the cell under the pointer, the table or its place changes, or the document resizes: typing elsewhere with the pointer over a table measures nothing.
+With `tableHandles` set (it is off by default, as the context menu offers the same actions) and while the editor is editable and not suggesting, the table cell under the pointer shall show a grip beside its row (`de-table-handles__grip`, `data-axis="row"`) and one above its column (`data-axis="column"`), named by the row's or column's number. They stay while the pointer moves onto them, during a drag and while a grip's menu is open, and go when the pointer leaves the editor. On a table the pages split, each grip sits beside the row or column of the part under the pointer, and the rows other parts draw get none. The handles' layer (`de-table-handles`) covers the editor's body, and each grip publishes the box of its row or column, relative to the layer, as `--de-table-handles-top`, `--de-table-handles-left`, `--de-table-handles-width` and `--de-table-handles-height`. The handles measure the table again only when the cell under the pointer, the table or its place changes, or the document resizes: typing elsewhere with the pointer over a table measures nothing.
 
 Implementation: `src/components/document-editor/table-handles.tsx`, `src/components/document-editor/use-table-target.ts`, `src/components/document-editor/table-geometry.ts`, `labs/reference/editor-chrome.css`
 Verification: `e2e/tables.spec.ts`, `src/components/document-editor/use-table-target.test.ts`
@@ -104,7 +104,7 @@ Verification: `src/engine/table-format.test.ts`
 `insertTableLines(axis, side)` shall insert rows above or below the selection, or columns before or after it, as many as the selected cells span, one at the caret, keeping the headers leading (DOCE-TABLES-3.8): a row or column inserted before a header row or column is a header one, any other is not, and its cells in a header column or row are header cells. The context menu's and the grips' insert entries use it.
 
 Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-format.test.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.4 - Inserting a table from the keyboard
 
@@ -118,7 +118,7 @@ Verification: `src/engine/table-format.test.ts`
 A Ctrl or Cmd click in a cell of an editable document shall select the cell (`selectCellTo`), or, while cells of the same table are selected, grow the selection from its first cell to the one clicked; a Ctrl click on a reference follows the reference instead (DOCE-REFERENCES-1.3).
 
 Implementation: `src/engine/table-pointer.ts`, `src/engine/tables.ts`
-Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.6 - Row heights
 
@@ -139,14 +139,14 @@ Verification: `src/model/layout/column-widths.test.ts`, `src/engine/table-format
 A table's header rows are its leading rows of header cells only, and its header columns its leading columns whose cells below the header rows are header cells. `toggleHeaderLines(axis)` shall make the rows (columns) the selection covers header rows, with every row before them, or, when the first of them is a header already, make it and every row after it plain, as one change on the whole table; a cell in a header row or a header column stays a header cell. The context menu's `Header` entries and the grips' header entries use it.
 
 Implementation: `src/engine/table-headers.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-headers.test.ts`
+Verification: `src/engine/table-headers.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.9 - Splitting a cell
 
 `splitTableCell(axis)` shall split the cell holding the caret, or the one cell selected: a merged cell back into the cells it covers, and any other in two, side by side (`column`, the column's width halved and the column's other cells spanning both) or one above the other (`row`, a row below whose other cells span both), with the caret in the new cell, on the whole table. Several selected cells are refused. The context menu's `Split cell` entry offers both.
 
 Implementation: `src/engine/table-split.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-split.test.ts`
+Verification: `src/engine/table-split.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.10 - Equal rows
 

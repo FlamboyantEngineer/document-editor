@@ -3,7 +3,7 @@
 // numbering them in document order where the pages do not; and moving between a marker and its
 // entry, marking where the reader arrives.
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   type Command,
   type EditorState,
@@ -11,7 +11,8 @@ import {
   TextSelection,
   type Transaction,
 } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { isElement } from '../utils/is-element.js';
 import { createElementId } from './element-ids.js';
 import {
   canInsertFootnote,
@@ -68,6 +69,16 @@ function entryPlace(doc: ProseMirrorNode, area: number, rank: number): number {
   return place;
 }
 
+// The marks a comment or a suggestion puts on the text on both sides of the selection, which a
+// marker inserted there stays inside of rather than splitting it.
+const WRAPPING = new Set(['comment_highlight', 'insertion', 'deletion']);
+
+function wrappingMarks(state: EditorState): readonly Mark[] {
+  const before = state.selection.$from.nodeBefore?.marks ?? [];
+  const after = state.selection.$to.nodeAfter?.marks ?? [];
+  return before.filter((mark) => WRAPPING.has(mark.type.name) && mark.isInSet(after));
+}
+
 /**
  * Inserts a footnote at the caret: its marker in the text and an empty entry in the footnote area
  * of the page, among the entries in marker order, numbered in document order, with the caret in the
@@ -81,7 +92,12 @@ export function insertFootnote(options: { readonly newId?: () => string } = {}):
     if (!marker || !entry || area === null) return false;
     if (dispatch) {
       const id = (options.newId ?? createElementId)();
-      const tr = state.tr.replaceSelectionWith(marker.create({ footnoteId: id }), false);
+      const { parent } = state.selection.$from;
+      const marks = wrappingMarks(state).filter((mark) => parent.type.allowsMarkType(mark.type));
+      const tr = state.tr.replaceSelectionWith(
+        marker.create({ footnoteId: id }, null, marks),
+        false,
+      );
       const ranks = markerRanks(tr.doc);
       const place = entryPlace(tr.doc, tr.mapping.map(area), ranks.get(id) ?? ranks.size);
       tr.insert(place, entry.create({ footnoteId: id }));
@@ -134,6 +150,35 @@ export function goToFootnoteMarker(id: string): Command {
   };
 }
 
+/** How long a footnote part a double click shows stays highlighted, in milliseconds. */
+export const FOOTNOTE_FLASH_MS = 1500;
+
+/**
+ * Shows a footnote's entry, or its marker, without moving the caret or the selection: it scrolls
+ * into view and carries `data-de-revealed` for a moment (`FOOTNOTE_FLASH_MS`). Read-only views too.
+ */
+function flashFootnote(view: EditorView, id: string, part: 'entry' | 'marker'): boolean {
+  const at = listFootnotes(view.state.doc).get(id);
+  const pos = at ? at[part] : null;
+  if (pos === null || pos === undefined) return false;
+  const reveal: FootnoteRevealed = { id, part, pos };
+  view.dispatch(
+    view.state.tr
+      .setMeta(footnotesKey, { reveal } satisfies FootnotesMeta)
+      .setMeta('addToHistory', false),
+  );
+  const shown = view.nodeDOM(pos);
+  if (isElement(shown) && 'scrollIntoView' in shown) shown.scrollIntoView({ block: 'nearest' });
+  const owner = view.dom.ownerDocument.defaultView;
+  owner?.setTimeout(() => {
+    const now = view.isDestroyed ? null : footnotesKey.getState(view.state)?.revealed;
+    if (now?.id === id && now.part === part) {
+      view.dispatch(view.state.tr.setMeta(footnotesKey, { reveal: null } satisfies FootnotesMeta));
+    }
+  }, FOOTNOTE_FLASH_MS);
+  return true;
+}
+
 /** Deletes a footnote: its marker and its entry. */
 export function deleteFootnote(id: string): Command {
   return (state, dispatch) => {
@@ -161,7 +206,7 @@ const elementOf = (target: EventTarget | null): Element | null =>
 // writer moves on or edits.
 function nextRevealed(tr: Transaction, revealed: FootnoteRevealed | null) {
   const meta = tr.getMeta(footnotesKey) as FootnotesMeta | undefined;
-  if (meta?.reveal) return meta.reveal;
+  if (meta?.reveal !== undefined) return meta.reveal;
   if (!revealed || !(tr.docChanged || tr.selectionSet)) return revealed;
   if (tr.getMeta('addToHistory') !== false) return null;
   const { pos, deleted } = tr.mapping.mapResult(revealed.pos, 1);
@@ -246,7 +291,8 @@ export function createFootnotes(options: FootnotesOptions = {}): Plugin<Footnote
           Decoration.node(revealed.pos, revealed.pos + node.nodeSize, attrs),
         ]);
       },
-      // A double click on a marker goes to its entry, and on an entry's number to its marker.
+      // A double click on a marker shows its entry, and on an entry's number its marker, leaving
+      // the caret where it is.
       handleDoubleClick(view, _pos, event) {
         const target = elementOf(event.target);
         const marker = target?.closest('[data-footnote-reference][data-footnote-id]');
@@ -254,8 +300,7 @@ export function createFootnotes(options: FootnotesOptions = {}): Plugin<Footnote
         const entry = number?.closest('[data-footnote-entry][data-footnote-id]');
         const id = (marker ?? entry)?.getAttribute('data-footnote-id');
         if (!id) return false;
-        const go = marker ? editFootnote(id) : goToFootnoteMarker(id);
-        return go(view.state, view.dispatch);
+        return flashFootnote(view, id, marker ? 'entry' : 'marker');
       },
     },
   });

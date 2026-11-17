@@ -43,6 +43,7 @@ export {
 } from './block-commands.js';
 export { canInsertBlock } from './block-place.js';
 export { setTextblockType } from './block-type.js';
+export { CAPTION_HOST_TYPES, commitCaptionDraft } from './caption-hosts.js';
 export type { CaptionedObject } from './captions.js';
 export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
 export { activeCommentThread, commentAnchors, createCommentAnchors } from './comment-anchors.js';
@@ -135,6 +136,11 @@ export {
   repairElementIds,
 } from './element-ids.js';
 export { clearCopiedIdentity } from './element-ids.js';
+export {
+  inEmbeddedTable,
+  isPresentationStep,
+  keepEmbeddedPresentation,
+} from './embed-presentation.js';
 export type { EmbedStatus, EmbedStatusOptions } from './embed-status.js';
 export {
   applyEmbedUpdate,

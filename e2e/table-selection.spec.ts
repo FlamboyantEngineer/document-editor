@@ -123,16 +123,14 @@ test.describe('selecting in tables', () => {
     await cell(page, 'Run').click({ modifiers: ['ControlOrMeta'] });
     await expect(selected(page)).toHaveCount(2);
     await cell(page, 'Run').click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Table' }).click();
     await page.getByRole('menuitem', { name: 'Align cells' }).click();
     await page.getByRole('menuitem', { name: 'Center', exact: true }).click();
     await expect(selected(page)).toHaveCount(2);
     await expect(cell(page, 'Start')).toHaveAttribute('data-text-align', 'center');
     await expect(cell(page, 'Run')).toHaveAttribute('data-text-align', 'center');
     await cell(page, 'Run').click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Table' }).click();
-    await page.getByRole('menuitem', { name: 'Insert' }).click();
-    await page.getByRole('menuitem', { name: /column.*right/i }).click();
+    await page.getByRole('menuitem', { name: 'Insert column' }).click();
+    await page.getByRole('menuitem', { name: 'Column right' }).click();
     await expect(selected(page)).toHaveCount(2);
     // Typing into a cell the column added puts the text there.
     const added = cell(page, 'Run').locator('xpath=following-sibling::td[1]');
@@ -165,5 +163,61 @@ test.describe('selecting in tables', () => {
     await expect(header.locator('.de-row-resize-handle')).toHaveCount(1);
     await page.mouse.wheel(0, 40);
     await expect(flagged).toHaveCount(0);
+  });
+
+  test('DOCE-TABLES-3.3 DOCE-TABLES-3.8 DOCE-TABLES-3.9 types into the cells that menu inserts and splits add, and sets a header column', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await insertTable(page);
+    const table = content(page).locator('table').first();
+    const menu = (name: string) => page.getByRole('menuitem', { name, exact: true }).click();
+    await table.locator('td').first().click({ button: 'right' });
+    await menu('Insert row');
+    await menu('Row below');
+    await expect(table.locator('tr')).toHaveCount(4);
+    const below = table.locator('tr').nth(2).locator('td').first();
+    await below.click();
+    await page.keyboard.type('Below');
+    await expect(below).toHaveText('Below');
+    // A split puts the caret in the cell it adds, where typing goes.
+    await below.click({ button: 'right' });
+    await menu('Split cell');
+    await menu('Into two columns');
+    await page.keyboard.type('Right');
+    await expect(table.locator('tr').nth(2)).toContainText('Right');
+    await below.click({ button: 'right' });
+    await menu('Split cell');
+    await menu('Into two rows');
+    await page.keyboard.type('Under');
+    await expect(table).toContainText('Under');
+    await expect(below).toHaveText('Below');
+    // The first column becomes a header column; the columns after it stay plain.
+    const last = table.locator('tr').last();
+    await last.locator('td').first().click({ button: 'right' });
+    await menu('Header');
+    await menu('Header column');
+    await expect(last.locator('th')).toHaveCount(1);
+    await expect(last.locator('td')).toHaveCount(2);
+  });
+
+  test('DOCE-TABLES-3.5 DOCE-TABLES-3.11 clears the selected cells when a click puts the caret outside the table', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await cell(page, 'Start').scrollIntoViewIfNeeded();
+    await cell(page, 'Start').click({ modifiers: ['ControlOrMeta'] });
+    await cell(page, 'Run').click({ modifiers: ['ControlOrMeta'] });
+    await expect(selected(page)).toHaveCount(2);
+    const heading = content(page).locator('h1, h2, h3').first();
+    await heading.scrollIntoViewIfNeeded();
+    await heading.click();
+    await page.keyboard.press('End');
+    await expect(selected(page)).toHaveCount(0);
+    await page.keyboard.type(' typed');
+    await expect(heading).toContainText(' typed');
+    await expect(cell(page, 'Start')).toHaveText('Start');
   });
 });

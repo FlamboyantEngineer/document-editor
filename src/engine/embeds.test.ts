@@ -502,7 +502,37 @@ describe('live spreadsheet embeds', () => {
 });
 
 describe('embed pagination', () => {
-  it('DOCE-EMBEDS-4.1 lays an embed out whole, on the next page when it does not fit', () => {
+  it('DOCE-EMBEDS-4.1 splits an embed between the rows of its table, as a table splits', () => {
+    const state = stateWith(STORED);
+    const content = embedOf(state).node;
+    const paragraph = defined(state.doc.nodeAt(textPos(state.doc, 'Before') - 1));
+    const table = {
+      children: [
+        { top: 0, bottom: 20 },
+        { top: 20, bottom: 40 },
+      ],
+    };
+    const blocks: LayoutBlock[] = [
+      { node: paragraph, height: 60, marginTop: 0, marginBottom: 0 },
+      {
+        node: content,
+        height: 40,
+        marginTop: 0,
+        marginBottom: 0,
+        measurement: { children: [{ top: 0, bottom: 40, measurement: table }] },
+      },
+    ];
+    const pages = layoutPages(blocks, { pageHeight: 90, rules: LAYOUT_RULES });
+    expect(pages.map((page) => page.map((block) => block.node.type.name))).toEqual([
+      ['paragraph', 'embed'],
+      ['embed'],
+    ]);
+    expect(pages.map((page) => textOf(defined(page.at(-1)).node))).toEqual(['Pump', 'Valve']);
+    expect(pages[1]?.[0]?.node.attrs.splitPartIndex).toBe(1);
+    expect(pages[1]?.[0]?.node.attrs.source).toBe('set-7');
+  });
+
+  it('DOCE-EMBEDS-4.1 lays an embed it cannot measure out whole, on the next page', () => {
     const state = stateWith(STORED);
     const blocks: LayoutBlock[] = [];
     const content = embedOf(state).node;

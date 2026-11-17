@@ -33,7 +33,7 @@ Verification: `src/host/linked-spreadsheet.test.ts`
 
 ### DOCE-EMBEDS-2.1 - Locked content
 
-`createEmbeds()`, which the editing extension installs (DOCE-EDITING-3.1, priority 513), shall refuse a writer's change (`isWritersChange`) that changes what an embed holds (`touchesEmbed`): a step whose range starts or ends inside an embed, typing, marking text, setting a node's attributes, adding or removing a table's rows and columns, or a deletion reaching into it. A mark set or taken off across a whole embed, as one taken off a selection of all the text is, changes what it holds too and is refused. Any other range around a whole embed, which adds, moves or deletes it, passes, as do comment highlights, undo and redo, remote, derived and system changes, and the host's own changes, which carry `embedsKey`. A refused change is dropped whole, so a command that changes text first asks `isHostContentAt(doc, pos)`, which tells whether a position is inside content the host owns, an embed's or a script block's output (DOCE-OBJECTS-4.3), and leaves that content out.
+`createEmbeds()`, which the editing extension installs (DOCE-EDITING-3.1, priority 513), shall refuse a writer's change (`isWritersChange`) that changes what an embed holds (`touchesEmbed`): a step whose range starts or ends inside an embed, typing, marking text, setting a node's attributes other than a table's presentation (DOCE-EMBEDS-2.3), adding or removing a table's rows and columns, or a deletion reaching into it. A mark set or taken off across a whole embed, as one taken off a selection of all the text is, changes what it holds too and is refused. Any other range around a whole embed, which adds, moves or deletes it, passes, as do comment highlights, undo and redo, remote, derived and system changes, and the host's own changes, which carry `embedsKey`. A refused change is dropped whole, so a command that changes text first asks `isHostContentAt(doc, pos)`, which tells whether a position is inside content the host owns, an embed's or a script block's output (DOCE-OBJECTS-4.3), and leaves that content out.
 
 Implementation: `src/engine/embeds.ts`, `src/engine/host-content.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/embeds.test.ts`, `src/engine/host-content.test.ts`, `src/engine/features.test.ts`
@@ -44,6 +44,13 @@ The clipboard (DOCE-EDITING-5.1) shall bring in an embed cut open at an edge of 
 
 Implementation: `src/engine/embeds.ts`, `src/engine/embed-status.ts`, `src/engine/clipboard.ts`
 Verification: `src/engine/embeds.test.ts`
+
+### DOCE-EMBEDS-2.3 - Presenting an embedded table
+
+How a table an embed holds is presented is the writer's, while its rows, columns and cell content are the host's: a writer's change that only sets a table's layout, caption, caption setting or border class, or a cell's column width, row height, text or vertical alignment, or turns cells into header cells and back keeping what they hold (`isPresentationStep`), passes the embed lock, so column and row resizing, `Align table`, the cell alignment, distributing rows and columns and the header entries work there. Cell colors stay the host's. In such a table (`inEmbeddedTable`) the context menu's table entries leave out the entries that change rows and columns, inserting rows and columns, deleting, merging and splitting cells (DOCUMENT-EDITOR 3.5), and the table shows no row or column grips (DOCE-TABLES-2.1).
+
+Implementation: `src/engine/embed-presentation.ts`, `src/engine/embeds.ts`, `src/components/document-editor/table-actions.ts`, `src/components/document-editor/table-handles.tsx`
+Verification: `src/engine/embed-presentation.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`
 
 ## DOCE-EMBEDS-3 - The host's content now
 
@@ -56,10 +63,10 @@ Verification: `src/engine/embeds.test.ts`
 
 ### DOCE-EMBEDS-3.2 - Taking an update
 
-`updateEmbed(view, source, { pos })` shall load the content of the embed at `pos`, or at the selection, from the host and put it in (`applyEmbedUpdate(pos, loaded)`), recording the content's state and label, as one change the writer can undo that is never a suggestion. The content's elements take ids made from the embed's id and their place, so an element keeps its id across updates and references to it hold. An update that holds the same content and state changes nothing, and content the document cannot read is refused. The update goes where the embed is once the host has loaded, found by its element id, so a change made around it meanwhile, such as a collaborator's typing, does not drop it; an embed the host fails to load, or one that changed or went while loading, is left alone.
+`updateEmbed(view, source, { pos })` shall load the content of the embed at `pos`, or at the selection, from the host and put it in (`applyEmbedUpdate(pos, loaded)`), recording the content's state and label, as one change the writer can undo that is never a suggestion. The content's elements take ids made from the embed's id and their place, so an element keeps its id across updates and references to it hold. The rows and columns are the loaded content's, and the tables keep the presentation the writer gave them (DOCE-EMBEDS-2.3, `keepEmbeddedPresentation`): the first table loaded takes the first table's layout and caption, and each cell the presentation of the cell that started at its row and column, a width only where it spans as many columns. An update that holds the same content and state changes nothing, and content the document cannot read is refused. The update goes where the embed is once the host has loaded, found by its element id, so a change made around it meanwhile, such as a collaborator's typing, does not drop it; an embed the host fails to load, or one that changed or went while loading, is left alone.
 
-Implementation: `src/engine/embed-status.ts`, `src/engine/scripts.ts`
-Verification: `src/engine/embeds.test.ts`
+Implementation: `src/engine/embed-status.ts`, `src/engine/embed-presentation.ts`, `src/engine/scripts.ts`
+Verification: `src/engine/embeds.test.ts`, `src/engine/embed-presentation.test.ts`
 
 ### DOCE-EMBEDS-3.3 - Only an editable view takes an update
 
@@ -70,11 +77,11 @@ Verification: `src/engine/embeds.test.ts`
 
 ## DOCE-EMBEDS-4 - Layout
 
-### DOCE-EMBEDS-4.1 - Laid out whole
+### DOCE-EMBEDS-4.1 - Split across pages
 
-The page layout shall never split an embed: it has no split rule (DOCE-PAGINATION-2.3), so an embed that does not fit below the blocks on a page starts the next page, whole.
+The page layout shall split an embed that does not fit below the blocks on a page as it splits a quote (DOCE-PAGINATION-2.3): between the blocks it holds, and through a table it holds between its rows, each later part a fragment of the same embed (`splitPartIndex`) with its kind, source and label, joined again in the document. An embed the editor did not measure, which no split can read, starts the next page whole.
 
-Implementation: `src/model/pagination/page-layout.ts`
+Implementation: `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`, `src/pagination/measure-blocks.ts`
 Verification: `src/engine/embeds.test.ts`
 
 ## Hooks

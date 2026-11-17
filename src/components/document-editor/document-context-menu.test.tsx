@@ -1,6 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { EditorState, NodeSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
@@ -229,5 +229,87 @@ describe('copying a link to the content', () => {
     render(<Harness />);
     const menu = await openMenu(user);
     expect(within(menu).queryByRole('menuitem', { name: /Copy link/ })).not.toBeInTheDocument();
+  });
+});
+
+// A document of one table, the caret in its first body cell.
+// A table, or one an embed holds, with the caret in a body cell.
+function tableState(embedded = false) {
+  const cell = (text: string) => ({
+    type: 'tableCell',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  });
+  const table = {
+    type: 'table',
+    content: [
+      { type: 'tableRow', content: [cell('Part'), cell('Count')] },
+      { type: 'tableRow', content: [cell('Pump'), cell('2')] },
+    ],
+  };
+  const attrs = { id: 'e0000001', kind: 'data-set', source: 'set-7', label: 'Set 7' };
+  const { doc } = readDocumentFile(
+    {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [embedded ? { type: 'embed', attrs, content: [table] } : table],
+        },
+      ],
+    },
+    documentSchema,
+  );
+  const state = EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) });
+  let at = 0;
+  doc.descendants((node, pos) => {
+    if (node.isText && node.text === 'Pump') at = pos;
+  });
+  return state.apply(state.tr.setSelection(TextSelection.create(doc, at)));
+}
+
+describe('the table entries', () => {
+  it('DOCE-EDITOR-3.5 offers the table entries at the top level, in order', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={tableState()} />);
+    const menu = await openMenu(user);
+    const names = within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent);
+    const start = names.indexOf('Insert row');
+    expect(names.slice(start)).toEqual([
+      'Insert row',
+      'Insert column',
+      'Delete',
+      'Merge cells',
+      'Split cell',
+      'Header',
+      'Distribute rows',
+      'Distribute columns',
+      'Align',
+      'Align cells',
+      'Add paragraph before',
+      'Add paragraph after',
+    ]);
+  });
+
+  it('DOCE-EMBEDS-2.3 leaves out the entries changing rows and columns in a table an embed holds', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={tableState(true)} />);
+    const menu = await openMenu(user);
+    const names = within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent);
+    const start = names.indexOf('Header');
+    expect(start).toBeGreaterThan(-1);
+    expect(names).not.toContain('Insert row');
+    expect(names).not.toContain('Merge cells');
+    expect(names).not.toContain('Split cell');
+    expect(names.slice(start, start + 5)).toEqual([
+      'Header',
+      'Distribute rows',
+      'Distribute columns',
+      'Align',
+      'Align cells',
+    ]);
   });
 });

@@ -282,20 +282,18 @@ test.describe('document editor lab', () => {
     await expect.poll(next).toBe('TABLE');
   });
 
-  test('DOCE-EDITOR-3.5 inserts and deletes table rows from the Table submenu', async ({
+  test('DOCE-EDITOR-3.5 inserts and deletes table rows from the table entries', async ({
     lab,
     page,
   }) => {
     await lab.open('document-editor');
     await openMenuAt(page, 'Start');
-    await item(page, 'Table').hover();
-    await item(page, 'Insert').hover();
+    await item(page, 'Insert row').hover();
     await item(page, 'Row below').click();
     await expect
       .poll(() => firstTable(page))
       .toEqual(['Condition|Limit', 'Start|25 ms', '|', 'Run|50 ms', 'Stop|75 ms']);
     await openMenuAt(page, 'Start');
-    await item(page, 'Table').hover();
     await expect(item(page, 'Merge cells')).toBeDisabled();
     await item(page, 'Delete').hover();
     await item(page, 'Delete row').click();
