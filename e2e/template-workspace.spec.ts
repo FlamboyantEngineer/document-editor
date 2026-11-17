@@ -153,7 +153,7 @@ test.describe('template workspace lab', () => {
     await expect(dialog).toBeHidden();
   });
 
-  test('DOCE-TEMPLATES-8.8 previews nested lists, continued objects and a change bar of each kind', async ({
+  test('DOCE-TEMPLATES-8.8 DOCE-VERSIONS-2.4 previews nested lists, continued objects and a change bar of each kind', async ({
     lab,
     page,
   }) => {
@@ -184,5 +184,36 @@ test.describe('template workspace lab', () => {
     await expect(shown.locator('.pm-page').nth(1)).toBeAttached();
     // The table goes on over a page break, its header row repeated.
     await expect.poll(() => shown.locator('table').count()).toBeGreaterThan(1);
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-3.16 DOCE-TEMPLATE-EDITOR-3.17 previews a section alone and places an image in it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-workspace');
+    await pick(page, 'Letter');
+    await page
+      .getByRole('tablist', { name: 'Template parts' })
+      .getByRole('tab', { name: 'Cover page' })
+      .click();
+    const document = preview(page).getByRole('textbox', { name: 'Template preview document' });
+    // The section's content and placeholder, then the sample in its settings.
+    await expect
+      .poll(() =>
+        document
+          .locator('[data-template-part]')
+          .evaluateAll((all) => all.map((each) => each.getAttribute('data-template-part'))),
+      )
+      .toEqual(['content', 'placeholder', 'sample']);
+    const formatting = preview(page).getByRole('toolbar', { name: 'Formatting' });
+    await expect(formatting.getByRole('button', { name: /^Footnote/ })).toHaveCount(0);
+    await document.locator('[data-template-part="content"] p').first().click();
+    await formatting.getByRole('button', { name: /^Insert image asset/ }).click();
+    const picker = page.getByRole('group', { name: 'Insert image asset' });
+    await picker.getByRole('row', { name: 'Badge' }).click();
+    await picker.getByRole('button', { name: 'Insert' }).click();
+    await expect(document.locator('img[data-template-file-id="badge"]').first()).toBeAttached();
+    // The image went into the draft, which Save stores.
+    await expect(saveButton(page)).toBeEnabled();
   });
 });

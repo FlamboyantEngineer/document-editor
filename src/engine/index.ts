@@ -281,6 +281,8 @@ export {
   type TemplateContentEditingOptions,
   templatePreviewLock,
 } from './template-content-editing.js';
+export { insertTemplateImage, type TemplateImageAsset } from './template-images.js';
+export { templatePreviewLockOf, type TemplatePreviewScope } from './template-preview-lock.js';
 export {
   EDITOR_VARIABLES,
   type EditorVariable,

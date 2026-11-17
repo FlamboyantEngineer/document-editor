@@ -1,30 +1,18 @@
 // The template workspace over the in-memory host's template store: open a template from the
 // folders the lab keeps in `extensions.folder`, edit its scopes from their tabs, save it, save it
-// as a copy into a folder, delete it, and browse and restore its versions, with the template's
-// preview document beside the side panel. The Article template is for the web layout, which the
-// lab keeps in the template's own `extensions.layout`, so it previews as the web layout shows a
-// document; it is pinned first in the open dialog. "Save elsewhere" saves the open template as
-// another writer would, so the next save meets a conflict. Control+Alt+B shows the JSON.
+// as a copy into a folder, delete it, and browse and restore its versions, with the workspace's own
+// preview of the tab shown beside the side panel, whose image button places the lab's badge. The
+// Article template is for the web layout, which the lab keeps in the template's own
+// `extensions.layout`, so it previews as the web layout shows a document; it is pinned first in
+// the open dialog. "Save elsewhere" saves the open template as another writer would, so the next
+// save meets a conflict. Control+Alt+B shows the JSON.
 
 import { LockGlyph } from '@flamboyantengineer/ui-components/core';
-import { EditorState } from 'prosemirror-state';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import {
-  DocumentEditor,
-  type TemplatePreview,
-  TemplateWorkspace,
-} from '../../src/components/index.js';
-import { assignElementIds, createContents, createDocumentEditing } from '../../src/engine/index.js';
-import { createMemoryHost } from '../../src/host/index.js';
-import {
-  createDocumentSchema,
-  readDocumentFile,
-  type TemplateFile,
-  templatePreviewDocument,
-  templatePreviewPrevious,
-  writeDocumentFile,
-} from '../../src/model/index.js';
+import { TemplateWorkspace } from '../../src/components/index.js';
+import { type AssetAdapter, createMemoryHost } from '../../src/host/index.js';
+import type { TemplateFile } from '../../src/model/index.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 
 const TEMPLATES: TemplateFile[] = [
@@ -57,50 +45,32 @@ const TEMPLATES: TemplateFile[] = [
 const host = createMemoryHost({ templates: TEMPLATES });
 const { templates: store } = host;
 
-// The template the preview's plugins read, which the lab keeps up with the preview's.
-const current: { template: TemplateFile | null } = { template: null };
-
-// The preview's document is the template's preview document, made again for another template.
-function previewState(template: TemplateFile) {
-  const schema = createDocumentSchema();
-  const read = () => current.template ?? template;
-  const state = EditorState.create({
-    doc: readDocumentFile(templatePreviewDocument(template), schema).doc,
-    plugins: [
-      createContents({ template: read }),
-      ...createDocumentEditing(schema, { template: read, author: () => 'lab' }),
-    ],
-  });
-  const tr = state.tr;
-  assignElementIds(tr, {});
-  return state.apply(tr.setMeta('addToHistory', false));
-}
-
-function Preview({ preview }: { preview: TemplatePreview }) {
-  const [state, setState] = useState(() => previewState(preview.template));
-  // The preview compared with its older version shows a change of each kind with its change bar.
-  const [compare] = useState(() => ({
-    previous: readDocumentFile(templatePreviewPrevious(writeDocumentFile(state.doc)), state.schema)
-      .doc,
-  }));
-  useEffect(() => {
-    current.template = preview.template;
-  }, [preview.template]);
-  return (
-    <DocumentEditor
-      state={state}
-      onStateChange={setState}
-      template={preview.template}
-      layout={preview.layout}
-      compare={compare}
-      onRegionChange={preview.onRegionChange}
-      editable={preview.onRegionChange !== undefined}
-      scrollable
-      className="lab-document-editor"
-      aria-label="Template preview document"
-    />
-  );
-}
+// A badge the preview's image button places in a header, a footer or a section's content.
+const BADGE = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="32"><rect width="96" height="32" rx="6" fill="#1d4ed8"/><text x="48" y="21" fill="#fff" font-family="sans-serif" font-size="14" text-anchor="middle">Badge</text></svg>',
+)}`;
+const assets: AssetAdapter = {
+  upload: () => Promise.resolve({ ok: false, error: { kind: 'unavailable' } }),
+  search: (query) =>
+    Promise.resolve({
+      ok: true,
+      value: {
+        items: 'badge'.includes(query.toLowerCase())
+          ? [
+              {
+                id: 'badge',
+                name: 'Badge',
+                url: BADGE,
+                mediaType: 'image/svg+xml',
+                width: 96,
+                height: 32,
+              },
+            ]
+          : [],
+      },
+    }),
+  resolveUrl: (id) => (id === 'badge' ? BADGE : ''),
+};
 
 // The folders of the stored templates, by id, read again after each save.
 const folders = new Map<string, readonly string[]>();
@@ -164,9 +134,7 @@ function Lab() {
         canDelete
         debug
         personOf={(author) => ({ name: author === 'me' ? 'You' : author })}
-        renderPreview={(preview) => (
-          <Preview key={`${preview.template.id}:${preview.layout}`} preview={preview} />
-        )}
+        assets={assets}
         extensions={{
           rows: {
             identity: [

@@ -200,12 +200,17 @@ export type {
   TemplateCatalog,
   TemplatePickerProps,
   TemplatePreview,
+  TemplatePreviewEditorProps,
   TemplateWorkspaceLabels,
   TemplateWorkspaceParts,
   TemplateWorkspaceProps,
 } from './template-workspace/index.js';
 export {
   DEFAULT_TEMPLATE_WORKSPACE_LABELS,
+  TEMPLATE_PREVIEW_STATUS_BAR,
+  TEMPLATE_PREVIEW_TOOLBAR,
+  TEMPLATE_PREVIEW_ZOOM_LEVELS,
   TemplatePicker,
+  TemplatePreviewEditor,
   TemplateWorkspace,
 } from './template-workspace/index.js';

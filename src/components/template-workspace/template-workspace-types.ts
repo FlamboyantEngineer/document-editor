@@ -3,8 +3,9 @@
 import type { AvatarIdentity } from '@flamboyantengineer/ui-components/avatar';
 import type { ReactNode } from 'react';
 import type { RegionChange } from '../../engine/index.js';
-import type { TemplateStoreAdapter } from '../../host/adapters.js';
-import type { TemplateFile } from '../../model/index.js';
+import type { TemplateStoreAdapter, VariablesAdapter } from '../../host/adapters.js';
+import type { AssetAdapter } from '../../host/asset-adapters.js';
+import type { TemplateFile, TemplatePartChange } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
 import type { TemplateEditorProps, TemplateScope } from '../template-editor/template-editor.js';
 import type { SaveAsFields } from './template-dialogs.js';
@@ -24,6 +25,11 @@ export interface TemplatePreview {
    * (`withRegionChange`); absent while a saved version is shown.
    */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
+  /**
+   * Writes a section's starting content or placeholder edited in place on a preview shown in parts
+   * into the open template (`withTemplatePart`); absent while a saved version is shown.
+   */
+  readonly onTemplatePartChange?: ((change: TemplatePartChange) => void) | undefined;
 }
 
 /** The parts of the workspace, for a host that lays them out itself (`renderLayout`). */
@@ -69,8 +75,15 @@ export interface TemplateWorkspaceProps {
   readonly onRevisionChange?: ((revision: string | null) => void) | undefined;
   /** The layout a template is for: on pages, or the web layout. Defaults to pages. */
   readonly layoutOf?: ((template: TemplateFile) => DocumentLayout) | undefined;
-  /** Draws the template shown, such as a document editor with the template's preview document. */
+  /**
+   * Draws the template shown in place of the workspace's own preview (`TemplatePreviewEditor`),
+   * such as a document editor with the template's preview document.
+   */
   readonly renderPreview?: ((preview: TemplatePreview) => ReactNode) | undefined;
+  /** The host's images, which the own preview's toolbar places in the template's content. */
+  readonly assets?: AssetAdapter | undefined;
+  /** The host's variables, which the own preview's variable menu lists. */
+  readonly variables?: VariablesAdapter | undefined;
   /** How the open dialog lists the templates: their folders, icons and the pinned ones. */
   readonly catalog?: TemplateCatalog | undefined;
   /** The host's own fields in the save-as dialog, such as the copy's folder. */

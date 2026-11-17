@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { installEditorDom } from '../../../test/editor-dom.js';
 import {
   LOADED,
   nameField,
@@ -33,6 +34,9 @@ async function tabMenu(user: User, name: string, action: string) {
   await user.pointer({ keys: '[MouseRight]', target: screen.getByRole('tab', { name }) });
   await user.click(await screen.findByRole('menuitem', { name: action }, LOADED));
 }
+
+// The workspace draws its own preview, a document editor, unless a test draws one.
+installEditorDom();
 
 describe('TemplateWorkspace layout', () => {
   it(

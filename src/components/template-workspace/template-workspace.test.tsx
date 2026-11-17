@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { installEditorDom } from '../../../test/editor-dom.js';
 import {
   LOADED,
   nameField,
@@ -25,6 +26,9 @@ const ARTICLE: TemplateFile = {
   name: 'Article',
   extensions: { layout: 'web' },
 };
+
+// The workspace draws its own preview, a document editor, unless a test draws one.
+installEditorDom();
 
 describe('TemplateWorkspace', () => {
   it(

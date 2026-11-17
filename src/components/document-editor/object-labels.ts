@@ -110,6 +110,8 @@ export interface ObjectLabels {
   /** Names a depth of a list of contents, such as `Headings 1 to 3`. */
   readonly depthLevel: (depth: number) => string;
   readonly symbol: string;
+  /** Places one of the host's images in a template's own content. */
+  readonly insertImageAsset: string;
   readonly insertAction: string;
   readonly applyAction: string;
   readonly editCaption: string;
@@ -266,6 +268,7 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   contentsGroups: 'Reference types',
   depthLevel: (depth) => (depth === 1 ? 'Heading 1' : `Headings 1 to ${String(depth)}`),
   symbol: 'Symbol',
+  insertImageAsset: 'Insert image asset',
   insertAction: 'Insert',
   applyAction: 'Apply',
   editCaption: 'Edit caption…',
