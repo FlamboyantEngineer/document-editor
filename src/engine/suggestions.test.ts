@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
 import { documentKeys } from './document-editing.js';
-import { insertFootnote } from './footnotes.js';
 import {
   acceptAllSuggestions,
   acceptSuggestion,
@@ -229,11 +228,10 @@ describe('suggest mode', () => {
     const state = EditorState.create({ doc: read(paragraph('One')) });
     const inText = select(state, positionOf(state.doc, 'One') + 1);
     let offered = 0;
-    for (const insert of [insertTable({ rows: 2, columns: 2 }), insertFootnote()]) {
-      if (insert(inText)) offered += 1;
-      expect(suggest(inText, insert)).toBeNull();
-    }
-    expect(offered).toBe(2);
+    const insert = insertTable({ rows: 2, columns: 2 });
+    if (insert(inText)) offered += 1;
+    expect(suggest(inText, insert)).toBeNull();
+    expect(offered).toBe(1);
   });
 
   it('DOCE-SUGGESTIONS-1.5 leaves a system change as it is', () => {

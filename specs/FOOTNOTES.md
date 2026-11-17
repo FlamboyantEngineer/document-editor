@@ -33,7 +33,7 @@ After each of the writer's changes, `createFootnotes()`, which the editing plugi
 Changes that only type or delete text inside one text block (`isInlineTextOnly`) shall not walk the document, and remote changes (`isRemote`, `isRemoteTransaction` by default) are left to the writer who made them.
 
 Implementation: `src/engine/footnotes.ts`, `src/engine/footnote-reconcile.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/footnote-reconcile.test.ts`
+Verification: `src/engine/footnote-reconcile.test.ts`, `e2e/shared-room.spec.ts`
 
 ### DOCE-FOOTNOTES-1.4 - Finding, editing and deleting
 

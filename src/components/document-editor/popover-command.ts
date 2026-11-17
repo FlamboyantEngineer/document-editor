@@ -9,14 +9,12 @@ import type { EditorContext } from './editor-context.js';
 export function usePopoverCommand(context: EditorContext) {
   const [isOpen, setOpen] = useState(false);
   const pending = useRef<Command | null>(null);
-  const run = useRef(context.run);
-  run.current = context.run;
   useEffect(() => {
     const command = pending.current;
     if (isOpen || !command) return;
     pending.current = null;
-    run.current(command);
-  }, [isOpen]);
+    context.run(command);
+  }, [isOpen, context]);
   const choose = (command: Command) => {
     pending.current = command;
     setOpen(false);

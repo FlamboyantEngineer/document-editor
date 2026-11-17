@@ -15,14 +15,7 @@ import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popov
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import type { Schema } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
-import {
-  type CSSProperties,
-  memo,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { type CSSProperties, memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   customStyleAt,
   DEFAULT_SHORTCUTS,
@@ -37,12 +30,12 @@ import {
 import { createHooks } from '../../utils/hooks.js';
 import { blockStyle, blockStyles } from './block-styles.js';
 import type { EditorContext } from './editor-context.js';
-import { usePopoverCommand } from './popover-command.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { checklistItems, commandItem, listItems, markItems } from './format-items.js';
 import { type InsertFeatures, insertItems, linkItem } from './insert-controls.js';
 import { layoutItem } from './layout-items.js';
 import { type ShellFeatures, shellItems } from './mode-controls.js';
+import { usePopoverCommand } from './popover-command.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { ToolbarGroup } from './toolbar-items.js';
 

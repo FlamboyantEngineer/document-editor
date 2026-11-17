@@ -50,7 +50,13 @@ const DOCUMENT: DocumentFile = {
         },
         {
           type: 'figure',
-          attrs: { id: 'a0000003', src: PANEL, alt: 'Fault panel', width: 200, caption: 'Fault panel' },
+          attrs: {
+            id: 'a0000003',
+            src: PANEL,
+            alt: 'Fault panel',
+            width: 200,
+            caption: 'Fault panel',
+          },
         },
       ],
     },
