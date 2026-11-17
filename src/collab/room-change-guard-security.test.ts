@@ -1219,6 +1219,18 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
     expect(allowed(inserted, taken, 'writer')).toBe(false);
   });
 
+  it('refuses a footnote number the editors’ numbering does not give, also beside a suggested footnote', () => {
+    const before = start();
+    const markerAt = listFootnotes(before.doc).get('n1')?.marker ?? 0;
+    const forged = before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7);
+    expect(allowed(before, forged, 'writer')).toBe(false);
+    const inserted = suggested();
+    expect(allowed(before, inserted, 'writer')).toBe(true);
+    const entryAt = listFootnotes(inserted.doc).get('n1')?.entry ?? 0;
+    const renumbered = inserted.tr.setNodeAttribute(entryAt, 'footnoteNumber', 1);
+    expect(allowed(before, { doc: renumbered.doc }, 'writer')).toBe(false);
+  });
+
   it('lets only a writer who decides reject another writer’s suggested footnote', () => {
     const inserted = suggested();
     const rejected = runCommand(inserted, rejectAllSuggestions);
