@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -76,5 +77,21 @@ export function useTemplateDraft(state: TemplateDraftState): void {
  */
 export function useTextDraft(value: string): readonly [string, (text: string) => void] {
   const [draft, setDraft] = useState({ text: value, from: value });
+  // A value that changes drops the draft for good, so it does not come back with the old value,
+  // such as when a card turns to another style and back.
+  if (draft.from !== value) setDraft({ text: value, from: value });
   return [draft.from === value ? draft.text : value, (text) => setDraft({ text, from: value })];
+}
+
+/**
+ * Commits a field's draft when the field goes, such as when the editor turns to another scope
+ * before the field loses focus: the draft is written where it was typed.
+ */
+export function useCommitOnLeave(commit: () => void): void {
+  const latest = useRef(commit);
+  useLayoutEffect(() => {
+    latest.current = commit;
+  });
+  // A layout cleanup runs before the next scope's handlers take over.
+  useLayoutEffect(() => () => latest.current(), []);
 }

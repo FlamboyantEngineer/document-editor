@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { SettingControl } from './setting-controls.js';
-import { TemplateDrafts, useTemplateDraft } from './setting-drafts.js';
+import { TemplateDrafts, useTemplateDraft, useTextDraft } from './setting-drafts.js';
 import { setting, type SettingKind } from './template-settings.js';
 
 // A field of a kind holding what it is given, as a template editor does, inside the drafts that
@@ -142,5 +142,24 @@ describe('useTemplateDraft', () => {
     rerender(drafts(<HostField isInvalid />));
     rerender(drafts(null));
     expect(validity).toEqual(['invalid', 'clean', 'invalid', 'clean']);
+  });
+});
+
+// A text draft over a value given from outside.
+function DraftOf({ value }: { value: string }) {
+  const [text, setText] = useTextDraft(value);
+  return (
+    <input aria-label="Draft" value={text} onChange={(event) => setText(event.target.value)} />
+  );
+}
+
+describe('useTextDraft', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.13 drops a draft once the value changes, even back to the old one', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<DraftOf value="" />);
+    await user.type(screen.getByRole('textbox', { name: 'Draft' }), '0');
+    rerender(<DraftOf value="0" />);
+    rerender(<DraftOf value="" />);
+    expect(screen.getByRole('textbox', { name: 'Draft' })).toHaveValue('');
   });
 });

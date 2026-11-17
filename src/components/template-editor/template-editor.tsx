@@ -293,8 +293,10 @@ export function TemplateEditor(props: TemplateEditorProps) {
             <ScopePicker {...scoped} />
           </PropertySection>
         )}
-        <SectionRows {...scoped} />
+        {/* A scope's fields are its own: turning to another scope commits their drafts. */}
+        <SectionRows key={`rows:${scope ?? ''}`} {...scoped} />
         <SettingSections
+          key={`settings:${scope ?? ''}`}
           context={context}
           inSection={scope !== null}
           onPages={props.layout !== 'web'}

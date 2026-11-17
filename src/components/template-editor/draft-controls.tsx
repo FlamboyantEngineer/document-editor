@@ -9,7 +9,7 @@ import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { type CSSProperties, useEffect, useRef } from 'react';
 import { NUMBERING_OPTIONS } from './numbering-presets.js';
 import type { ControlProps } from './setting-controls.js';
-import { useTemplateDraft, useTextDraft } from './setting-drafts.js';
+import { useCommitOnLeave, useTemplateDraft, useTextDraft } from './setting-drafts.js';
 import { templateEditorHooks as hooks } from './template-editor-hooks.js';
 
 const shown = (value: unknown) =>
@@ -57,6 +57,7 @@ function useDraftField(
     const { value, problem: wrong } = read(next);
     if (!wrong) props.onChange(next.trim() === '' ? null : value);
   };
+  useCommitOnLeave(() => commit(text));
   const field: DraftField = {
     committedValue: committed,
     value: text,
@@ -119,12 +120,13 @@ function useComboboxDraft(
     const element = input.current;
     if (!element) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      // An open list takes Enter and Escape: it picks or closes.
+      // An open list takes Escape, which closes it, and Enter on an option, which picks it.
       const isOpen = element.getAttribute('aria-expanded') === 'true';
-      if (event.isComposing || event.defaultPrevented || isOpen) return;
+      const isOnOption = isOpen && element.hasAttribute('aria-activedescendant');
+      if (event.isComposing || event.defaultPrevented) return;
       const now = latest.current;
-      if (event.key === 'Enter') now.draft.commit(now.draft.text);
-      if (event.key === 'Escape') now.revert();
+      if (event.key === 'Enter' && !isOnOption) now.draft.commit(now.draft.text);
+      if (event.key === 'Escape' && !isOpen) now.revert();
     };
     const onBlur = () => {
       latest.current.draft.commit(latest.current.draft.text);

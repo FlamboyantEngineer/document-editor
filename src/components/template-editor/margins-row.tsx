@@ -7,7 +7,7 @@ import {
   FourSidePropertyStrip,
 } from '@flamboyantengineer/ui-components/four-side-property-strip';
 import { useEffect, useState } from 'react';
-import { useTemplateDraft, useTextDraft } from './setting-drafts.js';
+import { useCommitOnLeave, useTemplateDraft, useTextDraft } from './setting-drafts.js';
 import type { Rows } from './template-rows.js';
 import { settingAt } from './template-settings.js';
 
@@ -71,6 +71,7 @@ function SideInput({
     if (typed === external || isInvalid) return;
     onChange(typed === '' ? null : Number(typed));
   };
+  useCommitOnLeave(commit);
   return (
     <input
       aria-label={label}

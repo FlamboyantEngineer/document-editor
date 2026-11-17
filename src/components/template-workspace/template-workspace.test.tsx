@@ -340,7 +340,7 @@ describe('TemplateWorkspace', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.10 keeps each section’s own page settings through quick tab switches and a reopen',
+    'DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-1.13 keeps each section’s own page settings through quick tab switches and a reopen',
     async () => {
       const user = userEvent.setup();
       const store = storeOf({

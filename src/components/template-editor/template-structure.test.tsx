@@ -109,7 +109,7 @@ describe('section flags', () => {
         sections: [{ name: 'annex', styles: { heading1: { numbering: { format: 'A.' } } } }],
       };
       render(<TemplateEditor template={template} scope="annex" onChange={() => {}} />);
-      expect(screen.getAllByText('Inherited: true').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Inherited: On').length).toBeGreaterThan(0);
     },
     SLOW,
   );
