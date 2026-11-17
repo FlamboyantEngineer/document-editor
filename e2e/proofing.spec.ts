@@ -160,3 +160,36 @@ test.describe('proofing', () => {
     );
   });
 });
+
+test.describe('proofing on the pages', () => {
+  test('DOCE-PROOFING-2.1 DOCE-PAGINATION-7.13 corrects an issue in the later part of a paragraph split across pages', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const paragraph = content(page).locator('p', { hasText: 'Each requirement' }).first();
+    await paragraph.scrollIntoViewIfNeeded();
+    await paragraph.click();
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(' The notes were kept with the others.'.repeat(120));
+    await page.keyboard.type(' Zebra teh xylophone.');
+    const later = content(page).locator(
+      'p[data-split-part-index]:not([data-split-part-index="0"])',
+      {
+        has: page.locator('[data-proofing-issue]', { hasText: 'teh' }),
+      },
+    );
+    await expect(later).toHaveCount(1);
+    const word = later.locator('[data-proofing-issue]', { hasText: 'teh' });
+    await word.hover();
+    const box = await word.boundingBox();
+    if (!box) throw new Error('The issue is not drawn');
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await menu(page).getByRole('menuitem', { name: 'Spelling', exact: true }).click();
+    await page.getByRole('menu').last().getByRole('menuitem', { name: 'the', exact: true }).click();
+    await expect(later).toHaveCount(0);
+    await expect(
+      content(page).locator('p[data-split-part-index]', { hasText: 'Zebra the xylophone.' }),
+    ).toHaveCount(1);
+  });
+});

@@ -71,10 +71,10 @@ Verification: `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-2.1 - Correcting
 
-`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it; it is refused once the issue's text is no longer there.
+`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it; it is refused once the issue's text is no longer there. On pages, an issue in a later part of a paragraph split across them shall be drawn and corrected there as in the whole paragraph.
 
 Implementation: `src/engine/proofing-commands.ts`
-Verification: `src/engine/proofing.test.ts`
+Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-2.2 - Ignoring and the dictionary
 
