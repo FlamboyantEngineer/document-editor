@@ -23,6 +23,7 @@ import {
 import type { EmbedContent, EmbedSource } from '../host/index.js';
 import { isEmbed, readStoredContent } from '../model/index.js';
 import { isWritersChange } from './edit-lock.js';
+import { isPresentationStep } from './embed-presentation.js';
 import { newBlockRange } from './tables.js';
 
 /** An embed of a document and where it starts. */
@@ -136,14 +137,15 @@ function embedBetween(doc: ProseMirrorNode, { from, to }: Range): boolean {
 
 /**
  * Whether a transaction changes what an embed holds: a step whose range starts or ends inside an
- * embed. A range around a whole embed, which adds, moves or deletes it, changes nothing inside,
+ * embed, other than one presenting a table it holds differently (`isPresentationStep`). A range
+ * around a whole embed, which adds, moves or deletes it, changes nothing inside,
  * unless the step marks the range: a mark set or taken off from the text before an embed to the
  * text after it, as one taken off a selection of them all is, changes the embed's text too.
  */
 export function touchesEmbed(tr: Transaction): boolean {
   return tr.steps.some((step, index) => {
     const doc = tr.docs[index];
-    if (!doc) return false;
+    if (!doc || isPresentationStep(step, doc)) return false;
     return rangesOf(step, doc).some(
       (range) =>
         insideEmbed(doc, range.from) ||
@@ -217,7 +219,7 @@ export function unwrapPastedEmbeds(
 
 /**
  * Keeps what embeds hold as the host gave it: refuses the writer's changes inside an embed, other
- * than comments; the host's own changes, an undo's and a redo's pass.
+ * than comments and the presentation of its tables; the host's own changes, an undo's and a redo's pass.
  */
 export function createEmbeds(): Plugin {
   return new Plugin({

@@ -71,10 +71,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-2.2 - Switching layouts
 
-Switching to the web layout shall join each section's pages into one, out of the history, and drop the measuring slot; switching back shall lay the pages out again. Only the document shall be drawn anew: the comments margin and the host's chrome inside the editor (`children`) shall stay mounted as the pages start and through each switch, keeping their state.
+Switching to the web layout shall join each section's pages into one, out of the history, and drop the measuring slot; switching back shall lay the pages out again. Another writer's changes that arrive while the layout switches shall each show once, in the editor's document and on its pages, and reach the other writer once. Only the document shall be drawn anew: the comments margin and the host's chrome inside the editor (`children`) shall stay mounted as the pages start and through each switch, keeping their state.
 
 Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/editor-body.tsx`, `labs/src/document-editor.lab.tsx`
-Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-body.test.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-body.test.tsx`, `e2e/shared-room.spec.ts`
 
 ### DOCE-EDITOR-2.3 - Reading in the browser
 
@@ -115,10 +115,10 @@ Verification: `src/engine/block-commands.test.ts`, `src/components/document-edit
 
 ### DOCE-EDITOR-3.5 - Tables
 
-In a table cell of an editable document, the menu shall offer a Table submenu: insert a row above or below or a column to the left or right, merge the selected cells, split a merged cell, make the row or column a header, and delete the row, the column or the table, each disabled while it cannot run and run on the whole table (DOCE-TABLES-1.5).
+In a table cell of an editable document, the menu's table group shall offer these entries at its top level, in this order: insert a row (above or below), insert a column (to the left or right), delete (the row, the column or the table), merge the selected cells, split the cell (into two columns or two rows), header (the row or the column), distribute the rows, distribute the columns, align the table (left, centred, right or fitted to the page width) and align the cells (the nine alignments), each disabled while it cannot run and run on the whole table (DOCE-TABLES-1.5).
 
-Implementation: `src/components/document-editor/table-actions.ts`, `src/components/document-editor/context-entries.ts`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/table-actions.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/element-entries.ts`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/document-context-menu.test.tsx`
 
 ### DOCE-EDITOR-3.6 - The host's entries
 

@@ -13,6 +13,7 @@ import type { SessionDocument } from './document-session.js';
 import { type DocumentMerge, type MergeConflict, mergeDocuments } from './merge.js';
 import { findElement, type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
 import { loadPinnedTemplate, readStored, samePin } from './open-document.js';
+import type { PendingEdits } from './pending-edits.js';
 import type { createStoreSaving } from './store-saving.js';
 import { sameStored } from './stored-equality.js';
 import type { WritableStore } from './value-store.js';
@@ -29,6 +30,8 @@ interface StoreRefreshContext {
   /** The conflicts the reader has yet to settle. */
   conflicts: WritableStore<readonly MergeConflict[]>;
   saving: () => StoreSaving | null;
+  /** The edits the editor holds back, committed before the reader's changes are merged. */
+  pending?: PendingEdits | undefined;
 }
 
 // Shows `content` in the editor under `template`, the one it pins, changing only what differs.
@@ -73,6 +76,7 @@ interface TakenIn {
 // What taking in a stored document gives now: its merge with the reader's changes, or its content
 // when the reader has none; null when the session holds it already or cannot read it.
 function mergeStored(context: StoreRefreshContext, stored: StoredDocument): TakenIn | null {
+  context.pending?.commit();
   const saving = context.saving();
   const shown = context.document.get();
   if (!saving || !shown || stored.sequence <= saving.baseline().sequence) return null;

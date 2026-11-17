@@ -61,6 +61,7 @@ const CONTAINER_TYPES = new Set([
   'list_item',
   'table',
   'script_block',
+  'embed',
   'layout_section',
   'layout_column',
 ]);

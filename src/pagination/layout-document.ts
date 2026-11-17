@@ -185,7 +185,10 @@ interface SectionFill {
 
 // What a section's page heights depend on besides its blocks, as a key.
 function fillKey(fill: SectionFill, perPage: boolean): string {
-  const entries = fill.area ? [...fill.area.entries].map(([id, height]) => `${id}:${height}`) : [];
+  const last = fill.area?.last;
+  const entries = fill.area
+    ? [...fill.area.entries].map(([id, height]) => `${id}:${height}:${last?.get(id) ?? ''}`)
+    : [];
   return [fill.baseHeight, perPage, fill.area?.overhead ?? '-', ...entries].join('|');
 }
 

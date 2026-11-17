@@ -87,14 +87,14 @@ Verification: `e2e/performance.spec.ts`, `src/engine/text-change-locality.test.t
 
 ### DOCE-LABS-2.4 - Scale lab
 
-The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks, 1600 blocks in eight sections, and about 300 pages beside 500 open comment threads, each the same on every load; and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer, a character at a time or up to the end of a line (`window.stressLab`).
+The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks, 1600 blocks in eight sections, about 300 pages beside 500 open comment threads, and about 100 pages of short lists (a paragraph and a list of eight items or fewer each, ordered and bulleted in turn, some nested), to profile list pagination apart from long lists, each the same on every load; and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer, a character at a time or up to the end of a line (`window.stressLab`).
 
 Implementation: `labs/src/stress-scale.lab.tsx`, `labs/stress-scale.html`, `labs/src/stress/scale-documents.ts`, `labs/src/stress/stress-probe.ts`, `labs/src/stress/stress-lab.tsx`
-Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`
+Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-LABS-2.5 - Counter budgets
 
-The budgets counted in layouts, sections, blocks and restyled elements rather than time do not depend on the machine, and `npm run test:labs` shall hold them on every pull request, measured as the harness measures them (`e2e/budgets.ts`): after an edit in the middle of 25 sections, at most four layouts and 24 template regions drawn again, and at least 23 sections reused per layout; a remote keystroke that starts a new line in 1600 blocks relays at most one section and measures at most five blocks, and one inside a line lays nothing out; at most three browser layouts per wheel event on 5 pages and on 40; and a keystroke on 40 pages restyles at most three times as many elements as on 5; opening 24 pages settles in at most two layouts, measures each block once, and lays out nothing in the second after. A budget not met yet is an expected failure naming its gap in the port plan.
+The budgets counted in layouts, sections, blocks and restyled elements rather than time do not depend on the machine, and `npm run test:labs` shall hold them on every pull request, measured as the harness measures them (`e2e/budgets.ts`): after an edit in the middle of 25 sections, at most four layouts and 24 template regions drawn again, and at least 23 sections reused per layout; a remote keystroke that starts a new line in 1600 blocks relays at most one section and measures at most five blocks, and one inside a line lays nothing out; at most three browser layouts per wheel event on 5 pages and on 40; and a keystroke that keeps its block's height on 40 pages restyles at most three times as many elements as on 5, and keeps the height, and an Enter there restyles at most 800 elements; opening 24 pages settles in at most two layouts, measures each block once, and lays out nothing in the second after. A budget not met yet is an expected failure naming its gap in the port plan.
 
 Implementation: `e2e/budgets.ts`
 Verification: `e2e/budget-counters.performance.spec.ts`
@@ -244,3 +244,10 @@ The regression set's `caption-numbering` document shall hold captioned figures, 
 
 Implementation: `labs/src/regression/regression-documents.ts`
 Verification: `e2e/regression.spec.ts`, `test/fixtures/documents/regression-set.test.ts`
+
+### DOCE-LABS-4.14 - Object presentation in the reference stylesheet
+
+The reference stylesheet shall align a figure's caption text where the figure is aligned (left, centred or right), the caption spanning the content width; label and number linked code as it does code, its text the name of its source, counting each linked code once however the pages split it; draw a table set to `table-border-1px` with one pixel lines in the template's border colour; give a page header's and footer's table cells no padding; and set a template image in a table cell with no paragraph indent.
+
+Implementation: `labs/reference/document.css`
+Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`

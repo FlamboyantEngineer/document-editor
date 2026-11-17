@@ -1,9 +1,11 @@
 // Two writers edit one document in a shared room, on a room server in this page, each at their own
 // width and zoom: what either types reaches the other, the room's seed comes from `documentToYjs`,
 // and each writer's undo undoes only their own changes. Either can go offline and edit on their
-// own, then come back and merge, and either can switch between the pages and the web layout.
+// own, then come back and merge, and either can switch between the pages and the web layout. The
+// page shows the harness the document each writer's editor holds (`window.collabRoom`).
 
-import { useState } from 'react';
+import type { EditorState } from 'prosemirror-state';
+import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -65,6 +67,26 @@ function Connection({ person }: { person: string }) {
   );
 }
 
+/** The shared room lab's probe on `window.collabRoom`. */
+export interface CollabRoomProbe {
+  /** The text of the document a writer's editor holds, the state its pages project. */
+  canonicalText(name: string): string | null;
+}
+
+const STATES = new Map<string, EditorState>();
+const probe: CollabRoomProbe = {
+  canonicalText: (name) => STATES.get(name)?.doc.textContent ?? null,
+};
+Object.assign(window, { collabRoom: probe });
+
+// Keeps the state a writer's editor holds where the probe reads it.
+function Canonical({ name, state }: { name: string; state: EditorState }) {
+  useEffect(() => {
+    STATES.set(name, state);
+  }, [name, state]);
+  return null;
+}
+
 function WriterPane({ person }: { person: Writer }) {
   const [zoom, setZoom] = useState(person.zoom);
   const [web, setWeb] = useState(false);
@@ -95,13 +117,16 @@ function WriterPane({ person }: { person: Writer }) {
         )}
       >
         {(props) => (
-          <DocumentEditor
-            {...props}
-            aria-label={`${person.name}'s document`}
-            zoom={zoom}
-            onZoomChange={setZoom}
-            layout={web ? 'web' : 'page'}
-          />
+          <>
+            <Canonical name={person.name} state={props.state} />
+            <DocumentEditor
+              {...props}
+              aria-label={`${person.name}'s document`}
+              zoom={zoom}
+              onZoomChange={setZoom}
+              layout={web ? 'web' : 'page'}
+            />
+          </>
         )}
       </DocumentSessionBoundary>
     </section>

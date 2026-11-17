@@ -25,7 +25,7 @@ import type { ContextTarget } from './context-target.js';
 import { contentLinkAddress } from './copy-link.js';
 import type { ObjectDialog, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { CODE_LANGUAGES, elementEntries } from './element-entries.js';
+import { alignEntry, CODE_LANGUAGES, elementEntries } from './element-entries.js';
 import type { FigurePasteOptions } from './figure-paste.js';
 import { proofingEntries } from './proofing-entries.js';
 import { scriptEntries } from './script-entries.js';
@@ -133,10 +133,10 @@ function objectGroups(view: EditorView, { labels, editable }: ContextEntriesOpti
   const object = editable ? objectBlockAt(view.state.selection) : null;
   if (object === null) return { table: [], object: [], paragraphs: [] };
   const table = findTable(view.state.selection.$from);
+  const align =
+    table && 'objectLayout' in table.node.attrs ? [alignEntry(view, labels, table.node)] : [];
   const tableGroup: MenuEntry[] =
-    table?.pos === object
-      ? [{ id: 'table', label: labels.table, items: tableCellEntries(view, labels) }]
-      : [];
+    table?.pos === object ? tableCellEntries(view, labels, align) : [];
   return {
     table: tableGroup,
     object: objectEntries(view, labels, object),

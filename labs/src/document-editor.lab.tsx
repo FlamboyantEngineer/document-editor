@@ -177,6 +177,7 @@ function Lab() {
   const [mentions, setMentions] = useState(false);
   const [formattingMarks, setFormattingMarks] = useState(false);
   const [caretBlock, setCaretBlock] = useState(false);
+  const [tableHandles, setTableHandles] = useState(true);
   const [hostItems, setHostItems] = useState(true);
   const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
@@ -290,6 +291,15 @@ function Lab() {
             />{' '}
             Caret block
           </label>
+          <label>
+            <input
+              type="checkbox"
+              name="table-handles"
+              checked={tableHandles}
+              onChange={(event) => setTableHandles(event.currentTarget.checked)}
+            />{' '}
+            Table handles
+          </label>
           {DEBUG_PARTS.map(({ part, label }) => (
             <label key={part}>
               <input
@@ -382,6 +392,7 @@ function Lab() {
         placeholderText={slashMenu ? { emptyLine: 'Type / to insert a block' } : undefined}
         formattingMarks={formattingMarks}
         caretBlock={caretBlock}
+        tableHandles={tableHandles}
         debug={shownDebug}
         onDebugChange={setDebug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}

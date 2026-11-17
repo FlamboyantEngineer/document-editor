@@ -2,7 +2,8 @@ import type { Page } from '@playwright/test';
 import type { RegressionDocumentName } from '../labs/src/regression/regression-documents.js';
 import type { FragmentEdge, RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
-import type { DocumentFile, StoredNode } from '../src/model/index.js';
+import { type DocumentFile, PAGE_SAFETY_MARGIN_PX, type StoredNode } from '../src/model/index.js';
+import { openScale, SIZE } from './budgets.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // The pagination regression scenarios (specs/LABS.md DOCE-LABS-4): the regression set's documents
@@ -562,6 +563,102 @@ test.describe('list split stress', () => {
   });
 });
 
+// Every page of the editor: how far what it holds reaches past its content box, and each list part
+// on it, with its direct items, whether it ends the page, the room left below it then, and how
+// far each item's first line sits below the item's top. It runs in the page.
+function readListPages() {
+  const content = document.querySelector('.de-document-editor__content');
+  return [...(content?.querySelectorAll('.pm-page') ?? [])].map((page) => {
+    const style = getComputedStyle(page);
+    const bottom =
+      page.getBoundingClientRect().bottom -
+      Number.parseFloat(style.paddingBottom) -
+      Number.parseFloat(style.borderBottomWidth);
+    const body = page.querySelector('.pm-page-content');
+    const reach = Math.max(
+      ...[...page.children, body?.lastElementChild ?? page]
+        .filter((each) => each.getClientRects().length > 0)
+        .map((each) => each.getBoundingClientRect().bottom),
+    );
+    const lists = [...(body?.querySelectorAll(':scope > :is(ol, ul)') ?? [])].map((list) => {
+      const items = [...list.children];
+      return {
+        id: list.getAttribute('data-id') ?? '',
+        part: Number(list.getAttribute('data-split-part-index') ?? -1),
+        items: items.length,
+        last: list === body?.lastElementChild,
+        spare: bottom - list.getBoundingClientRect().bottom,
+        firstItem: items[0]?.getBoundingClientRect().height ?? 0,
+        // Measured from the item's first child drawn with a box, past hidden markers.
+        firstLines: items.map((item) => {
+          const first = [...item.children].find((each) => each.getClientRects().length > 0);
+          return Math.abs(
+            (first?.getBoundingClientRect().top ?? 0) - item.getBoundingClientRect().top,
+          );
+        }),
+      };
+    });
+    return { over: reach - bottom, lists };
+  });
+}
+
+test.describe('short lists at scale', () => {
+  test('DOCE-LABS-2.4 DOCE-PAGINATION-2.2 DOCE-PAGINATION-4.1 DOCE-PAGINATION-4.2 lays out 100 pages of short lists, packed, once, and edits them locally', async ({
+    lab,
+    page,
+  }) => {
+    await openScale(lab, page, SIZE.shortLists100);
+    const pages = await page.evaluate(readListPages);
+    expect(pages.length).toBeGreaterThanOrEqual(100);
+    // Nothing reaches past a page's content box, and each list holds eight items or fewer.
+    expect(pages.flatMap((each, index) => (each.over > 1 ? [index + 1] : []))).toEqual([]);
+    const parts = pages.flatMap((each) => each.lists);
+    expect(Math.max(...parts.map(({ items }) => items))).toBeLessThanOrEqual(8);
+    // Split lists go on in order, and a page a list continues from has no room for its next item
+    // beside the layout's safety margin.
+    const split = parts.filter(({ part }) => part >= 0);
+    expect(split.length).toBeGreaterThan(50);
+    for (const [index, each] of pages.entries()) {
+      const end = each.lists.at(-1);
+      const next = pages[index + 1]?.lists[0];
+      if (!end?.last || end.part < 0 || next?.id !== end.id) continue;
+      expect(next.part, `part after page ${String(index + 1)}`).toBe(end.part + 1);
+      expect(end.spare, `room left on page ${String(index + 1)}`).toBeLessThan(
+        next.firstItem + PAGE_SAFETY_MARGIN_PX,
+      );
+    }
+    // Each item's marker sits on its first line: no item starts with an empty line.
+    expect(parts.flatMap(({ firstLines }) => firstLines).filter((gap) => gap > 1)).toEqual([]);
+    // The pages lay out once: nothing more after they settle.
+    const settled = await page.evaluate(() => window.stressLab.layoutStats());
+    expect(settled?.overflowPages).toBe(0);
+    await page.waitForTimeout(1000);
+    expect(await page.evaluate(() => window.stressLab.layoutStats())).toEqual(settled);
+    // A click in an item of a later part edits that item, and measures that block alone.
+    const item = page
+      .locator('.de-document-editor__content :is(ol, ul)[data-split-part-index="1"] > li > p')
+      .nth(5);
+    await item.scrollIntoViewIfNeeded();
+    const before = (await item.textContent()) ?? '';
+    const end = await item.evaluate((paragraph) => {
+      const text = paragraph.lastChild as Text;
+      const range = document.createRange();
+      range.setStart(text, text.length - 1);
+      range.setEnd(text, text.length);
+      const box = range.getBoundingClientRect();
+      return { x: box.right - 1, y: box.top + box.height / 2 };
+    });
+    await page.mouse.click(end.x, end.y);
+    await page.keyboard.type('Q');
+    await expect(item).toContainText(`${before}Q`);
+    await page.evaluate(() => window.stressLab.whenSettled());
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => window.stressLab.layoutStats());
+    expect((after?.blocksMeasured ?? 0) - (settled?.blocksMeasured ?? 0)).toBeLessThanOrEqual(1);
+    expect(after?.pagesRebuilt).toBe(settled?.pagesRebuilt);
+  });
+});
+
 test.describe('table fragment stress', () => {
   const tableFragments = async (page: Page, name: RegressionDocumentName) => {
     await openDocument(page, name);
@@ -832,6 +929,38 @@ test.describe('footnote stress', () => {
     });
   }
 
+  test('DOCE-LABS-4.9 DOCE-PAGINATION-8.1 DOCE-PAGINATION-8.6 stacks header, content, footnotes and footer with no gap', async ({
+    page,
+  }) => {
+    await openDocument(page, 'footnote-heavy');
+    const regions = await page
+      .locator('.de-document-editor__content .pm-page')
+      .evaluateAll((pages) =>
+        pages.map((each) => {
+          const box = (name: string) => each.querySelector(`:scope > .pm-page-${name}`);
+          const [header, content, footnotes, footer] = ['header', 'content', 'footnotes', 'footer']
+            .map(box)
+            .map((element) => (element ? element.getBoundingClientRect() : null));
+          const style = box('content') ? getComputedStyle(box('content') as Element) : null;
+          const shown = footnotes && footnotes.height > 0 ? footnotes : null;
+          return {
+            headerToContent: (content?.top ?? 0) - (header?.bottom ?? 0),
+            contentToFootnotes: shown ? shown.top - (content?.bottom ?? 0) : 0,
+            toFooter: (footer?.top ?? 0) - ((shown ?? content)?.bottom ?? 0),
+            margins: `${style?.marginTop ?? ''} ${style?.marginBottom ?? ''}`,
+            footnotes: Boolean(shown),
+          };
+        }),
+      );
+    expect(regions.filter(({ footnotes }) => footnotes).length).toBeGreaterThan(0);
+    for (const each of regions) {
+      expect(each.margins).toBe('0px 0px');
+      expect(Math.abs(each.contentToFootnotes)).toBeLessThanOrEqual(0.5);
+      expect(each.headerToContent).toBeGreaterThanOrEqual(-0.5);
+      expect(each.toFooter).toBeGreaterThanOrEqual(-0.5);
+    }
+  });
+
   test('DOCE-LABS-4.9 numbers footnotes per page when the template says so, mark and entry alike', async ({
     page,
   }) => {
@@ -845,6 +974,59 @@ test.describe('footnote stress', () => {
         each.footnoteMarks.map(({ number }) => number),
       );
     }
+  });
+  test('DOCE-FOOTNOTES-2.1 lists the entries after the section in the web layout, numbered through it', async ({
+    page,
+  }) => {
+    await openDocument(page, 'footnote-heavy', { layout: 'web' });
+    const shown = await page.locator('.de-document-editor__content').evaluate((root) => {
+      const areas = [...root.querySelectorAll('.pm-page-footnotes')];
+      const marks = [...root.querySelectorAll('sup[data-footnote-id]')];
+      const area = areas[0];
+      const blocks = area?.parentElement?.querySelector('.pm-page-content');
+      return {
+        areas: areas.length,
+        marks: marks.map((mark) => mark.getAttribute('data-footnote-number')),
+        entries: [...(area?.querySelectorAll('.pm-footnote-entry') ?? [])].map((entry) =>
+          entry.getAttribute('data-footnote-number'),
+        ),
+        below:
+          (area?.getBoundingClientRect().top ?? 0) >=
+          (blocks?.getBoundingClientRect().bottom ?? Infinity) - 1,
+      };
+    });
+    expect(shown.areas).toBe(1);
+    expect(shown.marks.length).toBeGreaterThan(1);
+    expect(shown.marks).toEqual(shown.marks.map((_, index) => String(index + 1)));
+    expect(shown.entries).toEqual(shown.marks);
+    expect(shown.below).toBe(true);
+  });
+
+  test('DOCE-FOOTNOTES-3.1 keeps the pages and the entry number as typing in a footnote leaves its height', async ({
+    page,
+  }) => {
+    await openDocument(page, 'footnote-heavy');
+    const before = await pagesOf(page);
+    const placed = (pages: typeof before) =>
+      pages.map((each) => each.footnoteEntries.map(({ id }) => id));
+    // The shortest entry, so two more characters keep it on its line.
+    const entries = page.locator('.de-document-editor__content .pm-footnote-entry');
+    const lengths = await entries.evaluateAll((all) =>
+      all.map((one) => one.textContent?.length ?? 0),
+    );
+    const entry = entries.nth(lengths.indexOf(Math.min(...lengths)));
+    const height = (await entry.boundingBox())?.height;
+    await entry.locator('.pm-footnote-entry-content').click();
+    await page.keyboard.press('End');
+    await page.keyboard.type('ab');
+    await expect(entry).toContainText('ab');
+    await settle(page);
+    expect((await entry.boundingBox())?.height).toBe(height);
+    const after = await pagesOf(page);
+    expect(placed(after)).toEqual(placed(before));
+    const number = entry.locator('.pm-footnote-entry-number');
+    await expect(number).toBeVisible();
+    await expect(number).not.toHaveText('');
   });
 });
 
@@ -1114,5 +1296,42 @@ test.describe('mixed geometry', () => {
     expect(styles.number?.weight).toBe(styles.number?.marker || styles.number?.weight);
     expect(styles.suffix?.content).not.toBe('none');
     expect(styles.label?.family).toBe(styles.text?.family);
+  });
+
+  test('DOCE-LABS-4.14 aligns figure captions, labels linked code and draws one pixel tables', async ({
+    page,
+  }) => {
+    const content = page.locator('.de-document-editor__content');
+    await openDocument(page, 'figures');
+    const captions = await content
+      .locator("figure[data-object-layout]:not([data-caption-enabled='false'])")
+      .evaluateAll((figures) =>
+        figures.map((figure) => {
+          const caption = figure.querySelector('.doc-figure-caption-line') as HTMLElement;
+          return [
+            figure.getAttribute('data-object-layout'),
+            getComputedStyle(caption).textAlign,
+            Math.round(
+              caption.getBoundingClientRect().width - figure.getBoundingClientRect().width,
+            ),
+          ];
+        }),
+      );
+    // The regression document's left figure has its caption turned off.
+    for (const layout of ['center', 'right']) {
+      expect(captions.find(([shown]) => shown === layout)).toEqual([layout, layout, 0]);
+    }
+    await openDocument(page, 'linked-code');
+    const label = await content
+      .locator('.doc-linked-code-caption-line')
+      .first()
+      .evaluate((line) => getComputedStyle(line, '::before').content);
+    expect(label).toContain('counter(codeblock)');
+    await openDocument(page, 'table-merged-cells');
+    const widths = await content
+      .locator('table.table-border-1px td')
+      .first()
+      .evaluate((cell) => getComputedStyle(cell).borderTopWidth);
+    expect(widths).toBe('1px');
   });
 });

@@ -12,6 +12,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, type EditorView } from 'prosemirror-view';
+import { CAPTION_HOST_TYPES } from './caption-hosts.js';
 import { CAPTIONED_TYPES, captionedAt, type CaptionedObject, setCaption } from './captions.js';
 import { appendTransaction, captureTransaction } from './table-parts.js';
 
@@ -108,14 +109,19 @@ function objectOfLine(view: EditorView, line: Element): number | null {
   return null;
 }
 
-/** Double-clicking a caption line edits that caption in place, while the view is editable. */
+/**
+ * Double-clicking a code block's caption line edits that caption in a field over it, while the
+ * view is editable; a table's or a figure's caption is edited in the caption itself
+ * (`caption-hosts.ts`), where a double click selects a word.
+ */
 export function captionDoubleClick<S extends CaptionEditingState>(key: PluginKey<S>) {
   return (view: EditorView, event: MouseEvent): boolean => {
     const target = event.target as Node | null;
     const line = target?.nodeType === 1 ? (target as Element).closest('.doc-caption-line') : null;
     if (!line || !view.editable) return false;
     const pos = objectOfLine(view, line);
-    if (pos === null) return false;
+    const node = pos === null ? null : view.state.doc.nodeAt(pos);
+    if (pos === null || !node || CAPTION_HOST_TYPES.includes(node.type.name)) return false;
     event.preventDefault();
     view.dispatch(view.state.tr.setMeta(key, { caption: pos }));
     return true;

@@ -33,6 +33,41 @@ test.describe('host services', () => {
     await expect(embed(page)).toHaveAttribute('data-embed-status', 'unavailable');
   });
 
+  test('DOCE-EMBEDS-2.3 DOCE-EMBEDS-3.2 resizes a column of an embedded table and keeps it through an update', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('host-services');
+    const first = embed(page).locator('td, th').first();
+    await first.scrollIntoViewIfNeeded();
+    const box = await first.boundingBox();
+    if (!box) throw new Error('The table is not drawn');
+    const border = { x: box.x + box.width - 1, y: box.y + box.height / 2 };
+    await page.mouse.move(border.x - 10, border.y);
+    await page.mouse.move(border.x, border.y, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.move(border.x - 60, border.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(first).toHaveAttribute('data-colwidth', /^\d+$/);
+    const width = await first.getAttribute('data-colwidth');
+    // No entry changes the rows and columns the host keeps.
+    await embed(page).locator('td').first().click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'Align cells' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Insert row' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await page.getByRole('button', { name: 'Change Operating limits at the host' }).click();
+    await page.getByRole('button', { name: 'Check embeds with the host' }).click();
+    await expect(embed(page)).toHaveAttribute('data-embed-status', 'update');
+    await embed(page).locator('td').first().click();
+    await page.getByRole('button', { name: "Take the selected embed's update" }).click();
+    await expect(embed(page)).toContainText('Row 3');
+    await expect(embed(page).locator('td, th').first()).toHaveAttribute(
+      'data-colwidth',
+      width ?? '',
+    );
+  });
+
   test('DOCE-LABS-3.3 shows the host variables in the header again when they change', async ({
     lab,
     page,

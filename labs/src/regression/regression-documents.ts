@@ -14,9 +14,11 @@ import captionNumbering from '../../../test/fixtures/documents/caption-numbering
 import codeBlockStress from '../../../test/fixtures/documents/code-block-stress.json' with { type: 'json' };
 import codeBlocks from '../../../test/fixtures/documents/code-blocks.json' with { type: 'json' };
 import emptySections from '../../../test/fixtures/documents/empty-sections.json' with { type: 'json' };
+import figures from '../../../test/fixtures/documents/figures.json' with { type: 'json' };
 import footnoteHeavy from '../../../test/fixtures/documents/footnote-heavy.json' with { type: 'json' };
 import footnotesInStructures from '../../../test/fixtures/documents/footnotes-in-structures.json' with { type: 'json' };
 import headingKeepWithNext from '../../../test/fixtures/documents/heading-keep-with-next.json' with { type: 'json' };
+import linkedCode from '../../../test/fixtures/documents/linked-code.json' with { type: 'json' };
 import listSplitStress from '../../../test/fixtures/documents/list-split-stress.json' with { type: 'json' };
 import longBulletList from '../../../test/fixtures/documents/long-bullet-list-with-nesting.json' with { type: 'json' };
 import longMixed from '../../../test/fixtures/documents/long-mixed.json' with { type: 'json' };
@@ -51,9 +53,11 @@ export const REGRESSION_DOCUMENTS = {
   'code-block-stress': codeBlockStress,
   'code-blocks': codeBlocks,
   'empty-sections': emptySections,
+  figures,
   'footnote-heavy': footnoteHeavy,
   'footnotes-in-structures': footnotesInStructures,
   'heading-keep-with-next': headingKeepWithNext,
+  'linked-code': linkedCode,
   'long-bullet-list-with-nesting': longBulletList,
   'long-mixed': longMixed,
   'list-split-stress': listSplitStress,

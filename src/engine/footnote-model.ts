@@ -30,15 +30,16 @@ export interface FootnotesPluginState {
 /** What a transaction tells the footnote plugin. */
 export interface FootnotesMeta {
   readonly bodies?: ReadonlyMap<string, Fragment> | undefined;
-  readonly reveal?: FootnoteRevealed | undefined;
+  /** Where the reader was taken to; null forgets it, as a brief highlight ends. */
+  readonly reveal?: FootnoteRevealed | null | undefined;
   /** Set on the plugin's own reconcile, which needs no reconcile of its own. */
   readonly reconciled?: boolean | undefined;
 }
 
 /**
  * The blocks a citing paragraph may sit in, from the paragraph's parent up to the page's content:
- * lists, body cells, quotes and layout columns. Header cells, script output and footnote entries are
- * left out.
+ * lists, table cells, header cells too, quotes and layout columns. Script output and footnote
+ * entries are left out.
  */
 export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'list_item',
@@ -47,6 +48,7 @@ export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'table',
   'table_row',
   'table_cell',
+  'table_header',
   'blockquote',
   'layout_section',
   'layout_column',

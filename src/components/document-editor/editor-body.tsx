@@ -339,7 +339,9 @@ export function EditorBody({
         scale={(props.zoom ?? 100) / 100}
         labels={labels}
       />
-      {editable && !suggesting ? <TableHandles view={view} state={state} labels={labels} /> : null}
+      {editable && !suggesting && props.tableHandles ? (
+        <TableHandles view={view} state={state} labels={labels} />
+      ) : null}
       {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
     </div>
   );

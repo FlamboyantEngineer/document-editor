@@ -207,7 +207,7 @@ Verification: `src/collab/undo.test.ts`, `src/engine/undo-commands.test.ts`, `sr
 
 ### DOCE-COLLAB-6.4 - Shared room lab
 
-The shared room lab shall show two writers editing one document in its room on an in-process room server, each at their own width and zoom, either able to go offline and come back. What either changes, together or apart, shall reach the other, both holding the same document, and each one's undo shall undo only their own changes.
+The shared room lab shall show two writers editing one document in its room on an in-process room server, each at their own width and zoom, either able to go offline and come back and to switch between page and web view, and shall show the harness the document each writer's editor holds (`window.collabRoom`). What either changes, together or apart, shall reach the other, both holding the same document, and each one's undo shall undo only their own changes.
 
 Implementation: `labs/src/collab-room.lab.tsx`, `test/session-rooms.ts`
 Verification: `e2e/shared-room.spec.ts`
