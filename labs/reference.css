@@ -219,3 +219,9 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
   border: 1px solid var(--ref-border);
   border-radius: 8px;
 }
+
+/* The template workspace lab: the workspace takes the rest of the window. */
+.lab-fill .lab-editor > .de-template-workspace {
+  flex: 1;
+  min-height: 0;
+}

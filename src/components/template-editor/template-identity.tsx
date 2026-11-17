@@ -5,7 +5,7 @@ import type { Key } from '@flamboyantengineer/ui-components/core';
 import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, type Ref, useState } from 'react';
 import type { TemplateFile } from '../../model/index.js';
 import { withSetting } from './template-settings.js';
 
@@ -54,6 +54,12 @@ interface TemplateIdentityProps {
   readonly parentError?: string | undefined;
   /** Whether the host has never saved the template, so its id may still change. */
   readonly isNew?: boolean | undefined;
+  /** Why the id cannot be saved, such as a save asked for while it is empty. */
+  readonly idError?: string | undefined;
+  /** The id field's input, which a host focuses, such as when a save needs an id. */
+  readonly idInputRef?: Ref<HTMLInputElement> | undefined;
+  /** Whether the name is shown and not edited. */
+  readonly isNameReadOnly?: boolean | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly labels: TemplateIdentityLabels;
   /** Rows after the identity rows, such as a host's own. */
@@ -74,20 +80,24 @@ export function templateIdOf(text: string): string {
     .replace(/_+$/, '');
 }
 
-// The id while it may change, committed on Enter or on leaving the field.
-function IdRow({ template, onChange, isDisabled, labels }: TemplateIdentityProps) {
+// The id while it may change, committed on Enter or on leaving the field; an id with nothing left
+// empties the template's, so it cannot be saved until it has one.
+function IdRow(props: TemplateIdentityProps) {
+  const { template, onChange, isDisabled, labels } = props;
   const [draft, setDraft] = useState(template.id);
   const [shown, setShown] = useState(template.id);
+  const [isRefused, setRefused] = useState(false);
   if (shown !== template.id) {
     setShown(template.id);
     setDraft(template.id);
   }
   const id = templateIdOf(draft);
   const commit = () => {
-    if (!id) return;
+    setRefused(!id);
     setDraft(id);
     if (id !== template.id) onChange({ ...template, id });
   };
+  const problem = id ? undefined : isRefused || draft ? labels.idEmpty : props.idError;
   return (
     <PropertyRow label={labels.id}>
       <TextField
@@ -97,7 +107,9 @@ function IdRow({ template, onChange, isDisabled, labels }: TemplateIdentityProps
         tracksChanges={false}
         value={draft}
         isDisabled={isDisabled}
-        errorMessage={id ? undefined : labels.idEmpty}
+        isRequired
+        inputRef={props.idInputRef}
+        errorMessage={problem}
         onChange={setDraft}
         onBlur={commit}
         onKeyDown={(event) => {
@@ -157,6 +169,7 @@ export function TemplateIdentity(props: TemplateIdentityProps) {
           tracksChanges={false}
           value={template.name ?? ''}
           isDisabled={isDisabled}
+          isReadOnly={props.isNameReadOnly}
           onChange={(name) => onChange(withSetting(template, ['name'], name || null))}
         />
       </PropertyRow>
