@@ -68,6 +68,58 @@ test.describe('host services', () => {
     );
   });
 
+  test('DOCE-EMBEDS-1.4 DOCE-TEMPLATES-5.4 draws embedded content in the styles of the text and section around it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('host-services');
+    const tables = content(page).locator('.de-embed table');
+    await expect(tables).toHaveCount(2);
+    // Each embedded table takes its section's table colors, and carries none of its own.
+    const look = (index: number) =>
+      tables
+        .nth(index)
+        .locator('th, td')
+        .first()
+        .evaluate((cell) => {
+          const style = getComputedStyle(cell);
+          return {
+            background: style.backgroundColor,
+            color: style.color,
+            border: style.borderTopColor,
+            own: cell.closest('.de-embed')?.querySelector('[style*="color"]') !== null,
+          };
+        });
+    await expect
+      .poll(() => look(0))
+      .toEqual({
+        background: 'rgb(226, 232, 240)',
+        color: 'rgb(15, 23, 42)',
+        border: 'rgb(51, 65, 85)',
+        own: false,
+      });
+    await expect
+      .poll(() => look(1))
+      .toEqual({
+        background: 'rgb(254, 243, 199)',
+        color: 'rgb(120, 53, 15)',
+        border: 'rgb(180, 83, 9)',
+        own: false,
+      });
+    // An inline embed in a heading reads as the heading's text.
+    const inline = content(page).locator('h1 .de-embed-inline');
+    await expect(inline).toHaveText('28 V');
+    const font = (selector: string) =>
+      content(page)
+        .locator(selector)
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return [style.fontSize, style.fontWeight, style.fontFamily].join(' ');
+        });
+    expect(await font('h1 .de-embed-inline')).toBe(await font('h1:has(.de-embed-inline)'));
+  });
+
   test('DOCE-LABS-3.3 shows the host variables in the header again when they change', async ({
     lab,
     page,
