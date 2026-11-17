@@ -98,11 +98,13 @@ const textOf = async (page: Page, id: string) =>
 function expectSplitsFill(pages: readonly PageRead[]) {
   expect(pages.filter((each) => each.overflows)).toEqual([]);
   for (const [index, each] of pages.entries()) {
-    for (const part of each.parts) expect(part.lines, `${part.id}#${String(part.part)}`).toBeGreaterThanOrEqual(2);
+    for (const part of each.parts)
+      expect(part.lines, `${part.id}#${String(part.part)}`).toBeGreaterThanOrEqual(2);
     const ids = each.parts.map(({ id }) => id);
     expect(new Set(ids).size, `parts on page ${String(index + 1)}`).toBe(ids.length);
     const next = pages[index + 1]?.parts[0];
-    const continues = next?.id === each.lastPart?.id && next?.part === (each.lastPart?.part ?? 0) + 1;
+    const continues =
+      next?.id === each.lastPart?.id && next?.part === (each.lastPart?.part ?? 0) + 1;
     if (continues && (next?.lines ?? 0) > 2) {
       expect(each.spareLines, `room left on page ${String(index + 1)}`).toBeLessThan(1);
     }
@@ -164,10 +166,14 @@ test.describe('split paragraphs', () => {
     });
     expect(id).not.toBe('');
     await page.waitForTimeout(50);
-    await page.keyboard.type(' The notes went on for a while, and were kept with the others.'.repeat(10));
+    await page.keyboard.type(
+      ' The notes went on for a while, and were kept with the others.'.repeat(10),
+    );
     await settle(page);
     const after = await pagesOf(page);
-    expect(after.flatMap((each) => each.parts).filter((part) => part.id === id).length).toBeGreaterThan(1);
+    expect(
+      after.flatMap((each) => each.parts).filter((part) => part.id === id).length,
+    ).toBeGreaterThan(1);
     expectSplitsFill(after);
   });
 
@@ -241,7 +247,9 @@ test.describe('split paragraphs', () => {
     await openDocument(page, 'mixed-geometry');
     const before = await storedParagraphs(page);
     const pair = await page.evaluate(() => {
-      for (const body of document.querySelectorAll('.de-document-editor__content .pm-page-content')) {
+      for (const body of document.querySelectorAll(
+        '.de-document-editor__content .pm-page-content',
+      )) {
         const blocks = [...body.children];
         for (const [index, block] of blocks.entries()) {
           const next = blocks[index + 1];
@@ -257,7 +265,11 @@ test.describe('split paragraphs', () => {
     const at = before.findIndex((each) => each.id === firstId);
     const [first, second] = [before[at], before[at + 1]];
     expect(second?.id).toBe(secondId);
-    await selectText(page, { id: firstId, part: 0, offset: 20 }, { id: secondId, part: 0, offset: 30 });
+    await selectText(
+      page,
+      { id: firstId, part: 0, offset: 20 },
+      { id: secondId, part: 0, offset: 30 },
+    );
     await page.keyboard.type('Z');
     await settle(page);
     const after = await storedParagraphs(page);

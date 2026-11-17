@@ -832,6 +832,38 @@ test.describe('footnote stress', () => {
     });
   }
 
+  test('DOCE-LABS-4.9 DOCE-PAGINATION-8.1 DOCE-PAGINATION-8.6 stacks header, content, footnotes and footer with no gap', async ({
+    page,
+  }) => {
+    await openDocument(page, 'footnote-heavy');
+    const regions = await page
+      .locator('.de-document-editor__content .pm-page')
+      .evaluateAll((pages) =>
+        pages.map((each) => {
+          const box = (name: string) => each.querySelector(`:scope > .pm-page-${name}`);
+          const [header, content, footnotes, footer] = ['header', 'content', 'footnotes', 'footer']
+            .map(box)
+            .map((element) => (element ? element.getBoundingClientRect() : null));
+          const style = box('content') ? getComputedStyle(box('content') as Element) : null;
+          const shown = footnotes && footnotes.height > 0 ? footnotes : null;
+          return {
+            headerToContent: (content?.top ?? 0) - (header?.bottom ?? 0),
+            contentToFootnotes: shown ? shown.top - (content?.bottom ?? 0) : 0,
+            toFooter: (footer?.top ?? 0) - ((shown ?? content)?.bottom ?? 0),
+            margins: `${style?.marginTop ?? ''} ${style?.marginBottom ?? ''}`,
+            footnotes: Boolean(shown),
+          };
+        }),
+      );
+    expect(regions.filter(({ footnotes }) => footnotes).length).toBeGreaterThan(0);
+    for (const each of regions) {
+      expect(each.margins).toBe('0px 0px');
+      expect(Math.abs(each.contentToFootnotes)).toBeLessThanOrEqual(0.5);
+      expect(each.headerToContent).toBeGreaterThanOrEqual(-0.5);
+      expect(each.toFooter).toBeGreaterThanOrEqual(-0.5);
+    }
+  });
+
   test('DOCE-LABS-4.9 numbers footnotes per page when the template says so, mark and entry alike', async ({
     page,
   }) => {
