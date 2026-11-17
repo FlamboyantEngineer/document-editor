@@ -1,6 +1,7 @@
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { addRowBefore, CellSelection, findTable } from 'prosemirror-tables';
+import type { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, TABLE_BORDER_1PX_CLASS } from '../model/index.js';
@@ -78,6 +79,32 @@ describe('table keys', () => {
       ['', '', ''],
     ]);
     expect(state.selection.$from.node(-2)).toBe(tablePos(state)?.node.child(2));
+  });
+
+  it('DOCE-TABLES-1.1 gives the row Tab adds new element ids, unlike every other cell', () => {
+    const state = run(stateAt(grid(), 'C2'), tableKeys().Tab);
+    const ids: unknown[] = [];
+    state.doc.descendants((node) => {
+      if (node.type.name === 'table_cell') ids.push(node.attrs.dataId);
+    });
+    expect(ids).toHaveLength(9);
+    expect(new Set(ids).size).toBe(9);
+    expect(ids.every((id) => typeof id === 'string' && id.length > 0)).toBe(true);
+  });
+
+  it('DOCE-TABLES-1.1 does nothing on Shift-Tab in the first cell, and adds no row read only', () => {
+    const first = stateAt(grid(), 'A1');
+    let changed = false;
+    expect(tableKeys()['Shift-Tab']?.(first, () => (changed = true))).toBe(true);
+    const last = stateAt(grid(), 'C2');
+    const readOnly = { editable: false } as EditorView;
+    expect(tableKeys().Tab?.(last, () => (changed = true), readOnly)).toBe(true);
+    expect(changed).toBe(false);
+    // Read only, Tab still moves between cells.
+    const moved = run(stateAt(grid(), 'A2'), (state, dispatch) =>
+      Boolean(tableKeys().Tab?.(state, dispatch, readOnly)),
+    );
+    expect(caretText(moved)).toBe('B2');
   });
 
   it('DOCE-TABLES-1.1 leaves Tab to the document outside a table', () => {

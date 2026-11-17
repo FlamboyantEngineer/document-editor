@@ -20,7 +20,7 @@ import {
 } from './editor-chrome.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { DocumentOverview, type DocumentOverviewOptions } from './editor-overview.js';
+import { type DocumentOverviewOptions, useDocumentOverview } from './editor-overview.js';
 import { type FirstLayout, FirstLayoutCover } from './first-layout.js';
 import { debugParts } from './root-data.js';
 
@@ -153,6 +153,15 @@ export function EditorSurface({
     />
   );
   const [region, setRegion] = useState<HTMLDivElement | null>(null);
+  const overviewLayers = useDocumentOverview(
+    region,
+    view,
+    props.scrollable && props.overview
+      ? props.overview === true
+        ? NO_OVERVIEW_OPTIONS
+        : props.overview
+      : null,
+  );
   const content = (
     <SurfaceContent
       props={props}
@@ -184,18 +193,12 @@ export function EditorSurface({
               role="region"
               aria-label={context.labels.viewport}
               axis="both"
-              scrollbar="overlay"
+              scrollbar={overviewLayers ? 'native' : 'overlay'}
+              overviewLayers={overviewLayers}
               tabIndex={0}
             >
               {content}
             </ScrollRegion>
-            {props.overview && region ? (
-              <DocumentOverview
-                region={region}
-                view={view}
-                options={props.overview === true ? NO_OVERVIEW_OPTIONS : props.overview}
-              />
-            ) : null}
           </>
         ) : (
           content

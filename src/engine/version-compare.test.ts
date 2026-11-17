@@ -333,6 +333,27 @@ describe('comparing structure, pairing and targets', () => {
     ]);
   });
 
+  it('DOCE-VERSIONS-1.8 compares blocks whose ids were made again by their kind and text', () => {
+    const older = [
+      paragraph('a0000001', 'Alpha'),
+      paragraph('a0000002', 'Alpha'),
+      paragraph('a0000003', 'Blue'),
+      paragraph('a0000004', 'Gamma'),
+    ];
+    const renewed = [
+      paragraph('b0000001', 'Alpha'),
+      paragraph('b0000002', 'Alpha'),
+      paragraph('b0000003', 'Blue'),
+      paragraph('b0000004', 'Gamma'),
+    ];
+    expect(summary(older, renewed)).toEqual([]);
+    // A block with an id whose text changed too is not paired by likeness.
+    expect(summary(older, [...renewed.slice(0, 3), paragraph('b0000005', 'Gamma ray')])).toEqual([
+      ['insertion', 'b0000005', 'Gamma ray'],
+      ['deletion', 'a0000004', 'Gamma'],
+    ]);
+  });
+
   it('DOCE-VERSIONS-1.9 tells a link or reference whose target changed from formatting', () => {
     expect(facts([linked('https://example.com/a')], [linked('https://example.com/b')])).toEqual([
       {

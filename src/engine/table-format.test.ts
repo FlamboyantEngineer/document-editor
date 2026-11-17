@@ -12,6 +12,7 @@ import {
   insertTableLines,
   setCellAlignment,
 } from './table-format.js';
+import { toggleHeaderLines } from './table-headers.js';
 import { MIN_ROW_HEIGHT, selectCellTo, setRowHeight } from './table-pointer.js';
 import { createTableWidth, fitColumns } from './table-width.js';
 
@@ -211,5 +212,33 @@ describe('tables under the pointer', () => {
       state.tr.setNodeMarkup(cellPos, undefined, { ...cell?.attrs, colwidth: [500] }),
     );
     expect(cells(state).map((attrs) => attrs.colwidth)).toEqual([[100], [350], [100], [350]]);
+  });
+});
+
+describe('the cells a menu acts on', () => {
+  // The text of each selected cell, when the selection is still a cell selection.
+  function selectedTexts(state: EditorState): string[] | null {
+    const { selection } = state;
+    if (!(selection instanceof CellSelection)) return null;
+    const texts: string[] = [];
+    selection.forEachCell((node) => texts.push(node.textContent));
+    return texts;
+  }
+
+  it('DOCE-TABLES-3.13 keeps two cells selected after an action that deletes none of them', () => {
+    const start = stateAt(grid(), 'A1');
+    const $a1 = start.doc.resolve(positionOf(start.doc, 'A1') - 2);
+    const $a2 = start.doc.resolve(positionOf(start.doc, 'A2') - 2);
+    const selected = start.apply(start.tr.setSelection(new CellSelection($a1, $a2)));
+    const actions: [string, Command][] = [
+      ['align', setCellAlignment({ textAlign: 'center' })],
+      ['header', toggleHeaderLines('column')],
+      ['add column', insertTableLines('column', 'after')],
+      ['add row', insertTableLines('row', 'before')],
+    ];
+    for (const [name, action] of actions) {
+      const after = run(selected, action);
+      expect([name, selectedTexts(after)]).toEqual([name, ['A1', 'A2']]);
+    }
   });
 });

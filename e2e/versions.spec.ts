@@ -44,6 +44,33 @@ test.describe('versions lab', () => {
     await expect(block(page, 'shall report each fault')).not.toHaveAttribute('data-diff-change');
   });
 
+  test('DOCE-VERSIONS-2.4 DOCE-EDITOR-4.19 hides the change bars in the web layout', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('versions');
+    await compareWith(page, 'Version 1');
+    await page.getByLabel('Change bars').check();
+    const drawn = () =>
+      content(page).evaluate((root) => {
+        const lines = [...root.querySelectorAll('.de-change-lines__line')].filter(
+          (line) => getComputedStyle(line).display !== 'none',
+        );
+        const blocks = [
+          ...root.querySelectorAll('[data-diff-change], [data-diff-deletion]'),
+        ].filter((block) => {
+          const style = getComputedStyle(block, '::after');
+          return style.display !== 'none' && style.content !== 'none';
+        });
+        return lines.length + blocks.length;
+      });
+    await expect.poll(drawn).toBeGreaterThan(0);
+    await page.getByLabel('Web layout').check();
+    await expect(page.locator('.de-document-editor')).toHaveAttribute('data-layout', 'web');
+    await expect.poll(drawn).toBe(0);
+    await expect(page.getByLabel('Changes')).toHaveText('8 changes');
+  });
+
   test('DOCE-VERSIONS-3.2 draws change bars in the template colors beside the blocks', async ({
     lab,
     page,
@@ -101,23 +128,22 @@ test.describe('versions lab', () => {
     page,
   }) => {
     await lab.open('versions');
+    // The overview the frame paints beside its scrollbar, as the region publishes it.
     const painted = () =>
       page
-        .locator('.de-document-editor__overview')
+        .locator('.de-document-editor .ui-scroll-region')
         .evaluate((element) =>
-          [element, ...element.querySelectorAll('*')]
-            .map((each) => getComputedStyle(each).backgroundImage)
-            .join(' '),
+          (element as HTMLElement).style.getPropertyValue('--ui-scroll-region-overview-image'),
         );
     // A frame shorter than the document, so its overview has a track to mark.
     await page
       .locator('.de-document-editor')
       .evaluate((element) => element.style.setProperty('height', '400px'));
-    expect(await painted()).not.toContain('/ 0.5');
+    expect(await painted()).not.toContain('50%');
     await compareWith(page, 'Version 1');
     await page.getByLabel('Change bars').check();
     // The inserted block's bar, green at half opacity.
-    await expect.poll(painted).toMatch(/0\.86\d* 0 \/ 0\.5/);
+    await expect.poll(painted).toContain('color-mix(in srgb, rgb(0, 221, 0) 50%, transparent)');
   });
 
   test('DOCE-VERSIONS-2.4 keeps the bars of an indented block in the column of the others', async ({

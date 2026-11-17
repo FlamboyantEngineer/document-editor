@@ -107,7 +107,7 @@
   pointer-events: none;
 }
 
-/* Cells of a cell selection, and the column border a resize drags. */
+/* Cells of a cell selection, and the column or row border a resize drags. */
 .de-document-editor .selectedCell {
   background: color-mix(in srgb, var(--ref-accent, #0969da) 14%, transparent);
 }
@@ -124,6 +124,20 @@
 
 .de-document-editor .resize-cursor {
   cursor: col-resize;
+}
+
+.de-document-editor .de-row-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  left: 0;
+  height: 4px;
+  background: var(--ref-accent, #0969da);
+  pointer-events: none;
+}
+
+.de-document-editor [data-row-resize] {
+  cursor: row-resize;
 }
 
 .de-document-editor td,
@@ -955,20 +969,12 @@
   visibility: hidden;
 }
 
-/* The scroll overview over the frame's track, in the overview layers' colours. */
+/* The overview the frame paints beside its native scrollbar, in the overview layers' colours. */
 .de-document-editor {
   --de-overview-search: #bf8700;
   --de-overview-proofing: #cf222e;
   --de-overview-changes: #0969da;
   --de-overview-unread: #8250df;
-}
-
-.de-document-editor__overview {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 0;
-  width: 6px;
-  pointer-events: none;
 }
 
 /* The toolbar over selected text: the base library draws the popover; the editor keeps it compact. */
