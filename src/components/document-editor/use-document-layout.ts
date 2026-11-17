@@ -33,6 +33,7 @@ import type {
   FontsAdapter,
   GlossaryAdapter,
   ReferenceSourceAdapter,
+  ScriptRunnerAdapter,
   VariablesAdapter,
 } from '../../host/index.js';
 import {
@@ -135,6 +136,8 @@ export interface DocumentLayoutOptions {
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /** Edits a template's section content and placeholders in place, handing each edit here. */
   readonly onTemplatePartChange?: ((change: TemplatePartChange) => void) | undefined;
+  /** Runs the previews of the template's script blocks while its content is edited in place. */
+  readonly scriptRunner?: ScriptRunnerAdapter | undefined;
   /** The host's variables, shown in the headers, footers and text (`createPageVariables`). */
   readonly variables?: VariablesAdapter | undefined;
   /**

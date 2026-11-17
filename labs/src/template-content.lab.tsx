@@ -11,7 +11,7 @@ import {
   createDocumentEditing,
   templatePreviewLock,
 } from '../../src/engine/index.js';
-import type { VariablesAdapter } from '../../src/host/index.js';
+import { createMemoryHost, type VariablesAdapter } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -24,6 +24,10 @@ import {
   withTemplatePart,
 } from '../../src/model/index.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { runLabScript } from './lab-scripts.js';
+
+// Runs the template's scripts for their previews.
+const SCRIPTS = createMemoryHost({ scripts: runLabScript }).scripts;
 
 const text = (value: string) => ({ type: 'text', text: value });
 
@@ -87,6 +91,8 @@ const OWN: TemplateFile = {
       content: [
         { type: 'heading', attrs: { level: 1 }, content: [text('Approvals')] },
         { type: 'paragraph', content: [text('Approved by the reviewers.')] },
+        // A script the template keeps without output, which its preview runs to show.
+        { type: 'script', attrs: { source: 'render.paragraph("Signed by the approvers.")' } },
       ],
     },
     {
@@ -163,6 +169,7 @@ function Lab() {
         onStateChange={setState}
         template={editable}
         variables={VARIABLES}
+        scriptRunner={SCRIPTS}
         onRegionChange={(change) => setOwn((template) => withRegionChange(template, change))}
         onTemplatePartChange={(change) =>
           setOwn((template) => withTemplatePart(template, change, resolve(template)))

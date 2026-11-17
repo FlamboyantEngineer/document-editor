@@ -6,7 +6,7 @@ import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { TabPanel } from '@flamboyantengineer/ui-components/tabs';
 import { lazy, type ReactNode, type Ref, Suspense } from 'react';
-import type { VariablesAdapter } from '../../host/adapters.js';
+import type { ScriptRunnerAdapter, VariablesAdapter } from '../../host/adapters.js';
 import type { AssetAdapter } from '../../host/asset-adapters.js';
 import { withTemplatePart } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
@@ -144,6 +144,7 @@ interface PreviewProps extends PartProps {
   readonly renderPreview?: ((preview: TemplatePreview) => ReactNode) | undefined;
   readonly assets?: AssetAdapter | undefined;
   readonly variables?: VariablesAdapter | undefined;
+  readonly scriptRunner?: ScriptRunnerAdapter | undefined;
 }
 
 /**
@@ -177,6 +178,7 @@ export function WorkspacePreview({ workspace, labels, scope, layout, ...props }:
             preview={preview}
             assets={props.assets}
             variables={props.variables}
+            scriptRunner={props.scriptRunner}
             aria-label={labels.previewDocument}
           />
         </Suspense>

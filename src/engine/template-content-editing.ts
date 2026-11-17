@@ -16,6 +16,7 @@ import {
   writeStoredContent,
 } from '../model/index.js';
 import { templateEditingAttributes } from './region-editing.js';
+import { withoutScriptOutput } from './template-script-previews.js';
 import { isRemoteTransaction } from './transaction-kind.js';
 
 /** What editing the template's content needs: whether it is on, and who hears each edit. */
@@ -87,7 +88,8 @@ function changedParts(before: ProseMirrorNode, after: ProseMirrorNode): Template
     const was = old[index];
     const same = was?.section.name === section.name && was.part === part;
     if (!same || was.content.node.content.eq(content.node.content)) return [];
-    return [{ section: section.name, part, content: writeStoredContent(content.node.content) }];
+    const stored = writeStoredContent(withoutScriptOutput(content.node.content));
+    return [{ section: section.name, part, content: stored }];
   });
 }
 
@@ -95,7 +97,8 @@ function changedParts(before: ProseMirrorNode, after: ProseMirrorNode): Template
  * Lets a template's section content and placeholders be edited in place on a preview shown in
  * parts while `enabled` holds: each section is marked with the part it holds
  * (`data-template-part`: `content`, `placeholder` or `sample`), a writer's change that would add,
- * remove or rename a section is refused, and `onChange` hears each part's new content. The root is
+ * remove or rename a section is refused, and `onChange` hears each part's new content, its script
+ * blocks without their output (`withoutScriptOutput`). The root is
  * marked `data-template-editing` meanwhile.
  */
 export function createTemplateContentEditing(options: TemplateContentEditingOptions): Plugin {
