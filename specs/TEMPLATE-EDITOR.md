@@ -267,7 +267,7 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 
 ### DOCE-TEMPLATE-EDITOR-3.15 - A host's own layout
 
-`renderLayout` shall receive the workspace's parts (`TemplateWorkspaceParts`): the scope tabs, the toolbar, the messages, the preview, the properties and the history, and the tabs' panel (`panel`), which wraps what a layout shows below the tabs, so a host can place them in its own frame, such as its own side panel and header, in place of the workspace's layout.
+`renderLayout` shall receive the workspace's parts (`TemplateWorkspaceParts`): the scope tabs, the toolbar, the messages, the preview, the properties and the history, and the tabs' panel (`panel`), which wraps what a layout shows below the tabs, so a host can place them in its own frame, such as its own side panel and header, in place of the workspace's layout, and show a view of its own, such as a list of its fields with its tab beside the scope tabs, in place of the preview and properties.
 
 Implementation: `src/components/template-workspace/template-workspace-types.ts`, `src/components/template-workspace/template-workspace.tsx`
 Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
