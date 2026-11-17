@@ -36,7 +36,7 @@ describe('the contents section', () => {
       const user = userEvent.setup();
       const log: TemplateFile[] = [];
       render(<Host log={log} />);
-      await openSections(user);
+      await openSections(user, 'Contents');
       expect(screen.queryByRole('textbox', { name: 'Custom title' })).not.toBeInTheDocument();
       await pick(user, 'List type', 'List of figures');
       // A list without heading levels has no level picker.
@@ -69,7 +69,7 @@ describe('the contents section', () => {
       const user = userEvent.setup();
       const log: TemplateFile[] = [];
       render(<Host log={log} />);
-      await openSections(user);
+      await openSections(user, 'Contents');
       await user.click(screen.getByRole('button', { name: /^All levels/ }));
       await user.type(screen.getByRole('textbox', { name: 'Indent each level' }), '10');
       await user.tab();
