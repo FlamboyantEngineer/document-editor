@@ -701,6 +701,38 @@ test.describe('table fragment stress', () => {
     expect(repeated.every(({ captionShown, caption }) => captionShown && caption)).toBe(true);
   });
 
+  test('DOCE-LABS-4.4 DOCE-TABLES-2.4 previews a dragged column on every part of a split table', async ({
+    page,
+  }) => {
+    await openDocument(page, 'table-long-single-header');
+    const parts = page.locator('.de-document-editor__content table[data-id]');
+    const id = await parts.first().getAttribute('data-id');
+    const ownParts = page.locator(`.de-document-editor__content table[data-id="${id ?? ''}"]`);
+    expect(await ownParts.count()).toBeGreaterThan(3);
+    // The width of each part's first body cell.
+    const widths = () =>
+      ownParts.evaluateAll((all) =>
+        all.map((table) =>
+          Math.round(table.querySelector('tbody td')?.getBoundingClientRect().width ?? 0),
+        ),
+      );
+    const cell = ownParts.first().locator('tbody td').first();
+    await cell.scrollIntoViewIfNeeded();
+    const box = await cell.boundingBox();
+    if (!box) throw new Error('The table is not drawn');
+    const border = { x: box.x + box.width - 1, y: box.y + box.height / 2 };
+    await page.mouse.move(border.x - 10, border.y);
+    await page.mouse.move(border.x, border.y, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.move(border.x + 40, border.y, { steps: 6 });
+    // Halfway through the drag, every part shows the new width.
+    const during = await widths();
+    expect(during[0]).toBeGreaterThan(Math.round(box.width) + 30);
+    expect(new Set(during).size).toBe(1);
+    await page.mouse.up();
+    await expect.poll(widths).toEqual(during);
+  });
+
   test('DOCE-LABS-4.4 lays out both header modes, merged cells and rich cells', async ({
     page,
   }) => {
