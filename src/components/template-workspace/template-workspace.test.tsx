@@ -419,7 +419,9 @@ describe('TemplateWorkspace', () => {
       render(<TemplateWorkspace store={store} defaultTemplateId="child" defaultPanelExpanded />);
       const own = await screen.findByRole('button', { name: /^lead\b/ }, LOADED);
       expect(own).not.toHaveAccessibleName(/inherited/);
-      expect(screen.queryByRole('button', { name: 'Override the inherited style' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Override the inherited style' }),
+      ).not.toBeInTheDocument();
     },
     SLOW,
   );
