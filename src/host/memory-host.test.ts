@@ -97,6 +97,15 @@ describe('createMemoryHost', () => {
     ]);
   });
 
+  it('DOCE-HOST-1.5 adds a reply once for the id the editor chose, however often it is retried', async () => {
+    const { comments } = createMemoryHost({ person: { id: 'p1', name: 'Ada' } });
+    if (!comments) throw new Error('The host should keep comments.');
+    await comments.create('doc', { id: 't1', quote: 'blue', text: 'Why?' });
+    await comments.reply('doc', { threadId: 't1', text: 'Because.', id: 'r1' });
+    const again = await comments.reply('doc', { threadId: 't1', text: 'Because.', id: 'r1' });
+    expect(again.ok && again.value.entries.map((entry) => entry.id)).toEqual(['comment-1', 'r1']);
+  });
+
   it('DOCE-HOST-1.5 DOCE-HOST-3.4 keeps comment threads, attributed to the reader', async () => {
     const { comments } = createMemoryHost({
       person: { id: 'p1', name: 'Ada' },
@@ -119,7 +128,7 @@ describe('createMemoryHost', () => {
         updatedAt: '2026-01-02T03:04:05.000Z',
       },
     });
-    await comments.reply('doc', 't1', 'Because.');
+    await comments.reply('doc', { threadId: 't1', text: 'Because.' });
     await comments.setState('doc', 't1', 'resolved');
     const listed = await comments.list('doc');
     expect(listed).toMatchObject({
@@ -211,10 +220,12 @@ describe('createMemoryHost', () => {
         error: { kind: 'conflict' },
       },
     );
-    await expect(comments.reply('doc', 'missing', 'Hi')).resolves.toMatchObject({
-      ok: false,
-      error: { kind: 'not-found' },
-    });
+    await expect(comments.reply('doc', { threadId: 'missing', text: 'Hi' })).resolves.toMatchObject(
+      {
+        ok: false,
+        error: { kind: 'not-found' },
+      },
+    );
     await expect(comments.remove('doc', 't1')).resolves.toEqual({ ok: true, value: null });
     await expect(comments.remove('doc', 't1')).resolves.toMatchObject({ ok: false });
   });
@@ -396,7 +407,7 @@ describe('createMemoryHost', () => {
     const seen: number[] = [];
     const stop = comments.subscribe('doc', (threads) => seen.push(threads.length));
     await comments.create('doc', { id: 't1', quote: 'blue', text: 'Why?' });
-    await comments.reply('doc', 't1', 'Because.');
+    await comments.reply('doc', { threadId: 't1', text: 'Because.' });
     const edited = await comments.edit('doc', {
       threadId: 't1',
       entryId: 'comment-2',
@@ -420,7 +431,7 @@ describe('createMemoryHost', () => {
       deletedAt: '2026-01-02T03:04:05.000Z',
     });
     stop();
-    await comments.reply('doc', 't1', 'Unseen.');
+    await comments.reply('doc', { threadId: 't1', text: 'Unseen.' });
     expect(seen).toEqual([1, 1, 1, 1, 1]);
   });
   it('DOCE-HOST-1.11 DOCE-HOST-3.9 runs scripts with the function given, a throw a failure', async () => {

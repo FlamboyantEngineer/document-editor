@@ -123,8 +123,7 @@ export function createRoomCommentStore({
     return thread ? { ok: true, value: thread } : missing(threadId);
   };
   const room: Room = { type, write, me, stamp, has, found, moderates };
-  const addEntry = (threadId: string, text: string) => {
-    const id = createId();
+  const addEntry = (threadId: string, text: string, id = createId()) => {
     type.setAttr(keyOf(['entry', threadId, id]), { id, author: me(), text, createdAt: stamp() });
   };
   return {
@@ -150,9 +149,11 @@ export function createRoomCommentStore({
       });
       return Promise.resolve(found(fields.id));
     },
-    reply: (_documentId, threadId, text) => {
+    reply: (_documentId, { threadId, text, id }) => {
       if (!has(threadId)) return Promise.resolve(missing(threadId));
-      write(() => addEntry(threadId, text));
+      // A retry of a reply the room already holds adds nothing.
+      if (!id || type.getAttr(keyOf(['entry', threadId, id])) === undefined)
+        write(() => addEntry(threadId, text, id));
       return Promise.resolve(found(threadId));
     },
     ...fieldChanges(room),

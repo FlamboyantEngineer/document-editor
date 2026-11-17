@@ -105,7 +105,7 @@ describe('createRoomCommentStore', () => {
     const told: CommentThread[][] = [];
     const stop = editor.store.subscribe?.('doc', (threads) => told.push(threads));
     await commenter.store.create('doc', { id: 't1', quote: 'blue', text: 'Why blue?' });
-    await commenter.store.reply('doc', 't1', 'Still asking');
+    await commenter.store.reply('doc', { threadId: 't1', text: 'Still asking' });
     await confirmed(commenter.provider);
     expect(commenter.provider.getState().refusal).toBeNull();
     await settled(editor.provider, () => (told.at(-1)?.[0]?.entries.length ?? 0) === 2);
@@ -148,8 +148,8 @@ describe('createRoomCommentStore', () => {
       () => readRoomThreads(commenter.provider.doc.get('comments')).length === 1,
     );
     await Promise.all([
-      editor.store.reply('doc', 't1', 'From the editor'),
-      commenter.store.reply('doc', 't1', 'From the commenter'),
+      editor.store.reply('doc', { threadId: 't1', text: 'From the editor' }),
+      commenter.store.reply('doc', { threadId: 't1', text: 'From the commenter' }),
       editor.store.react?.('doc', { threadId: 't1', emoji: '👍', reacted: true }),
       commenter.store.react?.('doc', { threadId: 't1', emoji: '👍', reacted: true }),
     ]);
@@ -230,7 +230,7 @@ describe('createRoomCommentStore', () => {
       { id: 's1', state: 'resolved', deletedBy: undefined, entries: 0 },
       { id: 't1', state: 'deleted', deletedBy: 'editor', entries: 1 },
     ]);
-    await expect(store.reply('doc', 't1', 'Gone')).resolves.toMatchObject({
+    await expect(store.reply('doc', { threadId: 't1', text: 'Gone' })).resolves.toMatchObject({
       ok: false,
       error: { kind: 'not-found' },
     });
@@ -330,6 +330,17 @@ describe('readRoomThreads', () => {
   });
 });
 
+describe('createRoomCommentStore, replies retried', () => {
+  it('DOCE-HOST-1.5 adds a reply once for the id the editor chose, however often it is retried', async () => {
+    const { first, ada } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'Why?' });
+    await ada.reply('doc', { threadId: 't1', text: 'Because.', id: 'r1' });
+    const again = value(await ada.reply('doc', { threadId: 't1', text: 'Because.', id: 'r1' }));
+    expect(again.entries.map((entry) => entry.id)).toEqual(['ada-1', 'r1']);
+    expect(readRoomThreads(first.get('comments'))[0]?.entries).toHaveLength(2);
+  });
+});
+
 describe('createRoomCommentStore, with changes made at once', () => {
   it('DOCE-COMMENTS-2.20 keeps a resolution, a decision and an update two writers make at once', async () => {
     const { exchange, ada, bea } = writers();
@@ -363,7 +374,7 @@ describe('createRoomCommentStore, with changes made at once', () => {
     await ada.remove('doc', 't1');
     await ada.remove('doc', 't2');
     await bea.setState('doc', 't1', 'resolved');
-    await bea.reply('doc', 't1', 'Too late');
+    await bea.reply('doc', { threadId: 't1', text: 'Too late' });
     // An earlier editor resolves by writing the thread's whole record again.
     attribute(second, ['thread', 't2'], { id: 't2', quote: 'red', state: 'resolved' });
     exchange();
@@ -419,7 +430,7 @@ describe('createRoomCommentStore, its comments', () => {
     const { first, exchange, ada, bea } = writers();
     await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
     exchange();
-    await bea.reply('doc', 't1', 'Second');
+    await bea.reply('doc', { threadId: 't1', text: 'Second' });
     exchange();
     await ada.react?.('doc', { threadId: 't1', entryId: 'bea-1', emoji: '👍', reacted: true });
     await ada.react?.('doc', { threadId: 't1', entryId: 'ada-1', emoji: '🎉', reacted: true });
@@ -451,7 +462,7 @@ describe('createRoomCommentStore, its comments', () => {
     const { identity } = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });
     const store = createRoomCommentStore({ doc, identity });
     await store.create('doc', { id: 't1', quote: 'blue', text: 'First' });
-    const thread = value(await store.reply('doc', 't1', 'Second'));
+    const thread = value(await store.reply('doc', { threadId: 't1', text: 'Second' }));
     const ids = thread.entries.map((entry) => entry.id);
     expect(new Set(ids).size).toBe(2);
     for (const id of ids) expect(id).toMatch(/^[\da-f]{32}$/);
