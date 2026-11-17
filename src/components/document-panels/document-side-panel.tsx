@@ -14,7 +14,7 @@ import { DockPanel, DockPanelPane } from '@flamboyantengineer/ui-components/dock
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import { type ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import type { IdentityAdapter } from '../../host/index.js';
-import type { TemplateFile } from '../../model/index.js';
+import { type TemplateFile, templatePageMetrics } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { SharedCommentThreadsContext } from '../document-comments/document-comments.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
@@ -81,7 +81,9 @@ export interface DocumentSidePanelProps {
   readonly maxSize?: number | undefined;
   /**
    * The width, in pixels, the panel leaves its parent's other content, narrowing below `maxSize`
-   * (never below `minSize`) without changing the width it saves. Defaults to 480.
+   * (never below `minSize`) without changing the width it saves; with less room than this and
+   * `minSize` together, it stays collapsed. Defaults to the template's page width at the zoom
+   * while the document shows on pages, and to 480 otherwise.
    */
   readonly minMainSize?: number | undefined;
   /** Saves the panel's selected pane, expanded state and size under this key. */
@@ -167,6 +169,12 @@ function useRevealedPanes(
   return panel;
 }
 
+// The width the document needs beside the panel: its page at the zoom, on pages; 480 otherwise.
+function pageRoom(template: TemplateFile | undefined, { layout, zoom }: EditorContext) {
+  if (!template || layout !== 'page') return 480;
+  return Math.ceil((templatePageMetrics(template).width * zoom) / 100);
+}
+
 /** A side panel of panes beside the document, inside the editor or given its context. */
 export function DocumentSidePanel(props: DocumentSidePanelProps) {
   const context = useDocumentEditor();
@@ -183,6 +191,8 @@ export function DocumentSidePanel(props: DocumentSidePanelProps) {
     state,
   );
   if (!context) return null;
+  const minSize = props.minSize ?? 240;
+  const room = props.minMainSize ?? pageRoom(props.template, context);
   return (
     <DockPanel
       ref={panel}
@@ -197,9 +207,11 @@ export function DocumentSidePanel(props: DocumentSidePanelProps) {
       size={props.size}
       defaultSize={props.defaultSize ?? 300}
       onSizeChangeEnd={props.onSizeChange}
-      minSize={props.minSize ?? 240}
+      minSize={minSize}
       maxSize={props.maxSize ?? 380}
-      minMainSize={props.minMainSize ?? 480}
+      minMainSize={room}
+      collapseBelow={room + minSize}
+      resizableWhileCollapsed={false}
     >
       {panes.map((pane) => (
         <DockPanelPane

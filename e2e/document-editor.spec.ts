@@ -552,6 +552,34 @@ test.describe('document editor lab', () => {
     await expect(status).toHaveCount(0);
   });
 
+  for (const layout of ['page', 'web'] as const) {
+    test(`DOCE-EDITOR-4.12 keeps text selection while the document is read, in the ${layout} layout`, async ({
+      lab,
+      page,
+    }) => {
+      await lab.open('document-editor');
+      if (layout === 'web') await page.getByLabel('Web layout').check();
+      await page.getByLabel('Authoring').uncheck();
+      await expect(editor(page)).toHaveAttribute('data-layout', layout);
+      const selected = () => page.evaluate(() => document.getSelection()?.toString() ?? '');
+      const before = await content(page).textContent();
+      // A double click selects the word, and the selection stays.
+      const point = await pointAt(page, 'Normal operation');
+      await page.mouse.dblclick(point.left + 5, point.y);
+      await expect.poll(selected).toBe('Normal');
+      // Shift with an arrow extends it from the keyboard.
+      await page.keyboard.press('Shift+ArrowRight');
+      await expect.poll(selected).toBe('Normal ');
+      // Typing changes nothing.
+      await page.keyboard.type('x');
+      await page.keyboard.press('Backspace');
+      expect(await content(page).textContent()).toBe(before);
+      // A drag selects too.
+      await selectText(page, 'Normal operation');
+      await expect.poll(selected).toBe('Normal operation');
+    });
+  }
+
   test('DOCE-EDITOR-5.4 reports the page in view as the reader scrolls, not the caret', async ({
     lab,
     page,

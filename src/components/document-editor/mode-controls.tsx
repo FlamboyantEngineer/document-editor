@@ -27,6 +27,8 @@ export interface ShellFeatures {
   /** Why a mode is unavailable, by mode. */
   readonly modeReasons?: Readonly<Partial<Record<EditingMode, string>>> | undefined;
   readonly onMarkupChange?: ((markup: DocumentMarkup) => void) | undefined;
+  /** Why a markup is unavailable, by markup. */
+  readonly markupReasons?: Readonly<Partial<Record<DocumentMarkup, string>>> | undefined;
   /**
    * The modes the mode menu lists, in order. Defaults to editing, suggesting and reading
    * (`DEFAULT_MODES`); commenting is listed only when named. The current mode is listed always.
@@ -85,15 +87,24 @@ export function modeEntries(
   });
 }
 
-/** The markup choices as menu entries, the current one selected. */
-export function markupEntries(context: EditorContext, { onMarkupChange }: ShellFeatures) {
-  return MARKUPS.map(({ markup, label, icon }): MenuEntry => ({
-    id: `markup-${markup}`,
-    label: context.labels[label],
-    icon,
-    isSelected: context.markup === markup,
-    onAction: () => onMarkupChange?.(markup),
-  }));
+/** The markup choices as menu entries: the current one selected, an unavailable one disabled with why. */
+export function markupEntries(
+  context: EditorContext,
+  { onMarkupChange, markupReasons = {} }: ShellFeatures,
+) {
+  return MARKUPS.map(({ markup, label, icon }): MenuEntry => {
+    const reason = markup === context.markup ? undefined : markupReasons[markup];
+    return {
+      id: `markup-${markup}`,
+      label: context.labels[label],
+      icon,
+      isSelected: context.markup === markup,
+      isDisabled: reason !== undefined,
+      focusableWhenDisabled: reason !== undefined,
+      ...(reason === undefined ? {} : { description: reason }),
+      onAction: () => onMarkupChange?.(markup),
+    };
+  });
 }
 
 // The markup shown: `original`, which no choice offers, reads as no markup.

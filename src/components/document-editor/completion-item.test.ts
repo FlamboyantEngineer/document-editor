@@ -8,9 +8,13 @@ import { createEditorContext } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { disabledReasonOf, isItemEnabled } from './toolbar-items.js';
 
-function contextOf(state: EditorState, onRun: (next: EditorState) => void = () => undefined) {
+function contextOf(
+  state: EditorState,
+  onRun: (next: EditorState) => void = () => undefined,
+  editable = true,
+) {
   const context = createEditorContext(null, state, {
-    editable: true,
+    editable,
     labels: DEFAULT_EDITOR_LABELS,
   });
   return {
@@ -54,5 +58,15 @@ describe('inline completion toggle', () => {
     expect(isItemEnabled(item, contextOf(state))).toBe(false);
     expect(disabledReasonOf(item, contextOf(state))).toBe('Offline');
     expect(isItemEnabled(item, contextOf(stateWith()))).toBe(true);
+    expect(item.isPressed?.(contextOf(state))).toBe(false);
+  });
+
+  it('DOCE-AUTOMATION-3.9 is unavailable and not pressed in a read document, saying so first', () => {
+    const state = stateWith({ available: false, reason: 'Offline' });
+    const read = contextOf(state, undefined, false);
+    expect(isItemEnabled(item, read)).toBe(false);
+    expect(item.isPressed?.(read)).toBe(false);
+    expect(disabledReasonOf(item, read)).toBe('The document is open for reading');
+    expect(item.isPressed?.(contextOf(stateWith(), undefined, false))).toBe(false);
   });
 });

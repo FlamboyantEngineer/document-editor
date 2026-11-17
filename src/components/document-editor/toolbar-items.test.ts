@@ -86,6 +86,28 @@ describe('built-in toolbar groups', () => {
     expect(isItemEnabled(reference, context)).toBe(false);
     expect(disabledReasonOf(reference, context)).toBe('Not here');
   });
+
+  it('DOCE-EDITOR-4.5 offers the kinds of figure from a menu, a diagram while the host draws them', () => {
+    const figureOf = (diagrams: boolean) =>
+      builtInToolbarGroups(documentSchema, DEFAULT_EDITOR_LABELS, {
+        templateStyle: {},
+        features: { diagrams },
+      })
+        .find((group) => group.id === 'insert')
+        ?.items.find((item) => item.id === 'figure');
+    const doc = parseMarkup('<p>Text</p>');
+    const context = createEditorContext(null, EditorState.create({ doc }), {
+      editable: true,
+      labels: DEFAULT_EDITOR_LABELS,
+    });
+    const entryIds = (diagrams: boolean) => {
+      const figure = figureOf(diagrams);
+      if (figure?.kind !== 'menu') throw new Error('No figure menu.');
+      return figure.entries(context).map((entry) => entry.id);
+    };
+    expect(entryIds(false)).toEqual(['image-figure']);
+    expect(entryIds(true)).toEqual(['image-figure', 'diagram-figure']);
+  });
 });
 
 describe('disabled reasons', () => {

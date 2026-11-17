@@ -87,6 +87,26 @@ test.describe('side panels lab', () => {
     await expect(handle).toHaveAttribute('aria-valuemax', String(Math.max(200, room)));
   });
 
+  test('DOCE-EDITOR-8.1 stays collapsed while the page has no room beside it, and expands with it', async ({
+    lab,
+    page,
+  }) => {
+    await page.setViewportSize({ width: 900, height: 800 });
+    await lab.open('panels');
+    await expect(navigation(page)).toHaveAttribute('data-collapse-forced', 'true');
+    await expect(navigation(page).getByRole('tabpanel')).toHaveCount(0);
+    await expect(navigation(page).getByRole('separator')).toHaveCount(0);
+    await expect(navigation(page).getByRole('button', { name: /^Expand/ })).toBeDisabled();
+    // The host's expanded state is kept, so the panel shows again once the room comes back.
+    await expect(page.getByLabel('Panel expanded')).toBeChecked();
+    await page.setViewportSize({ width: 1600, height: 800 });
+    await expect(navigation(page)).not.toHaveAttribute('data-collapse-forced');
+    await expect(navigation(page).getByRole('tabpanel')).toHaveCount(1);
+    // Collapsed by the reader, it has no handle to drag open.
+    await page.getByLabel('Panel expanded').uncheck();
+    await expect(navigation(page).getByRole('separator')).toHaveCount(0);
+  });
+
   test('DOCE-LABS-3.6 leaves the title out of the outline on its own', async ({ lab, page }) => {
     await lab.open('panels');
     const outline = ownPanes(page).getByRole('navigation', { name: 'Outline' });

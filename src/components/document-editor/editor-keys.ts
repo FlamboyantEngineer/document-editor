@@ -3,6 +3,7 @@
 // The find bar's keys are the editor root's (`useFindBar`), so they work outside the document too.
 
 import type { Command, EditorState } from 'prosemirror-state';
+import { useCallback, useState } from 'react';
 import {
   canInsertReference,
   insertMath,
@@ -11,6 +12,7 @@ import {
   setFigure,
   type ShortcutId,
 } from '../../engine/index.js';
+import type { ToolbarMenus } from './document-toolbar.js';
 import type { ObjectDialog } from './editor-context.js';
 
 /**
@@ -71,4 +73,22 @@ export function editorKeys({
           ] as const,
       ),
   ];
+}
+
+/**
+ * The dialogs the editor's keys open, but the toolbar's reference menu instead of the reference
+ * dialog while the toolbar shows it enabled, so the writer picks the kind of reference there
+ * (DOCE-EDITOR-6.2); and where the toolbar's menus say how to open them.
+ */
+export function useKeyDialog(openDialog: (dialog: ObjectDialog) => void) {
+  const [toolbarMenus] = useState<ToolbarMenus>(() => new Map());
+  const keyDialog = useCallback(
+    (dialog: ObjectDialog) => {
+      const menu = dialog.kind === 'reference' ? toolbarMenus.get('reference') : undefined;
+      if (menu) menu();
+      else openDialog(dialog);
+    },
+    [toolbarMenus, openDialog],
+  );
+  return { toolbarMenus, keyDialog };
 }

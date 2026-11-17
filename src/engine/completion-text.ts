@@ -91,3 +91,11 @@ export function normalizeCompletion(answer: string, request: CompletionContext):
   if (/^\s/u.test(request.after)) text = text.trimEnd();
   return text.trim() ? text : '';
 }
+
+/** Whether a key types text: a character, not in a composition and with no command modifier. */
+export const typesText = (event: KeyboardEvent) =>
+  event.key.length === 1 &&
+  !event.isComposing &&
+  event.keyCode !== 229 &&
+  !event.ctrlKey &&
+  !event.metaKey;
