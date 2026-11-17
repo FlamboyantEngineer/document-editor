@@ -58,6 +58,31 @@ const endsPage = (page: Page) =>
 const scopeConditions = (page: Page) =>
   page.locator('.lab-pages h2', { hasText: 'Scope conditions' });
 
+// Where the caret stands in the area that scrolls the pages, as a share of its height, and how
+// far that area is scrolled.
+const caretPlace = (page: Page) =>
+  content(page)
+    .first()
+    .evaluate((region) => {
+      let scroller: Element | null = region.parentElement;
+      while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY)) {
+        scroller = scroller.parentElement;
+      }
+      const area = scroller ?? document.documentElement;
+      const frame = scroller ? area.getBoundingClientRect() : new DOMRect(0, 0, 0, innerHeight);
+      const caret = document.getSelection()?.getRangeAt(0).getBoundingClientRect();
+      const share = caret ? (caret.top - frame.top) / frame.height : Number.NaN;
+      return { share, scrollTop: area.scrollTop };
+    });
+
+// Scrolls the area that scrolls the pages to its end.
+const scrollToEnd = (page: Page) =>
+  content(page)
+    .last()
+    .evaluate((region) => {
+      region.lastElementChild?.scrollIntoView({ block: 'end' });
+    });
+
 test.describe('editing lab', () => {
   test('DOCE-EDITING-2.3 splits a block with Enter into a new element with its own id', async ({
     lab,
@@ -271,5 +296,27 @@ test.describe('editing lab', () => {
     const selected = await page.evaluate(() => window.getSelection()?.toString() ?? '');
     expect(selected.startsWith('Scope')).toBe(true);
     expect(selected).toContain('Timing responses');
+  });
+
+  test('DOCE-EDITING-2.11 brings an undone change out of view a third of the way down, and scrolls nothing for one in view', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('editing');
+    await caretIn(scopeConditions(page));
+    await page.keyboard.press('End');
+    await page.keyboard.type(' undone');
+    await scrollToEnd(page);
+    expect((await caretPlace(page)).share).toBeLessThan(0);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(scopeConditions(page)).toHaveText('Scope conditions');
+    await expect.poll(async () => (await caretPlace(page)).share).toBeGreaterThan(0.2);
+    expect((await caretPlace(page)).share).toBeLessThan(0.45);
+
+    await page.keyboard.type(' again');
+    const before = await caretPlace(page);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(scopeConditions(page)).toHaveText('Scope conditions');
+    expect((await caretPlace(page)).scrollTop).toBe(before.scrollTop);
   });
 });

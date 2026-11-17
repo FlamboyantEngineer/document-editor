@@ -12,7 +12,8 @@ import {
   type MenubarFeatures,
   menubarMenus,
 } from './menubar-menus.js';
-import { builtInToolbarGroups } from './toolbar-controls.js';
+import { builtInToolbarGroups } from './toolbar-groups.js';
+import { ALL_OPTIONAL } from './toolbar-items.js';
 
 const hooks = createHooks('document-editor', ['menubar']);
 
@@ -34,7 +35,14 @@ export function DocumentMenubar({
   const shortcuts = shortcutsOf(state);
   const { shell } = menus;
   const groups = useMemo(
-    () => builtInToolbarGroups(state.schema, labels, { templateStyle, features, shortcuts, shell }),
+    () =>
+      builtInToolbarGroups(state.schema, labels, {
+        templateStyle,
+        features,
+        shortcuts,
+        shell,
+        optional: ALL_OPTIONAL,
+      }),
     [state.schema, labels, templateStyle, features, shortcuts, shell],
   );
   return (

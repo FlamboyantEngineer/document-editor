@@ -51,4 +51,23 @@ describe('SymbolButton', () => {
       document.activeElement as HTMLElement,
     );
   });
+
+  it('DOCE-EDITOR-4.5 lays the characters out eight to a row', async () => {
+    const user = userEvent.setup();
+    const state = EditorState.create({
+      doc: documentSchema.node('doc', null, [documentSchema.node('paragraph')]),
+    });
+    const view = new EditorView(document.createElement('div'), { state });
+    const context = createEditorContext(view, state, {
+      editable: true,
+      labels: DEFAULT_EDITOR_LABELS,
+    });
+    render(<SymbolButton context={context} symbols={[OMEGA]} />);
+    await user.click(screen.getByRole('button', { name: 'Symbol' }));
+    await screen.findByRole('grid', { name: 'Symbol' });
+    const rows = document.querySelectorAll<HTMLElement>('[style*="grid-template-columns"]');
+    expect([...rows].map((row) => row.style.gridTemplateColumns)).toContain(
+      'repeat(8, minmax(0, 1fr))',
+    );
+  });
 });

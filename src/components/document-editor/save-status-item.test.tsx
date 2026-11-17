@@ -75,7 +75,9 @@ function Harness({
   capabilities,
   shortcuts,
   labels,
+  onSave,
 }: {
+  onSave?: () => void;
   session?: EditorSession;
   capabilities?: EditorCapabilities;
   shortcuts?: ShortcutOverrides;
@@ -92,6 +94,7 @@ function Harness({
       statusBar
       aria-label="Report"
       session={session}
+      onSave={onSave}
       capabilities={capabilities}
       labels={labels}
       comments={
@@ -206,6 +209,26 @@ describe('SaveStatusItem', () => {
     expect(session.save).not.toHaveBeenCalled();
     await user.keyboard('{Control>}e{/Control}');
     expect(session.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('DOCE-SESSION-9.2 keeps the browser save closed without a session, running onSave if given', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const prevented: boolean[] = [];
+    const record = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 's') prevented.push(event.defaultPrevented);
+    };
+    window.addEventListener('keydown', record);
+    const { rerender } = render(<Harness />);
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
+    await user.keyboard('{Control>}s{/Control}');
+    rerender(<Harness onSave={onSave} />);
+    await user.keyboard('{Control>}s{/Control}');
+    expect(onSave).toHaveBeenCalledTimes(1);
+    await user.keyboard('{Control>}{Shift>}s{/Shift}{/Control}');
+    expect(onSave).toHaveBeenCalledTimes(1);
+    window.removeEventListener('keydown', record);
+    expect(prevented.slice(0, 2)).toEqual([true, true]);
   });
 
   it('DOCE-SESSION-9.3 offers no accept or reject without the decide capability', () => {

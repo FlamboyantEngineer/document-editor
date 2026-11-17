@@ -3,8 +3,9 @@
 // never read a store or a room.
 
 import { SaveStatus } from '@flamboyantengineer/ui-components/save-status';
+import type { EditorState } from 'prosemirror-state';
 import { type RefObject, useEffect, useSyncExternalStore } from 'react';
-import { matchesShortcut, type ShortcutTable } from '../../engine/index.js';
+import { matchesShortcut, shortcutsOf } from '../../engine/index.js';
 import type { EditorCapabilities, SavedState } from '../../host/index.js';
 import type { TemplatePin } from '../../model/index.js';
 import type { SessionConnection } from '../../session/document-session.js';
@@ -86,22 +87,32 @@ export function ConnectionStatusItem({
 }
 
 /**
- * The `save` shortcut (Mod-S) anywhere in the editor, its chrome included, saves the session in
- * place of the browser's save.
+ * The `save` shortcut (Mod-S) anywhere in the editor, its chrome included, saves the session, or
+ * runs the host's `onSave` without one, in place of the browser's save, which never opens.
  */
 export function useSaveShortcut(
   root: RefObject<HTMLElement | null>,
-  { session, shortcuts }: { session: EditorSession | undefined; shortcuts: ShortcutTable },
+  {
+    session,
+    onSave,
+    state,
+  }: {
+    session?: EditorSession | undefined;
+    onSave?: (() => void) | undefined;
+    state: EditorState;
+  },
 ) {
+  const shortcuts = shortcutsOf(state);
   useEffect(() => {
     const element = root.current;
-    if (!element || !session) return undefined;
+    if (!element) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!matchesShortcut(shortcuts, 'save', event)) return;
       event.preventDefault();
-      requestSave(session);
+      if (session) requestSave(session);
+      else onSave?.();
     };
     element.addEventListener('keydown', onKeyDown);
     return () => element.removeEventListener('keydown', onKeyDown);
-  }, [root, session, shortcuts]);
+  }, [root, session, onSave, shortcuts]);
 }

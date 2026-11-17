@@ -1,48 +1,22 @@
-// The editor's own toolbar items: undo and redo, the text style of the selected blocks, character
-// formats, lists, and inserting a table or a page break. Each reflects the selection and is
-// disabled while its command cannot run.
+// The toolbar's own controls: the text style of the selected blocks and the table button with its
+// grid. Each reflects the selection and is disabled while its command cannot run.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
-import {
-  type Key,
-  PageBreakGlyph,
-  RedoGlyph,
-  TableGlyph,
-  UndoGlyph,
-} from '@flamboyantengineer/ui-components/core';
+import { type Key, TableGlyph } from '@flamboyantengineer/ui-components/core';
 import { GridSizePicker } from '@flamboyantengineer/ui-components/grid-size-picker';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
-import type { Schema } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { type CSSProperties, memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import {
-  customStyleAt,
-  DEFAULT_SHORTCUTS,
-  insertPageBreak,
-  insertTable,
-  redoCommand,
-  shortcutLabel,
-  shortcutsOf,
-  type ShortcutTable,
-  undoCommand,
-} from '../../engine/index.js';
+import { customStyleAt, insertTable, shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { blockStyle, blockStyles } from './block-styles.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { checklistItems, commandItem, listItems, markItems } from './format-items.js';
-import { type InsertFeatures, insertItems, linkItem } from './insert-controls.js';
-import { layoutItem } from './layout-items.js';
-import { type ShellFeatures, shellItems } from './mode-controls.js';
 import { usePopoverCommand } from './popover-command.js';
-import { DEFAULT_SYMBOLS } from './symbols.js';
-import type { ToolbarGroup } from './toolbar-items.js';
 
 // The toolbar's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['block-style', 'style-preview']);
-
-const NO_CUSTOM_STYLES: readonly string[] = [];
 
 // The template properties a text style preview reads: the paragraph's and the headings'.
 function previewProperties(templateStyle: Readonly<Record<string, string>>): CSSProperties {
@@ -110,7 +84,8 @@ const BlockStyleField = memo(function BlockStyleField({
   );
 });
 
-function BlockStyleSelect({
+/** The text style field, its options previewed in the template's look. */
+export function BlockStyleSelect({
   context,
   templateStyle,
   customStyles,
@@ -152,7 +127,8 @@ function BlockStyleSelect({
   );
 }
 
-function TableButton({ context }: { context: EditorContext }) {
+/** The table button, opening the grid that sizes a new table. */
+export function TableButton({ context }: { context: EditorContext }) {
   const { isOpen, setOpen, choose } = usePopoverCommand(context);
   const { labels } = context;
   return (
@@ -160,11 +136,11 @@ function TableButton({ context }: { context: EditorContext }) {
       <Button
         icon={TableGlyph}
         label={labels.insertTable}
-        tooltip={labels.insertTable}
+        tooltip={isOpen ? labels.insertTableHint : labels.insertTable}
         size="sm"
         isDisabled={!context.canRun(insertTable({ rows: 1, columns: 1 }))}
       />
-      <Popover placement="bottom start" aria-label={labels.insertTable}>
+      <Popover placement="bottom start" aria-label={labels.insertTable} isNonModal>
         <GridSizePicker
           aria-label={labels.insertTable}
           autoFocus
@@ -175,105 +151,4 @@ function TableButton({ context }: { context: EditorContext }) {
       </Popover>
     </PopoverTrigger>
   );
-}
-
-// Undo and redo.
-const historyGroup = (labels: DocumentEditorLabels, shortcuts: ShortcutTable): ToolbarGroup => ({
-  id: 'history',
-  items: [
-    commandItem(
-      {
-        id: 'undo',
-        label: labels.undo,
-        icon: UndoGlyph,
-        shortcut: shortcutLabel(shortcuts, 'undo'),
-      },
-      undoCommand,
-    ),
-    commandItem(
-      {
-        id: 'redo',
-        label: labels.redo,
-        icon: RedoGlyph,
-        shortcut: shortcutLabel(shortcuts, 'redo'),
-      },
-      redoCommand,
-    ),
-  ],
-});
-
-/** The editor's own toolbar groups, by `TOOLBAR_GROUPS`. */
-export function builtInToolbarGroups(
-  schema: Schema,
-  labels: DocumentEditorLabels,
-  {
-    templateStyle,
-    features = { linkedCode: false, symbols: DEFAULT_SYMBOLS, glossary: false },
-    shortcuts = DEFAULT_SHORTCUTS,
-    shell = {},
-  }: {
-    readonly templateStyle: Readonly<Record<string, string>>;
-    readonly features?: InsertFeatures | undefined;
-    /** The shortcut table the items show their keys from. */
-    readonly shortcuts?: ShortcutTable | undefined;
-    /** What the mode and markup controls change, while the host offers them. */
-    readonly shell?: ShellFeatures | undefined;
-  },
-): ToolbarGroup[] {
-  return [
-    historyGroup(labels, shortcuts),
-    {
-      id: 'block-style',
-      items: [
-        {
-          kind: 'custom',
-          id: 'block-style',
-          render: (context) => (
-            <BlockStyleSelect
-              context={context}
-              templateStyle={templateStyle}
-              customStyles={features.customStyles ?? NO_CUSTOM_STYLES}
-            />
-          ),
-        },
-      ],
-    },
-    // Inline code is the code menu's first entry (DOCE-EDITOR-4.3), not a button of its own.
-    {
-      id: 'marks',
-      items: [
-        ...markItems(schema, labels, shortcuts).filter((item) => item.id !== 'code'),
-        linkItem(labels),
-      ],
-    },
-    {
-      id: 'lists',
-      items: [
-        ...listItems(schema, labels, shortcuts),
-        ...checklistItems(schema, labels, shortcuts),
-      ],
-    },
-    {
-      id: 'insert',
-      items: [
-        {
-          kind: 'custom',
-          id: 'insert-table',
-          render: (context) => <TableButton context={context} />,
-        },
-        commandItem(
-          {
-            id: 'page-break',
-            label: labels.pageBreak,
-            icon: PageBreakGlyph,
-            shortcut: shortcutLabel(shortcuts, 'page-break'),
-          },
-          insertPageBreak,
-        ),
-        ...insertItems(labels, features, shortcuts),
-      ],
-    },
-    { id: 'layout', items: [layoutItem(labels)] },
-    { id: 'mode', items: shellItems(shell) },
-  ];
 }

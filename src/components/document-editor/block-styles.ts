@@ -1,7 +1,7 @@
 // The text styles a document offers: the paragraph, the title, the headings and the template's
 // custom styles, each with the command that sets it, and the style of the block holding the selection.
 
-import type { NodeType, Schema } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, NodeType, Schema } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import {
   setCustomStyle,
@@ -14,11 +14,26 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 
 const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
-/** The text style of the block holding the selection: `paragraph`, `title` or `heading-<level>`. */
+/**
+ * The text style of the block holding the selection, or the one every block it covers shares:
+ * `paragraph`, `title` or `heading-<level>`; null for mixed or other blocks.
+ */
 export function blockStyle(state: EditorState): string | null {
-  const { $from, $to } = state.selection;
-  if (!$from.sameParent($to)) return null;
-  const { type, attrs } = $from.parent;
+  const { $from, $to, from, to } = state.selection;
+  if ($from.sameParent($to)) return styleOf($from.parent);
+  // Across blocks, the style they all share.
+  const styles = new Set<string | null>();
+  state.doc.nodesBetween(from, to, (node) => {
+    if (!node.isTextblock) return true;
+    styles.add(styleOf(node));
+    return false;
+  });
+  const [only] = styles;
+  return styles.size === 1 ? (only ?? null) : null;
+}
+
+// A text block's style: the paragraph, the title or a heading level; none for any other block.
+function styleOf({ type, attrs }: ProseMirrorNode): string | null {
   if (type.name === 'paragraph') return 'paragraph';
   if (type.name !== 'heading') return null;
   return attrs.docTitle === true ? 'title' : `heading-${String(attrs.level)}`;

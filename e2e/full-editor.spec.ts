@@ -16,7 +16,7 @@ test.describe('full editor lab', () => {
     // The two proofers' issues, counted in the status bar.
     await expect(page.locator('.de-document-editor__proofing-status')).toHaveText('3 issues');
     // Suggesting turns typing into a suggestion by the writer.
-    await page.getByLabel('Suggesting').check();
+    await page.getByLabel('Suggesting', { exact: true }).check();
     await content(page).locator('h1', { hasText: 'Timing' }).click();
     await page.keyboard.press('End');
     await page.keyboard.type(' plan');
@@ -127,7 +127,7 @@ test.describe('full editor lab', () => {
     await lab.open('full-editor');
     const report = page.locator('output[aria-label="Host report"]');
     await expect(report).toContainText('1 suggestions');
-    await page.getByLabel('Suggesting').check();
+    await page.getByLabel('Suggesting', { exact: true }).check();
     await content(page).locator('h1', { hasText: 'Timing' }).click();
     await page.keyboard.press('End');
     await page.keyboard.type(' plan');
@@ -142,7 +142,7 @@ test.describe('full editor lab', () => {
     const report = page.locator('output[aria-label="Host report"]');
     await expect(report).toContainText('blocks measured');
     await expect(report).not.toContainText('review changes');
-    await page.getByLabel('Suggesting').check();
+    await page.getByLabel('Suggesting', { exact: true }).check();
     await page.getByRole('button', { name: 'Comment on a sentence' }).click();
     await expect(page.locator('output[aria-label="Agent report"]')).toContainText('Commented on');
     await expect(report).toContainText('1 review changes');
@@ -300,7 +300,7 @@ test.describe('full editor lab', () => {
     await toolbar.locator('[data-item="mode"]').click();
     await page.getByRole('menuitemcheckbox', { name: 'Suggesting' }).click();
     await expect(root).toHaveAttribute('data-suggesting', 'true');
-    await expect(page.getByLabel('Suggesting')).toBeChecked();
+    await expect(page.getByLabel('Suggesting', { exact: true })).toBeChecked();
     await toolbar.locator('[data-item="mode"]').click();
     await page.getByRole('menuitemcheckbox', { name: 'Reading' }).click();
     await expect(root).toHaveAttribute('data-mode', 'reading');
@@ -409,5 +409,40 @@ test.describe('full editor lab', () => {
     const markers = margin(page).getByRole('button', { name: /annotation|comment|\d/i });
     await expect(markers.first()).toBeVisible();
     await expect(margin(page).getByText('This card sits beside the landscape page')).toHaveCount(0);
+  });
+
+  test('DOCE-EDITOR-4.30 starts the toolbar with the document menu, and DOCE-EDITOR-4.3 keeps the document usable while the table grid is open', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+    await expect(toolbar.locator('[data-group]').first()).toHaveAttribute('data-group', 'view');
+    await toolbar.getByRole('button', { name: 'Document menu' }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem')).toHaveText([
+      'Run all scripts',
+      'Update all references',
+      'Export to Markdown',
+      'Export to Word document',
+      'Export to Print snapshot',
+    ]);
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+
+    const heading = content(page).locator('h1', { hasText: 'Timing' });
+    await heading.click();
+    await toolbar.getByRole('button', { name: 'Insert table' }).click();
+    await expect(page.getByRole('dialog', { name: 'Insert table' })).toBeVisible();
+    // A press elsewhere in the document closes the grid and still places the caret there.
+    const paragraph = content(page).locator('p', { hasText: 'Maintenance' }).first();
+    await paragraph.click();
+    await expect(page.getByRole('dialog', { name: 'Insert table' })).toHaveCount(0);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' grid');
+    await expect(content(page).locator('p', { hasText: 'Maintenance' }).first()).toContainText(
+      ' grid',
+    );
+    await expect(heading).not.toContainText('grid');
   });
 });

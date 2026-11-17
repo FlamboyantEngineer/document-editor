@@ -77,7 +77,7 @@ export type {
   ToolbarMenuItem,
   ToolbarOverflow,
 } from './toolbar-items.js';
-export { TOOLBAR_GROUPS } from './toolbar-items.js';
+export { type OptionalToolbarItem, TOOLBAR_GROUPS } from './toolbar-items.js';
 export type { ChangeBar } from './use-change-notifications.js';
 export type { DocumentComparison, DocumentLayout } from './use-document-layout.js';
 export { EDITOR_COUNTS, EDITOR_LAYOUT_PASS, EDITOR_MEASURES } from './use-editor-telemetry.js';

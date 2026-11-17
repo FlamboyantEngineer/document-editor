@@ -86,7 +86,7 @@ function AssetBrowser({
   return (
     <PopoverTrigger isOpen={isOpen} onOpenChange={setOpen}>
       <Button data-item="choose-image">{labels.chooseImage}</Button>
-      <Popover placement="bottom start" aria-label={labels.chooseImage}>
+      <Popover placement="bottom start" aria-label={labels.chooseImage} isNonModal>
         <AssetPicker
           aria-label={labels.chooseImage}
           search={load}
