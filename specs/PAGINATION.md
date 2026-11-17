@@ -368,10 +368,10 @@ Verification: `e2e/pagination.spec.ts`, `e2e/document-editor.spec.ts`, `src/pagi
 
 ### DOCE-PAGINATION-7.2 - Room for footnotes
 
-Each page shall leave room for the footnote entries it holds: their measured heights and the area's own height beyond them (`measureFootnotes`, `footnoteAreaHeight`). An entry shall be on the first page that cites it, numbered through the document, unless footnotes are numbered on each page.
+Each page shall leave room for the footnote entries it holds: their measured heights and the area's own height beyond them (`measureFootnotes`, `footnoteAreaHeight`). An entry shall be on the first page that cites it, numbered through the document, unless footnotes are numbered on each page. A page that holds none leaves no room, and a footnote inserted where its page is full moves the block that no longer fits on before the writer types in it.
 
 Implementation: `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `src/model/pagination/page-projection.ts`
-Verification: `e2e/pagination.spec.ts`
+Verification: `e2e/pagination.spec.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-PAGINATION-7.3 - A caret in a moving footnote
 

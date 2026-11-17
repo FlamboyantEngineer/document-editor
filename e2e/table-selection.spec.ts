@@ -247,7 +247,9 @@ test.describe('selecting in tables', () => {
     await page.setViewportSize({ width: 1280, height: 1400 });
     await lab.open('document-editor');
     await cell(page, 'Start').scrollIntoViewIfNeeded();
-    const id = await cell(page, 'Start').evaluate((element) => element.closest('table')?.dataset.id);
+    const id = await cell(page, 'Start').evaluate(
+      (element) => element.closest('table')?.dataset.id,
+    );
     const parts = content(page).locator(`table[data-id="${String(id)}"]`);
     expect(await parts.count()).toBeGreaterThanOrEqual(2);
     const to = await padding(page, 'Run');
@@ -338,9 +340,10 @@ test.describe('selecting in tables', () => {
     await expect(content(page).locator('table')).toHaveCount(tables + 1);
     const lead = content(page).locator('p', { hasText: 'Lead text' });
     await expect(lead).toHaveText('Lead text');
-    const table = lead.locator('xpath=following-sibling::*[1]').locator('table').or(
-      lead.locator('xpath=following-sibling::table[1]'),
-    );
+    const table = lead
+      .locator('xpath=following-sibling::*[1]')
+      .locator('table')
+      .or(lead.locator('xpath=following-sibling::table[1]'));
     await expect(table.locator('tr')).toHaveCount(3);
     await expect(table.locator('tr').first().locator('td, th')).toHaveCount(2);
     await page.keyboard.type('First');
