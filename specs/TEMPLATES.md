@@ -122,7 +122,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 `templateProperties` with a section shall apply the section's styles, page and footnote settings over the template's, so a host sets them on that section.
 
 Implementation: `src/model/templates/template-properties.ts`
-Verification: `src/model/templates/template-properties.test.ts`, `e2e/template-content.spec.ts`
+Verification: `src/model/templates/template-properties.test.ts`, `e2e/template-content.spec.ts`, `e2e/host-services.spec.ts`
 
 ### DOCE-TEMPLATES-5.5 - Styled pages
 

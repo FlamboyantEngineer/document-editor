@@ -57,6 +57,18 @@ const LAB_TEMPLATE: TemplateFile = {
   footer: {
     content: [{ type: 'paragraph', content: [text('Page '), variable('page.current')] }],
   },
+  // An appendix whose tables take their own colors, so an embedded table there takes them too.
+  sections: [
+    {
+      name: 'appendix',
+      styles: {
+        table: {
+          border: { color: '#b45309' },
+          header: { background: '#fef3c7', color: '#78350f' },
+        },
+      },
+    },
+  ],
 };
 
 const TEMPLATE = resolveTemplateFile(LAB_TEMPLATE, {
@@ -266,6 +278,35 @@ function initialState(): EditorState {
             ]),
           },
           ...chapter('Interfaces'),
+        ],
+      },
+      {
+        name: 'appendix',
+        content: [
+          {
+            type: 'heading',
+            attrs: { level: 1 },
+            content: [
+              text('Timings within '),
+              {
+                type: 'embed_inline',
+                attrs: { kind: EMBED_KIND, source: 'limits', snapshot: 'limits@1', text: '28 V' },
+              },
+            ],
+          },
+          {
+            type: 'embed',
+            attrs: {
+              kind: EMBED_KIND,
+              source: 'timings',
+              snapshot: 'timings@1',
+              label: 'Timings',
+            },
+            content: table([
+              ['Step', 'Duration'],
+              ['Start-up', '2 s'],
+            ]),
+          },
         ],
       },
     ],
