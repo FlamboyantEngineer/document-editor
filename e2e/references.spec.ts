@@ -81,6 +81,23 @@ test.describe('references', () => {
     await page.keyboard.press('End');
     await page.keyboard.type(' budget');
     await expect(reference(page)).toHaveText(/Timing budget$/);
+    // DOCE-REFERENCES-1.3: a plain click while editing takes the reader to the heading, at the top
+    // of the view.
+    await reference(page).click();
+    await expect(async () => {
+      const offset = await content(page)
+        .locator('h1', { hasText: 'Timing budget' })
+        .evaluate((heading) => {
+          let scroller = heading.parentElement;
+          while (scroller && scroller.scrollHeight <= scroller.clientHeight) {
+            scroller = scroller.parentElement;
+          }
+          const top = scroller?.getBoundingClientRect().top ?? 0;
+          return heading.getBoundingClientRect().top - Math.max(top, 0);
+        });
+      expect(offset).toBeGreaterThanOrEqual(0);
+      expect(offset).toBeLessThan(60);
+    }).toPass();
     // Editing opens the same dialog, titled as inserting, on its target.
     await reference(page).click({ button: 'right' });
     await item(page, 'Edit reference…').click();
@@ -281,5 +298,43 @@ test.describe('references', () => {
     // Every abbreviation offers to cite another entry.
     await abbreviation.click({ button: 'right' });
     await expect(item(page, 'Cite another entry…')).toBeVisible();
+  });
+
+  test('DOCE-PAGINATION-7.23 types after a trailing inline atom, and joins a paragraph holding only one', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Load the GSE');
+    await expect(async () => {
+      if (await dialog(page).isVisible()) await page.keyboard.press('Escape');
+      await selectWords(page, 'GSE');
+      await toolbar(page).getByRole('button', { name: 'Abbreviation…' }).click();
+      await expect(dialog(page).getByRole('textbox', { name: 'Abbreviation' })).toHaveValue('GSE', {
+        timeout: 2000,
+      });
+    }).toPass();
+    await dialog(page).getByRole('combobox', { name: 'Glossary entry' }).fill('GSE');
+    await page.getByRole('option', { name: /GSE/ }).click();
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    const paragraph = content(page).locator('p', { hasText: 'Load the' });
+    const atoms = paragraph.locator('[data-abbreviation-ref]');
+    await expect(atoms).toHaveCount(1);
+    // The caret after the atom at the paragraph's end types after it.
+    await page.keyboard.press('End');
+    await page.keyboard.type(' now');
+    await expect(paragraph).toHaveText(/Ground support equipment \(GSE\) now$/);
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    // The atom moved to a paragraph of its own and joined back keeps the text and one atom.
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+    await expect(
+      content(page).locator('p', { hasText: /^Ground support equipment \(GSE\)$/ }),
+    ).toHaveCount(1);
+    await page.keyboard.press('Backspace');
+    await expect(paragraph).toHaveText(/^Load the Ground support equipment \(GSE\)$/);
+    await expect(atoms).toHaveCount(1);
   });
 });

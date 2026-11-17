@@ -14,6 +14,7 @@ import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useRef } from 'react';
 import { PROOFING_ISSUE_ATTR } from '../../engine/index.js';
 import { isFocusLost } from '../../utils/composed-focus.js';
+import { isElement } from '../../utils/is-element.js';
 import type { ContextEntriesOptions } from './context-entries.js';
 import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
 import { resolveContextTarget } from './context-target.js';
@@ -184,12 +185,20 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       holdRef.current = holdAt(view, anchor, pos);
       controller.open(anchor, { items });
     };
+    // Whether the host keeps the selection on a secondary click there; its press then moves no
+    // caret.
+    const keeps = (event: MouseEvent) =>
+      isElement(event.target) && latest.current.options.keepSelection?.(event.target) === true;
+    const onMouseDown = (event: MouseEvent) => {
+      if (event.button === 2 && keeps(event)) event.preventDefault();
+    };
     const onContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
       event.preventDefault();
       const anchor = { x: event.clientX, y: event.clientY };
       const mark = onProofingMark(event.target);
-      const { pos } = selectAt(view, { left: event.clientX, top: event.clientY });
+      const point = { left: event.clientX, top: event.clientY };
+      const { pos } = keeps(event) ? { pos: view.state.selection.head } : selectAt(view, point);
       // A moved selection reaches the view once the editor commits it, a frame later. Where the
       // menu opens on the press, it opens once the button is released, or the release would land
       // outside the menu just opened and close it.
@@ -212,10 +221,12 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       const caret = view.coordsAtPos(head);
       show({ x: caret.left, y: caret.bottom }, head);
     };
+    view.dom.addEventListener('mousedown', onMouseDown, true);
     view.dom.addEventListener('contextmenu', onContextMenu);
     view.dom.addEventListener('keydown', onKeyDown);
     return () => {
       pending.cancel();
+      view.dom.removeEventListener('mousedown', onMouseDown, true);
       view.dom.removeEventListener('contextmenu', onContextMenu);
       view.dom.removeEventListener('keydown', onKeyDown);
     };

@@ -231,6 +231,43 @@ describe('document catalog', () => {
     );
   });
 
+  it('DOCE-CONTENTS-1.5 drops a citation that names no document number beside one of the same document that does', () => {
+    const cite = (value: string, attrs: Record<string, unknown>): StoredNode => ({
+      type: 'text',
+      text: value,
+      marks: [{ type: 'reference', attrs: { referenceType: 'external-document', ...attrs } }],
+    });
+    const cited = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  cite('STD-9 § 8.4', { target: 'doc-9' }),
+                  text(' and '),
+                  cite('the standard', { target: 'doc-9', number: 'STD-9', title: 'Quality' }),
+                  text(' and '),
+                  cite('the notes § 2', { target: 'doc-4' }),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const { references } = catalogDocument(cited, BASE_TEMPLATE);
+    // The document cited only without its number still lists, from what it reads.
+    expect(references?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
+      'STD-9|Quality',
+      '|the notes § 2',
+    ]);
+  });
+
   it('DOCE-CONTENTS-1.6 lists each abbreviation once, alphabetically, with its expansion', () => {
     const abbreviation = (abbr: string, expansion: string): StoredNode => ({
       type: 'abbreviation',

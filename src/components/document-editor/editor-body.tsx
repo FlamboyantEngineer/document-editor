@@ -13,7 +13,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/index.js';
+import { canInsertReference, matchesShortcut, shortcutsOf } from '../../engine/index.js';
 import { inputAfterFocusKeeper } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
@@ -24,6 +24,7 @@ import { DebugTooltip } from './debug-tooltip.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
+import { editorKeys } from './editor-keys.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
 import { useHeldSelection } from './held-selection.js';
@@ -90,28 +91,6 @@ interface EditorBodyProps {
   isBlocked: boolean;
 }
 
-// The editor's own keys beside the document's, by their ids in the shortcut table, while each can
-// act: starting a comment, and the reference and script dialogs. The find bar's keys are the editor
-// root's (`useFindBar`), so they work outside the document too.
-function editorKeys({
-  startComment,
-  onDialog,
-  scripts,
-  copyLink,
-}: {
-  startComment: (() => void) | null;
-  onDialog: ((dialog: ObjectDialog) => void) | null;
-  scripts: boolean;
-  copyLink: (() => void) | null;
-}): (readonly [ShortcutId, () => void])[] {
-  return [
-    ...(startComment ? [['comment', startComment] as const] : []),
-    ...(copyLink ? [['copy-link', copyLink] as const] : []),
-    ...(onDialog ? [['reference', () => onDialog({ kind: 'reference' })] as const] : []),
-    ...(onDialog && scripts ? [['script', () => onDialog({ kind: 'script' })] as const] : []),
-  ];
-}
-
 // The body's view props: pasted figures, the host's keys before the editor's own (comment,
 // reference, script), secondary clicks left to the context menu, and the events that read the DOM
 // selection first.
@@ -151,6 +130,7 @@ function useBodyViewProps({
           onDialog,
           scripts,
           copyLink: onCopyLink ? () => copyContentLink(view, onCopyLink) : null,
+          reference: canInsertReference(view.state),
         }).find(([id]) => matchesShortcut(table, id, event))?.[1];
         if (!action) return false;
         event.preventDefault();

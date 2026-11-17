@@ -1,6 +1,6 @@
 // The text of the editor's shell controls: the editing mode and markup controls, the layout menu,
-// the toolbar's overflow, the reasons a control is unavailable, the Tools menu's updates, the
-// inline completion toggle and the status bar's words for the room connection.
+// the toolbar's overflow, the reasons a control is unavailable, the Tools menu's updates, a dialog
+// that could not open, the inline completion toggle and the status bar's words for the room connection.
 
 import { CONNECTION_STATUS_LABELS, type ConnectionStatusLabels } from './connection-status.js';
 
@@ -30,6 +30,8 @@ export interface ShellLabels {
   readonly reasonSuggesting: string;
   readonly updateReferences: string;
   readonly updateAbbreviations: string;
+  /** Tells the writer a dialog that loads on first use could not open; it loads again next time. */
+  readonly dialogUnavailable: string;
   /** Names the inline completion toggle. */
   readonly inlineCompletion: string;
   /** Why the inline completion toggle is unavailable when the provider gives no reason. */
@@ -57,6 +59,7 @@ export const DEFAULT_SHELL_LABELS: ShellLabels = {
   reasonSuggesting: 'Not available while suggesting',
   updateReferences: 'Update all references',
   updateAbbreviations: 'Update abbreviations from the glossary',
+  dialogUnavailable: 'The dialog could not be opened. Try again.',
   inlineCompletion: 'Inline completion',
   reasonCompletionUnavailable: 'Completion is not available now',
   connectionStatus: CONNECTION_STATUS_LABELS,

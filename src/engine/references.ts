@@ -18,7 +18,7 @@ import {
   type ReferenceBaseline,
   type TemplateFile,
 } from '../model/index.js';
-import { isReferencePlace } from './reference-places.js';
+import { isReferencePlace, repairMovedReferences } from './reference-places.js';
 import {
   internalBaseline,
   internalReferenceText,
@@ -79,14 +79,17 @@ export function referenceAt(state: EditorState): ReferenceAt | null {
 }
 
 /**
- * Whether a reference may go at the selection: in body text that takes marks
- * (`isReferencePlace`), not in a heading, a header cell, code or a page header or footer.
+ * Whether a reference may be inserted or changed at the selection, as the toolbar, Mod-K and the
+ * dialog ask: a reference already holding it is changed wherever it is, and a new one goes in body
+ * text that takes marks (`isReferencePlace`), not in a heading, a header cell, code or a page
+ * header or footer.
  */
 export function canInsertReference(state: EditorState): boolean {
   const type = state.schema.marks.reference;
   const { $from, $to } = state.selection;
-  if (!type || !$from.sameParent($to) || !isReferencePlace($from)) return false;
-  return $from.parent.type.allowsMarkType(type);
+  if (!type || !$from.sameParent($to)) return false;
+  if (referenceAt(state)) return true;
+  return isReferencePlace($from) && $from.parent.type.allowsMarkType(type);
 }
 
 /** The citation attributes a host's own reference type may record beside its baseline. */
@@ -148,7 +151,7 @@ export function insertReference(source: ReferenceSource): Command {
   return (state, dispatch) => {
     const type = state.schema.marks.reference;
     const current = referenceAt(state);
-    if (!type || !source.text || (!current && !canInsertReference(state))) return false;
+    if (!type || !source.text || !canInsertReference(state)) return false;
     if (dispatch) {
       const { from, to } = current ?? state.selection;
       const marks = state.doc
@@ -275,19 +278,20 @@ export function createReferences({
 }: ReferencesOptions): Plugin {
   return new Plugin({
     key: referencesKey,
-    appendTransaction(transactions, _before, after) {
+    appendTransaction(transactions, before, after) {
       const local = transactions.filter((tr) => !isRemote(tr) && !isReferenceUpdate(tr));
       if (!local.some(touchesReferences)) return null;
       const tr = after.tr;
+      const moved = repairMovedReferences(tr, { before, transactions: local });
       const pasted = renderPastedCitations(tr, { template: template(), transactions });
       const broken: string[] = [];
-      if (!updateReferences(tr, template(), broken) && !pasted) return null;
+      if (!updateReferences(tr, template(), broken) && !pasted && !moved) return null;
       if (broken.length && onBroken) onBroken([...new Set(broken)]);
       return tr.setMeta(referencesKey, true).setMeta('addToHistory', false);
     },
     props: {
       handleClick(view, pos, event) {
-        if (view.editable && !event.ctrlKey && !event.metaKey) return false;
+        if (event.button !== 0 || event.shiftKey || event.altKey) return false;
         const $pos = view.state.doc.resolve(pos);
         const mark = [...$pos.marks(), ...($pos.nodeAfter?.marks ?? [])].find(
           (each) => each.type.name === 'reference',

@@ -1,7 +1,7 @@
 // The plugins a document's layout adds to the editor's own: its page debugging, list starts, page
 // variables and dynamic template content, footnote numbers by section, search, authorship, region
 // and template content editing, sections, template edit defaults, change lines, version changes,
-// the refresh of abbreviations a writer adds and, unless the host installs its own, its lists of
+// unbreakable citation identifiers, the refresh of abbreviations a writer adds and, unless the host installs its own, its lists of
 // contents.
 
 import type { Plugin } from 'prosemirror-state';
@@ -13,6 +13,7 @@ import {
   createChangeLines,
   createDocumentSections,
   createDynamicTemplates,
+  createReferenceIdentifiers,
   createRegionEditing,
   createSearch,
   createSectionFootnoteNumbers,
@@ -70,6 +71,7 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
       generated: () => latest.current.compare?.generated ?? false,
       scope: () => latest.current.compare?.scope ?? null,
     }),
+    createReferenceIdentifiers(),
     createAbbreviationRefresh({
       glossary: () => latest.current.glossary,
       enabled: () => latest.current.editable !== false && latest.current.suggesting !== true,

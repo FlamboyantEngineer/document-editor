@@ -513,6 +513,13 @@ A click or key that comes right after the editor takes focus, on the pages or in
 Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/editor-body.tsx`
 Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`, `e2e/presence.spec.ts`
 
+### DOCE-PAGINATION-7.23 - Inline atoms at a paragraph's edge
+
+On the pages, text typed with the caret after an inline atom that ends its paragraph, such as an abbreviation, shall go after the atom, in what the pages show and in the document; and Backspace at the start of a paragraph holding only one inline atom shall join it into the paragraph before, keeping that paragraph's text and exactly one atom.
+
+Implementation: `src/components/document-editor/pages-view.tsx`
+Verification: `e2e/references.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

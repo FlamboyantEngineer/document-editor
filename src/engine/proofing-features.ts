@@ -1,5 +1,5 @@
-// The engine's proofing, abbreviation-health and abbreviation refresh exports, re-exported by its
-// features.
+// The engine's proofing, abbreviation-health, abbreviation refresh and citation identifier exports,
+// re-exported by its features.
 
 export type {
   AbbreviationHealthOptions,
@@ -55,3 +55,4 @@ export {
 export type { TextSegment as ProofingSegment } from './proofing-text.js';
 export { segmentsOf } from './proofing-text.js';
 export { isTechnicalToken } from './proofing-tokens.js';
+export { createReferenceIdentifiers, referenceIdentifiers } from './reference-identifiers.js';

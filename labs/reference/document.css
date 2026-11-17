@@ -1918,6 +1918,16 @@ a.de-contents__entry {
   transform: translateX(-100%);
 }
 
+/* A citation's identifiers never break across lines; its title may. */
+[data-reference-identifier] {
+  white-space: nowrap;
+}
+
+/* An element a reference takes the reader to stops just below the top of the view. */
+.de-document-editor__content [data-id] {
+  scroll-margin-top: 16px;
+}
+
 /* The tooltip of the abbreviation the keyboard is on, below it. */
 .de-document-editor__abbreviation-tip {
   position: absolute;

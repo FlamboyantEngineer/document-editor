@@ -109,6 +109,37 @@ describe('references', () => {
     expect(canInsertReference(at(code, 'x'))).toBe(false);
   });
 
+  it('DOCE-REFERENCES-1.6 takes a reference off text moved into a heading, and leaves one already there', () => {
+    let state = stateOf(heading('h0000001', 'Scope'), paragraph('See .'));
+    const [scope] = referenceTargets(state.doc, TEMPLATE);
+    if (!scope) throw new Error('The document has a heading');
+    state = run(at(state, '.'), insertReference({ kind: 'internal', target: scope, text: 'x' }));
+    const headingType = documentSchema.nodes.heading;
+    const reference = documentSchema.marks.reference;
+    if (!headingType || !reference) throw new Error('The schema has them');
+    const from = at(state, 'See').selection.from;
+    const inHeading = state.apply(state.tr.setBlockType(from, from, headingType, { level: 2 }));
+    expect(listReferences(inHeading.doc)).toHaveLength(0);
+    expect(inHeading.doc.textBetween(0, inHeading.doc.content.size)).toContain('section 1. Scope');
+    // A reference a host wrote in a heading stays when the heading is split, and may be changed.
+    const mark = reference.create({
+      refType: 'internal-heading',
+      targetId: 'h0000001',
+    });
+    let hosted = stateOf(heading('h0000002', 'Power and more'));
+    hosted = hosted.apply(
+      hosted.tr.addMark(
+        at(hosted, 'Power').selection.from,
+        at(hosted, 'Power').selection.from + 5,
+        mark,
+      ),
+    );
+    expect(canInsertReference(at(hosted, 'ower'))).toBe(true);
+    expect(canInsertReference(at(hosted, 'more'))).toBe(false);
+    const split = hosted.apply(hosted.tr.split(at(hosted, 'more').selection.from));
+    expect(listReferences(split.doc)).toHaveLength(1);
+  });
+
   it('DOCE-REFERENCES-1.3 follows its target, and is marked broken when the target is gone', () => {
     let state = stateOf(
       heading('h0000001', 'Scope'),

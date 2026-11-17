@@ -1,10 +1,18 @@
 // Where a reference may go (D13): body text only, which is a paragraph, in a list, a body cell or
 // a quote too, or a footnote. Headings, header cells, code, script output and page headers and
 // footers take none, so a heading never cites itself and grows with each update. Pasted content
-// keeps its references only where they may go: elsewhere their text stays without the reference.
+// keeps its references only where they may go, and so does text a change moves, as when a
+// paragraph becomes a heading: elsewhere their text stays without the reference.
 
-import { Fragment, type Node as ProseMirrorNode, type ResolvedPos, Slice } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
+import {
+  Fragment,
+  type MarkType,
+  type Node as ProseMirrorNode,
+  type ResolvedPos,
+  Slice,
+} from 'prosemirror-model';
+import type { EditorState, Transaction } from 'prosemirror-state';
+import { Mapping, ReplaceAroundStep, ReplaceStep } from 'prosemirror-transform';
 
 /** The text blocks a reference may go in. */
 const BODY_TEXTBLOCKS = new Set(['paragraph', 'footnote_entry']);
@@ -88,4 +96,70 @@ export function repairPastedReferences(slice: Slice, state: EditorState): Slice 
     walk,
   });
   return new Slice(content, slice.openStart, slice.openEnd);
+}
+
+// Whether a change may move text into another block, as changing a block's type, wrapping it or
+// splitting it does, rather than typing in it.
+const movesText = (tr: Transaction) =>
+  tr.steps.some(
+    (step) =>
+      step instanceof ReplaceAroundStep ||
+      (step instanceof ReplaceStep && step.slice.openStart > 0),
+  );
+
+// The text carrying a reference in the blocks between two positions where none may go.
+function misplacedIn(doc: ProseMirrorNode, type: MarkType, [from, to]: readonly [number, number]) {
+  const found: { from: number; to: number }[] = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isTextblock) return true;
+    if (isReferencePlace(doc.resolve(pos + 1))) return false;
+    node.forEach((child, offset) => {
+      const start = pos + 1 + offset;
+      if (type.isInSet(child.marks)) found.push({ from: start, to: start + child.nodeSize });
+    });
+    return false;
+  });
+  return found;
+}
+
+// The ranges of the final document the changes touched.
+function touchedRanges(mapping: Mapping, size: number): [number, number][] {
+  const ranges: [number, number][] = [];
+  mapping.maps.forEach((map, index) => {
+    const after = mapping.slice(index + 1);
+    map.forEach((...[, , start, end]) => {
+      ranges.push([Math.max(0, after.map(start, -1)), Math.min(size, after.map(end, 1))]);
+    });
+  });
+  return ranges;
+}
+
+/**
+ * Takes the references off text the local changes moved where no reference may go (D13), keeping
+ * the text, as when a paragraph citing a heading becomes a heading; a reference that was already
+ * there, as a host may have written it, is left. True when it took one off.
+ */
+export function repairMovedReferences(
+  tr: Transaction,
+  { before, transactions }: { before: EditorState; transactions: readonly Transaction[] },
+): boolean {
+  const type = tr.doc.type.schema.marks.reference;
+  if (!type || !transactions.some(movesText)) return false;
+  const mapping = new Mapping();
+  for (const each of transactions) mapping.appendMapping(each.mapping);
+  const back = mapping.invert();
+  const wasMisplaced = (pos: number) => {
+    const old = back.map(pos, 1);
+    const $old = before.doc.resolve(Math.min(old, before.doc.content.size));
+    return !isReferencePlace($old) && type.isInSet($old.marks()) !== undefined;
+  };
+  let repaired = false;
+  for (const range of touchedRanges(mapping, tr.doc.content.size)) {
+    for (const text of misplacedIn(tr.doc, type, range)) {
+      if (wasMisplaced(text.from + 1)) continue;
+      tr.removeMark(text.from, text.to, type);
+      repaired = true;
+    }
+  }
+  return repaired;
 }

@@ -20,7 +20,7 @@ Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
 
 ### DOCE-REFERENCES-1.3 - Following the target
 
-After each change, `createReferences({ template })` shall bring every internal reference up to date, out of the undo history (`updateReferences`): its text as its target reads now, or, when the target is gone, marked broken with its text kept, telling the host the targets whose references became broken (`onBroken`). A click on an internal reference in a read document, or a Ctrl or Cmd click in an edited one, takes the reader to its target (`revealElement`).
+After each change, `createReferences({ template })` shall bring every internal reference up to date, out of the undo history (`updateReferences`): its text as its target reads now, or, when the target is gone, marked broken with its text kept, telling the host the targets whose references became broken (`onBroken`). A click on an internal reference, in a read document or an edited one, with or without Ctrl or Cmd, takes the reader to its target, scrolling the target's element, a figure's, table's or code block's caption included, smoothly to the start of the view (`revealElement`; a stylesheet's `scroll-margin-top` keeps it just below the view's top); a Shift or Alt click, which extends or adjusts the selection, does not.
 
 Implementation: `src/engine/references.ts`, `src/engine/reveal.ts`
 Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
@@ -41,7 +41,7 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-1.6 - Where references go
 
-A reference shall go in body text only (`isReferencePlace`): a paragraph, also in a list, a body cell, a quote or a layout column, or a footnote. A heading, a header cell, code, a script's output and a page header or footer take none. `updateReferences` shall leave a reference outside body text as it reads, so a heading that cites itself never grows. `repairPastedReferences(slice, state)`, a paste filter for the clipboard, shall take the references off pasted text that lands where none may go, keeping the text; pasted internal references then read as the template formats them, or broken without their target.
+A reference shall go in body text only (`isReferencePlace`): a paragraph, also in a list, a body cell, a quote or a layout column, or a footnote. A heading, a header cell, code, a script's output and a page header or footer take none. `updateReferences` shall leave a reference outside body text as it reads, so a heading that cites itself never grows. `repairPastedReferences(slice, state)`, a paste filter for the clipboard, shall take the references off pasted text that lands where none may go, keeping the text; pasted internal references then read as the template formats them, or broken without their target. After the writer's own changes that move text into another block (changing a block's type, wrapping or splitting it), `createReferences` shall take the references off text that now lies where none may go, keeping the text (`repairMovedReferences`); a reference that already lay there is left. The toolbar's reference menu, Mod-K and the dialog ask the same question (`canInsertReference`): a new reference goes only where one may go, and a reference already in the text may be changed wherever it is; Mod-K does nothing elsewhere.
 
 Implementation: `src/engine/reference-places.ts`, `src/engine/references.ts`
 Verification: `src/engine/reference-places.test.ts`, `src/engine/references.test.ts`
@@ -87,6 +87,13 @@ Verification: `src/host/memory-host.test.ts`, `e2e/references.spec.ts`
 
 Implementation: `src/components/document-editor/insert-controls.tsx`, `src/components/document-editor/element-entries.ts`
 Verification: `e2e/references.spec.ts`
+
+### DOCE-REFERENCES-1.13 - Unbreakable citation identifiers
+
+The document editor shall mark the parts of each citation of another document that identify what it cites, its document's number, its revision label and its target's number, wherever its text reads them, each as one part (`data-reference-identifier`, `createReferenceIdentifiers`), so a stylesheet keeps each whole on one line (`white-space: nowrap`) while the citation's title may wrap. The marks move with the text and are made again only after a change that may change a reference.
+
+Implementation: `src/engine/reference-identifiers.ts`, `src/components/document-editor/layout-own-plugins.ts`
+Verification: `src/engine/reference-identifiers.test.ts`
 
 ## DOCE-REFERENCES-2 - Abbreviations
 
