@@ -31,6 +31,7 @@ export {
 } from './checklists.js';
 export type { ClipboardOptions, PasteFilter } from './clipboard.js';
 export { createClipboard } from './clipboard.js';
+export { pasteUnformattedText } from './clipboard-text.js';
 export type { ContentsGroup, ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
 export {
   CONTENTS_LABELS,

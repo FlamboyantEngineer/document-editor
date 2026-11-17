@@ -132,6 +132,13 @@ Backspace at the start of a text block shall join it into the text block before 
 Implementation: `src/engine/document-editing.ts`, `src/engine/block-keys.ts`
 Verification: `src/engine/block-keys.test.ts`
 
+### DOCE-EDITING-2.11 - Undo shows its change
+
+An undo or a redo (`undoCommand`, `redoCommand`), of the editing history or of a shared document's own undo (DOCE-COLLAB-6.3), shall bring the change it makes into view: with its selection out of view, the area that scrolls the document scrolls it to about a third of the way down; with it in view, nothing scrolls. A shared document's undo puts the caret at the end of what it changed, where the history's restores the selection it recorded. Another scroll to the selection, such as a later key's, scrolls as the view does (`createHistoryReveal`, which the editing plugins install).
+
+Implementation: `src/engine/history-reveal.ts`, `src/engine/undo-commands.ts`, `src/collab/undo.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/history-reveal.test.ts`, `src/collab/undo.test.ts`, `e2e/editing.spec.ts`
+
 ## DOCE-EDITING-3 - Installing editing
 
 ### DOCE-EDITING-3.1 - The editing extension
@@ -222,6 +229,13 @@ With the host's `assets`, pasted HTML with images whose bytes come with the past
 
 Implementation: `src/components/document-editor/figure-paste.ts`, `src/components/document-editor/pasted-images.ts`
 Verification: `src/components/document-editor/figure-paste.test.ts`
+
+### DOCE-EDITING-5.6 - Unformatted paste
+
+The `paste-plain` key of the shortcut table (by default Mod-Shift-V) shall arm the document holding focus for the one paste it starts, which then reads only the clipboard's plain text and pastes it as plain text is (DOCE-EDITING-5.3), without the formatting marks at the paste position, without the pasted images (DOCE-EDITING-5.5) and without the editor's own copied content; code keeps it as one run and other places keep their own rules. Another key, a key release, a pointer press, focus leaving the document or a second passing before the paste cancels it, so a later ordinary paste keeps its formatting. In a read document the paste changes nothing.
+
+Implementation: `src/components/document-editor/plain-paste.ts`, `src/components/document-editor/editor-body.tsx`, `src/engine/clipboard-text.ts`
+Verification: `src/components/document-editor/plain-paste.test.ts`, `e2e/document-editor.spec.ts`
 
 ## DOCE-EDITING-6 - Typing shortcuts
 

@@ -21,7 +21,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { shortcutsOf } from '../../engine/index.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
@@ -188,6 +187,11 @@ export interface DocumentEditorProps
    * with Retry after a failed save, and Mod-S saves it.
    */
   session?: EditorSession | undefined;
+  /**
+   * Saves the document of an editor without a `session`: Mod-S runs it, and without it the key
+   * does nothing, the browser's own save never opening over the document.
+   */
+  onSave?: (() => void) | undefined;
   /**
    * What the reader may do, as the session's live capabilities say: without `decide` the editor
    * offers no accept or reject. Defaults to every capability.
@@ -414,7 +418,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
-  useSaveShortcut(root, { session: props.session, shortcuts: shortcutsOf(state) });
+  useSaveShortcut(root, props);
   useDebugShortcut(root, props);
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props, tap);
