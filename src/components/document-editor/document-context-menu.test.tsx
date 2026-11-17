@@ -9,6 +9,7 @@ import { scriptState } from '../../../test/script-blocks.js';
 import { createDocumentEditing, type EditAddress, listScriptBlocks } from '../../engine/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import type { ContextMenuProvider } from './context-providers.js';
+import type { ContextTarget } from './context-target.js';
 import { EditorModal, type HostDialogProps } from './dialog-parts.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
 import type { EditorContext } from './editor-context.js';
@@ -334,5 +335,30 @@ describe('the table entries', () => {
       'Align',
       'Align cells',
     ]);
+  });
+
+  it('DOCE-EDITOR-3.6 DOCE-EMBEDS-3.4 tells a provider the embed it opens on, for its own embed entries', async () => {
+    const user = userEvent.setup();
+    const targets: ContextTarget[] = [];
+    const embedEntries: ContextMenuProvider = {
+      id: 'embed',
+      placement: 'leading',
+      entries: (target) => {
+        targets.push(target);
+        if (!target.embed) return [];
+        const pinned = target.embed.node.attrs.pinned === true;
+        return [
+          { id: 'open', label: 'Open source', onAction: () => undefined },
+          { id: 'update', label: pinned ? 'Repin' : 'Update to latest', onAction: () => undefined },
+        ];
+      },
+    };
+    render(<Harness initial={tableState(true)} contextMenu={{ providers: [embedEntries] }} />);
+    const menu = await openMenu(user);
+    const names = within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent);
+    expect(names.slice(0, 2)).toEqual(['Open source', 'Update to latest']);
+    expect(targets.at(-1)?.embed?.node.attrs).toMatchObject({ kind: 'data-set', source: 'set-7' });
   });
 });

@@ -99,6 +99,9 @@ function inlineRuns(node: StoredNode, writing: Writing): string {
       return variableRun(node, writing);
     case 'image':
       return run(`[${text(node.attrs?.alt) || 'image'}]`);
+    case 'embed_inline':
+      // An inline embed is written as the text it shows, in the text style around it.
+      return textRun({ ...node, type: 'text', text: text(node.attrs?.text) }, writing);
     default:
       return inlines(node.content, writing);
   }

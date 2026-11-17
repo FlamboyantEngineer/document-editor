@@ -2,14 +2,27 @@
 // such as a range of a spreadsheet (DOCE-TABLES-4.1).
 
 import type { StoredNode } from '../model/index.js';
+import { isCssColor } from '../model/schema/css-color.js';
 import { MAX_SPAN } from '../model/schema/table-nodes.js';
 
-/** One cell of a row: its text, and how many columns and rows it spans (1 by default). */
+/**
+ * One cell of a row: its text, how many columns and rows it spans (1 by default), whether its
+ * text is bold, italic or struck through, and its text and background colors. A color that is not
+ * a plain CSS color (`isCssColor`) is left out.
+ */
 export interface TableRowCell {
   text: string;
   colspan?: number | undefined;
   rowspan?: number | undefined;
+  bold?: boolean | undefined;
+  italic?: boolean | undefined;
+  strike?: boolean | undefined;
+  color?: string | undefined;
+  background?: string | undefined;
 }
+
+/** How a cell's text and background look, the formatting a cell keeps. */
+type CellLook = Pick<TableRowCell, 'bold' | 'italic' | 'strike' | 'color' | 'background'>;
 
 function span(value: number | undefined, name: string): number {
   const count = value ?? 1;
@@ -53,26 +66,51 @@ function validateGrid(rows: readonly (readonly TableRowCell[])[]): void {
     throw new RangeError('Table rows must have consistent widths.');
 }
 
-// A cell's text as paragraphs, one a line; an empty cell holds one empty paragraph.
-function paragraphs(text: string): StoredNode[] {
+// The marks a cell's text takes from how it looks, in the schema's order.
+function textMarks({ bold, italic, strike }: CellLook): StoredNode['marks'] {
+  const marks = [
+    ...(italic === true ? [{ type: 'italic' }] : []),
+    ...(bold === true ? [{ type: 'bold' }] : []),
+    ...(strike === true ? [{ type: 'strike' }] : []),
+  ];
+  return marks.length > 0 ? marks : undefined;
+}
+
+// A cell's text as paragraphs, one a line, marked as it looks; an empty cell holds one empty
+// paragraph.
+function paragraphs(text: string, look: CellLook): StoredNode[] {
+  const marks = textMarks(look);
   return text.split(/\r\n|\r|\n/).map((line) => ({
     type: 'paragraph',
-    ...(line ? { content: [{ type: 'text', text: line }] } : {}),
+    ...(line ? { content: [{ type: 'text', text: line, ...(marks ? { marks } : {}) }] } : {}),
   }));
 }
 
-interface SpannedCell {
+interface SpannedCell extends CellLook {
   text: string;
   colspan: number;
   rowspan: number;
 }
 
-function storedCell({ text, colspan, rowspan }: SpannedCell): StoredNode {
-  const attrs = { ...(colspan > 1 ? { colspan } : {}), ...(rowspan > 1 ? { rowspan } : {}) };
+// The colors of a cell that are plain CSS colors, which a stored cell may hold.
+function colors({ color, background }: CellLook) {
+  return {
+    ...(isCssColor(color) ? { color } : {}),
+    ...(isCssColor(background) ? { background } : {}),
+  };
+}
+
+function storedCell(cell: SpannedCell): StoredNode {
+  const { text, colspan, rowspan } = cell;
+  const attrs = {
+    ...(colspan > 1 ? { colspan } : {}),
+    ...(rowspan > 1 ? { rowspan } : {}),
+    ...colors(cell),
+  };
   return {
     type: 'tableCell',
     ...(Object.keys(attrs).length > 0 ? { attrs } : {}),
-    content: paragraphs(text),
+    content: paragraphs(text, cell),
   };
 }
 
@@ -84,10 +122,12 @@ function ownRows(rows: readonly (readonly TableRowCell[])[]): SpannedCell[][] {
   const reach = new Map<SpannedCell, number>();
   rows.forEach((row, index) => {
     const cells = row.map((cell) => {
+      const { bold, italic, strike, color, background } = cell;
       const spanned = {
         text: cell.text,
         colspan: span(cell.colspan, 'colspan'),
         rowspan: span(cell.rowspan, 'rowspan'),
+        ...{ bold, italic, strike, color, background },
       };
       reach.set(spanned, index + spanned.rowspan - 1);
       return spanned;

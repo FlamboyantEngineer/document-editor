@@ -81,6 +81,35 @@ describe('DOCE-COLLAB-7.3 guard self-check', () => {
     shadow.destroy();
   });
 
+  it('DOCE-EMBEDS-1.4 agrees after an inline embed is inserted, updated and removed', () => {
+    const shadow = seeded('Original');
+    const guard = open(shadow);
+    const type = schema.nodes.embed_inline;
+    if (!type) throw new Error('No inline embeds.');
+    const at = (state: EditorState) => {
+      let found = -1;
+      state.doc.descendants((node, pos) => {
+        if (node.type === type) found = pos;
+        return found < 0;
+      });
+      return found;
+    };
+    edit(shadow, (state) =>
+      state.apply(
+        state.tr.insert(2, type.create({ id: 'e0000001', kind: 'cell', source: 'B2', text: '42' })),
+      ),
+    );
+    expect(guard.verify()).toBe(true);
+    edit(shadow, (state) => state.apply(state.tr.setNodeAttribute(at(state), 'text', '43')));
+    expect(guard.verify()).toBe(true);
+    edit(shadow, (state) => state.apply(state.tr.setNodeAttribute(at(state), 'pinned', true)));
+    expect(guard.verify()).toBe(true);
+    edit(shadow, (state) => state.apply(state.tr.delete(at(state), at(state) + 1)));
+    expect(guard.verify()).toBe(true);
+    guard.destroy();
+    shadow.destroy();
+  });
+
   it('reports a kept reading that missed a change, and a destroyed guard', () => {
     const shadow = seeded('Original');
     const guard = open(shadow);

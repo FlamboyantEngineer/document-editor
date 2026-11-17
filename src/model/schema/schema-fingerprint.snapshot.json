@@ -954,6 +954,7 @@
         "source": { "default": "", "validate": "string" },
         "snapshot": { "default": null },
         "label": { "default": "", "validate": "string" },
+        "pinned": { "default": false, "validate": "boolean" },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
@@ -962,7 +963,32 @@
       "parseDOM": [{ "tag": "div[data-embed-kind]", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<div class=\"de-embed\" data-embed-kind=\"\" data-embed-source=\"\" data-embed-label=\"\"></div>",
-        "filled": "<div class=\"de-embed\" data-embed-kind=\"sample-kind\" data-embed-source=\"sample-source\" data-embed-label=\"sample-label\" data-embed-snapshot=\"sample-snapshot\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
+        "filled": "<div class=\"de-embed\" data-embed-kind=\"sample-kind\" data-embed-source=\"sample-source\" data-embed-label=\"sample-label\" data-embed-snapshot=\"sample-snapshot\" data-embed-pinned=\"true\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
+      }
+    },
+    {
+      "name": "embed_inline",
+      "ordinal": 41,
+      "group": "inline",
+      "content": null,
+      "marks": null,
+      "flags": { "inline": true, "atom": true, "leafText": "function" },
+      "attrs": {
+        "kind": { "default": "", "validate": "string" },
+        "source": { "default": "", "validate": "string" },
+        "snapshot": { "default": null },
+        "label": { "default": "", "validate": "string" },
+        "pinned": { "default": false, "validate": "boolean" },
+        "text": { "default": "", "validate": "string" },
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [{ "tag": "span[data-embed-kind]", "getAttrs": "function" }],
+      "toDOM": {
+        "defaults": "<span class=\"de-embed-inline\" data-embed-kind=\"\" data-embed-source=\"\" data-embed-label=\"\"></span>",
+        "filled": "<span class=\"de-embed-inline\" data-embed-kind=\"sample-kind\" data-embed-source=\"sample-source\" data-embed-label=\"sample-label\" data-embed-snapshot=\"sample-snapshot\" data-embed-pinned=\"true\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\">sample-text</span>"
       }
     }
   ],

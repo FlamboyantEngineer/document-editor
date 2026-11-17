@@ -6,7 +6,7 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
-import { type Command, EditorState } from 'prosemirror-state';
+import { type Command, EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
 import { documentSchema as schema } from '../../test/document-markup.js';
@@ -28,7 +28,7 @@ import {
 } from '../engine/suggestion-decisions.js';
 import { suggestTransaction } from '../engine/suggestions.js';
 import { createMemoryHost } from '../host/index.js';
-import type { DocumentFile } from '../model/index.js';
+import { type DocumentFile, readDocumentFile } from '../model/index.js';
 import { createRoomCommentStore } from './comment-store.js';
 import {
   documentToYjs,
@@ -1243,5 +1243,106 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
     const accepted = runCommand(inserted, acceptAllSuggestions);
     expect(allowed(inserted, accepted, 'mallory')).toBe(false);
     expect(allowed(inserted, accepted, 'mallory', decider)).toBe(true);
+  });
+});
+
+describe('DOCE-COLLAB-7.2 DOCE-EMBEDS-1.4 an inline embed in a guarded room', () => {
+  const suggestOnly = { edit: false, suggest: true, comment: true, decide: false };
+  const editor = { edit: true, suggest: true, comment: true, decide: false };
+  const embed = (attrs: Record<string, unknown> = {}) => ({
+    type: 'embed_inline',
+    attrs: {
+      id: 'e0000001',
+      kind: 'cell',
+      source: 'book!B2',
+      snapshot: 'r1',
+      text: '42',
+      ...attrs,
+    },
+  });
+  const stateOf = (content: DocumentFile['sections'][number]['content']) =>
+    EditorState.create({
+      doc: readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, schema).doc,
+    });
+  const holding = () =>
+    stateOf([{ type: 'paragraph', attrs: { id: 'a0000001' }, content: [text('Total '), embed()] }]);
+  const plain = () =>
+    stateOf([{ type: 'paragraph', attrs: { id: 'a0000001' }, content: [text('Total ')] }]);
+  const embedAt = (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'embed_inline') at = pos;
+      return at < 0;
+    });
+    return at;
+  };
+  const endOf = (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'paragraph') at = pos + node.nodeSize - 1;
+      return at < 0;
+    });
+    return at;
+  };
+  const created = () => {
+    const type = schema.nodes.embed_inline;
+    if (!type) throw new Error('No inline embeds.');
+    return type.create(embed({ id: 'e0000002', source: 'book!C3' }).attrs);
+  };
+  const allowed = (
+    before: EditorState,
+    after: EditorState['doc'],
+    actor: string,
+    granted = suggestOnly,
+  ) => checkDocumentChange({ before: before.doc, after, actor, permissions: granted });
+  const suggested = (state: EditorState, tr: Transaction, author = 'writer') => {
+    const rewritten = suggestTransaction(tr, state, { author, newId: () => 's0000001' });
+    if (!rewritten) throw new Error('The change was not suggested.');
+    return state.apply(rewritten).doc;
+  };
+
+  it('refuses a suggesting writer an inline embed inserted without its own suggestion mark', () => {
+    const before = plain();
+    const insert = () => before.tr.insert(endOf(before), created());
+    expect(allowed(before, insert().doc, 'writer')).toBe(false);
+    expect(allowed(before, suggested(before, insert(), 'owner'), 'writer')).toBe(false);
+    expect(allowed(before, suggested(before, insert()), 'writer')).toBe(true);
+  });
+
+  it('refuses a suggesting writer a change to an inline embed’s source, pin, state or text', () => {
+    const before = holding();
+    const at = embedAt(before);
+    for (const [name, value] of [
+      ['source', 'book!Z9'],
+      ['pinned', true],
+      ['snapshot', 'r9'],
+      ['text', '99'],
+    ] as const) {
+      expect(allowed(before, before.tr.setNodeAttribute(at, name, value).doc, 'writer')).toBe(
+        false,
+      );
+    }
+  });
+
+  it('refuses a suggesting writer an inline embed removed outside a suggestion', () => {
+    const before = holding();
+    const at = embedAt(before);
+    const remove = () => before.tr.delete(at, at + 1);
+    expect(allowed(before, remove().doc, 'writer')).toBe(false);
+    const proposed = suggested(before, remove());
+    expect(allowed(before, proposed, 'writer')).toBe(true);
+    expect(proposed.textBetween(0, proposed.content.size)).toContain('Total');
+  });
+
+  it('admits a writer who may edit inserting, changing and removing an inline embed', () => {
+    const empty = plain();
+    expect(allowed(empty, empty.tr.insert(endOf(empty), created()).doc, 'writer', editor)).toBe(
+      true,
+    );
+    const before = holding();
+    const at = embedAt(before);
+    const repinned = before.tr.setNodeAttribute(at, 'pinned', true).doc;
+    expect(allowed(before, repinned, 'writer', editor)).toBe(true);
+    expect(allowed(before, before.tr.delete(at, at + 1).doc, 'writer', editor)).toBe(true);
   });
 });

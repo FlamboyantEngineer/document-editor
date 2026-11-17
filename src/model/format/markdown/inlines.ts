@@ -85,6 +85,14 @@ function variableOf(node: StoredNode, writing: Writing): string {
   return value === token && /^\{\{[\w.-]+\}\}$/.test(token) ? token : escapeText(value);
 }
 
+// An abbreviation as it shows: short, or its expansion with the short form after it.
+function abbreviationOf(node: StoredNode): string {
+  const { abbreviation, expansion, display } = node.attrs ?? {};
+  return display === 'short'
+    ? escapeText(text(abbreviation))
+    : escapeText(`${text(expansion)} (${text(abbreviation)})`);
+}
+
 // An inline node's Markdown.
 function inlineOf(node: StoredNode, writing: Writing): string {
   if (isLeftOut(node, writing.suggestions)) return '';
@@ -102,16 +110,15 @@ function inlineOf(node: StoredNode, writing: Writing): string {
       writing.footnotes.push(inlines(node.content, writing));
       return `[^${String(writing.footnotes.length)}]`;
     }
-    case 'abbreviation': {
-      const { abbreviation, expansion, display } = node.attrs ?? {};
-      return display === 'short'
-        ? escapeText(text(abbreviation))
-        : escapeText(`${text(expansion)} (${text(abbreviation)})`);
-    }
+    case 'abbreviation':
+      return abbreviationOf(node);
     case 'mention':
       return `@${escapeText(text(node.attrs?.label))}`;
     case 'variable':
       return variableOf(node, writing);
+    case 'embed_inline':
+      // An inline embed is written as the text it shows, in the text style around it.
+      return markedText({ ...node, type: 'text', text: text(node.attrs?.text) }, writing);
     default:
       return inlines(node.content, writing);
   }
