@@ -287,10 +287,10 @@ export interface ScriptDiagnostic {
 }
 
 /**
- * Why a script runs: asked to (`run`), as the document opens (`open`), for the script editor's
- * preview (`preview`), or on a stored document with no editor (`stored`).
+ * Why a script runs: asked to (`run`), for the script editor's preview (`preview`), or on a stored
+ * document with no editor (`stored`). No script runs as a document opens.
  */
-export type ScriptRunPurpose = 'run' | 'open' | 'preview' | 'stored';
+export type ScriptRunPurpose = 'run' | 'preview' | 'stored';
 
 /** A script to run against the document as it is, for a script block or the preview. */
 export interface ScriptRunRequest {

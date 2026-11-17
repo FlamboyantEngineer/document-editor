@@ -1,9 +1,12 @@
 // Script blocks: scripts the host runs, each block showing the content its script produced last.
-// Running takes every script, or the ones asked for, in document order, one at a time, and puts
-// what they produced in as one change the writer can undo; a block whose script changed meanwhile
-// keeps its output, and an output that is the same, its element ids aside, is left alone. An
-// output's elements take ids made from the block's id and their place, so a rerun gives the same
-// ids. The output is the script's: the writer cannot edit it.
+// Scripts run only when asked, never as a document opens. Running takes every script, or the ones
+// asked for, in document order, one at a time, and puts what they produced in as one change the
+// writer can undo; one run at a time, a second refused while one is in flight. A block whose
+// script or inputs changed meanwhile keeps its output, as do all of them when the view stopped
+// being editable or took another document, and an output whose content is the same, its element
+// ids aside, is left alone, its records too. An output's elements take ids made from the block's
+// id and their place, so a rerun gives the same ids. The output is the script's: the writer cannot
+// edit it.
 
 import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
 import {
@@ -11,10 +14,9 @@ import {
   type EditorState,
   NodeSelection,
   Plugin,
-  PluginKey,
   type Transaction,
 } from 'prosemirror-state';
-import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import type { EditorView } from 'prosemirror-view';
 import type { ScriptRunnerAdapter, ScriptRunPurpose } from '../host/index.js';
 import { readStoredContent, writeDocumentFile } from '../model/index.js';
 import { changedNodes } from '../utils/changed-ranges.js';
@@ -27,6 +29,15 @@ import {
   type ScriptOutput,
 } from './script-output.js';
 import { findStaleScripts } from './script-staleness.js';
+import {
+  afterRun,
+  EMPTY_SCRIPTS_STATE,
+  scriptDecorations,
+  scriptsKey,
+  type ScriptsMeta,
+  type ScriptsState,
+  scriptsState,
+} from './script-state.js';
 import { suggestionsKey } from './suggestions.js';
 import { newBlockRange } from './tables.js';
 
@@ -70,53 +81,6 @@ export function setScriptSource(script: string): Command {
   };
 }
 
-/**
- * What the scripts plugin keeps: the scripts running, the ones that failed, by block id, and the
- * ones whose output is stale, its inputs changed since it was produced.
- */
-interface ScriptsState {
-  readonly running: ReadonlySet<string>;
-  readonly failed: ReadonlyMap<string, string>;
-  readonly stale: ReadonlySet<string>;
-}
-
-const scriptsKey = new PluginKey<ScriptsState>('scripts');
-
-const EMPTY_STATE: ScriptsState = { running: new Set(), failed: new Map(), stale: new Set() };
-
-// What a run tells the plugin: the blocks it starts on, the blocks it ended on with the failures
-// among them, that a change puts its outputs in, or the blocks found stale.
-type ScriptsMeta =
-  | { readonly started: readonly string[] }
-  | { readonly ended: readonly string[]; readonly failed: ReadonlyMap<string, string> }
-  | { readonly outputs: true }
-  | { readonly stale: readonly string[] };
-
-// The state after a run's news. Only the run's own blocks change, so a run that overlaps another,
-// as the opening scripts and a run of them all may, leaves the other's blocks as they are.
-function afterRun(value: ScriptsState, meta: ScriptsMeta | undefined): ScriptsState {
-  if (!meta || 'outputs' in meta) return value;
-  if ('stale' in meta) return { ...value, stale: new Set(meta.stale) };
-  const ids = 'started' in meta ? meta.started : meta.ended;
-  const running = new Set(value.running);
-  // A block that runs again drops the failure it had.
-  const failed = new Map([...value.failed].filter(([id]) => !ids.includes(id)));
-  for (const id of ids) {
-    if ('started' in meta) running.add(id);
-    else running.delete(id);
-  }
-  if (!('ended' in meta)) return { ...value, running, failed };
-  for (const [id, message] of meta.failed) failed.set(id, message);
-  // A block that ran recorded the inputs it read, so it is no longer stale.
-  const stale = new Set([...value.stale].filter((id) => !ids.includes(id) || failed.has(id)));
-  return { running, failed, stale };
-}
-
-/** The scripts running now, the failure of each block's last run, by id, and the stale ones. */
-export function scriptsState(state: EditorState): ScriptsState {
-  return scriptsKey.getState(state) ?? EMPTY_STATE;
-}
-
 /** The outputs a run produced, by block id, put in as one change. */
 export function applyScriptOutputs(
   outputs: ReadonlyMap<string, ScriptOutput>,
@@ -132,6 +96,19 @@ export function applyScriptOutputs(
     return true;
   };
 }
+
+/** The error `runScripts` rejects with while another run of the view's scripts is in flight. */
+export interface ScriptsBusyError extends Error {
+  name: 'ScriptsBusyError';
+}
+
+/** Whether an error is a run refused because another was in flight (`ScriptsBusyError`). */
+export function isScriptsBusyError(error: unknown): error is ScriptsBusyError {
+  return error instanceof Error && error.name === 'ScriptsBusyError';
+}
+
+const busyError = (): ScriptsBusyError =>
+  Object.assign(new Error('Scripts are already running'), { name: 'ScriptsBusyError' as const });
 
 /** How `runScripts` runs: the blocks, why, the signal that stops it, and the time it is. */
 export interface ScriptRunOptions {
@@ -150,6 +127,45 @@ type Produced =
 
 const failure = (message: string): Produced => ({ ok: false, message });
 
+// The key of what a block's script would read now, when the runner keys inputs, or undefined.
+async function inputsKeyNow(
+  view: EditorView,
+  {
+    runner,
+    block,
+    signal,
+  }: { runner: ScriptRunnerAdapter; block: ScriptBlockAt; signal?: AbortSignal | undefined },
+): Promise<string | undefined> {
+  if (!runner.inputsKey) return undefined;
+  const source = String(block.node.attrs.script ?? '');
+  const document = writeDocumentFile(view.state.doc);
+  const key = await runner.inputsKey({ blockId: block.id, source, document }, signal);
+  return key.ok ? key.value : undefined;
+}
+
+// The outputs whose inputs are still the ones they ran with: an output whose inputs key differs
+// from the one its script would read now, as when the document changed under it, is dropped.
+async function stillCurrent(
+  view: EditorView,
+  { runner, outputs, signal }: CurrentCheck,
+): Promise<Map<string, ScriptOutput>> {
+  if (!runner.inputsKey) return outputs;
+  const kept = new Map<string, ScriptOutput>();
+  for (const block of listScriptBlocks(view.state.doc)) {
+    const output = outputs.get(block.id);
+    if (!output) continue;
+    const now = await inputsKeyNow(view, { runner, block, signal });
+    if (output.inputs === undefined || now === output.inputs) kept.set(block.id, output);
+  }
+  return kept;
+}
+
+interface CurrentCheck {
+  readonly runner: ScriptRunnerAdapter;
+  readonly outputs: Map<string, ScriptOutput>;
+  readonly signal?: AbortSignal | undefined;
+}
+
 // Runs a block's script and reads what it produced. An output the schema cannot read fails like a
 // script the host could not run: it is the script's fault, not a reason to stop the run.
 async function produce(
@@ -163,24 +179,34 @@ async function produce(
   const { purpose = 'run', signal } = options;
   const script = String(block.node.attrs.script ?? '');
   try {
+    // The key of the inputs the script reads, asked as it starts, to tell later whether they moved.
+    const inputs = await inputsKeyNow(view, { runner, block, signal });
     const document = writeDocumentFile(view.state.doc);
     const request = { purpose, blockId: block.id, source: script, document };
     const result = await runner.run(request, signal);
     if (!result.ok) return failure(result.error.message ?? '');
     const { content, provenance, signatures } = result.value;
     const read = Fragment.from(readStoredContent(content, view.state.schema));
-    return { ok: true, output: { script, content: read, provenance, signatures } };
+    return { ok: true, output: { script, content: read, provenance, signatures, inputs } };
   } catch (error) {
     signal?.throwIfAborted();
     return failure(error instanceof Error ? error.message : '');
   }
 }
 
+// Whether the run's answers may still go in: the view is editable and shows the document the run
+// started on, which a state of another document, holding none of the run's blocks, would not.
+const mayPutIn = (view: EditorView, run: readonly string[]) =>
+  !view.isDestroyed && view.editable && run.every((id) => scriptsState(view.state).running.has(id));
+
 /**
  * Runs the scripts of the view's document, or the ones with the ids given, one at a time in
  * document order, then puts what they produced in as one change; resolves with the ids that
- * failed: a script the host could not run, or an output the document cannot read. Once the signal
- * aborts, it stops, puts nothing in and rejects with the signal's reason.
+ * failed: a script the host could not run, or an output the document cannot read. While another
+ * run is in flight it runs nothing and rejects with a `ScriptsBusyError`. An answer whose inputs
+ * changed while the run went on, by the runner's inputs key, is dropped, and so are all of them
+ * when the view is no longer editable or shows another document. Once the signal aborts, it stops,
+ * puts nothing in and rejects with the signal's reason.
  */
 export async function runScripts(
   view: EditorView,
@@ -188,6 +214,7 @@ export async function runScripts(
   options: ScriptRunOptions = {},
 ): Promise<string[]> {
   const { ids, signal, now = () => new Date() } = options;
+  if (scriptsState(view.state).running.size > 0) throw busyError();
   const wanted = listScriptBlocks(view.state.doc).filter((block) => !ids || ids.includes(block.id));
   const run = wanted.map((block) => block.id);
   const outputs = new Map<string, ScriptOutput>();
@@ -205,25 +232,18 @@ export async function runScripts(
       if (produced.ok) outputs.set(block.id, produced.output);
       else failed.set(block.id, produced.message);
     }
-    if (!view.isDestroyed) {
-      applyScriptOutputs(outputs, now().toISOString())(view.state, view.dispatch);
+    if (mayPutIn(view, run)) {
+      const current = await stillCurrent(view, { runner, outputs, signal });
+      signal?.throwIfAborted();
+      if (mayPutIn(view, run)) {
+        applyScriptOutputs(current, now().toISOString())(view.state, view.dispatch);
+      }
     }
   } finally {
     // Whatever stopped the run, its blocks no longer show as running.
     tell({ ended: run, failed });
   }
   return [...failed.keys()];
-}
-
-/** Runs the scripts of the view's document that run each time it opens; resolves with failures. */
-export function runOpeningScripts(
-  view: EditorView,
-  runner: ScriptRunnerAdapter,
-): Promise<string[]> {
-  const ids = listScriptBlocks(view.state.doc)
-    .filter((block) => block.node.attrs.refreshPolicy === 'open')
-    .map((block) => block.id);
-  return ids.length ? runScripts(view, runner, { ids, purpose: 'open' }) : Promise.resolve([]);
 }
 
 /**
@@ -262,32 +282,10 @@ function editsOutput(tr: Transaction): boolean {
   return edited;
 }
 
-function decorate(state: EditorState, value: ScriptsState): DecorationSet {
-  const decorations = listScriptBlocks(state.doc).flatMap((block) => {
-    const status = value.running.has(block.id)
-      ? 'running'
-      : value.failed.has(block.id)
-        ? 'error'
-        : value.stale.has(block.id)
-          ? 'stale'
-          : block.node.childCount === 0
-            ? 'empty'
-            : null;
-    return status
-      ? [
-          Decoration.node(block.pos, block.pos + block.node.nodeSize, {
-            'data-script-state': status,
-          }),
-        ]
-      : [];
-  });
-  return DecorationSet.create(state.doc, decorations);
-}
-
 /**
  * Keeps the scripts' state, marking each block running, failed, stale or empty
- * (`data-script-state`), refuses the writer's changes inside an output, runs the scripts that run
- * on opening and, when the runner gives inputs keys, finds the stale ones.
+ * (`data-script-state`), refuses the writer's changes inside an output and, when the runner gives
+ * inputs keys, finds the stale ones once the view opens. It runs no script itself.
  */
 export function createScripts({
   runner,
@@ -295,7 +293,7 @@ export function createScripts({
   return new Plugin<ScriptsState>({
     key: scriptsKey,
     state: {
-      init: () => EMPTY_STATE,
+      init: () => EMPTY_SCRIPTS_STATE,
       apply: (tr, value) => afterRun(value, tr.getMeta(scriptsKey) as ScriptsMeta | undefined),
     },
     // The writer's own changes may not edit an output; a run's, an undo's and a redo's may.
@@ -304,16 +302,9 @@ export function createScripts({
       Boolean(tr.getMeta(scriptsKey) || tr.getMeta('history$')) ||
       !editsOutput(tr),
     view(view) {
-      // The opening scripts record the inputs they read before the rest are checked.
-      if (runner) {
-        void runOpeningScripts(view, runner)
-          .then(() => (runner.inputsKey ? checkStaleScripts(view, runner) : []))
-          .catch(() => undefined);
-      }
+      if (runner?.inputsKey) void checkStaleScripts(view, runner).catch(() => undefined);
       return {};
     },
-    props: {
-      decorations: (state) => decorate(state, scriptsState(state)),
-    },
+    props: { decorations: scriptDecorations },
   });
 }

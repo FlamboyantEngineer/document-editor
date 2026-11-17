@@ -19,3 +19,12 @@ export function isHostContentAt(doc: ProseMirrorNode, pos: number): boolean {
   }
   return false;
 }
+
+/** Whether a position is inside a script block's output, which only running its script changes. */
+export function isScriptOutputAt(doc: ProseMirrorNode, pos: number): boolean {
+  const $pos = doc.resolve(Math.max(0, Math.min(pos, doc.content.size)));
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if ($pos.node(depth).type.name === SCRIPT_BLOCK) return true;
+  }
+  return false;
+}
