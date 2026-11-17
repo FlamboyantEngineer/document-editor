@@ -175,6 +175,7 @@ async function setup(
     handle,
     server,
     persistence,
+    observer,
     observerDoc,
     snapshot: () => {
       const copy = new Y.Doc();
@@ -1519,6 +1520,81 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       await room.provider.whenStored();
       expect(room.provider.getState().refusal).toBe('unauthorized-write');
       expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
+    } finally {
+      await room.close();
+    }
+  });
+
+  // Two editors' changes, each allowed alone, that together would leave a list with no items: the
+  // room reads each change exactly as it comes, so it refuses the later one rather than take a
+  // shape no reader can read, and the refused writer is refused as after any refused write.
+  it('refuses the later of two editors’ changes that together leave a shape the schema refuses', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const { nodes } = schema;
+      const item = (value: string) =>
+        nodes.list_item?.create(null, nodes.paragraph?.create(null, schema.text(value)));
+      const first = item('One');
+      const second = item('Two');
+      const list = first && second ? nodes.bullet_list?.create(null, [first, second]) : null;
+      if (!list) throw new Error('No list.');
+      change(room.doc, (state) => {
+        let end = -1;
+        state.doc.descendants((each, pos) => {
+          if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+          return end < 0;
+        });
+        return state.apply(state.tr.insert(end, list));
+      });
+      await room.provider.whenStored();
+      await vi.waitFor(() =>
+        expect(readContent(schema, room.observerDoc.get('content'))?.textContent).toContain('Two'),
+      );
+      expect(room.provider.getState().refusal).toBeNull();
+      // Each writer deletes a different item, from the same state, before seeing the other's.
+      const deleting = (index: number) => {
+        const copy = new Y.Doc();
+        Y.applyUpdate(copy, Y.encodeStateAsUpdate(room.doc));
+        const before = Y.encodeStateVector(copy);
+        change(copy, (state) => {
+          let at = -1;
+          state.doc.descendants((each, pos) => {
+            if (at < 0 && each.type.name === 'bullet_list') at = pos;
+            return at < 0;
+          });
+          const found = state.doc.nodeAt(at);
+          if (!found) throw new Error('No list.');
+          let from = at + 1;
+          for (let child = 0; child < index; child += 1) from += found.child(child).nodeSize;
+          return state.apply(state.tr.delete(from, from + found.child(index).nodeSize));
+        });
+        const update = Y.encodeStateAsUpdate(copy, before);
+        copy.destroy();
+        return update;
+      };
+      const firstDeleted = deleting(0);
+      const secondDeleted = deleting(1);
+      Y.applyUpdate(room.doc, firstDeleted);
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBeNull();
+      const stored = () => yjsToDocument(room.handle.snapshot(), { schema });
+      const admitted = stored();
+      expect(JSON.stringify(admitted)).not.toContain('One');
+      expect(JSON.stringify(admitted)).toContain('Two');
+      // The other writer's change comes after it: the room refuses it and stays whole.
+      Y.applyUpdate(room.observerDoc, secondDeleted);
+      await vi.waitFor(() => expect(room.observer.getState().refusal).toBe('unauthorized-write'));
+      expect(stored()).toEqual(admitted);
+      // The refused writer is refused as after any refused write: cut off, its change unsent, until
+      // it joins again, which brings the room's content.
+      expect(room.observer.getState()).toMatchObject({
+        status: 'disconnected',
+        hasUnconfirmedChanges: true,
+      });
+      const rejoined = new Y.Doc();
+      Y.applyUpdate(rejoined, room.handle.snapshot());
+      expect(yjsToDocument(Y.encodeStateAsUpdate(rejoined), { schema })).toEqual(admitted);
+      rejoined.destroy();
     } finally {
       await room.close();
     }
