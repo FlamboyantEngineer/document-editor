@@ -846,6 +846,59 @@ test.describe('footnote stress', () => {
       );
     }
   });
+  test('DOCE-FOOTNOTES-2.1 lists the entries after the section in the web layout, numbered through it', async ({
+    page,
+  }) => {
+    await openDocument(page, 'footnote-heavy', { layout: 'web' });
+    const shown = await page.locator('.de-document-editor__content').evaluate((root) => {
+      const areas = [...root.querySelectorAll('.pm-page-footnotes')];
+      const marks = [...root.querySelectorAll('sup[data-footnote-id]')];
+      const area = areas[0];
+      const blocks = area?.parentElement?.querySelector('.pm-page-content');
+      return {
+        areas: areas.length,
+        marks: marks.map((mark) => mark.getAttribute('data-footnote-number')),
+        entries: [...(area?.querySelectorAll('.pm-footnote-entry') ?? [])].map((entry) =>
+          entry.getAttribute('data-footnote-number'),
+        ),
+        below:
+          (area?.getBoundingClientRect().top ?? 0) >=
+          (blocks?.getBoundingClientRect().bottom ?? Infinity) - 1,
+      };
+    });
+    expect(shown.areas).toBe(1);
+    expect(shown.marks.length).toBeGreaterThan(1);
+    expect(shown.marks).toEqual(shown.marks.map((_, index) => String(index + 1)));
+    expect(shown.entries).toEqual(shown.marks);
+    expect(shown.below).toBe(true);
+  });
+
+  test('DOCE-FOOTNOTES-3.1 keeps the pages and the entry number as typing in a footnote leaves its height', async ({
+    page,
+  }) => {
+    await openDocument(page, 'footnote-heavy');
+    const before = await pagesOf(page);
+    const placed = (pages: typeof before) =>
+      pages.map((each) => each.footnoteEntries.map(({ id }) => id));
+    // The shortest entry, so two more characters keep it on its line.
+    const entries = page.locator('.de-document-editor__content .pm-footnote-entry');
+    const lengths = await entries.evaluateAll((all) =>
+      all.map((one) => one.textContent?.length ?? 0),
+    );
+    const entry = entries.nth(lengths.indexOf(Math.min(...lengths)));
+    const height = (await entry.boundingBox())?.height;
+    await entry.locator('.pm-footnote-entry-content').click();
+    await page.keyboard.press('End');
+    await page.keyboard.type('ab');
+    await expect(entry).toContainText('ab');
+    await settle(page);
+    expect((await entry.boundingBox())?.height).toBe(height);
+    const after = await pagesOf(page);
+    expect(placed(after)).toEqual(placed(before));
+    const number = entry.locator('.pm-footnote-entry-number');
+    await expect(number).toBeVisible();
+    await expect(number).not.toHaveText('');
+  });
 });
 
 test.describe('mixed geometry', () => {

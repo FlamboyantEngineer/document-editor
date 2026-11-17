@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { createDocumentSchema, readStoredContent } from '../model/index.js';
 import {
+  buildScriptCode,
+  buildScriptFigure,
   buildScriptHeading,
   buildScriptList,
   buildScriptParagraph,
@@ -63,5 +65,25 @@ describe('script output builders', () => {
     expect(table?.child(1).child(1).type.name).toBe('table_cell');
     expect(table?.child(1).child(1).textContent).toBe('1');
     expect(nodes[4]?.textContent).toBe('OneTwo');
+  });
+  it('DOCE-OBJECTS-4.5 gives tables, figures and code the caption a script writes, or hides it', () => {
+    const content = [
+      buildScriptTable([['a', '1']], { caption: '  Stock   levels ' }),
+      buildScriptFigure({ src: 'https://example.com/a.png', alt: 'Chart', caption: 'Trend' }),
+      buildScriptCode('x = 1', { language: 'python', caption: false }),
+      buildScriptTable([['b']]),
+    ];
+    const nodes = readStoredContent(content, schema);
+    expect(
+      nodes.map((node) => [node.type.name, node.attrs.caption, node.attrs.captionEnabled]),
+    ).toEqual([
+      ['table', 'Stock levels', true],
+      ['figure', 'Trend', true],
+      ['code_block', '', false],
+      ['table', '', true],
+    ]);
+    expect(nodes[1]?.attrs).toMatchObject({ src: 'https://example.com/a.png', alt: 'Chart' });
+    expect(nodes[2]?.attrs.language).toBe('python');
+    expect(nodes[2]?.textContent).toBe('x = 1');
   });
 });

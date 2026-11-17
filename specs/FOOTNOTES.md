@@ -70,7 +70,16 @@ Verification: `src/engine/footnotes.test.ts`
 `numberFootnotes(tr, { restartEach: 'section' })` shall number the footnotes from 1 in each section, in marker order, reading the sections through the document structure (`documentSections`), never pages. `createSectionFootnoteNumbers({ enabled, isRemote })` shall number them so after each change that is neither only typing nor remote (DOCE-EDITING-3.3), and after a transaction with `sectionFootnoteNumbersKey` meta, out of the undo history, while `enabled` says so; a remote change keeps the numbers it came with. `DocumentEditor` shall enable it in the web layout of a template that numbers footnotes on each page, where each section is one page and no pagination numbers them, and number them again when it enters the web layout or the template changes; on pages the pagination numbers them on each page.
 
 Implementation: `src/engine/footnote-model.ts`, `src/engine/section-footnote-numbers.ts`, `src/components/document-editor/use-document-layout.ts`
-Verification: `src/engine/footnotes.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+Verification: `src/engine/footnotes.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `e2e/regression.spec.ts`
+
+## DOCE-FOOTNOTES-3 - Footnotes on pages
+
+### DOCE-FOOTNOTES-3.1 - Typing in an entry
+
+Typing in a footnote entry that leaves its height as it was shall leave every entry on the page it was on, and the entry shall keep drawing its number while the writer types; inserting a footnote lays its page out again in the same layout (DOCE-PAGINATION-7.2).
+
+Implementation: `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `src/model/schema/footnote-nodes.ts`
+Verification: `e2e/regression.spec.ts`
 
 ## Hooks
 

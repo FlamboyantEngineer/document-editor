@@ -59,8 +59,10 @@ export type {
 export { printSnapshot } from './headless-print.js';
 export type { PrintPageOptions } from './print.js';
 export { renderPrintPage } from './print.js';
-export type { ScriptText, ScriptTextRun } from './script-output.js';
+export type { ScriptCaption, ScriptFigure, ScriptText, ScriptTextRun } from './script-output.js';
 export {
+  buildScriptCode,
+  buildScriptFigure,
   buildScriptHeading,
   buildScriptList,
   buildScriptParagraph,
