@@ -28,27 +28,38 @@ export interface PickedAsset {
 
 type Upload = { readonly file: File; readonly error?: string | undefined; readonly done: boolean };
 
-/** Uploads a chosen image through the host's assets, handing the stored asset on. */
+/**
+ * Uploads a chosen image through the host's assets, naming the figure's current asset, and hands
+ * the stored asset on. A file larger than the host takes is refused before any request.
+ */
 export function useFigureUpload(
   assets: AssetAdapter | undefined,
   labels: DocumentEditorLabels,
-  onStored: (asset: FigureAsset) => void,
+  { current, onStored }: { current: FigureAsset | null; onStored: (asset: FigureAsset) => void },
 ) {
   const [upload, setUpload] = useState<Upload | null>(null);
+  const max = assets?.maxUploadBytes;
+  const refuse = (file: File) =>
+    setUpload({ file, done: true, error: labels.uploadTooLarge(max ?? 0) });
   const choose = ([file]: File[]) => {
     if (!file || !assets) return;
+    if (max !== undefined && file.size > max) return refuse(file);
     setUpload({ file, done: false });
     const failed = (message?: string) =>
       setUpload({ file, done: true, error: message ?? labels.uploadFailed });
-    assets.upload(file).then((result) => {
+    const options = current
+      ? { current: { assetId: current.fileAssetId, snapshotId: current.snapshotId } }
+      : {};
+    assets.upload(file, undefined, options).then((result) => {
       if (!result.ok) return failed(result.error.message);
       const { id, snapshotId } = result.value;
       onStored({ fileAssetId: id, snapshotId: snapshotId ?? id });
       setUpload({ file, done: true });
       return undefined;
     }, failed);
+    return undefined;
   };
-  return { upload, choose, pending: upload !== null && !upload.done };
+  return { upload, choose, refuse, max, pending: upload !== null && !upload.done };
 }
 
 type FigureUpload = ReturnType<typeof useFigureUpload>;
@@ -95,7 +106,7 @@ function AssetBrowser({
 export function ImageSource({
   assets,
   labels,
-  uploading: { upload, choose },
+  uploading: { upload, choose, refuse, max },
   src,
   onPick,
   onAddress,
@@ -114,6 +125,12 @@ export function ImageSource({
         <FileUpload
           label={labels.figureFile}
           acceptedFileTypes={['image/*']}
+          maxSize={max}
+          description={max === undefined ? undefined : labels.uploadLimit(max)}
+          onReject={(rejections) => {
+            const rejected = rejections.find((each) => each.reason === 'size');
+            if (rejected) refuse(rejected.file);
+          }}
           onSelect={choose}
           files={
             upload
@@ -135,12 +152,16 @@ export function ImageSource({
 }
 
 /**
- * Opens the host's diagram editor, handing on the diagram it stores; closing the dialog aborts it.
+ * Opens the host's diagram editor, handing on each diagram a save stores while it stays open
+ * (`onSave`) and the one it resolves with (`onStored`); closing the dialog aborts it.
  */
 export function useDiagramEditing(
   diagrams: DiagramAdapter | undefined,
   labels: DocumentEditorLabels,
-  onStored: (diagram: StoredDiagram) => void,
+  {
+    onStored,
+    onSave,
+  }: { onStored: (diagram: StoredDiagram) => void; onSave: (diagram: StoredDiagram) => void },
 ) {
   const [state, setState] = useState<{ pending: boolean; error?: string | undefined }>({
     pending: false,
@@ -155,7 +176,10 @@ export function useDiagramEditing(
     setState({ pending: true });
     const failed = (message?: string) =>
       setState({ pending: false, error: message ?? labels.diagramFailed });
-    diagrams.edit(diagram, controller.signal).then((result) => {
+    const save = (stored: StoredDiagram) => {
+      if (!controller.signal.aborted) onSave(stored);
+    };
+    diagrams.edit(diagram, controller.signal, { onSave: save }).then((result) => {
       if (controller.signal.aborted) return undefined;
       if (!result.ok) return failed(result.error.message);
       if (result.value) onStored(result.value);
@@ -182,20 +206,4 @@ export function DiagramSource({
       {labels.drawDiagram(asset !== null)}
     </Button>
   );
-}
-
-/** The natural size of the image at an address, once it loads; null until then. */
-export function useNaturalSize(document: Document, url: string): FigureSize | null {
-  const [loaded, setLoaded] = useState<{ url: string; size: FigureSize } | null>(null);
-  useEffect(() => {
-    if (!url) return undefined;
-    const image = document.createElement('img');
-    image.onload = () =>
-      setLoaded({ url, size: { width: image.naturalWidth, height: image.naturalHeight } });
-    image.src = url;
-    return () => {
-      image.onload = null;
-    };
-  }, [document, url]);
-  return loaded?.url === url ? loaded.size : null;
 }

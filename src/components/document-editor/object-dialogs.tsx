@@ -37,6 +37,7 @@ import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { DialogLoadFailed, lazyDialog } from './lazy-dialog.js';
 import { SURFACE_LOADERS } from './lazy-surfaces.js';
+import { MathCheatSheet } from './math-cheat-sheet.js';
 
 /** What the editor's dialogs need beside the view. */
 interface ObjectDialogsProps {
@@ -74,6 +75,12 @@ const ignore = () => undefined;
 // carry them (DOCE-ENTRY-2.2).
 const FigureDialog = /* @__PURE__ */ lazyDialog(
   async () => (await SURFACE_LOADERS.figure()).FigureDialog,
+);
+const DiagramDrawing = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.figure()).DiagramDrawing,
+);
+const FigureResizeDialog = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.figure()).FigureResizeDialog,
 );
 const ReferenceDialog = /* @__PURE__ */ lazyDialog(
   async () => (await SURFACE_LOADERS.reference()).ReferenceDialog,
@@ -141,6 +148,7 @@ function MathDialog({ view, labels, onClose, display }: DialogProps & { display:
         onChange={setLatex}
       />
       <MathPreview source={latex} display={initial.display ? 'display' : 'inline'} />
+      <MathCheatSheet labels={labels} />
     </EditorModal>
   );
 }
@@ -273,6 +281,12 @@ function OpenDialog({
           figureType={dialog.figureType}
         />
       );
+    case 'figure-size':
+      return <FigureResizeDialog {...shared} />;
+    case 'diagram':
+      return hosted.diagrams ? (
+        <DiagramDrawing {...shared} diagrams={hosted.diagrams} feedback={hosted.feedback} />
+      ) : null;
     case 'link':
       return <LinkDialog {...shared} />;
     case 'reference':

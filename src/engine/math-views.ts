@@ -1,7 +1,7 @@
 // Math as it reads: each inline or display math node drawn as its typeset MathML, through the base
 // library's KaTeX renderer, in every view the plugin runs in, the pages' measuring view too. The
-// LaTeX source shows until the math is typeset, and stays, marked invalid, when it does not
-// typeset. A view whose math changes size asks the pages to measure again (`de-remeasure`). The
+// LaTeX source shows until the math is typeset; math that does not typeset says so instead, its
+// renderer's reason as its title. A view whose math changes size asks the pages to measure again (`de-remeasure`). The
 // plugin also writes math as it is typed and keeps the math edited in place (`math-input.ts`).
 
 import {
@@ -24,7 +24,11 @@ import {
 } from './math-input.js';
 
 // Draws one math node, typesetting its source and drawing it again when the source changes.
-function mathView(node: ProseMirrorNode, view: EditorView, render: MathRenderer): NodeView {
+function mathView(
+  node: ProseMirrorNode,
+  view: EditorView,
+  { render, invalid }: { render: MathRenderer; invalid: InvalidMathText },
+): NodeView {
   const display = node.type.name === 'math_display';
   const owner = view.dom.ownerDocument;
   const dom = owner.createElement(display ? 'div' : 'span');
@@ -49,7 +53,10 @@ function mathView(node: ProseMirrorNode, view: EditorView, render: MathRenderer)
     }).then((result) => {
       if (source !== latex) return;
       if (result.ok) dom.replaceChildren(result.element);
-      else dom.title = result.message;
+      else {
+        dom.textContent = display ? invalid.display : invalid.inline;
+        dom.title = result.message;
+      }
       dom.dataset.state = result.ok ? 'ready' : 'invalid';
       const Event = dom.ownerDocument.defaultView?.CustomEvent;
       if (Event) dom.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
@@ -82,25 +89,43 @@ export const commitMathEditing = (latex: string): Command => commitMath(mathView
 /** Stops editing math in place, keeping its LaTeX; math left empty is deleted. */
 export const cancelMathEditing: Command = cancelMath(mathViewsKey);
 
+/** What math that does not typeset shows in place of its MathML, inline and as a block. */
+export interface InvalidMathText {
+  readonly inline: string;
+  readonly display: string;
+}
+
+/** What invalid math shows by default. */
+export const DEFAULT_INVALID_MATH_TEXT: InvalidMathText = {
+  inline: 'Invalid math',
+  display: 'Invalid math',
+};
+
 /** How math is typeset. */
 export interface MathViewsOptions {
   /** Typesets LaTeX to MathML; the base library's KaTeX renderer by default. */
   readonly render?: MathRenderer | undefined;
+  /** What invalid math shows; `DEFAULT_INVALID_MATH_TEXT` by default. */
+  readonly invalid?: InvalidMathText | undefined;
 }
 
 /**
  * Draws math as typeset MathML in every view the plugin runs in, turns `$x$` and `$$` with Enter
  * into math as it is typed, and keeps the math edited in place (`mathEditingAt`).
  */
-export function createMathViews({ render = renderKatexMath }: MathViewsOptions = {}): Plugin {
+export function createMathViews({
+  render = renderKatexMath,
+  invalid = DEFAULT_INVALID_MATH_TEXT,
+}: MathViewsOptions = {}): Plugin {
+  const drawing = { render, invalid };
   return new Plugin<MathInputState>({
     key: mathViewsKey,
     state: mathInputField(mathViewsKey),
     props: {
       ...mathInputProps(mathViewsKey),
       nodeViews: {
-        math_inline: (node, view) => mathView(node, view, render),
-        math_display: (node, view) => mathView(node, view, render),
+        math_inline: (node, view) => mathView(node, view, drawing),
+        math_display: (node, view) => mathView(node, view, drawing),
       },
     },
   });

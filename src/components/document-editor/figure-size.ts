@@ -1,5 +1,9 @@
-// A figure's size as the figure dialog sets it: a new width or height, the other side following in
-// the drawing's proportions while they are locked, clamped to the sizes a page holds.
+// A figure's size as the figure and resize dialogs set it: a new width or height, the other side
+// following in the drawing's proportions while they are locked, clamped to the sizes a page holds,
+// or, in the resize dialog, checked against them.
+
+import type { EditorView } from 'prosemirror-view';
+import type { FigureSizeProblem } from './figure-labels.js';
 
 /** A figure's width and height in pixels; null for a side that follows the drawing. */
 export interface FigureSize {
@@ -59,19 +63,54 @@ export function clampFigureSize(size: FigureSize, { locked, ratio, bounds }: Fig
   return { width: Math.round(next.width), height: Math.round(next.height) };
 }
 
+// The width of the pages' content: the editor's measuring area in page layout, else the document.
+function contentWidth(view: EditorView): number {
+  const root = view.dom.closest('.de-document-editor');
+  const measure = [...(root?.querySelectorAll('.de-document-editor__measure') ?? [])].find(
+    (element) => element.closest('.de-document-editor') === root,
+  );
+  return (measure ?? view.dom).clientWidth;
+}
+
+/** The bounds a figure takes on the document's pages: no wider than their content. */
+export function figureBounds(view: EditorView, bounds: FigureBounds = FIGURE_BOUNDS): FigureBounds {
+  const content = contentWidth(view);
+  return content > 0 ? { ...bounds, maxWidth: Math.min(bounds.maxWidth, content) } : bounds;
+}
+
+/** The bounds the resize dialog checks: whole pixels from 1, as wide as the page content. */
+export const RESIZE_BOUNDS: FigureBounds = {
+  min: 1,
+  maxWidth: FIGURE_BOUNDS.maxWidth,
+  maxHeight: Infinity,
+};
+
+/** Why a side the writer typed is refused, or null for a whole number within the bounds. */
+export function figureSideProblem(
+  side: 'width' | 'height',
+  value: number | null,
+  bounds: FigureBounds,
+): FigureSizeProblem | null {
+  if (value === null) return null;
+  if (!Number.isInteger(value)) return { side, kind: 'whole', limit: bounds.min };
+  if (value < bounds.min) return { side, kind: 'min', limit: bounds.min };
+  const max = side === 'width' ? bounds.maxWidth : bounds.maxHeight;
+  return value > max ? { side, kind: 'max', limit: max } : null;
+}
+
 /**
- * The size after the writer sets one side: locked with a known ratio, the other side follows in
- * its proportions, and clearing a side clears both; then the size is clamped (`clampFigureSize`).
+ * The size after the writer types one side in the resize dialog: locked with a known ratio, the
+ * other side follows in its proportions, rounded to whole pixels; nothing is clamped, so a size
+ * out of bounds stays as typed for the dialog to explain.
  */
-export function resizeFigure(
+export function typeFigureSide(
   size: FigureSize,
   change: { readonly side: 'width' | 'height'; readonly value: number | null },
-  sizing: FigureSizing,
+  { locked, ratio }: { readonly locked: boolean; readonly ratio: number | null },
 ): FigureSize {
   const { side, value } = change;
-  const { locked, ratio } = sizing;
-  if (!locked || !ratio) return clampFigureSize({ ...size, [side]: value }, sizing);
-  if (value === null) return { width: null, height: null };
-  const width = side === 'width' ? value : value * ratio;
-  return clampFigureSize({ width, height: width / ratio }, sizing);
+  if (!locked || !ratio || value === null) return { ...size, [side]: value };
+  return side === 'width'
+    ? { width: value, height: Math.max(1, Math.round(value / ratio)) }
+    : { width: Math.max(1, Math.round(value * ratio)), height: value };
 }

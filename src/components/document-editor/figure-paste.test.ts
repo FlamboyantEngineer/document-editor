@@ -86,9 +86,20 @@ const figures = (view: EditorView) => {
   return found;
 };
 
+const LABELS = {
+  failure: 'The image could not be uploaded.',
+  uploading: 'Uploading…',
+  tooLarge: (max: number) => `Larger than ${String(max)} bytes.`,
+  pasteAgain: 'Paste again.',
+};
+
 // An editor with handlers whose uploads and feedback the test reads; jsdom has no clipboard
 // events, so a plain event stands in for the one the handler's paste sends.
-function setUp(upload?: AssetAdapter['upload'], paragraphs: readonly string[] = []) {
+function setUp(
+  upload?: AssetAdapter['upload'],
+  paragraphs: readonly string[] = [],
+  maxUploadBytes?: number,
+) {
   vi.stubGlobal('ClipboardEvent', class extends Event {});
   const uploaded: File[] = [];
   const notified: unknown[] = [];
@@ -104,12 +115,12 @@ function setUp(upload?: AssetAdapter['upload'], paragraphs: readonly string[] = 
         });
       }),
     resolveUrl: () => '',
+    maxUploadBytes,
   };
   const handlers = figurePasteHandlers({
+    ...LABELS,
     assets,
     feedback: { notify: (message) => notified.push(message) },
-    failure: 'The image could not be uploaded.',
-    uploading: 'Uploading…',
   });
   return { view: editorView(paragraphs), uploaded, notified, handlers };
 }
@@ -119,11 +130,7 @@ describe('figurePasteHandlers', () => {
     const view = editorView();
     const { assets } = createMemoryHost();
     if (!assets) throw new Error('The memory host stores assets.');
-    const handlers = figurePasteHandlers({
-      assets,
-      failure: 'The image could not be uploaded.',
-      uploading: 'Uploading…',
-    });
+    const handlers = figurePasteHandlers({ ...LABELS, assets });
     const images = ['one.png', 'two.png', 'three.png'].map(
       (name) => new File(['image'], name, { type: 'image/png' }),
     );
@@ -168,13 +175,85 @@ describe('figurePasteHandlers', () => {
     view.destroy();
   });
 
-  it('DOCE-EDITING-5.5 leaves out an image that fails to upload, says so, and pastes the rest', async () => {
-    const { view, notified, handlers } = setUp(() => Promise.reject(new Error('offline')));
-    const html = '<p>Kept <img src="file:///C:/Temp/missing.png"></p>';
+  it('DOCE-EDITING-5.5 pastes nothing when an image fails to upload, and says so', async () => {
+    let calls = 0;
+    const { view, notified, handlers } = setUp((file) => {
+      calls += 1;
+      return calls === 2
+        ? Promise.reject(new Error('offline'))
+        : Promise.resolve({
+            ok: true,
+            value: { id: 'a', url: '', name: file.name, mediaType: file.type },
+          });
+    });
+    const html =
+      '<p>Kept <img src="data:image/png;base64,iVBORw==" alt="a.png">' +
+      ' <img src="data:image/png;base64,iVBORw==" alt="b.png"></p>';
     expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
-    await vi.waitFor(() => expect(textOf(view)).toBe('Kept'));
+    await vi.waitFor(() =>
+      expect(notified.at(-1)).toEqual({ tone: 'error', text: 'The image could not be uploaded.' }),
+    );
+    expect(textOf(view)).toBe('');
     expect(figures(view)).toEqual([]);
-    expect(notified.at(-1)).toEqual({ tone: 'error', text: 'The image could not be uploaded.' });
+    view.destroy();
+  });
+
+  it('DOCE-EDITING-5.5 pastes nothing for an image whose bytes the paste lacks', async () => {
+    const { view, uploaded, notified, handlers } = setUp();
+    const html =
+      '<p>Kept <img src="data:image/png;base64,iVBORw==" alt="Chart">' +
+      ' <img src="file:///C:/Temp/missing.png"></p>';
+    expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
+    await vi.waitFor(() => expect(notified.at(-1)).toMatchObject({ tone: 'error' }));
+    expect(textOf(view)).toBe('');
+    expect(uploaded).toHaveLength(1);
+    view.destroy();
+  });
+
+  it('DOCE-EDITING-5.5 pastes at the paste selection when only the caret moved, and asks for a new paste when the document changed', async () => {
+    const uploads = pendingUploads();
+    const { view, notified, handlers } = setUp(uploads.upload, ['One', 'Two']);
+    const html = '<p>New <img src="data:image/png;base64,iVBORw==" alt="Chart"></p>';
+    handlers.handlePaste(view, htmlPasteOf(html));
+    view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
+    uploads.finish();
+    await vi.waitFor(() => expect(figures(view)).toEqual(['Chart:asset-1']));
+    expect(blocks(view)[0]).toBe('New');
+    handlers.handlePaste(view, htmlPasteOf(html));
+    writeAtEnd(view, ' and');
+    uploads.finish();
+    await vi.waitFor(() =>
+      expect(notified.at(-1)).toEqual({ tone: 'error', text: 'Paste again.' }),
+    );
+    expect(figures(view)).toEqual(['Chart:asset-1']);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 inserts none of several pasted images when one fails', async () => {
+    const { view, notified, handlers } = setUp((file) =>
+      file.name === 'second.png'
+        ? Promise.resolve({ ok: false, error: { kind: 'unavailable', message: 'Scan failed.' } })
+        : Promise.resolve({
+            ok: true,
+            value: { id: file.name, url: '', name: file.name, mediaType: file.type },
+          }),
+    );
+    handlers.handlePaste(view, pasteOf([picture('first.png'), picture('second.png')]));
+    await vi.waitFor(() =>
+      expect(notified.at(-1)).toEqual({ tone: 'error', text: 'Scan failed.' }),
+    );
+    expect(figures(view)).toEqual([]);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 refuses an image larger than the host takes before any upload', async () => {
+    const { view, uploaded, notified, handlers } = setUp(undefined, [], 3);
+    handlers.handlePaste(view, pasteOf([picture('large.png')]));
+    await vi.waitFor(() =>
+      expect(notified.at(-1)).toEqual({ tone: 'error', text: 'Larger than 3 bytes.' }),
+    );
+    expect(uploaded).toEqual([]);
+    expect(figures(view)).toEqual([]);
     view.destroy();
   });
 

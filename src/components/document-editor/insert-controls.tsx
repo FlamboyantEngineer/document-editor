@@ -16,6 +16,7 @@ import {
   TerminalGlyph,
 } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
+import { toggleMark } from 'prosemirror-commands';
 import type { Command } from 'prosemirror-state';
 import {
   canInsertReference,
@@ -38,6 +39,7 @@ import type { AssetAdapter } from '../../host/index.js';
 import { DEFAULT_CONTENTS_KINDS, type TemplateFile } from '../../model/index.js';
 import type { EditorContext, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { isMarkActive } from './format-items.js';
 import { SymbolButton } from './symbol-button.js';
 import { TemplateImageButton } from './template-image-button.js';
 import type { ToolbarButtonItem, ToolbarItem } from './toolbar-items.js';
@@ -95,10 +97,24 @@ export function linkItem(labels: DocumentEditorLabels): ToolbarButtonItem {
   };
 }
 
+// Inline code: the code format, toggled on the selected text or at the caret.
+function inlineCodeEntry(context: EditorContext): MenuEntry[] {
+  const type = context.state.schema.marks.code;
+  if (!type) return [];
+  return [
+    {
+      ...entry(context, { id: 'inline-code', label: context.labels.inlineCode }, toggleMark(type)),
+      shortcut: shortcutLabel(shortcutsOf(context.state), 'code'),
+      isSelected: isMarkActive(context.state, type),
+    },
+  ];
+}
+
 function codeEntries(context: EditorContext, linkedCode: boolean): MenuEntry[] {
   const { labels } = context;
   const linked = setLinkedCode({ url: '', code: '' });
   return [
+    ...inlineCodeEntry(context),
     {
       ...entry(context, { id: 'code-block', label: labels.codeBlock }, insertCodeBlock()),
       shortcut: shortcutLabel(shortcutsOf(context.state), 'code-block'),
@@ -137,7 +153,9 @@ function figureItem(labels: DocumentEditorLabels, features: InsertFeatures): Too
       (['image', 'diagram'] as const).map((figureType) => ({
         id: `${figureType}-figure`,
         label: figureType === 'image' ? labels.imageFigure : labels.diagramFigure,
-        onAction: () => context.openDialog({ kind: 'figure', figureType }),
+        // A diagram opens the host's diagram editor at once; an image, the figure dialog.
+        onAction: () =>
+          context.openDialog(figureType === 'image' ? { kind: 'figure' } : { kind: 'diagram' }),
       })),
   };
 }

@@ -34,8 +34,24 @@ export interface AssetSearchPage {
   cursor?: string | undefined;
 }
 
+/** What an upload is for: the asset of the figure it replaces, which the host may add it to. */
+export interface AssetUploadOptions {
+  /** The figure's current asset, so a new image for the same figure can be a new snapshot of it. */
+  readonly current?:
+    { readonly assetId: string; readonly snapshotId?: string | undefined } | undefined;
+}
+
 export interface AssetAdapter {
-  upload(file: File, signal?: AbortSignal): Promise<HostResult<StoredAsset>>;
+  upload(
+    file: File,
+    signal?: AbortSignal,
+    options?: AssetUploadOptions,
+  ): Promise<HostResult<StoredAsset>>;
+  /**
+   * The largest file an upload takes, in bytes. The editor names it before a file is chosen and
+   * refuses a larger file without calling `upload`.
+   */
+  maxUploadBytes?: number | undefined;
   /**
    * The images among the host's assets that match a query, the empty query browsing them, or with
    * `cursor` the page after the one that returned it. Without it the editor offers no asset
@@ -64,14 +80,23 @@ export interface StoredDiagram {
   height?: number | undefined;
 }
 
+/** What the editor hands the host's diagram editor besides the diagram. */
+export interface DiagramEditOptions {
+  /** Called with the diagram as each save stores it, before the editor resolves. */
+  readonly onSave?: ((diagram: StoredDiagram) => void) | undefined;
+}
+
 /** The host's diagram editor, which draws and stores the diagrams figures show. */
 export interface DiagramAdapter {
   /**
    * Opens the host's editor on a diagram, or on a new one when null, and resolves with the diagram
-   * it stored, or null when the writer cancels. The editor aborts `signal` when its dialog closes.
+   * it stored last, or null when the writer cancels. Each save while the editor stays open goes to
+   * `onSave`, which the editor applies to the figure at once. The editor aborts `signal` when its
+   * dialog closes.
    */
   edit(
     diagram: StoredDiagram | null,
     signal: AbortSignal,
+    options?: DiagramEditOptions,
   ): Promise<HostResult<StoredDiagram | null>>;
 }

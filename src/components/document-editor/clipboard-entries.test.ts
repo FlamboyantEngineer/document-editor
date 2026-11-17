@@ -74,7 +74,13 @@ function setUp() {
       editable: true,
       suggestionPolicy: { me: null, canDecide: true, canWithdraw: true },
       startComment: null,
-      images: { assets, failure: labels.uploadFailed, uploading: labels.uploading },
+      images: {
+        assets,
+        failure: labels.uploadFailed,
+        uploading: labels.uploading,
+        tooLarge: labels.uploadTooLarge,
+        pasteAgain: labels.pasteAgain,
+      },
     });
     const entries = groups.find((group) => group.id === 'clipboard')?.entries ?? [];
     const entry = entries.find((each) => 'id' in each && each.id === id);
