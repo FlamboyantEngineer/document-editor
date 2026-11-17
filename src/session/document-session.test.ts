@@ -307,6 +307,25 @@ describe('store-mode saving', () => {
     expect(await storedText(host)).toContain('HAh Oh ello');
   });
 
+  it('DOCE-SESSION-2.6 commits what the editor holds back before it saves, until released', async () => {
+    const host = hostWith();
+    const session = open(host);
+    await session.ready;
+    let held = 'Oh ';
+    const release = session.holdPendingEdits(() => {
+      if (held) typeText(session, held);
+      held = '';
+    });
+    await session.save();
+    expect(await storedText(host)).toContain('HOh ello');
+    expect(session.hasUnsavedChanges()).toBe(false);
+    release();
+    held = 'Ah ';
+    typeText(session, 'Uh ');
+    expect(await session.flush()).toBe(true);
+    expect(await storedText(host)).toContain('HUh Oh ello');
+  });
+
   it('DOCE-SESSION-2.2 reports a failed save and keeps the change to retry', async () => {
     const host = hostWith();
     const session = open(host);

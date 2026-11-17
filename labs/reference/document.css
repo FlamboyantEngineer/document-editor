@@ -576,11 +576,12 @@ div.de-host-view {
   border-width: 1px;
 }
 
-/* Tables in a page's header and footer take no cell padding. */
+/* Tables in a page's header and footer take no cell padding; an empty cell keeps a width to click. */
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.pm-page-header, .pm-page-footer)
   :is(td, th) {
   padding: 0;
+  min-width: 1em;
 }
 
 /* A template image in a cell stands on no line of its own (its wrapper is a block of no line

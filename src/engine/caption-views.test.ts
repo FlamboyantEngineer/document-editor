@@ -4,6 +4,7 @@ import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
+import { commitCaptionDraft } from './caption-hosts.js';
 import { createDocumentEditing } from './document-editing.js';
 import {
   cancelCaptionEditing,
@@ -70,12 +71,58 @@ describe('captions edited in place', () => {
     expect(commitCaptionEditing('Lost')(shown.state, shown.dispatch)).toBe(false);
   });
 
-  it('DOCE-OBJECTS-2.3 edits a caption when its line is double-clicked', async () => {
+  it('DOCE-OBJECTS-2.3 edits a code block’s caption in a field when its line is double-clicked', async () => {
+    const user = userEvent.setup();
+    const code = nodes.code_block?.create({ caption: 'Loop' }, documentSchema.text('x = 1'));
+    const doc = code && documentSchema.topNodeType.createAndFill(null, [code]);
+    if (!doc) throw new Error('The document is valid');
+    const place = document.createElement('div');
+    document.body.appendChild(place);
+    view = new EditorView(place, {
+      state: EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) }),
+    });
+    const line = view.dom.querySelector('.doc-caption-line');
+    if (!line) throw new Error('The code block draws its caption line');
+    await user.dblClick(line);
+    expect(captionEditingAt(view.state)?.pos).toBe(0);
+  });
+
+  it('DOCE-OBJECTS-2.5 edits a figure’s caption in the caption itself, committing on Enter or when focus leaves', async () => {
     const user = userEvent.setup();
     const shown = viewOfFigure();
-    const line = shown.dom.querySelector('figure .doc-caption-line');
-    if (!line) throw new Error('The figure draws its caption line');
-    await user.dblClick(line);
-    expect(captionEditingAt(shown.state)?.pos).toBe(7);
+    const text = shown.dom.querySelector<HTMLElement>('figure .doc-caption-text');
+    if (!text) throw new Error('The figure draws its caption text');
+    await user.pointer({ keys: '[MouseLeft]', target: text });
+    expect(text).toHaveAttribute('contenteditable', 'true');
+    text.focus();
+    text.textContent = 'Board two';
+    // Typing changes the caption only once it is committed.
+    expect(figureOf(shown).attrs.caption).toBe('Board');
+    expect(captionEditingAt(shown.state)).toBeNull();
+    await user.keyboard('{Enter}');
+    expect(figureOf(shown).attrs.caption).toBe('Board two');
+    expect(shown.state.selection).toBeInstanceOf(NodeSelection);
+    const again = shown.dom.querySelector<HTMLElement>('figure .doc-caption-text');
+    if (!again) throw new Error('The figure draws its caption text');
+    await user.pointer({ keys: '[MouseLeft]', target: again });
+    again.focus();
+    again.textContent = 'Board three';
+    expect(commitCaptionDraft(shown)).toBe(true);
+    expect(figureOf(shown).attrs.caption).toBe('Board three');
+    expect(commitCaptionDraft(shown)).toBe(false);
+  });
+
+  it('DOCE-OBJECTS-2.5 puts the caption back on Escape, and starts from editCaption with its text selected', async () => {
+    const user = userEvent.setup();
+    const shown = viewOfFigure();
+    expect(editCaption(shown.state, shown.dispatch, shown)).toBe(true);
+    const text = shown.dom.querySelector<HTMLElement>('figure .doc-caption-text');
+    expect(text).toHaveFocus();
+    expect(captionEditingAt(shown.state)).toBeNull();
+    if (!text) throw new Error('The figure draws its caption text');
+    text.textContent = 'Draft';
+    await user.keyboard('{Escape}');
+    expect(text).toHaveTextContent('Board');
+    expect(figureOf(shown).attrs.caption).toBe('Board');
   });
 });

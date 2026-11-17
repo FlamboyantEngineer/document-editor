@@ -26,6 +26,11 @@ export interface EditorSession {
   readonly document?: ValueStore<EditorSessionDocument | null> | undefined;
   /** Moves the document to a template revision; true once it has. */
   setTemplate?: ((pin: TemplatePin | null) => Promise<boolean>) | undefined;
+  /**
+   * Adds a commit of what the editor holds back from the document, such as a caption being typed
+   * in place, for the session to run before it saves; returns its release.
+   */
+  holdPendingEdits?: ((commit: () => void) => () => void) | undefined;
 }
 
 /** What the editor reads of a session's document to offer a newer template revision. */
