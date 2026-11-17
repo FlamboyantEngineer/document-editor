@@ -1,27 +1,26 @@
 // The figure dialog: an image (uploaded through the host's assets, chosen among them or by
-// address) or a diagram drawn in the host's diagram editor, with its alternative text, caption and
-// size, the sides kept in proportion while locked and clamped to the page. It changes the figure
-// selected, or inserts one.
+// address) or a diagram drawn in the host's diagram editor, previewed, with its alternative text and
+// caption. It changes the figure selected, or inserts one; its size is the resize dialog's, and a
+// chosen asset or a diagram comes in at its own size clamped to the page.
 
-import { Checkbox } from '@flamboyantengineer/ui-components/checkbox';
-import { NumberField } from '@flamboyantengineer/ui-components/number-field';
-import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-choice';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
-import { useState } from 'react';
-import { type FigureSource, setFigure } from '../../engine/index.js';
-import type { AssetAdapter, DiagramAdapter, StoredDiagram } from '../../host/index.js';
+import { useEffect, useState } from 'react';
+import {
+  type FigureSource,
+  insertFigure,
+  pinFigureSnapshot,
+  setFigure,
+} from '../../engine/index.js';
+import type {
+  AssetAdapter,
+  DiagramAdapter,
+  FeedbackAdapter,
+  StoredDiagram,
+} from '../../host/index.js';
 import { applying, type DialogProps, EditorModal, selectedNode, titleOf } from './dialog-parts.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import {
-  clampFigureSize,
-  FIGURE_BOUNDS,
-  type FigureBounds,
-  type FigureSize,
-  resizeFigure,
-  sizeRatio,
-} from './figure-size.js';
+import { clampFigureSize, type FigureBounds, figureBounds, sizeRatio } from './figure-size.js';
 import {
   DiagramSource,
   type FigureAsset,
@@ -29,8 +28,8 @@ import {
   type PickedAsset,
   useDiagramEditing,
   useFigureUpload,
-  useNaturalSize,
 } from './figure-sources.js';
+import { runCommand } from './table-actions.js';
 
 type FigureType = 'image' | 'diagram';
 
@@ -72,76 +71,20 @@ const figureSource = (fields: FigureFields): FigureSource => ({
   ...(fields.objectLayout === undefined ? {} : { objectLayout: fields.objectLayout }),
 });
 
-// The width of the pages' content: the editor's measuring area in page layout, else the document.
-function contentWidth(view: EditorView): number {
-  const root = view.dom.closest('.de-document-editor');
-  const measure = [...(root?.querySelectorAll('.de-document-editor__measure') ?? [])].find(
-    (element) => element.closest('.de-document-editor') === root,
-  );
-  return (measure ?? view.dom).clientWidth;
-}
-
-/** The bounds a figure takes on the document's pages: no wider than their content. */
-function figureBounds(view: EditorView): FigureBounds {
-  const content = contentWidth(view);
-  return content > 0
-    ? { ...FIGURE_BOUNDS, maxWidth: Math.min(FIGURE_BOUNDS.maxWidth, content) }
-    : FIGURE_BOUNDS;
-}
-
-// The width and height fields, and whether they keep their proportions.
-function SizeFields({
-  fields,
-  labels,
-  natural,
-  bounds,
-  onChange,
-}: {
-  fields: FigureFields;
-  labels: DocumentEditorLabels;
-  natural: FigureSize | null;
-  bounds: FigureBounds;
-  onChange: (next: Partial<FigureFields>) => void;
-}) {
-  const ratio = sizeRatio(fields) ?? (natural ? sizeRatio(natural) : null);
-  const resize = (side: 'width' | 'height') => (value: number | null) =>
-    onChange(resizeFigure(fields, { side, value }, { locked: fields.locked, ratio, bounds }));
+// The image or diagram the figure shows, once there is one; a placeholder until then.
+function FigurePreview({ url, labels }: { url: string; labels: DocumentEditorLabels }) {
   return (
-    <>
-      <NumberField
-        label={labels.width}
-        minValue={bounds.min}
-        maxValue={bounds.maxWidth}
-        value={fields.width}
-        onChange={resize('width')}
-      />
-      <NumberField
-        label={labels.height}
-        minValue={bounds.min}
-        maxValue={bounds.maxHeight}
-        value={fields.height}
-        onChange={resize('height')}
-      />
-      <SegmentedChoice
-        aria-label={labels.align}
-        options={[
-          { value: 'default', label: labels.alignDefault },
-          { value: 'left', label: labels.alignLeft },
-          { value: 'center', label: labels.alignCenter },
-          { value: 'right', label: labels.alignRight },
-          { value: 'fit', label: labels.alignFit },
-        ]}
-        value={fields.objectLayout ?? 'default'}
-        onChange={(value) => {
-          if (value === 'default') onChange({ objectLayout: null });
-          else if (value === 'left' || value === 'center' || value === 'right' || value === 'fit')
-            onChange({ objectLayout: value });
-        }}
-      />
-      <Checkbox isSelected={fields.locked} onChange={(locked) => onChange({ locked })}>
-        {labels.keepProportions}
-      </Checkbox>
-    </>
+    <figure
+      className="de-figure-preview"
+      aria-label={labels.figurePreview}
+      data-state={url ? 'ready' : 'empty'}
+    >
+      {url ? (
+        <img className="de-figure-preview__image" src={url} alt="" />
+      ) : (
+        <p className="de-figure-preview__empty">{labels.figurePreviewEmpty}</p>
+      )}
+    </figure>
   );
 }
 
@@ -173,22 +116,31 @@ function useFigureFields({ view, labels, assets, diagrams, figureType }: FigureD
   const [fields, setFields] = useState(() => figureFields(node, figureType ?? 'image'));
   const [bounds] = useState(() => figureBounds(view));
   const change = (next: Partial<FigureFields>) => setFields((current) => ({ ...current, ...next }));
-  const uploading = useFigureUpload(assets, labels, (asset) => change({ asset, src: '' }));
-  const editing = useDiagramEditing(diagrams, labels, (diagram) =>
-    setFields((current) => ({ ...current, ...diagramFields(diagram, current, bounds) })),
-  );
+  const uploading = useFigureUpload(assets, labels, {
+    current: fields.asset,
+    onStored: (asset) => change({ asset, src: '' }),
+  });
+  const takeDiagram = (diagram: StoredDiagram) =>
+    setFields((current) => ({ ...current, ...diagramFields(diagram, current, bounds) }));
+  const editing = useDiagramEditing(diagrams, labels, {
+    onStored: takeDiagram,
+    // A save while the host's editor stays open pins the figure at once, then the dialog follows.
+    onSave: (diagram) => {
+      if (node) runCommand(view, pinFigureSnapshot(diagram));
+      takeDiagram(diagram);
+    },
+  });
   const previewUrl = fields.asset
     ? (assets?.resolveUrl(fields.asset.fileAssetId, fields.asset.snapshotId) ?? '')
     : fields.src.trim();
-  const natural = useNaturalSize(view.dom.ownerDocument, previewUrl);
-  return { node, fields, bounds, change, uploading, editing, natural };
+  return { node, fields, bounds, change, uploading, editing, previewUrl };
 }
 
 type FigureState = ReturnType<typeof useFigureFields>;
 
-// The figure's type while it is new and the host draws diagrams, and where its drawing comes from.
+// Where the figure's drawing comes from: an image's source and alternative text, or a diagram.
 function SourceFields({
-  state: { node, fields, bounds, change, uploading, editing },
+  state: { fields, bounds, change, uploading, editing },
   labels,
   assets,
   diagrams,
@@ -196,19 +148,6 @@ function SourceFields({
   const isDiagram = fields.figureType === 'diagram';
   return (
     <>
-      {!node && diagrams ? (
-        <SegmentedChoice
-          aria-label={labels.figureType}
-          options={(['image', 'diagram'] as const).map((value) => ({
-            value,
-            label: labels.figureTypes[value],
-          }))}
-          value={fields.figureType}
-          onChange={(value) => {
-            if (value) change({ figureType: value as FigureType, asset: null, src: '' });
-          }}
-        />
-      ) : null}
       {isDiagram ? (
         diagrams ? (
           <DiagramSource editing={editing} asset={fields.asset} labels={labels} />
@@ -245,7 +184,7 @@ function pendingStatus({ uploading, editing }: FigureState, labels: DocumentEdit
 export function FigureDialog(props: FigureDialogProps) {
   const { view, labels, onClose } = props;
   const state = useFigureFields(props);
-  const { node, fields, bounds, change, uploading, editing, natural } = state;
+  const { node, fields, change, uploading, editing, previewUrl } = state;
   const missing = !fields.asset && (fields.figureType === 'diagram' || !fields.src.trim());
   return (
     <EditorModal
@@ -263,19 +202,73 @@ export function FigureDialog(props: FigureDialogProps) {
       })}
     >
       <SourceFields {...props} state={state} />
+      <FigurePreview url={previewUrl} labels={labels} />
       <TextField
         label={labels.caption}
         tracksChanges={false}
         value={fields.caption}
         onChange={(caption) => change({ caption })}
       />
-      <SizeFields
-        fields={fields}
-        labels={labels}
-        natural={natural}
-        bounds={bounds}
-        onChange={change}
-      />
     </EditorModal>
   );
 }
+
+/**
+ * Draws a new diagram in the host's editor at once, with no dialog of the editor's: its first save
+ * inserts it as a figure where a new block goes from the caret, at its own size clamped to the
+ * page, and each later save pins that figure to the new snapshot. Cancelling inserts nothing; a
+ * failure tells the reader.
+ */
+export function DiagramDrawing({
+  view,
+  labels,
+  onClose,
+  diagrams,
+  feedback,
+}: DialogProps & { diagrams: DiagramAdapter; feedback?: FeedbackAdapter | undefined }) {
+  const [run] = useState(() => ({ view, labels, onClose, diagrams, feedback }));
+  useEffect(() => drawDiagram(run), [run]);
+  return null;
+}
+
+// Runs the host's diagram editor on a new diagram; the returned cleanup aborts it.
+function drawDiagram({
+  view,
+  labels,
+  onClose,
+  diagrams,
+  feedback,
+}: DialogProps & { diagrams: DiagramAdapter; feedback?: FeedbackAdapter | undefined }) {
+  const controller = new AbortController();
+  const bounds = figureBounds(view);
+  let placed: string | null = null;
+  const save = (diagram: StoredDiagram) => {
+    if (controller.signal.aborted || view.isDestroyed) return;
+    if (placed === diagram.assetId) {
+      runCommand(view, pinFigureSnapshot(diagram));
+      return;
+    }
+    const size = { width: diagram.width ?? null, height: diagram.height ?? null };
+    const sized = clampFigureSize(size, { locked: true, ratio: sizeRatio(size), bounds });
+    const asset = {
+      fileAssetId: diagram.assetId,
+      snapshotId: diagram.snapshotId ?? diagram.assetId,
+    };
+    runCommand(view, insertFigure({ figureType: 'diagram', ...asset, alt: 'figure', ...sized }));
+    placed = diagram.assetId;
+  };
+  const failed = (message?: string) => {
+    if (controller.signal.aborted) return;
+    feedback?.notify({ tone: 'error', text: message ?? labels.diagramFailed });
+    onClose();
+  };
+  diagrams.edit(null, controller.signal, { onSave: save }).then((result) => {
+    if (!result.ok) return failed(result.error.message);
+    if (result.value) save(result.value);
+    if (!controller.signal.aborted) onClose();
+    return undefined;
+  }, failed);
+  return () => controller.abort();
+}
+
+export { FigureResizeDialog } from './figure-resize-dialog.js';

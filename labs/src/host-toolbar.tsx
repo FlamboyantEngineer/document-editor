@@ -1,5 +1,5 @@
 // The document editor lab's own toolbar items, as a host adds them: a button inserting today's
-// date, the code format left out, and a saved state at the end of the toolbar.
+// date, the strikethrough format left out, and a saved state at the end of the toolbar.
 
 import { undoDepth } from 'prosemirror-history';
 import type { Command } from 'prosemirror-state';
@@ -23,10 +23,10 @@ function SavedState() {
   return <span className="lab-saved-state">{edited ? 'Edited' : 'Saved'}</span>;
 }
 
-const withoutCode = (groups: readonly ToolbarGroup[]) =>
+const withoutStrikethrough = (groups: readonly ToolbarGroup[]) =>
   groups.map((group) => ({
     ...group,
-    items: group.items.filter((item) => item.id !== 'code'),
+    items: group.items.filter((item) => item.id !== 'strikethrough'),
   }));
 
 /** The lab's toolbar options. */
@@ -40,6 +40,6 @@ export const HOST_TOOLBAR: DocumentToolbarOptions = {
       run: (context) => context.run(insertDate),
     },
   ],
-  arrange: withoutCode,
+  arrange: withoutStrikethrough,
   end: <SavedState />,
 };

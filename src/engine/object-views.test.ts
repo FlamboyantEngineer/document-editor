@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
 import { readDocumentFile } from '../model/index.js';
+import { createDocumentEditing } from './document-editing.js';
 import { createObjectViews } from './object-views.js';
 
 installEditorDom();
@@ -81,6 +82,69 @@ describe('typing over a selected object', () => {
     });
     const marked = schema.node('doc', null, [schema.node('marker'), schema.node('paragraph')]);
     expect(keepsSelection(viewSelecting(EditorState.create({ doc: marked }), 0))).toBe(false);
+  });
+});
+
+// The numbers a code element's gutter shows, and the line text each copies.
+const gutterLines = (element: Element | null | undefined) =>
+  [...(element?.querySelectorAll('.de-code-gutter__line') ?? [])].map((line) => [
+    line.querySelector('.de-code-gutter__number')?.textContent,
+    line.querySelector('.de-code-gutter__text')?.textContent,
+  ]);
+
+describe('line numbers', () => {
+  it('DOCE-OBJECTS-3.1 numbers authored code from its first line once the view is built, and a new line at once', () => {
+    const code = nodes.code_block?.create(null, documentSchema.text('let a = 1;\nlet b = 2;'));
+    const later = nodes.code_block?.create(
+      { codeBlockContinued: true, codeLineStart: 99 },
+      documentSchema.text('x\ny'),
+    );
+    if (!code || !later) throw new Error('The schema has code blocks');
+    const doc = documentSchema.topNodeType.createAndFill(null, [code, later]);
+    if (!doc) throw new Error('The document is valid');
+    view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: [createObjectViews()] }),
+    });
+    const [first, second] = [...view.dom.querySelectorAll('pre')];
+    // Filled as the view is built, before any frame, with one code element for the text.
+    expect(gutterLines(first)).toEqual([
+      ['1', 'let a = 1;'],
+      ['2', 'let b = 2;'],
+    ]);
+    expect(first?.querySelectorAll('code')).toHaveLength(1);
+    expect(first?.querySelector('code')?.textContent).toBe('let a = 1;\nlet b = 2;');
+    expect(first?.style.getPropertyValue('--de-code-gutter-digits')).toBe('3');
+    expect(gutterLines(second).map(([number]) => number)).toEqual(['99', '100']);
+    // A line break typed adds its number in the same update, before the browser paints.
+    view.dispatch(view.state.tr.insertText('\n', 11));
+    expect(gutterLines(view.dom.querySelector('pre'))).toEqual([
+      ['1', 'let a = 1;'],
+      ['2', ''],
+      ['3', 'let b = 2;'],
+    ]);
+  });
+
+  it('DOCE-OBJECTS-3.1 numbers only linked code, or none, when the editing plugins are asked to', () => {
+    const code = nodes.code_block?.create(null, documentSchema.text('a'));
+    const linked = nodes.linked_code_block?.create({ code: 'b\nc', startLine: 7 });
+    if (!code || !linked) throw new Error('The schema has code and linked code');
+    const doc = documentSchema.topNodeType.createAndFill(null, [code, linked]);
+    if (!doc) throw new Error('The document is valid');
+    view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: [createObjectViews({ lineNumbers: 'linked' })] }),
+    });
+    const [authored, linkedPre] = [...view.dom.querySelectorAll('pre')];
+    expect(authored?.querySelector('.de-code-gutter')).toBeNull();
+    expect(gutterLines(linkedPre)).toEqual([
+      ['7', 'b'],
+      ['8', 'c'],
+    ]);
+    view.destroy();
+    const plugins = createDocumentEditing(documentSchema, { lineNumbers: 'none' });
+    view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins }),
+    });
+    expect(view.dom.querySelectorAll('.de-code-gutter')).toHaveLength(0);
   });
 });
 

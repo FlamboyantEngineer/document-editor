@@ -8,6 +8,7 @@
 import {
   type CodeLanguage,
   type CodeToken,
+  type CodeTokenizer,
   resolveCodeTokenizer,
 } from '@flamboyantengineer/ui-components/code-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -21,6 +22,7 @@ const LANGUAGES: Readonly<Record<string, CodeLanguage>> = {
   ts: 'typescript',
   python: 'python',
   py: 'python',
+  java: 'java',
   c: 'c',
   cpp: 'cpp',
   'c++': 'cpp',
@@ -38,6 +40,12 @@ const LANGUAGES: Readonly<Record<string, CodeLanguage>> = {
   md: 'markdown',
 };
 
+/** The base library's tokenizer for a language name a block may carry; none for plain text. */
+export function codeTokenizerOf(language: unknown): CodeTokenizer | undefined {
+  const preset = LANGUAGES[String(language ?? '').toLowerCase()];
+  return preset ? resolveCodeTokenizer({ language: preset }) : undefined;
+}
+
 /** A token of code at its offsets in the code's text, with its kind. */
 interface CodeTokenAt {
   readonly from: number;
@@ -50,8 +58,7 @@ interface CodeTokenAt {
  * text or another language.
  */
 export function highlightCode(code: string, language: unknown): CodeTokenAt[] {
-  const preset = LANGUAGES[String(language ?? '').toLowerCase()];
-  const tokenize = preset ? resolveCodeTokenizer({ language: preset }) : undefined;
+  const tokenize = codeTokenizerOf(language);
   if (!tokenize) return [];
   const found: CodeTokenAt[] = [];
   let offset = 0;

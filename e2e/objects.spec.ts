@@ -17,6 +17,27 @@ async function newParagraph(page: Page, heading: string, value: string) {
   await page.keyboard.type(value);
 }
 
+// Inserts the lab's wide panel image after the heading, through the image picker, with a caption.
+async function insertWidePanel(page: Page, caption: string) {
+  await newParagraph(page, 'Power', '');
+  await toolbar(page).getByRole('button', { name: 'Figure' }).click();
+  await item(page, 'Image…').click();
+  await dialog(page).getByRole('button', { name: 'Choose an image…' }).click();
+  const picker = page.getByRole('group', { name: 'Choose an image…' });
+  await picker.getByRole('searchbox').fill('wide');
+  await picker.getByRole('row', { name: 'Wide panel' }).click();
+  await picker.getByRole('button', { name: 'Insert' }).click();
+  // The picker closes on its own Insert; under load its fade can outlast the next few steps.
+  await expect(picker).toHaveCount(0);
+  await expect(dialog(page).getByRole('figure', { name: 'Preview' })).toHaveAttribute(
+    'data-state',
+    'ready',
+  );
+  await dialog(page).getByRole('textbox', { name: 'Caption' }).fill(caption);
+  await dialog(page).getByRole('button', { name: 'Insert' }).click();
+  return content(page).locator('figure[data-file-asset-id="library-wide"]');
+}
+
 test.describe('objects', () => {
   test.beforeEach(async ({ lab }) => {
     await lab.open('full-editor');
@@ -211,49 +232,76 @@ test.describe('objects', () => {
     await expect(figure).toHaveAttribute('data-object-layout', 'center');
   });
 
-  test('DOCE-OBJECTS-1.4 places a chosen image clamped to the page and resizes it in proportion', async ({
+  test('DOCE-OBJECTS-1.4 DOCE-OBJECTS-1.11 places a chosen image clamped to the page and resizes it in proportion', async ({
     page,
   }) => {
-    await newParagraph(page, 'Power', '');
-    await toolbar(page).getByRole('button', { name: 'Figure' }).click();
-    await item(page, 'Image…').click();
-    await dialog(page).getByRole('button', { name: 'Choose an image…' }).click();
-    const picker = page.getByRole('group', { name: 'Choose an image…' });
-    await picker.getByRole('searchbox').fill('wide');
-    await picker.getByRole('row', { name: 'Wide panel' }).click();
-    await picker.getByRole('button', { name: 'Insert' }).click();
-    const width = dialog(page).getByRole('textbox', { name: 'Width (px)' });
-    const height = dialog(page).getByRole('textbox', { name: 'Height (px)' });
+    const figure = await insertWidePanel(page, 'The panel');
     // The 800 by 400 image is narrower than the page's content once placed.
-    const placed = Number((await width.inputValue()).replace(/,/g, ''));
+    const placed = Number(await figure.getAttribute('data-figure-width'));
     expect(placed).toBeLessThan(800);
-    await expect(height).toHaveValue(String(Math.round(placed / 2)));
+    await expect(figure).toHaveAttribute('data-figure-height', String(Math.round(placed / 2)));
+    await figure.click({ button: 'right' });
+    await item(page, 'Resize…').click();
+    const resize = page.getByRole('dialog', { name: 'Resize figure' });
+    const width = resize.getByRole('textbox', { name: 'Width (px)' });
+    await expect(width).toHaveValue(String(placed));
     await width.fill('300');
     await width.press('Tab');
-    await expect(height).toHaveValue('150');
-    await dialog(page).getByRole('button', { name: 'Insert' }).click();
-    const figure = content(page).locator('figure[data-file-asset-id="library-wide"]');
+    await expect(resize.getByRole('textbox', { name: 'Height (px)' })).toHaveValue('150');
+    await resize.getByRole('button', { name: 'Apply' }).click();
     await expect(figure).toHaveAttribute('data-figure-width', '300');
     await expect(figure).toHaveAttribute('data-figure-height', '150');
   });
 
-  test('DOCE-OBJECTS-1.4 inserts a diagram from the host diagram editor, then edits it', async ({
+  test('DOCE-OBJECTS-1.11 offers edit, resize and delete on a figure, and keeps the fitted size when aligned', async ({
+    page,
+  }) => {
+    const figure = await insertWidePanel(page, 'The panel');
+    await figure.click({ button: 'right' });
+    const names = await page.getByRole('menu').last().getByRole('menuitem').allTextContents();
+    const at = (name: string) => names.findIndex((each) => each.startsWith(name));
+    expect(at('Edit figure…')).toBeGreaterThanOrEqual(0);
+    expect(at('Resize…')).toBe(at('Edit figure…') + 1);
+    expect(at('Delete')).toBeGreaterThan(at('Resize…'));
+    await item(page, 'Edit figure…').click();
+    await expect(dialog(page).getByRole('textbox', { name: 'Caption' })).toHaveValue('The panel');
+    await expect(dialog(page).getByRole('figure', { name: 'Preview' })).toHaveAttribute(
+      'data-state',
+      'ready',
+    );
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click();
+    await figure.click({ button: 'right' });
+    await item(page, 'Align').click();
+    await choice(page, 'Page width').click();
+    await expect(figure).toHaveAttribute('data-object-layout', 'fit-page-width');
+    const fitted = await figure.locator('img').evaluate((image) => image.getBoundingClientRect());
+    await figure.click({ button: 'right' });
+    await item(page, 'Align').click();
+    await choice(page, 'Left').click();
+    await expect(figure).toHaveAttribute('data-object-layout', 'left');
+    const scale = await content(page).evaluate(
+      (element) => element.getBoundingClientRect().width / (element as HTMLElement).offsetWidth,
+    );
+    await expect(figure).toHaveAttribute(
+      'data-figure-width',
+      String(Math.round(fitted.width / scale)),
+    );
+    await figure.click({ button: 'right' });
+    await item(page, 'Align').click();
+    await choice(page, 'Left').click();
+    await expect(figure).not.toHaveAttribute('data-object-layout');
+  });
+
+  test('DOCE-OBJECTS-1.4 draws a diagram straight from the menu, then edits it', async ({
     page,
   }) => {
     await newParagraph(page, 'Power', '');
     await toolbar(page).getByRole('button', { name: 'Figure' }).click();
     await item(page, 'Diagram…').click();
-    await expect(page.locator('[data-dialog="figure"]')).toHaveAttribute(
-      'data-figure-type',
-      'diagram',
-    );
-    await dialog(page).getByRole('button', { name: 'Draw diagram…' }).click();
-    await dialog(page).getByRole('textbox', { name: 'Caption' }).fill('The flow');
-    await dialog(page).getByRole('button', { name: 'Insert' }).click();
-    const figure = content(page).locator('figure[data-figure-type="diagram"]', {
-      hasText: 'The flow',
-    });
+    // The host's editor opens at once, and its saved drawing becomes the figure with no dialog.
+    const figure = content(page).locator('figure[data-figure-type="diagram"]');
     await expect(figure).toHaveAttribute('data-figure-width', '480');
+    await expect(page.locator('[data-dialog="figure"]')).toHaveCount(0);
     const first = await figure.getAttribute('data-file-asset-id');
     await figure.click({ button: 'right' });
     await item(page, 'Edit figure…').click();
@@ -294,8 +342,8 @@ test.describe('objects', () => {
     await expect(linked).not.toContainText('export function tick');
     await linked.click({ button: 'right' });
     await item(page, 'Language').click();
-    await choice(page, 'typescript').click();
-    await expect(linked).toHaveAttribute('data-code-language', 'typescript');
+    await choice(page, 'JavaScript').click();
+    await expect(linked).toHaveAttribute('data-code-language', 'javascript');
     // An address the host has no code for says so.
     await linked.click({ button: 'right' });
     await item(page, 'Edit linked code…').click();
@@ -304,6 +352,24 @@ test.describe('objects', () => {
       .fill('https://example.com/none.ts');
     await expect(dialog(page)).toContainText('No code at this address.');
     await expect(dialog(page).getByRole('button', { name: 'Apply' })).toBeDisabled();
+  });
+
+  test('DOCE-EDITOR-4.5 offers inline code first in the code menu, and DOCE-EDITOR-3.8 deletes it', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Call ');
+    await toolbar(page).getByRole('button', { name: 'Code' }).click();
+    const entries = page.getByRole('menu').last().locator('[role^="menuitem"]');
+    await expect(entries.first()).toHaveText(/^Inline code/);
+    await expect(entries.first()).toHaveAttribute('role', 'menuitemcheckbox');
+    await entries.first().click();
+    await page.keyboard.type('tick()');
+    const paragraph = content(page).locator('p', { hasText: 'Call tick()' });
+    await expect(paragraph.locator('code')).toHaveText('tick()');
+    await paragraph.locator('code').click({ button: 'right' });
+    await item(page, 'Delete inline code').click();
+    await expect(paragraph.locator('code')).toHaveCount(0);
+    await expect(content(page).locator('p', { hasText: /^Call\s*$/ })).toHaveCount(1);
   });
 
   test('DOCE-OBJECTS-3.3 highlights a code block in the language it is set to', async ({
@@ -322,7 +388,20 @@ test.describe('objects', () => {
     await expect.poll(() => painted('keyword')).not.toContain('const');
     await code.click({ button: 'right' });
     await item(page, 'Language').click();
-    await choice(page, 'typescript').click();
+    await expect(page.getByRole('menu').last().getByRole('menuitemcheckbox')).toHaveText([
+      'Plain text',
+      'JavaScript',
+      'Python',
+      'Java',
+      'C',
+      'C++',
+      'HTML',
+      'CSS',
+      'JSON',
+      'XML',
+      'SQL',
+    ]);
+    await choice(page, 'JavaScript').click();
     await expect.poll(() => painted('keyword')).toContain('const');
     await expect.poll(() => painted('number')).toContain('4');
     // The text is painted over, not split into elements.
@@ -377,9 +456,126 @@ test.describe('objects', () => {
       .fill('https://example.com/firmware/clock.ts#L2-L3');
     await expect(dialog(page)).toContainText('return elapsed / PERIOD;');
     await dialog(page).getByRole('button', { name: 'Insert' }).click();
-    await expect(content(page).locator('[data-linked-code-block] .de-code-gutter')).toHaveText(
-      ['2', '3'].join('\n'),
-    );
+    await expect(
+      content(page).locator('[data-linked-code-block] .de-code-gutter__number'),
+    ).toHaveText(['2', '3']);
+  });
+
+  test('DOCE-OBJECTS-3.1 wraps a long numbered line, its later rows left blank in the gutter', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await toolbar(page).getByRole('button', { name: 'Code' }).click();
+    await item(page, 'Code block').click();
+    await page.keyboard.type(`const long = "${'word '.repeat(40)}";`);
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('next();');
+    const block = content(page).locator('pre', { hasText: 'next();' });
+    const rows = block.locator('.de-code-gutter__line');
+    await expect(rows.locator('.de-code-gutter__number')).toHaveText(['1', '2']);
+    const geometry = await block.evaluate((pre) => {
+      const code = pre.querySelector('code') as HTMLElement;
+      const [first, second] = [...pre.querySelectorAll('.de-code-gutter__line')].map((row) =>
+        row.getBoundingClientRect(),
+      );
+      const height = parseFloat(getComputedStyle(code).lineHeight);
+      const range = document.createRange();
+      const text = code.firstChild as Text;
+      const at = text.data.indexOf('next();');
+      range.setStart(text, at);
+      range.setEnd(text, at + 1);
+      return {
+        height,
+        first: first?.height ?? 0,
+        secondTop: second?.top ?? 0,
+        nextTop: range.getBoundingClientRect().top,
+        scrolls: code.scrollWidth > code.clientWidth + 1,
+      };
+    });
+    // The first line wraps over several rows; the gutter's second number sits level with line 2.
+    expect(geometry.first).toBeGreaterThan(geometry.height * 1.5);
+    expect(Math.abs(geometry.secondTop - geometry.nextTop)).toBeLessThan(2);
+    expect(geometry.scrolls).toBe(false);
+  });
+
+  test('DOCE-EDITOR-4.5 previews linked code numbered from its line in its file, scrolling the preview alone', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await toolbar(page).getByRole('button', { name: 'Code' }).click();
+    await item(page, 'Linked code…').click();
+    const modal = page.locator('[data-dialog="linked-code"]');
+    const preview = modal.locator('.de-linked-code-preview');
+    const field = dialog(page).getByRole('textbox', { name: 'Code address' });
+    await expect(dialog(page)).toContainText('For example https://example.com/');
+    await expect(preview).toHaveAttribute('data-state', 'idle');
+    await expect(preview.locator('.de-linked-code-preview__empty')).toBeVisible();
+    await field.fill('https://example.com/firmware/clock.ts#L2-L3');
+    await expect(preview).toHaveAttribute('data-state', 'ready');
+    const numbers = preview.locator('.ui-code-block__line-number');
+    await expect(numbers).toHaveCount(2);
+    await expect(numbers.first()).toHaveAttribute('data-line-number', '2');
+    // Highlighted in its language: `const` is a keyword.
+    await expect(preview.locator('[data-token="keyword"]', { hasText: 'const' })).toHaveCount(1);
+    // A whole file scrolls in the preview, while the field stays in view.
+    await field.fill('https://example.com/firmware/schedule.ts');
+    await expect(numbers).toHaveCount(120);
+    const body = modal.locator('.ui-modal__body');
+    const sizes = await body.evaluate((element) => ({
+      scrolls: element.scrollHeight > element.clientHeight + 1,
+    }));
+    expect(sizes.scrolls).toBe(false);
+    await preview.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect.poll(() => preview.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(field).toBeInViewport();
+  });
+
+  test('DOCE-OBJECTS-3.4 puts the caret in the code for a press on its padding, gutter or caption line', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await page.keyboard.press('ControlOrMeta+Alt+C');
+    await page.keyboard.type('alpha();\nbeta();');
+    await page.keyboard.press('ArrowUp');
+    const block = content(page).locator('pre', { hasText: 'beta();' });
+    // Where the selection is: in the code block's text, and at which offset.
+    const caret = () =>
+      page.evaluate(() => {
+        const selection = getSelection();
+        const node = selection?.anchorNode;
+        const element = node instanceof Element ? node : node?.parentElement;
+        return {
+          inCode: Boolean(element?.closest('pre > code')),
+          collapsed: selection?.isCollapsed,
+        };
+      });
+    const box = await block.boundingBox();
+    if (!box) throw new Error('The code block is drawn');
+    const gutter = await block.locator('.de-code-gutter__number').nth(1).boundingBox();
+    const caption = await block.locator('.doc-caption-line').boundingBox();
+    const points = [
+      { x: box.x + 2, y: box.y + box.height - 2 },
+      ...(gutter ? [{ x: gutter.x + gutter.width / 2, y: gutter.y + gutter.height / 2 }] : []),
+      ...(caption ? [{ x: caption.x + caption.width - 4, y: caption.y + caption.height / 2 }] : []),
+    ];
+    for (const [index, point] of points.entries()) {
+      await content(page).locator('h1', { hasText: 'Power' }).click();
+      await page.mouse.click(point.x, point.y);
+      await expect.poll(caret, { message: `press ${String(index)}` }).toEqual({
+        inCode: true,
+        collapsed: true,
+      });
+    }
+    // A drag from the padding selects code text.
+    await page.mouse.move(box.x + 2, box.y + box.height - 2);
+    await page.mouse.down();
+    const text = await block.locator('code').boundingBox();
+    if (!text) throw new Error('The code is drawn');
+    await page.mouse.move(text.x + 1, text.y + 4, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(() => page.evaluate(() => String(getSelection()))).toContain('alpha');
   });
 
   test('DOCE-OBJECTS-3.2 draws a signature from its strokes with the signer name', async ({

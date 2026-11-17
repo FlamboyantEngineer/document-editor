@@ -4,7 +4,7 @@
 // block is never added outside the pages' content.
 
 import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
+import type { EditorState, Transaction } from 'prosemirror-state';
 import { isSectionNode, isStructureNode, regionAt, regionKind } from '../model/index.js';
 
 // Whether a node holds pages or regions rather than blocks.
@@ -60,3 +60,31 @@ export function newBlockRange(state: EditorState): { from: number; to: number } 
 
 /** Whether a block can be added where the selection is, as the block commands add one. */
 export const canInsertBlock = (state: EditorState): boolean => newBlockRange(state) !== null;
+
+/**
+ * Puts a block at a position in a text block: in place of the text block when it is empty, before
+ * or after it at its edges, or between its halves, split there. Gives where the block starts, or
+ * null when the text block's parent takes no such block.
+ */
+export function placeBlockAt(tr: Transaction, pos: number, node: ProseMirrorNode): number | null {
+  const $pos = tr.doc.resolve(pos);
+  const parent = $pos.parent;
+  const holder = $pos.node($pos.depth - 1);
+  const index = $pos.index($pos.depth - 1);
+  if (!parent.isTextblock || !holder.canReplaceWith(index, index + 1, node.type)) return null;
+  if (parent.content.size === 0) {
+    tr.replaceWith($pos.before(), $pos.after(), node);
+    return $pos.before();
+  }
+  if ($pos.parentOffset === 0) {
+    tr.insert($pos.before(), node);
+    return $pos.before();
+  }
+  if ($pos.parentOffset === parent.content.size) {
+    tr.insert($pos.after(), node);
+    return $pos.after();
+  }
+  tr.split(pos);
+  tr.insert(pos + 1, node);
+  return pos + 1;
+}
