@@ -117,4 +117,36 @@ describe('renderPrintPage', () => {
     expect(view).toContain('<span class="de-signature__name">Ada</span>');
     expect(view).not.toContain('data-signature-vector');
   });
+
+  it('DOCE-EDITOR-6.33 DOCE-EDITOR-6.23 carries the marker print rules and no screen tooltips', () => {
+    const view = pageOf();
+    expect(view).toContain('[data-print="true"] :is(td, th) { position: static !important; }');
+    expect(view).toContain('::before, [data-print="true"]');
+    expect(view).not.toMatch(/ title="/);
+  });
+
+  it('DOCE-EDITOR-6.21 prints an abbreviation without its list as its text', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'abbreviation',
+                  attrs: { entry: 'g1', abbreviation: 'API', expansion: 'Programming interface' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const view = renderPrintPage(file, BASE_TEMPLATE);
+    expect(view).toContain('data-expansion="Programming interface"');
+    expect(view).not.toContain('href="#abbr-g1"');
+  });
 });

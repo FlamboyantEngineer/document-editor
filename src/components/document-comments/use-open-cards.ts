@@ -57,9 +57,14 @@ const CONTROLS =
  * selecting a thread to answer it; a thread without a composer showing keeps focus where it was.
  */
 export function focusReplyOnPress(event: { target: EventTarget; currentTarget: HTMLElement }) {
-  const pressed = isElement(event.target) ? event.target : null;
-  if (!pressed || pressed.closest(CONTROLS)) return;
+  if (isControlPress(event.target)) return;
   replyBoxOf(event.currentTarget)?.focus();
+}
+
+/** Whether a press landed on one of a card's controls, which take it themselves. */
+export function isControlPress(target: EventTarget): boolean {
+  const pressed = isElement(target) ? target : null;
+  return !pressed || pressed.closest(CONTROLS) !== null;
 }
 
 interface OpenCardsOptions {
@@ -124,9 +129,9 @@ interface MarginOpening {
 }
 
 /**
- * The margin's open cards in the markers presentation (the default): a thread the reader is taken
- * to opens, active and focused, and a click on a thread's or a suggestion's text opens its card,
- * or, open already, focuses its reply box.
+ * The margin's open cards in the markers presentation (the default): a thread or a suggestion the
+ * reader is taken to opens, active and focused, and a click on a thread's or a suggestion's text
+ * opens its card, or, open already, focuses its reply box.
  */
 export function useMarginOpening(
   props: { readonly presentation?: 'cards' | 'markers' | undefined } & Parameters<
@@ -140,8 +145,8 @@ export function useMarginOpening(
   if (opened !== lastOpened) {
     setLastOpened(opened);
     if (opened) {
-      setActive(`comment:${opened.threadId}`);
-      cards.openCard(`comment:${opened.threadId}`, opened.focus ?? 'open');
+      setActive(opened.key);
+      cards.openCard(opened.key, opened.focus ?? 'open');
     }
   }
   useCommentPointer(props, {

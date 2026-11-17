@@ -134,6 +134,10 @@ export interface ObjectLabels {
   /** Shows the abbreviation selected in full or short. */
   readonly abbreviationForm: (full: boolean) => string;
   readonly unlinkAbbreviation: string;
+  /** Opens the abbreviation dialog to cite another entry, for an abbreviation whose entry needs it. */
+  readonly relinkAbbreviation: string;
+  /** Cites another entry the document cites that reads the same, for a duplicate. */
+  readonly useAbbreviation: (entry: { abbreviation: string; expansion: string }) => string;
   readonly goToPage: string;
   readonly pageLayout: string;
   readonly menubar: string;
@@ -287,6 +291,8 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   glossaryFailed: 'The entry could not be added.',
   abbreviationForm: (full) => (full ? 'Show in full' : 'Show short'),
   unlinkAbbreviation: 'Turn into text',
+  relinkAbbreviation: 'Cite another entry…',
+  useAbbreviation: ({ abbreviation, expansion }) => `Use ${abbreviation}: ${expansion}`,
   goToPage: 'Go to page',
   pageLayout: 'Page view',
   menubar: 'Menu',

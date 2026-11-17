@@ -12,6 +12,7 @@ import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useRef } from 'react';
+import { PROOFING_ISSUE_ATTR } from '../../engine/index.js';
 import { isFocusLost } from '../../utils/composed-focus.js';
 import type { ContextEntriesOptions } from './context-entries.js';
 import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
@@ -54,6 +55,13 @@ function selectAt(view: EditorView, point: { left: number; top: number }) {
       : TextSelection.near(doc.resolve(hit.pos));
   if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection));
   return { pos: hit.pos };
+}
+
+// Whether a pointer event landed on a proofing issue's mark.
+function onProofingMark(target: EventTarget | null): boolean {
+  const node = target as Node | null;
+  const element = node?.nodeType === 1 ? (node as Element) : (node?.parentElement ?? null);
+  return element?.closest(`[${PROOFING_ISSUE_ATTR}]`) != null;
 }
 
 const isMenuKey = (event: KeyboardEvent) =>
@@ -145,10 +153,19 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     // The opening that waits for the button's release or the next frame, cancelled on unmount.
     const pending = { cancel: () => undefined as void };
     let frame = 0;
-    const show = (anchor: MenuPoint, pos: number) => {
+    const show = (anchor: MenuPoint, pos: number, mark?: boolean) => {
       const { startCommentRef, options: menu, shown, ...options } = latest.current;
       const { state } = view;
-      const target = resolveContextTarget(state, pos, options.editable);
+      const resolved = resolveContextTarget(state, pos, options.editable);
+      // From the pointer, the proofing entries show only on an issue's mark the view draws.
+      const target =
+        mark === undefined
+          ? resolved
+          : {
+              ...resolved,
+              proofingIssue: mark ? resolved.proofingIssue : null,
+              proofingMark: mark,
+            };
       // The providers get the editor as its other controls see it, on the state the menu opens
       // on; at a locked position the writer cannot edit.
       const context = createEditorContext(view, state, {
@@ -165,6 +182,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       if (event.defaultPrevented) return;
       event.preventDefault();
       const anchor = { x: event.clientX, y: event.clientY };
+      const mark = onProofingMark(event.target);
       const { pos } = selectAt(view, { left: event.clientX, top: event.clientY });
       // A moved selection reaches the view once the editor commits it, a frame later. Where the
       // menu opens on the press, it opens once the button is released, or the release would land
@@ -172,7 +190,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       pending.cancel();
       const open = () => {
         owner.removeEventListener('mouseup', open, true);
-        frame = owner.requestAnimationFrame(() => show(anchor, pos));
+        frame = owner.requestAnimationFrame(() => show(anchor, pos, mark));
       };
       pending.cancel = () => {
         owner.removeEventListener('mouseup', open, true);

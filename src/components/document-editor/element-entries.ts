@@ -15,7 +15,6 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
-  abbreviationAt,
   captionedAt,
   convertMath,
   deleteFootnote,
@@ -28,14 +27,13 @@ import {
   referenceStatusAt,
   removeReference,
   revealElement,
-  setAbbreviationDisplay,
   setCodeLanguage,
   setLink,
   setObjectLayout,
   toggleCaption,
-  unlinkAbbreviation,
   updateReference,
 } from '../../engine/index.js';
+import { abbreviationEntries } from './abbreviation-entries.js';
 import { contentsEntries } from './contents-entries.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -256,24 +254,6 @@ function referenceEntries(view: EditorView, options: ElementEntriesOptions): Men
           },
         ]
       : []),
-  ];
-}
-
-function abbreviationEntries(view: EditorView, { labels }: ElementEntriesOptions): MenuEntry[] {
-  const abbreviation = abbreviationAt(view.state);
-  if (!abbreviation) return [];
-  const short = abbreviation.node.attrs.display === 'short';
-  return [
-    commandEntry(
-      view,
-      { id: 'abbreviation-form', label: labels.abbreviationForm(short) },
-      setAbbreviationDisplay(),
-    ),
-    commandEntry(
-      view,
-      { id: 'unlink-abbreviation', label: labels.unlinkAbbreviation },
-      unlinkAbbreviation,
-    ),
   ];
 }
 

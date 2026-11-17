@@ -124,7 +124,6 @@ const ATTRIBUTES = [
   'class',
   'id',
   'style',
-  'title',
   'role',
   'lang',
   'dir',
