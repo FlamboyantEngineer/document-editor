@@ -9,6 +9,7 @@ import {
   measureRemoteKeystrokes,
   measureSectionsEdit,
   measureStyleScope,
+  measureSuggestionSteps,
   measureWheel,
   openScale,
   pages,
@@ -85,6 +86,15 @@ test.describe('performance', () => {
     report(BUDGETS.remoteSectionsRelaid, sectionsRelaid);
     report(BUDGETS.remoteBlocksMeasured, blocksMeasured);
     expect(layouts).toBeGreaterThan(0);
+  });
+
+  test('DOCE-LABS-2.3 DOCE-COMMENTS-2.21 lays out a suggestion, its thread link and its decision in 1600 blocks', async ({
+    lab,
+    page,
+  }) => {
+    const { sectionsRelaid, blocksMeasured } = await measureSuggestionSteps(lab, page);
+    report(BUDGETS.suggestSectionsRelaid, sectionsRelaid);
+    report(BUDGETS.suggestBlocksMeasured, blocksMeasured);
   });
 
   test('DOCE-LABS-2.3 scrolls 5 and 40 pages by the wheel', async ({ lab, page }) => {
