@@ -13,10 +13,10 @@ Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.2 - Linked code
 
-`setLinkedCode({ url, code, language, startLine })` shall insert linked code where a new block goes, selected, or change the linked code selected. `parseCodeLines(url)` reads the lines a URL's fragment names, such as `#L10-L20` or `#L7`. `codeLanguageOfUrl(url)` reads a language from the URL's file extension, such as `typescript` for `.ts`, which linked code takes when the host's code source names none. Typing while linked code, or any other block object, is selected leaves it, so a stray key never replaces it; the object views, which the editing plugins install, keep the writer's typed text from replacing a selected node unless its type replaces on typing: as its node spec's `replaceOnType` says, or else for inline nodes, such as inline math, only.
+`setLinkedCode({ url, code, language, startLine })` shall insert linked code where a new block goes, selected, or change the linked code selected. `parseCodeLines(url)` reads the lines a URL's fragment names, such as `#L10-L20` or `#L7`. `codeLanguageOfUrl(url)` reads a language from the URL's file extension, such as `typescript` for `.ts`, which linked code takes when the host's code source names none. Typing while linked code, or any other block object, is selected leaves it, so a stray key never replaces it; the object views, which the editing plugins install, keep the writer's typed text from replacing a selected node unless its type replaces on typing: as its node spec's `replaceOnType` says, or else for inline nodes, such as inline math, only. On the pages the same holds on any fragment of split linked code, for typed, replacement and composed text alike, and on a fragment alone on its page the selection stays; Enter there adds a paragraph after the whole block.
 
 Implementation: `src/engine/object-commands.ts`, `src/model/linked-code.ts`, `src/engine/object-views.ts`
-Verification: `src/engine/object-commands.test.ts`, `src/engine/object-views.test.ts`, `src/model/linked-code.test.ts`
+Verification: `src/engine/object-commands.test.ts`, `src/engine/object-views.test.ts`, `src/model/linked-code.test.ts`, `e2e/linked-code-fragments.spec.ts`
 
 ### DOCE-OBJECTS-1.3 - Math
 

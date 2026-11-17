@@ -38,7 +38,7 @@ describe('revision discussion snapshots', () => {
     await comments.create('doc', { id: 'thread', quote: 'First', text: 'Original' });
     const saved = await versions.saveVersion('Reviewed');
     if (!saved.ok) throw new Error('No version.');
-    await comments.reply('doc', 'thread', 'Later');
+    await comments.reply('doc', { threadId: 'thread', text: 'Later' });
     const next = await versions.saveVersion('Later discussion');
     if (!next.ok) throw new Error('No next version.');
     expect(next.value.revision).not.toBe(saved.value.revision);
@@ -54,7 +54,9 @@ describe('revision discussion snapshots', () => {
     expect(await historical.comments.list('doc')).toMatchObject({
       value: [{ entries: [{ text: 'Original' }] }],
     });
-    await expect(historical.comments.reply('doc', 'thread', 'Forbidden')).resolves.toMatchObject({
+    await expect(
+      historical.comments.reply('doc', { threadId: 'thread', text: 'Forbidden' }),
+    ).resolves.toMatchObject({
       error: { kind: 'denied' },
     });
     versions.updateView((state) => state.apply(state.tr.insertText('Forbidden', 2)));
@@ -84,7 +86,7 @@ describe('revision discussion snapshots', () => {
     await comments.create('doc', { id: 'room-thread', quote: 'First', text: 'Room original' });
     const saved = await versions.saveVersion('Room snapshot');
     if (!saved.ok) throw new Error('No snapshot.');
-    await comments.reply('doc', 'room-thread', 'Room later');
+    await comments.reply('doc', { threadId: 'room-thread', text: 'Room later' });
     const view = await versions.viewVersion(saved.value.revision, { returnTo: null });
     if (!view.ok) throw new Error('No view.');
     expect(view.value.version.threads?.[0]?.entries.map(({ text }) => text)).toEqual([

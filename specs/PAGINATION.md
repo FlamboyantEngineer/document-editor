@@ -452,10 +452,10 @@ Verification: `src/pagination/projection-view.test.ts`, `src/pagination/canonica
 
 ### DOCE-PAGINATION-7.14 - The pages' view as a canonical view
 
-`canonicalView(view, { canonical, map, dispatch })` shall give the view that renders the projection as a view of the canonical state, for toolbars, menus and commands: its `state` is the canonical state, `dispatch` takes canonical transactions, and `coordsAtPos`, `domAtPos`, `nodeDOM`, `posAtDOM` and `posAtCoords` take and give canonical positions; everything else is the projection view's.
+`canonicalView(view, { canonical, map, dispatch })` shall give the view that renders the projection as a view of the canonical state, for toolbars, menus and commands: its `state` is the canonical state, `dispatch` takes canonical transactions, and `coordsAtPos`, `domAtPos`, `nodeDOM`, `posAtDOM` and `posAtCoords` take and give canonical positions; everything else is the projection view's. Any fragment of a split atom, such as linked code split across pages, stands for its whole block: `posAtCoords` gives the block as the node a point on any fragment is inside, a node selection of a continued fragment mirrors as the block's (`canonicalNodeAt`), so the context menu, Enter and the editing commands act on that block and never on the one after it, and the fragment the writer selected stays the one drawn selected.
 
-Implementation: `src/pagination/canonical-view.ts`
-Verification: `src/pagination/projection-view.test.ts`
+Implementation: `src/pagination/canonical-view.ts`, `src/pagination/selection-mirror.ts`
+Verification: `src/pagination/projection-view.test.ts`, `e2e/linked-code-fragments.spec.ts`
 
 ### DOCE-PAGINATION-7.15 - The canonical plugins run through the pages
 

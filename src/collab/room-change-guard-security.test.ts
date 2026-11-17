@@ -513,7 +513,7 @@ it('DOCE-COLLAB-7.2 permits an owned thread deletion, which keeps the thread and
         identity: createMemoryHost({ person: { id: 'owner', name: 'Owner' } }).identity,
         createId: () => 'reply',
       });
-      void store.reply('guard', 'mine', 'Reply');
+      void store.reply('guard', { threadId: 'mine', text: 'Reply' });
     });
     await vi.waitFor(() =>
       expect(
@@ -1036,8 +1036,8 @@ it('DOCE-COMMENTS-2.30 refuses deleting a reply that is not the last left, and k
       createId: () => `c${String((ids += 1))}`,
     });
     await comments.create('guard', { id: 'mine', quote: 'Original', text: 'Discussion' });
-    await comments.reply('guard', 'mine', 'First');
-    await comments.reply('guard', 'mine', 'Second');
+    await comments.reply('guard', { threadId: 'mine', text: 'First' });
+    await comments.reply('guard', { threadId: 'mine', text: 'Second' });
     await room.provider.whenStored();
     const name = JSON.stringify(['entry', 'mine', 'c2']);
     const first = room.doc.get('comments').getAttr(name) as object;
@@ -1089,7 +1089,7 @@ it('DOCE-COMMENTS-2.30 accepts deleting the last reply left, kept with its text'
       createId: () => `c${String((ids += 1))}`,
     });
     await comments.create('guard', { id: 'mine', quote: 'Original', text: 'Discussion' });
-    await comments.reply('guard', 'mine', 'First');
+    await comments.reply('guard', { threadId: 'mine', text: 'First' });
     await comments.react?.('guard', {
       threadId: 'mine',
       entryId: 'c2',
@@ -1121,7 +1121,7 @@ it('DOCE-COMMENTS-2.32 refuses taking another person’s reaction from a comment
       createId: () => `c${String((ids += 1))}`,
     });
     await comments.create('guard', { id: 'mine', quote: 'Original', text: 'Discussion' });
-    await comments.reply('guard', 'mine', 'First');
+    await comments.reply('guard', { threadId: 'mine', text: 'First' });
     await room.provider.whenStored();
     const reaction = JSON.stringify(['reaction', 'mine', 'c2', 'ok', 'owner']);
     room.handle.transact({ actor: { id: 'owner' }, capabilities: ['comment'] }, (doc) => {

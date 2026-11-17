@@ -70,6 +70,14 @@ export function projectionSelection(
     return TextSelection.near(doc.resolve(head ?? near.head));
   }
   if (selection instanceof NodeSelection) {
+    // The fragment of a split atom the writer selected stays selected, whichever it is.
+    if (
+      near instanceof NodeSelection &&
+      near.from < doc.content.size &&
+      canonicalNodeAt(map, near.from, map.canonical) === selection.from
+    ) {
+      return NodeSelection.create(doc, near.from);
+    }
     const at = map.toProjection(selection.from, 1);
     if (at !== null && doc.nodeAt(at)?.type === selection.node.type) {
       return NodeSelection.create(doc, at);
@@ -96,6 +104,28 @@ export function showsCellSelection(
   );
 }
 
+/**
+ * Where the canonical node a projection node at `from` stands for starts: where `from` maps, or,
+ * for a continued fragment of a split atom, which joining the pages drops so its start maps past
+ * the whole block, the block ending there. The element id tells the two apart. Null when neither
+ * holds a node of its type.
+ */
+export function canonicalNodeAt(
+  map: ProjectionMap,
+  from: number,
+  doc: ProseMirrorNode,
+): number | null {
+  const selected = map.projection.nodeAt(from);
+  const at = map.toCanonical(from, 1);
+  if (!selected || at === null) return null;
+  const id = selected.attrs.dataId as unknown;
+  const same = (node: ProseMirrorNode | null | undefined): node is ProseMirrorNode =>
+    node?.type === selected.type && (!id || node.attrs.dataId === id);
+  if (same(doc.nodeAt(at))) return at;
+  const before = doc.resolve(at).nodeBefore;
+  return id && same(before) ? at - before.nodeSize : null;
+}
+
 /** A projection selection as a selection of the canonical document; null when it maps nowhere. */
 export function canonicalSelection(
   map: ProjectionMap,
@@ -104,9 +134,8 @@ export function canonicalSelection(
 ): Selection | null {
   if (selection instanceof AllSelection) return new AllSelection(doc);
   if (selection instanceof NodeSelection) {
-    const at = map.toCanonical(selection.from, 1);
-    const node = at === null ? null : doc.nodeAt(at);
-    return at !== null && node?.type === selection.node.type ? NodeSelection.create(doc, at) : null;
+    const at = canonicalNodeAt(map, selection.from, doc);
+    return at === null ? null : NodeSelection.create(doc, at);
   }
   // A textblock's end keeps to the text before it, as a code fragment's end to the line break
   // after it.
