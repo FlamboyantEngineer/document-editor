@@ -13,7 +13,7 @@ Verification: `src/model/contents/document-catalog.test.ts`, `src/model/contents
 
 ### DOCE-CONTENTS-1.2 - Captioned objects
 
-The default `figures`, `tables`, `codeBlocks` and `equations` kinds shall list figures, captioned tables, code blocks and display equations, with the number its caption shows (DOCE-NUMBERING-5.2). A kind's count shall restart at each heading of the level its numbering restarts at, and an object the pages split shall be listed once. A figure's, a table's and a code block's entry shall show its number, then `-`, then its caption; a linked code block's caption is the one its source gives it (`deriveLinkedCodeBlockCaption`), and an equation's entry shall show its number alone.
+The default `figures`, `tables`, `codeBlocks` and `equations` kinds shall list figures, tables, code blocks and display equations whose caption shows, a figure, table or code block whose caption is hidden (`captionEnabled: false`) taking no number, moving no counter and being listed nowhere, as the reference stylesheet counts them, with the number its caption shows (DOCE-NUMBERING-5.2). A kind's count shall restart at each heading of the level its numbering restarts at, and an object the pages split shall be listed once. A figure's, a table's and a code block's entry shall show its number, then `-`, then its caption; a linked code block's caption is the one its source gives it (`deriveLinkedCodeBlockCaption`), and an equation's entry shall show its number alone.
 
 Implementation: `src/model/contents/document-catalog.ts`, `src/model/templates/template-numbering.ts`
 Verification: `src/model/contents/document-catalog.test.ts`

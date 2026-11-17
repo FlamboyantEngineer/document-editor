@@ -2,7 +2,11 @@
 // page width, and the column widths an aligned table renders at.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { TABLE_BORDER_1PX_CLASS, TABLE_BORDER_NONE_CLASS } from './dom-attributes.js';
+import {
+  TABLE_BORDER_1PX_CLASS,
+  TABLE_BORDER_HORIZONTAL_CLASS,
+  TABLE_BORDER_NONE_CLASS,
+} from './dom-attributes.js';
 
 export type ObjectLayout = 'left' | 'center' | 'right' | 'fit-page-width';
 export const OBJECT_LAYOUT_OPTIONS: readonly { value: ObjectLayout; label: string }[] = [
@@ -50,7 +54,8 @@ export function tableObjectColumnWidths(node: ProseMirrorNode): number[] {
 /** Collapsed borders add one outer border to the sum of fixed column widths. */
 export function tableColumnTotalCss(widths: number[], node: ProseMirrorNode): string {
   const border =
-    node.attrs.tableBorderClass === TABLE_BORDER_NONE_CLASS
+    node.attrs.tableBorderClass === TABLE_BORDER_NONE_CLASS ||
+    node.attrs.tableBorderClass === TABLE_BORDER_HORIZONTAL_CLASS
       ? '0px'
       : node.attrs.tableBorderClass === TABLE_BORDER_1PX_CLASS
         ? '1px'

@@ -118,7 +118,8 @@ const codeText = (node: ProseMirrorNode) =>
     ? deriveLinkedCodeBlockCaption(node.attrs.url)
     : attrText(node.attrs.caption);
 
-// Whether a table shows its caption, which a table that is listed and numbered does.
+// Whether a table, figure or code block shows its caption, which one that is listed and numbered
+// does.
 const isCaptioned = (node: ProseMirrorNode) => node.attrs.captionEnabled !== false;
 
 /**
@@ -127,7 +128,7 @@ const isCaptioned = (node: ProseMirrorNode) => node.attrs.captionEnabled !== fal
  */
 export const DEFAULT_CONTENTS_KINDS = {
   toc: { nodes: ['heading'], after: true },
-  figures: { nodes: ['figure'], after: true, separator: ' - ' },
+  figures: { nodes: ['figure'], include: isCaptioned, after: true, separator: ' - ' },
   tables: {
     nodes: ['table'],
     include: isCaptioned,
@@ -138,6 +139,7 @@ export const DEFAULT_CONTENTS_KINDS = {
   equations: { nodes: ['math_display'], text: () => '', after: true },
   codeBlocks: {
     nodes: ['code_block', 'linked_code_block'],
+    include: isCaptioned,
     text: codeText,
     after: true,
     separator: ' - ',
@@ -184,9 +186,9 @@ export const DEFAULT_CONTENTS_KINDS = {
  */
 export const ELEMENT_KINDS = {
   toc: { nodes: ['heading'] },
-  figures: { nodes: ['figure'] },
+  figures: { nodes: ['figure'], include: isCaptioned },
   tables: { nodes: ['table'], include: isCaptioned },
-  codeBlocks: { nodes: ['code_block', 'linked_code_block'] },
+  codeBlocks: { nodes: ['code_block', 'linked_code_block'], include: isCaptioned },
   equations: { nodes: ['math_display'] },
 } as const satisfies Record<string, ContentsKind>;
 
