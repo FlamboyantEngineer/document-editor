@@ -29,8 +29,10 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/tem
 
 The header and footer content shall be edited in place, on the pages of the document beside the template editor (DOCE-SECTIONS-5.1), and `withRegionChange` shall write each edit into the template: where the section's pages take the region from (`resolveSectionRegion`): into the section's own region while it has one that does not inherit, and into the document's otherwise. Given the resolved template (`withRegionChange(template, change, resolved)`), a section the template inherits counts as its own, and the template takes the inherited list with the edit (DOCE-TEMPLATE-EDITOR-1.3).
 
-Implementation: `src/components/template-editor/template-editor.tsx`, `labs/src/template-editor.lab.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`
+The Header & footer section shall end with a row for the header's HTML and one for the footer's, each a button that opens a dialog with an HTML code editor holding the scope's own content, or the one it inherits while it has none, as `writeHtmlContent` writes it. Applying reads the markup with `readHtmlContent` (DOCE-FORMAT-6.3), so nothing the schema does not know survives, and sets it as the scope's own content; cancelling changes nothing. The button is disabled while the scope's region takes its parent's. The settings panel holds no field for a region's source.
+
+Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/region-source.tsx`, `labs/src/template-editor.lab.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`, `src/components/template-editor/region-source.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.5 - The template as JSON
 
