@@ -40,6 +40,7 @@ import {
 import { createElementIds } from './element-ids.js';
 import { createFootnotes } from './footnotes.js';
 import { createHistoryReveal } from './history-reveal.js';
+import { createListJoins } from './list-joins.js';
 import type { InvalidMathText } from './math-views.js';
 import { objectPlugins } from './object-plugins.js';
 import type { LineNumbers } from './object-views.js';
@@ -322,6 +323,7 @@ export function createDocumentEditingExtension<C = unknown>(
       },
       { name: 'tables', priority: 850, build: () => createTableEditing({ isRemote }) },
       { name: 'gap-cursor', priority: 860, build: () => [gapCursor()] },
+      { name: 'list-joins', priority: 865, build: () => [createListJoins({ isRemote })] },
       {
         name: 'trailing-paragraph',
         priority: 870,

@@ -80,7 +80,7 @@ Verification: `src/engine/completion-text.test.ts`
 
 ### DOCE-AUTOMATION-3.2 - Taking or dismissing an offer
 
-An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, unless the edit lock would refuse that change (DOCE-EDITING-4.1), when it takes nothing and Tab is left to the editor, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it, as does starting a comment at the caret (DOCE-COMMENTS-1.6). Taking or dismissing an offer leaves a comment being started as it is, and typing in a comment's composer asks nothing, since it is not the document's text.
+An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, unless the edit lock would refuse that change (DOCE-EDITING-4.1), when it takes nothing and Tab is left to the editor, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it, as does starting a comment at the caret (DOCE-COMMENTS-1.6), focus leaving the document, as into a menu, a context menu or a control, and the document turning one the writer cannot edit, each also dropping a question asked; a host dismisses it the same way for a save or its own drafts (`dismissCompletion`). Nothing is asked while a comment is being started. Taking or dismissing an offer leaves a comment being started as it is, and typing in a comment's composer asks nothing, since it is not the document's text.
 
 Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-ghost.ts`, `src/engine/comment-draft.ts`
 Verification: `src/engine/inline-completion.test.ts`
@@ -94,9 +94,9 @@ Verification: `src/engine/inline-completion.test.ts`, `e2e/full-editor.spec.ts`
 
 ### DOCE-AUTOMATION-3.4 - Changes that are not the writer's
 
-A change that is not the writer's own (a collaborator's, a plugin's, the layout's, the host's or an agent's batch, a check's result, another person's caret) shall drop neither the question asked nor the offer: both follow the change while the caret stays where they are, and the answer is offered where the caret is then. Such a change asks nothing, and one during the pause leaves the pause as it is, the provider then given the text as it is.
+A change that is not the writer's own (a collaborator's, a plugin's, the layout's, the host's or an agent's batch, a check's result, another person's caret) shall drop neither the question asked nor the offer while it leaves their text block as it was: both follow the change while the caret stays where they are, and the answer is offered where the caret is then. One that changes that block's text, or where in it they are, drops both, as the question no longer holds. Such a change asks nothing, and one during the pause leaves the pause as it is, the provider then given the text as it is.
 
-Implementation: `src/engine/inline-completion.ts`
+Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-follow.ts`
 Verification: `src/engine/inline-completion.test.ts`
 
 ### DOCE-AUTOMATION-3.5 - A taken completion is the agent's
@@ -115,7 +115,7 @@ Verification: `src/engine/inline-completion.test.ts`
 
 ### DOCE-AUTOMATION-3.7 - On, off and available
 
-Completion shall start on unless `enabled` is false; `setInlineCompletionEnabled` turns it on or off, off dismissing what it offers and asking nothing. It asks nothing while the provider says it is unavailable (`availability`), and follows the provider's changes of it (`subscribe`). `completionStatus(state)` gives whether it is on, whether the provider can be asked or why not, and whether it is idle, asking or offering; none without the plugin.
+Completion shall start on unless `enabled` is false; `setInlineCompletionEnabled` turns it on or off, off dismissing what it offers and asking nothing. It asks nothing while the provider says it is unavailable (`availability`), and follows the provider's changes of it (`subscribe`), turning unavailable dropping the question asked and the offer and keeping whether it is on. `completionStatus(state)` gives whether it is on, whether the provider can be asked or why not, and whether it is idle, asking or offering; none without the plugin.
 
 Implementation: `src/engine/inline-completion.ts`
 Verification: `src/engine/inline-completion.test.ts`
@@ -129,7 +129,7 @@ Verification: `src/engine/completion-text.test.ts`, `src/engine/inline-completio
 
 ### DOCE-AUTOMATION-3.9 - The completion toggle
 
-`inlineCompletionItem(labels, group)` shall be a toolbar item (`inline-completion`, in the `mode` group by default) a host adds to the toolbar's items: shown only while the document runs inline completion, pressed while it is on, turning it on and off, and unavailable, with the provider's reason, while the provider cannot be asked.
+`inlineCompletionItem(labels, group)` shall be a toolbar item (`inline-completion`, in the `mode` group by default) a host adds to the toolbar's items: shown only while the document runs inline completion, pressed while it is on and usable, turning it on and off, and unavailable and not pressed while the writer cannot edit there, saying why first (DOCE-EDITOR-4.14), or while the provider cannot be asked, with the provider's reason.
 
 Implementation: `src/components/document-editor/completion-item.ts`
 Verification: `src/components/document-editor/completion-item.test.ts`, `e2e/full-editor.spec.ts`

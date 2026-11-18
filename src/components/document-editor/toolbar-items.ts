@@ -70,7 +70,7 @@ export interface ToolbarGroup {
 
 /** The editor's own groups, in order, and the ids of their items. */
 export const TOOLBAR_GROUPS = {
-  view: ['document-menu'],
+  view: ['document-menu', 'save'],
   history: ['undo', 'redo'],
   'block-style': ['block-style'],
   marks: ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript'],

@@ -6,6 +6,7 @@ import {
   FileTextGlyph,
   MenuGlyph,
   RefreshGlyph,
+  SaveGlyph,
   TerminalGlyph,
 } from '@flamboyantengineer/ui-components/core';
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
@@ -14,7 +15,7 @@ import type { ScriptRunnerAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import type { ToolbarMenuItem } from './toolbar-items.js';
+import type { ToolbarButtonItem, ToolbarMenuItem } from './toolbar-items.js';
 import { toolsEntries } from './tools-entries.js';
 import type { DocumentExports } from './use-document-exports.js';
 
@@ -24,6 +25,8 @@ export interface DocumentMenuFeatures {
   readonly template?: TemplateFile | undefined;
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
   readonly exports?: DocumentExports | undefined;
+  /** Saves the document, the session's or the host's `onSave`; without it there is no Save button. */
+  readonly save?: (() => void) | undefined;
 }
 
 // The Tools entries the document menu takes, in its order, with their icons.
@@ -76,4 +79,20 @@ export function documentMenuItem(
     isVisible: (context) => documentMenuEntries(context, features).length > 0,
     entries: (context) => documentMenuEntries(context, features),
   };
+}
+
+/** The Save button beside the document menu, while the editor saves; its tooltip shows its key. */
+export function saveItem(
+  labels: DocumentEditorLabels,
+  { save, shortcut }: { save: (() => void) | undefined; shortcut: string | undefined },
+): ToolbarButtonItem[] {
+  if (!save) return [];
+  return [
+    {
+      ...{ kind: 'button', id: 'save', label: labels.save, icon: SaveGlyph, shortcut },
+      // A locked place in the document keeps nothing from being saved; reading does.
+      isEnabled: (context) => context.editable,
+      run: save,
+    },
+  ];
 }

@@ -18,7 +18,7 @@ import {
   type EditorZoom,
   ZOOM_LEVELS,
 } from './document-status-bar.js';
-import { DocumentToolbar } from './document-toolbar.js';
+import { DocumentToolbar, type ToolbarMenus } from './document-toolbar.js';
 import {
   contextOptionsOf,
   DocumentEditorContext,
@@ -56,8 +56,8 @@ export interface ChromeProps {
   startCommentRef: RefObject<(() => void) | null>;
   /** The open typed menus' keys, which the document's keys ask first. */
   menuKeys: MenuKeys;
-  /** Opens the find bar at a box, while the editor has one. */
-  openFind?: ((mode?: FindBarMode) => void) | null | undefined;
+  /** Opens the find bar, or the search pane, at a box, while the editor has one. */
+  openFind?: ((mode?: FindBarMode) => boolean) | null | undefined;
   /**
    * The pages' state while they are a projection of the editor's state, so the chrome follows each
    * layout as well as each state, such as the status bar's page count.
@@ -65,6 +65,8 @@ export interface ChromeProps {
   pages?: EditorState | null | undefined;
   /** The host's exports, for File > Export. */
   exports?: DocumentExports | undefined;
+  /** Where the toolbar's menus say how to open them, for the editor's keys. */
+  toolbarMenus?: ToolbarMenus | undefined;
 }
 
 /** What the chrome above the document reads. */
@@ -122,18 +124,20 @@ function TopChrome({
   view,
   openFind = null,
   exports,
+  toolbarMenus,
 }: TopChromeProps) {
   const features = useInsertFeatures(props);
-  const { onModeChange, modeReasons, onMarkupChange, modes } = props;
+  const { onModeChange, modeReasons, onMarkupChange, markupReasons, modes } = props;
   const shell = useMemo<ShellFeatures>(
-    () => ({ onModeChange, modeReasons, onMarkupChange, modes }),
-    [onModeChange, modeReasons, onMarkupChange, modes],
+    () => ({ onModeChange, modeReasons, onMarkupChange, markupReasons, modes }),
+    [onModeChange, modeReasons, onMarkupChange, markupReasons, modes],
   );
-  const { template, scriptRunner } = props;
-  const documentMenu = useMemo<DocumentMenuFeatures>(
-    () => ({ template, scriptRunner, exports }),
-    [template, scriptRunner, exports],
-  );
+  const { template, scriptRunner, session, onSave } = props;
+  const documentMenu = useMemo<DocumentMenuFeatures>(() => {
+    // The toolbar's Save does what the save key does (DOCE-SESSION-9.2).
+    const save = session ? () => void session.save().catch(() => undefined) : onSave;
+    return { template, scriptRunner, exports, save };
+  }, [template, scriptRunner, exports, session, onSave]);
   return (
     <>
       {props.menubar ? (
@@ -163,6 +167,7 @@ function TopChrome({
           features={features}
           shell={shell}
           documentMenu={documentMenu}
+          menus={toolbarMenus}
         />
       ) : null}
       {props.find && findRequest ? (

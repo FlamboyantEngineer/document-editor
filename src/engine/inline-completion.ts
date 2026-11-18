@@ -18,13 +18,18 @@ import type {
   CompletionAvailability,
   CompletionContext,
 } from '../host/index.js';
-import { type Actor, automationActor, automationKey } from './automation.js';
-import { startsCommentDraft } from './comment-draft.js';
+import { type Actor, automationKey } from './automation.js';
+import { commentDraft } from './comment-draft.js';
+import { followChange, takesWriterAway } from './completion-follow.js';
 import { completionGhost } from './completion-ghost.js';
-import { completionRequest, isCompletable, normalizeCompletion } from './completion-text.js';
+import {
+  completionRequest,
+  isCompletable,
+  normalizeCompletion,
+  typesText,
+} from './completion-text.js';
 import { editLockKey, touchesLock } from './edit-lock.js';
 import { suggestTransaction } from './suggestions.js';
-import { isLocalEdit } from './transaction-kind.js';
 
 /** The text offered after the caret, at a position, and the automated session that wrote it. */
 export interface InlineCompletion {
@@ -169,32 +174,19 @@ function withMeta(value: CompletionState, meta: CompletionMeta): CompletionState
   if ('offer' in meta) return { ...value, asking: null, offer: meta.offer };
   if ('clear' in meta) return { ...value, asking: null, offer: null };
   if ('asking' in meta) return { ...value, asking: meta.asking, offer: null };
-  if ('availability' in meta) return { ...value, availability: meta.availability };
+  // A provider that cannot be asked any more takes its question and its offer with it.
+  if ('availability' in meta) {
+    const gone = !meta.availability.available;
+    return {
+      ...value,
+      availability: meta.availability,
+      ...(gone ? { asking: null, offer: null } : {}),
+    };
+  }
   return meta.enabled
     ? { ...value, enabled: true }
     : { ...value, enabled: false, asking: null, offer: null };
 }
-
-// The writer's own edit or caret move: not a collaborator's, a plugin's, the host's or an agent's
-// change, and not a caret that only follows such a change.
-function isOwn(tr: Transaction, before: EditorState): boolean {
-  if (isLocalEdit(tr) && !automationActor(tr)) return true;
-  const { selection } = tr;
-  return (
-    tr.selectionSet &&
-    (!selection.empty || selection.head !== tr.mapping.map(before.selection.head))
-  );
-}
-
-// A position kept through a change that is not the writer's, while the caret stays at it.
-function follow(tr: Transaction, pos: number): number | null {
-  const mapped = tr.mapping.map(pos);
-  return tr.selection.empty && tr.selection.head === mapped ? mapped : null;
-}
-
-// The writer's own change, or a comment they start at the caret, which takes them from the text.
-const takesWriterAway = (tr: Transaction, before: EditorState): boolean =>
-  isOwn(tr, before) || startsCommentDraft(tr);
 
 function apply(tr: Transaction, value: CompletionState, before: EditorState): CompletionState {
   const meta = tr.getMeta(completionKey) as CompletionMeta | undefined;
@@ -204,15 +196,8 @@ function apply(tr: Transaction, value: CompletionState, before: EditorState): Co
     return { ...value, own: value.own + 1, ...(busy ? { asking: null, offer: null } : {}) };
   }
   if (!busy || (!tr.docChanged && !tr.selectionSet)) return value;
-  const asking = value.asking === null ? null : follow(tr, value.asking);
-  const at = value.offer && follow(tr, value.offer.pos);
-  const offer =
-    !value.offer || at === null
-      ? null
-      : at === value.offer.pos
-        ? value.offer
-        : { ...value.offer, pos: at };
-  return asking === value.asking && offer === value.offer ? value : { ...value, asking, offer };
+  const held = followChange(tr, value, before);
+  return held.asking === value.asking && held.offer === value.offer ? value : { ...value, ...held };
 }
 
 // Whether the view may ask for the caret now.
@@ -223,6 +208,7 @@ function canAsk(view: EditorView): boolean {
     value?.enabled &&
     value.availability.available &&
     view.editable &&
+    !commentDraft(view.state) &&
     !view.composing &&
     selection.empty &&
     isCompletable(selection.$head),
@@ -282,13 +268,15 @@ function asker(view: EditorView, options: InlineCompletionOptions) {
   };
 }
 
-// Whether a key types text: a character, not in a composition and with no command modifier.
-const typesText = (event: KeyboardEvent) =>
-  event.key.length === 1 &&
-  !event.isComposing &&
-  event.keyCode !== 229 &&
-  !event.ctrlKey &&
-  !event.metaKey;
+// Clears the question and the offer, while there is either, returning false so the event goes on.
+function dismissAll(view: EditorView): false {
+  const value = stateOf(view.state);
+  if (value && (value.asking !== null || value.offer !== null)) {
+    const meta: CompletionMeta = { clear: true };
+    view.dispatch(view.state.tr.setMeta(completionKey, meta));
+  }
+  return false;
+}
 
 // The view's part: asking after the writer's typing, and following the provider's availability.
 function completionView(
@@ -304,6 +292,8 @@ function completionView(
   });
   return {
     update(current: EditorView, previous: EditorState) {
+      // A document the writer cannot edit any more, as on switching to reading, keeps no offer.
+      if (!current.editable) dismissAll(current);
       const now = stateOf(current.state);
       const before = stateOf(previous);
       if (!now || !before || now === before) return;
@@ -358,6 +348,12 @@ export function createInlineCompletion(options: InlineCompletionOptions): Plugin
           return acceptCompletion(view.state, view.dispatch);
         if (event.key === 'Escape') return dismissCompletion(view.state, view.dispatch);
         return false;
+      },
+      // Focus leaving the document, as into a menu, a comment or another control, takes the offer
+      // and the question with it.
+      handleDOMEvents: {
+        blur: (view) => dismissAll(view),
+        contextmenu: (view) => dismissAll(view),
       },
     },
   });

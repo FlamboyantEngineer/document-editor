@@ -37,12 +37,16 @@ export interface SearchState {
   readonly matches: readonly SearchMatch[];
   /** The current match's index, or -1 without matches. */
   readonly current: number;
+  /** The matches are kept but not marked, as after Escape in the pane, until the search moves. */
+  readonly hidden?: boolean | undefined;
   readonly decorations: DecorationSet;
 }
 
 type SearchMeta =
   | { readonly query: string; readonly options: SearchOptions }
   | { readonly current: number }
+  // The matches stay, their marks gone, until the search is set or moved again.
+  | { readonly hidden: true }
   // A replacement was made: the search goes on with the first match starting at or after `after`.
   | { readonly after: number };
 
@@ -93,16 +97,25 @@ function searched({ doc, scope, from }: Searched, value: SearchState) {
   return { ...next, decorations: decorate(doc, scope, next) };
 }
 
+// The state, its marks left off while hidden.
+const shown = (value: SearchState): SearchState =>
+  value.hidden ? { ...value, decorations: DecorationSet.empty } : value;
+
 function apply(scope: SearchScope, tr: Transaction, value: SearchState): SearchState {
+  return shown(applyMeta(scope, tr, value));
+}
+
+function applyMeta(scope: SearchScope, tr: Transaction, value: SearchState): SearchState {
   const meta = tr.getMeta(keys[scope]) as SearchMeta | undefined;
   const { doc } = tr;
+  if (meta && 'hidden' in meta) return { ...value, hidden: true };
   if (meta && 'query' in meta) {
     // The first match at or after the selection, one holding its start included.
     const from = (match: SearchMatch) => match.to >= tr.selection.from;
-    return searched({ doc, scope, from }, { ...value, ...meta });
+    return searched({ doc, scope, from }, { ...value, ...meta, hidden: false });
   }
   if (meta && 'current' in meta) {
-    const next = { ...value, current: meta.current };
+    const next = { ...value, current: meta.current, hidden: false };
     return { ...next, decorations: decorate(doc, scope, next) };
   }
   if (!tr.docChanged || !value.query) return value;
@@ -318,6 +331,24 @@ export function replaceAllMatches(replacement: string, scope: SearchScope = 'fin
       for (const match of [...matches].reverse()) replaceIn(tr, match, replacement);
       closeHistory(tr);
       dispatch(scope === 'find' ? tr.scrollIntoView() : tr);
+    }
+    return true;
+  };
+}
+
+/**
+ * Leaves a search for the document: its matches stay found but no longer marked, until the search
+ * is set or moved again, and the current match is selected in the document and brought into view.
+ */
+export function leaveSearch(scope: SearchScope = 'find'): Command {
+  return (state, dispatch) => {
+    const search = searchState(state, scope);
+    if (!search) return false;
+    if (dispatch) {
+      const tr = state.tr.setMeta(keys[scope], { hidden: true }).setMeta('addToHistory', false);
+      const match = search.matches[search.current];
+      if (match) tr.setSelection(TextSelection.create(tr.doc, match.from, match.to));
+      dispatch(tr.scrollIntoView());
     }
     return true;
   };

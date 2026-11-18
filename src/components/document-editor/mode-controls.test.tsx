@@ -82,6 +82,19 @@ describe('the mode and markup controls', () => {
     expect(onModeChange).toHaveBeenCalledWith('read');
   });
 
+  it('DOCE-EDITOR-4.12 offers an unavailable markup disabled with why, never the current one', () => {
+    const entries = markupEntries(contextOf({ markup: 'all' }), {
+      markupReasons: { final: 'Needs markup here', all: 'Ignored for the current markup' },
+    }) as Entry[];
+    expect(byId(entries, 'markup-final')).toMatchObject({
+      isDisabled: true,
+      focusableWhenDisabled: true,
+      description: 'Needs markup here',
+    });
+    expect(byId(entries, 'markup-all')).toMatchObject({ isSelected: true, isDisabled: false });
+    expect(byId(entries, 'markup-simple')).toMatchObject({ isDisabled: false });
+  });
+
   it('DOCE-EDITOR-4.12 offers no markup, change bars and inline markup', () => {
     const onMarkupChange = vi.fn();
     const entries = markupEntries(contextOf({ markup: 'simple' }), { onMarkupChange }) as Entry[];

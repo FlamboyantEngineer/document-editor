@@ -21,6 +21,7 @@ import {
   shortcutsOf,
 } from '../../engine/index.js';
 import { searchControlState, searchOptionsOf } from '../../utils/search-options.js';
+import type { EditorPanes } from '../document-panels/document-panels.js';
 import type { EditorContext } from './editor-context.js';
 
 /** Which box of the find bar a request focuses: the find box, or the replacement box. */
@@ -58,19 +59,24 @@ function replaceability(state: EditorContext['state']) {
 export function useFindBar(
   rootRef: RefObject<HTMLElement | null>,
   view: EditorView | null,
-  enabled: boolean,
+  { find, panes }: { find: boolean | 'pane' | undefined; panes: EditorPanes },
 ) {
   const [request, setRequest] = useState<FindRequest | null>(null);
   const open = useMemo(() => {
-    if (!enabled) return null;
+    if (!find) return null;
+    const scope = find === 'pane' ? 'pane' : 'find';
     return (mode: FindBarMode = 'find') => {
+      // With `find: 'pane'` the side panel's search pane takes the request, while one holds it.
+      if (scope === 'pane' && !panes.focusSearch(mode)) return false;
       const seed = view ? searchSeed(view.state) : null;
       if (view && seed) {
-        setSearch(seed, searchState(view.state)?.options)(view.state, view.dispatch, view);
+        const options = searchState(view.state, scope)?.options;
+        setSearch(seed, options, scope)(view.state, view.dispatch, view);
       }
-      setRequest({ mode });
+      if (scope === 'find') setRequest({ mode });
+      return true;
     };
-  }, [enabled, view]);
+  }, [find, panes, view]);
   useFindShortcuts(rootRef, view, open);
   return { request, open, close: () => setRequest(null) };
 }
@@ -80,7 +86,7 @@ export function useFindBar(
 function useFindShortcuts(
   rootRef: RefObject<HTMLElement | null>,
   view: EditorView | null,
-  open: ((mode?: FindBarMode) => void) | null,
+  open: ((mode?: FindBarMode) => boolean) | null,
 ) {
   useEffect(() => {
     const root = rootRef.current;
@@ -91,9 +97,8 @@ function useFindShortcuts(
       const mode = table
         ? (['find', 'replace'] as const).find((id) => matchesShortcut(table, id, event))
         : undefined;
-      if (!mode) return;
-      event.preventDefault();
-      open(mode);
+      // A key nothing opens on is left to the browser, as its own find.
+      if (mode && open(mode)) event.preventDefault();
     };
     root.addEventListener('keydown', onKeyDown);
     return () => root.removeEventListener('keydown', onKeyDown);

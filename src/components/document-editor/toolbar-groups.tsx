@@ -13,7 +13,7 @@ import {
   type ShortcutTable,
   undoCommand,
 } from '../../engine/index.js';
-import { type DocumentMenuFeatures, documentMenuItem } from './document-menu.js';
+import { type DocumentMenuFeatures, documentMenuItem, saveItem } from './document-menu.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { checklistItems, commandItem, listItems, markItems } from './format-items.js';
 import { type InsertFeatures, insertItems, linkItem, referenceItem } from './insert-controls.js';
@@ -84,7 +84,13 @@ function itemsByGroup(
   // Inline code is the code menu's first entry (DOCE-EDITOR-4.3), not a button of its own.
   const marks = markItems(schema, labels, shortcuts).filter((item) => item.id !== 'code');
   return {
-    view: [documentMenuItem(labels, options.documentMenu ?? {})],
+    view: [
+      documentMenuItem(labels, options.documentMenu ?? {}),
+      ...saveItem(labels, {
+        save: options.documentMenu?.save,
+        shortcut: shortcutLabel(shortcuts, 'save'),
+      }),
+    ],
     history: historyItems(labels, shortcuts),
     'block-style': [
       {
