@@ -42,6 +42,36 @@ test.describe('sections lab', () => {
     for (const value of overflow) expect(value).toBeLessThanOrEqual(1);
   });
 
+  test('DOCE-EDITOR-5.4 counts the pages through every section: at the top, a later section’s first page and the last page', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('sections');
+    const status = page.locator('.de-document-editor__status-item[data-status="page"]');
+    const all = page.locator('.de-document-editor__content .pm-page');
+    const total = await all.count();
+    const appendix = sections(page).nth(1).locator(':scope > .pm-page');
+    // The appendix's first page, counted through the document.
+    const first = await all.evaluateAll((each) => {
+      const start = document
+        .querySelectorAll('.de-document-editor__content .pm-section')[1]
+        ?.querySelector(':scope > .pm-page');
+      return start ? [...each].indexOf(start as (typeof each)[number]) + 1 : 0;
+    });
+    expect(first).toBeGreaterThan(1);
+    expect(total).toBeGreaterThan(first);
+    await expect(status).toHaveText(`Page 1 of ${String(total)}`);
+    // The later section's first page filling the window.
+    await appendix
+      .first()
+      .evaluate((sheet) => window.scrollTo(0, sheet.getBoundingClientRect().top + window.scrollY));
+    await expect(status).toHaveText(`Page ${String(first)} of ${String(total)}`);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(status).toHaveText(`Page ${String(total)} of ${String(total)}`);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(status).toHaveText(`Page 1 of ${String(total)}`);
+  });
+
   test('DOCE-SECTIONS-3.2 ends a page at a page break', async ({ lab, page }) => {
     await lab.open('sections');
     const broken = page

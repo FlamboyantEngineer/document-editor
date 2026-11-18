@@ -124,6 +124,7 @@ function Lab() {
         onStateChange={setState}
         template={TEMPLATE}
         toolbar
+        statusBar
         aria-label="Sample document"
       />
     </>

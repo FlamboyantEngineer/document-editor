@@ -1,7 +1,8 @@
 // Authorship: who wrote what. A run of text is its contributor's (an agent's text carries the
 // contributor mark), else its suggested insertion's writer's, else the writer of the block it is
 // in. Shown, each writer's text carries a colour slot no other writer has (`data-author-slot`), the
-// slots given as collaborators' are, so a reader tells the writers apart.
+// slots given as collaborators' are, so a reader tells the writers apart, and text an agent
+// generated (its contributor mark names a session) says so (`data-author-source`).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
@@ -28,9 +29,13 @@ function writerOf(node: ProseMirrorNode, block: string | null): string | null {
   );
 }
 
-// Each run of text a writer wrote, with its range and writer.
+// Whether an agent generated a text node: its contributor mark names the agent's session.
+const isGenerated = (node: ProseMirrorNode) =>
+  node.marks.some((mark) => mark.type.name === 'contributor' && named(mark.attrs.dataAiSession));
+
+// Each run of text a writer wrote, with its range, writer and whether an agent generated it.
 function authoredRuns(doc: ProseMirrorNode) {
-  const runs: { from: number; to: number; author: string }[] = [];
+  const runs: { from: number; to: number; author: string; generated: boolean }[] = [];
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true;
     const block = named(node.attrs.dataAuthor);
@@ -38,7 +43,7 @@ function authoredRuns(doc: ProseMirrorNode) {
       const author = child.isText ? writerOf(child, block) : null;
       if (!author) return;
       const from = pos + 1 + offset;
-      runs.push({ from, to: from + child.nodeSize, author });
+      runs.push({ from, to: from + child.nodeSize, author, generated: isGenerated(child) });
     });
     return false;
   });
@@ -90,6 +95,7 @@ function decorate(doc: ProseMirrorNode, shown: boolean): DecorationSet {
       Decoration.inline(run.from, run.to, {
         'data-author': run.author,
         'data-author-slot': String(slots.get(run.author) ?? 0),
+        ...(run.generated ? { 'data-author-source': 'generated' } : {}),
       }),
     ),
   );

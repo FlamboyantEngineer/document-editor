@@ -286,6 +286,25 @@ describe('DocumentEditor', () => {
     await waitFor(() => expect(headings()).toEqual(['Oh, Hello']));
   });
 
+  it('DOCE-EDITOR-4.1 shows a text style’s name and key beside its option while it is focused', async () => {
+    const user = userEvent.setup();
+    render(
+      <DocumentEditor
+        state={initial()}
+        onStateChange={() => undefined}
+        template={TEMPLATE}
+        layout="web"
+        toolbar
+        aria-label="Report"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /Text style/ }));
+    const heading = await screen.findByRole('option', { name: /Heading 1/ });
+    await user.hover(heading);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/^Heading 1 \(.*1\)$/);
+    expect(heading).toHaveAccessibleDescription(/^Heading 1 \(.*1\)$/);
+  });
+
   it('DOCE-TEMPLATES-7.1 offers custom styles while editing template content, not to authors', async () => {
     const styled: TemplateFile = {
       ...TEMPLATE,
