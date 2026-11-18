@@ -38,13 +38,14 @@ export interface FootnotesMeta {
 
 /**
  * The blocks a citing paragraph may sit in, from the paragraph's parent up to the page's content:
- * lists, table cells, header cells too, quotes and layout columns. Script output and footnote
- * entries are left out.
+ * lists, table cells, header cells too, in the node that holds a table with its caption, quotes and
+ * layout columns. Script output and footnote entries are left out.
  */
 export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'list_item',
   'bullet_list',
   'ordered_list',
+  'table_figure',
   'table',
   'table_row',
   'table_cell',

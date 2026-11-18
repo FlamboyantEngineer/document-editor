@@ -8,6 +8,7 @@ import {
   stackedHeight,
   type TextMeasurement,
 } from '../index.js';
+import { createTableFigure } from '../schema/caption-content.js';
 
 function block(name: string, height: number, extra: Partial<LayoutBlock> = {}): LayoutBlock {
   const attrs = name === 'heading' ? { level: Number(extra.measurement ?? 1) } : null;
@@ -79,7 +80,7 @@ describe('page layout', () => {
       rules: splitting,
     });
     expect(heights(pages)).toEqual([[50, 50], [70]]);
-    const tall = layoutPages([paragraph(50), block('table', 500)], { pageHeight: 102 });
+    const tall = layoutPages([paragraph(50), block('table_figure', 500)], { pageHeight: 102 });
     expect(heights(tall)).toEqual([[50], [500]]);
   });
 
@@ -94,9 +95,9 @@ describe('page layout', () => {
   });
 
   it('DOCE-PAGINATION-2.5 keeps a heading on the page of what it heads', () => {
-    const blocks = [paragraph(60), heading(1), heading(2), block('table', 40)];
+    const blocks = [paragraph(60), heading(1), heading(2), block('table_figure', 40)];
     expect(heights(layoutPages(blocks, { pageHeight: 102 }))).toEqual([[60], [20, 20, 40]]);
-    const sibling = [paragraph(60), heading(2), heading(1), block('table', 40)];
+    const sibling = [paragraph(60), heading(2), heading(1), block('table_figure', 40)];
     expect(heights(layoutPages(sibling, { pageHeight: 102 }))).toEqual([
       [60, 20],
       [20, 40],
@@ -135,17 +136,24 @@ describe('page layout', () => {
   });
 
   it('DOCE-PAGINATION-2.5 keeps a heading with a captioned table when its caption, header and first row fit', () => {
-    const table = documentSchema.node('table', { caption: 'Readings', captionEnabled: true }, [
+    // The table with its caption, in the node holding both, as the document holds it.
+    const rows = documentSchema.node('table', { captionEnabled: true }, [
       row('table_header', 'Room'),
       row('table_cell', 'One'),
       row('table_cell', 'Two'),
       row('table_cell', 'Three'),
     ]);
+    const table = createTableFigure(documentSchema, rows, 'Readings');
+    if (!table) throw new Error('No table');
     const layouts = Array.from({ length: 4 }, (_, index) => ({
       top: index * 20,
       bottom: (index + 1) * 20,
     }));
-    const captioned = { ...block('table', 95), node: table, measurement: { children: layouts } };
+    const captioned = {
+      ...block('table_figure', 95),
+      node: table,
+      measurement: { children: layouts },
+    };
     expect(
       heights(layoutPages([paragraph(123), heading(1), captioned], { pageHeight: 200 })),
     ).toEqual([[123, 20, 55], [75]]);

@@ -1,16 +1,16 @@
 import { DOMSerializer } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode, parseMarkup } from '../../../test/document-markup.js';
+import { createFigure } from './caption-content.js';
 import { svgIntrinsicSize } from './svg-size.js';
 
 const svg = (root: string) => `data:image/svg+xml,${encodeURIComponent(`<svg ${root}></svg>`)}`;
 
 function written(attrs: Record<string, unknown>): HTMLElement {
-  const figure = documentSchema.nodes.figure;
+  // A figure as the document holds it, with its caption.
+  const figure = createFigure(documentSchema, attrs);
   if (!figure) throw new Error('The schema has figures');
-  return DOMSerializer.fromSchema(documentSchema).serializeNode(
-    figure.create(attrs),
-  ) as HTMLElement;
+  return DOMSerializer.fromSchema(documentSchema).serializeNode(figure) as HTMLElement;
 }
 
 describe('svgIntrinsicSize', () => {
