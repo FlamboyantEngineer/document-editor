@@ -20,8 +20,9 @@ export interface SearchMatch {
   readonly to: number;
 }
 
-// Page headers and footers, which the template fills.
-const skipped: ReadonlySet<RegionKind | null> = new Set(['header', 'footer']);
+// Page headers and footers, which the template fills, and the footnote areas: the document's body
+// is searched, its notes not.
+const skipped: ReadonlySet<RegionKind | null> = new Set(['header', 'footer', 'footnotes']);
 
 // The longest selection that seeds a search; a longer one is a passage, not a query.
 const seedLimit = 200;
@@ -29,8 +30,11 @@ const seedLimit = 200;
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function pattern(query: string, { caseSensitive, wholeWord }: SearchOptions): RegExp | null {
-  if (!query) return null;
-  const body = wholeWord ? `(?<![\\p{L}\\p{N}])${escape(query)}(?![\\p{L}\\p{N}])` : escape(query);
+  // A query of spaces alone would match every gap between words: it finds nothing.
+  if (!query.trim()) return null;
+  // A word goes on through letters, numbers and the marks combining with them.
+  const word = '[\\p{L}\\p{N}\\p{M}]';
+  const body = wholeWord ? `(?<!${word})${escape(query)}(?!${word})` : escape(query);
   return new RegExp(body, caseSensitive ? 'gu' : 'giu');
 }
 
@@ -93,7 +97,10 @@ function blockMatches(node: ProseMirrorNode, pos: number, regexp: RegExp): Searc
   return matches;
 }
 
-/** Each match of a query in the document's text blocks, page headers and footers left out. */
+/**
+ * Each match of a query in the document's text blocks, page headers, footers and footnote areas
+ * left out.
+ */
 export function findMatches(doc: ProseMirrorNode, { query, options }: Query): SearchMatch[] {
   const regexp = pattern(query, options);
   if (!regexp) return [];
@@ -109,7 +116,8 @@ export function findMatches(doc: ProseMirrorNode, { query, options }: Query): Se
 
 /**
  * Each match of a query in the text blocks at some positions, in their order, those in page
- * headers and footers left out; as `findMatches` finds them, without walking the document.
+ * headers, footers and footnote areas left out; as `findMatches` finds them, without walking the
+ * document.
  */
 export function findMatchesInBlocks(
   doc: ProseMirrorNode,

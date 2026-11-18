@@ -53,8 +53,19 @@ interface DocumentToolbarProps {
   shell?: ShellFeatures | undefined;
   /** What the document menu acts with. */
   documentMenu?: DocumentMenuFeatures | undefined;
+  /** Where the toolbar's menus say how to open them, for the editor's keys. */
+  menus?: ToolbarMenus | undefined;
   className?: string | undefined;
 }
+
+/**
+ * The toolbar's menus the editor's keys may open, by item id: each menu that shows and is enabled
+ * holds its opener here, so a key opens the menu rather than what its entries open (DOCE-EDITOR-4.3).
+ */
+export type ToolbarMenus = Map<string, () => void>;
+
+// Where the toolbar's menus hold their openers.
+const MenusContext = createContext<ToolbarMenus | null>(null);
 
 // A disabled item's tooltip names it and says why it cannot be used.
 const tooltipOf = (label: string, reason: string | undefined) =>
@@ -125,7 +136,8 @@ const ToolbarMenu = memo(function ToolbarMenu({
   isDisabled: boolean;
   /** Why the menu is disabled: its trigger says so and stays in the tab order (DOCE-EDITOR-4.14). */
   reason: string | undefined;
-  isOpen: boolean;
+  /** `key` while a key of the editor opened it, so its first entry takes focus. */
+  isOpen: boolean | 'key';
   onOpenChange: (open: boolean) => void;
   entries: readonly MenuEntry[];
 }) {
@@ -139,7 +151,8 @@ const ToolbarMenu = memo(function ToolbarMenu({
       isDisabled={isDisabled}
       focusableWhenDisabled={reason !== undefined}
       tooltip={tooltipOf(item.label, reason)}
-      isOpen={isOpen}
+      isOpen={isOpen !== false}
+      autoFocus={isOpen === 'key' ? 'first' : undefined}
       onOpenChange={onOpenChange}
       items={entries}
       aria-label={item.label}
@@ -148,15 +161,25 @@ const ToolbarMenu = memo(function ToolbarMenu({
 });
 
 function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorContext }) {
-  const [isOpen, setOpen] = useState(false);
+  const [isOpen, setOpen] = useState<boolean | 'key'>(false);
+  const menus = useContext(MenusContext);
+  const isEnabled = isItemEnabled(item, context);
+  useLayoutEffect(() => {
+    if (!menus || !isEnabled) return undefined;
+    const open = () => setOpen('key');
+    menus.set(item.id, open);
+    return () => {
+      if (menus.get(item.id) === open) menus.delete(item.id);
+    };
+  }, [menus, item.id, isEnabled]);
   return (
     <ToolbarMenu
       item={item}
-      isDisabled={!isItemEnabled(item, context)}
+      isDisabled={!isEnabled}
       reason={disabledReasonOf(item, context)}
       isOpen={isOpen}
       onOpenChange={setOpen}
-      entries={isOpen ? item.entries(context) : NO_ENTRIES}
+      entries={isOpen === false ? NO_ENTRIES : item.entries(context)}
     />
   );
 }
@@ -277,16 +300,18 @@ export function ToolbarItemGroups({
 
 /** The editor's toolbar, reading the state shown and running its commands on the view. */
 export function DocumentToolbar(props: DocumentToolbarProps) {
-  const { context, options, className } = props;
+  const { context, options, className, menus = null } = props;
   const groups = useShownGroups(useGroups(props), context);
   return (
-    <ItemContext value={context}>
-      <ToolbarGroups
-        groups={groups}
-        options={options}
-        label={context.labels.toolbar}
-        className={className}
-      />
-    </ItemContext>
+    <MenusContext value={menus}>
+      <ItemContext value={context}>
+        <ToolbarGroups
+          groups={groups}
+          options={options}
+          label={context.labels.toolbar}
+          className={className}
+        />
+      </ItemContext>
+    </MenusContext>
   );
 }

@@ -8,6 +8,7 @@ import { createDocumentEditing } from './document-editing.js';
 import { createEditLock } from './edit-lock.js';
 import {
   createSearch,
+  leaveSearch,
   replaceAllMatches,
   replaceMatch,
   revealMatchAt,
@@ -56,6 +57,39 @@ describe('search', () => {
     expect(searchKey.getState(state)?.matches).toHaveLength(2);
     state = run(state, setSearch(''));
     expect(searchKey.getState(state)?.matches).toEqual([]);
+  });
+
+  it('DOCE-SEARCH-1.1 finds nothing for spaces alone, and keeps a word through its combining marks', () => {
+    let state = run(stateOf('one two three'), setSearch('   '));
+    expect(searchKey.getState(state)?.matches).toEqual([]);
+    // "cafe" followed by a combining acute accent is one word, not "cafe" and a mark.
+    state = run(stateOf('cafe\u0301 and cafe'), setSearch('cafe', { wholeWord: true }));
+    expect(searchKey.getState(state)?.matches).toHaveLength(1);
+  });
+
+  it('DOCE-SEARCH-1.1 leaves the footnote areas out', () => {
+    const doc = documentSchema.node('doc', null, [
+      documentSchema.node('page_section', null, [
+        documentSchema.node('page', null, [
+          documentSchema.node('page_header', null, [
+            documentSchema.node('paragraph', null, [documentSchema.text('Head')]),
+          ]),
+          documentSchema.node('page_content', null, [
+            documentSchema.node('paragraph', null, [documentSchema.text('Body note')]),
+          ]),
+          documentSchema.node('page_footnotes', null, [
+            documentSchema.node('footnote_entry', { footnoteId: 'note-1' }, [
+              documentSchema.text('A note'),
+            ]),
+          ]),
+          documentSchema.node('page_footer', null, [
+            documentSchema.node('paragraph', null, [documentSchema.text('Foot')]),
+          ]),
+        ]),
+      ]),
+    ]);
+    const state = run(EditorState.create({ doc, plugins: [createSearch()] }), setSearch('note'));
+    expect(searchKey.getState(state)?.matches).toHaveLength(1);
   });
 
   it('DOCE-SEARCH-1.1 follows typed text by searching again only the blocks it changed', () => {
@@ -277,6 +311,22 @@ function stateWith(content: StoredNode[]) {
 }
 
 describe('search scopes, inline nodes and seeding', () => {
+  it('DOCE-SEARCH-3.2 leaves a search: the matches kept, unmarked, the current one selected', () => {
+    const doc = stateOf('One cat, two cats.').doc;
+    let state = EditorState.create({ doc, plugins: [createSearch('pane')] });
+    state = run(state, setSearch('cat', {}, 'pane'));
+    state = run(state, revealMatchAt(1, 'pane'));
+    state = run(state, leaveSearch('pane'));
+    const search = searchState(state, 'pane');
+    expect(search?.matches).toHaveLength(2);
+    expect(search?.decorations.find()).toEqual([]);
+    expect(selected(state)).toBe('cat');
+    expect(state.selection.from).toBe(search?.matches[1]?.from);
+    // Moving the search marks the matches again.
+    state = run(state, revealMatchAt(0, 'pane'));
+    expect(searchState(state, 'pane')?.decorations.find()).toHaveLength(2);
+  });
+
   it('DOCE-SEARCH-1.5 keeps the find bar and the pane searches apart', () => {
     let state = stateWith([paragraph('cat and dog and cat')]);
     state = run(state, setSearch('cat'));

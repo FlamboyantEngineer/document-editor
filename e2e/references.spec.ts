@@ -46,11 +46,14 @@ test.describe('references', () => {
     await lab.open('full-editor');
   });
 
-  test('DOCE-REFERENCES-3.1 DOCE-REFERENCES-1.2 inserts a reference to a heading with Mod-K, and it follows the heading', async ({
+  test('DOCE-REFERENCES-3.1 DOCE-REFERENCES-1.2 DOCE-EDITOR-6.2 inserts a reference to a heading with Mod-K, and it follows the heading', async ({
     page,
   }) => {
     await newParagraph(page, 'Power', 'See ');
+    // Mod-K opens the toolbar's reference menu on its first kind of reference.
     await page.keyboard.press('ControlOrMeta+k');
+    await expect(item(page, 'Reference in this document')).toBeFocused();
+    await page.keyboard.press('Enter');
     // The target's kind, then the target among those of the kind.
     await expect(dialog(page).getByRole('button', { name: /Target type/ })).toContainText(
       'Heading',

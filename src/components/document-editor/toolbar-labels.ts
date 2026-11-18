@@ -10,6 +10,8 @@ export interface ToolbarLabels {
   readonly insertTableHint: string;
   /** Why a block cannot be inserted in a footnote's text, on its control and when its key is pressed. */
   readonly reasonFootnote: string;
+  /** The Save button beside the document menu. */
+  readonly save: string;
   /** Why the reference menu is disabled at a place a reference cannot go. */
   readonly referencesUnavailable: string;
   /** The names of the editor's own toolbar groups, by group id, for assistive technology. */
@@ -21,6 +23,7 @@ export const DEFAULT_TOOLBAR_LABELS: ToolbarLabels = {
   exportTo: (label) => `Export to ${label}`,
   insertTableHint: 'Choose the rows and columns of the new table',
   reasonFootnote: 'Footnotes hold text only: tables, breaks and other blocks go in the body',
+  save: 'Save',
   referencesUnavailable: 'References go in paragraphs, list items, table cells and footnotes',
   toolbarGroups: {
     view: 'View',

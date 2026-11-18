@@ -171,6 +171,7 @@ export type { SearchMatch, SearchOptions, SearchScope, SearchState } from './sea
 export {
   createSearch,
   isMatchReplaceable,
+  leaveSearch,
   replaceAllMatches,
   replaceMatch,
   revealMatchAt,

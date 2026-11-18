@@ -64,6 +64,7 @@ import {
   useShownContext,
 } from './editor-context.js';
 import { type DocumentEditorHandle, useCommentRefs } from './editor-handle.js';
+import { useKeyDialog } from './editor-keys.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import type { DocumentOverviewOptions } from './editor-overview.js';
 import { EditorScope } from './editor-scope.js';
@@ -214,6 +215,8 @@ export interface DocumentEditorProps
    * offering no markup (`final`), change bars (`simple`) and inline markup (`all`).
    */
   onMarkupChange?: ((markup: DocumentMarkup) => void) | undefined;
+  /** Why a markup is unavailable, by markup: the markup control offers it disabled with the reason. */
+  markupReasons?: Readonly<Partial<Record<DocumentMarkup, string>>> | undefined;
   /**
    * Lets the writer switch the editing mode: the toolbar's and the View menu's mode control offer
    * the `modes`. The host then sets `editable` and `suggesting`.
@@ -255,8 +258,12 @@ export interface DocumentEditorProps
    * repaired elements without a writer to that author. Defaults to false.
    */
   repairIds?: boolean | DocumentEditorIdRepair | undefined;
-  /** Opens a find bar above the document with Mod-F, to find and replace text. Defaults to false. */
-  find?: boolean | undefined;
+  /**
+   * Opens a find bar above the document with Mod-F, to find and replace text; `'pane'` sends the
+   * find and replace keys to the side panel's search pane instead, and to the browser while no
+   * panel holds one. Defaults to false.
+   */
+  find?: boolean | 'pane' | undefined;
   /**
    * Whether the document opens the editor's context menu, with the host's providers and
    * arrangement when given as options. Defaults to true.
@@ -444,10 +451,11 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useLatestContext(editorContext, context);
   const pages = progress.paged?.state ?? null;
   const { startCommentRef } = refs;
+  const { toolbarMenus, keyDialog } = useKeyDialog(openDialog);
   const shown = { props, context, view, templateStyle, startCommentRef, menuKeys, pages, exports };
   const chrome = { ...shown, openFind: find.open };
   // The chrome follows each state after the pages show it (DOCE-EDITOR-1.7).
-  const top = { ...chrome, findRequest: find.request, onFindClose: find.close };
+  const top = { ...chrome, findRequest: find.request, onFindClose: find.close, toolbarMenus };
   const bottom = { ...chrome, openDialog };
   const body = (
     <EditorBody
@@ -457,7 +465,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
       paged={progress.paged}
       labels={labels}
       commentRefs={refs}
-      onDialog={editable ? openDialog : null}
+      onDialog={editable ? keyDialog : null}
       menuKeys={menuKeys}
       isBlocked={surface.firstLayout !== 'shown'}
     />

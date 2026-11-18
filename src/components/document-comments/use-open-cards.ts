@@ -137,11 +137,15 @@ interface MarginOpening {
  * opens its card, or, open already, focuses its reply box.
  */
 export function useMarginOpening(
-  props: { readonly presentation?: 'cards' | 'markers' | undefined } & Parameters<
-    typeof useCommentPointer
-  >[0],
+  props: {
+    readonly presentation?: 'cards' | 'markers' | undefined;
+    /** Whether the pane holding the comments shows too, for a thread the reader is taken to or clicks. */
+    readonly revealsPane?: boolean | undefined;
+    readonly onReveal?: (() => void) | undefined;
+  } & Parameters<typeof useCommentPointer>[0],
   { items, layer, opened, run, startThread, setActive, active = null }: MarginOpening,
 ) {
+  const reveal = props.revealsPane ? props.onReveal : undefined;
   useRevealActiveCard(layer, active);
   const markers = (props.presentation ?? 'markers') === 'markers';
   const cards = useOpenCards({ items, markers, layer, startThread });
@@ -151,6 +155,7 @@ export function useMarginOpening(
     if (opened) {
       setActive(opened.key);
       cards.openCard(opened.key, opened.focus ?? 'open');
+      reveal?.();
     }
   }
   useCommentPointer(props, {
@@ -160,6 +165,7 @@ export function useMarginOpening(
       if (key === null) return;
       setActive(key);
       cards.openCard(key, 'reply');
+      reveal?.();
     },
   });
   return { markers, ...cards };

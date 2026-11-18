@@ -2,7 +2,8 @@
 // (its selected pane, whether it shows and its width between a narrowest and widest), or left to
 // itself and remembered across reloads under a key through the page's storage; and the panes
 // used on their own beside the document: the outline, leaving out the title heading or collapsing
-// the headings below a level, the search pane, the properties and the contributors.
+// the headings below a level, the search pane, the properties and the contributors. The find keys
+// open the find bar, or the panel's search pane when the host asks.
 
 import { createSafeStorage, UiProvider } from '@flamboyantengineer/ui-components/core';
 import { EditorState } from 'prosemirror-state';
@@ -55,6 +56,7 @@ function Lab() {
   const [reported, setReported] = useState('');
   const [withoutTitle, setWithoutTitle] = useState(false);
   const [collapseBelow, setCollapseBelow] = useState(0);
+  const [findInPane, setFindInPane] = useState(false);
   const report = (what: string) => setReported(what);
   const panel = controlled ? (
     <DocumentSidePanel
@@ -87,6 +89,8 @@ function Lab() {
       defaultSelectedPane="search"
       defaultExpanded
       defaultSize={320}
+      minSize={200}
+      maxSize={640}
       minMainSize={600}
       persistKey="lab-panels"
       onSelectedPaneChange={(pane) => report(`Selected ${pane}`)}
@@ -141,6 +145,14 @@ function Lab() {
               onChange={(event) => setSize(Number(event.currentTarget.value))}
             />
           </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={findInPane}
+              onChange={(event) => setFindInPane(event.currentTarget.checked)}
+            />{' '}
+            Find keys open the search pane
+          </label>{' '}
           <output aria-label="Panel report">{reported}</output>
         </fieldset>
         <fieldset>
@@ -171,7 +183,7 @@ function Lab() {
         onStateChange={setState}
         template={BASE_TEMPLATE}
         author="lab"
-        find
+        find={findInPane ? 'pane' : true}
         panels={{ start: panel }}
         aria-label="Sample document"
       >

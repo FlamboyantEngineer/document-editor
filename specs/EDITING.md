@@ -71,10 +71,10 @@ Verification: `src/engine/document-editing.test.ts`, `src/engine/block-type.test
 
 ### DOCE-EDITING-2.2 - Lists
 
-`Mod-Shift-8` and `Mod-Shift-7` shall wrap the selected blocks in a bulleted or numbered list, joined with a list of the same kind right before or after. In a list, Tab and Shift-Tab shall nest and lift the item, Enter in an empty item shall lift it, and Backspace at the start of an empty item shall remove it.
+`Mod-Shift-8` and `Mod-Shift-7` shall wrap the selected blocks in a bulleted or numbered list, joined with a list of the same kind right before or after. In a list, Tab and Shift-Tab shall nest and lift the item, Enter in an empty item shall lift it, and Backspace at the start of an empty item shall remove it. Two lists of one kind that a local change leaves side by side, as by deleting what stood between them or putting a lifted item back in a list, shall become one list in the same undo step, a numbered list joining the one before it only when it carries on its count; a collaborator's change is left as it arrives.
 
-Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
-Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`, `src/engine/list-joins.ts`
+Verification: `src/engine/document-editing.test.ts`, `src/engine/list-joins.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-EDITING-2.3 - Enter
 

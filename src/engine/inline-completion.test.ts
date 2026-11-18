@@ -96,6 +96,14 @@ describe('inline completion', () => {
     expect(inlineCompletion(state)).toBeNull();
   });
 
+  it('DOCE-AUTOMATION-3.4 drops an offer when a change that is not the writer’s changes its block', () => {
+    let state = stateAt('Recovery takes', 'Recovery takes'.length);
+    const pos = state.selection.head;
+    state = run(state, offerCompletion({ pos, text: ' one second.' }));
+    state = state.apply(markRemote(state.tr.insertText('Fast ', pos - 'Recovery takes'.length)));
+    expect(inlineCompletion(state)).toBeNull();
+  });
+
   it('DOCE-AUTOMATION-3.5 attributes a taken completion to the provider’s agent and session', () => {
     let state = stateAt('Recovery takes', 'Recovery takes'.length);
     const pos = state.selection.head;
@@ -385,6 +393,39 @@ describe('asking the provider', () => {
     type(view, ' three');
     await vi.advanceTimersByTimeAsync(600);
     expect(complete).toHaveBeenCalledTimes(1);
+    view.destroy();
+  });
+
+  it('DOCE-AUTOMATION-3.7 drops the question and the offer once the provider cannot be asked', async () => {
+    vi.useFakeTimers();
+    let availability: CompletionAvailability = { available: true };
+    const { view, changed, answer } = asking({ availability: () => availability });
+    type(view, ' one');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(completionStatus(view.state)?.phase).toBe('asking');
+    availability = { available: false, reason: 'Offline' };
+    changed();
+    expect(completionStatus(view.state)?.phase).not.toBe('asking');
+    await answer(' late.');
+    expect(inlineCompletion(view.state)).toBeNull();
+    view.destroy();
+  });
+
+  it('DOCE-AUTOMATION-3.2 drops the offer when focus leaves the document or it turns read-only', async () => {
+    vi.useFakeTimers();
+    const { view, answer } = asking();
+    type(view, ' one');
+    await vi.advanceTimersByTimeAsync(600);
+    await answer(' second.');
+    expect(inlineCompletion(view.state)).not.toBeNull();
+    view.dom.dispatchEvent(new FocusEvent('blur'));
+    expect(inlineCompletion(view.state)).toBeNull();
+    type(view, ' two');
+    await vi.advanceTimersByTimeAsync(600);
+    await answer(' third.');
+    expect(inlineCompletion(view.state)).not.toBeNull();
+    view.setProps({ editable: () => false });
+    expect(inlineCompletion(view.state)).toBeNull();
     view.destroy();
   });
 

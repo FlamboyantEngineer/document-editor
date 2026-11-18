@@ -132,25 +132,18 @@ function codeEntries(context: EditorContext, linkedCode: boolean): MenuEntry[] {
   ];
 }
 
-// The figure item: a button for an image, or a menu of an image and a diagram while the host draws
-// diagrams.
+// The figure item: a menu of the kinds of figure, an image and, while the host draws diagrams, a
+// diagram.
 function figureItem(labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem {
-  const isEnabled = (context: EditorContext) => can(context, setFigure({ src: 'about:blank' }));
-  const common = { id: 'figure', label: labels.figure, icon: ImageGlyph };
-  if (!features.diagrams) {
-    return {
-      ...common,
-      kind: 'button',
-      run: (context) => context.openDialog({ kind: 'figure' }),
-      isEnabled,
-    };
-  }
+  const figureTypes = features.diagrams ? (['image', 'diagram'] as const) : (['image'] as const);
   return {
-    ...common,
+    id: 'figure',
+    label: labels.figure,
+    icon: ImageGlyph,
     kind: 'menu',
-    isEnabled,
+    isEnabled: (context) => can(context, setFigure({ src: 'about:blank' })),
     entries: (context) =>
-      (['image', 'diagram'] as const).map((figureType) => ({
+      figureTypes.map((figureType) => ({
         id: `${figureType}-figure`,
         label: figureType === 'image' ? labels.imageFigure : labels.diagramFigure,
         // A diagram opens the host's diagram editor at once; an image, the figure dialog.

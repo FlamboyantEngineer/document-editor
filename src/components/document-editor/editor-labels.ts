@@ -137,6 +137,8 @@ export interface DocumentEditorLabels
   readonly find: string;
   /** Names the search pane's query box, apart from the find bar's. */
   readonly searchDocument: string;
+  /** Names where a search result is when no heading comes before it. */
+  readonly searchNoSection: string;
   readonly matchCase: string;
   readonly wholeWord: string;
   /** Announces how many matches Replace all replaced. */
@@ -250,6 +252,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   },
   find: 'Find in document',
   searchDocument: 'Search the document',
+  searchNoSection: 'Untitled section',
   matchCase: 'Match case',
   wholeWord: 'Whole words',
   replacedCount: (count) => `Replaced ${count} ${count === 1 ? 'match' : 'matches'}`,
