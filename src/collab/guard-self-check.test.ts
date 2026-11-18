@@ -53,6 +53,16 @@ function seeded(text: string) {
   return shadow;
 }
 
+// Where the paragraph's text starts.
+const start = (state: EditorState) => {
+  let found = -1;
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'paragraph') found = pos + 1;
+    return found < 0;
+  });
+  return found;
+};
+
 function edit(doc: Y.Doc, action: (state: EditorState) => EditorState) {
   const held = readContent(schema, doc.get('content'));
   if (!held) throw new Error('Missing seeded content.');
@@ -125,15 +135,6 @@ describe('DOCE-COLLAB-7.3 guard self-check', () => {
       edit(writer, action);
       Y.applyUpdate(shadow, Y.encodeStateAsUpdate(writer, known));
     };
-    // Where the paragraph's text starts.
-    const start = (state: EditorState) => {
-      let found = -1;
-      state.doc.descendants((node, pos) => {
-        if (node.type.name === 'paragraph') found = pos + 1;
-        return found < 0;
-      });
-      return found;
-    };
     // Suggested text, then a marker beside it, which takes the same mark and a new id later.
     send((state) =>
       state.apply(
@@ -162,7 +163,7 @@ describe('DOCE-COLLAB-7.3 guard self-check', () => {
     const shadow = seeded('Original');
     const guard = open(shadow);
     skip.next = true;
-    edit(shadow, (state) => state.apply(state.tr.insertText('X', 1)));
+    edit(shadow, (state) => state.apply(state.tr.insertText('X', start(state))));
 
     expect(guard.verify()).toBe(false);
     const reopened = open(shadow);
@@ -205,19 +206,19 @@ describe('DOCE-COLLAB-7.3 guard self-check', () => {
     });
     try {
       await vi.waitFor(() => expect(provider.getState().synced).toBe(true));
-      edit(doc, (state) => state.apply(state.tr.insertText('A', 1)));
+      edit(doc, (state) => state.apply(state.tr.insertText('A', start(state))));
       expect(await provider.whenStored()).toBe(true);
       expect(events.filter((event) => event.type === 'guard-repaired')).toEqual([]);
 
       skip.next = true;
-      edit(doc, (state) => state.apply(state.tr.insertText('B', 1)));
+      edit(doc, (state) => state.apply(state.tr.insertText('B', start(state))));
       expect(await provider.whenStored()).toBe(true);
       expect(events.filter((event) => event.type === 'guard-repaired')).toEqual([
         { type: 'guard-repaired', room: 'guarded', reason: 'reading' },
       ]);
       expect(opens).toBe(2);
       // The rebuilt guard reads the room as it is and keeps admitting the writer's edits.
-      edit(doc, (state) => state.apply(state.tr.insertText('C', 1)));
+      edit(doc, (state) => state.apply(state.tr.insertText('C', start(state))));
       expect(await provider.whenStored()).toBe(true);
       expect(provider.getState().refusal).toBeNull();
     } finally {

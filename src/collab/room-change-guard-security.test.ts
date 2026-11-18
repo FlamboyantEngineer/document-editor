@@ -20,6 +20,7 @@ import {
   runCommand,
   text,
 } from '../../test/footnote-fixtures.js';
+import { assignElementIds, createElementIds } from '../engine/element-ids.js';
 import { insertFootnote, listFootnotes } from '../engine/footnotes.js';
 import {
   acceptAllSuggestions,
@@ -82,11 +83,13 @@ async function setup(
     generated?: boolean;
     granted?: typeof permissions;
     /** The room's content, and a change made to it before anyone joins. */
-    seeded?: { file: DocumentFile; change?: (state: EditorState) => EditorState };
+    seeded?: { file: DocumentFile; change?: (state: EditorState) => EditorState; raw?: boolean };
     authorOf?: RoomChangeGuardOptions['authorOf'];
     resolvePermissions?: RoomChangeGuardOptions['permissions'];
     /** How many merge refusals one connection may have before it is cut off. */
     conflicts?: number;
+    /** The observer's actor, another writer than the provider's. */
+    observerActor?: string;
   } = {},
 ) {
   const persistence = createMemoryPersistence();
@@ -97,10 +100,10 @@ async function setup(
       persistence,
       events: { emit: (event) => void events.push(event) },
       auth: {
-        admit: () =>
+        admit: ({ token }) =>
           Promise.resolve({
             ok: true,
-            actor: { id: 'writer' },
+            actor: { id: token || 'writer' },
             access: 'read-write',
             capabilities: ['suggest', 'comment'],
           }),
@@ -134,7 +137,7 @@ async function setup(
           if (options.empty) return null;
           const seed = new Y.Doc();
           Y.applyUpdate(seed, documentToYjs(options.seeded?.file ?? file('Original'), { schema }));
-          if (options.seeded?.change) change(seed, options.seeded.change);
+          if (options.seeded?.change) change(seed, options.seeded.change, options.seeded.raw);
           if (options.pending)
             change(seed, (state) => {
               let start = 0;
@@ -188,6 +191,7 @@ async function setup(
     room: 'guard',
     doc: observerDoc,
     createSocket: sockets.createSocket,
+    getToken: () => options.observerActor ?? null,
   });
   await vi.waitFor(() => expect(observer.getState().synced).toBe(true));
   const handle = await server.openRoom('guard');
@@ -237,11 +241,15 @@ function creditsOf(doc: Y.Doc): (readonly [unknown, unknown])[] {
   return found;
 }
 
-function change(doc: Y.Doc, action: (state: EditorState) => EditorState) {
+// Sends a change as an editor does, its new elements given ids of their own, or `raw`, as only a
+// writer bypassing the editor would.
+function change(doc: Y.Doc, action: (state: EditorState) => EditorState, raw = false) {
   const held = readContent(schema, doc.get('content'));
   if (!held) throw new Error('Missing seeded content.');
   const next = action(EditorState.create({ doc: held }));
-  doc.get('content').applyDelta(diffNodes(held, next.doc) as never);
+  const tr = next.tr;
+  const sent = !raw && assignElementIds(tr, {}) ? tr.doc : next.doc;
+  doc.get('content').applyDelta(diffNodes(held, sent) as never);
 }
 
 describe('DOCE-COLLAB-7.2 authoritative document guard', () => {
@@ -2365,20 +2373,24 @@ describe('DOCE-COLLAB-7.5 element ids in a guarded room', () => {
     return state.tr.insert(at, schema.node('paragraph', { dataId: id }, schema.text(text)));
   };
   const suggesting = (doc: Y.Doc, id: string, text: string) =>
-    change(doc, (state) => {
-      const proposal = suggestTransaction(paragraphAfterFirst(state, id, text), state, {
-        author: 'writer',
-        newId: () => `s${id.slice(1)}`,
-      });
-      if (!proposal) throw new Error('Unsupported proposal.');
-      // The engine gives a suggested block an id of its own; a writer may send any.
-      const suggested = state.apply(proposal);
-      const at = positionOf(
-        suggested.doc,
-        (node) => node.attrs.suggestionSplitKind === 'insertion',
-      );
-      return suggested.apply(suggested.tr.setNodeAttribute(at, 'dataId', id));
-    });
+    change(
+      doc,
+      (state) => {
+        const proposal = suggestTransaction(paragraphAfterFirst(state, id, text), state, {
+          author: 'writer',
+          newId: () => `s${id.slice(1)}`,
+        });
+        if (!proposal) throw new Error('Unsupported proposal.');
+        // The engine gives a suggested block an id of its own; a writer may send any.
+        const suggested = state.apply(proposal);
+        const at = positionOf(
+          suggested.doc,
+          (node) => node.attrs.suggestionSplitKind === 'insertion',
+        );
+        return suggested.apply(suggested.tr.setNodeAttribute(at, 'dataId', id));
+      },
+      true,
+    );
   const idsOf = (room: Awaited<ReturnType<typeof setup>>) => {
     const ids: string[] = [];
     const stored = yjsToDocument(room.handle.snapshot(), { schema });
@@ -2449,6 +2461,160 @@ describe('DOCE-COLLAB-7.5 element ids in a guarded room', () => {
       expect(room.observer.getState()).toMatchObject({ status: 'connected', refusal: null });
       expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(admitted);
       expect(idsOf(room).filter((id) => id === 'a0000001')).toHaveLength(1);
+    } finally {
+      await room.close();
+    }
+  });
+});
+
+describe('DOCE-COLLAB-7.5 blocks without an id of their own', () => {
+  const editor = { edit: true, suggest: true, comment: true, decide: true };
+  const afterFirstParagraph = (doc: ProseMirrorNode) => {
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'paragraph') at = pos + node.nodeSize;
+      return at < 0;
+    });
+    return at;
+  };
+  // A suggested paragraph sent with `id` as its element id, which the engine never sends.
+  const suggestWithId = (doc: Y.Doc, id: string | null) =>
+    change(
+      doc,
+      (state) => {
+        const tr = state.tr.insert(
+          afterFirstParagraph(state.doc),
+          schema.node('paragraph', null, schema.text('Mine')),
+        );
+        const proposal = suggestTransaction(tr, state, {
+          author: 'writer',
+          newId: () => 's0000009',
+        });
+        if (!proposal) throw new Error('No proposal.');
+        const suggested = state.apply(proposal);
+        let block = -1;
+        suggested.doc.descendants((node, pos) => {
+          if (block < 0 && node.attrs.suggestionSplitKind === 'insertion') block = pos;
+          return block < 0;
+        });
+        return suggested.apply(suggested.tr.setNodeAttribute(block, 'dataId', id));
+      },
+      true,
+    );
+
+  // Another suggester's editor would give such a block an id of its own at its next structural
+  // change, changing the first suggestion's blocks, and be cut off for it: the room refuses the
+  // block, as a change that does not fit, so nothing of it is applied.
+  it.each([null, '', 'x'])(
+    'refuses a suggested block with the id %j, and takes the next suggester’s Enter',
+    async (id) => {
+      const room = await setup({ observerActor: 'other' });
+      try {
+        const start = readContent(schema, room.observerDoc.get('content'));
+        if (!start) throw new Error('No content.');
+        const other = headlessEditor(start, {
+          doc: room.observerDoc,
+          isRemoteOrigin: room.observer.isRemoteOrigin,
+          plugins: [createElementIds({ author: () => 'other' })],
+        });
+        const before = yjsToDocument(room.handle.snapshot(), { schema });
+        suggestWithId(room.doc, id);
+        await vi.waitFor(() => expect(room.provider.getState().refusedChanges).toBe(1));
+        expect(room.provider.getState()).toMatchObject({ status: 'connected', refusal: null });
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(before);
+        // The other suggester presses Enter at the end of the first paragraph.
+        const split = other.state.tr.split(afterFirstParagraph(other.state.doc) - 1);
+        const proposal = suggestTransaction(split, other.state, {
+          author: 'other',
+          newId: () => 's000000a',
+        });
+        if (!proposal) throw new Error('No proposal.');
+        other.dispatch(proposal);
+        await room.observer.whenStored();
+        expect(room.observer.getState().refusal).toBeNull();
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).not.toEqual(before);
+      } finally {
+        await room.close();
+      }
+    },
+  );
+
+  // A room whose stored content already holds an id twice keeps working, and gains no third copy.
+  it('tolerates an id a stored room holds twice, and refuses a third copy of it', async () => {
+    const copyOfFirst = (state: EditorState) =>
+      state.apply(
+        state.tr.insert(
+          afterFirstParagraph(state.doc),
+          schema.node('paragraph', { dataId: 'a0000001' }, schema.text('Copy')),
+        ),
+      );
+    const room = await setup({
+      granted: editor,
+      seeded: { file: file('First'), change: copyOfFirst, raw: true },
+    });
+    try {
+      const copies = () =>
+        JSON.stringify(yjsToDocument(room.handle.snapshot(), { schema })).split('"a0000001"')
+          .length - 1;
+      expect(copies()).toBe(2);
+      change(
+        room.doc,
+        (state) => state.apply(state.tr.insertText(' Typed', afterFirstParagraph(state.doc) - 1)),
+        true,
+      );
+      await room.provider.whenStored();
+      expect(JSON.stringify(yjsToDocument(room.handle.snapshot(), { schema }))).toContain('Typed');
+      change(room.doc, copyOfFirst, true);
+      await vi.waitFor(() => expect(room.provider.getState().refusedChanges).toBe(1));
+      expect(copies()).toBe(2);
+    } finally {
+      await room.close();
+    }
+  });
+});
+
+describe('DOCE-COLLAB-7.5 two type changes of one block', () => {
+  // Each writer's type change replaces the block with one of the new type keeping its id; merged,
+  // the room would hold both: the later one is refused as a conflict.
+  it('refuses the later of two type changes of one block as a conflict', async () => {
+    const room = await setup({
+      granted: { edit: true, suggest: true, comment: true, decide: true },
+    });
+    try {
+      await vi.waitFor(() =>
+        expect(readContent(schema, room.observerDoc.get('content'))?.textContent).toContain(
+          'Original',
+        ),
+      );
+      const retype = (doc: Y.Doc, level: number) => {
+        const copy = new Y.Doc();
+        Y.applyUpdate(copy, Y.encodeStateAsUpdate(doc));
+        const vector = Y.encodeStateVector(copy);
+        change(copy, (state) => {
+          let at = -1;
+          state.doc.descendants((node, pos) => {
+            if (at < 0 && node.type.name === 'paragraph') at = pos;
+            return at < 0;
+          });
+          const node = state.doc.nodeAt(at);
+          if (!node) throw new Error('No paragraph.');
+          return state.apply(
+            state.tr.setNodeMarkup(at, schema.nodes.heading ?? null, { ...node.attrs, level }),
+          );
+        });
+        const update = Y.encodeStateAsUpdate(copy, vector);
+        copy.destroy();
+        return update;
+      };
+      const a = retype(room.doc, 1);
+      const b = retype(room.observerDoc, 2);
+      Y.applyUpdate(room.doc, a);
+      await room.provider.whenStored();
+      const admitted = yjsToDocument(room.handle.snapshot(), { schema });
+      Y.applyUpdate(room.observerDoc, b);
+      await vi.waitFor(() => expect(room.observer.getState().refusedChanges).toBe(1));
+      expect(room.observer.getState()).toMatchObject({ status: 'connected', refusal: null });
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(admitted);
     } finally {
       await room.close();
     }
