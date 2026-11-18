@@ -74,16 +74,15 @@ test.describe('caret keys across pages', () => {
     expect(all.focus.page).toBe(0);
   });
 
-  test('DOCE-PAGINATION-7.21 selects across a page boundary with Shift+ArrowUp and Shift+click', async ({
+  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.24 selects across a page boundary with Shift+ArrowUp and Shift+click', async ({
     lab,
     page,
   }) => {
     await openEditor(lab, page);
     const count = await pages(page).count();
     const into = count - 1;
+    // The keys come right after the click that gives the pages focus (DOCE-PAGINATION-7.24).
     await clickInto(page, into, 'first', 2);
-    // The keys wait for the caret, which the click places once the pages take focus.
-    await expect.poll(async () => (await selection(page)).focus.page).toBe(into);
     await page.keyboard.press('Home');
     await page.keyboard.press('Shift+ArrowUp');
     await expect.poll(async () => (await selection(page)).focus.page).toBe(into - 1);
@@ -170,7 +169,7 @@ test.describe('caret keys across pages', () => {
       .toEqual(['Replaced']);
   });
 
-  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.22 keeps the pages and the document in step through Shift+ArrowRight, Delete, Backspace and Enter', async ({
+  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.22 DOCE-PAGINATION-7.24 keeps the pages and the document in step through Shift+ArrowRight, Delete, Backspace and Enter', async ({
     lab,
     page,
   }) => {
@@ -179,9 +178,8 @@ test.describe('caret keys across pages', () => {
     await paragraph.scrollIntoViewIfNeeded();
     const box = await paragraph.boundingBox();
     if (!box) throw new Error('The paragraph is not shown.');
+    // The keys come right after the click that gives the pages focus (DOCE-PAGINATION-7.24).
     await page.mouse.click(box.x + 2, box.y + 8);
-    // The keys go where the click put the caret, once the editor has it.
-    await expect.poll(async () => (await selection(page)).focus.text).toMatch(/^Each requirement/);
     await page.keyboard.press('Home');
     await page.keyboard.press('Shift+ArrowRight');
     await expect.poll(async () => (await selection(page)).selected).toBe('E');
@@ -200,6 +198,32 @@ test.describe('caret keys across pages', () => {
     );
     await expect(content(page)).toContainText('Split');
     await expect(content(page).locator('p', { hasText: /^Splitch requirement/ })).toHaveCount(1);
+  });
+
+  test('DOCE-PAGINATION-7.24 types the first character at the caret a click places, with the pages focused or not', async ({
+    lab,
+    page,
+  }) => {
+    await openEditor(lab, page);
+    const paragraphs = blocks(page, 1).filter({ hasText: 'Each requirement' });
+    expect(await paragraphs.count()).toBeGreaterThan(1);
+    // The later paragraph first, so the text typed there moves nothing clicked after it.
+    const later = paragraphs.last();
+    await later.scrollIntoViewIfNeeded();
+    const one = await later.boundingBox();
+    if (!one) throw new Error('The paragraph is not shown.');
+    // The click gives the pages focus, and the character follows at once.
+    await page.mouse.click(one.x + 2, one.y + 8);
+    await page.keyboard.type('^');
+    await expect(later).toHaveText(/^\^Each requirement/);
+    // With the pages focused, a click elsewhere moves the caret, and the character follows it.
+    const earlier = paragraphs.first();
+    await earlier.scrollIntoViewIfNeeded();
+    const two = await earlier.boundingBox();
+    if (!two) throw new Error('The paragraph is not shown.');
+    await page.mouse.click(two.x + 2, two.y + 8);
+    await page.keyboard.type('~');
+    await expect(earlier).toHaveText(/^~Each requirement/);
   });
 
   test('DOCE-PAGINATION-7.21 types into a blank document from a click in the middle of its page', async ({

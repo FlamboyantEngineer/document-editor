@@ -18,38 +18,119 @@ export function readDomSelection(view: EditorView): void {
 
 type DomHandlers = NonNullable<DirectEditorProps['handleDOMEvents']>;
 
+// The parts of the view that ProseMirror keeps internal and its focus handling sets.
+interface FocusedView {
+  focused: boolean;
+  readonly domObserver?: {
+    stop(): void;
+    start(): void;
+    readonly currentSelection: { eq(selection: Selection): boolean };
+  };
+  domSelectionRange(): Selection;
+}
+
+// Per view, by its element, so wrapping the handlers again or seeing the view through another
+// (such as the canonical view over the pages) shares it: whether input came since a press on the
+// view outside focus, or since focus.
+const noted = new WeakMap<Element, { input: boolean }>();
+
+const note = (view: EditorView) => {
+  const at = noted.get(view.dom);
+  if (at) at.input = true;
+};
+
+// A press on the view outside focus, noted until the focus it brings, which comes in the same
+// task, or until the task ends.
+function pressBeforeFocus(view: EditorView): void {
+  const pressed = { input: true };
+  noted.set(view.dom, pressed);
+  view.dom.ownerDocument.defaultView?.setTimeout(() => {
+    if (noted.get(view.dom) === pressed) noted.delete(view.dom);
+  }, 0);
+}
+
+// Takes focus as ProseMirror does, so that its own check of the selection does not run, and runs
+// one check in its place twenty milliseconds on.
+function takeFocus(view: EditorView): void {
+  const own = view as unknown as FocusedView;
+  const observer = own.domObserver;
+  if (own.focused || !observer) return;
+  // A press on the view that brings focus is the writer's input, as a later click or key is.
+  const focusing = { input: noted.get(view.dom)?.input === true };
+  noted.set(view.dom, focusing);
+  observer.stop();
+  view.dom.classList.add('ProseMirror-focused');
+  observer.start();
+  own.focused = true;
+  view.dom.ownerDocument.defaultView?.setTimeout(() => {
+    if (noted.get(view.dom) === focusing) noted.delete(view.dom);
+    if (view.isDestroyed || !view.hasFocus()) return;
+    if (focusing.input) readDomSelection(view);
+    else if (!observer.currentSelection.eq(own.domSelectionRange())) view.focus();
+  }, 20);
+}
+
+// A point of the browser's selection.
+interface DomPoint {
+  readonly node: Node;
+  readonly offset: number;
+}
+
+// The selection the browser shows in the view, when the view has not read it yet; null otherwise.
+function unreadSelection(view: EditorView): { anchor: DomPoint; focus: DomPoint } | null {
+  const own = view as unknown as FocusedView;
+  if (view.composing || !own.domObserver || !view.hasFocus()) return null;
+  const shown = own.domSelectionRange();
+  const { anchorNode, focusNode } = shown;
+  if (own.domObserver.currentSelection.eq(shown) || !anchorNode || !focusNode) return null;
+  return {
+    anchor: { node: anchorNode, offset: shown.anchorOffset },
+    focus: { node: focusNode, offset: shown.focusOffset },
+  };
+}
+
+/**
+ * Draws a state the writer did not make, such as new pages, keeping a selection the browser shows
+ * and the view has not read yet, as a click's caret between the press and its report
+ * (DOCE-PAGINATION-7.24). Drawing the state puts the view's selection on the page; the browser's
+ * comes back where its text is still drawn, and the view reads it.
+ */
+export function drawKeepingSelection(view: EditorView, draw: () => void): void {
+  const unread = unreadSelection(view);
+  draw();
+  if (!unread || view.isDestroyed) return;
+  const { anchor, focus } = unread;
+  if (!view.dom.contains(anchor.node) || !view.dom.contains(focus.node)) return;
+  view.dom.ownerDocument
+    .getSelection()
+    ?.setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset);
+  readDomSelection(view);
+}
+
 /**
  * Wraps a view's focus, mouse-down and key-down handlers to keep a click or key that follows focus
- * closely (DOCE-PAGINATION-7.22); one keeper per view, so the wrapped handlers can be replaced.
- * Twenty milliseconds after the view takes focus, ProseMirror draws its own selection back over a
- * different one the browser shows, so that focus from outside keeps the writer's place. On a busy
- * page that check can come after the writer's next click or key, which the view has not read yet,
- * and would undo it. When input comes between the focus and the check, the view reads the browser's
- * selection just before it, so there is nothing to undo.
+ * closely (DOCE-PAGINATION-7.22, 7.24). Twenty milliseconds after the view takes focus,
+ * ProseMirror draws its own selection back over a different one the browser shows, so that focus
+ * from outside keeps the writer's place. On a busy page that check comes after a key the browser
+ * has already acted on but not yet reported, and undoes it. So the view takes focus here, with
+ * nothing scheduled by ProseMirror, and one check runs in its place: when a press on the view
+ * brought focus or input came after it, the view reads the browser's selection; otherwise it draws
+ * its own, as ProseMirror would.
  */
-export function inputAfterFocusKeeper(): (handlers: DomHandlers | undefined) => DomHandlers {
-  let pending: { input: boolean } | null = null;
-  const noteInput = () => {
-    if (pending) pending.input = true;
-  };
-  return (handlers) => ({
+export function keepInputAfterFocus(handlers: DomHandlers | undefined): DomHandlers {
+  return {
     focus(view, event) {
-      const focusing = { input: false };
-      pending = focusing;
-      // Set before ProseMirror's own check, with the same delay, so it runs first.
-      view.dom.ownerDocument.defaultView?.setTimeout(() => {
-        if (pending === focusing) pending = null;
-        if (focusing.input) readDomSelection(view);
-      }, 20);
+      takeFocus(view);
       return handlers?.focus?.(view, event) === true;
     },
     mousedown(view, event) {
-      noteInput();
+      if ((view as unknown as FocusedView).focused) note(view);
+      else pressBeforeFocus(view);
       return handlers?.mousedown?.(view, event) === true;
     },
     keydown(view, event) {
-      noteInput();
+      note(view);
       return handlers?.keydown?.(view, event) === true;
     },
-  });
+  };
 }
