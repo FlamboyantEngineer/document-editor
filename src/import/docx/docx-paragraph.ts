@@ -12,27 +12,12 @@ import {
   findElements,
   type XmlElement,
 } from '../xml-read.js';
-import { CAPTION_LABEL_MARK } from './docx-fields.js';
+import { captionOf, type CaptionPiece, isLabel, plainText } from './docx-caption-content.js';
+
+export type { CaptionPiece };
 import { type DocxReading, readInlineContent } from './docx-inline.js';
 import { numberingOf, type NumberingRole } from './docx-numbering.js';
 import type { ParagraphRole } from './docx-styles.js';
-
-/** What a caption numbers, as its label says; null when it says nothing the reader knows. */
-type CaptionLabel = 'figure' | 'table' | 'code' | null;
-
-/** A caption read from a paragraph, before it is joined to what it captions. */
-export interface CaptionPiece {
-  readonly kind: 'caption';
-  /** Its text without its label, number and separator. */
-  readonly text: string;
-  readonly label: CaptionLabel;
-  /** Whether Word's caption style or a caption field made it a caption, rather than its text alone. */
-  readonly native: boolean;
-  /** The paragraph it stays when it captions nothing. */
-  readonly paragraph: StoredNode;
-  /** The bookmarks in it, which cross-references to it name. */
-  readonly bookmarks: readonly string[];
-}
 
 /** A piece of a paragraph, before lists, quotes and captions are put together. */
 export type Piece =
@@ -60,9 +45,6 @@ export interface ParagraphReading extends DocxReading {
   /** The headings in a style whose name or a parent's names an appendix or annex. */
   readonly appendixHeadings?: Set<StoredNode>;
 }
-
-const plainText = (content: readonly StoredNode[]) =>
-  content.map((node) => (node.type === 'lineBreak' ? '\n' : (node.text ?? ''))).join('');
 
 const isBlankText = (node: StoredNode) => node.type === 'text' && !node.text?.trim();
 
@@ -247,57 +229,6 @@ function emptyPieces(pPr: XmlElement | null): Piece[] | null {
 function headingLevelOf(outline: string | null): number | null {
   const level = Number(outline ?? Number.NaN);
   return Number.isInteger(level) && level >= 0 && level < 9 ? Math.min(level + 1, 6) : null;
-}
-
-// A caption's label and number at the start of its text and the separator after them, as in
-// `Figure 2. `, `Table A-1: ` or `Table 3 – `; a number followed by more text, as in `Table 2
-// shows`, is no label.
-const LABELLED =
-  /^\s*(figure|fig\.|table)\s+[A-Z]?[-.]?\d+(?:[-.]\d+)*\s*[.:\-\u2013\u2014](?=\s|$)\s*/i;
-
-// What a label names, from its first word.
-function labelOf(text: string): CaptionLabel {
-  if (/^\s*fig/i.test(text)) return 'figure';
-  if (/^\s*tab/i.test(text)) return 'table';
-  return /^\s*(code|listing)/i.test(text) ? 'code' : null;
-}
-
-const isLabel = (node: StoredNode) =>
-  node.marks?.some((mark) => mark.type === CAPTION_LABEL_MARK) === true;
-
-// Inline content without the reader's caption label marks.
-function unlabelled(content: readonly StoredNode[]): StoredNode[] {
-  return content.map((node) => {
-    if (!isLabel(node)) return node;
-    const marks = node.marks?.filter((mark) => mark.type !== CAPTION_LABEL_MARK) ?? [];
-    const { marks: _, ...bare } = node;
-    return marks.length ? { ...bare, marks } : bare;
-  });
-}
-
-// A caption from a paragraph's content: its label and number taken off, from a caption field's
-// result or the writer's label runs to the separator after them, else as its text starts; null
-// for content that is no caption, which only a text caption may be.
-function captionOf(
-  content: readonly StoredNode[],
-  native: boolean,
-  bookmarks: readonly string[],
-): CaptionPiece | null {
-  const paragraph = withContent('paragraph', {}, unlabelled(content));
-  const last = content.findLastIndex(isLabel);
-  if (last >= 0) {
-    const field = content.find(isLabel)?.marks?.find((mark) => mark.type === CAPTION_LABEL_MARK);
-    const named = typeof field?.attrs?.label === 'string' ? field.attrs.label : '';
-    const text = plainText(content.slice(last + 1)).replace(/^\s*[.:\-\u2013\u2014]?\s*/, '');
-    const label = labelOf(named || plainText(content.slice(0, last + 1)));
-    return { kind: 'caption', text: text.trim(), label, native: true, paragraph, bookmarks };
-  }
-  const whole = plainText(content);
-  const labelled = LABELLED.exec(whole);
-  if (!labelled && !native) return null;
-  const text = labelled ? whole.slice(labelled[0].length) : whole;
-  const label = labelled ? labelOf(labelled[1] ?? '') : null;
-  return { kind: 'caption', text: text.trim(), label, native, paragraph, bookmarks };
 }
 
 // Whether a paragraph's heading is deeper than the stored format's six levels.

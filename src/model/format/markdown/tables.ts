@@ -2,9 +2,9 @@
 // written in its first place and the places it covers are left empty, keeping every row as wide
 // as the table and every column where it belongs.
 
-import { storedBodyOf, storedCaptionText } from '../../schema/caption-content.js';
+import { storedBodyOf } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
-import { escapeText } from './escape.js';
+import { captionLine } from './inlines.js';
 import type { Writing } from './writing.js';
 
 /** Writes a run of blocks as Markdown, one string for each block written. */
@@ -51,9 +51,9 @@ export function tableOf(node: StoredNode, writing: Writing, blocks: BlocksWriter
   const line = (cells: readonly string[]) =>
     `| ${Array.from({ length: width }, (_, index) => cells[index] ?? '').join(' | ')} |`;
   const [head = [], ...body] = rows;
-  const caption = storedCaptionText(node);
+  const caption = captionLine(node, { ...writing, inTable: false });
   return [
-    ...(caption ? [`*${escapeText(caption)}*`, ''] : []),
+    ...(caption ? [caption, ''] : []),
     line(head),
     `|${' --- |'.repeat(width)}`,
     ...body.map(line),

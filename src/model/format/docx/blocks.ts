@@ -2,7 +2,6 @@
 // and numbers, quotes, code, display math with its number, tables, figures with their caption, page
 // breaks, rules and the table of contents as a field Word fills in.
 
-import { storedCaptionText } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
 import { keptContent } from '../left-out.js';
 import { assetAddress } from '../writer-values.js';
@@ -68,14 +67,8 @@ function listOf(node: StoredNode, writing: Writing, place: ListPlace): string {
 
 // Code as one paragraph in the code style, its lines parted by line breaks, after its caption.
 function codeOf(source: string, node: StoredNode, writing: Writing): string {
-  const captioned = node.attrs?.captionEnabled !== false;
-  const label = captioned ? countObject(writing.counting, 'codeBlock') : '';
   const settings = writing.counting.styles.codeBlock?.caption;
-  const caption = captionParagraph(
-    label,
-    captioned ? text(node.attrs?.caption) : '',
-    settings?.alignment,
-  );
+  const caption = captionParagraph(node, 'codeBlock', writing);
   const lines = source
     .split('\n')
     .map((line) => run(line))
@@ -97,14 +90,8 @@ function mathOf(node: StoredNode, writing: Writing): string {
 
 // A figure as its alternative text and its address, centred, with its caption.
 function figureOf(node: StoredNode, writing: Writing): string {
-  const captioned = node.attrs?.captionEnabled !== false;
-  const label = captioned ? countObject(writing.counting, 'figure') : '';
   const settings = writing.counting.styles.figure?.caption;
-  const caption = captionParagraph(
-    label,
-    captioned ? storedCaptionText(node) : '',
-    settings?.alignment,
-  );
+  const caption = captionParagraph(node, 'figure', writing);
   const address = assetAddress(node, writing.values);
   const shown = `[${text(node.attrs?.alt) || 'figure'}${address ? `: ${address}` : ''}]`;
   const figure = paragraph(run(shown), '<w:jc w:val="center"/>');

@@ -1775,6 +1775,13 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       const theirs = marked(deletion, 'other');
       expect(check(theirs, theirs.apply(asDeleted(theirs)), suggestOnly)).toBe(false);
       expect(deleting(theirs)).toBeNull();
+      // Deleting other text with it names the writer: the figure joins that text's suggestion.
+      const start = at - 'Original'.length - 2;
+      const both = suggested(own, own.tr.delete(start, at + figure.nodeSize));
+      if (!both) throw new Error('The deletion was not suggested.');
+      expect(both.doc.nodeAt(figureAt(both))?.attrs.suggestionSplitKind).toBe('deletion');
+      expect(check(own, both, suggestOnly)).toBe(true);
+      expect(check(own, both, suggestOnly, 'other')).toBe(false);
     });
 
     it('refuses a figure marked for deletion without its writer’s marks, or with another’s', () => {
@@ -1905,5 +1912,68 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     } finally {
       await room.close();
     }
+  });
+});
+
+describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion holds', () => {
+  const permissions = { edit: false, suggest: true, comment: true, decide: true };
+  const deleted = (value: string, id: string, thread?: string) => ({
+    type: 'text',
+    text: value,
+    marks: [{ type: 'deletion', attrs: { id, author: 'other', ...(thread ? { thread } : {}) } }],
+  });
+
+  // Marks the figure for deletion under a suggestion id, as a suggest and decide writer.
+  function markFigure(runs: readonly object[], id: string) {
+    const before = EditorState.create({
+      doc: readDocumentFile(
+        {
+          formatVersion: 1,
+          sections: [
+            {
+              name: null,
+              content: [
+                { type: 'paragraph', attrs: { id: 'p0000001' }, content: runs },
+                {
+                  type: 'figure',
+                  attrs: { id: 'f0000001', src: 'https://example.com/a.png' },
+                  content: [{ type: 'caption', content: [text('Board')] }],
+                },
+              ],
+            },
+          ],
+        },
+        schema,
+      ).doc,
+    });
+    let at = -1;
+    before.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'figure') at = pos;
+      return at < 0;
+    });
+    const figure = before.doc.nodeAt(at);
+    if (!figure) throw new Error('No figure.');
+    const after = before.apply(
+      before.tr.setNodeMarkup(at, null, {
+        ...figure.attrs,
+        suggestionSplitKind: 'deletion',
+        suggestionSplitId: id,
+      }),
+    );
+    return checkDocumentChange({
+      before: before.doc,
+      after: after.doc,
+      actor: 'writer',
+      permissions,
+    });
+  }
+
+  it('refuses a writer who may suggest and decide but not edit a block put under another writer’s pending suggestion', () => {
+    expect(markFigure([deleted('Original', 's0000050')], 's0000050')).toBe(false);
+  });
+
+  it('refuses a block put under a later id of another writer’s suggestion joined by one comment thread', () => {
+    const runs = [deleted('Origi', 's0000050', 'c0000001'), deleted('nal', 's0000051', 'c0000001')];
+    expect(markFigure(runs, 's0000051')).toBe(false);
   });
 });

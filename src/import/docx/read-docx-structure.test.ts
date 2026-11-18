@@ -93,6 +93,30 @@ describe('reading the structure of word processing documents', () => {
     expect(codes(result)).toContain('applied caption-numbered 3');
   });
 
+  it('DOCE-IMPORT-2.10 keeps a caption’s formats, label and separator taken off', async () => {
+    const result = await read([
+      figure,
+      paragraph(
+        `${run('Figure ')}${seq('Figure', '1')}${run(': A ')}<w:r><w:rPr><w:b/></w:rPr><w:t>bold</w:t></w:r>${run(' plot ')}`,
+        style('Caption'),
+      ),
+      paragraph(`${run('Table 2. Rain ')}<w:r><w:rPr><w:i/></w:rPr><w:t>by year</w:t></w:r>`),
+      table(),
+    ]);
+    const captions = blocks(result).map((node) => node.content?.[0]?.content);
+    expect(captions).toEqual([
+      [
+        { type: 'text', text: 'A ' },
+        { type: 'text', text: 'bold', marks: [{ type: 'bold' }] },
+        { type: 'text', text: ' plot' },
+      ],
+      [
+        { type: 'text', text: 'Rain ' },
+        { type: 'text', text: 'by year', marks: [{ type: 'italic' }] },
+      ],
+    ]);
+  });
+
   it('DOCE-IMPORT-2.10 reads a caption field in any paragraph and a labelled paragraph as captions', async () => {
     const result = await read([
       table(),

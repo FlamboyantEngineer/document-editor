@@ -1,6 +1,8 @@
 // A paragraph's inline content as Markdown: text in its formats and link, line breaks, math,
 // footnote references, abbreviations, mentions, variables and images.
 
+import { storedCaptionOf } from '../../schema/caption-content.js';
+import { normalizeCaptionText } from '../../schema/caption-text.js';
 import { safeHref } from '../../schema/dom-attributes.js';
 import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
@@ -127,3 +129,23 @@ function inlineOf(node: StoredNode, writing: Writing): string {
 /** Inline content as Markdown. */
 export const inlines = (content: readonly StoredNode[] | undefined, writing: Writing): string =>
   (content ?? []).map((node) => inlineOf(node, writing)).join('');
+
+// Stored inline content with every text in italics, as a caption is written.
+const italicized = (content: readonly StoredNode[]): StoredNode[] =>
+  content.map((node) => {
+    if (node.type !== 'text' || node.marks?.some((mark) => mark.type === 'italic')) return node;
+    return { ...node, marks: [...(node.marks ?? []), { type: 'italic' }] };
+  });
+
+/**
+ * An object's caption as one line of Markdown in italics: a figure's or a table's in its formats,
+ * with its footnotes, comments and suggestions as any text's; a code block's from its text.
+ */
+export function captionLine(node: StoredNode, writing: Writing): string {
+  if (node.type === 'codeBlock') {
+    const caption = normalizeCaptionText(node.attrs?.caption);
+    return caption ? `*${escapeText(caption)}*` : '';
+  }
+  const content = storedCaptionOf(node)?.content ?? [];
+  return inlines(italicized(content), writing).trim();
+}

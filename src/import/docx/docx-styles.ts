@@ -44,6 +44,9 @@ export interface DocxStyles {
 
 const PLAIN: ParagraphRole = { kind: 'paragraph', level: 1 };
 
+// The character styles the writer's caption labels carry, a figure's, a table's and a code block's.
+const CAPTION_LABEL_STYLES = new Set(['CaptionLabel', 'TableCaptionLabel', 'CodeCaptionLabel']);
+
 // Built-in styles by their lower-case names, which Word keeps whatever the style id.
 const NAMED: ReadonlyMap<string, ParagraphRole> = new Map<string, ParagraphRole>([
   ['normal', PLAIN],
@@ -147,7 +150,7 @@ export function readStyles(root: XmlElement | null): DocxStyles {
     roleOf: (styleId) => roleOf(styleId),
     namesOf,
     numberingOf: (styleId) => numberingOf(styleId),
-    isCaptionLabel: (styleId) => styleId === 'CaptionLabel',
+    isCaptionLabel: (styleId) => CAPTION_LABEL_STYLES.has(styleId ?? ''),
     isListParagraph: (styleId) =>
       !!styleId &&
       (styleId === 'ListParagraph' || styles.get(styleId)?.name.toLowerCase() === 'list paragraph'),

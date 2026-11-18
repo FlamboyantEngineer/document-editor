@@ -34,7 +34,7 @@ export function captionTextOf(node: ProseMirrorNode, parent?: ProseMirrorNode | 
 }
 
 /** A stored figure's or table's caption, its first child; null when it has none. */
-function storedCaptionOf(node: StoredNode): StoredNode | null {
+export function storedCaptionOf(node: StoredNode): StoredNode | null {
   const first = node.content?.[0];
   return first?.type === 'caption' ? first : null;
 }

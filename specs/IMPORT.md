@@ -94,9 +94,9 @@ Verification: `src/import/docx/read-docx.test.ts`
 
 ### DOCE-IMPORT-2.10 - Captions
 
-A paragraph in Word's caption style, or one based on it, a paragraph holding a `SEQ` field and, unless `textCaptions` is false, a plain paragraph whose text starts with `Figure`, `Fig.` or `Table`, a number such as `2`, `2.1` or `A-1`, and a separator (`.`, `:` or a dash) followed by a space, shall be the caption of the figure, table or code block beside it: a table's caption looks for a table below it first, then above; a figure's and a code block's above first, then below; a caption whose label says nothing a figure or code block above it or a table or code block below it, then the other side; each past up to two empty paragraphs, which stay. A block that already has a caption keeps it. The caption shall lose its label and number, up to the `SEQ` field's result or the writer's `CaptionLabel` runs, and the separator after them, since the template numbers captions, and its paragraph shall go, with a `caption-numbered` warning. A caption with nothing to caption shall stay a paragraph, its label and number kept, with a `caption-left-out` warning when the caption style or a `SEQ` field made it one; a plain paragraph that only looked like one stays as it was. Text such as `Table 2 shows` is no caption.
+A paragraph in Word's caption style, or one based on it, a paragraph holding a `SEQ` field and, unless `textCaptions` is false, a plain paragraph whose text starts with `Figure`, `Fig.` or `Table`, a number such as `2`, `2.1` or `A-1`, and a separator (`.`, `:` or a dash) followed by a space, shall be the caption of the figure, table or code block beside it: a table's caption looks for a table below it first, then above; a figure's and a code block's above first, then below; a caption whose label says nothing a figure or code block above it or a table or code block below it, then the other side; each past up to two empty paragraphs, which stay. A block that already has a caption keeps it. The caption shall lose its label and number, up to the `SEQ` field's result or the writer's caption label runs (`CaptionLabel`, `TableCaptionLabel`, `CodeCaptionLabel`), and the separator after them, keeping a figure's or a table's formats, links, footnotes and comments, since the template numbers captions, and its paragraph shall go, with a `caption-numbered` warning. A caption with nothing to caption shall stay a paragraph, its label and number kept, with a `caption-left-out` warning when the caption style or a `SEQ` field made it one; a plain paragraph that only looked like one stays as it was. Text such as `Table 2 shows` is no caption.
 
-Implementation: `src/import/docx/docx-paragraph.ts`, `src/import/docx/docx-captions.ts`, `src/import/docx/docx-fields.ts`
+Implementation: `src/import/docx/docx-paragraph.ts`, `src/import/docx/docx-caption-content.ts`, `src/import/docx/docx-captions.ts`, `src/import/docx/docx-fields.ts`
 Verification: `src/import/docx/read-docx-structure.test.ts`, `src/import/docx/read-docx.test.ts`
 
 ### DOCE-IMPORT-2.11 - Cross-references
@@ -196,10 +196,10 @@ Verification: `src/model/format/markdown-read.test.ts`
 
 ### DOCE-IMPORT-4.3 - Reading back the writer
 
-Markdown that `writeMarkdown` (DOCE-FORMAT-4.1) wrote for a document of the regression set shall read into a document that `readDocumentFile` reads and that `writeMarkdown` writes as the same Markdown, apart from spaces at line ends, except where the writer itself drops content, which shall then write the same Markdown a second time.
+A paragraph whose text is all in italics, after a figure or before a table as the writer places a caption, shall be that object's caption, its italics taken off and its other formats and footnotes kept. Markdown that `writeMarkdown` (DOCE-FORMAT-4.1) wrote for a document of the regression set shall read into a document that `readDocumentFile` reads and that `writeMarkdown` writes as the same Markdown, apart from spaces at line ends, except where the writer itself drops content, which shall then write the same Markdown a second time.
 
-Implementation: `src/model/format/markdown-read.ts`
-Verification: `src/model/format/markdown-read.test.ts`
+Implementation: `src/model/format/markdown-read.ts`, `src/model/format/markdown-read-captions.ts`
+Verification: `src/model/format/markdown-read.test.ts`, `src/model/format/markdown-round-trip.test.ts`
 
 ### DOCE-IMPORT-4.4 - Markdown edge cases
 

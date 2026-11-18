@@ -2,13 +2,12 @@
 // figures, rules, template blocks and lists of abbreviations, as tables. A block a suggestion
 // leaves out, a page break and any other list of contents are left out.
 
-import { storedCaptionText } from '../../schema/caption-content.js';
 import { storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { assetAddress } from '../writer-values.js';
 import { abbreviationTable } from './abbreviations.js';
 import { codeFence, escapeHeadingEnd, escapeLineStart, escapeText, linkAddress } from './escape.js';
-import { inlines } from './inlines.js';
+import { captionLine, inlines } from './inlines.js';
 import { tableOf } from './tables.js';
 import { text, type Writing } from './writing.js';
 
@@ -27,8 +26,7 @@ const prefixed = (
     .join('\n');
 
 // A caption below the block it captions, in italics.
-const captioned = (block: string, caption: unknown) =>
-  text(caption) ? `${block}\n\n*${escapeText(text(caption))}*` : block;
+const captioned = (block: string, caption: string) => (caption ? `${block}\n\n${caption}` : block);
 
 function listOf(node: StoredNode, writing: Writing): string {
   const ordered = node.type === 'orderedList';
@@ -50,8 +48,8 @@ function listOf(node: StoredNode, writing: Writing): string {
 function figureOf(node: StoredNode, writing: Writing): string | null {
   const address = assetAddress(node, writing.values);
   const alt = node.attrs?.alt;
-  const caption = storedCaptionText(node);
-  if (!address) return text(caption) ? `*${escapeText(text(caption))}*` : null;
+  const caption = captionLine(node, writing);
+  if (!address) return caption || null;
   return captioned(`![${escapeText(text(alt))}](${linkAddress(address)})`, caption);
 }
 
@@ -115,8 +113,8 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
   orderedList: listOf,
   blockquote: (node, writing) =>
     prefixed(blocks(node.content, writing).join('\n\n'), ['> ', '> ', '>']),
-  codeBlock: (node) =>
-    captioned(fenced(inlineText(node.content), node.attrs?.language), node.attrs?.caption),
+  codeBlock: (node, writing) =>
+    captioned(fenced(inlineText(node.content), node.attrs?.language), captionLine(node, writing)),
   linkedCode: (node) => fenced(text(node.attrs?.code), node.attrs?.language),
   mathBlock: (node) => `$$\n${storedMathSource(node)}\n$$`,
   table: (node, writing) => tableOf(node, writing, blocks),
