@@ -884,6 +884,15 @@
   background: color-mix(in srgb, #953800 14%, transparent);
 }
 
+/* Text an agent generated: its writer's tint, striped. */
+.de-document-editor[data-authorship='true'] [data-author-source='generated'] {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, currentColor 12%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+}
+
 /* The script editor: the script beside its preview and reference. */
 .de-script-editor {
   display: grid;

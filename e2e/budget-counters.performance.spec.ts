@@ -78,6 +78,16 @@ test.describe('counter budgets', () => {
     expect(large?.pagesBefore ?? 0).toBeGreaterThan(small?.pagesBefore ?? 0);
   });
 
+  test('DOCE-LABS-2.5 DOCE-EDITOR-5.4 finds the page in view by halving, reading few page boxes per wheel event on 40 pages', async ({
+    lab,
+    page,
+  }) => {
+    const { runs } = await measureWheel(lab, page);
+    const [small, large] = runs;
+    expectMeets(BUDGETS.pageReads5, small?.pageReadsPerWheel ?? Infinity);
+    expectMeets(BUDGETS.pageReads40, large?.pageReadsPerWheel ?? Infinity);
+  });
+
   test('DOCE-LABS-2.5 restyles at most three times as many elements per keystroke on 40 pages as on 5, and at most 800 for an Enter', async ({
     lab,
     page,

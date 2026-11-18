@@ -6,8 +6,17 @@ import { type Key, TableGlyph } from '@flamboyantengineer/ui-components/core';
 import { GridSizePicker } from '@flamboyantengineer/ui-components/grid-size-picker';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
+import { Shortcut } from '@flamboyantengineer/ui-components/shortcut';
 import type { EditorState } from 'prosemirror-state';
-import { type CSSProperties, memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import {
+  type CSSProperties,
+  memo,
+  type ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { customStyleAt, insertTable, shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { blockStyle, blockStyles } from './block-styles.js';
@@ -56,7 +65,12 @@ const BlockStyleField = memo(function BlockStyleField({
   isCustom: boolean;
   isDisabled: boolean;
   labels: DocumentEditorLabels;
-  options: readonly { id: string; label: string; shortcut: string | undefined }[];
+  options: readonly {
+    id: string;
+    label: string;
+    shortcut: string | undefined;
+    tooltip: ReactNode;
+  }[];
   preview: CSSProperties;
   onChoose: (key: Key | null) => void;
 }) {
@@ -97,7 +111,18 @@ export function BlockStyleSelect({
   const { labels } = context;
   const styles = useBlockStyles(context.state, labels, customStyles);
   const options = useMemo(
-    () => styles.map(({ id, label, shortcut }) => ({ id, label, shortcut })),
+    () =>
+      styles.map(({ id, label, shortcut }) => ({
+        id,
+        label,
+        shortcut,
+        // Its name and key, beside the option while it is hovered or focused.
+        tooltip: shortcut ? (
+          <>
+            {label} (<Shortcut chord={shortcut} appearance="text" />)
+          </>
+        ) : undefined,
+      })),
     [styles],
   );
   const preview = useMemo(() => previewProperties(templateStyle), [templateStyle]);
