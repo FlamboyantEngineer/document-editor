@@ -695,6 +695,13 @@ While a run of the document's scripts is in flight (DOCE-OBJECTS-4.2), the edito
 Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/object-labels.ts`
 Verification: `src/components/document-editor/script-entries.test.tsx`
 
+### DOCE-EDITOR-7.8 - A change suggest mode refused
+
+While suggesting, when the writer makes a change a suggestion cannot record, which is not made (DOCE-SUGGESTIONS-1.5), the editor shall show a `warning` banner first among its own (`suggestion-refused`, `suggestionRefused`) saying why (`suggestionRefusedDetail(reason)`): a change of structure around blocks, such as a list, a split of a list item or of a block laid out across pages, a block that cannot be suggested, formatting a suggestion cannot record, an object whose deletion nothing in it names as the writer's, or another change, and that the writer may stop suggesting to make it directly. The banner goes at the writer's next change of the document, and dismissed it stays hidden until the next refusal. A host reads the same reason from the state (`suggestionRefusalOf`).
+
+Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/banner-labels.ts`
+Verification: `src/components/document-editor/suggestion-refused-banner.test.tsx`
+
 ## DOCE-EDITOR-8 - Side panels
 
 ### DOCE-EDITOR-8.1 - A controlled side panel

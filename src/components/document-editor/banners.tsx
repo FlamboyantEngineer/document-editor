@@ -1,5 +1,6 @@
 // The editor's banner region, floating over the top of the document between the panels: the host's
-// banners, then the editor's own, telling the writer the document's scripts are running or failed,
+// banners, then the editor's own, telling the writer a change suggest mode could not record, that
+// the document's scripts are running or failed,
 // that the document is out of step with its template and which of the template's fonts did not
 // load. The region scrolls on its own, so a long stack
 // never pushes the document; banners that come or go while the reader drags, selects or resizes
@@ -13,6 +14,7 @@ import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { scriptsState } from '../../engine/script-state.js';
+import { suggestionRefusalOf } from '../../engine/suggestion-refusal.js';
 import {
   type SectionDrift,
   syncTemplateSections,
@@ -44,6 +46,7 @@ export interface DocumentBanner {
 
 /** The editor's own banners, published as `data-banner`. */
 export const EDITOR_BANNERS = [
+  'suggestion-refused',
   'scripts-running',
   'script-error',
   'template-update',
@@ -164,6 +167,26 @@ function scriptBanners(
   return banners;
 }
 
+// The change suggest mode could not record, and why, until the writer changes the document or
+// dismisses it.
+function refusalBanner(
+  state: EditorState,
+  { labels, dismissed, dismiss }: BannerDismissal & { labels: DocumentEditorLabels },
+): DocumentBanner[] {
+  const refusal = suggestionRefusalOf(state);
+  const key = `suggestion-refused:${String(refusal?.count)}`;
+  if (!refusal || dismissed.has(key)) return [];
+  return [
+    {
+      id: 'suggestion-refused',
+      tone: 'warning',
+      title: labels.suggestionRefused,
+      description: labels.suggestionRefusedDetail(refusal.reason),
+      onDismiss: dismiss(key),
+    },
+  ];
+}
+
 interface BannerDismissal {
   readonly dismissed: ReadonlySet<string>;
   readonly dismiss: (key: string) => () => void;
@@ -179,6 +202,7 @@ function useEditorBanners(props: DocumentBannersProps): DocumentBanner[] {
   const fontsKey = `fonts-missing:${missingFonts.join('\n')}`;
   const update = useTemplateUpdateBanner(props);
   const own: DocumentBanner[] = [
+    ...refusalBanner(state, { labels, dismissed, dismiss }),
     ...scriptBanners(state, { labels, dismissed, dismiss }),
     ...(update ? [update] : []),
   ];
