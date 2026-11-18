@@ -1365,20 +1365,21 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
     expect(allowed(inserted, taken, 'writer')).toBe(false);
   });
 
-  it('refuses a footnote number the editors’ numbering does not give, also beside a suggested footnote', () => {
+  it('refuses a change to any footnote attribute without edit rights, the writer’s own suggested footnote too', () => {
     const before = start();
     const markerAt = listFootnotes(before.doc).get('n1')?.marker ?? 0;
-    const forged = before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7);
-    expect(allowed(before, forged, 'writer')).toBe(false);
+    const renamed = before.tr.setNodeAttribute(markerAt, 'footnoteId', 'n7');
+    expect(allowed(before, renamed, 'writer')).toBe(false);
     const inserted = suggested();
     expect(allowed(before, inserted, 'writer')).toBe(true);
     const entryAt = listFootnotes(inserted.doc).get('n1')?.entry ?? 0;
-    const renumbered = inserted.tr.setNodeAttribute(entryAt, 'footnoteNumber', 1);
-    expect(allowed(before, { doc: renumbered.doc }, 'writer')).toBe(false);
-    // The writer's own suggested footnote takes no other number either.
+    const entry = inserted.tr.setNodeAttribute(entryAt, 'footnoteId', 'n7');
+    expect(allowed(before, { doc: entry.doc }, 'writer')).toBe(false);
     const ownAt = listFootnotes(inserted.doc).get('n0')?.marker ?? 0;
-    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteNumber', 5);
+    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteId', 'n5');
     expect(allowed(before, { doc: own.doc }, 'writer')).toBe(false);
+    // A footnote's number is no attribute of the schema: setting one changes nothing.
+    expect(before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7).doc.eq(before.doc)).toBe(true);
   });
 
   it('lets only a writer who decides reject another writer’s suggested footnote', () => {

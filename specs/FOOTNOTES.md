@@ -6,7 +6,7 @@ Inserting footnotes, keeping their entries with their markers and in order, numb
 
 ### DOCE-FOOTNOTES-1.1 - Inserting a footnote
 
-`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, before the entries of footnotes cited after it, so the area lists its entries in marker order, both numbered in document order, with the caret in the entry. A marker inserted inside a comment or a suggestion, whose marks the text on both sides of the caret carries, takes those marks, so it belongs to that comment or suggestion. Mod-Alt-F inserts one. An entry is one run of text: it takes inline formatting, the toolbar offers no block objects in it, Enter and Shift+Enter add nothing, and an entry whose text is all deleted stays, empty, while its marker does.
+`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, before the entries of footnotes cited after it, so the area lists its entries in marker order, with the caret in the entry; its view numbers both (DOCE-FOOTNOTES-2.2). A marker inserted inside a comment or a suggestion, whose marks the text on both sides of the caret carries, takes those marks, so it belongs to that comment or suggestion. Mod-Alt-F inserts one. An entry is one run of text: it takes inline formatting, the toolbar offers no block objects in it, Enter and Shift+Enter add nothing, and an entry whose text is all deleted stays, empty, while its marker does.
 
 Implementation: `src/engine/footnotes.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/footnotes.test.ts`, `e2e/objects.spec.ts`, `e2e/session.spec.ts`
@@ -27,8 +27,9 @@ After each of the writer's changes, `createFootnotes()`, which the editing plugi
 - a marker in another section than its entry, as after its paragraph is moved there, takes the entry to its own footnote area, with its text;
 - a marker repeated for one id, as a copy and paste makes, keeps its id where the original was, and each copy becomes a footnote of its own with a new id and a copy of the text;
 - an entry repeated for one id is deleted;
-- each footnote area lists its entries in marker order;
-- unless the template numbers footnotes on each page, the markers and entries are numbered in document order, so the web layout numbers them too.
+- each footnote area lists its entries in marker order.
+
+It sets no number: each view numbers the footnotes it shows (DOCE-FOOTNOTES-2.2).
 
 Changes that only type or delete text inside one text block (`isInlineTextOnly`) shall not walk the document, and remote changes (`isRemote`, `isRemoteTransaction` by default) are left to the writer who made them.
 
@@ -63,14 +64,21 @@ A double click on a marker shall show its entry, and a double click on an entry'
 Implementation: `src/engine/footnotes.ts`
 Verification: `src/engine/footnotes.test.ts`
 
-## DOCE-FOOTNOTES-2 - Numbering in a layout without pages
+## DOCE-FOOTNOTES-2 - Numbers each view shows
 
-### DOCE-FOOTNOTES-2.1 - Numbers in each section
+### DOCE-FOOTNOTES-2.1 - Numbers through the document, in each section or on each page
 
-`numberFootnotes(tr, { restartEach: 'section' })` shall number the footnotes from 1 in each section, in marker order, reading the sections through the document structure (`documentSections`), never pages. `createSectionFootnoteNumbers({ enabled, isRemote })` shall number them so after each change that is neither only typing nor remote (DOCE-EDITING-3.3), and after a transaction with `sectionFootnoteNumbersKey` meta, out of the undo history, while `enabled` says so; a remote change keeps the numbers it came with. `DocumentEditor` shall enable it in the web layout of a template that numbers footnotes on each page, where each section is one page and no pagination numbers them, and number them again when it enters the web layout or the template changes; on pages the pagination numbers them on each page.
+`numberFootnoteParts(doc, numbering)` shall give each footnote marker and entry of a document its number: its footnote's place, from 1, in the order of the markers' first citations in reading order (a caption's with the text around it), through the document (`document`, the default), from 1 in each section, read through the document structure (`section`, a layout without pages, where each section is one page), or from 1 on each page (`page`). A part whose footnote no marker in its section or page cites has none. `DocumentEditor` shall number the footnotes in each section in the web layout of a template that numbers footnotes on each page, and through the document otherwise, number them again when it enters the web layout or the template changes, whatever template the state's plugins were given; on pages the pages number them (DOCE-PAGINATION-7.2).
 
-Implementation: `src/engine/footnote-model.ts`, `src/engine/section-footnote-numbers.ts`, `src/components/document-editor/use-document-layout.ts`
-Verification: `src/engine/footnotes.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `e2e/regression.spec.ts`
+Implementation: `src/engine/footnote-numbers.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/engine/footnote-numbers.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `e2e/regression.spec.ts`
+
+### DOCE-FOOTNOTES-2.2 - Numbers are not content
+
+A footnote's number shall be no part of the document: the schema gives markers and entries no number, so no transaction sets one, and the editing state, a shared room, the stored file and a version hold none. `createFootnoteNumbers({ numbering })`, which the editing extension installs (DOCE-EDITING-3.1) to number in each section when its template numbers footnotes on each page and through the document otherwise (`unpagedNumbering`), shall draw the numbers on its view as decorations: the number as the marker's text and as the text of the entry's number (`.pm-footnote-entry-number`), and `data-footnote-number` and the tooltip (`Footnote n`, in the schema's tooltip attribute) on the marker and the entry, so a stylesheet reads the same hooks in every layout; `footnoteNumberOf(decorations)` gives a host's own node view its number. They shall be counted again after any change but typing or deleting text inside one text block (`isInlineTextOnly`), which moves no marker and only maps them, so typing pays no footnote lookup, and after a transaction marked with `renumberFootnotes(tr, numbering?)`, whose numbering, when given, holds from then on (null shows none). The pages and the view that measures them number their own (`withFootnoteNumbers`, DOCE-PAGINATION-7.2). A remote change is numbered as a local one and nothing is written back, so writers whose layouts number differently send nothing for each other's footnotes. A footnote marker or entry written as markup, without a view, carries its id and no number; the static render numbers them as the editor does (DOCE-EDITOR-6.27).
+
+Implementation: `src/engine/footnote-numbers.ts`, `src/engine/document-editing.ts`, `src/model/schema/footnote-nodes.ts`
+Verification: `src/engine/footnote-numbers.test.ts`, `src/collab/sync.test.ts`, `src/collab/room-change-guard.test.ts`, `e2e/shared-room.spec.ts`
 
 ## DOCE-FOOTNOTES-3 - Footnotes on pages
 

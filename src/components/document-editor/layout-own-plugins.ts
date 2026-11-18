@@ -1,5 +1,5 @@
 // The plugins a document's layout adds to the editor's own: its page debugging, list starts, page
-// variables and dynamic template content, footnote numbers by section, search, authorship, region
+// variables and dynamic template content, search, authorship, region
 // and template content editing with its script previews, sections, template edit defaults, change
 // lines, version changes, unbreakable citation identifiers, the refresh of abbreviations a writer
 // adds and, unless the host installs its own, its lists of contents.
@@ -16,16 +16,11 @@ import {
   createReferenceIdentifiers,
   createRegionEditing,
   createSearch,
-  createSectionFootnoteNumbers,
   createTemplateContentEditing,
   createTemplateScriptPreviews,
   createVersionChanges,
 } from '../../engine/index.js';
-import {
-  findTemplateSection,
-  resolveFootnoteSettings,
-  templatePageMetrics,
-} from '../../model/index.js';
+import { findTemplateSection, templatePageMetrics } from '../../model/index.js';
 import { createListStarts, createPageDebug, createPageVariables } from '../../pagination/index.js';
 import { editorContents } from './editor-contents.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
@@ -44,11 +39,6 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
     createListStarts(),
     createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
     createDynamicTemplates({ value: (key) => latest.current.variables?.value(key) }),
-    createSectionFootnoteNumbers({
-      enabled: () =>
-        latest.current.layout === 'web' &&
-        resolveFootnoteSettings(latest.current.template, null).numbering === 'page',
-    }),
     editorContents(latest),
     createSearch(),
     createSearch('pane'),

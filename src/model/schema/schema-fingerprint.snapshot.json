@@ -132,7 +132,6 @@
       "flags": { "defining": true, "isolating": true },
       "attrs": {
         "footnoteId": { "default": null },
-        "footnoteNumber": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
@@ -508,7 +507,6 @@
       "flags": { "inline": true, "atom": true, "selectable": true },
       "attrs": {
         "footnoteId": { "default": null },
-        "footnoteNumber": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },

@@ -301,6 +301,7 @@ describe('the editing extension', () => {
       'edit-lock',
       'element-ids',
       'footnotes',
+      'footnote-numbers',
       'comment-draft',
       'comment-anchors',
       'math-views',
@@ -320,11 +321,11 @@ describe('the editing extension', () => {
       'trailing-paragraph',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(25);
+    expect(kit.buildPlugins(undefined)).toHaveLength(26);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(24);
+    expect(shared.buildPlugins(undefined)).toHaveLength(25);
   });
 
   it('DOCE-EDITING-4.2 locks the sections the template does not let be edited, beside the host lock', () => {

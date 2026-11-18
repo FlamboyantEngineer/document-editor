@@ -237,7 +237,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
   },
   footnote_reference: {
     type: 'footnote',
-    attrs: { footnoteId: 'id', footnoteNumber: null, dataId: 'elementId' },
+    attrs: { footnoteId: 'id', dataId: 'elementId' },
   },
   math_inline: { type: 'math' },
   math_display: { type: 'mathBlock' },

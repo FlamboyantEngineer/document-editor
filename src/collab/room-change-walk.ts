@@ -101,10 +101,7 @@ function suggestionAuthor(node: Node): string | null {
 // edit.
 function readAttrs(tally: Tally, a: Node, b: Node): void {
   const names = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
-  // A footnote's number is not stored content: each editor numbers its footnotes again.
-  const changed = [...names].filter(
-    (name) => name !== 'footnoteNumber' && !sameValue(a.attrs[name], b.attrs[name]),
-  );
+  const changed = [...names].filter((name) => !sameValue(a.attrs[name], b.attrs[name]));
   if (changed.length === 0) return;
   if (!changed.some((name) => SUGGESTION_ATTRS.has(name))) return tally.need('edit');
   if (b.attrs.suggestionSplitKind || b.attrs.suggestionFormat) tally.proposed(suggestionAuthor(b));

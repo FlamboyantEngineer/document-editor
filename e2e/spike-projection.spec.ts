@@ -172,20 +172,23 @@ test.describe('paged projection spike', () => {
 
   test('check 3: IME composition and spellcheck at a page break', async ({ lab, page }) => {
     await lab.open('spike-projection');
-    // A spellcheck replacement changes the DOM text directly, as the browser does.
-    await page.evaluate((selector) => {
+    // A spellcheck replacement changes the DOM text directly, as the browser does: the first word
+    // of the paragraph's later part, wherever the layout breaks it.
+    const replaced = await page.evaluate((selector) => {
       const part = document.querySelector(`${selector}[data-split-part-index="1"]`);
       const walker = document.createTreeWalker(part ?? document.body, NodeFilter.SHOW_TEXT);
       const node = walker.nextNode() as Text | null;
       const word = node?.data.match(/^\S+/)?.[0] ?? '';
       node?.replaceData(0, word.length, 'Recovered');
+      return node?.data.slice(0, 'Recovered'.length + 12) ?? '';
     }, SPLIT);
+    expect(replaced).toMatch(/^Recovered /);
     await expect
       .poll(() =>
-        page.evaluate(() => {
+        page.evaluate((text) => {
           const editor = window.projectionSpike?.editor;
-          return editor?.canonical.doc.textContent.split('Recovered every room').length;
-        }),
+          return editor?.canonical.doc.textContent.split(text).length;
+        }, replaced),
       )
       .toBe(2);
     await expectInSync(page);

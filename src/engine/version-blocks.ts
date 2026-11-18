@@ -41,9 +41,8 @@ const VOLATILE_ATTRS = new Set([
   'continuationPlaceholder',
 ]);
 
-// The attributes the document generates: numbers, rendered output, layout ranges and status.
+// The attributes the document generates: rendered output, layout ranges and status.
 const GENERATED_ATTRS = new Set([
-  'footnoteNumber',
   'renderedHtml',
   'renderedAt',
   'provenance',

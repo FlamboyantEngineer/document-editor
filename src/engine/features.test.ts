@@ -22,6 +22,7 @@ const EDITING_KEYS = [
   'history-reveal',
   'element-ids',
   'footnotes',
+  'footnote-numbers',
   'comment-draft',
   'comment-anchors',
   'math-views',
