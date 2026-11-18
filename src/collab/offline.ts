@@ -46,11 +46,11 @@ function hasPending(doc: Y.Doc): boolean {
  * Applies a draft's cached state to a new shared document, before the connection starts: one
  * complete update, so Yjs integrates it whole, then checked for anything it left pending (the Yjs
  * pending behaviour, DOCE-COLLAB-4.6). The draft's unconfirmed changes are already in its state;
- * hand them to the connection (`unconfirmedUpdate`) so it sends them again. Returns false when the
+ * hand them to the connection (`unconfirmedUpdates`) so it sends them again, one by one. Returns false when the
  * state could not be integrated whole.
  */
 export function restoreRoomDraft(doc: Y.Doc, draft: RoomDraft, origin?: unknown): boolean {
-  const updates = [draft.state, draft.unconfirmed ?? new Uint8Array()].filter(
+  const updates = [draft.state, ...draft.unconfirmed].filter(
     (update) => update.length > 0,
   ) as Uint8Array<ArrayBuffer>[];
   // Merged, the updates are one complete update in causal order, whatever order they hold.
@@ -95,8 +95,8 @@ export function captureRoomDraft(
 ): RoomDraft {
   const { doc } = connection;
   const state = Y.encodeStateAsUpdate(doc);
-  const unconfirmed = connection.unconfirmedUpdate();
-  const settled = !unconfirmed && !connection.state().hasUnconfirmedChanges;
+  const unconfirmed = connection.unconfirmedUpdates();
+  const settled = unconfirmed.length === 0 && !connection.state().hasUnconfirmedChanges;
   return {
     mode: 'room',
     generation: readRoomGeneration(doc),
@@ -209,7 +209,7 @@ export function mergeRoomDraft(
   const cached = restoredDoc(draft);
   const mine = readRoomDocument(cached, options);
   cached.destroy();
-  if (!draft.unconfirmed || !mine) return { transaction: null, leftovers: [] };
+  if (draft.unconfirmed.length === 0 || !mine) return { transaction: null, leftovers: [] };
   const base = draft.confirmed ? yjsToDocument(draft.confirmed, options) : null;
   const theirs = writeDocumentFile(state.doc, { fragmentRules: options.fragmentRules });
   const merge = mergeDocuments({ base: base ?? EMPTY_DOCUMENT, mine, theirs });

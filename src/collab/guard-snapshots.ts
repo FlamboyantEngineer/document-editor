@@ -28,22 +28,37 @@ export function watchGuardSnapshots(
   const before = new WeakMap<Y.Transaction, readonly GuardSnapshot[]>();
   const content = new Map<RoomScope, Node | null>();
   const invalid = new Set<RoomScope>();
+  // What an editor would show of a change the strict replay refused: the reading fitted to the
+  // schema, for judging the writer's rights on it (DOCE-COLLAB-7.4).
+  const fitted = new Map<RoomScope, Node>();
   const stops = options.scopes.map((scope) => {
     content.set(scope, readContent(options.schema, scope.content));
-    const observer = (event: Y.YEvent<never>) => {
+    const replay = (held: Node, delta: AnyDelta, strict: boolean) => {
+      const tr = new Transform(held);
+      replayChange({ tr, schema: options.schema, at: -1, strict, shared: scope.content }, delta);
+      return tr.doc;
+    };
+    const fit = (held: Node | null | undefined, delta: AnyDelta) => {
+      if (!held) return;
       try {
-        const held = content.get(scope);
-        if (!held) content.set(scope, readContent(options.schema, scope.content));
-        else {
-          const tr = new Transform(held);
-          replayChange(
-            { tr, schema: options.schema, at: -1, strict: true, shared: scope.content },
-            event.deltaDeep as unknown as AnyDelta,
-          );
-          content.set(scope, tr.doc);
-        }
+        const reading = replay(held, delta, false);
+        reading.check();
+        fitted.set(scope, reading);
+      } catch {
+        // Not even an editor could show it.
+      }
+    };
+    const observer = (event: Y.YEvent<never>) => {
+      const held = content.get(scope);
+      const delta = event.deltaDeep as unknown as AnyDelta;
+      try {
+        content.set(
+          scope,
+          held ? replay(held, delta, true) : readContent(options.schema, scope.content),
+        );
       } catch {
         invalid.add(scope);
+        fit(held, delta);
       }
     };
     scope.content.observeDeep(observer as never);
@@ -62,6 +77,8 @@ export function watchGuardSnapshots(
   return {
     before: (transaction: Y.Transaction) => before.get(transaction),
     content: (scope: RoomScope) => (invalid.has(scope) ? undefined : content.get(scope)),
+    /** The reading fitted to the schema of a change the strict replay refused, if one could be. */
+    fitted: (scope: RoomScope) => (invalid.has(scope) ? fitted.get(scope) : undefined),
     /** Whether the kept reading of every scope equals a reading of its content from scratch. */
     verify: () =>
       options.scopes.every((scope) => {

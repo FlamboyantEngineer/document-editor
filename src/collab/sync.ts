@@ -143,7 +143,9 @@ export function createCollabSync({
         update: () => bound.update(),
         destroy() {
           hold.destroy();
-          bound.destroy();
+          // A view that now shows a state without this plugin, such as one bound to a reloaded
+          // shared document, has nothing left to send here.
+          bound.destroy(view.state.plugins.includes(plugin));
           if (binding === bound) binding = null;
         },
       };

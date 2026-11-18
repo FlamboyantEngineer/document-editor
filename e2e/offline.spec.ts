@@ -36,7 +36,7 @@ const draftHolds = (page: Page, value: string) =>
 const roomDraftUnconfirmed = (page: Page) =>
   page.evaluate(() => {
     const kept = sessionStorage.getItem('offline-lab:room:lab');
-    return kept ? (JSON.parse(kept) as { unconfirmed: unknown }).unconfirmed !== null : false;
+    return kept ? (JSON.parse(kept) as { unconfirmed: unknown[] }).unconfirmed.length > 0 : false;
   });
 
 const reopen = async (page: Page) => {
