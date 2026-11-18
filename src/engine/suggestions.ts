@@ -226,6 +226,12 @@ const isSplit = (slice: Slice) =>
   slice.content.childCount === 2 &&
   slice.content.size === 4;
 
+// Whether a range is one empty text block, whole.
+function isEmptyBlock(doc: ProseMirrorNode, [from, to]: readonly [number, number]): boolean {
+  const node = doc.nodeAt(from);
+  return Boolean(node?.isTextblock && !node.content.size && from + node.nodeSize === to);
+}
+
 // Suggests one replacement, and gives where the caret goes, or null when it cannot be suggested.
 function suggestReplace(
   suggesting: Suggesting,
@@ -251,7 +257,9 @@ function suggestReplace(
     markInserted(suggesting, [at, at + inline.size], group);
     return at + inline.size;
   }
-  if (from !== to) return null;
+  // A block put in place of an empty text block, as a new block takes a blank line, goes after it.
+  if (from !== to)
+    return isEmptyBlock(tr.doc, [from, to]) ? suggestBlocks(suggesting, to, slice) : null;
   return isSplit(slice)
     ? suggestSplit(suggesting, from, slice)
     : suggestBlocks(suggesting, from, slice);

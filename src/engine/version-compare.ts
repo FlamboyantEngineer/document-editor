@@ -125,8 +125,9 @@ export function collectVersionBlocks(
   const seen = new Map<string, number>();
   doc.descendants((node, pos) => {
     if (isPageChrome(node)) return false;
-    if (!node.isBlock || !(node.isTextblock || node.isAtom)) return true;
+    // A block suggested whole, such as a table, goes with all it holds.
     if (suggestions === 'rejected' && node.attrs.suggestionSplitKind === 'insertion') return false;
+    if (!node.isBlock || !(node.isTextblock || node.isAtom)) return true;
     const id = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : null;
     const { container, containerFormat, generated } = containersOf(doc.resolve(pos));
     const read = readVersionBlock(node, { pos, suggestions, generated });
