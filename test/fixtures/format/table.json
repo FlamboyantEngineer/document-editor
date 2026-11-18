@@ -12,14 +12,26 @@
           "attrs": {
             "border": "sample-tableBorderClass",
             "layout": "sample-objectLayout",
-            "caption": "sample-caption",
             "captionEnabled": false,
-            "captionId": "sample-captionDataId",
             "id": "table-1",
             "author": "author-1",
             "aiSession": "session-1"
           },
           "content": [
+            {
+              "type": "caption",
+              "attrs": {
+                "id": "caption-1",
+                "author": "author-1",
+                "aiSession": "session-1"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "sample-caption"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

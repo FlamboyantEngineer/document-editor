@@ -5,6 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { keepNodeSelected } from './caption-editing.js';
 import { laidOutFigureSize } from './figure-measure.js';
 import { nodeAtSelection, storedLayout } from './object-commands.js';
 import { laidOutColumnWidths, writeColumnWidths } from './table-resize.js';
@@ -16,14 +17,13 @@ export function setFigureSize(size: { width: number; height: number }): Command 
     const valid = [size.width, size.height].every((side) => Number.isInteger(side) && side >= 1);
     if (!found || !valid) return false;
     const { objectLayout } = found.node.attrs;
-    dispatch?.(
-      state.tr.setNodeMarkup(found.pos, undefined, {
-        ...found.node.attrs,
-        width: size.width,
-        height: size.height,
-        objectLayout: objectLayout === 'fit-page-width' ? null : objectLayout,
-      }),
-    );
+    const tr = state.tr.setNodeMarkup(found.pos, undefined, {
+      ...found.node.attrs,
+      width: size.width,
+      height: size.height,
+      objectLayout: objectLayout === 'fit-page-width' ? null : objectLayout,
+    });
+    dispatch?.(keepNodeSelected(tr, state));
     return true;
   };
 }
@@ -59,7 +59,7 @@ export function setObjectLayout(layout: 'left' | 'center' | 'right' | 'fit' | nu
       });
       const leavesFit = found.node.attrs.objectLayout === 'fit-page-width' && layout !== 'fit';
       if (leavesFit && view) keepFittedSize(tr, view, found);
-      dispatch(tr);
+      dispatch(keepNodeSelected(tr, state));
     }
     return true;
   };

@@ -4,8 +4,11 @@
 
 import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
+import { createFigure } from '../model/schema/caption-content.js';
+import { normalizeCaptionText } from '../model/schema/caption-text.js';
 import { safeHref } from '../model/schema/dom-attributes.js';
 import { placeBlockAt } from './block-place.js';
+import { keepNodeSelected } from './caption-editing.js';
 import { newBlockRange } from './tables.js';
 
 // Inserts a block where a new block goes, then places the caret as `caret` asks.
@@ -63,13 +66,21 @@ export function insertCodeBlock(language = 'plaintext'): Command {
 /** The innermost node of a type holding, or selected at, the selection. */
 export function nodeAtSelection(state: EditorState, types: readonly string[]) {
   const { selection } = state;
-  if (selection instanceof NodeSelection && types.includes(selection.node.type.name)) {
-    return { node: selection.node, pos: selection.from };
+  const found = (node: ProseMirrorNode, pos: number) => {
+    // A table is found through the node holding it and its caption, too.
+    const held = node.type.name === 'table_figure' && types.includes('table');
+    const table = held ? node.lastChild : null;
+    if (table && node.firstChild) return { node: table, pos: pos + 1 + node.firstChild.nodeSize };
+    return types.includes(node.type.name) ? { node, pos } : null;
+  };
+  if (selection instanceof NodeSelection) {
+    const selected = found(selection.node, selection.from);
+    if (selected) return selected;
   }
   const { $from } = selection;
   for (let depth = $from.depth; depth > 0; depth -= 1) {
-    const node = $from.node(depth);
-    if (types.includes(node.type.name)) return { node, pos: $from.before(depth) };
+    const inside = found($from.node(depth), $from.before(depth));
+    if (inside) return inside;
   }
   return null;
 }
@@ -215,7 +226,6 @@ function figureAttrs(source: FigureSource) {
       fileAssetId: source.fileAssetId,
       snapshotId: source.snapshotId,
       alt: source.alt,
-      caption: source.caption,
       width: source.width,
       height: source.height,
       objectLayout: storedLayout(source.objectLayout),
@@ -229,10 +239,9 @@ function figureAttrs(source: FigureSource) {
  */
 export function insertFigure(source: FigureSource): Command {
   return (state, dispatch) => {
-    const type = state.schema.nodes.figure;
-    if (!type) return false;
-    const attrs = figureAttrs(source);
-    return insertBlock(type.createAndFill(attrs) ?? type.create(attrs), 'select')(state, dispatch);
+    const figure = createFigure(state.schema, figureAttrs(source), source.caption ?? '');
+    if (!figure) return false;
+    return insertBlock(figure, 'select')(state, dispatch);
   };
 }
 
@@ -242,7 +251,17 @@ export function setFigure(source: FigureSource): Command {
     const found = nodeAtSelection(state, ['figure']);
     if (!found) return insertFigure(source)(state, dispatch, view);
     const attrs = { ...found.node.attrs, ...figureAttrs(source) };
-    dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, attrs));
+    if (!dispatch) return true;
+    const tr = keepNodeSelected(state.tr.setNodeMarkup(found.pos, undefined, attrs), state);
+    const caption = found.node.firstChild;
+    // A caption given changed replaces the caption's text; its footnotes and other content go too.
+    const text = source.caption === undefined ? null : normalizeCaptionText(source.caption);
+    if (text !== null && caption && normalizeCaptionText(caption.textContent) !== text) {
+      const from = found.pos + 2;
+      tr.replaceWith(from, from + caption.content.size, text ? state.schema.text(text) : []);
+      tr.setSelection(NodeSelection.create(tr.doc, found.pos));
+    }
+    dispatch(tr);
     return true;
   };
 }

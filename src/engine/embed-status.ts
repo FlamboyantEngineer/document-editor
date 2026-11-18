@@ -93,7 +93,7 @@ function decorate(doc: ProseMirrorNode, resolved: ReadonlyMap<string, Resolved>)
 }
 
 // The attributes that identify an element rather than say what it holds.
-const IDENTITY_ATTRS = new Set(['dataId', 'dataAuthor', 'dataAiSession', 'captionDataId']);
+const IDENTITY_ATTRS = new Set(['dataId', 'dataAuthor', 'dataAiSession']);
 
 // Whether two fragments hold the same: the same types, text, marks and attributes, identity aside.
 function sameContent(a: Fragment, b: Fragment): boolean {

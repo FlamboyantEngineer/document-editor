@@ -83,10 +83,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Notes in cells",
             "id": "ddce582a"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Notes in cells"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

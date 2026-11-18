@@ -16,6 +16,7 @@ import {
   splitTableWith,
   type TextMeasurement,
 } from '../index.js';
+import { splitTableFigureWith } from './table-split.js';
 
 const context: SplitContext = {
   pageIndex: 0,
@@ -167,15 +168,42 @@ describe('container splits', () => {
     const plain = splitTableWith(false)(measured(table, 75, layouts), 40);
     expect(plain?.tail[0]?.node.textContent).toBe('TwoThree');
     expect(plain?.tail[0]?.height).toBe(45);
-    for (const split of [repeated, plain]) {
-      const [joined] = joinFragments(
-        [split?.head.node, split?.tail[0]?.node].filter((part): part is Node => Boolean(part)),
-      );
-      expect(joined?.textContent).toBe('NameOneTwoThree');
-    }
     const short = node('table', null, [row('table_header', 'Name'), row('table_cell', 'One')]);
     expect(splitTableWith(true)(measured(short, 35, layouts.slice(0, 2)), 20)).toBeNull();
     expect(createLayoutRules({ repeatTableHeader: false }).table?.split).toBeTypeOf('function');
+  });
+
+  it('DOCE-PAGINATION-4.5 splits a table with its caption, a later part repeating its text, and joins it back', () => {
+    const row = (cell: string, text: string) =>
+      node('table_row', null, [node(cell, null, [paragraph(text)])]);
+    const caption = node('table_caption', { dataId: 'c1' }, [documentSchema.text('Totals')]);
+    const table = node('table', { dataId: 't1' }, [
+      row('table_header', 'Name'),
+      row('table_cell', 'One'),
+      row('table_cell', 'Two'),
+      row('table_cell', 'Three'),
+    ]);
+    const figure = node('table_figure', null, [caption, table]);
+    const layouts = [{ top: 0, bottom: 10 }, ...rows(3, 20, 10)];
+    for (const repeat of [true, false]) {
+      const split = splitTableFigureWith(repeat)(measured(figure, 75, layouts), 40);
+      const head = split?.head.node;
+      const tail = split?.tail[0]?.node;
+      expect([head?.attrs.splitPartIndex, tail?.attrs.splitPartIndex]).toEqual([0, 1]);
+      expect(head?.firstChild).toBe(caption);
+      expect(head?.lastChild?.attrs.splitPartIndex).toBe(0);
+      // The later part's caption is empty, showing the caption's text, and carries no id.
+      expect(tail?.firstChild?.attrs).toMatchObject({ continuedText: 'Totals', dataId: null });
+      expect(tail?.firstChild?.content.size).toBe(0);
+      expect(tail?.lastChild?.textContent).toBe(repeat ? 'NameTwoThree' : 'TwoThree');
+      const [joined] = joinFragments([head, tail].filter((part): part is Node => Boolean(part)));
+      expect(joined?.eq(figure)).toBe(true);
+      // A later part split again repeats the caption's text too.
+      const again = split?.tail[0];
+      const last = again ? splitTableFigureWith(repeat)(again, 40)?.tail[0]?.node : undefined;
+      expect(last?.firstChild?.attrs.continuedText).toBe('Totals');
+    }
+    expect(createLayoutRules().table_figure?.split).toBeTypeOf('function');
   });
 
   it('DOCE-PAGINATION-4.5 splits a table only between rows no cell spans', () => {

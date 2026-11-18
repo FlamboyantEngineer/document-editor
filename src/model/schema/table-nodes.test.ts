@@ -9,9 +9,11 @@ describe('table nodes', () => {
   it('DOCE-SCHEMA-3.5 reads header, body and footer rows as the table body', () => {
     const html =
       '<table><caption>Totals</caption><thead><tr><th>Item</th></tr></thead><tbody><tr><td>Pen</td></tr></tbody><tfoot><tr><td>Sum</td></tr></tfoot></table>';
-    const table = findNode(parseMarkup(html), 'table');
+    const doc = parseMarkup(html);
+    const table = findNode(doc, 'table');
     expect(table?.childCount).toBe(3);
-    expect(table?.attrs.caption).toBe('Totals');
+    // A pasted table's caption element is its caption, before it in the node holding both.
+    expect(findNode(doc, 'table_figure')?.firstChild?.textContent).toBe('Totals');
     expect(table?.textContent).toBe('ItemPenSum');
   });
 
@@ -22,10 +24,8 @@ describe('table nodes', () => {
       `${colour}><p>B</p></td>`;
     const html = `<table data-caption-text="Prices" class="table-border-1px"><tbody><tr>${cell('th', 'A')}${styled}</tr></tbody></table>`;
     const doc = parseMarkup(html);
-    expect(findNode(doc, 'table')?.attrs).toMatchObject({
-      caption: 'Prices',
-      tableBorderClass: 'table-border-1px',
-    });
+    expect(findNode(doc, 'table')?.attrs).toMatchObject({ tableBorderClass: 'table-border-1px' });
+    expect(findNode(doc, 'table_caption')?.textContent).toBe('Prices');
     expect(findNode(doc, 'table_cell')?.attrs).toMatchObject({
       textAlign: 'center',
       verticalAlign: 'top',
@@ -36,13 +36,16 @@ describe('table nodes', () => {
     });
     const columns = '<colgroup><col><col style="width: 120px;"></colgroup>';
     const caption =
-      '<caption class="doc-caption-line doc-table-caption-line" data-caption-kind="table" contenteditable="false">' +
+      '<div class="doc-caption-line doc-table-caption-line" data-caption-kind="table">' +
       '<span class="doc-caption-text" data-doc-caption-text="true">Prices</span>' +
-      '<span class="doc-caption-continued" data-doc-caption-continued="true"></span></caption>';
-    expect(roundTrip(html)).toBe(html.replace('<tbody>', `${caption}${columns}<tbody>`));
-    // A hidden caption writes no caption line.
-    const hidden = html.replace('<table ', '<table data-caption-enabled="false" ');
-    expect(roundTrip(hidden)).not.toContain('<caption');
+      '<span class="doc-caption-continued" data-doc-caption-continued="true"></span></div>';
+    const table = html
+      .replace(' data-caption-text="Prices"', '')
+      .replace('<tbody>', `${columns}<tbody>`);
+    const written = `<div class="doc-table-figure">${caption}${table}</div>`;
+    expect(roundTrip(html)).toBe(written);
+    // What the editor writes reads back as it was.
+    expect(roundTrip(written)).toBe(written);
   });
 
   it('DOCE-SCHEMA-3.5 reads and writes only the alignments a cell takes', () => {
@@ -100,8 +103,7 @@ describe('table nodes', () => {
       cell.create({ colwidth: width ? [width] : null }, paragraph.create());
     const render = (...cells: ReturnType<typeof sized>[]) =>
       table.spec.toDOM?.(table.create(null, [row.create(null, cells)])) as readonly unknown[];
-    const [, attrs, caption, columns] = render(sized(100), sized(300));
-    expect((caption as readonly unknown[])[0]).toBe('caption');
+    const [, attrs, columns] = render(sized(100), sized(300));
     expect(attrs).toMatchObject({
       style: 'width:calc(400px + var(--doc-table-border-width, 1px));max-width:100%',
     });
@@ -110,7 +112,7 @@ describe('table nodes', () => {
       ['col', { style: 'width:100px' }],
       ['col', { style: 'width:300px' }],
     ]);
-    const [, partly, , partColumns] = render(sized(100), sized(null));
+    const [, partly, partColumns] = render(sized(100), sized(null));
     expect(partly).not.toHaveProperty('style');
     expect(partColumns).toEqual(['colgroup', ['col', { style: 'width:100px' }], ['col']]);
   });

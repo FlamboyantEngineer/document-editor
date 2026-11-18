@@ -137,7 +137,7 @@ describe('Enter in each text block', () => {
     ['a heading', [heading('Alpha')], ['heading:Al', 'heading:pha']],
     ['a quote', [quote('Alpha')], ['blockquote:Alpha']],
     ['a list item', [bullets('Alpha')], ['bullet_list:Alpha']],
-    ['a table cell', [table('Alpha', 'Beta')], ['table:AlphaBeta']],
+    ['a table cell', [table('Alpha', 'Beta')], ['table_figure:AlphaBeta']],
     ['a code block', [code('Alpha')], ['code_block:Al\npha']],
   ];
 
@@ -154,7 +154,7 @@ describe('Enter in each text block', () => {
   it('DOCE-EDITING-2.3 keeps a table cell split inside the cell, with no new row or column', () => {
     const doc = read([table('Alpha', 'Beta')]);
     const next = press(stateAt(doc, positionOf(doc, 'Alpha') + 5), 'Enter');
-    const row = next.doc.child(0).child(0).child(1).child(0).child(0);
+    const row = next.doc.child(0).child(0).child(1).child(0).child(1).child(0);
     expect(row.childCount).toBe(2);
     expect(row.child(0).childCount).toBe(2);
     expect(next.selection.$from.node(-1).type.name).toBe('table_cell');
@@ -199,8 +199,8 @@ describe('Backspace and Delete in each text block', () => {
       const state = stateAt(doc, at);
       let next = state;
       (keys[name] as Command)(state, (tr) => (next = next.apply(tr)));
-      expect(outline(next.doc)).toEqual(['table:AlphaBeta']);
-      expect(next.doc.child(0).child(0).child(1).child(0).child(0).childCount).toBe(2);
+      expect(outline(next.doc)).toEqual(['table_figure:AlphaBeta']);
+      expect(next.doc.child(0).child(0).child(1).child(0).child(1).child(0).childCount).toBe(2);
     }
   });
 

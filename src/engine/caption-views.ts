@@ -1,7 +1,8 @@
-// Captions edited in place: the captioned object whose caption is being edited is kept here, mapped
-// through changes, for the editor to draw its field over the caption line. Double-clicking a
-// caption line, or `editCaption`, starts; committing sets the caption's text (`setCaption`) as one
-// change, with the object selected after.
+// A code block's caption edited in place: the code block whose caption is being edited is kept
+// here, mapped through changes, for the editor to draw its field over the caption line.
+// Double-clicking its caption line, or `editCaption`, starts; committing sets the caption's text
+// (`setCaption`) as one change, with the code block selected after. A table's or a figure's caption
+// is document content, edited as text (`caption-editing.ts`).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
@@ -12,7 +13,6 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, type EditorView } from 'prosemirror-view';
-import { CAPTION_HOST_TYPES } from './caption-hosts.js';
 import { CAPTIONED_TYPES, captionedAt, type CaptionedObject, setCaption } from './captions.js';
 import { appendTransaction, captureTransaction } from './table-parts.js';
 
@@ -20,6 +20,9 @@ import { appendTransaction, captureTransaction } from './table-parts.js';
 interface CaptionEditingState {
   readonly caption: number | null;
 }
+
+// The captioned objects whose caption is an attribute, edited in a field over its line.
+const CODE_TYPES = new Set(['code_block']);
 
 const isCaptioned = (node: ProseMirrorNode | null | undefined): node is ProseMirrorNode =>
   Boolean(node && CAPTIONED_TYPES.includes(node.type.name));
@@ -94,9 +97,9 @@ export function cancelCaptionOf<S extends CaptionEditingState>(key: PluginKey<S>
   };
 }
 
-// The captioned object a caption line belongs to: the innermost one around its position.
+// The code block a caption line belongs to: the innermost one around its position.
 function objectOfLine(view: EditorView, line: Element): number | null {
-  const object = line.parentElement?.closest('figure, table, pre');
+  const object = line.parentElement?.closest('pre');
   if (!object || !view.dom.contains(object)) return null;
   const inside = view.posAtDOM(object, 0);
   const $pos = view.state.doc.resolve(inside);
@@ -111,8 +114,7 @@ function objectOfLine(view: EditorView, line: Element): number | null {
 
 /**
  * Double-clicking a code block's caption line edits that caption in a field over it, while the
- * view is editable; a table's or a figure's caption is edited in the caption itself
- * (`caption-hosts.ts`), where a double click selects a word.
+ * view is editable; a table's or a figure's caption is text, where a double click selects a word.
  */
 export function captionDoubleClick<S extends CaptionEditingState>(key: PluginKey<S>) {
   return (view: EditorView, event: MouseEvent): boolean => {
@@ -121,7 +123,7 @@ export function captionDoubleClick<S extends CaptionEditingState>(key: PluginKey
     if (!line || !view.editable) return false;
     const pos = objectOfLine(view, line);
     const node = pos === null ? null : view.state.doc.nodeAt(pos);
-    if (pos === null || !node || CAPTION_HOST_TYPES.includes(node.type.name)) return false;
+    if (pos === null || !node || !CODE_TYPES.has(node.type.name)) return false;
     event.preventDefault();
     view.dispatch(view.state.tr.setMeta(key, { caption: pos }));
     return true;

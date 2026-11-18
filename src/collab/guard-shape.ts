@@ -31,10 +31,25 @@ function hasKnownSplit(type: Y.Type): boolean {
   return kind !== 'insertion' || (typeof author === 'string' && author.length > 0);
 }
 
+// What only the pages draw: a later part's caption text, and which part of a split table a node
+// holding a table and its caption is. A room holds the document whole, so neither is ever set there;
+// set, a caption would show text that is not its own.
+const PAGE_ONLY: Readonly<Record<string, string>> = {
+  table_caption: 'continuedText',
+  table_figure: 'splitPartIndex',
+};
+
+function hasPageOnlyAttr(type: Y.Type, name: string): boolean {
+  const attr = PAGE_ONLY[name];
+  const value: unknown = attr ? type.getAttr(attr) : undefined;
+  return value !== undefined && value !== null;
+}
+
 function hasKnownContent(type: Y.Type, options: { schema: Schema; root: Y.Type }): boolean {
   const node =
     type === options.root ? options.schema.topNodeType : options.schema.nodes[String(type.name)];
   if (!node || !hasKnownSplit(type)) return false;
+  if (hasPageOnlyAttr(type, node.name)) return false;
   let known = true;
   type.forEachAttr((_value: unknown, key: string | number) => {
     if (!Object.hasOwn(node.spec.attrs ?? {}, key)) known = false;

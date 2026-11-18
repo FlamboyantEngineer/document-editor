@@ -264,17 +264,12 @@ function insertBlocks(batch: Batch, edit: Extract<AutomationEdit, { op: 'insertB
 
 type BlockEdit = Extract<AutomationEdit, { op: 'replaceBlock' | 'deleteBlock' | 'setAttrs' }>;
 
-// A table's caption has an id of its own, kept on the table.
-const CAPTION_ID = 'captionDataId';
-
 // Why attributes may not be set on an element: one says which element it is, which comments,
 // references and later edits find it by, or its type does not define it.
 function refusedAttrs(node: ProseMirrorNode, attrs: Readonly<Record<string, unknown>>) {
   const identity = new Set(identityAttributesOf(node.type).map(({ name }) => name));
   const defined = node.type.spec.attrs ?? {};
-  const name = Object.keys(attrs).find(
-    (each) => each === CAPTION_ID || identity.has(each) || !(each in defined),
-  );
+  const name = Object.keys(attrs).find((each) => identity.has(each) || !(each in defined));
   return name === undefined ? null : refuse('invalid', `${name} cannot be set on an element`);
 }
 

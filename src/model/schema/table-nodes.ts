@@ -4,13 +4,7 @@
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
-import { normalizeCaptionText } from './caption-text.js';
-import {
-  DATA_ID_ATTR,
-  type DomAttributes,
-  TABLE_BORDER_CLASSES,
-  TABLE_CAPTION_TEXT_ATTR,
-} from './dom-attributes.js';
+import { type DomAttributes, TABLE_BORDER_CLASSES } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 import {
   firstRowColumnWidths,
@@ -32,7 +26,7 @@ const baseNodes = tableNodes({
 });
 
 /** A table's rows, header and footer rows included, as one body to parse. */
-function tableContentElement(dom: HTMLElement): HTMLElement {
+export function tableContentElement(dom: HTMLElement): HTMLElement {
   if (dom.tagName.toLowerCase() !== 'table') return dom;
   const table = dom as HTMLTableElement;
   const body = dom.ownerDocument.createElement('tbody');
@@ -48,27 +42,15 @@ function tableContentElement(dom: HTMLElement): HTMLElement {
   return body.children.length ? body : dom;
 }
 
-function directCaption(dom: HTMLElement): Element | null {
-  if (dom.tagName.toLowerCase() === 'table' && (dom as HTMLTableElement).caption) {
-    return (dom as HTMLTableElement).caption;
-  }
-  return dom.querySelector(':scope > caption');
-}
-
 function readBorderClass(dom: HTMLElement): string {
   return [...TABLE_BORDER_CLASSES].find((name) => dom.classList.contains(name)) ?? '';
 }
 
 function readTableAttrs(dom: HTMLElement) {
-  const caption = directCaption(dom);
   return {
     tableBorderClass: readBorderClass(dom),
     objectLayout: parseObjectLayout(dom.getAttribute('data-object-layout')),
     captionEnabled: dom.getAttribute('data-caption-enabled') !== 'false',
-    caption: normalizeCaptionText(
-      dom.getAttribute(TABLE_CAPTION_TEXT_ATTR) || caption?.textContent || '',
-    ),
-    captionDataId: caption?.getAttribute(DATA_ID_ATTR) || null,
   };
 }
 
@@ -102,46 +84,20 @@ function renderTable(node: ProseMirrorNode) {
     attrs.style = `width:${tableColumnTotalCss(widths, node)};max-width:100%`;
   }
   if (node.attrs.captionEnabled === false) attrs['data-caption-enabled'] = 'false';
-  attrs[TABLE_CAPTION_TEXT_ATTR] = normalizeCaptionText(node.attrs.caption || '');
   const borderClass = String(node.attrs.tableBorderClass || '');
   if (TABLE_BORDER_CLASSES.has(borderClass)) attrs.class = borderClass;
-  const caption = node.attrs.captionEnabled === false ? [] : [captionLine(node.attrs.caption)];
-  return [
-    'table',
-    attrs,
-    ...caption,
-    columnGroup(widths, layout === 'fit-page-width'),
-    ['tbody', 0],
-  ];
+  return ['table', attrs, columnGroup(widths, layout === 'fit-page-width'), ['tbody', 0]];
 }
 
-// The caption line: its label and number, which the stylesheet sets from the template, its text,
-// and on a later part of a split table, the template's continued suffix.
-function captionLine(caption: unknown) {
-  return [
-    'caption',
-    {
-      class: 'doc-caption-line doc-table-caption-line',
-      'data-caption-kind': 'table',
-      contenteditable: 'false',
-    },
-    [
-      'span',
-      { class: 'doc-caption-text', 'data-doc-caption-text': 'true' },
-      normalizeCaptionText(caption || ''),
-    ],
-    ['span', { class: 'doc-caption-continued', 'data-doc-caption-continued': 'true' }, ''],
-  ];
-}
+// A table sits in its `table_figure`, after its caption, so it is in no group of its own.
+const { group: _group, ...tableSpec } = baseNodes.table;
 
 const table: NodeSpec = {
-  ...baseNodes.table,
+  ...tableSpec,
   attrs: {
     tableBorderClass: { default: '' },
     objectLayout: { default: null },
-    caption: { default: '' },
     captionEnabled: { default: true },
-    captionDataId: { default: null },
   },
   parseDOM: [{ tag: 'table', contentElement: tableContentElement, getAttrs: readTableAttrs }],
   toDOM: (node) => renderTable(node) as unknown as OutputSpec,

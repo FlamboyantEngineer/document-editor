@@ -211,17 +211,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 0",
-            "caption": "Plan of the north beds, soil",
             "id": "7e5a0011"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the north beds, soil"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, soil",
             "id": "7e5a0021"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, soil"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -482,17 +500,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 1",
-            "caption": "Plan of the south beds, soil",
             "id": "7e5a002b"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the south beds, soil"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, soil",
             "id": "7e5a003b"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, soil"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -981,17 +1017,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 2",
-            "caption": "Plan of the east beds, water",
             "id": "7e5a005c"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the east beds, water"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, water",
             "id": "7e5a006c"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, water"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1252,17 +1306,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 3",
-            "caption": "Plan of the west beds, water",
             "id": "7e5a0076"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the west beds, water"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, water",
             "id": "7e5a0086"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, water"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1751,17 +1823,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 4",
-            "caption": "Plan of the north beds, seeds",
             "id": "7e5a00a7"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the north beds, seeds"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, seeds",
             "id": "7e5a00b7"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, seeds"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -2022,17 +2112,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 5",
-            "caption": "Plan of the south beds, seeds",
             "id": "7e5a00c1"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the south beds, seeds"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, seeds",
             "id": "7e5a00d1"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, seeds"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -8334,17 +8442,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 6",
-            "caption": "Plan of the east beds, annex",
             "id": "7e5a0336"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plan of the east beds, annex"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Sowing dates, annex",
             "id": "7e5a0346"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sowing dates, annex"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

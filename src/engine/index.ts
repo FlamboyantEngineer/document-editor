@@ -44,9 +44,14 @@ export {
 } from './block-commands.js';
 export { canInsertBlock } from './block-place.js';
 export { setTextblockType } from './block-type.js';
-export { CAPTION_HOST_TYPES, commitCaptionDraft } from './caption-hosts.js';
 export type { CaptionedObject } from './captions.js';
-export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
+export {
+  CAPTIONED_TYPES,
+  captionedAt,
+  captionNodeAt,
+  setCaption,
+  toggleCaption,
+} from './captions.js';
 export { codeTokenizerOf } from './code-highlighting.js';
 export { activeCommentThread, commentAnchors, createCommentAnchors } from './comment-anchors.js';
 export type { CommentDraft } from './comment-draft.js';

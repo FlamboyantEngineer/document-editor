@@ -2,6 +2,7 @@
 // repeats it, column widths, merged cells, cell backgrounds and vertical alignment, and the
 // caption above or below as the template places it, numbered as the editor numbers it.
 
+import { storedBodyOf, storedCaptionText } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
 import { keptContent } from '../left-out.js';
 import { countObject } from './counting.js';
@@ -136,14 +137,14 @@ function rowOf(row: StoredNode, placing: Placing, repeat: boolean): string {
 /** A table, with its caption where the template places it. */
 export function writeTable(node: StoredNode, writing: Writing, blocks: CellBlocks): string {
   const settings = writing.counting.styles.table;
-  const rows = keptContent(node.content, writing.suggestions);
+  const rows = keptContent(storedBodyOf(node), writing.suggestions);
   const grid = gridOf(rows);
   const placing: Placing = { writing: { ...writing, structural: false }, blocks, grid, merged: [] };
   const captioned = node.attrs?.captionEnabled !== false;
   const label = captioned ? countObject(writing.counting, 'table') : '';
   const caption = captionParagraph(
     label,
-    captioned ? text(node.attrs?.caption) : '',
+    captioned ? storedCaptionText(node) : '',
     settings?.caption?.alignment,
   );
   // Header rows repeat while they lead the table.

@@ -227,6 +227,7 @@ export type { TableAxis, TableLine } from './tables.js';
 export {
   createTableEditing,
   DEFAULT_TABLE_CELL_MIN_WIDTH,
+  deleteTableWithCaption,
   insertTable,
   moveSelectedTableLine,
   moveTableLine,

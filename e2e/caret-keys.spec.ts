@@ -180,6 +180,8 @@ test.describe('caret keys across pages', () => {
     const box = await paragraph.boundingBox();
     if (!box) throw new Error('The paragraph is not shown.');
     await page.mouse.click(box.x + 2, box.y + 8);
+    // The keys go where the click put the caret, once the editor has it.
+    await expect.poll(async () => (await selection(page)).focus.text).toMatch(/^Each requirement/);
     await page.keyboard.press('Home');
     await page.keyboard.press('Shift+ArrowRight');
     await expect.poll(async () => (await selection(page)).selected).toBe('E');

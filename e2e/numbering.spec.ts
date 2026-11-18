@@ -8,7 +8,10 @@ test.describe('numbering', () => {
     await lab.open('full-editor');
     const increments = (root: string) =>
       page.evaluate((selector) => {
-        const tables = document.querySelectorAll(`${selector} .pm-page-content > table`);
+        // A table is counted by what holds it with its caption.
+        const tables = document.querySelectorAll(
+          `${selector} .pm-page-content > .doc-table-figure`,
+        );
         return [...tables].map((table) => getComputedStyle(table).counterIncrement);
       }, root);
     const shown = await increments('.de-document-editor__content');

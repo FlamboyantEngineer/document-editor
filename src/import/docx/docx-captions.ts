@@ -3,6 +3,11 @@
 // each table of contents left out with the heading before it and the instructions beside it.
 
 import type { StoredNode } from '../../model/format/document-format.js';
+import {
+  storedBodyOf,
+  storedCaption,
+  storedCaptionText,
+} from '../../model/schema/caption-content.js';
 import type { CaptionPiece, ParagraphReading } from './docx-paragraph.js';
 
 /** What block reading needs: a paragraph's reading and where bookmarks are recorded. */
@@ -106,11 +111,29 @@ function captionedOn(
       blanks += 1;
       continue;
     }
-    const free =
-      isNode(entry) && types.includes(entry.type) && typeof entry.attrs?.caption !== 'string';
+    const free = isNode(entry) && types.includes(entry.type) && !hasCaption(entry);
     return free ? each : -1;
   }
   return -1;
+}
+
+// Whether a block has its caption already: a code block's attribute, or a figure's or a table's
+// first child.
+const hasCaption = (node: StoredNode) =>
+  node.type === 'codeBlock'
+    ? typeof node.attrs?.caption === 'string'
+    : storedCaptionText(node) !== '';
+
+// Gives a block its caption, shown: a code block's attribute, or a figure's or a table's first
+// child.
+function setCaption(node: StoredNode, text: string): void {
+  const { captionEnabled: _, ...attrs } = node.attrs ?? {};
+  if (node.type === 'codeBlock') {
+    node.attrs = { ...attrs, caption: text };
+    return;
+  }
+  node.attrs = attrs;
+  node.content = [storedCaption(text), ...storedBodyOf(node)];
 }
 
 // Each caption joined to the figure, table or code block beside it, its paragraph gone; one with
@@ -140,8 +163,7 @@ function joinCaption(entries: Entry[], at: number, reading: BlockReading): void 
   const entry = entries[at] as CaptionPiece;
   const node = captionedBlock(entries, at, entry);
   if (node) {
-    const { captionEnabled: _, ...attrs } = node.attrs ?? {};
-    node.attrs = { ...attrs, caption: entry.text };
+    setCaption(node, entry.text);
     reading.warnings.add('caption-numbered');
     entries[at] = null;
   } else {

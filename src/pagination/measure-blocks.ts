@@ -214,6 +214,11 @@ function measureContent(measuring: Measuring, placed: Placed): unknown {
   if (name === 'toc_block') return rowsMeasurement(measuring, relative);
   if (TEXT_TYPES.has(name)) return textMeasurement(measuring, relative);
   if (name === 'linked_code_block') return codeMeasurement(measuring, relative);
+  // A table with its caption is measured by its table's rows, the caption above or below them.
+  if (name === 'table_figure' && node.lastChild && node.firstChild) {
+    const table = { node: node.lastChild, relative: relative + 1 + node.firstChild.nodeSize };
+    return measureContent(measuring, table);
+  }
   if (!CONTAINER_TYPES.has(name)) return undefined;
   const children = childLayouts(measuring, node, relative);
   if (!children) return undefined;

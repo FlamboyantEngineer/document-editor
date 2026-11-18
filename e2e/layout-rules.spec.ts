@@ -54,7 +54,8 @@ test.describe('layout rules lab', () => {
     const tables = page.locator('.lab-pages .pm-page').filter({
       has: page.getByRole('heading', { name: /^Table / }),
     });
-    for (const each of await tables.all()) await expect(each.locator('table')).toBeAttached();
+    for (const each of await tables.all())
+      await expect(each.locator('table').first()).toBeAttached();
   });
 
   test('DOCE-PAGINATION-4.6 DOCE-PAGINATION-4.7 splits a script block’s output and a layout section’s columns across pages', async ({

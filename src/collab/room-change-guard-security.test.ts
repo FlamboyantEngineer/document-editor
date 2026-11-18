@@ -6,6 +6,7 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
@@ -29,6 +30,7 @@ import {
 import { suggestTransaction } from '../engine/suggestions.js';
 import { createMemoryHost } from '../host/index.js';
 import { type DocumentFile, readDocumentFile } from '../model/index.js';
+import { createFigure } from '../model/schema/caption-content.js';
 import { createRoomCommentStore } from './comment-store.js';
 import {
   documentToYjs,
@@ -173,6 +175,7 @@ async function setup(
     handle,
     server,
     persistence,
+    observer,
     observerDoc,
     snapshot: () => {
       const copy = new Y.Doc();
@@ -1344,5 +1347,281 @@ describe('DOCE-COLLAB-7.2 DOCE-EMBEDS-1.4 an inline embed in a guarded room', ()
     const repinned = before.tr.setNodeAttribute(at, 'pinned', true).doc;
     expect(allowed(before, repinned, 'writer', editor)).toBe(true);
     expect(allowed(before, before.tr.delete(at, at + 1).doc, 'writer', editor)).toBe(true);
+  });
+});
+
+describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
+  const suggestOnly = { edit: false, suggest: true, comment: true, decide: false };
+  const editor = { edit: true, suggest: true, comment: true, decide: false };
+  const captioned = (caption: string): DocumentFile['sections'][number]['content'][number] => ({
+    type: 'table',
+    attrs: { id: 't0000001' },
+    content: [
+      { type: 'caption', attrs: { id: 'c0000001' }, content: [text(caption)] },
+      {
+        type: 'tableRow',
+        attrs: { id: 'r0000001' },
+        content: [
+          {
+            type: 'tableCell',
+            attrs: { id: 'd0000001' },
+            content: [{ type: 'paragraph', attrs: { id: 'p0000001' }, content: [text('Cell')] }],
+          },
+        ],
+      },
+    ],
+  });
+  const stateOf = (caption: string) =>
+    EditorState.create({
+      doc: readDocumentFile(
+        { formatVersion: 1, sections: [{ name: null, content: [captioned(caption)] }] },
+        schema,
+      ).doc,
+    });
+  // The caption's text: where it starts and ends.
+  const captionText = (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'table_caption') at = pos + 1;
+      return at < 0;
+    });
+    return { from: at, to: at + 'Limits'.length };
+  };
+  const allowed = (before: EditorState, after: EditorState['doc'], granted = suggestOnly) =>
+    checkDocumentChange({ before: before.doc, after, actor: 'writer', permissions: granted });
+
+  it('lets a caption’s text change as any text does: edited by an editor, suggested by a suggester', () => {
+    const before = stateOf('Limits');
+    const { from, to } = captionText(before);
+    const edited = before.tr.insertText('Power limits', from, to);
+    expect(allowed(before, edited.doc)).toBe(false);
+    expect(allowed(before, edited.doc, editor)).toBe(true);
+    const suggestion = suggestTransaction(before.tr.insertText('Power ', from), before, {
+      author: 'writer',
+      newId: () => 's0000001',
+    });
+    if (!suggestion) throw new Error('The change was not suggested.');
+    expect(allowed(before, before.apply(suggestion).doc)).toBe(true);
+  });
+
+  it('refuses even an editor a caption showing text only the pages draw, or a table marked as a part of one split', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+      if (figure?.type.name !== 'table_figure') throw new Error('No table with its caption.');
+      // Inserts a table after the room's paragraph.
+      const insert = (node: typeof figure) =>
+        change(room.doc, (state) => {
+          let end = -1;
+          state.doc.descendants((each, pos) => {
+            if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+            return end < 0;
+          });
+          return state.apply(state.tr.insert(end, node));
+        });
+      const caption = figure.firstChild;
+      const table = figure.lastChild;
+      if (!caption || !table) throw new Error('No caption.');
+      const shown = caption.type.create({ ...caption.attrs, continuedText: 'Not its text' });
+      for (const attack of [
+        figure.type.create(figure.attrs, [shown, table]),
+        figure.type.create({ splitPartIndex: 1 }, [caption, table]),
+      ]) {
+        insert(attack);
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
+      }
+    } finally {
+      await room.close();
+    }
+  });
+
+  // The room's document with a node added after its paragraph, built without the schema's checks,
+  // as a writer sending raw content could.
+  const withRaw = (doc: Y.Doc, added: ProseMirrorNode) => {
+    const held = readContent(schema, doc.get('content'));
+    if (!held) throw new Error('Missing seeded content.');
+    let at = -1;
+    held.descendants((each, pos) => {
+      if (at < 0 && each.type.name === 'paragraph') at = pos;
+      return at < 0;
+    });
+    const $at = held.resolve(at);
+    let next = $at.parent.copy($at.parent.content.addToEnd(added));
+    for (let depth = $at.depth - 1; depth >= 0; depth -= 1) {
+      const node = $at.node(depth);
+      next = node.copy(node.content.replaceChild($at.index(depth), next));
+    }
+    doc.get('content').applyDelta(diffNodes(held, next) as never);
+  };
+
+  it('refuses even an editor a table, table holder or figure that is not whole', async () => {
+    const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+    const caption = figure?.firstChild;
+    const table = figure?.lastChild;
+    const image = createFigure(schema, { src: 'https://example.com/a.png' }, 'Board');
+    const block = schema.nodes.paragraph?.create(null, schema.text('Block'));
+    if (figure?.type.name !== 'table_figure' || !caption || !table || !image || !block) {
+      throw new Error('No table with its caption.');
+    }
+    const shapes: [string, ProseMirrorNode][] = [
+      ['a table with no holder', table],
+      ['a holder without its caption', figure.type.create(null, [table])],
+      ['a holder with two captions', figure.type.create(null, [caption, caption, table])],
+      ['a figure without its caption', image.type.create(image.attrs, [])],
+      [
+        'a block inside a caption',
+        figure.type.create(null, [caption.type.create(caption.attrs, [block]), table]),
+      ],
+    ];
+    for (const [name, shape] of shapes) {
+      const room = await setup({ granted: editor });
+      try {
+        withRaw(room.doc, shape);
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal, name).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
+  // Suggesting a whole table or figure, its caption and table marked as inserted, comes with
+  // captions that hold suggestions; until then a suggester cannot insert one.
+  it('refuses a suggester a whole table with its caption, even marked as the suggester’s', async () => {
+    const room = await setup();
+    try {
+      const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+      if (figure?.type.name !== 'table_figure') throw new Error('No table with its caption.');
+      change(room.doc, (state) => {
+        let end = -1;
+        state.doc.descendants((each, pos) => {
+          if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+          return end < 0;
+        });
+        // The suggestion engine makes no such change; a writer sending raw content could.
+        const insertion = schema.marks.insertion;
+        if (!insertion) throw new Error('Missing insertion.');
+        const tr = state.tr.insert(end, figure);
+        const suggested = tr.addMark(
+          end,
+          end + figure.nodeSize,
+          insertion.create({ dataId: 's0000002', dataAuthor: 'writer' }),
+        );
+        let marked = 0;
+        suggested.doc.descendants((each) => {
+          if (each.isText && each.marks.some((mark) => mark.type === insertion)) marked += 1;
+        });
+        expect(marked).toBe(2);
+        return state.apply(suggested);
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
+    } finally {
+      await room.close();
+    }
+  });
+
+  // Two editors' changes, each allowed alone, that together would leave a list with no items: the
+  // room reads each change exactly as it comes, so it refuses the later one rather than take a
+  // shape no reader can read, and the refused writer is refused as after any refused write.
+  it('refuses the later of two editors’ changes that together leave a shape the schema refuses', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const { nodes } = schema;
+      const item = (value: string) =>
+        nodes.list_item?.create(null, nodes.paragraph?.create(null, schema.text(value)));
+      const first = item('One');
+      const second = item('Two');
+      const list = first && second ? nodes.bullet_list?.create(null, [first, second]) : null;
+      if (!list) throw new Error('No list.');
+      change(room.doc, (state) => {
+        let end = -1;
+        state.doc.descendants((each, pos) => {
+          if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+          return end < 0;
+        });
+        return state.apply(state.tr.insert(end, list));
+      });
+      await room.provider.whenStored();
+      await vi.waitFor(() =>
+        expect(readContent(schema, room.observerDoc.get('content'))?.textContent).toContain('Two'),
+      );
+      expect(room.provider.getState().refusal).toBeNull();
+      // Each writer deletes a different item, from the same state, before seeing the other's.
+      const deleting = (index: number) => {
+        const copy = new Y.Doc();
+        Y.applyUpdate(copy, Y.encodeStateAsUpdate(room.doc));
+        const before = Y.encodeStateVector(copy);
+        change(copy, (state) => {
+          let at = -1;
+          state.doc.descendants((each, pos) => {
+            if (at < 0 && each.type.name === 'bullet_list') at = pos;
+            return at < 0;
+          });
+          const found = state.doc.nodeAt(at);
+          if (!found) throw new Error('No list.');
+          let from = at + 1;
+          for (let child = 0; child < index; child += 1) from += found.child(child).nodeSize;
+          return state.apply(state.tr.delete(from, from + found.child(index).nodeSize));
+        });
+        const update = Y.encodeStateAsUpdate(copy, before);
+        copy.destroy();
+        return update;
+      };
+      const firstDeleted = deleting(0);
+      const secondDeleted = deleting(1);
+      Y.applyUpdate(room.doc, firstDeleted);
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBeNull();
+      const stored = () => yjsToDocument(room.handle.snapshot(), { schema });
+      const admitted = stored();
+      expect(JSON.stringify(admitted)).not.toContain('One');
+      expect(JSON.stringify(admitted)).toContain('Two');
+      // The other writer's change comes after it: the room refuses it and stays whole.
+      Y.applyUpdate(room.observerDoc, secondDeleted);
+      await vi.waitFor(() => expect(room.observer.getState().refusal).toBe('unauthorized-write'));
+      expect(stored()).toEqual(admitted);
+      // The refused writer is refused as after any refused write: cut off, its change unsent, until
+      // it joins again, which brings the room's content.
+      expect(room.observer.getState()).toMatchObject({
+        status: 'disconnected',
+        hasUnconfirmedChanges: true,
+      });
+      const rejoined = new Y.Doc();
+      Y.applyUpdate(rejoined, room.handle.snapshot());
+      expect(yjsToDocument(Y.encodeStateAsUpdate(rejoined), { schema })).toEqual(admitted);
+      rejoined.destroy();
+    } finally {
+      await room.close();
+    }
+  });
+
+  it('accepts a whole table with its caption from an editor', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+      if (figure?.type.name !== 'table_figure') throw new Error('No table with its caption.');
+      change(room.doc, (state) => {
+        let end = -1;
+        state.doc.descendants((each, pos) => {
+          if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+          return end < 0;
+        });
+        return state.apply(state.tr.insert(end, figure));
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBeNull();
+      const stored = yjsToDocument(room.handle.snapshot(), { schema });
+      expect(stored?.sections[0]?.content[1]?.content?.[0]).toMatchObject({
+        type: 'caption',
+        content: [{ type: 'text', text: 'Limits' }],
+      });
+    } finally {
+      await room.close();
+    }
   });
 });

@@ -47,10 +47,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 1",
             "id": "dc1afe5d"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 1"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -189,10 +197,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 3",
             "id": "561dfd02"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 3"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -332,10 +348,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 5",
             "id": "4c226a72"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 5"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -474,10 +498,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 7",
             "id": "ca256f63"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 7"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -616,10 +648,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 9",
             "id": "dc2a08e7"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 9"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -759,10 +799,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 11",
             "id": "c605156c"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 11"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -901,10 +949,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 13",
             "id": "d00763c1"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 13"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1043,10 +1099,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 15",
             "id": "eb71b9a4"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 15"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1186,10 +1250,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 17",
             "id": "e96f77e7"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 17"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1328,10 +1400,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 19",
             "id": "eb7e8597"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 19"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1470,10 +1550,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 21",
             "id": "e97c43da"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 21"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1613,10 +1701,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 23",
             "id": "6779389d"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 23"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1755,10 +1851,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 25",
             "id": "e5606711"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 25"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1897,10 +2001,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 27",
             "id": "d75e1270"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 27"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -2040,10 +2152,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Table 29",
             "id": "d94b7ea7"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Table 29"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

@@ -67,9 +67,11 @@ function editedBlock(step: Step, before: ProseMirrorNode, after: ProseMirrorNode
 }
 
 // Whether a block's ancestors, apart from the document's sections and pages, are listed.
+// A table's caption is in the `table_figure` holding the table, which is listed with it.
 function underListed($from: ResolvedPos, nodes: ReadonlySet<string>) {
   for (let depth = 1; depth < $from.depth; depth += 1) {
-    if (nodes.has($from.node(depth).type.name)) return true;
+    const name = $from.node(depth).type.name;
+    if (nodes.has(name) || (name === 'table_figure' && nodes.has('table'))) return true;
   }
   return false;
 }

@@ -16,7 +16,6 @@
             "assetId": "sample-fileAssetId",
             "assetRevision": "sample-snapshotId",
             "alt": "sample-alt",
-            "caption": "sample-caption",
             "captionEnabled": false,
             "width": "sample-width",
             "height": "sample-height",
@@ -33,7 +32,18 @@
                 "level": 2
               }
             }
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "sample-caption"
+                }
+              ]
+            }
+          ]
         }
       ]
     }

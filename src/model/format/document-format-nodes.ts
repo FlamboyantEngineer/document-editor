@@ -313,11 +313,56 @@ function readNode(stored: unknown, at: Located, inline: boolean): ProseMirrorNod
   return marks.length ? node.mark(marks) : node;
 }
 
+// A stored figure's or table's caption, its first child, read as the caption type given; empty when
+// it has none. The rest of its children follow.
+function readCaption(
+  stored: Attrs,
+  { type, at }: { type: NodeType; at: Located },
+): { caption: ProseMirrorNode | null; rest: unknown[] } {
+  const children = Array.isArray(stored.content) ? (stored.content as unknown[]) : [];
+  const first = children[0];
+  const has = isRecord(first) && first.type === 'caption';
+  const path = `${at.path}.content[0]`;
+  const attrs = has ? readAttrs(first.attrs, { type, mappings: STORED_NODE_TYPES }, at) : {};
+  const content = has ? readContent(first.content, { ...at, path: `${path}.content` }, true) : [];
+  const caption = createNode(type, attrs, { content, at: { ...at, path } });
+  const marks = has ? readMarks(first, at) : [];
+  return {
+    caption: caption && marks.length ? caption.mark(marks) : caption,
+    rest: has ? children.slice(1) : children,
+  };
+}
+
+// A stored table, read as the table in its `table_figure` after its caption.
+function readTable(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
+  const { schema } = at.context;
+  const holder = schema.nodes.table_figure;
+  const captionType = schema.nodes.table_caption;
+  if (!holder || !captionType) return null;
+  const { caption, rest } = readCaption(stored, { type: captionType, at });
+  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  const rows = readContent(rest, { ...at, path: `${at.path}.content` }, false);
+  const table = createNode(type, attrs, { content: rows, at });
+  if (!table || !caption) return null;
+  return createNode(holder, {}, { content: [caption, table], at });
+}
+
+// A stored figure, with its caption as its content.
+function readFigure(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
+  const captionType = at.context.schema.nodes.figure_caption;
+  if (!captionType) return null;
+  const { caption } = readCaption(stored, { type: captionType, at });
+  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  return caption ? createNode(type, attrs, { content: [caption], at }) : null;
+}
+
 function readKnownNode(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
   if (type.name === 'math_inline' || type.name === 'math_display') {
     return readMath(stored, type, at);
   }
   if (type.name === 'footnote_reference') return readFootnote(stored, type, at);
+  if (type.name === 'table') return readTable(stored, type, at);
+  if (type.name === 'figure') return readFigure(stored, type, at);
   const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
   const contentAt = { ...at, path: `${at.path}.content` };
   const content = readContent(stored.content, contentAt, type.inlineContent);

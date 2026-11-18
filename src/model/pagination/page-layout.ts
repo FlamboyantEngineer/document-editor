@@ -6,7 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { splitContainer, splitList, splitListItem } from './container-split.js';
 import { splitContents } from './contents-split.js';
 import { splitLayoutSection } from './layout-section-split.js';
-import { splitTableWith } from './table-split.js';
+import { splitTableFigureWith, splitTableWith } from './table-split.js';
 import { splitCode, splitParagraph } from './text-split.js';
 
 /** A block with the measurements its page layout needs, in CSS pixels. */
@@ -115,6 +115,7 @@ export function createLayoutRules({
     embed: CONTAINER,
     math_display: KEEPS_WITH_HEADING,
     table: { keepsWithHeading: true, split: splitTableWith(repeatTableHeader) },
+    table_figure: { keepsWithHeading: true, split: splitTableFigureWith(repeatTableHeader) },
     code_block: CODE,
     linked_code_block: CODE,
     toc_block: { split: splitContents },

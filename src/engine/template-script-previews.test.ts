@@ -141,7 +141,7 @@ describe('template script previews', () => {
     };
     expect(await runScripts(view, table)).toEqual([]);
     const [ran] = listScriptBlocks(view.state.doc);
-    expect(ran?.node.firstChild?.type.name).toBe('table');
+    expect(ran?.node.firstChild?.type.name).toBe('table_figure');
     view.destroy();
   });
 });

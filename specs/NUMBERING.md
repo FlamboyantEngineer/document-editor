@@ -131,7 +131,7 @@ Verification: `src/model/numbering/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-4.1 - Caption placement
 
-`buildCaptionPlacementVariables(styles)` shall place table, figure and code block captions where each style's `caption.placement` says, as `--doc-table-caption-side` (`top`, `bottom`), `--doc-figure-caption-order` and `--doc-code-caption-order` (`-1` above, `1` below). Figures shall default to below and tables and code blocks to above; without defaults only the kinds a style sets are given.
+`buildCaptionPlacementVariables(styles)` shall place table, figure and code block captions where each style's `caption.placement` says, as `--doc-table-caption-order`, `--doc-figure-caption-order` and `--doc-code-caption-order` (`-1` above, `1` below). Figures shall default to below and tables and code blocks to above; without defaults only the kinds a style sets are given.
 
 Implementation: `src/model/numbering/caption-placement.ts`
 Verification: `src/model/numbering/caption-placement.test.ts`

@@ -3,6 +3,7 @@
 // vertical alignment and shading, and the blocks in each cell.
 
 import type { StoredNode } from '../../model/format/document-format.js';
+import { storedCaption } from '../../model/schema/caption-content.js';
 import { MAX_SPAN } from '../../model/schema/table-nodes.js';
 import { childElement, childElements, childValue, type XmlElement } from '../xml-read.js';
 
@@ -95,13 +96,16 @@ export function readTable(tbl: XmlElement, readCell: (tc: XmlElement) => StoredN
   }
   return {
     type: 'table',
-    content: rows.map((row) => ({
-      ...row,
-      content: (row.content ?? []).map((cell) =>
-        Object.keys(cell.attrs ?? {}).length
-          ? cell
-          : { type: cell.type, content: cell.content ?? [] },
-      ),
-    })),
+    content: [
+      storedCaption(''),
+      ...rows.map((row) => ({
+        ...row,
+        content: (row.content ?? []).map((cell) =>
+          Object.keys(cell.attrs ?? {}).length
+            ? cell
+            : { type: cell.type, content: cell.content ?? [] },
+        ),
+      })),
+    ],
   };
 }

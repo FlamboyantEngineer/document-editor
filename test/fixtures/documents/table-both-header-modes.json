@@ -22,10 +22,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "First",
             "id": "158049ff"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "First"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -4196,10 +4204,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Second",
             "id": "b0c3a0ef"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Second"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

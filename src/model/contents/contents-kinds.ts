@@ -4,6 +4,7 @@
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { abbreviationTargetId, compareAbbreviations } from '../glossary.js';
 import { EXTERNAL_DOCUMENT_REFERENCE_TYPE } from '../reference-format.js';
+import { captionNodeOf } from '../schema/caption-content.js';
 import { deriveLinkedCodeBlockCaption } from '../schema/caption-text.js';
 import {
   citedAttrs,
@@ -253,11 +254,20 @@ function currentText(node: ProseMirrorNode): string {
   return value;
 }
 
-// A node's caption when its type has one, or its text as it reads now.
-function defaultText(node: ProseMirrorNode): string {
-  if (!Object.hasOwn(node.type.spec.attrs ?? {}, 'caption')) return currentText(node);
-  return typeof node.attrs.caption === 'string' ? node.attrs.caption : '';
+// A node's caption when its type has one, as it reads now, or its text as it reads now. A table's
+// caption is in its parent, before it.
+function defaultText(node: ProseMirrorNode, parent?: ProseMirrorNode | null): string {
+  if (node.type.name === 'code_block') return attrText(node.attrs.caption);
+  const caption = captionNodeOf(node, parent);
+  if (caption) return currentText(caption);
+  return isCaptionedType(node) ? '' : currentText(node);
 }
+
+// The node holding another, which holds a table's caption.
+type ParentNode = ProseMirrorNode | null;
+
+const isCaptionedType = (node: ProseMirrorNode) =>
+  node.type.name === 'figure' || node.type.name === 'table';
 
 /**
  * A node's entry in a kind of list, with the number counting gave it (null for a node the template
@@ -265,7 +275,7 @@ function defaultText(node: ProseMirrorNode): string {
  */
 export function nodeEntry(
   [key, kind]: readonly [string, ContentsKind],
-  [node, pos, numbered]: readonly [ProseMirrorNode, number, string | null],
+  [node, pos, numbered, parent]: readonly [ProseMirrorNode, number, string | null, ParentNode?],
   page: number,
 ): CatalogEntry {
   const target: unknown = node.attrs.dataId;
@@ -273,7 +283,7 @@ export function nodeEntry(
     kind: key,
     level: kind.level?.(node) ?? (node.type.name === 'heading' ? headingLevel(node) : 0),
     number: numbered ?? kind.number?.(node) ?? '',
-    text: kind.text?.(node) ?? defaultText(node),
+    text: kind.text?.(node) ?? defaultText(node, parent),
     pos,
     page,
     ...entryParts(kind, node),

@@ -18,6 +18,7 @@ import type {
   FeedbackAdapter,
   StoredDiagram,
 } from '../../host/index.js';
+import { captionTextOf } from '../../model/schema/caption-content.js';
 import { applying, type DialogProps, EditorModal, selectedNode, titleOf } from './dialog-parts.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { clampFigureSize, type FigureBounds, figureBounds, sizeRatio } from './figure-size.js';
@@ -46,7 +47,7 @@ function figureFields(node: ProseMirrorNode | null, figureType: FigureType) {
     src: text('src'),
     asset,
     alt: text('alt') === 'figure' ? '' : text('alt'),
-    caption: text('caption'),
+    caption: node ? captionTextOf(node) : '',
     width: side('width'),
     height: side('height'),
     objectLayout: (attrs.objectLayout === 'fit-page-width'
