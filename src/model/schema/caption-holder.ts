@@ -1,7 +1,8 @@
 // The thin node that holds a captioned object whose own content cannot take its caption: a table,
-// which holds only rows, or a code block, which holds only its code. It has no attributes of its
-// own but the part of a split object the pages mark; the object keeps its id and settings, and the
-// stored format stores the object alone, with its caption first.
+// which holds only rows, or a code block, which holds only its code. Its attributes are the part
+// of a split object the pages mark and any its kind adds, such as a table's suggestion of the
+// whole; the object keeps its id and settings, and the stored format stores the object alone, with
+// its caption first.
 
 import type { Fragment, NodeSpec, Schema } from 'prosemirror-model';
 import { SPLIT_PART_INDEX_ATTR } from './dom-attributes.js';
@@ -28,10 +29,29 @@ interface CaptionHolderOptions {
     readonly tag: string;
     readonly content: (dom: HTMLElement, schema: Schema) => Fragment;
   };
+  /** Text attributes of its kind, on its element, null when unset. */
+  readonly attributes?: readonly IdentityAttribute[];
 }
 
 /** The spec of a node holding a captioned object after its caption. */
-export function captionHolder({ className, content, alone }: CaptionHolderOptions): NodeSpec {
+export function captionHolder(options: CaptionHolderOptions): NodeSpec {
+  const { className, content, alone, attributes = [] } = options;
+  const read = (dom: HTMLElement) => ({
+    splitPartIndex: readPart(dom),
+    ...Object.fromEntries(
+      attributes.map(({ name, dom: attr }) => [name, dom.getAttribute(attr) || null]),
+    ),
+  });
+  const write = (attrs: Readonly<Record<string, unknown>>) => {
+    const written: Record<string, string> = {};
+    const part = attrs.splitPartIndex;
+    if (Number.isInteger(part)) written[SPLIT_PART_INDEX_ATTR] = String(part);
+    for (const { name, dom } of attributes) {
+      const value = attrs[name];
+      if (typeof value === 'string' && value) written[dom] = value;
+    }
+    return written;
+  };
   return {
     group: 'block',
     content,
@@ -40,10 +60,13 @@ export function captionHolder({ className, content, alone }: CaptionHolderOption
     // Not an element of its own: it takes no element id, and the stored format stores the object.
     // The pages split it with its object, each part numbered as its object's part is.
     unstored: true,
-    attrs: { splitPartIndex: { default: null } },
-    identityAttributes: [SPLIT_PART],
+    attrs: {
+      splitPartIndex: { default: null },
+      ...Object.fromEntries(attributes.map(({ name }) => [name, { default: null }])),
+    },
+    identityAttributes: [SPLIT_PART, ...attributes],
     parseDOM: [
-      { tag: `div.${className}`, getAttrs: (dom) => ({ splitPartIndex: readPart(dom) }) },
+      { tag: `div.${className}`, getAttrs: (dom) => read(dom) },
       {
         tag: alone.tag,
         priority: 60,
@@ -51,10 +74,6 @@ export function captionHolder({ className, content, alone }: CaptionHolderOption
         getContent: (dom, schema) => alone.content(dom as HTMLElement, schema),
       },
     ],
-    toDOM: (node) => {
-      const part: unknown = node.attrs.splitPartIndex;
-      const attrs = Number.isInteger(part) ? { 'data-split-part-index': String(part) } : {};
-      return ['div', { class: className, ...attrs }, 0];
-    },
+    toDOM: (node) => ['div', { class: className, ...write(node.attrs) }, 0],
   };
 }

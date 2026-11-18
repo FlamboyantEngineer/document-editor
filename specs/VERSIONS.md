@@ -44,7 +44,7 @@ Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequen
 Asked to (`compareVersions(older, newer, { suggestions: 'accepted' })`, or a comparison's `suggestions` in the editor), the versions shall be compared with every suggestion accepted: the text a suggestion deletes left out, the text and blocks it inserts compared. Inline markup shall not show text the document still shows as suggested for deletion a second time as deleted text: its line keeps the deletion's bar, and the struck suggestion stands for it.
 
 Implementation: `src/engine/version-compare.ts`, `src/engine/version-changes.ts`, `src/engine/version-decorations.ts`, `src/components/document-editor/use-document-layout.ts`
-Verification: `src/engine/version-compare.test.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/suggested-tables.test.ts`
 
 ### DOCE-VERSIONS-1.7 - Containers
 
@@ -69,7 +69,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.10 - Generated values
 
-Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a footnote's number, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`, or a comparison's `generated` in the editor), a block whose only change is in such values shall be a `modification` marked `generated`.
+Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`, or a comparison's `generated` in the editor), a block whose only change is in such values shall be a `modification` marked `generated`.
 
 Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
 Verification: `src/engine/version-compare.test.ts`, `src/engine/version-changes.test.ts`

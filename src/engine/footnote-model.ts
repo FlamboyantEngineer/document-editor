@@ -2,8 +2,8 @@
 // a footnote may be cited, the footnote area of a page, and the plugin's state.
 
 import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from 'prosemirror-model';
-import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
-import { documentSections, regionBeside, regionKind } from '../model/index.js';
+import { type EditorState, PluginKey } from 'prosemirror-state';
+import { regionBeside, regionKind } from '../model/index.js';
 
 /** Where a footnote is, its marker in the text and its entry. */
 export interface FootnoteAt {
@@ -109,44 +109,6 @@ export function citedEntries(entries: Fragment, content: Fragment): Fragment {
     if (cited.has(idOf(entry) ?? '')) kept.push(entry);
   });
   return Fragment.from(kept);
-}
-
-/** How footnotes are numbered: through the document, or from 1 again in each section. */
-export interface FootnoteNumbering {
-  /** Starts the count again at each section, as in the web layout, where a section is one page. */
-  readonly restartEach?: 'section' | undefined;
-}
-
-/** Each footnote's rank: in document order, or within its section. */
-export function numberingRanks(doc: ProseMirrorNode, restartEach: 'section' | undefined) {
-  if (restartEach !== 'section') return markerRanks(doc);
-  const ranks = new Map<string, number>();
-  for (const section of documentSections(doc)) {
-    for (const [id, rank] of markerRanks(section.node)) if (!ranks.has(id)) ranks.set(id, rank);
-  }
-  return ranks;
-}
-
-/**
- * Numbers every footnote marker and entry in document order, or within each section; returns
- * whether any changed.
- */
-export function numberFootnotes(tr: Transaction, { restartEach }: FootnoteNumbering = {}): boolean {
-  const ranks = numberingRanks(tr.doc, restartEach);
-  let changed = false;
-  tr.doc.descendants((node, pos) => {
-    const name = node.type.name;
-    if (name !== 'footnote_reference' && name !== 'footnote_entry') return !node.isText;
-    const id = idOf(node);
-    const rank = id ? ranks.get(id) : undefined;
-    const number = rank === undefined ? null : rank + 1;
-    if (node.attrs.footnoteNumber !== number) {
-      tr.setNodeMarkup(pos, undefined, { ...node.attrs, footnoteNumber: number });
-      changed = true;
-    }
-    return false;
-  });
-  return changed;
 }
 
 /** The position of the footnote area beside a position (`regionBeside`), or null. */

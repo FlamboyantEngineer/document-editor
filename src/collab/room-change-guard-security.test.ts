@@ -7,7 +7,7 @@ import {
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
 import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, EditorState, type Transaction } from 'prosemirror-state';
+import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
 import { documentSchema as schema } from '../../test/document-markup.js';
@@ -27,7 +27,9 @@ import {
   listSuggestions,
   rejectAllSuggestions,
 } from '../engine/suggestion-decisions.js';
+import { decideWithPolicy, type SuggestionPolicy } from '../engine/suggestion-policy.js';
 import { suggestTransaction } from '../engine/suggestions.js';
+import { insertTable } from '../engine/tables.js';
 import { createMemoryHost } from '../host/index.js';
 import { type DocumentFile, readDocumentFile } from '../model/index.js';
 import { FRAGMENT_RULES } from '../model/pagination/fragments.js';
@@ -79,15 +81,21 @@ async function setup(
     /** The pending suggestion is an agent's generated text. */
     generated?: boolean;
     granted?: typeof permissions;
+    /** The room's content, and a change made to it before anyone joins. */
+    seeded?: { file: DocumentFile; change?: (state: EditorState) => EditorState };
     authorOf?: RoomChangeGuardOptions['authorOf'];
     resolvePermissions?: RoomChangeGuardOptions['permissions'];
+    /** How many merge refusals one connection may have before it is cut off. */
+    conflicts?: number;
   } = {},
 ) {
   const persistence = createMemoryPersistence();
+  const events: { type: string }[] = [];
   const server = createRoomServer({
     storeDebounceMs: 0,
     host: {
       persistence,
+      events: { emit: (event) => void events.push(event) },
       auth: {
         admit: () =>
           Promise.resolve({
@@ -99,6 +107,12 @@ async function setup(
       },
       permissions: {
         rulesFor: () => ({
+          // The guard checks itself after every change, so a test sees any drift at once.
+          verifyEvery: 1,
+          conflictLimit:
+            options.conflicts === undefined
+              ? undefined
+              : { count: options.conflicts, windowMs: 60_000 },
           openGuard: (doc) =>
             openRoomChangeGuard(doc, {
               schema,
@@ -119,7 +133,8 @@ async function setup(
         seed: async () => {
           if (options.empty) return null;
           const seed = new Y.Doc();
-          Y.applyUpdate(seed, documentToYjs(file('Original'), { schema }));
+          Y.applyUpdate(seed, documentToYjs(options.seeded?.file ?? file('Original'), { schema }));
+          if (options.seeded?.change) change(seed, options.seeded.change);
           if (options.pending)
             change(seed, (state) => {
               let start = 0;
@@ -185,6 +200,7 @@ async function setup(
     persistence,
     observer,
     observerDoc,
+    events,
     snapshot: () => {
       const copy = new Y.Doc();
       Y.applyUpdate(copy, handle.snapshot());
@@ -1365,20 +1381,21 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
     expect(allowed(inserted, taken, 'writer')).toBe(false);
   });
 
-  it('refuses a footnote number the editors’ numbering does not give, also beside a suggested footnote', () => {
+  it('refuses a change to any footnote attribute without edit rights, the writer’s own suggested footnote too', () => {
     const before = start();
     const markerAt = listFootnotes(before.doc).get('n1')?.marker ?? 0;
-    const forged = before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7);
-    expect(allowed(before, forged, 'writer')).toBe(false);
+    const renamed = before.tr.setNodeAttribute(markerAt, 'footnoteId', 'n7');
+    expect(allowed(before, renamed, 'writer')).toBe(false);
     const inserted = suggested();
     expect(allowed(before, inserted, 'writer')).toBe(true);
     const entryAt = listFootnotes(inserted.doc).get('n1')?.entry ?? 0;
-    const renumbered = inserted.tr.setNodeAttribute(entryAt, 'footnoteNumber', 1);
-    expect(allowed(before, { doc: renumbered.doc }, 'writer')).toBe(false);
-    // The writer's own suggested footnote takes no other number either.
+    const entry = inserted.tr.setNodeAttribute(entryAt, 'footnoteId', 'n7');
+    expect(allowed(before, { doc: entry.doc }, 'writer')).toBe(false);
     const ownAt = listFootnotes(inserted.doc).get('n0')?.marker ?? 0;
-    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteNumber', 5);
+    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteId', 'n5');
     expect(allowed(before, { doc: own.doc }, 'writer')).toBe(false);
+    // A footnote's number is no attribute of the schema: setting one changes nothing.
+    expect(before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7).doc.eq(before.doc)).toBe(true);
   });
 
   it('lets only a writer who decides reject another writer’s suggested footnote', () => {
@@ -1655,6 +1672,47 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     }
   });
 
+  it('refuses a footnote number set by hand in a room, from an editor or a writer who may only suggest', async () => {
+    // The shared type of the room's first footnote marker.
+    const markerOf = (type: Y.Type): Y.Type | null => {
+      if (type.name === 'footnote_reference') return type;
+      const value = type.toDelta() as unknown as {
+        children: { start: { insert?: unknown; next: unknown } | null };
+      };
+      for (let op = value.children.start; op; op = op.next as typeof op) {
+        if (!Array.isArray(op.insert)) continue;
+        for (const child of op.insert as unknown[]) {
+          const found = child instanceof Y.Type ? markerOf(child) : null;
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    for (const granted of [editor, suggestOnly]) {
+      let current = editor;
+      const room = await setup({ resolvePermissions: () => current });
+      try {
+        // An editor cites a footnote, which the room keeps.
+        change(room.doc, (state) =>
+          runCommand(caretAt(state, 'Original'), insertFootnote({ newId: () => 'n1' })),
+        );
+        expect(await room.provider.whenStored()).toBe(true);
+        expect(room.provider.getState().refusal).toBeNull();
+        const stored = yjsToDocument(room.handle.snapshot(), { schema });
+        current = granted;
+        const marker = markerOf(room.doc.get('content'));
+        if (!marker) throw new Error('No footnote marker in the room.');
+        room.doc.transact(() => marker.setAttr('footnoteNumber', 7));
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal, String(granted.edit)).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(stored);
+        expect(JSON.stringify(room.handle.snapshot())).not.toMatch(/footnoteNumber/);
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
   it('counts a change of the part a block is as an edit, refused to a writer who may only decide', () => {
     const before = stateOf('Limits');
     let at = -1;
@@ -1687,6 +1745,8 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     doc.get('content').applyDelta(diffNodes(held, next) as never);
   };
 
+  // An editor's own broken shape is never taken: refused as a conflict, which a writer who keeps
+  // sending them is cut off for, or for the writer's rights (DOCE-COLLAB-7.4).
   it('refuses even an editor a table, table holder or figure that is not whole', async () => {
     const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
     const caption = figure?.firstChild;
@@ -1710,8 +1770,12 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       const room = await setup({ granted: editor });
       try {
         withRaw(room.doc, shape);
-        await room.provider.whenStored();
-        expect(room.provider.getState().refusal, name).toBe('unauthorized-write');
+        // Judged on the reading an editor would fit, a shape is refused as a conflict, or for the
+        // writer's rights when even that reading breaks a rule; either way the room keeps nothing.
+        await vi.waitFor(() => {
+          const { refusal, refusedChanges } = room.provider.getState();
+          expect(refusal === 'unauthorized-write' || refusedChanges === 1, name).toBe(true);
+        });
         expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
       } finally {
         await room.close();
@@ -1943,55 +2007,62 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     });
   });
 
+  // A list of two items in the room, and an update deleting item `index` of it made from the room's
+  // state as it is now, before any other writer's deletion.
+  const listOfTwo = (room: Awaited<ReturnType<typeof setup>>) => {
+    const { nodes } = schema;
+    const item = (value: string) =>
+      nodes.list_item?.create(null, nodes.paragraph?.create(null, schema.text(value)));
+    const first = item('One');
+    const second = item('Two');
+    const list = first && second ? nodes.bullet_list?.create(null, [first, second]) : null;
+    if (!list) throw new Error('No list.');
+    change(room.doc, (state) => {
+      let end = -1;
+      state.doc.descendants((each, pos) => {
+        if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+        return end < 0;
+      });
+      return state.apply(state.tr.insert(end, list));
+    });
+  };
+  const deletingItem = (doc: Y.Doc, index: number) => {
+    const copy = new Y.Doc();
+    Y.applyUpdate(copy, Y.encodeStateAsUpdate(doc));
+    const before = Y.encodeStateVector(copy);
+    change(copy, (state) => {
+      let at = -1;
+      state.doc.descendants((each, pos) => {
+        if (at < 0 && each.type.name === 'bullet_list') at = pos;
+        return at < 0;
+      });
+      const found = state.doc.nodeAt(at);
+      if (!found) throw new Error('No list.');
+      let from = at + 1;
+      for (let child = 0; child < index; child += 1) from += found.child(child).nodeSize;
+      return state.apply(state.tr.delete(from, from + found.child(index).nodeSize));
+    });
+    const update = Y.encodeStateAsUpdate(copy, before);
+    copy.destroy();
+    return update;
+  };
+
   // Two editors' changes, each allowed alone, that together would leave a list with no items: the
   // room reads each change exactly as it comes, so it refuses the later one rather than take a
-  // shape no reader can read, and the refused writer is refused as after any refused write.
-  it('refuses the later of two editors’ changes that together leave a shape the schema refuses', async () => {
+  // shape no reader can read. The writer may make it, so the refusal is a conflict: it stays
+  // connected, ends on the room's content and keeps writing (DOCE-COLLAB-7.4).
+  it('DOCE-COLLAB-7.4 refuses the later of two editors’ changes that together leave a shape the schema refuses, and keeps that writer', async () => {
     const room = await setup({ granted: editor });
     try {
-      const { nodes } = schema;
-      const item = (value: string) =>
-        nodes.list_item?.create(null, nodes.paragraph?.create(null, schema.text(value)));
-      const first = item('One');
-      const second = item('Two');
-      const list = first && second ? nodes.bullet_list?.create(null, [first, second]) : null;
-      if (!list) throw new Error('No list.');
-      change(room.doc, (state) => {
-        let end = -1;
-        state.doc.descendants((each, pos) => {
-          if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
-          return end < 0;
-        });
-        return state.apply(state.tr.insert(end, list));
-      });
+      listOfTwo(room);
       await room.provider.whenStored();
       await vi.waitFor(() =>
         expect(readContent(schema, room.observerDoc.get('content'))?.textContent).toContain('Two'),
       );
       expect(room.provider.getState().refusal).toBeNull();
       // Each writer deletes a different item, from the same state, before seeing the other's.
-      const deleting = (index: number) => {
-        const copy = new Y.Doc();
-        Y.applyUpdate(copy, Y.encodeStateAsUpdate(room.doc));
-        const before = Y.encodeStateVector(copy);
-        change(copy, (state) => {
-          let at = -1;
-          state.doc.descendants((each, pos) => {
-            if (at < 0 && each.type.name === 'bullet_list') at = pos;
-            return at < 0;
-          });
-          const found = state.doc.nodeAt(at);
-          if (!found) throw new Error('No list.');
-          let from = at + 1;
-          for (let child = 0; child < index; child += 1) from += found.child(child).nodeSize;
-          return state.apply(state.tr.delete(from, from + found.child(index).nodeSize));
-        });
-        const update = Y.encodeStateAsUpdate(copy, before);
-        copy.destroy();
-        return update;
-      };
-      const firstDeleted = deleting(0);
-      const secondDeleted = deleting(1);
+      const firstDeleted = deletingItem(room.doc, 0);
+      const secondDeleted = deletingItem(room.doc, 1);
       Y.applyUpdate(room.doc, firstDeleted);
       await room.provider.whenStored();
       expect(room.provider.getState().refusal).toBeNull();
@@ -2001,18 +2072,66 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       expect(JSON.stringify(admitted)).toContain('Two');
       // The other writer's change comes after it: the room refuses it and stays whole.
       Y.applyUpdate(room.observerDoc, secondDeleted);
-      await vi.waitFor(() => expect(room.observer.getState().refusal).toBe('unauthorized-write'));
+      await vi.waitFor(() => expect(room.observer.doc).not.toBe(room.observerDoc));
       expect(stored()).toEqual(admitted);
-      // The refused writer is refused as after any refused write: cut off, its change unsent, until
-      // it joins again, which brings the room's content.
       expect(room.observer.getState()).toMatchObject({
-        status: 'disconnected',
-        hasUnconfirmedChanges: true,
+        status: 'connected',
+        refusal: null,
+        refusedChanges: 1,
+        hasUnconfirmedChanges: false,
       });
-      const rejoined = new Y.Doc();
-      Y.applyUpdate(rejoined, room.handle.snapshot());
-      expect(yjsToDocument(Y.encodeStateAsUpdate(rejoined), { schema })).toEqual(admitted);
-      rejoined.destroy();
+      // Its document is the room's again, and the guard's reading still the room's.
+      expect(yjsToDocument(Y.encodeStateAsUpdate(room.observer.doc), { schema })).toEqual(admitted);
+      // Its next honest change, on the same connection, is taken.
+      change(room.observer.doc, (state) => state.apply(state.tr.insertText('Next ', 1)));
+      await room.observer.whenStored();
+      expect(JSON.stringify(stored())).toContain('Next ');
+      expect(room.events.filter((event) => event.type === 'guard-repaired')).toEqual([]);
+      expect(room.observer.getState().refusal).toBeNull();
+    } finally {
+      await room.close();
+    }
+  });
+
+  // The same merge from a writer who may only suggest: deleting text is not theirs to do, so the
+  // refusal is for their rights and cuts them off as before (DOCE-COLLAB-7.4).
+  it('DOCE-COLLAB-7.4 cuts off a writer who may only suggest, whatever the merge', async () => {
+    let granted = editor;
+    const room = await setup({ resolvePermissions: () => granted });
+    try {
+      listOfTwo(room);
+      await room.provider.whenStored();
+      const secondDeleted = deletingItem(room.doc, 1);
+      Y.applyUpdate(room.doc, deletingItem(room.doc, 0));
+      await room.provider.whenStored();
+      const admitted = yjsToDocument(room.handle.snapshot(), { schema });
+      // The second writer may only suggest.
+      granted = permissions;
+      Y.applyUpdate(room.observerDoc, secondDeleted);
+      await vi.waitFor(() => expect(room.observer.getState().refusal).toBe('unauthorized-write'));
+      expect(room.observer.getState().refusedChanges).toBe(0);
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(admitted);
+    } finally {
+      await room.close();
+    }
+  });
+
+  // A writer who keeps sending a shape the schema refuses is cut off once the room's limit is
+  // reached (DOCE-COLLAB-7.4).
+  it('DOCE-COLLAB-7.4 cuts off a writer who sends broken shapes again and again', async () => {
+    const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+    const table = figure?.lastChild;
+    if (!table) throw new Error('No table.');
+    const room = await setup({ granted: editor, conflicts: 2 });
+    try {
+      for (const expected of [1, 2]) {
+        withRaw(room.provider.doc, table);
+        await vi.waitFor(() => expect(room.provider.getState().refusedChanges).toBe(expected));
+        expect(room.provider.getState().status).toBe('connected');
+      }
+      withRaw(room.provider.doc, table);
+      await vi.waitFor(() => expect(room.provider.getState().refusal).toBe('unauthorized-write'));
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
     } finally {
       await room.close();
     }
@@ -2215,8 +2334,11 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 code captions in a guarded room', () 
           next = node.copy(node.content.replaceChild($at.index(depth), next));
         }
         room.doc.get('content').applyDelta(diffNodes(held, next) as never);
-        await room.provider.whenStored();
-        expect(room.provider.getState().refusal, name).toBe('unauthorized-write');
+        // Refused as a conflict, or for the writer's rights; either way the room keeps nothing.
+        await vi.waitFor(() => {
+          const { refusal, refusedChanges } = room.provider.getState();
+          expect(refusal === 'unauthorized-write' || refusedChanges === 1, name).toBe(true);
+        });
         expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
       } finally {
         await room.close();
@@ -2310,5 +2432,177 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 code captions in a guarded room', () 
         permissions: suggestOnly,
       }),
     ).toBe(false);
+  });
+});
+
+describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 a table suggested whole in a room', () => {
+  const decider = { edit: false, suggest: true, comment: true, decide: true };
+  const tableWith = (
+    id: string,
+    cell: string,
+  ): DocumentFile['sections'][number]['content'][number] => ({
+    type: 'table',
+    attrs: { id },
+    content: [
+      { type: 'caption', content: [text(id)] },
+      { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph(text(cell))] }] },
+    ],
+  });
+  const tables: DocumentFile = {
+    formatVersion: 1,
+    template: null,
+    sections: [
+      {
+        name: null,
+        content: [
+          { type: 'paragraph', attrs: { id: 'a0000001' }, content: [text('Intro')] },
+          tableWith('t1', 'One'),
+          tableWith('t2', 'Two'),
+          { type: 'paragraph', attrs: { id: 'a0000002' }, content: [text('Outro')] },
+        ],
+      },
+    ],
+  };
+  // Where each table's holder starts.
+  const holders = (state: EditorState) => {
+    const found: { node: ProseMirrorNode; pos: number }[] = [];
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'table_figure') found.push({ node, pos });
+      return node.type.name !== 'table_figure';
+    });
+    return found;
+  };
+  const suggestAs = (state: EditorState, tr: Transaction, author: string, id = 's0000001') => {
+    const rewritten = suggestTransaction(tr, state, { author, newId: () => id });
+    if (!rewritten) throw new Error('The change was not suggested.');
+    return state.apply(rewritten);
+  };
+  // Suggests a table after the opening paragraph, as `author`.
+  const insertAs = (author: string) => (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.isText) at = pos + 1;
+      return at < 0;
+    });
+    const placed = state.apply(state.tr.setSelection(TextSelection.create(state.doc, at)));
+    let next = placed;
+    insertTable({ rows: 1, columns: 1 })(placed, (tr) => {
+      next = suggestAs(placed, tr, author);
+    });
+    return next;
+  };
+  // The suggestion kind of each table in the room.
+  const kindsIn = (doc: Y.Doc) => {
+    const content = readContent(schema, doc.get('content'));
+    if (!content) return [];
+    return holders(EditorState.create({ doc: content })).map(
+      ({ node }) => node.attrs.suggestionSplitKind,
+    );
+  };
+  // Makes a change in a room as the guarded writer, and says whether the room refused it.
+  async function inRoom(
+    options: Parameters<typeof setup>[0],
+    action: (state: EditorState) => EditorState,
+  ): Promise<{ refused: boolean; kinds: unknown[] }> {
+    const room = await setup({ ...options, seeded: options?.seeded ?? { file: tables } });
+    try {
+      change(room.doc, action);
+      await room.provider.whenStored();
+      return {
+        refused: room.provider.getState().refusal !== null,
+        kinds: kindsIn(room.snapshot()),
+      };
+    } finally {
+      await room.close();
+    }
+  }
+  const decide =
+    (policy: SuggestionPolicy, decision: 'accept' | 'reject') => (state: EditorState) => {
+      let next = state;
+      if (!decideWithPolicy(policy, decision)(state, (tr) => (next = state.apply(tr))))
+        throw new Error('Nothing was decided.');
+      return next;
+    };
+  const pending = { file: tables, change: insertAs('owner') };
+
+  it('admits a writer’s honest table insertion and whole-table deletion', async () => {
+    expect(await inRoom({}, insertAs('writer'))).toEqual({
+      refused: false,
+      kinds: ['insertion', null, null],
+    });
+    const deleted = await inRoom({}, (state) => {
+      const [first] = holders(state);
+      if (!first) throw new Error('No table.');
+      return suggestAs(
+        state,
+        state.tr.delete(first.pos, first.pos + first.node.nodeSize),
+        'writer',
+      );
+    });
+    expect(deleted).toEqual({ refused: false, kinds: ['deletion', null] });
+  });
+
+  it('admits the owner’s withdrawal of their pending table', async () => {
+    const own = { file: tables, change: insertAs('writer') };
+    const withdrawn = await inRoom(
+      { seeded: own },
+      decide({ me: 'writer', canWithdraw: true, canDecide: false }, 'reject'),
+    );
+    expect(withdrawn).toEqual({ refused: false, kinds: [null, null] });
+  });
+
+  it('admits a decider’s accepting or rejecting another writer’s table, and refuses one who may only suggest', async () => {
+    const reviewer = { me: 'writer', canDecide: true };
+    expect(await inRoom({ seeded: pending, granted: decider }, decide(reviewer, 'accept'))).toEqual(
+      {
+        refused: false,
+        kinds: [null, null, null],
+      },
+    );
+    expect(await inRoom({ seeded: pending, granted: decider }, decide(reviewer, 'reject'))).toEqual(
+      {
+        refused: false,
+        kinds: [null, null],
+      },
+    );
+    expect((await inRoom({ seeded: pending }, decide(reviewer, 'reject'))).refused).toBe(true);
+  });
+
+  it('refuses moving another writer’s whole-table deletion onto a table they did not choose', async () => {
+    // The owner's one suggestion deletes the first table whole and text around and after it, so
+    // its extent stays as a block deletion moves from one table to the other.
+    const owned = {
+      file: tables,
+      change: (state: EditorState) => {
+        const [first] = holders(state);
+        const at = (value: string) => {
+          let found = -1;
+          state.doc.descendants((node, pos) => {
+            if (found < 0 && node.text === value) found = pos;
+            return found < 0;
+          });
+          return found;
+        };
+        if (!first) throw new Error('No table.');
+        const all = state.tr
+          .delete(at('Outro'), at('Outro') + 2)
+          .delete(at('Two'), at('Two') + 2)
+          .delete(first.pos, first.pos + first.node.nodeSize)
+          .delete(at('Intro'), at('Intro') + 2);
+        return suggestAs(state, all, 'owner', 's0000005');
+      },
+    };
+    const moved = await inRoom({ seeded: owned, granted: decider }, (state) => {
+      const [first, second] = holders(state);
+      if (!first || !second) throw new Error('No tables.');
+      return state.apply(
+        state.tr
+          .setNodeAttribute(first.pos, 'suggestionSplitKind', null)
+          .setNodeAttribute(first.pos, 'suggestionSplitId', null)
+          .setNodeAttribute(second.pos, 'suggestionSplitKind', 'deletion')
+          .setNodeAttribute(second.pos, 'suggestionSplitId', 's0000005'),
+      );
+    });
+    expect(moved).toEqual({ refused: true, kinds: ['deletion', null] });
   });
 });

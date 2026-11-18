@@ -132,7 +132,6 @@
       "flags": { "defining": true, "isolating": true },
       "attrs": {
         "footnoteId": { "default": null },
-        "footnoteNumber": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
@@ -431,14 +430,19 @@
       "content": "table_caption table",
       "marks": null,
       "flags": { "defining": true, "isolating": true },
-      "attrs": { "splitPartIndex": { "default": null } },
+      "attrs": {
+        "splitPartIndex": { "default": null },
+        "suggestionSplitKind": { "default": null },
+        "suggestionSplitId": { "default": null },
+        "dataAuthor": { "default": null }
+      },
       "parseDOM": [
         { "tag": "div.doc-table-figure", "getAttrs": "function" },
         { "tag": "table", "priority": 60, "getAttrs": "function", "getContent": "function" }
       ],
       "toDOM": {
         "defaults": "<div class=\"doc-table-figure\"></div>",
-        "filled": "<div class=\"doc-table-figure\"></div>"
+        "filled": "<div class=\"doc-table-figure\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-au=\"sample-dataAuthor\"></div>"
       }
     },
     {
@@ -507,7 +511,6 @@
       "flags": { "inline": true, "atom": true, "selectable": true },
       "attrs": {
         "footnoteId": { "default": null },
-        "footnoteNumber": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },

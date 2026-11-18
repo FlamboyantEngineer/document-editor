@@ -1,7 +1,7 @@
 // A room provider, such as collaboration-tools' `createRoomProvider`, as the room connection a
 // host's collaboration adapter returns (`RoomConnection`), with no dependency on its package.
 
-import type { RoomConnection, RoomState } from '../host/session-adapters.js';
+import type { RoomConnection, RoomReload, RoomState } from '../host/session-adapters.js';
 
 /** What the session reads from a room provider; collaboration-tools' provider has it all. */
 export interface RoomProviderLike<Doc, Awareness> {
@@ -10,7 +10,8 @@ export interface RoomProviderLike<Doc, Awareness> {
   getState(): RoomState;
   subscribe(listener: (state: RoomState) => void): () => void;
   whenStored(): Promise<boolean>;
-  getUnconfirmedUpdate(): Uint8Array | null;
+  getUnconfirmedUpdates(): Uint8Array[];
+  onReload(listener: (reload: RoomReload<Doc>) => void): () => void;
   isRemoteOrigin(origin: unknown): boolean;
   destroy(): void;
 }
@@ -50,14 +51,18 @@ export function roomConnection<Doc, Awareness>(
   // A connection nobody waits on must not report an unhandled refusal.
   whenSynced.catch(() => undefined);
   return {
-    doc: provider.doc,
+    // The provider's document changes when it reloads.
+    get doc() {
+      return provider.doc;
+    },
     awareness: provider.awareness,
     state: () => provider.getState(),
     subscribe: (onState) => provider.subscribe(onState),
     whenSynced,
     whenStored: () => provider.whenStored(),
     isRemoteOrigin: (origin) => provider.isRemoteOrigin(origin),
-    unconfirmedUpdate: () => provider.getUnconfirmedUpdate(),
+    unconfirmedUpdates: () => provider.getUnconfirmedUpdates(),
+    onReload: (listener) => provider.onReload(listener),
     close: () => {
       close();
       provider.destroy();

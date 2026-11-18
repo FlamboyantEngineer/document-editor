@@ -19,6 +19,7 @@ import {
 } from 'prosemirror-state';
 import { columnResizing } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
+import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
 import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
 import {
@@ -265,7 +266,8 @@ function projectionState(options: PagedProjectionOptions, session: () => Session
       pageChromeDecorations(),
       checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
-      ...(options.plugins ?? []),
+      // The pages number their own footnotes, through the document or on each page.
+      ...withFootnoteNumbers(options.plugins ?? [], options.footnoteNumbering),
     ],
   });
 }
@@ -279,7 +281,8 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
   const ghost = mount(options.measureIn, {
     state: EditorState.create({
       doc: options.state.doc,
-      plugins: [...(options.plugins ?? []), ...(options.ghostPlugins ?? [])],
+      // Footnotes numbered through the document, as no page's own numbers outgrow in digits.
+      plugins: withFootnoteNumbers([...(options.plugins ?? []), ...(options.ghostPlugins ?? [])]),
     }),
     nodeViews: options.nodeViews,
   });

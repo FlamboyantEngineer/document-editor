@@ -226,6 +226,12 @@ const isSplit = (slice: Slice) =>
   slice.content.childCount === 2 &&
   slice.content.size === 4;
 
+// Whether a range is one empty text block, whole.
+function isEmptyBlock(doc: ProseMirrorNode, [from, to]: readonly [number, number]): boolean {
+  const node = doc.nodeAt(from);
+  return Boolean(node?.isTextblock && !node.content.size && from + node.nodeSize === to);
+}
+
 // Suggests one replacement, and gives where the caret goes, or null when it cannot be suggested.
 function suggestReplace(
   suggesting: Suggesting,
@@ -251,7 +257,9 @@ function suggestReplace(
     markInserted(suggesting, [at, at + inline.size], group);
     return at + inline.size;
   }
-  if (from !== to) return null;
+  // A block put in place of an empty text block, as a new block takes a blank line, goes after it.
+  if (from !== to)
+    return isEmptyBlock(tr.doc, [from, to]) ? suggestBlocks(suggesting, to, slice) : null;
   return isSplit(slice)
     ? suggestSplit(suggesting, from, slice)
     : suggestBlocks(suggesting, from, slice);
@@ -266,15 +274,13 @@ const isMarkupStep = (step: Step) =>
   step.slice.content.childCount === 1;
 
 // Copies a step of a footnote's bookkeeping (`footnoteStep`): an entry inserted as it is, the
-// caret going into it, or a renumbering left out. Null when the entry cannot be copied, undefined
-// for any other step.
+// caret going into it. Null when the entry cannot be copied, undefined for any other step.
 function copyFootnoteStep(
   out: Transaction,
   mapped: Step | null,
-  { kind, caret }: { kind: ReturnType<typeof footnoteStep>; caret: number | undefined },
+  kind: ReturnType<typeof footnoteStep>,
 ): { caret: number | undefined } | null | undefined {
   if (kind === null) return undefined;
-  if (kind === 'skip') return { caret };
   if (!(mapped instanceof ReplaceStep) || out.maybeStep(mapped).failed) return null;
   return { caret: mapped.from + 1 };
 }
@@ -292,10 +298,7 @@ function rewriteSteps(
   let structural = false;
   for (const [index, step] of tr.steps.entries()) {
     const start = out.steps.length;
-    const footnote = copyFootnoteStep(out, step.map(mapping), {
-      kind: footnoteStep(step, tr.docs[index] ?? tr.before),
-      caret,
-    });
+    const footnote = copyFootnoteStep(out, step.map(mapping), footnoteStep(step));
     if (footnote === null) return null;
     if (footnote !== undefined) {
       caret = footnote.caret;

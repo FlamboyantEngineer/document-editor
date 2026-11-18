@@ -22,6 +22,7 @@ import {
 } from './document-format.js';
 import { readFormatRecords } from './format-records.js';
 import type { FootnoteIds } from './stored-footnote-ids.js';
+import { holderAttrsOf } from './stored-table-suggestion.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -40,9 +41,8 @@ export function formatError(path: string, message: string): DocumentFormatError 
 }
 
 /** Whether an error is a stored document that cannot be read. */
-export function isDocumentFormatError(error: unknown): error is DocumentFormatError {
-  return error instanceof Error && error.name === 'DocumentFormatError';
-}
+export const isDocumentFormatError = (error: unknown): error is DocumentFormatError =>
+  error instanceof Error && error.name === 'DocumentFormatError';
 
 const PAGE_TYPES = new Set([
   'page',
@@ -62,9 +62,8 @@ const SCHEMA_MARK_NAMES = new Map(
   Object.entries(STORED_MARK_TYPES).map(([name, mapping]) => [mapping.type, name]),
 );
 
-export function isRecord(value: unknown): value is Attrs {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
+export const isRecord = (value: unknown): value is Attrs =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 /** What a read carries: the schema, the policy and the problems and footnotes found so far. */
 export interface ReadContext {
@@ -349,12 +348,15 @@ function readCaptioned(stored: Attrs, type: NodeType, at: Located): ProseMirrorN
   const holder = names?.holder ? at.context.schema.nodes[names.holder] : null;
   if (!captionType || holder === undefined) return null;
   const { caption, rest } = readCaption(stored, { type: captionType, at });
-  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  // A table suggested whole keeps the suggestion on its holder.
+  const { holder: whole, table: own } =
+    type.name === 'table' ? holderAttrsOf(stored.attrs) : { holder: {}, table: stored.attrs };
+  const attrs = readAttrs(own, { type, mappings: STORED_NODE_TYPES }, at);
   if (!caption) return null;
   if (!holder) return createNode(type, attrs, { content: [caption], at });
   const content = readContent(rest, { ...at, path: `${at.path}.content` }, type.inlineContent);
   const object = createNode(type, attrs, { content, at });
-  return object && createNode(holder, {}, { content: [caption, object], at });
+  return object && createNode(holder, whole, { content: [caption, object], at });
 }
 
 function readKnownNode(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {

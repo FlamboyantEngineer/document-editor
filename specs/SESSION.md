@@ -136,7 +136,7 @@ Verification: `src/session/room-session.test.ts`
 
 ### DOCE-SESSION-3.7 - Room providers
 
-`roomConnection(provider)` (`./collab`) shall give a room provider, such as collaboration-tools', as the connection a collaboration adapter returns: its document, awareness, state and receipts; `whenSynced` resolving at the first sync and rejecting on a refusal or a close; and `close()` destroying the provider.
+`roomConnection(provider)` (`./collab`) shall give a room provider, such as collaboration-tools', as the connection a collaboration adapter returns: its document, awareness, state, receipts, the local changes the room has not confirmed (`unconfirmedUpdates()`, one update each) and its reloads (`onReload`, DOCE-SESSION-3.11); `whenSynced` resolving at the first sync and rejecting on a refusal or a close; and `close()` destroying the provider.
 
 Implementation: `src/collab/room-connection.ts`
 Verification: `src/session/room-session.test.ts`
@@ -161,6 +161,13 @@ Verification: `src/session/room-session.test.ts`
 
 Implementation: `src/session/room-session.ts`, `src/session/store-session.ts`, `src/session/document-session.ts`
 Verification: `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.11 - Reloading after a refused change
+
+When the room refuses a local change because it does not merge with what the room holds (DOCE-COLLAB-7.4), the connection reports a reload (`RoomConnection.onReload`, from collaboration-tools' `RoomProvider.onReload`) with the reason, the room's document and the writer's previous one, and keeps its socket. The session shall bind the editor to the room's document, show its content with the caret and selection kept where their text still is, and otherwise at the nearest place, keep the room's draft from the new document, and tell the writer: its `reloads` store holds the notice (`reason`, and the `previous` content) and the host's `onRoomReload` receives it, and the editor shows the `roomChangeRefused` label as a warning through its feedback. Keys typed between the refused change and the reload reach the new document as later changes of their own: what lies beside the refused change is kept and sent, and what lies inside its refused content is dropped with it. A key typed in the frame between the reload and the editor showing the room's document goes to the document the reader had and is dropped too; the notice holds that document as it was when the reload came, the writer's previous content, so nothing is lost silently. The connection stays open and the writer keeps writing on it.
+
+Implementation: `src/session/room-session.ts`, `src/session/room-open.ts`, `src/collab/room-connection.ts`, `src/components/document-editor/save-status-item.tsx`
+Verification: `src/session/room-reload.test.ts`, `src/components/document-editor/save-status-item.test.tsx`
 
 ## DOCE-SESSION-4 - Merging another writer's saves
 
@@ -249,14 +256,14 @@ Verification: `src/session/drafts.test.ts`
 
 ### DOCE-SESSION-6.7 - Keeping room-mode drafts
 
-In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left or when it is stopped with a draft still waiting: the document's state, the changes the room has not confirmed, the last state the room had confirmed all of (`confirmed`), and the room's generation. The confirmed state shall be taken when a draft is kept with no change unconfirmed, and at once when the connection is lost with none unconfirmed, so edits made offline before the next draft merge from it; it is not taken at each confirmation, which would read the whole document for every change the room echoes.
+In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left or when it is stopped with a draft still waiting: the document's state, the changes the room has not confirmed, one update each, the last state the room had confirmed all of (`confirmed`), and the room's generation. The confirmed state shall be taken when a draft is kept with no change unconfirmed, and at once when the connection is lost with none unconfirmed, so edits made offline before the next draft merge from it; it is not taken at each confirmation, which would read the whole document for every change the room echoes.
 
 Implementation: `src/collab/offline.ts`
 Verification: `src/collab/offline.test.ts`
 
 ### DOCE-SESSION-6.8 - Replaying room-mode drafts
 
-`restoreRoomDraft` shall apply a draft's state and unconfirmed changes to a new shared document as one merged update, which keeps causal order whatever order they were kept in (DOCE-COLLAB-4.6), and say whether Yjs integrated it whole. Handed to the connection as its unconfirmed update, the draft's local changes reach the room once it connects again, and `whenStored` resolves once the room has stored them.
+`restoreRoomDraft` shall apply a draft's state and unconfirmed changes to a new shared document as one merged update, which keeps causal order whatever order they were kept in (DOCE-COLLAB-4.6), and say whether Yjs integrated it whole. Handed to the connection as its unconfirmed updates, the draft's local changes reach the room one by one once it connects again (DOCE-COLLAB-7.4), and `whenStored` resolves once the room has stored them.
 
 Implementation: `src/collab/offline.ts`
 Verification: `src/collab/offline.test.ts`

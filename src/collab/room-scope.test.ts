@@ -131,7 +131,7 @@ it('DOCE-COLLAB-7.1 merges only the selected field from a whole-room offline dra
     mode: 'room' as const,
     generation: 'old',
     state: Y.encodeStateAsUpdate(cached),
-    unconfirmed: Y.encodeStateAsUpdate(cached, vector),
+    unconfirmed: [Y.encodeStateAsUpdate(cached, vector)],
     confirmed,
     savedAt: '2026-01-01T00:00:00.000Z',
   };

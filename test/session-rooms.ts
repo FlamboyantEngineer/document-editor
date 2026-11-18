@@ -11,6 +11,7 @@ import {
   createRoomServer,
   type RoomPersistence,
   type RoomServer,
+  type RoomWriteRules,
 } from '@flamboyantengineer/collaboration-tools/server';
 import {
   connectToServer,
@@ -33,6 +34,8 @@ export interface SessionRoomsOptions {
   refused?: readonly string[];
   /** Where the rooms are stored. Defaults to memory; a room that starts over always is. */
   persistence?: RoomPersistence | undefined;
+  /** The rooms' write rules, such as a guard; none by default. */
+  rules?: RoomWriteRules | undefined;
 }
 
 export interface SessionRooms {
@@ -68,7 +71,8 @@ function startServer(
     readers = [],
     refused = [],
     persistence = createMemoryPersistence(),
-  }: Pick<SessionRoomsOptions, 'readers' | 'refused' | 'persistence'>,
+    rules,
+  }: Pick<SessionRoomsOptions, 'readers' | 'refused' | 'persistence' | 'rules'>,
 ) {
   return createRoomServer({
     storeDebounceMs: 20,
@@ -90,6 +94,7 @@ function startServer(
         },
       },
       persistence,
+      permissions: { rulesFor: () => rules ?? null },
     },
   });
 }
@@ -100,8 +105,9 @@ export function createSessionRooms({
   readers = [],
   refused = [],
   persistence,
+  rules,
 }: SessionRoomsOptions): SessionRooms {
-  let server = startServer(documents, { readers, refused, persistence });
+  let server = startServer(documents, { readers, refused, persistence, rules });
   let paired = connectToServer(server);
   const sockets: PairedSocket[] = [];
   const createSocket: typeof paired.createSocket = (...args) => {
@@ -131,7 +137,7 @@ export function createSessionRooms({
             doc,
             getToken: () => person,
             createSocket,
-            unconfirmedUpdate: options?.draft?.unconfirmed ?? null,
+            unconfirmedUpdates: options?.draft?.unconfirmed ?? [],
             connect: !down,
           });
           down = false;
@@ -143,7 +149,7 @@ export function createSessionRooms({
     },
     async startOver(next) {
       await server.close();
-      server = startServer(next, { readers, refused });
+      server = startServer(next, { readers, refused, rules });
       paired = connectToServer(server);
     },
     async close() {

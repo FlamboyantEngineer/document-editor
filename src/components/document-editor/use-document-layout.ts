@@ -26,7 +26,8 @@ import {
   refreshDynamicTemplates,
   refreshVersionChanges,
   type RegionChange,
-  sectionFootnoteNumbersKey,
+  renumberFootnotes,
+  unpagedNumbering,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
 import type {
@@ -179,12 +180,12 @@ export interface DocumentComparison {
   readonly scope?: readonly string[] | undefined;
 }
 
-// A state with its sections shown in the template again, out of the history.
-const restyleSections = (state: EditorState) =>
+// A state with its sections shown in the template again and its footnotes numbered for it, out of
+// the history.
+const restyleSections = (template: TemplateFile) => (state: EditorState) =>
   state.apply(
-    state.tr
+    renumberFootnotes(state.tr, unpagedNumbering(template))
       .setMeta(documentSectionsKey, true)
-      .setMeta(sectionFootnoteNumbersKey, true)
       .setMeta(contentsKey, true)
       .setMeta('addToHistory', false),
   );
@@ -230,11 +231,11 @@ function useHostRules(layoutRules: LayoutRules | undefined, refresh: PagingRefs[
   }, [layoutRules, refresh]);
 }
 
-// A state with each section's pages joined into one and its footnotes numbered for it, out of the
+// A state with each section's pages joined into one and its footnotes numbered again, out of the
 // history.
 function joinPages(state: EditorState, rules: FragmentRules): EditorState {
   const join = joinDocumentPages(state.doc, rules);
-  const tr = state.tr.setMeta(sectionFootnoteNumbersKey, true);
+  const tr = renumberFootnotes(state.tr);
   for (const step of join.steps) tr.step(step);
   return state.apply(tr.setMeta('addToHistory', false));
 }
@@ -243,13 +244,18 @@ function joinPages(state: EditorState, rules: FragmentRules): EditorState {
 function useLayoutPlugins(options: DocumentLayoutOptions, own: RefObject<readonly Plugin[]>) {
   const { plugins } = options.state;
   const { onStateChange } = options;
+  const latestTemplate = useRef(options.template);
+  useEffect(() => {
+    latestTemplate.current = options.template;
+  });
   useEffect(() => {
     const layoutPlugins = own.current;
     if (layoutPlugins.every((plugin) => plugins.includes(plugin))) return;
     onStateChange((state) => {
       const absent = lackedPlugins(state, layoutPlugins);
       if (absent.length === 0) return state;
-      return restyleSections(state.reconfigure({ plugins: [...state.plugins, ...absent] }));
+      const plugged = state.reconfigure({ plugins: [...state.plugins, ...absent] });
+      return restyleSections(latestTemplate.current)(plugged);
     });
   }, [plugins, onStateChange, own]);
 }
@@ -303,7 +309,7 @@ export function useDocumentLayout(
     ownPlugins.current = own;
     const { onStateChange } = latest.current;
     onStateChange((state) =>
-      restyleSections(
+      restyleSections(latest.current.template)(
         state.reconfigure({ plugins: [...state.plugins, ...lackedPlugins(state, own)] }),
       ),
     );
@@ -335,7 +341,7 @@ export function useDocumentLayout(
   useLayoutPlugins(options, ownPlugins);
 
   useEffect(() => {
-    latest.current.onStateChange(restyleSections);
+    latest.current.onStateChange(restyleSections(template));
     refresh.current?.();
   }, [template]);
 

@@ -61,7 +61,11 @@ export interface Binding {
   update(): void;
   /** Applies the changes from the shared document that wait, and sends what they lead to. */
   flush(): void;
-  destroy(): void;
+  /**
+   * Stops binding. The editor's changes not sent yet are sent first, unless `send` is false: the
+   * view has moved on to a state of another shared document, such as a reloaded one.
+   */
+  destroy(send?: boolean): void;
 }
 
 interface Waiting {
@@ -248,9 +252,10 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
       if (view.state.doc !== confirmed) send(view.state.doc, origin);
     },
     flush,
-    destroy() {
+    destroy(sending = true) {
       if (destroyed) return;
-      if (!waiting && !flushing && view.state.doc !== confirmed) send(view.state.doc, origin);
+      if (sending && !waiting && !flushing && view.state.doc !== confirmed)
+        send(view.state.doc, origin);
       destroyed = true;
       type.unobserveDeep(observer as never);
     },

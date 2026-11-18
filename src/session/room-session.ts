@@ -3,9 +3,12 @@
 // document itself: its status follows the room's, and saving waits for the room to store it.
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import { type EditorState, Selection, TextSelection } from 'prosemirror-state';
 import { movedDocument } from '../engine/template-move.js';
+import { markRemote } from '../engine/transaction-kind.js';
 import type { HostResult, SavedState } from '../host/adapters.js';
 import { type EditorCapabilities, READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
+import type { RoomReload } from '../host/session-adapters.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import type {
@@ -77,6 +80,15 @@ async function readRoom(
   return { ok: true, value: { document, saved: template.value.saved } };
 }
 
+// A selection at the places `kept` was, as near as `state`'s document has them.
+function keptSelection(state: EditorState, kept: Selection): EditorState {
+  const { doc } = state;
+  const near = (pos: number) => Selection.near(doc.resolve(Math.min(pos, doc.content.size)));
+  const head = near(kept.head);
+  const selection = kept.empty ? head : TextSelection.between(near(kept.anchor).$from, head.$from);
+  return state.apply(markRemote(state.tr.setSelection(selection)).setMeta('addToHistory', false));
+}
+
 // What a room session runs on: its stores, its drafts and the room it is connected to now.
 interface RoomRun {
   options: DocumentSessionOptions & { schema: Schema };
@@ -129,6 +141,8 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
   const following = { cached: room.draft !== null, granted: () => run.granted, unreadable };
   current.stops.push(followConnection(room.connection, stores, following));
   current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
+  const stopReload = room.connection.onReload?.((reload) => reloadRoom(run, room, reload));
+  if (stopReload) current.stops.push(stopReload);
   // The session may have closed, or left this room, by the time the refused draft was read. A
   // connection that fails to close does not keep the room from opening again, and a room that
   // cannot be opened again fails the session, with the draft still kept.
@@ -148,6 +162,33 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
   await run.drafts.start(room, merged);
   status.set({ ...status.get(), load: 'ready' });
   return true;
+}
+
+// The room refused one of the reader's changes for its merge and the connection reloaded its
+// document from the room (DOCE-SESSION-3.11): the session binds the new document, shows the room's
+// content with the caret where it was as near as it can, keeps the new document's draft, and tells
+// the reader and the host, with the document the reader had.
+function reloadRoom(run: RoomRun, room: OpenedRoom, reload: RoomReload) {
+  const { options, stores, current } = run;
+  const shown = stores.document.get();
+  if (run.signal.aborted || current.room !== room || !shown) return;
+  room.binding = room.rebind(reload.doc);
+  const content = roomContent(room);
+  if (!content.ok) {
+    room.unreadable.set(content.error);
+    return;
+  }
+  const doc = content.value ?? options.schema.topNodeType.createAndFill();
+  if (!doc) return;
+  const create = options.createState ?? defaultState(options.schema);
+  const made = create(doc, { ...stores.context, room: { plugins: room.binding.plugins } });
+  stores.document.set({ ...shown, state: keptSelection(made, shown.state.selection) });
+  current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
+  run.drafts.stop();
+  void run.drafts.start(room, null);
+  const notice = { reason: reload.reason, previous: shown.state.doc };
+  stores.reloads.set(notice);
+  options.onRoomReload?.(notice);
 }
 
 // With no editor bound nothing keeps the state and the room the same: the change is made on what
@@ -223,7 +264,6 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     if (changed) follow.followTemplate(pin, changed.saved);
     return changed !== null;
   };
-
   const run: RoomRun = {
     options: { ...options, schema },
     signal,
@@ -252,10 +292,10 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     mode: 'room',
     status,
     document,
-    // A shared room merges every writer's changes itself; what is left to settle are a draft's
-    // blocks a new generation of the room changed too (DOCE-SESSION-6.10).
+    // Left to settle: a draft's blocks a new room generation changed too (DOCE-SESSION-6.10).
     conflicts: stores.conflicts,
     connection: stores.connection,
+    reloads: stores.reloads,
     ready: signal.aborted ? Promise.resolve(false) : loadRoom(run),
     update: roomUpdate(run),
     setTemplate: async (pin) => {
@@ -269,9 +309,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
       }
       return shown;
     },
-    save: async () => {
-      await flush();
-    },
+    save: () => flush().then(() => undefined),
     flush,
     ...pause,
     hasUnsavedChanges: () => room()?.connection.state().hasUnconfirmedChanges ?? false,

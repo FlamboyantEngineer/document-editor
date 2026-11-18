@@ -30,7 +30,7 @@ Verification: `src/model/pagination/fragments.test.ts`
 A table's fragments shall join their rows in order, without the leading header rows a continuation repeats from the first fragment, so they appear once.
 
 Implementation: `src/model/pagination/fragments.ts`
-Verification: `src/model/pagination/fragments.test.ts`
+Verification: `src/model/pagination/fragments.test.ts`, `src/engine/suggested-tables.test.ts`
 
 ### DOCE-PAGINATION-1.5 - Lists
 
@@ -324,7 +324,7 @@ Verification: `src/model/pagination/page-projection.test.ts`
 
 ### DOCE-PAGINATION-6.2 - The paged document
 
-`projectDocument(whole, sections)` shall put each section's blocks on the pages its layout gives (`SectionPages`), each page with its section's header and footer numbered through the document (`pageNumber`, `totalPages`) and the entries of the footnotes its blocks are first to cite, so each entry appears once. Footnotes shall be numbered through the document, or restart on each page (`footnoteNumbering: 'page'`), on their markers and their entries. A section without a layout shall keep its blocks on one page.
+`projectDocument(whole, sections)` shall put each section's blocks on the pages its layout gives (`SectionPages`), each page with its section's header and footer numbered through the document (`pageNumber`, `totalPages`) and the entries of the footnotes its blocks are first to cite, so each entry appears once. With footnotes numbered on each page (`footnoteNumbering: 'page'`), each page shall hold the entries of every footnote it cites. It sets no footnote number: the view of the pages draws them (DOCE-FOOTNOTES-2.2). A section without a layout shall keep its blocks on one page.
 
 Implementation: `src/model/pagination/page-projection.ts`
 Verification: `src/model/pagination/page-projection.test.ts`
@@ -368,10 +368,10 @@ Verification: `e2e/pagination.spec.ts`, `e2e/document-editor.spec.ts`, `src/pagi
 
 ### DOCE-PAGINATION-7.2 - Room for footnotes
 
-Each page shall leave room for the footnote entries it holds: their measured heights, each with the space before the next but the page's last without it, and the area's own height beyond them (`measureFootnotes`, `footnoteAreaHeight`). An entry shall be on the first page that cites it, numbered through the document, unless footnotes are numbered on each page. A page that holds none leaves no room, and a footnote inserted where its page is full moves the block that no longer fits on before the writer types in it.
+Each page shall leave room for the footnote entries it holds: their measured heights, each with the space before the next but the page's last without it, and the area's own height beyond them (`measureFootnotes`, `footnoteAreaHeight`). An entry shall be on the first page that cites it, unless footnotes are numbered on each page, when each page holds the entries of every footnote it cites. The view of the pages numbers them (`createFootnoteNumbers`, DOCE-FOOTNOTES-2.2): through the document, or from 1 on each page; the numbers follow a change mirrored onto the pages at once, before the pages are laid out again. The ghost view measures with the numbers through the document, which a page's own numbers never outgrow in digits, so a line holding a marker is never measured narrower than the pages draw it and no layout waits on the numbers it draws. A page that holds none leaves no room, and a footnote inserted where its page is full moves the block that no longer fits on before the writer types in it.
 
-Implementation: `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `src/model/pagination/page-projection.ts`
-Verification: `e2e/pagination.spec.ts`, `e2e/split-paragraphs.spec.ts`, `src/pagination/measure-footnotes.test.ts`, `e2e/objects.spec.ts`
+Implementation: `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `src/model/pagination/page-projection.ts`, `src/pagination/projection.ts`, `src/engine/footnote-numbers.ts`
+Verification: `e2e/pagination.spec.ts`, `e2e/split-paragraphs.spec.ts`, `src/pagination/measure-footnotes.test.ts`, `e2e/objects.spec.ts`, `src/engine/footnote-numbers.test.ts`
 
 ### DOCE-PAGINATION-7.3 - A caret in a moving footnote
 

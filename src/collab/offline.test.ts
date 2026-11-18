@@ -61,14 +61,14 @@ function startServer() {
 function openProvider(
   createSocket: ReturnType<typeof startServer>,
   doc: Y.Doc,
-  unconfirmedUpdate: Uint8Array | null = null,
+  unconfirmedUpdates: readonly Uint8Array[] = [],
 ) {
   const provider = createRoomProvider({
     endpoint: 'ws://in-process.test/rooms',
     room: 'offline',
     doc,
     createSocket,
-    unconfirmedUpdate,
+    unconfirmedUpdates,
   });
   providers.push(provider);
   return provider;
@@ -95,7 +95,7 @@ function asConnection(provider: RoomProvider): RoomConnection<Y.Doc> {
     }),
     whenStored: () => provider.whenStored(),
     isRemoteOrigin: (origin) => provider.isRemoteOrigin(origin),
-    unconfirmedUpdate: () => provider.getUnconfirmedUpdate(),
+    unconfirmedUpdates: () => provider.getUnconfirmedUpdates(),
     close: () => provider.destroy(),
   };
 }
@@ -122,7 +122,7 @@ describe('room-mode drafts', () => {
     const kept = keepRoomDrafts({ documentId: 'doc', drafts, connection, delay: 10 });
     write(provider.doc, 0, 'Hello');
     expect(await connection.whenStored()).toBe(true);
-    await vi.waitFor(async () => expect((await readDraft(drafts)).unconfirmed).toBeNull());
+    await vi.waitFor(async () => expect((await readDraft(drafts)).unconfirmed).toEqual([]));
     const confirmed = await readDraft(drafts);
     expect(confirmed.confirmed).toEqual(confirmed.state);
     expect(confirmed.generation).toBe(readRoomGeneration(provider.doc));
@@ -132,7 +132,7 @@ describe('room-mode drafts', () => {
     write(provider.doc, 5, ' world');
     await kept.flush();
     const offline = await readDraft(drafts);
-    expect(offline.unconfirmed).not.toBeNull();
+    expect(offline.unconfirmed).toHaveLength(1);
     expect(offline.confirmed).toEqual(confirmed.state);
     const base = new Y.Doc();
     Y.applyUpdate(base, offline.confirmed ?? new Uint8Array());
@@ -193,7 +193,7 @@ describe('room-mode drafts', () => {
     write(provider.doc, 0, 'Hello');
     kept.stop();
     const draft = await vi.waitFor(() => readDraft(drafts));
-    expect(draft.unconfirmed).not.toBeNull();
+    expect(draft.unconfirmed.length).toBeGreaterThan(0);
     const restored = new Y.Doc();
     Y.applyUpdate(restored, draft.state);
     expect(textOf(restored)).toBe('Hello');
@@ -243,7 +243,7 @@ describe('room-mode drafts', () => {
       generation: null,
       // The later updates first, as a cache could hold them.
       state: Y.mergeUpdates(updates.slice(half)),
-      unconfirmed: Y.mergeUpdates(updates.slice(0, half)),
+      unconfirmed: [Y.mergeUpdates(updates.slice(0, half))],
       confirmed: null,
       savedAt: '2026-01-01T00:00:00.000Z',
     });
@@ -273,7 +273,7 @@ describe('merging a room draft into a new generation', () => {
       mode: 'room',
       generation: 'g1',
       state,
-      unconfirmed: state,
+      unconfirmed: [state],
       confirmed: confirmed && documentToYjs(confirmed, { schema }),
       savedAt: '2026-01-01T00:00:00.000Z',
     };
@@ -305,7 +305,7 @@ describe('merging a room draft into a new generation', () => {
 
   it('DOCE-SESSION-6.9 merges nothing from a draft with no unconfirmed changes', () => {
     const state = editorOf(file('One', 'Two'));
-    const draft = { ...draftOf(file('Other', 'Two'), file('One', 'Two')), unconfirmed: null };
+    const draft = { ...draftOf(file('Other', 'Two'), file('One', 'Two')), unconfirmed: [] };
     expect(mergeRoomDraft(state, draft, { schema })).toEqual({ transaction: null, leftovers: [] });
   });
 

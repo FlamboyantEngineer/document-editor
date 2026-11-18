@@ -74,7 +74,7 @@ describe('page projection', () => {
     expect(textAfter(whole, tr.mapping.map(across))).toBe('acro');
   });
 
-  it('DOCE-PAGINATION-6.2 lays the whole document onto pages with numbers and footnotes', () => {
+  it('DOCE-PAGINATION-6.2 lays the whole document onto pages with page numbers and footnotes', () => {
     const whole = joinDocumentPages(paged).doc;
     const blocks: Node[] = [];
     whole
@@ -89,14 +89,11 @@ describe('page projection', () => {
     expect(pages.childCount).toBe(2);
     expect(pages.child(1).child(0).attrs).toMatchObject({ pageNumber: 2, totalPages: 2 });
     expect(pages.child(1).child(3).attrs).toMatchObject({ pageNumber: 2, totalPages: 2 });
-    expect(pages.child(1).child(2).firstChild?.attrs).toMatchObject({
-      footnoteId: 'f2',
-      footnoteNumber: 2,
-    });
+    expect(pages.child(1).child(2).firstChild?.attrs).toMatchObject({ footnoteId: 'f2' });
     const perPage = projectDocument(whole, [[[lead], [split, last]]], {
       footnoteNumbering: 'page',
     });
-    expect(perPage.child(0).child(1).child(2).firstChild?.attrs.footnoteNumber).toBe(1);
+    expect(perPage.child(0).child(1).child(2).firstChild?.attrs.footnoteId).toBe('f2');
     expect(projectDocument(whole, []).child(0).childCount).toBe(1);
   });
 

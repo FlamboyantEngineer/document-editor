@@ -1,15 +1,19 @@
 // Builds the paged document from the whole document and each section's page layout: every page gets
 // its section's header and footer numbered through the document, its blocks, and the entries of the
-// footnotes its blocks are first to cite, numbered through the document or on each page.
+// footnotes its blocks are first to cite, or of all they cite when footnotes are numbered on each
+// page. The footnote numbers are not content: the view of the pages draws them.
 
-import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 
 /** The blocks on each of a section's pages, in order, as the page layout placed them. */
 export type SectionPages = readonly (readonly ProseMirrorNode[])[];
 
 /** How the paged document numbers what follows its pages. */
 export interface ProjectionOptions {
-  /** Whether footnotes are numbered through the document, by default, or on each page. */
+  /**
+   * Whether footnotes are numbered through the document, by default, each entry on the first page
+   * citing it, or on each page, each page holding the entries of all it cites.
+   */
   footnoteNumbering?: 'document' | 'page' | undefined;
 }
 
@@ -67,62 +71,33 @@ function withAttrs(node: ProseMirrorNode, attrs: Record<string, unknown>): Prose
   return changed ? node.type.create({ ...node.attrs, ...attrs }, node.content, node.marks) : node;
 }
 
-// The node with each footnote marker carrying its number; the same node when none changes.
-function numberMarkers(
-  node: ProseMirrorNode,
-  numbers: ReadonlyMap<string, number>,
-): ProseMirrorNode {
-  if (node.type.name === 'footnote_reference') {
-    const id = footnoteId(node);
-    return withAttrs(node, { footnoteNumber: id ? (numbers.get(id) ?? null) : null });
-  }
-  if (node.isLeaf) return node;
-  let changed = false;
-  const children = childrenOf(node).map((child) => {
-    const numbered = numberMarkers(child, numbers);
-    changed ||= numbered !== child;
-    return numbered;
-  });
-  return changed ? node.copy(Fragment.from(children)) : node;
-}
-
-interface Numbering {
+// Where the pages are: the page count so far and the footnotes whose entries are placed.
+interface Placing {
   readonly perPage: boolean;
-  readonly numbers: Map<string, number>;
-  count: number;
+  readonly placed: Set<string>;
   page: number;
   readonly totalPages: number;
 }
 
-function footnoteEntries(parts: SectionParts, ids: readonly string[], numbering: Numbering) {
+function footnoteEntries(parts: SectionParts, ids: readonly string[]) {
   const type = parts.page.type.schema.nodes.footnote_entry;
   return ids.flatMap((id) => {
     const entry = parts.entries.get(id) ?? type?.create({ footnoteId: id });
-    return entry ? [withAttrs(entry, { footnoteNumber: numbering.numbers.get(id) ?? null })] : [];
+    return entry ? [entry] : [];
   });
 }
 
-function projectPage(
-  parts: SectionParts,
-  blocks: readonly ProseMirrorNode[],
-  numbering: Numbering,
-) {
-  numbering.page += 1;
-  if (numbering.perPage) {
-    numbering.count = 0;
-    numbering.numbers.clear();
-  }
+function projectPage(parts: SectionParts, blocks: readonly ProseMirrorNode[], placing: Placing) {
+  placing.page += 1;
+  if (placing.perPage) placing.placed.clear();
   // A footnote's entry goes on the first page that cites it, or on each page numbered on its own.
-  const ids = citedFootnotes(blocks).filter((id) => !numbering.numbers.has(id));
-  for (const id of ids) numbering.numbers.set(id, (numbering.count += 1));
-  const pageNumbers = { pageNumber: numbering.page, totalPages: numbering.totalPages };
+  const ids = citedFootnotes(blocks).filter((id) => !placing.placed.has(id));
+  for (const id of ids) placing.placed.add(id);
+  const pageNumbers = { pageNumber: placing.page, totalPages: placing.totalPages };
   const regions = childrenOf(parts.page).map((region) => {
     const name = region.type.name;
     if (name === 'page_header' || name === 'page_footer') return withAttrs(region, pageNumbers);
-    const content =
-      name === 'page_content'
-        ? blocks.map((block) => numberMarkers(block, numbering.numbers))
-        : footnoteEntries(parts, ids, numbering);
+    const content = name === 'page_content' ? blocks : footnoteEntries(parts, ids);
     return region.type.create(region.attrs, content, region.marks);
   });
   return parts.page.type.create(parts.page.attrs, regions, parts.page.marks);
@@ -146,10 +121,9 @@ export function projectDocument(
     return pages?.length ? pages : [parts[index]?.blocks ?? []];
   };
   const totalPages = parts.reduce((sum, _part, index) => sum + pagesFor(index).length, 0);
-  const numbering: Numbering = {
+  const placing: Placing = {
     perPage: footnoteNumbering === 'page',
-    numbers: new Map(),
-    count: 0,
+    placed: new Set(),
     page: 0,
     totalPages,
   };
@@ -160,7 +134,7 @@ export function projectDocument(
     sectionIndex += 1;
     const section = parts[index];
     if (!section) return child;
-    const pages = pagesFor(index).map((blocks) => projectPage(section, blocks, numbering));
+    const pages = pagesFor(index).map((blocks) => projectPage(section, blocks, placing));
     return child.type.create(child.attrs, pages, child.marks);
   });
   return whole.type.create(whole.attrs, content, whole.marks);

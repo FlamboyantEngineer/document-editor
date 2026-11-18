@@ -2,7 +2,7 @@
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
-import { type DomAttributes, integerAttributeOrNull } from './dom-attributes.js';
+import type { DomAttributes } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 import {
   type DocumentSchemaOptions,
@@ -16,27 +16,18 @@ export const footnoteMarkerAnchor = (footnoteId: string): string => `fnref-${foo
 /** The anchor a footnote's entry carries in print, which its marker links to. */
 export const footnoteEntryAnchor = (footnoteId: string): string => `fn-${footnoteId}`;
 
-const footnoteAttrs = { footnoteId: { default: null }, footnoteNumber: { default: null } };
+// A footnote's number is not content: each view numbers its footnotes for its own layout and
+// draws the number, `data-footnote-number` and the tooltip itself (`createFootnoteNumbers`).
+const footnoteAttrs = { footnoteId: { default: null } };
 
 function readFootnoteAttrs(dom: HTMLElement) {
-  return {
-    footnoteId: dom.getAttribute('data-footnote-id') || null,
-    footnoteNumber: integerAttributeOrNull(dom, 'data-footnote-number'),
-  };
+  return { footnoteId: dom.getAttribute('data-footnote-id') || null };
 }
 
-/** Writes a footnote's id and number, and the number as its tooltip. */
-function writeFootnoteAttrs(
-  node: ProseMirrorNode,
-  attrs: DomAttributes,
-  options: ResolvedSchemaOptions,
-): DomAttributes {
-  const { footnoteId, footnoteNumber } = node.attrs;
+/** Writes a footnote's id. */
+function writeFootnoteAttrs(node: ProseMirrorNode, attrs: DomAttributes): DomAttributes {
+  const { footnoteId } = node.attrs;
   if (footnoteId) attrs['data-footnote-id'] = String(footnoteId);
-  if (Number.isInteger(footnoteNumber)) {
-    attrs['data-footnote-number'] = String(footnoteNumber);
-    attrs[options.tooltipAttribute] = `Footnote ${String(footnoteNumber)}`;
-  }
   return attrs;
 }
 
@@ -57,6 +48,8 @@ function footnoteEntry(options: ResolvedSchemaOptions): NodeSpec {
     // An entry is its footnote's whole text: nothing joins into it or out of it.
     isolating: true,
     attrs: footnoteAttrs,
+    // Where the view that numbers the entry puts its tooltip.
+    tooltipAttribute: options.tooltipAttribute,
     parseDOM: [
       {
         tag: 'p.pm-footnote-entry[data-footnote-id], p[data-footnote-entry="true"][data-footnote-id]',
@@ -71,12 +64,8 @@ function footnoteEntry(options: ResolvedSchemaOptions): NodeSpec {
         'data-footnote-entry': 'true',
         contenteditable: 'true',
       };
-      const attrs = writeFootnoteAttrs(node, base, options);
-      const number = [
-        'span',
-        { class: 'pm-footnote-entry-number', contenteditable: 'false' },
-        attrs['data-footnote-number'] ?? '',
-      ];
+      const attrs = writeFootnoteAttrs(node, base);
+      const number = ['span', { class: 'pm-footnote-entry-number', contenteditable: 'false' }];
       return ['p', attrs, number, ['span', { class: 'pm-footnote-entry-content' }, 0]];
     },
   };
@@ -89,6 +78,8 @@ function footnoteReference(options: ResolvedSchemaOptions): NodeSpec {
     atom: true,
     selectable: true,
     attrs: footnoteAttrs,
+    // Where the view that numbers the marker puts its tooltip.
+    tooltipAttribute: options.tooltipAttribute,
     parseDOM: [
       {
         // Above the default priority, so the marker parses as this node, not as the
@@ -105,9 +96,7 @@ function footnoteReference(options: ResolvedSchemaOptions): NodeSpec {
         contenteditable: 'false',
         spellcheck: 'false',
       };
-      const attrs = writeFootnoteAttrs(node, base, options);
-      const number = node.attrs.footnoteNumber;
-      return ['sup', attrs, Number.isInteger(number) ? String(number) : ''];
+      return ['sup', writeFootnoteAttrs(node, base)];
     },
   };
 }

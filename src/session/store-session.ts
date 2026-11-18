@@ -12,6 +12,7 @@ import { createDocumentSchema } from '../model/schema/document-schema.js';
 import type {
   DocumentSession,
   DocumentSessionOptions,
+  RoomReloadNotice,
   SessionConnection,
   SessionDocument,
   SessionStateContext,
@@ -85,6 +86,7 @@ export function createSessionStores(
   const document = createValueStore<SessionDocument | null>(null);
   const conflicts = createValueStore<readonly MergeConflict[]>([]);
   const connection = createValueStore<SessionConnection | null>(null);
+  const reloads = createValueStore<RoomReloadNotice | null>(null);
   // The template a state is made in reads the loaded one until the document shows.
   let loaded: TemplateFile | null = null;
   const context: SessionStateContext = {
@@ -105,7 +107,17 @@ export function createSessionStores(
   const setLoaded = (template: TemplateFile) => {
     loaded = template;
   };
-  return { status, document, conflicts, connection, context, current, setLoaded, pending };
+  return {
+    status,
+    document,
+    conflicts,
+    connection,
+    reloads,
+    context,
+    current,
+    setLoaded,
+    pending,
+  };
 }
 
 export type SessionStores = ReturnType<typeof createSessionStores>;
@@ -248,7 +260,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
   const session: DocumentSession = {
     documentId,
     mode: 'store',
-    ...{ status, document, conflicts, connection: stores.connection },
+    ...{ status, document, conflicts, connection: stores.connection, reloads: stores.reloads },
     ready: controller.signal.aborted ? Promise.resolve(false) : load(),
     update: (update) => commitState({ document, saving }, update),
     setTemplate: async (pin) => {

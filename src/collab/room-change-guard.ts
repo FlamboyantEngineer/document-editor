@@ -28,9 +28,16 @@ export interface RoomChangeGuardOptions {
   authorOf?: ((actor: { id: string }) => string | null) | undefined;
 }
 
+/**
+ * A guard's answer: `true` takes the change, `false` refuses it for what the writer may not do, and
+ * `'conflict'` refuses a change the writer may make whose merge with the room leaves content the
+ * schema refuses (DOCE-COLLAB-7.4).
+ */
+type RoomGuardAnswer = boolean | 'conflict';
+
 /** A room-server openGuard result, disposed when its shadow is replaced or unloaded. */
 export interface RoomChangeGuard {
-  check(change: RoomGuardRequest): boolean;
+  check(change: RoomGuardRequest): RoomGuardAnswer;
   /**
    * Reads the shadow's content from scratch and says whether the guard's kept reading still
    * matches it; the room server calls it every `verifyEvery` changes and on idle.
@@ -39,6 +46,9 @@ export interface RoomChangeGuard {
   destroy(): void;
 }
 
+// Judges a change on the content after it. A change whose exact replay the schema refuses is judged
+// on the reading an editor fits from it: allowed there, it is a conflict of the merge, not of the
+// writer's rights (DOCE-COLLAB-7.4).
 function checkSnapshot(
   before: GuardSnapshot,
   options: {
@@ -48,12 +58,27 @@ function checkSnapshot(
     author: string | null;
     permissions: GuardPermissions;
   },
+): RoomGuardAnswer {
+  const exact = options.snapshots.content(before.scope);
+  const after = exact === undefined ? options.snapshots.fitted(before.scope) : exact;
+  if (after === undefined) return false;
+  after?.check();
+  if (!allowedChange(before, after, options)) return false;
+  return exact === undefined ? 'conflict' : true;
+}
+
+function allowedChange(
+  before: GuardSnapshot,
+  after: Node | null,
+  options: {
+    empty: Node;
+    actor: string;
+    author: string | null;
+    permissions: GuardPermissions;
+  },
 ): boolean {
   const { scope } = before;
   const { permissions, actor, author } = options;
-  const after = options.snapshots.content(scope);
-  if (after === undefined) return false;
-  after?.check();
   if (!hasGuardAnchors(before.anchors, after, { scope, actor: author, permissions })) return false;
   const version: unknown = scope.meta.getAttr('formatVersion');
   if (version !== undefined && version !== 1) return false;
@@ -102,7 +127,7 @@ export function openRoomChangeGuard(
         if (!before) return false;
         const permissions = options.permissions(change.actor, change.capabilities);
         const author = options.authorOf ? options.authorOf(change.actor) : change.actor.id;
-        return before.every((snapshot) =>
+        const answers = before.map((snapshot) =>
           checkSnapshot(snapshot, {
             snapshots,
             empty,
@@ -111,6 +136,8 @@ export function openRoomChangeGuard(
             permissions,
           }),
         );
+        if (answers.includes(false)) return false;
+        return answers.includes('conflict') ? 'conflict' : true;
       } catch {
         return false;
       }

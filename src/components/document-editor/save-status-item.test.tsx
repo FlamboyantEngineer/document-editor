@@ -13,6 +13,7 @@ import type { SessionStatus } from '../../session/status.js';
 import { createValueStore } from '../../session/value-store.js';
 import { CONNECTION_STATUS_LABELS } from './connection-status.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
+import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import type { EditorSession } from './save-status-item.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
@@ -76,8 +77,10 @@ function Harness({
   shortcuts,
   labels,
   onSave,
+  feedback,
 }: {
   onSave?: () => void;
+  feedback?: DocumentEditorProps['feedback'];
   session?: EditorSession;
   capabilities?: EditorCapabilities;
   shortcuts?: ShortcutOverrides;
@@ -97,6 +100,7 @@ function Harness({
       onSave={onSave}
       capabilities={capabilities}
       labels={labels}
+      feedback={feedback}
       comments={
         host.comments
           ? {
@@ -237,5 +241,29 @@ describe('SaveStatusItem', () => {
     rerender(<Harness capabilities={{ ...FULL_CAPABILITIES, decide: false }} />);
     expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-SESSION-3.11 tells the reader when the room took back a change, in words the host may replace', () => {
+    const reloads = createValueStore<{ reason: string } | null>(null);
+    const { session } = stubSession();
+    const notify = vi.fn();
+    const { rerender } = render(
+      <Harness session={{ ...session, reloads }} feedback={{ notify }} />,
+    );
+    act(() => reloads.set({ reason: 'conflict' }));
+    expect(notify).toHaveBeenLastCalledWith({
+      tone: 'warning',
+      text: DEFAULT_EDITOR_LABELS.roomChangeRefused,
+    });
+
+    rerender(
+      <Harness
+        session={{ ...session, reloads }}
+        feedback={{ notify }}
+        labels={{ roomChangeRefused: 'Not kept' }}
+      />,
+    );
+    act(() => reloads.set({ reason: 'conflict' }));
+    expect(notify).toHaveBeenLastCalledWith({ tone: 'warning', text: 'Not kept' });
   });
 });
