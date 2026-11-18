@@ -8,6 +8,7 @@ import {
   writeMarkup,
 } from '../../../test/document-markup.js';
 import { createDocumentSchema } from '../index.js';
+import { createFigure } from './caption-content.js';
 
 const previewSchema = createDocumentSchema({
   schema: { assetPreviewUrl: (asset, snapshot) => `/files/${asset}/${snapshot}` },
@@ -40,12 +41,12 @@ describe('figure nodes', () => {
   });
 
   it('DOCE-SCHEMA-3.3 writes a size only when it is a positive number', () => {
-    const figure = documentSchema.nodes.figure;
-    if (!figure) throw new Error('The schema has figures');
-    const written = (attrs: Record<string, unknown>) =>
-      DOMSerializer.fromSchema(documentSchema).serializeNode(
-        figure.create({ src: 'a.png', ...attrs }),
-      ) as HTMLElement;
+    // A figure as the document holds it, with its caption.
+    const written = (attrs: Record<string, unknown>) => {
+      const figure = createFigure(documentSchema, { src: 'a.png', ...attrs });
+      if (!figure) throw new Error('The schema has figures');
+      return DOMSerializer.fromSchema(documentSchema).serializeNode(figure) as HTMLElement;
+    };
     // A stored or synced figure holds what it was given: text that is not a size is not written.
     const unsafe = written({ width: '1px;position:fixed;inset:0', height: -5 });
     const image = unsafe.querySelector('img');
