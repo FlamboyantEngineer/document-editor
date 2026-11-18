@@ -31,18 +31,23 @@ function hasKnownSplit(type: Y.Type): boolean {
   return kind !== 'insertion' || (typeof author === 'string' && author.length > 0);
 }
 
-// What only the pages draw: a later part's caption text, and which part of a split table a node
-// holding a table and its caption is. A room holds the document whole, so neither is ever set there;
-// set, a caption would show text that is not its own.
-const PAGE_ONLY: Readonly<Record<string, string>> = {
-  table_caption: 'continuedText',
-  table_figure: 'splitPartIndex',
-};
+// What only the pages draw: which part of a split block a node is, a list item continued from an
+// earlier page, the empty paragraph a continued container starts with, and a later part's caption
+// text. A room holds the document whole, so none is ever set there; set, a block would be read as a
+// part of one, or a caption would show text that is not its own.
+const PAGE_ONLY_ANY: readonly string[] = [
+  'splitPartIndex',
+  'orphanedListContinuation',
+  'continuationPlaceholder',
+];
+const PAGE_ONLY: Readonly<Record<string, string>> = { table_caption: 'continuedText' };
 
 function hasPageOnlyAttr(type: Y.Type, name: string): boolean {
-  const attr = PAGE_ONLY[name];
-  const value: unknown = attr ? type.getAttr(attr) : undefined;
-  return value !== undefined && value !== null;
+  const attrs = [...PAGE_ONLY_ANY, ...(PAGE_ONLY[name] ? [PAGE_ONLY[name]] : [])];
+  return attrs.some((attr) => {
+    const value: unknown = type.getAttr(attr);
+    return value !== undefined && value !== null && value !== false;
+  });
 }
 
 function hasKnownContent(type: Y.Type, options: { schema: Schema; root: Y.Type }): boolean {

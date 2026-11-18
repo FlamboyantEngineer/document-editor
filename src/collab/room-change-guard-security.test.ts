@@ -1176,6 +1176,28 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
   ) => checkDocumentChange({ before: before.doc, after: after.doc, actor, permissions: granted });
   const suggested = () => suggestAs(start(), insertFootnote({ newId: () => 'n0' }));
 
+  it('admits a footnote suggested in a caption before another, numbered in reading order', () => {
+    const before = caretAt(
+      footnoteState([
+        {
+          type: 'figure',
+          attrs: { src: 'https://example.com/a.png' },
+          content: [{ type: 'caption', content: [text('Board')] }],
+        },
+        paragraph(text('Before after.'), note('n1', 'Old')),
+      ]),
+      'Board',
+      5,
+    );
+    const after = suggestAs(before, insertFootnote({ newId: () => 'n0' }));
+    expect(footnoteParts(after, 'number').filter((part) => part.startsWith('marker:'))).toEqual([
+      'marker:1',
+      'marker:2',
+    ]);
+    expect(allowed(before, after, 'writer')).toBe(true);
+    expect(allowed(before, after, 'other')).toBe(false);
+  });
+
   it('admits a writer’s own suggested footnote, its entry and the text suggested in it, and its withdrawal', () => {
     const before = start();
     const inserted = suggested();
@@ -1437,6 +1459,55 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     }
   });
 
+  it('refuses even an editor any block marked as what only the pages draw', async () => {
+    const { nodes } = schema;
+    const paragraphOf = (attrs: Record<string, unknown>) =>
+      nodes.paragraph?.create({ dataId: 'p0000009', ...attrs }, schema.text('Part'));
+    const listOf = (attrs: Record<string, unknown>) => {
+      const paragraph = paragraphOf({});
+      const item = paragraph && nodes.list_item?.create(attrs, paragraph);
+      return item ? nodes.bullet_list?.create(null, item) : undefined;
+    };
+    const attacks: [string, ProseMirrorNode | undefined][] = [
+      ['a paragraph marked as a part', paragraphOf({ splitPartIndex: 1 })],
+      ['a placeholder paragraph', paragraphOf({ continuationPlaceholder: true })],
+      ['a list item continued from a page', listOf({ orphanedListContinuation: true })],
+      ['a list item marked as a part', listOf({ splitPartIndex: 0 })],
+    ];
+    for (const [name, attack] of attacks) {
+      if (!attack) throw new Error(name);
+      const room = await setup({ granted: editor });
+      try {
+        change(room.doc, (state) => {
+          let end = -1;
+          state.doc.descendants((each, pos) => {
+            if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+            return end < 0;
+          });
+          return state.apply(state.tr.insert(end, attack));
+        });
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal, name).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
+  it('counts a change of the part a block is as an edit, refused to a writer who may only decide', () => {
+    const before = stateOf('Limits');
+    let at = -1;
+    before.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'paragraph') at = pos;
+      return at < 0;
+    });
+    const parted = before.apply(before.tr.setNodeAttribute(at, 'splitPartIndex', 1));
+    const decider = { edit: false, suggest: false, comment: true, decide: true };
+    expect(allowed(before, parted.doc, decider)).toBe(false);
+    expect(allowed(before, parted.doc)).toBe(false);
+  });
+
   // The room's document with a node added after its paragraph, built without the schema's checks,
   // as a writer sending raw content could.
   const withRaw = (doc: Y.Doc, added: ProseMirrorNode) => {
@@ -1488,8 +1559,8 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     }
   });
 
-  // Suggesting a whole table or figure, its caption and table marked as inserted, comes with
-  // captions that hold suggestions; until then a suggester cannot insert one.
+  // A table cannot be a suggested block (DOCE-SUGGESTIONS-1.5): the suggestion engine refuses to
+  // insert or delete one whole, and the room refuses a whole table marked as a suggester's.
   it('refuses a suggester a whole table with its caption, even marked as the suggester’s', async () => {
     const room = await setup();
     try {
@@ -1523,6 +1594,153 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     } finally {
       await room.close();
     }
+  });
+
+  // A whole figure is a suggested block (DOCE-SUGGESTIONS-1.4): the figure carries the suggestion,
+  // and its caption's text the same suggestion's marks, which name its writer.
+  describe('a suggested whole figure', () => {
+    const decider = { edit: false, suggest: false, comment: true, decide: true };
+    const figured = (caption: string, more: boolean) =>
+      EditorState.create({
+        doc: readDocumentFile(
+          {
+            formatVersion: 1,
+            sections: [
+              {
+                name: null,
+                content: [
+                  { type: 'paragraph', attrs: { id: 'p0000001' }, content: [text('Original')] },
+                  ...(more
+                    ? [
+                        {
+                          type: 'figure',
+                          attrs: { id: 'f0000001', src: 'https://example.com/a.png' },
+                          content: [
+                            {
+                              type: 'caption',
+                              attrs: { id: 'c0000002' },
+                              content: caption ? [text(caption)] : [],
+                            },
+                          ],
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            ],
+          },
+          schema,
+        ).doc,
+      });
+    const figureAt = (state: EditorState) => {
+      let at = -1;
+      state.doc.descendants((node, pos) => {
+        if (at < 0 && node.type.name === 'figure') at = pos;
+        return at < 0;
+      });
+      return at;
+    };
+    let ids = 0;
+    const suggested = (state: EditorState, tr: Transaction, author = 'writer') => {
+      const out = suggestTransaction(tr, state, {
+        author,
+        newId: () => `s${(ids += 1).toString(16).padStart(7, '0')}`,
+      });
+      return out ? state.apply(out) : null;
+    };
+    const deleting = (state: EditorState, author = 'writer') => {
+      const at = figureAt(state);
+      const node = state.doc.nodeAt(at);
+      return node ? suggested(state, state.tr.delete(at, at + node.nodeSize), author) : null;
+    };
+    const inserting = (author = 'writer') => {
+      const empty = figured('', false);
+      const source = figured('Board', true);
+      const figure = source.doc.nodeAt(figureAt(source));
+      let at = -1;
+      empty.doc.descendants((node, pos) => {
+        if (at < 0 && node.type.name === 'paragraph') at = pos + node.nodeSize;
+        return at < 0;
+      });
+      return figure
+        ? { empty, state: suggested(empty, empty.tr.insert(at, figure), author) }
+        : null;
+    };
+    const decided = (state: EditorState, command: Command) => {
+      let next = state;
+      command(state, (tr) => (next = state.apply(tr)));
+      return next;
+    };
+    const check = (
+      before: EditorState,
+      after: EditorState,
+      granted: typeof suggestOnly,
+      actor = 'writer',
+    ) => checkDocumentChange({ before: before.doc, after: after.doc, actor, permissions: granted });
+
+    it('lets a suggester suggest deleting a whole figure, and a decider accept or reject it', () => {
+      const before = figured('Board', true);
+      const deleted = deleting(before);
+      if (!deleted) throw new Error('The deletion was not suggested.');
+      expect(deleted.doc.nodeAt(figureAt(deleted))?.attrs.suggestionSplitKind).toBe('deletion');
+      expect(check(before, deleted, suggestOnly)).toBe(true);
+      expect(check(before, deleted, suggestOnly, 'other')).toBe(false);
+      const accepted = decided(deleted, acceptAllSuggestions);
+      expect(figureAt(accepted)).toBe(-1);
+      expect(check(deleted, accepted, decider, 'decider')).toBe(true);
+      expect(check(deleted, accepted, suggestOnly, 'other')).toBe(false);
+      const rejected = decided(deleted, rejectAllSuggestions);
+      expect(rejected.doc.eq(before.doc)).toBe(true);
+      expect(check(deleted, rejected, decider, 'decider')).toBe(true);
+      // Its writer may withdraw it.
+      expect(check(deleted, rejected, suggestOnly)).toBe(true);
+    });
+
+    it('lets a suggester suggest inserting a whole figure, as theirs only', () => {
+      const inserted = inserting();
+      if (!inserted?.state) throw new Error('The insertion was not suggested.');
+      const { empty, state } = inserted;
+      expect(state.doc.nodeAt(figureAt(state))?.attrs).toMatchObject({
+        suggestionSplitKind: 'insertion',
+        dataAuthor: 'writer',
+      });
+      expect(check(empty, state, suggestOnly)).toBe(true);
+      expect(check(empty, state, suggestOnly, 'other')).toBe(false);
+      expect(check(state, decided(state, acceptAllSuggestions), decider, 'decider')).toBe(true);
+      expect(check(state, decided(state, rejectAllSuggestions), decider, 'decider')).toBe(true);
+      // Another suggester may suggest deleting it, as another writer's suggested text.
+      const deleted = deleting(state, 'other');
+      expect(deleted && check(state, deleted, suggestOnly, 'other')).toBe(true);
+    });
+
+    it('refuses a figure marked for deletion without its writer’s marks, or with another’s', () => {
+      const before = figured('Board', true);
+      const at = figureAt(before);
+      const figure = before.doc.nodeAt(at);
+      const deletion = schema.marks.deletion;
+      if (!figure || !deletion) throw new Error('No figure.');
+      const marked = before.apply(
+        before.tr.setNodeMarkup(at, null, {
+          ...figure.attrs,
+          suggestionSplitKind: 'deletion',
+          suggestionSplitId: 's0000099',
+        }),
+      );
+      expect(check(before, marked, suggestOnly)).toBe(false);
+      const caption = { from: at + 2, to: at + 2 + 'Board'.length };
+      const by = (author: string) =>
+        marked.apply(
+          marked.tr.addMark(
+            caption.from,
+            caption.to,
+            deletion.create({ dataId: 's0000099', dataAuthor: author }),
+          ),
+        );
+      expect(check(before, by('other'), suggestOnly)).toBe(false);
+      expect(check(before, by('writer'), suggestOnly)).toBe(true);
+      // A figure with no caption text has nothing to name its writer: deleting it is not suggested.
+      expect(deleting(figured('', true))).toBeNull();
+    });
   });
 
   // Two editors' changes, each allowed alone, that together would leave a list with no items: the

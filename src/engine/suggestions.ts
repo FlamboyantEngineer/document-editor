@@ -12,7 +12,7 @@ import { addMarkInOrder } from '../model/index.js';
 import { createElementId } from './element-ids.js';
 import { footnoteStep } from './suggested-footnotes.js';
 import { suggestFormatting } from './suggested-formatting.js';
-import { coversTable, hasKindAttrs, wholeBlocks } from './suggested-objects.js';
+import { cannotSuggestDeleting, hasKindAttrs, wholeBlocks } from './suggested-objects.js';
 import { isSystemChange } from './transaction-kind.js';
 
 /** Marks a transaction a suggestion built or decided, which suggest mode leaves as it is. */
@@ -235,7 +235,7 @@ function suggestReplace(
   const { tr } = suggesting;
   const inline = inlineContent(slice);
   if (inline) {
-    if (from < to && coversTable(tr.doc, [from, to])) return null;
+    if (from < to && cannotSuggestDeleting(tr.doc, [from, to], suggesting.author)) return null;
     const before = tr.steps.length;
     const id = from < to ? suggestDeletion(suggesting, [from, to]) : null;
     const map = tr.mapping.slice(before);

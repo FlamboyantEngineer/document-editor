@@ -20,13 +20,26 @@ export function wholeBlocks(doc: ProseMirrorNode, [from, to]: readonly [number, 
   return blocks;
 }
 
-// Whether a range covers a whole table, which cannot be suggested as a block (DOCE-SUGGESTIONS-1.5).
-export function coversTable(doc: ProseMirrorNode, [from, to]: readonly [number, number]) {
-  let covers = false;
+/**
+ * Whether a deletion of a range cannot be suggested: it covers a whole table, which cannot be a
+ * suggested block (DOCE-SUGGESTIONS-1.5), or a whole figure or layout section with no text, which
+ * its writer's marks could not name as theirs, unless it is the writer's own suggested block.
+ */
+export function cannotSuggestDeleting(
+  doc: ProseMirrorNode,
+  [from, to]: readonly [number, number],
+  author: string | null,
+): boolean {
+  let refused = false;
   doc.nodesBetween(from, to, (node, pos) => {
-    if (node.type.name === 'table_figure' && pos >= from && pos + node.nodeSize <= to)
-      covers = true;
-    return !covers;
+    if (pos < from || pos + node.nodeSize > to) return !refused;
+    if (node.type.name === 'table_figure') refused = true;
+    else if (!node.isTextblock && hasKindAttrs(node) && !node.textContent) {
+      const own =
+        node.attrs.suggestionSplitKind === 'insertion' && node.attrs.dataAuthor === author;
+      if (!own) refused = true;
+    }
+    return !refused;
   });
-  return covers;
+  return refused;
 }

@@ -256,7 +256,7 @@ describe('whole objects while suggesting', () => {
     type,
     ...(type === 'figure' ? { attrs: { src: 'sample.png' } } : {}),
     content: [
-      { type: 'caption', content: [{ type: 'text', text }] },
+      { type: 'caption', content: text ? [{ type: 'text', text }] : [] },
       ...(type === 'table'
         ? [{ type: 'table_row', content: [{ type: 'table_cell', content: [paragraph('Cell')] }] }]
         : []),
@@ -330,10 +330,14 @@ describe('whole objects while suggesting', () => {
     expect(removed && listSuggestions(removed.doc)).toEqual([]);
   });
 
-  it('DOCE-SUGGESTIONS-1.5 refuses to delete a whole table, as it refuses to insert one', () => {
+  it('DOCE-SUGGESTIONS-1.5 refuses to delete a whole table, as it refuses to insert one, or a figure with no text', () => {
     const doc = read(paragraph('Before'), captioned('table', 'Totals'), paragraph('After'));
     const state = selectNode(EditorState.create({ doc }), 'table_figure');
     expect(suggest(state, deleteSelection)).toBeNull();
+    const blank = read(paragraph('Before'), captioned('figure', ''));
+    expect(
+      suggest(selectNode(EditorState.create({ doc: blank }), 'figure'), deleteSelection),
+    ).toBeNull();
     const inCell = select(
       EditorState.create({ doc }),
       positionOf(doc, 'Cell'),
