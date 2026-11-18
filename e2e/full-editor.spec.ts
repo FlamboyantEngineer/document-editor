@@ -68,7 +68,7 @@ test.describe('full editor lab', () => {
     ).toHaveCount(1);
   });
 
-  test('DOCE-AUTOMATION-3.5 DOCE-AUTOMATION-3.9 attributes a taken completion to the agent, and turns off from the toolbar', async ({
+  test('DOCE-AUTOMATION-3.5 DOCE-AUTOMATION-3.9 credits a taken completion to the writer marked as generated, and turns off from the toolbar', async ({
     lab,
     page,
   }) => {
@@ -80,7 +80,7 @@ test.describe('full editor lab', () => {
     await expect(content(page).locator('.de-inline-completion')).toHaveCount(1);
     await page.keyboard.press('Tab');
     await expect(
-      content(page).locator('span[data-ai="lab-completion"]', {
+      content(page).locator('span[data-au="ada"][data-ai="lab-completion"]', {
         hasText: 'less than one second.',
       }),
     ).toHaveCount(1);

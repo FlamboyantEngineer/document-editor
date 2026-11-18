@@ -330,6 +330,7 @@ function initialState(): EditorState {
         : []),
       createInlineCompletion({
         provider: COMPLETER,
+        author: () => 'ada',
         delay: 300,
         suggesting: () => SUGGESTING.current,
       }),
