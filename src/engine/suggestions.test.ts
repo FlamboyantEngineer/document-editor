@@ -301,6 +301,21 @@ describe('whole objects while suggesting', () => {
     expect(rejected && markup(rejected.doc)).toEqual(['Before', 'Chart', 'After']);
   });
 
+  it('DOCE-SUGGESTIONS-1.1 suggests text typed in a caption, decided and stored as any text', () => {
+    const doc = read(captioned('table', 'Totals'));
+    const typed = suggest(
+      select(EditorState.create({ doc }), positionOf(doc, 'Totals') + 6),
+      typing(' by year'),
+    );
+    expect(typed && markup(typed.doc)).toEqual(['Totals[+ by year]', 'Cell']);
+    const stored = typed && readDocumentFile(writeDocumentFile(typed.doc), documentSchema).doc;
+    expect(stored && markup(stored)).toEqual(['Totals[+ by year]', 'Cell']);
+    const accepted = decide(typed, acceptAllSuggestions);
+    expect(accepted && markup(accepted.doc)).toEqual(['Totals by year', 'Cell']);
+    const rejected = decide(typed, rejectAllSuggestions);
+    expect(rejected && markup(rejected.doc)).toEqual(['Totals', 'Cell']);
+  });
+
   it('DOCE-SUGGESTIONS-1.3 removes a writer’s own suggested figure outright', () => {
     const doc = read(paragraph('Before'), captioned('figure', 'Chart'));
     const figure = doc.nodeAt(posOf(doc, 'figure'));
