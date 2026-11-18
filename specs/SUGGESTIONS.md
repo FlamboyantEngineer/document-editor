@@ -113,10 +113,10 @@ Verification: `src/engine/suggestions.test.ts`, `src/engine/accepted-credit.test
 
 ### DOCE-SUGGESTIONS-2.8 - One decide policy
 
-`suggestionPermissions(suggestion, policy)` shall say whether the reader may accept a suggestion and reject it: a reader who may decide (`canDecide`) may do both unless the policy's `decide` narrows it, and a writer may withdraw (reject) their own suggestion while `canWithdraw`, even while suggesting; an unattributed suggestion is its thread's writer's (DOCE-SUGGESTIONS-2.5). `decideWithPolicy(policy, decision, ids)` shall decide only the suggestions the policy allows, and fail when it allows none.
+`suggestionPermissions(suggestion, policy)` shall say whether the reader may accept a suggestion and reject it: a reader who may decide (`canDecide`) may do both unless the policy's `decide` narrows it, and a writer may withdraw (reject) their own suggestion while `canWithdraw`, even while suggesting; an unattributed suggestion is its thread's writer's (DOCE-SUGGESTIONS-2.5). `decideWithPolicy(policy, decision, ids)` shall decide only the suggestions the policy allows, and fail when it allows none. It shall also fail when a decision would take with it another suggestion the policy does not let the reader decide so, as withdrawing a table takes the text another writer suggested in its cells, which a shared room would refuse (DOCE-COLLAB-7.2).
 
 Implementation: `src/engine/suggestion-policy.ts`
-Verification: `src/engine/suggestion-policy.test.ts`
+Verification: `src/engine/suggestion-policy.test.ts`, `src/engine/suggested-tables.test.ts`
 
 ## DOCE-SUGGESTIONS-3 - Suggesting in the editor
 

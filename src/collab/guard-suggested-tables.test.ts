@@ -133,6 +133,10 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 a table suggested whole in a guar
     expect(allowed(after, typed.doc, 'mallory')).toBe(false);
     const suggested = suggest(after, after.tr.insertText('Mine', inCell), 'mallory', 's0000002');
     expect(allowed(after, suggested.doc, 'mallory')).toBe(true);
+    // Withdrawing the table now takes the other writer's suggestion: it needs the right to decide.
+    const withdrawn = decided(suggested, rejectAllSuggestions).doc;
+    expect(allowed(suggested, withdrawn, 'writer')).toBe(false);
+    expect(allowed(suggested, withdrawn, 'writer', decider)).toBe(true);
     const row = holderOf(after.doc).node.lastChild?.firstChild;
     if (!row) throw new Error('No row.');
     const table =
@@ -153,5 +157,42 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 a table suggested whole in a guar
     expect(allowed(after, attached.doc, 'mallory')).toBe(false);
     const posing = after.tr.insert(pos + node.nodeSize, node);
     expect(allowed(after, posing.doc, 'mallory')).toBe(false);
+  });
+
+  it('refuses moving another writer’s whole-table deletion onto a table they did not choose', () => {
+    const tableWith = (id: string, cell: string): StoredNode => ({
+      ...TABLE,
+      attrs: { id },
+      content: [
+        { type: 'caption', content: [text(id)] },
+        { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph(cell)] }] },
+      ],
+    });
+    const start = stateOf(paragraph('Intro'), tableWith('t1', 'One'), tableWith('t2', 'Two'));
+    const holders: { node: Node; pos: number }[] = [];
+    start.doc.descendants((node, pos) => {
+      if (node.type.name === 'table_figure') holders.push({ node, pos });
+      return node.type.name !== 'table_figure';
+    });
+    const [first, second] = holders;
+    if (!first || !second) throw new Error('No tables.');
+    // The owner's one suggestion deletes the first table whole and text in the second.
+    const two = textAt(start.doc, 'Two');
+    const both = start.tr.delete(two, two + 2).delete(first.pos, first.pos + first.node.nodeSize);
+    const before = suggest(start, both, 'owner', 's0000005');
+    const at = (index: number) => {
+      const found: number[] = [];
+      before.doc.descendants((node, pos) => {
+        if (node.type.name === 'table_figure') found.push(pos);
+        return node.type.name !== 'table_figure';
+      });
+      return found[index] ?? -1;
+    };
+    const moved = before.tr
+      .setNodeAttribute(at(0), 'suggestionSplitKind', null)
+      .setNodeAttribute(at(0), 'suggestionSplitId', null)
+      .setNodeAttribute(at(1), 'suggestionSplitKind', 'deletion')
+      .setNodeAttribute(at(1), 'suggestionSplitId', 's0000005');
+    expect(allowed(before, moved.doc, 'writer', { ...decider, comment: false })).toBe(false);
   });
 });

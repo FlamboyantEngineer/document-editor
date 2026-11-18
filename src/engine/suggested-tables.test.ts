@@ -12,6 +12,7 @@ import {
 } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
 import { acceptAllSuggestions, rejectAllSuggestions } from './suggestion-decisions.js';
+import { decideWithPolicy } from './suggestion-policy.js';
 import { suggestionRefusalReason } from './suggestion-refusal.js';
 import { suggestTransaction } from './suggestions.js';
 import { insertTable } from './tables.js';
@@ -189,5 +190,30 @@ describe('a table suggested whole', () => {
     const counted = (mode: 'accepted' | 'rejected') => collectVersionBlocks(after.doc, mode).length;
     expect(counted('accepted')).toBeGreaterThan(counted('rejected'));
     expect(counted('rejected')).toBe(1);
+  });
+
+  it('DOCE-SUGGESTIONS-2.8 keeps a writer from withdrawing a table another writer suggested text in', () => {
+    const after = suggested(caretIn(stateOf(paragraph('Intro')), 'Intro'), insert);
+    const holder = after && holderOf(after.doc);
+    if (!after || !holder) throw new Error('The table was not suggested.');
+    let cell = -1;
+    after.doc.nodesBetween(holder.pos, holder.pos + holder.node.nodeSize, (node, pos) => {
+      if (cell < 0 && node.type.name === 'paragraph') cell = pos + 1;
+      return cell < 0;
+    });
+    const typed = suggestTransaction(after.tr.insertText('Mine', cell), after, {
+      author: 'other',
+      newId: () => 's0000002',
+    });
+    if (!typed) throw new Error('The text was not suggested.');
+    const shared = after.apply(typed);
+    const writer = { me: 'writer', canWithdraw: true, canDecide: false };
+    expect(decideWithPolicy(writer, 'reject')(shared)).toBe(false);
+    expect(decideWithPolicy(writer, 'reject')(after)).toBe(true);
+    const withdrawn = decided(
+      shared,
+      decideWithPolicy({ me: 'reviewer', canDecide: true }, 'reject'),
+    );
+    expect(blockNames(withdrawn)).toEqual(['p:Intro']);
   });
 });
