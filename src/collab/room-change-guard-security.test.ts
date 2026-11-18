@@ -6,7 +6,7 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
-import type { MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
@@ -874,6 +874,37 @@ describe('DOCE-SUGGESTIONS-2.7 credit for accepted generated text', () => {
     const taken = await accept(permissions, { generated: true, credited: 'writer' });
     expect(taken.refused).toBe(true);
     expect(taken.credits).toEqual([['agent-1', 's1']]);
+  });
+
+  // Accepts the room's generated suggestion as a decider, then gives its text the contributor
+  // `credit` returns (none takes the mark off), and says whether the room refused it.
+  async function acceptRecredited(credit: (contributor: MarkType) => Mark | null) {
+    const room = await setup({ pending: true, generated: true, granted: decider });
+    try {
+      change(room.doc, (state) => {
+        const tr = state.tr;
+        const [suggested] = listSuggestions(state.doc);
+        const { contributor } = schema.marks;
+        if (!suggested || !contributor) throw new Error('The room should hold a suggestion.');
+        decideSuggestions(tr, 'accept');
+        tr.removeMark(suggested.from, suggested.to, contributor);
+        const mark = credit(contributor);
+        if (mark) tr.addMark(suggested.from, suggested.to, mark);
+        return state.apply(tr);
+      });
+      await room.provider.whenStored();
+      return room.provider.getState().refusal !== null;
+    } finally {
+      await room.close();
+    }
+  }
+
+  it('refuses a decider who takes generated text without its session', async () => {
+    expect(await acceptRecredited((type) => type.create({ dataAuthor: 'writer' }))).toBe(true);
+  });
+
+  it('refuses a decider who takes the contributor off generated text they accept', async () => {
+    expect(await acceptRecredited(() => null)).toBe(true);
   });
 });
 
