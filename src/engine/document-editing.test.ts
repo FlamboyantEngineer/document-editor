@@ -304,6 +304,7 @@ describe('the editing extension', () => {
       'footnote-numbers',
       'comment-draft',
       'comment-anchors',
+      'suggestion-refusal',
       'math-views',
       'object-views',
       'clipboard',
