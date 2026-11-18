@@ -1646,6 +1646,47 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     }
   });
 
+  it('refuses a footnote number set by hand in a room, from an editor or a writer who may only suggest', async () => {
+    // The shared type of the room's first footnote marker.
+    const markerOf = (type: Y.Type): Y.Type | null => {
+      if (type.name === 'footnote_reference') return type;
+      const value = type.toDelta() as unknown as {
+        children: { start: { insert?: unknown; next: unknown } | null };
+      };
+      for (let op = value.children.start; op; op = op.next as typeof op) {
+        if (!Array.isArray(op.insert)) continue;
+        for (const child of op.insert as unknown[]) {
+          const found = child instanceof Y.Type ? markerOf(child) : null;
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    for (const granted of [editor, suggestOnly]) {
+      let current = editor;
+      const room = await setup({ resolvePermissions: () => current });
+      try {
+        // An editor cites a footnote, which the room keeps.
+        change(room.doc, (state) =>
+          runCommand(caretAt(state, 'Original'), insertFootnote({ newId: () => 'n1' })),
+        );
+        expect(await room.provider.whenStored()).toBe(true);
+        expect(room.provider.getState().refusal).toBeNull();
+        const stored = yjsToDocument(room.handle.snapshot(), { schema });
+        current = granted;
+        const marker = markerOf(room.doc.get('content'));
+        if (!marker) throw new Error('No footnote marker in the room.');
+        room.doc.transact(() => marker.setAttr('footnoteNumber', 7));
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal, String(granted.edit)).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(stored);
+        expect(JSON.stringify(room.handle.snapshot())).not.toMatch(/footnoteNumber/);
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
   it('counts a change of the part a block is as an edit, refused to a writer who may only decide', () => {
     const before = stateOf('Limits');
     let at = -1;
