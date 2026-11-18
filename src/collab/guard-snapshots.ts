@@ -37,7 +37,7 @@ export function watchGuardSnapshots(
         else {
           const tr = new Transform(held);
           replayChange(
-            { tr, schema: options.schema, at: -1, strict: true },
+            { tr, schema: options.schema, at: -1, strict: true, shared: scope.content },
             event.deltaDeep as unknown as AnyDelta,
           );
           content.set(scope, tr.doc);

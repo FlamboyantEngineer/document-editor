@@ -102,7 +102,7 @@ export function watchRoomChanges(doc: Y.Doc, { schema }: RoomChangeOptions): Roo
     before = readable(() => {
       if (!held) return readContent(schema, content);
       const tr = new Transform(held);
-      replayChange({ tr, schema, at: -1 }, event.deltaDeep as unknown as AnyDelta);
+      replayChange({ tr, schema, at: -1, shared: content }, event.deltaDeep as unknown as AnyDelta);
       return tr.doc;
     });
     changes.set(transaction, held && before ? readContentChange(held, before) : UNREAD);

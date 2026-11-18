@@ -159,8 +159,8 @@ function joinChange(
 }
 
 // Replays a change of the shared document as steps; throws on what the schema cannot read.
-const replayEvent = (schema: Schema, event: Y.YEvent<never>) => (tr: Transform) => {
-  replayChange({ tr, schema, at: -1 }, event.deltaDeep as unknown as AnyDelta);
+const replayEvent = (schema: Schema, event: Y.YEvent<never>, shared: Y.Type) => (tr: Transform) => {
+  replayChange({ tr, schema, at: -1, shared }, event.deltaDeep as unknown as AnyDelta);
 };
 
 /**
@@ -219,7 +219,7 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
     if (from === origin || from === derivedOrigin) return;
     const kind = kindOf(from, source);
     try {
-      wait(kind, from, replayEvent(view.state.schema, event));
+      wait(kind, from, replayEvent(view.state.schema, event, type));
     } catch (error) {
       // The shared document holds what the schema cannot read, such as a block of a newer schema:
       // the editor no longer shows what it holds, so nothing more is taken from it or sent to it,
