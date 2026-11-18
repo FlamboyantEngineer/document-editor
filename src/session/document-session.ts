@@ -59,6 +59,22 @@ export interface DocumentSessionOptions {
   draftDelay?: number | undefined;
   /** Closes the session, aborting what it is loading. */
   signal?: AbortSignal | undefined;
+  /**
+   * Told each time the room refused one of the reader's changes for its merge with the others'
+   * and the editor took the room's content again; room mode only (DOCE-SESSION-3.11).
+   */
+  onRoomReload?: ((reload: RoomReloadNotice) => void) | undefined;
+}
+
+/**
+ * A room refused one of the reader's changes for its merge with another writer's, and the editor
+ * took the room's content again (DOCE-SESSION-3.11).
+ */
+export interface RoomReloadNotice {
+  /** Why the room refused it, such as `conflict`. */
+  readonly reason: string;
+  /** The reader's document as the editor showed it before, for a host to offer back. */
+  readonly previous: ProseMirrorNode;
 }
 
 /** The document a session shows, once loaded. */
@@ -114,6 +130,11 @@ export interface DocumentSession {
    * status; always null in store mode (DOCE-SESSION-3.8).
    */
   readonly connection: ValueStore<SessionConnection | null>;
+  /**
+   * The last time the room refused one of the reader's changes for its merge and the editor took
+   * the room's content again; null until then, and always in store mode (DOCE-SESSION-3.11).
+   */
+  readonly reloads: ValueStore<RoomReloadNotice | null>;
   /** Commits an editor state: the editor's `onStateChange`. */
   update(update: SessionStateUpdate): void;
   /** Pins another template, or another revision of it, which is then a change to save. */

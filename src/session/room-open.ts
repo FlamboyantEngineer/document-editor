@@ -9,7 +9,7 @@ import type { DocumentDraft, RoomConnection, RoomState } from '../host/session-a
 import { failure, loadCapabilities } from './open-document.js';
 import type { RoomBinding } from './room-binding.js';
 import { roomRefusal } from './room-status.js';
-import { createValueStore, type ValueStore } from './value-store.js';
+import { createValueStore, type WritableStore } from './value-store.js';
 
 /** A room-mode draft as the drafts adapter keeps it. */
 export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
@@ -23,12 +23,15 @@ function presenceUser(host: EditorHost) {
 /** A document's room, connected and bound, and what the reader may do there. */
 export interface OpenedRoom {
   connection: RoomConnection;
+  /** The binding to the connection's document; a reload binds its new one (`rebind`). */
   binding: RoomBinding;
+  /** Binds the session to `doc`, the document a reload of the connection holds the room in. */
+  rebind(doc: unknown): RoomBinding;
   capabilities: EditorCapabilities;
   /** The draft the session opened on, without waiting for the room's first sync, or null. */
   draft: RoomDraft | null;
   /** Why the editor stopped following the room: content its schema cannot read; null until then. */
-  unreadable: ValueStore<HostError | null>;
+  unreadable: WritableStore<HostError | null>;
 }
 
 /** An error as a failure of the room's: its content cannot be read, or it cannot be reached. */
@@ -101,15 +104,17 @@ export async function openRoom(
     return { ok: false, error };
   }
   const unreadable = createValueStore<HostError | null>(null);
-  const binding = bindRoom(connection.doc, {
-    schema,
-    fieldKey,
-    isRemoteOrigin: (origin) => connection.isRemoteOrigin(origin),
-    awareness: connection.awareness,
-    presence: { user: presenceUser(host), lifecycle: host.lifecycle },
-    onUnreadable: (error) => unreadable.set(roomFailure(error)),
-  });
-  const opened = { connection, binding, capabilities, draft: draft ?? null, unreadable };
+  const rebind = (doc: unknown) =>
+    bindRoom(doc, {
+      schema,
+      fieldKey,
+      isRemoteOrigin: (origin) => connection.isRemoteOrigin(origin),
+      awareness: connection.awareness,
+      presence: { user: presenceUser(host), lifecycle: host.lifecycle },
+      onUnreadable: (error) => unreadable.set(roomFailure(error)),
+    });
+  const binding = rebind(connection.doc);
+  const opened = { connection, binding, rebind, capabilities, draft: draft ?? null, unreadable };
   return { ok: true, value: opened };
 }
 

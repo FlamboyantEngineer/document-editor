@@ -23,8 +23,11 @@ export type DocumentDraft =
       generation: string | null;
       /** The shared document's state, encoded as one update. */
       state: Uint8Array;
-      /** The local changes the room had not confirmed, encoded as one update, or null for none. */
-      unconfirmed: Uint8Array | null;
+      /**
+       * The local changes the room had not confirmed, one update for each, oldest first; empty for
+       * none. Kept apart, so the room takes each that merges and refuses only one that does not.
+       */
+      unconfirmed: readonly Uint8Array[];
       /**
        * The last state the room had confirmed all of, encoded as one update, or null when none is
        * known: after a new generation, what `state` holds beyond it is merged into the new one.
@@ -69,6 +72,7 @@ export interface RoomState {
  * the library's `./collab` entry names them, so the host contract never loads the realtime library.
  */
 export interface RoomConnection<Doc = unknown, Awareness = unknown> {
+  /** The shared document; after a reload (`onReload`), the one that holds the room's content. */
   readonly doc: Doc;
   readonly awareness: Awareness;
   state(): RoomState;
@@ -83,10 +87,26 @@ export interface RoomConnection<Doc = unknown, Awareness = unknown> {
   whenStored(): Promise<boolean>;
   /** Whether a change with this origin came from the room rather than from this editor. */
   isRemoteOrigin(origin: unknown): boolean;
-  /** The local changes the room has not confirmed, encoded as one update, or null for none. */
-  unconfirmedUpdate(): Uint8Array | null;
+  /** The local changes the room has not confirmed, one update for each, oldest first. */
+  unconfirmedUpdates(): Uint8Array[];
+  /**
+   * Calls `onReload` each time the room refused a local change for its merge with the others' and
+   * the connection, still open, replaced its document with one holding the room's content
+   * (DOCE-COLLAB-7.4); until the returned function is called. Left out, a connection never reloads.
+   */
+  onReload?(onReload: (reload: RoomReload<Doc>) => void): () => void;
   /** Ends the connection and frees what it holds. */
   close(): void;
+}
+
+/**
+ * A room connection's reload, shaped like a collaboration-tools provider's: why the room refused
+ * the change (`conflict`), the document now holding the room's content and the one it replaced.
+ */
+export interface RoomReload<Doc = unknown> {
+  reason: string;
+  doc: Doc;
+  previous: Doc;
 }
 
 /** What a room connection starts from: a draft's state and unconfirmed changes. */

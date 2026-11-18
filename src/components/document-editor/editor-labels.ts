@@ -130,6 +130,11 @@ export interface DocumentEditorLabels
   readonly proofingDegraded: string;
   /** Names the avatars of the other people in the document. */
   readonly presence: string;
+  /**
+   * Told through `feedback` when the shared room refused the reader's change for its merge with
+   * another person's, and the editor took the room's version again (DOCE-SESSION-3.11).
+   */
+  readonly roomChangeRefused: string;
   /** What another person is doing, on their avatar and card: their activity, or idle or away. */
   readonly presenceActivity: Readonly<
     Record<'editing' | 'reviewing' | 'viewing' | 'idle' | 'away', string>
@@ -243,6 +248,8 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   proofingUnavailable: 'Proofing unavailable',
   proofingDegraded: 'Proofing partly unavailable',
   presence: 'People in this document',
+  roomChangeRefused:
+    'Your last change clashed with another person’s and was not kept. The document shows the shared version.',
   presenceActivity: {
     editing: 'Editing',
     reviewing: 'Reviewing',
