@@ -216,7 +216,7 @@ test.describe('shared room lab', () => {
     await expectSameDocument(page);
   });
 
-  test('DOCE-COLLAB-6.4 DOCE-FOOTNOTES-1.3 keeps the footnotes two writers insert in marker order, also suggesting', async ({
+  test('DOCE-COLLAB-4.1 DOCE-COLLAB-6.4 DOCE-FOOTNOTES-1.3 keeps the footnotes two writers insert in marker order, also suggesting', async ({
     lab,
     page,
   }) => {
@@ -248,6 +248,8 @@ test.describe('shared room lab', () => {
         .locator('p', { hasText: 'Grace cites' })
         .locator('ins .footnote-reference');
     await expect(suggestedMarker('Grace')).toHaveCount(1);
+    // On Ada's pages as they stand, with no layout drawn again since (DOCE-COLLAB-4.1).
+    await expect(suggestedMarker('Ada')).toHaveCount(1);
     await page.getByLabel("Ada's web layout").check();
     await expect(suggestedMarker('Ada')).toHaveCount(1);
     await expect(editor(page, 'Ada').locator('ins .footnote-reference')).toHaveCount(1);

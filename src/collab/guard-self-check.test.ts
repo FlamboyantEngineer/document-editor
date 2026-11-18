@@ -110,6 +110,54 @@ describe('DOCE-COLLAB-7.3 guard self-check', () => {
     shadow.destroy();
   });
 
+  it('DOCE-COLLAB-4.1 agrees after a writer gives an inline embed a mark together with a new attribute', () => {
+    const shadow = seeded('Original');
+    const guard = open(shadow);
+    const marker = schema.nodes.footnote_reference;
+    const insertion = schema.marks.insertion;
+    if (!marker || !insertion) throw new Error('No footnote markers or suggested insertions.');
+    const mark = insertion.create({ dataId: 's0000001' });
+    // The writer's changes reach the shadow as updates, as the server takes them.
+    const writer = new Y.Doc();
+    Y.applyUpdate(writer, Y.encodeStateAsUpdate(shadow));
+    const send = (action: (state: EditorState) => EditorState) => {
+      const known = Y.encodeStateVector(shadow);
+      edit(writer, action);
+      Y.applyUpdate(shadow, Y.encodeStateAsUpdate(writer, known));
+    };
+    // Where the paragraph's text starts.
+    const start = (state: EditorState) => {
+      let found = -1;
+      state.doc.descendants((node, pos) => {
+        if (node.type.name === 'paragraph') found = pos + 1;
+        return found < 0;
+      });
+      return found;
+    };
+    // Suggested text, then a marker beside it, which takes the same mark and a new id later.
+    send((state) =>
+      state.apply(
+        state.tr.replaceWith(start(state), start(state) + 8, [
+          schema.text('Cites', [mark]),
+          marker.create({ footnoteId: 'n1' }),
+          schema.text(' on'),
+        ]),
+      ),
+    );
+    expect(guard.verify()).toBe(true);
+    send((state) =>
+      state.apply(
+        state.tr
+          .addMark(start(state) + 5, start(state) + 6, mark)
+          .setNodeAttribute(start(state) + 5, 'dataId', 'm0000001'),
+      ),
+    );
+    expect(guard.verify()).toBe(true);
+    guard.destroy();
+    writer.destroy();
+    shadow.destroy();
+  });
+
   it('reports a kept reading that missed a change, and a destroyed guard', () => {
     const shadow = seeded('Original');
     const guard = open(shadow);

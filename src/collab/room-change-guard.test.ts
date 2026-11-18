@@ -67,7 +67,7 @@ const settle = async () => {
 };
 
 // A room server whose rules open the change guard, with a room seeded by the host.
-async function serveRoom(paragraphs: number) {
+async function serveRoom(paragraphs: number, seed: DocumentFile = file(paragraphs)) {
   const rules: RoomWriteRules = {
     openGuard: (shadow) => openRoomChangeGuard(shadow, { schema, permissions }),
   };
@@ -90,7 +90,7 @@ async function serveRoom(paragraphs: number) {
   const handle = await server.openRoom('notes');
   const newId = counter();
   const seeded = handle.transact({ actor: { id: 'host' }, capabilities: ['edit'] }, (doc) =>
-    writeRoomDocument(doc, file(paragraphs), { schema, newId }),
+    writeRoomDocument(doc, seed, { schema, newId }),
   );
   if (!seeded) throw new Error('The host could not seed the room.');
   return { server, handle, newId };
@@ -243,5 +243,80 @@ describe('room change guard', () => {
     // the server's shadow takes about a millisecond, the writer's own diff included.
     expect(perKeystrokeMs).toBeLessThan(10);
     room.handle.release();
+  });
+
+  describe('DOCE-COLLAB-4.1 DOCE-COLLAB-6.7 a suggester’s mark on an inline embed', () => {
+    const holding = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: 'p0' },
+              content: [
+                { type: 'text', text: 'Total ' },
+                {
+                  type: 'embed_inline',
+                  attrs: {
+                    id: 'e0000001',
+                    kind: 'cell',
+                    source: 'book!B2',
+                    snapshot: 'r1',
+                    text: '42',
+                  },
+                },
+                { type: 'text', text: ' kept.' },
+              ],
+            },
+          ],
+        },
+      ],
+    } as DocumentFile;
+    // Suggests removing the embed, which marks it as a suggested deletion.
+    const removeEmbed = (state: EditorState): Transaction => {
+      let at = -1;
+      state.doc.descendants((node, pos) => {
+        if (node.type.name === 'embed_inline') at = pos;
+        return at < 0;
+      });
+      return state.tr.delete(at, at + 1);
+    };
+    const embedMarks = (handle: RoomHandle) => {
+      const marks: string[] = [];
+      readContent(schema, roomDoc(handle).get(CONTENT_TYPE))?.descendants((node) => {
+        if (node.type.name === 'embed_inline')
+          marks.push(...node.marks.map((mark) => mark.type.name));
+      });
+      return marks;
+    };
+
+    it('admits the mark as the suggester’s own', async () => {
+      const room = await serveRoom(0, holding);
+      const suggester = joinAs(room, 'suggester');
+      await settle();
+      suggester.edit(removeEmbed, 'suggester');
+      await settle();
+      expect(suggester.closed).toBe(false);
+      expect(embedMarks(room.handle)).toEqual(['deletion']);
+      // The guard's kept reading holds the mark, so a later keystroke is checked against it.
+      suggester.edit(typeAt(' kept.', ' Also'), 'suggester');
+      await settle();
+      expect(suggester.closed).toBe(false);
+      expect(roomText(room.handle)).toContain('Also kept.');
+      room.handle.release();
+    });
+
+    it('refuses the mark under another writer’s name', async () => {
+      const room = await serveRoom(0, holding);
+      const suggester = joinAs(room, 'suggester');
+      await settle();
+      suggester.edit(removeEmbed, 'editor');
+      await settle();
+      expect(suggester.closed).toBe(true);
+      expect(embedMarks(room.handle)).toEqual([]);
+      room.handle.release();
+    });
   });
 });

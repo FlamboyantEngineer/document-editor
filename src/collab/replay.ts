@@ -2,6 +2,7 @@
 // its delta and replaced where it differs; block content is walked op by op, so the steps touch
 // only what changed and positions map through them.
 
+import type * as Y from '@y/y';
 import * as delta from 'lib0/delta';
 import { Fragment, type Node, type Schema, Slice } from 'prosemirror-model';
 import { ReplaceStep, type Transform } from 'prosemirror-transform';
@@ -11,12 +12,37 @@ type AttrOp = { key: string; value?: unknown };
 
 // Where a replay works: the transform, and the node at `at` (-1 for the document). A strict
 // replay, as a guard's, places content exactly as the shared document holds it, and throws where
-// the schema refuses it there, rather than fitting it in with nodes of its own.
+// the schema refuses it there, rather than fitting it in with nodes of its own. `shared`, when
+// given, is the shared type that holds the node after the change.
 interface Place {
   readonly tr: Transform;
   readonly schema: Schema;
   readonly at: number;
   readonly strict?: boolean | undefined;
+  readonly shared?: Y.Type | undefined;
+}
+
+// The shared type of a container's child at `index`, when the container's own is known.
+function sharedChild(shared: Y.Type | undefined, index: number): Y.Type | undefined {
+  const child: unknown = shared?.get(index);
+  return typeof child === 'object' && child !== null && 'toDelta' in child
+    ? (child as Y.Type)
+    : undefined;
+}
+
+// The inline content a change gives a node. Yjs reports a format change on an inline embed, such
+// as a footnote marker's suggestion mark, to the other peers as a deletion of the embed or without
+// the format, though it holds the change; so where the shared type is known, its content is read.
+function changedInline(place: Place, node: Node, change: AnyDelta): Fragment {
+  if (place.shared) {
+    return deltaToFragment(
+      place.schema,
+      place.shared.toDelta({ deep: true }) as unknown as AnyDelta,
+    );
+  }
+  const next = delta.clone(contentToDelta(node.content)) as delta.DeltaBuilderAny;
+  next.apply(change, { final: true });
+  return deltaToFragment(place.schema, next.done());
 }
 
 // Replaces a range with content: exactly, for a strict replay, or fitted to the schema.
@@ -60,9 +86,7 @@ function replayAttrs(place: Place, change: AnyDelta): void {
 }
 
 function replayInline(place: Place, node: Node, change: AnyDelta): void {
-  const next = delta.clone(contentToDelta(node.content)) as delta.DeltaBuilderAny;
-  next.apply(change, { final: true });
-  const content = deltaToFragment(place.schema, next.done());
+  const content = changedInline(place, node, change);
   const found = node.content.findDiffStart(content);
   if (found === null) return;
   const ends = node.content.findDiffEnd(content) ?? { a: found, b: found };
@@ -109,7 +133,8 @@ function replayBlocks(place: Place, change: AnyDelta): void {
       if (delta.$retainOp.check(op)) {
         advance(op.retain);
       } else if (delta.$modifyOp.check(op)) {
-        replayChange({ ...place, at: pos }, op.value as AnyDelta);
+        const shared = sharedChild(place.shared, index);
+        replayChange({ ...place, at: pos, shared }, op.value as AnyDelta);
         container = nodeAt(place);
         advance(1);
       } else {

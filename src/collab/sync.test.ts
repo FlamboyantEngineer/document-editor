@@ -470,4 +470,32 @@ describe('collab sync on a shared document its schema cannot read', () => {
     const shared = sharedDocument(b.doc)?.textContent ?? '';
     expect(shared).toContain(' 👍😀😂');
   });
+
+  it('DOCE-COLLAB-4.1 brings a mark set on an inline embed together with its attributes to the other writer', async () => {
+    const { a, b, sync } = pair();
+    const reference = documentSchema.nodes.footnote_reference;
+    if (!reference) throw new Error('No footnote markers in the schema.');
+    const marker = reference.create({ footnoteId: 'note-1' });
+    const insertion = markType('insertion').create({ dataId: 'suggested' });
+    // A paragraph of text marked as an insertion, then the marker, which takes the same mark later.
+    const { from, to } = block(a.state.doc, 1);
+    const content = [documentSchema.text('Cites', [insertion]), marker, documentSchema.text(' on')];
+    a.dispatch(a.state.tr.replaceWith(from, to, content));
+    sync();
+    await settle();
+    // The mark and a new id in one change, as suggesting gives a marker typed by its writer.
+    a.dispatch(
+      a.state.tr.addMark(from + 5, from + 6, insertion).setNodeAttribute(from + 5, 'dataId', 'm-2'),
+    );
+    sync();
+    await settle();
+    expectConverged(a, b);
+    const held: Node[] = [];
+    b.state.doc.descendants((node) => {
+      if (node.type === reference) held.push(node);
+      return true;
+    });
+    expect(held).toHaveLength(1);
+    expect(held[0]?.marks.map((mark) => mark.type.name)).toEqual(['insertion']);
+  });
 });
