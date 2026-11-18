@@ -113,6 +113,45 @@ describe('writeMarkdown', () => {
     );
   });
 
+  it('DOCE-FORMAT-4.1 writes a caption in its formats, with its footnotes and suggestions', () => {
+    const insertion = { type: 'insertion', attrs: { dataId: 's1', dataAuthor: 'writer' } };
+    const caption = {
+      type: 'caption',
+      content: [
+        text('Flow '),
+        text('by year', 'bold'),
+        { type: 'footnote', attrs: { id: 'n1' }, content: [text('Measured.')] },
+        { type: 'text', text: ' draft', marks: [insertion] },
+      ],
+    };
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'figure',
+              attrs: { src: 'https://example.com/a.png', alt: 'Chart' },
+              content: [caption],
+            },
+            {
+              type: 'table',
+              content: [caption, { type: 'tableRow', content: [cell('tableCell', 'Cell')] }],
+            },
+          ],
+        },
+      ],
+    };
+    const accepted = writeMarkdown(file);
+    expect(accepted).toContain('*Flow* ***by year***[^1] *draft*');
+    expect(accepted).toContain('[^1]: Measured.');
+    expect(accepted).toContain('[^2]: Measured.');
+    expect(writeMarkdown(file, { suggestions: 'rejected' })).toContain(
+      '*Flow* ***by year***[^1]\n',
+    );
+  });
+
   it('DOCE-FORMAT-4.1 writes the source of the math a stored document holds', () => {
     const markdown = writeMarkdown(storedMath());
     expect(markdown).toContain('So $a^2$');

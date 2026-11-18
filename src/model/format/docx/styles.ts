@@ -58,6 +58,26 @@ function levelStyles(template: TemplateFile): ParagraphStyle[] {
   }));
 }
 
+// Each kind's caption style: a figure's is Word's own, a table's and a code block's based on it.
+function captionStyles(template: TemplateFile): ParagraphStyle[] {
+  const styles = template.styles ?? {};
+  return [
+    { id: 'Caption', name: 'caption', text: styles.figure?.caption?.text },
+    {
+      id: 'TableCaption',
+      name: 'Table Caption',
+      text: styles.table?.caption?.text,
+      basedOn: 'Caption',
+    },
+    {
+      id: 'CodeCaption',
+      name: 'Code Caption',
+      text: styles.codeBlock?.caption?.text,
+      basedOn: 'Caption',
+    },
+  ];
+}
+
 function blockStyles(template: TemplateFile): ParagraphStyle[] {
   const styles = template.styles ?? {};
   const list = styles.list;
@@ -76,7 +96,7 @@ function blockStyles(template: TemplateFile): ParagraphStyle[] {
       text: styles.codeBlock,
       extras: { shading: styles.codeBlock?.background },
     },
-    { id: 'Caption', name: 'caption', text: styles.figure?.caption?.text },
+    ...captionStyles(template),
     {
       id: 'TableHeader',
       name: 'Table Header',
@@ -122,6 +142,16 @@ export function writeStylesPart(template: TemplateFile): string {
       `${runProperties(footnotes?.marker)}<w:vertAlign w:val="superscript"/>`,
     ),
     characterStyle('CaptionLabel', 'Caption Label', runProperties(styles.figure?.caption?.label)),
+    characterStyle(
+      'TableCaptionLabel',
+      'Table Caption Label',
+      runProperties(styles.table?.caption?.label),
+    ),
+    characterStyle(
+      'CodeCaptionLabel',
+      'Code Caption Label',
+      runProperties(styles.codeBlock?.caption?.label),
+    ),
     characterStyle('Hyperlink', 'Hyperlink', '<w:color w:val="0563C1"/><w:u w:val="single"/>'),
     characterStyle('CommentReference', 'annotation reference', '<w:sz w:val="16"/>'),
     '</w:styles>',

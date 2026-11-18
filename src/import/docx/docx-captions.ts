@@ -3,11 +3,7 @@
 // each table of contents left out with the heading before it and the instructions beside it.
 
 import type { StoredNode } from '../../model/format/document-format.js';
-import {
-  storedBodyOf,
-  storedCaption,
-  storedCaptionText,
-} from '../../model/schema/caption-content.js';
+import { storedBodyOf, storedCaptionText } from '../../model/schema/caption-content.js';
 import type { CaptionPiece, ParagraphReading } from './docx-paragraph.js';
 
 /** What block reading needs: a paragraph's reading and where bookmarks are recorded. */
@@ -126,14 +122,15 @@ const hasCaption = (node: StoredNode) =>
 
 // Gives a block its caption, shown: a code block's attribute, or a figure's or a table's first
 // child.
-function setCaption(node: StoredNode, text: string): void {
+function setCaption(node: StoredNode, caption: CaptionPiece): void {
   const { captionEnabled: _, ...attrs } = node.attrs ?? {};
   if (node.type === 'codeBlock') {
-    node.attrs = { ...attrs, caption: text };
+    node.attrs = { ...attrs, caption: caption.text };
     return;
   }
   node.attrs = attrs;
-  node.content = [storedCaption(text), ...storedBodyOf(node)];
+  const content = caption.content.length ? { content: [...caption.content] } : {};
+  node.content = [{ type: 'caption', ...content }, ...storedBodyOf(node)];
 }
 
 // Each caption joined to the figure, table or code block beside it, its paragraph gone; one with
@@ -163,7 +160,7 @@ function joinCaption(entries: Entry[], at: number, reading: BlockReading): void 
   const entry = entries[at] as CaptionPiece;
   const node = captionedBlock(entries, at, entry);
   if (node) {
-    setCaption(node, entry.text);
+    setCaption(node, entry);
     reading.warnings.add('caption-numbered');
     entries[at] = null;
   } else {

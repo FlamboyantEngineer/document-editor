@@ -2,11 +2,11 @@
 // repeats it, column widths, merged cells, cell backgrounds and vertical alignment, and the
 // caption above or below as the template places it, numbered as the editor numbers it.
 
-import { storedBodyOf, storedCaptionText } from '../../schema/caption-content.js';
+import { storedBodyOf, storedCaptionOf, storedCaptionText } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
 import { keptContent } from '../left-out.js';
 import { countObject } from './counting.js';
-import { styledRun } from './inline.js';
+import { inlines, run, styledRun } from './inline.js';
 import { paragraph, styled } from './paragraphs.js';
 import { toTwips, toWordColor } from './word-xml.js';
 import type { Writing } from './writing.js';
@@ -37,19 +37,35 @@ function gridOf(rows: readonly StoredNode[]): number[] {
   return Array.from({ length: Math.max(1, columns) }, (_, index) => grid[index] ?? 0);
 }
 
-/** A table's caption with its numbered label; empty when it has neither. */
-export function captionParagraph(
-  label: string,
-  caption: string,
-  alignment?: string | null,
-): string {
-  if (!label && !caption) return '';
-  const lead = label ? styledRun(caption ? `${label} - ` : label, 'CaptionLabel') : '';
+/** The kinds of object Word captions, each in its own paragraph and label styles. */
+export type CaptionKind = 'figure' | 'table' | 'codeBlock';
+
+/** Each kind's caption paragraph style and label character style, all based on Word's caption. */
+const CAPTION_STYLES: Readonly<Record<CaptionKind, readonly [string, string]>> = {
+  figure: ['Caption', 'CaptionLabel'],
+  table: ['TableCaption', 'TableCaptionLabel'],
+  codeBlock: ['CodeCaption', 'CodeCaptionLabel'],
+};
+
+/**
+ * An object's caption with its numbered label, in its kind's styles; empty when it has neither. A
+ * figure's or a table's caption is written in its formats, with its footnotes and comments, its
+ * suggestions resolved as any text's; a code block's from its text.
+ */
+export function captionParagraph(node: StoredNode, kind: CaptionKind, writing: Writing): string {
+  const captioned = node.attrs?.captionEnabled !== false;
+  const label = captioned ? countObject(writing.counting, kind) : '';
+  const runs = !captioned
+    ? ''
+    : kind === 'codeBlock'
+      ? storedCaptionText(node) && run(storedCaptionText(node))
+      : inlines(storedCaptionOf(node)?.content, writing);
+  if (!label && !runs) return '';
+  const [style, labelStyle] = CAPTION_STYLES[kind];
+  const lead = label ? styledRun(runs ? `${label} - ` : label, labelStyle) : '';
+  const alignment = writing.counting.styles[kind]?.caption?.alignment;
   const justification = alignment ? `<w:jc w:val="${alignment}"/>` : '';
-  return paragraph(
-    lead + (caption ? styledRun(caption, 'Caption') : ''),
-    styled('Caption', justification),
-  );
+  return paragraph(lead + runs, styled(style, justification));
 }
 
 function tableProperties(writing: Writing): string {
@@ -140,13 +156,7 @@ export function writeTable(node: StoredNode, writing: Writing, blocks: CellBlock
   const rows = keptContent(storedBodyOf(node), writing.suggestions);
   const grid = gridOf(rows);
   const placing: Placing = { writing: { ...writing, structural: false }, blocks, grid, merged: [] };
-  const captioned = node.attrs?.captionEnabled !== false;
-  const label = captioned ? countObject(writing.counting, 'table') : '';
-  const caption = captionParagraph(
-    label,
-    captioned ? storedCaptionText(node) : '',
-    settings?.caption?.alignment,
-  );
+  const caption = captionParagraph(node, 'table', writing);
   // Header rows repeat while they lead the table.
   let leading = settings?.repeatHeader !== false;
   const body = rows.map((row) => {
