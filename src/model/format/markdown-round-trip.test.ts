@@ -27,6 +27,31 @@ describe('writing then reading Markdown', () => {
     expect(readBack(content)).toEqual(content);
   });
 
+  it('DOCE-FORMAT-4.1 DOCE-IMPORT-4.3 reads back a rich caption under a figure and over a table', () => {
+    const caption: StoredNode = {
+      type: 'caption',
+      content: [
+        text('Flow '),
+        text('by year', 'bold'),
+        { type: 'footnote', content: [text('Measured.')] },
+      ],
+    };
+    const body = [
+      { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph(text('Cell'))] }] },
+    ];
+    const content: StoredNode[] = [
+      {
+        type: 'figure',
+        attrs: { src: 'https://example.com/a.png', alt: 'Chart' },
+        content: [caption],
+      },
+      { type: 'table', content: [caption, ...body] },
+    ];
+    const back = readBack(content);
+    expect(back.map((node) => node.content?.[0])).toEqual([caption, caption]);
+    expect(written(back)).toBe(written(content));
+  });
+
   it('DOCE-FORMAT-4.4 reads back a quote of several blocks as one quote', () => {
     const content = [
       {

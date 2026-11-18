@@ -2,8 +2,9 @@
 // indented code, `$$` display math, quotes, lists, GitHub tables, rules, and the figures and
 // captions the library's writer gives. HTML blocks are left out with a warning.
 
-import { storedBodyOf, storedCaption, storedCaptionText } from '../schema/caption-content.js';
+import { storedCaption } from '../schema/caption-content.js';
 import type { StoredNode } from './document-format.js';
+import { withObjects } from './markdown-read-captions.js';
 import { closesFence, openingFence } from './markdown-read-fence.js';
 import { type InlineContext, readInline } from './markdown-read-inline.js';
 
@@ -294,47 +295,4 @@ export function readBlocks(source: readonly string[], context: InlineContext): S
     }
   }
   return withObjects(blocks);
-}
-
-// The text of a paragraph that is all italic text, which the writer gives a caption as; else null.
-function captionText(node: StoredNode | undefined): string | null {
-  const only = node?.type === 'paragraph' && node.content?.length === 1 ? node.content[0] : null;
-  const italic =
-    only?.type === 'text' && only.marks?.length === 1 && only.marks[0]?.type === 'italic';
-  return italic ? (only.text ?? null) : null;
-}
-
-// The block after `last` with a caption paragraph taken in: into a figure before it, or into the
-// table after it; null when it takes none.
-function captioned(last: StoredNode | undefined, block: StoredNode): StoredNode | null {
-  const caption = captionText(block);
-  if (caption !== null && last?.type === 'figure' && last.attrs?.captionEnabled === false) {
-    const { captionEnabled: _, ...attrs } = last.attrs;
-    return { ...last, attrs, content: [storedCaption(caption)] };
-  }
-  const above = captionText(last);
-  if (block.type === 'table' && above !== null && !storedCaptionText(block)) {
-    return { ...block, content: [storedCaption(above), ...storedBodyOf(block)] };
-  }
-  return null;
-}
-
-// A paragraph holding only an image as a figure, and a caption paragraph taken into the table
-// after it or the figure before it, as the writer places them.
-function withObjects(blocks: readonly StoredNode[]): StoredNode[] {
-  const out: StoredNode[] = [];
-  for (const block of blocks) {
-    const image =
-      block.type === 'paragraph' && block.content?.length === 1 ? block.content[0] : null;
-    const joined = captioned(out[out.length - 1], block);
-    if (joined) out[out.length - 1] = joined;
-    else if (image?.type === 'image') {
-      out.push({
-        type: 'figure',
-        attrs: { ...image.attrs, captionEnabled: false },
-        content: [storedCaption('')],
-      });
-    } else out.push(block);
-  }
-  return out;
 }

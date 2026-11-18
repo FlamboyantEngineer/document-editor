@@ -101,3 +101,43 @@ describe.each(documents)(
     });
   },
 );
+
+describe('a caption through Word and back', () => {
+  it('DOCE-FORMAT-5.8 DOCE-IMPORT-2.10 keeps a table caption’s formats and its footnote', async () => {
+    const template = templateOf(documents[0]?.file ?? { formatVersion: 1, sections: [] });
+    const caption: StoredNode = {
+      type: 'caption',
+      content: [
+        { type: 'text', text: 'Rain ' },
+        { type: 'text', text: 'by year', marks: [{ type: 'bold' }] },
+        { type: 'footnote', attrs: { id: 'n1' }, content: [{ type: 'text', text: 'Measured.' }] },
+      ],
+    };
+    const cell = { type: 'paragraph', content: [{ type: 'text', text: 'Cell' }] };
+    const file: DocumentFile = {
+      formatVersion: 1,
+      ...(documents[0]?.file.template ? { template: documents[0].file.template } : {}),
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'table',
+              content: [
+                caption,
+                { type: 'tableRow', content: [{ type: 'tableCell', content: [cell] }] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const read = await readDocx(writeDocx(file, { template }), { template });
+    if (!read.ok) throw new Error(read.message);
+    const table = read.file.sections[0]?.content.find((node) => node.type === 'table');
+    const content = table?.content?.[0]?.content ?? [];
+    expect(content.slice(0, 2)).toEqual(caption.content?.slice(0, 2));
+    expect(content[2]?.type).toBe('footnote');
+    expect(content[2]?.content?.[0]?.text?.trim()).toBe('Measured.');
+  });
+});

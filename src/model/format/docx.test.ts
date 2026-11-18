@@ -180,6 +180,77 @@ describe('writeDocx', () => {
     );
   });
 
+  it('DOCE-FORMAT-5.2 DOCE-FORMAT-5.7 writes a caption in its formats with its footnotes and comments, in its kind’s style', () => {
+    const caption: StoredNode = {
+      type: 'caption',
+      content: [
+        text('Flow '),
+        {
+          type: 'text',
+          text: 'by year',
+          marks: [{ type: 'bold' }, { type: 'comment', attrs: { thread: 't1' } }],
+        },
+        { type: 'footnote', attrs: { id: 'n1' }, content: [text('Measured.')] },
+        { type: 'text', text: ' draft', marks: [{ type: 'insertion', attrs: { dataId: 's1' } }] },
+      ],
+    };
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'figure',
+              attrs: { src: 'https://example.com/a.png', alt: 'Chart' },
+              content: [caption],
+            },
+            {
+              type: 'table',
+              content: [
+                caption,
+                {
+                  type: 'tableRow',
+                  content: [
+                    {
+                      type: 'tableCell',
+                      content: [{ type: 'paragraph', content: [text('Cell')] }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const threads = [
+      { id: 't1', state: 'open' as const, entries: [{ author: 'p1', text: 'Which year?' }] },
+    ];
+    const parts = readStored(writeDocx(file, { comments: { threads } }));
+    const document = parts.get('word/document.xml') ?? '';
+    const paragraphs = document.match(/<w:p>.*?<\/w:p>/g) ?? [];
+    const figure = paragraphs.find((each) => each.includes('w:val="Caption"')) ?? '';
+    const table = paragraphs.find((each) => each.includes('w:val="TableCaption"')) ?? '';
+    for (const written of [figure, table]) {
+      expect(written).toContain('<w:b/>');
+      expect(written).toContain('<w:footnoteReference');
+      expect(written).toContain(' draft');
+    }
+    // A thread's range is written once, around the first text it marks.
+    expect(figure).toContain('<w:commentRangeStart');
+    expect(table).toContain('w:val="TableCaptionLabel"');
+    expect(parts.get('word/footnotes.xml')?.match(/Measured\./g)).toHaveLength(2);
+    const styles = parts.get('word/styles.xml') ?? '';
+    for (const id of ['TableCaption', 'CodeCaption', 'TableCaptionLabel', 'CodeCaptionLabel'])
+      expect(styles).toContain(`w:styleId="${id}"`);
+    expect(styles).toMatch(/w:styleId="TableCaption">.*?<w:basedOn w:val="Caption"\/>/);
+    const rejected = readStored(writeDocx(file, { suggestions: 'rejected' })).get(
+      'word/document.xml',
+    );
+    expect(rejected).not.toContain(' draft');
+  });
+
   it('DOCE-FORMAT-5.2 gives a link in a footnote a relationship of the footnotes part', () => {
     const linked = (href: string): StoredNode => ({
       type: 'text',
