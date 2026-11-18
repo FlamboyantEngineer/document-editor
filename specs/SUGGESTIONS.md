@@ -29,7 +29,7 @@ Verification: `src/engine/suggestions.test.ts`
 
 Splitting a text block inside its text, as Enter does, shall keep the block as a suggested deletion and add its two halves after it as suggested insertions, the caret at the start of the second; splitting at its end or start shall suggest an empty block after or before it. Whole blocks a change inserts shall be suggested insertions. Paragraphs, headings, figures and layout sections can be suggested blocks; a block's type and attributes the command sets on the new half are kept. A deletion that covers a whole figure or layout section, its caption included, shall suggest deleting it as a block, its text marked with the same suggestion, so accepting removes the whole object and rejecting keeps it; the writer's own suggested block goes outright.
 
-Implementation: `src/engine/suggestions.ts`, `src/model/schema/element-attributes.ts`
+Implementation: `src/engine/suggestions.ts`, `src/engine/suggested-objects.ts`, `src/model/schema/element-attributes.ts`
 Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-1.5 - What suggest mode leaves alone

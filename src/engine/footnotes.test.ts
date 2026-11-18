@@ -121,6 +121,53 @@ describe('footnotes', () => {
     expect(canInsertFootnote(caretAt(state, 'Output', 1))).toBe(false);
   });
 
+  it('DOCE-FOOTNOTES-1.2 cites a footnote in a figure or table caption, numbered in reading order', () => {
+    const caption = (...content: Parameters<typeof paragraph>) => ({ type: 'caption', content });
+    let state = footnoteState([
+      paragraph(text('Intro'), note('n1', 'First')),
+      { type: 'figure', attrs: { src: 'sample.png' }, content: [caption(text('Chart'))] },
+      {
+        type: 'table',
+        content: [
+          caption(text('Totals'), note('n3', 'Third')),
+          {
+            type: 'table_row',
+            content: [{ type: 'table_cell', content: [paragraph(text('Cell'))] }],
+          },
+        ],
+      },
+    ]);
+    const markers = (by: 'id' | 'number') =>
+      footnoteParts(state, by).filter((part) => part.startsWith('marker:'));
+    expect(markers('id')).toEqual(['marker:n1', 'marker:n3']);
+    expect(canInsertFootnote(caretAt(state, 'Chart', 5))).toBe(true);
+    state = runCommand(caretAt(state, 'Chart', 5), insertFootnote({ newId: () => 'n2' }));
+    expect(state.doc.nodeAt(textPos(state, 'Chart', 5))?.type.name).toBe('footnote_reference');
+    expect(markers('id')).toEqual(['marker:n1', 'marker:n2', 'marker:n3']);
+    expect(markers('number')).toEqual(['marker:1', 'marker:2', 'marker:3']);
+  });
+
+  it('DOCE-FOOTNOTES-1.2 is refused in the caption the pages repeat on a later part of a table', () => {
+    const block = documentSchema.node.bind(documentSchema);
+    const cell = block('table_cell', null, block('paragraph', null, documentSchema.text('Cell')));
+    const table = createTableFigure(
+      documentSchema,
+      block('table', null, block('table_row', null, cell)),
+    );
+    if (!table?.firstChild) throw new Error('No table');
+    let state = footnoteState([paragraph(text('Body text'))]);
+    const start = caretAt(state, 'Body').selection.$from.before();
+    state = state.apply(state.tr.insert(start, table));
+    const captionAt = start + 2;
+    const repeated = state.apply(
+      state.tr.setNodeAttribute(start + 1, 'continuedText', 'Totals (continued)'),
+    );
+    const at = (s: EditorState) =>
+      s.apply(s.tr.setSelection(TextSelection.create(s.doc, captionAt)));
+    expect(canInsertFootnote(at(state))).toBe(true);
+    expect(canInsertFootnote(at(repeated))).toBe(false);
+  });
+
   it('DOCE-FOOTNOTES-1.2 lets the host choose the places with citingPlaces', () => {
     const quote: Parameters<typeof footnoteState>[0] = [
       { type: 'blockquote', content: [paragraph(text('Quoted'))] },

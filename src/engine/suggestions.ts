@@ -12,6 +12,7 @@ import { addMarkInOrder } from '../model/index.js';
 import { createElementId } from './element-ids.js';
 import { footnoteStep } from './suggested-footnotes.js';
 import { suggestFormatting } from './suggested-formatting.js';
+import { coversTable, hasKindAttrs, wholeBlocks } from './suggested-objects.js';
 import { isSystemChange } from './transaction-kind.js';
 
 /** Marks a transaction a suggestion built or decided, which suggest mode leaves as it is. */
@@ -33,9 +34,6 @@ export interface Suggesting {
   readonly author: string | null;
   readonly newId: () => string;
 }
-
-const hasKindAttrs = (node: ProseMirrorNode) =>
-  Object.hasOwn(node.type.spec.attrs ?? {}, 'suggestionSplitKind');
 
 const suggestionOf = (marks: readonly Mark[], type: MarkType) =>
   marks.find((mark) => mark.type === type) ?? null;
@@ -67,30 +65,6 @@ export function inlineRuns(doc: ProseMirrorNode, from: number, to: number) {
     return false;
   });
   return runs;
-}
-
-// The blocks a range covers whole that a suggestion deletes as blocks, outermost first: a figure or
-// a layout section, which a reader accepts or rejects whole rather than leaving it empty.
-function wholeBlocks(doc: ProseMirrorNode, [from, to]: readonly [number, number]) {
-  const blocks: { node: ProseMirrorNode; pos: number }[] = [];
-  doc.nodesBetween(from, to, (node, pos) => {
-    if (node.isTextblock || !hasKindAttrs(node)) return true;
-    if (pos < from || pos + node.nodeSize > to) return true;
-    blocks.push({ node, pos });
-    return false;
-  });
-  return blocks;
-}
-
-// Whether a range covers a whole table, which cannot be suggested as a block (DOCE-SUGGESTIONS-1.5).
-function coversTable(doc: ProseMirrorNode, [from, to]: readonly [number, number]) {
-  let covers = false;
-  doc.nodesBetween(from, to, (node, pos) => {
-    if (node.type.name === 'table_figure' && pos >= from && pos + node.nodeSize <= to)
-      covers = true;
-    return !covers;
-  });
-  return covers;
 }
 
 /**
