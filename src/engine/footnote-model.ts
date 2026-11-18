@@ -2,8 +2,8 @@
 // a footnote may be cited, the footnote area of a page, and the plugin's state.
 
 import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from 'prosemirror-model';
-import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
-import { documentSections, regionBeside, regionKind } from '../model/index.js';
+import { type EditorState, PluginKey } from 'prosemirror-state';
+import { regionBeside, regionKind } from '../model/index.js';
 
 /** Where a footnote is, its marker in the text and its entry. */
 export interface FootnoteAt {
@@ -38,8 +38,8 @@ export interface FootnotesMeta {
 
 /**
  * The blocks a citing paragraph or caption may sit in, from its parent up to the page's content:
- * lists, table cells, header cells too, figures, the node that holds a table with its caption,
- * quotes and layout columns. Script output and footnote entries are left out.
+ * lists, table cells, header cells too, figures, the nodes that hold a table or a code block with
+ * its caption, quotes and layout columns. Script output and footnote entries are left out.
  */
 export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'list_item',
@@ -47,6 +47,7 @@ export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'ordered_list',
   'figure',
   'table_figure',
+  'code_figure',
   'table',
   'table_row',
   'table_cell',
@@ -110,44 +111,6 @@ export function citedEntries(entries: Fragment, content: Fragment): Fragment {
   return Fragment.from(kept);
 }
 
-/** How footnotes are numbered: through the document, or from 1 again in each section. */
-export interface FootnoteNumbering {
-  /** Starts the count again at each section, as in the web layout, where a section is one page. */
-  readonly restartEach?: 'section' | undefined;
-}
-
-/** Each footnote's rank: in document order, or within its section. */
-export function numberingRanks(doc: ProseMirrorNode, restartEach: 'section' | undefined) {
-  if (restartEach !== 'section') return markerRanks(doc);
-  const ranks = new Map<string, number>();
-  for (const section of documentSections(doc)) {
-    for (const [id, rank] of markerRanks(section.node)) if (!ranks.has(id)) ranks.set(id, rank);
-  }
-  return ranks;
-}
-
-/**
- * Numbers every footnote marker and entry in document order, or within each section; returns
- * whether any changed.
- */
-export function numberFootnotes(tr: Transaction, { restartEach }: FootnoteNumbering = {}): boolean {
-  const ranks = numberingRanks(tr.doc, restartEach);
-  let changed = false;
-  tr.doc.descendants((node, pos) => {
-    const name = node.type.name;
-    if (name !== 'footnote_reference' && name !== 'footnote_entry') return !node.isText;
-    const id = idOf(node);
-    const rank = id ? ranks.get(id) : undefined;
-    const number = rank === undefined ? null : rank + 1;
-    if (node.attrs.footnoteNumber !== number) {
-      tr.setNodeMarkup(pos, undefined, { ...node.attrs, footnoteNumber: number });
-      changed = true;
-    }
-    return false;
-  });
-  return changed;
-}
-
 /** The position of the footnote area beside a position (`regionBeside`), or null. */
 export function footnoteAreaAt(doc: ProseMirrorNode, pos: number): number | null {
   return regionBeside(doc.resolve(pos), 'footnotes')?.pos ?? null;
@@ -170,13 +133,13 @@ function inCitingPlaces($pos: ResolvedPos, from: number, places: ReadonlySet<str
 }
 
 /**
- * Whether a text block may hold a footnote's marker: a paragraph, or a figure's or table's caption
- * other than the one the pages repeat on a table's later part, which is not edited.
+ * Whether a text block may hold a footnote's marker: a paragraph, or a figure's, table's or code
+ * block's caption other than the one the pages repeat on a later part, which is not edited.
  */
 export function isCitingBlock(node: ProseMirrorNode): boolean {
   const name = node.type.name;
   if (name === 'figure_caption') return true;
-  if (name === 'table_caption') return !node.attrs.continuedText;
+  if (name === 'table_caption' || name === 'code_caption') return !node.attrs.continuedText;
   return name === 'paragraph';
 }
 

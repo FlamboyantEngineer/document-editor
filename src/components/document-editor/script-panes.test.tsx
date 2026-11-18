@@ -125,7 +125,13 @@ describe('previewScript', () => {
     const view = editorView([
       { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Scope' }] },
       { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Purpose' }] },
-      { type: 'codeBlock', attrs: { caption: 'Sample' }, content: [{ type: 'text', text: 'x' }] },
+      {
+        type: 'codeBlock',
+        content: [
+          { type: 'caption', content: [{ type: 'text', text: 'Sample' }] },
+          { type: 'text', text: 'x' },
+        ],
+      },
       { type: 'script', attrs: { source: 'count()' } },
       { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'After' }] },
     ]);

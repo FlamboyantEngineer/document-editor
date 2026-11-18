@@ -55,22 +55,20 @@ describe('page nodes', () => {
     expect(writeMarkup(doc)).toContain('data-section-editable="false" contenteditable="false"');
   });
 
-  it('DOCE-SCHEMA-3.1 pairs a footnote marker with its numbered entry', () => {
+  it('DOCE-SCHEMA-3.1 pairs a footnote marker with its entry, holding no number', () => {
     const content = '<p>Body<sup data-footnote-id="f1" data-footnote-number="1">1</sup></p>';
     const notes =
       '<p class="pm-footnote-entry" data-footnote-entry="true" data-footnote-id="f1" data-footnote-number="1"><span class="pm-footnote-entry-number">1</span><span class="pm-footnote-entry-content">Note</span></p>';
     const doc = parseMarkup(pageMarkup({ content, notes }));
-    expect(findNode(doc, 'footnote_reference')?.attrs).toMatchObject({
-      footnoteId: 'f1',
-      footnoteNumber: 1,
-    });
+    expect(findNode(doc, 'footnote_reference')?.attrs).toMatchObject({ footnoteId: 'f1' });
+    expect(findNode(doc, 'footnote_reference')?.attrs).not.toHaveProperty('footnoteNumber');
     expect(findNode(doc, 'footnote_entry')?.textContent).toBe('Note');
     const html = writeMarkup(doc);
     expect(html).toContain(
-      '<sup class="footnote-reference" data-footnote-reference="true" contenteditable="false" spellcheck="false" data-footnote-id="f1" data-footnote-number="1" title="Footnote 1">1</sup>',
+      '<sup class="footnote-reference" data-footnote-reference="true" contenteditable="false" spellcheck="false" data-footnote-id="f1"></sup>',
     );
     expect(html).toContain(
-      '<span class="pm-footnote-entry-number" contenteditable="false">1</span><span class="pm-footnote-entry-content">Note</span>',
+      '<span class="pm-footnote-entry-number" contenteditable="false"></span><span class="pm-footnote-entry-content">Note</span>',
     );
   });
 

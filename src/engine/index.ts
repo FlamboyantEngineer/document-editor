@@ -144,7 +144,21 @@ export {
 } from './element-ids.js';
 export { clearCopiedIdentity } from './element-ids.js';
 export * from './features.js';
-export type { FootnoteNumbering } from './footnote-model.js';
+export type {
+  FootnoteNumbering,
+  FootnoteNumbersMeta,
+  FootnoteNumbersOptions,
+  NumberedFootnotePart,
+} from './footnote-numbers.js';
+export {
+  createFootnoteNumbers,
+  footnoteNumberOf,
+  footnoteNumbersKey,
+  numberFootnoteParts,
+  renumberFootnotes,
+  unpagedNumbering,
+  withFootnoteNumbers,
+} from './footnote-numbers.js';
 export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
 export {
@@ -156,7 +170,6 @@ export {
   goToFootnoteMarker,
   insertFootnote,
   listFootnotes,
-  numberFootnotes,
 } from './footnotes.js';
 export { isHostContentAt } from './host-content.js';
 export type {
@@ -187,12 +200,7 @@ export type { InvalidMathText, MathViewsOptions } from './math-views.js';
 export { createMathViews, DEFAULT_INVALID_MATH_TEXT } from './math-views.js';
 export { cancelMathEditing, commitMathEditing, mathEditingAt } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
-export {
-  cancelCaptionEditing,
-  captionEditingAt,
-  commitCaptionEditing,
-  editCaption,
-} from './object-views.js';
+export { editCaption } from './object-views.js';
 export type { OutlineOptions } from './outline.js';
 export { headingSectionSpan } from './outline.js';
 export type { NumberedParagraph, ParagraphNumberingOptions } from './paragraph-numbering.js';
@@ -223,11 +231,6 @@ export { replaceDocumentContent } from './replace-document-content.js';
 export { revealRange, selectionAddress } from './reveal.js';
 export type { ReviewChange } from './review-changes.js';
 export { isReviewOnlyChange, reviewChangeOf } from './review-changes.js';
-export type { SectionFootnoteNumbersOptions } from './section-footnote-numbers.js';
-export {
-  createSectionFootnoteNumbers,
-  sectionFootnoteNumbersKey,
-} from './section-footnote-numbers.js';
 export {
   insertTemplateSection,
   removeEmptyTemplateSections,

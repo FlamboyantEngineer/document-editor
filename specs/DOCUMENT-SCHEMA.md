@@ -61,7 +61,7 @@ Verification: `src/model/schema/element-attributes.test.ts`
 
 ### DOCE-SCHEMA-3.1 - Pages and footnotes
 
-A section (`div.pm-section`) shall hold pages, each a header, content, footnote area and footer in that order. A section shall keep its name, its CSS variables, its header and footer markup and whether it is editable; a locked section shall be written as not editable. A page header or footer shall keep its template markup and hold the placeholder when it is empty, unless its section's markup is explicitly empty. A footnote marker (`sup[data-footnote-id]`) shall read before the superscript mark and pair by id with its entry in the page's footnote area; both shall write the number, the entry as a separate number before its content. A manual page break shall be `hr[data-page-break="manual"]`.
+A section (`div.pm-section`) shall hold pages, each a header, content, footnote area and footer in that order. A section shall keep its name, its CSS variables, its header and footer markup and whether it is editable; a locked section shall be written as not editable. A page header or footer shall keep its template markup and hold the placeholder when it is empty, unless its section's markup is explicitly empty. A footnote marker (`sup[data-footnote-id]`) shall read before the superscript mark and pair by id with its entry in the page's footnote area; the entry shall write an empty number element before its content, and neither shall read or write a number, which the view draws (DOCE-FOOTNOTES-2.2). A manual page break shall be `hr[data-page-break="manual"]`.
 
 Implementation: `src/model/schema/page-nodes.ts`, `src/model/schema/footnote-nodes.ts`
 Verification: `src/model/schema/page-nodes.test.ts`
@@ -82,7 +82,7 @@ Verification: `src/model/schema/figure-nodes.test.ts`, `src/model/schema/image-n
 
 ### DOCE-SCHEMA-3.4 - Code and math
 
-A code block shall keep its language (default `plaintext`), caption, whether the caption shows, whether it continues a block pagination split, and the number of its first line, and write its caption in a caption line before the code. A linked code block shall keep its address, language, code and first line, and take its caption from the address's file name. Inline and display math shall hold their LaTeX as text without marks and write it as the content attribute too.
+A code block shall keep its language (default `plaintext`), whether its caption shows, whether it continues a block pagination split, and the number of its first line. A typed code block shall sit after its caption in a `code_figure`, as a table sits in its `table_figure`: the caption is content, with the inline content and marks a table's caption holds, always present and empty when the block has none, and a code block outside its holder is not valid document content. A linked code block shall keep its address, language, code and first line, and take its caption from the address's file name. Inline and display math shall hold their LaTeX as text without marks and write it as the content attribute too.
 
 Implementation: `src/model/schema/code-nodes.ts`, `src/model/schema/math-nodes.ts`, `src/model/schema/caption-text.ts`
 Verification: `src/model/schema/code-nodes.test.ts`

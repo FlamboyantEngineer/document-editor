@@ -331,28 +331,20 @@ describe('room change guard', () => {
     });
   });
 
-  describe('DOCE-COLLAB-4.1 DOCE-COLLAB-6.7 a footnote marker’s mark sent with its number', () => {
+  describe('DOCE-COLLAB-4.1 DOCE-COLLAB-6.7 a footnote marker’s mark', () => {
     // A room holding one footnote, inserted by an editor or suggested by another writer.
     const insertAt =
-      (value: string, id: string, numbering?: number) =>
+      (value: string, id: string) =>
       (state: EditorState): Transaction => {
         const at = positionOf(state.doc, value);
         const placed = state.apply(state.tr.setSelection(TextSelection.create(state.doc, at)));
         let made: Transaction | undefined;
         insertFootnote({ newId: () => id })(placed, (tr) => (made = tr));
         if (!made) throw new Error('The footnote was not inserted.');
-        const tr = made;
-        // Gives every footnote that number, as a writer whose copy has numbered only its own: the
-        // others keep the number they had.
-        if (numbering !== undefined)
-          tr.doc.descendants((node, pos) => {
-            if (idOf(node)) tr.setNodeAttribute(pos, 'footnoteNumber', numbering);
-          });
-        return tr;
+        return made;
       };
     // A room whose one footnote is inserted by an editor or suggested by another writer; then an
-    // editor puts a footnote before it, numbered 1, and leaves the later one at 1 too, so 2 is the
-    // number the editors' numbering gives the later marker.
+    // editor puts a footnote before it. Neither change holds a number.
     const footnoteRoom = async (suggestedBy?: string) => {
       const room = await serveRoom(1);
       const writer = joinAs(room, suggestedBy ?? 'editor', [createFootnotes()]);
@@ -361,10 +353,9 @@ describe('room change guard', () => {
       await settle();
       const editor = joinAs(room, 'editor');
       await settle();
-      editor.edit(insertAt('Paragraph', 'n0000009', 1));
+      editor.edit(insertAt('Paragraph', 'n0000009'));
       await settle();
       if (writer.closed || editor.closed) throw new Error('A footnote was refused.');
-      expect(markerNumber(room.handle)).toBe(1);
       return room;
     };
     // The marker of the footnote put in first, the later one in the room.
@@ -383,14 +374,8 @@ describe('room change guard', () => {
         ?.nodeAt(at)
         ?.marks.map((mark) => `${mark.type.name}:${String(mark.attrs.dataAuthor)}`);
     };
-    const markerNumber = (handle: RoomHandle): unknown => {
-      const doc = readContent(schema, roomDoc(handle).get(CONTENT_TYPE));
-      return doc?.nodeAt(markerAt(doc))?.attrs.footnoteNumber;
-    };
-    const numbered = (state: EditorState, tr: Transaction) =>
-      tr.setNodeAttribute(markerAt(state.doc), 'footnoteNumber', 2);
 
-    it('refuses a suggester taking another writer’s insertion mark off a marker with its number', async () => {
+    it('refuses a suggester taking another writer’s insertion mark off a marker', async () => {
       const room = await footnoteRoom('owner');
       expect(markerMarks(room.handle)).toEqual(['insertion:owner']);
       const suggester = joinAs(room, 'suggester');
@@ -399,16 +384,15 @@ describe('room change guard', () => {
         const at = markerAt(state.doc);
         const insertion = schema.marks.insertion;
         if (!insertion) throw new Error('No suggested insertions.');
-        return numbered(state, state.tr.removeMark(at, at + 1, insertion));
+        return state.tr.removeMark(at, at + 1, insertion);
       });
       await settle();
       expect(suggester.closed).toBe(true);
       expect(markerMarks(room.handle)).toEqual(['insertion:owner']);
-      expect(markerNumber(room.handle)).toBe(1);
       room.handle.release();
     });
 
-    it('refuses a suggester a deletion mark under another writer’s name on a marker with its number', async () => {
+    it('refuses a suggester a deletion mark under another writer’s name on a marker', async () => {
       const room = await footnoteRoom();
       expect(markerMarks(room.handle)).toEqual([]);
       const suggester = joinAs(room, 'suggester');
@@ -418,24 +402,45 @@ describe('room change guard', () => {
         const deletion = schema.marks.deletion;
         if (!deletion) throw new Error('No suggested deletions.');
         const mark = deletion.create({ dataId: 's0000010', dataAuthor: 'owner' });
-        return numbered(state, state.tr.addMark(at, at + 1, mark));
+        return state.tr.addMark(at, at + 1, mark);
       });
       await settle();
       expect(suggester.closed).toBe(true);
       expect(markerMarks(room.handle)).toEqual([]);
-      expect(markerNumber(room.handle)).toBe(1);
       room.handle.release();
     });
 
-    it('admits the number alone, which every writer may set', async () => {
+    it('holds no footnote number: one a writer sets is no change, so nothing reaches the room', async () => {
+      const room = await footnoteRoom('owner');
+      for (const token of ['suggester', 'editor']) {
+        const writer = joinAs(room, token);
+        await settle();
+        writer.edit((state) => state.tr.setNodeAttribute(markerAt(state.doc), 'footnoteNumber', 2));
+        await settle();
+        expect(writer.closed).toBe(false);
+      }
+      expect(JSON.stringify(roomDoc(room.handle).get(CONTENT_TYPE).toJSON())).not.toMatch(
+        /footnoteNumber/,
+      );
+      expect(markerMarks(room.handle)).toEqual(['insertion:owner']);
+      room.handle.release();
+    });
+
+    it('refuses a suggester changing a footnote’s marker, which holds no number', async () => {
       const room = await footnoteRoom('owner');
       const suggester = joinAs(room, 'suggester');
       await settle();
-      suggester.edit((state) => numbered(state, state.tr));
+      suggester.edit((state) =>
+        state.tr.setNodeAttribute(markerAt(state.doc), 'footnoteId', 'n0000002'),
+      );
       await settle();
-      expect(suggester.closed).toBe(false);
-      expect(markerMarks(room.handle)).toEqual(['insertion:owner']);
-      expect(markerNumber(room.handle)).toBe(2);
+      expect(suggester.closed).toBe(true);
+      const held = readContent(schema, roomDoc(room.handle).get(CONTENT_TYPE));
+      const marker = held ? held.nodeAt(markerAt(held)) : null;
+      expect(marker && idOf(marker)).toBe('n0000001');
+      expect(Object.keys(schema.nodes.footnote_reference?.spec.attrs ?? {})).not.toContain(
+        'footnoteNumber',
+      );
       room.handle.release();
     });
   });

@@ -23,8 +23,8 @@ describe('writeMarkdown fidelity', () => {
   it('DOCE-FORMAT-4.4 fences code with a longer run of backticks than it holds', () => {
     const code = (value: string): StoredNode => ({
       type: 'codeBlock',
-      attrs: { language: 'md', caption: 'Fences' },
-      content: [text(value)],
+      attrs: { language: 'md' },
+      content: [{ type: 'caption', content: [text('Fences')] }, text(value)],
     });
     expect(written([code('```\nnested\n```')])).toBe(
       '````md\n```\nnested\n```\n````\n\n*Fences*\n',

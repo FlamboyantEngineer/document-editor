@@ -2,11 +2,11 @@
 // repeats it, column widths, merged cells, cell backgrounds and vertical alignment, and the
 // caption above or below as the template places it, numbered as the editor numbers it.
 
-import { storedBodyOf, storedCaptionOf, storedCaptionText } from '../../schema/caption-content.js';
+import { storedBodyOf, storedCaptionOf } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
 import { keptContent } from '../left-out.js';
 import { countObject } from './counting.js';
-import { inlines, run, styledRun } from './inline.js';
+import { inlines, styledRun } from './inline.js';
 import { paragraph, styled } from './paragraphs.js';
 import { toTwips, toWordColor } from './word-xml.js';
 import type { Writing } from './writing.js';
@@ -48,18 +48,14 @@ const CAPTION_STYLES: Readonly<Record<CaptionKind, readonly [string, string]>> =
 };
 
 /**
- * An object's caption with its numbered label, in its kind's styles; empty when it has neither. A
- * figure's or a table's caption is written in its formats, with its footnotes and comments, its
- * suggestions resolved as any text's; a code block's from its text.
+ * An object's caption with its numbered label, in its kind's styles; empty when it has neither. The
+ * caption is written in its formats, with its footnotes and comments, its suggestions resolved as
+ * any text's.
  */
 export function captionParagraph(node: StoredNode, kind: CaptionKind, writing: Writing): string {
   const captioned = node.attrs?.captionEnabled !== false;
   const label = captioned ? countObject(writing.counting, kind) : '';
-  const runs = !captioned
-    ? ''
-    : kind === 'codeBlock'
-      ? storedCaptionText(node) && run(storedCaptionText(node))
-      : inlines(storedCaptionOf(node)?.content, writing);
+  const runs = captioned ? inlines(storedCaptionOf(node)?.content, writing) : '';
   if (!label && !runs) return '';
   const [style, labelStyle] = CAPTION_STYLES[kind];
   const lead = label ? styledRun(runs ? `${label} - ` : label, labelStyle) : '';

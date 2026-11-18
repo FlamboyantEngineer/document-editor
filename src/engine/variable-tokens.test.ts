@@ -63,8 +63,18 @@ describe('variable tokens', () => {
   it('DOCE-TEMPLATES-8.3 keeps other token forms and code as typed', () => {
     const plain = typeInto({ type: 'paragraph', content: [] }, '', '${name} [[name]]');
     expect(partsOf(plain)).toEqual(['${name} [[name]]']);
-    const code = typeInto({ type: 'code_block', content: [] }, '', '{{name}}');
-    expect(partsOf(code)).toEqual(['{{name}}']);
+    const code = typeInto(
+      {
+        type: 'code_block',
+        content: [
+          { type: 'caption', content: [] },
+          { type: 'text', text: 'x' },
+        ],
+      },
+      'x',
+      '{{name}}',
+    );
+    expect(partsOf(code)).toEqual(['x{{name}}']);
   });
 
   it('DOCE-TEMPLATES-8.7 turns the {{key}} text a document opens with into variables, outside code', () => {

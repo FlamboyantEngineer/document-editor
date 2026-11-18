@@ -7,7 +7,8 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
-import { numberFootnotes } from '../engine/footnote-model.js';
+import { idOf } from '../engine/footnote-model.js';
+import { numberFootnoteParts } from '../engine/footnote-numbers.js';
 import {
   isAllowedAttribute,
   SNAPSHOT_DROPPED,
@@ -80,6 +81,25 @@ function drawNode(node: ProseMirrorNode, drawn: PrintTree[]): PrintTree[] {
 // Puts a link around an element's content.
 function link(element: PrintElement, href: string, kind: string) {
   element.children = [printElement('a', { href, 'data-print-link': kind }, element.children)];
+}
+
+// Each footnote marker's and entry's number, through the document, as the editor draws it: its text
+// and its hooks (`createFootnoteNumbers`).
+function numberFootnotes(trees: PrintTree[], doc: ProseMirrorNode) {
+  const numbers = new Map<string, string>();
+  for (const { node, number } of numberFootnoteParts(doc))
+    numbers.set(idOf(node) ?? '', String(number));
+  const tooltip = doc.type.schema.nodes.footnote_reference?.spec.tooltipAttribute;
+  for (const element of printElements(trees)) {
+    const number = numbers.get(element.attrs.get('data-footnote-id') ?? '');
+    if (number === undefined) continue;
+    const marker = element.attrs.has('data-footnote-reference');
+    const shows = marker ? element : element.children.find(isPrintElement);
+    if (!marker && !element.attrs.has('data-footnote-entry')) continue;
+    element.attrs.set('data-footnote-number', number);
+    element.attrs.set(typeof tooltip === 'string' ? tooltip : 'title', `Footnote ${number}`);
+    if (shows) shows.children = [{ text: number }];
+  }
 }
 
 // Anchors, numbers, links and images, as a print snapshot has them (DOCE-EDITOR-6.21, 6.22, 6.25).
@@ -214,14 +234,13 @@ export function renderPrintPage(
 ): string {
   const schema = createDocumentSchema(options.kit);
   // The template's headers and footers, and the footnotes numbered in order, as the editor shows.
-  const tr = setPageRegions(
+  const { doc } = setPageRegions(
     EditorState.create({ doc: readDocumentFile(file, schema).doc }).tr,
     template,
   );
-  numberFootnotes(tr);
-  const { doc } = tr;
   const trees: PrintTree[] = [];
   doc.forEach((node) => trees.push(...nodeTree(node, drawNode)));
+  numberFootnotes(trees, doc);
   addLinks(trees, elementNumbers(doc, template), options);
   const markup = options.markup ?? 'all';
   const root = printElement(

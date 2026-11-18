@@ -87,7 +87,7 @@ Verification: `src/engine/figure-commands.test.ts`, `src/components/document-edi
 
 ### DOCE-OBJECTS-2.1 - A caption's text
 
-A table's or a figure's caption shall be document content, the object's first child: a `table_figure`, which the stored format does not keep, holds a table's caption (`table_caption`) and the table, and a figure holds its caption (`figure_caption`) before its image; a code block's caption is its `caption` attribute. `captionedAt(state)` shall find the table, figure or code block selected or holding the selection, and `captionNodeAt(doc, found)` a table's or a figure's caption node; `setCaption(text)` sets its caption text, with its spaces collapsed, and shows its caption, and `toggleCaption(shown)` shows or hides it, toggling it by default. The context menu offers editing the caption, in place for a table or a figure (DOCE-OBJECTS-2.5) and in a dialog for a code block, and showing or hiding it (DOCE-EDITOR-3.8). `insertTable` and `insertFigure` give the object an empty caption, and deleting a table deletes its caption with it (`deleteTableWithCaption`). A table's or a figure's caption is rich text: it takes the marks a paragraph does, comment anchors (DOCE-COMMENTS-1.1), suggested text (DOCE-SUGGESTIONS-1.1) and footnotes (DOCE-FOOTNOTES-1.2), all stored with the caption.
+A table's, a figure's or a code block's caption shall be document content, the object's first child: a `table_figure` or `code_figure`, which the stored format does not keep, holds a table's caption (`table_caption`) and the table, or a code block's caption (`code_caption`) and the code block, and a figure holds its caption (`figure_caption`) before its image. A linked code block's caption is derived from its address and not edited. `captionedAt(state)` shall find the table, figure or code block selected or holding the selection, and `captionNodeAt(doc, found)` its caption node; `setCaption(text)` sets its caption text, with its spaces collapsed, and shows its caption, and `toggleCaption(shown)` shows or hides it, toggling it by default. The context menu offers editing the caption in place (DOCE-OBJECTS-2.5) and showing or hiding it (DOCE-EDITOR-3.8). `insertTable`, `insertFigure` and `insertCodeBlock` give the object an empty caption, and deleting a table deletes its caption with it (`deleteTableWithCaption`). A caption is rich text: it takes the marks a paragraph does, comment anchors (DOCE-COMMENTS-1.1), suggested text (DOCE-SUGGESTIONS-1.1) and footnotes (DOCE-FOOTNOTES-1.2), all stored with the caption.
 
 Implementation: `src/engine/captions.ts`, `src/model/schema/caption-nodes.ts`, `src/model/schema/caption-content.ts`, `src/components/document-editor/caption-entries.ts`
 Verification: `src/engine/table-format.test.ts`, `e2e/captions.spec.ts`
@@ -99,12 +99,12 @@ A caption line shall read the object's label and number, from the template's num
 Implementation: `src/model/schema/table-nodes.ts`, `labs/reference/document.css`
 Verification: `e2e/captions.spec.ts`, `e2e/template-content.spec.ts`
 
-### DOCE-OBJECTS-2.3 - Captions edited in a field
+### DOCE-OBJECTS-2.3 - Code block captions
 
-A double click on a code block's caption line, or `editCaption` for a code block, shall edit the caption in place in a field: `captionEditingAt(state)` gives that object, kept through changes until it goes, and marks it `data-caption-editing`; `commitCaptionEditing(text)` sets its caption text as `setCaption` does, in one change, with the object selected after, and `cancelCaptionEditing` leaves it as it was. While the editor is editable, it shows the base library's `InlineTextField` (named by `caption`) over the caption line (`de-object-editors__field`, `data-kind="caption"`, placed as DOCE-OBJECTS-1.8 says), focused, holding the caption text: Enter commits the text, focus leaving the field commits a changed text and otherwise cancels, and Escape cancels; focus then goes back to the document. Select all and paste stay inside the field, which keeps what the writer typed while a change elsewhere moves the object (DOCE-OBJECTS-1.8).
+A code block's caption shall be edited in place as a table's is (DOCE-OBJECTS-2.5), with no field over it: `editCaption` selects its text, a press on its line puts the caret in it, and a press on the code's padding or gutter puts the caret in the code (DOCE-OBJECTS-3.4). A code block is made with its empty caption however it is made: `insertCodeBlock`, the ` ``` ` typing shortcut (DOCE-EDITING-6.1), a pasted `<pre>`, which reads the caption line or `data-code-caption-text` an older copy carries, script output and the readers. A code block split across pages repeats its caption on each later part, which shows its text and is not edited, and joins back whole (DOCE-PAGINATION-1).
 
-Implementation: `src/engine/caption-views.ts`, `src/engine/object-views.ts`, `src/components/document-editor/object-editors.tsx`
-Verification: `src/engine/caption-views.test.ts`, `src/components/document-editor/object-editors.test.tsx`, `e2e/captions.spec.ts`
+Implementation: `src/model/schema/code-nodes.ts`, `src/model/schema/caption-holder.ts`, `src/engine/code-commands.ts`, `src/engine/typing-rules.ts`, `src/engine/object-views.ts`
+Verification: `src/model/schema/code-nodes.test.ts`, `src/engine/object-commands.test.ts`, `src/engine/typing-rules.test.ts`, `src/components/document-editor/object-editors.test.tsx`, `e2e/objects.spec.ts`
 
 ### DOCE-OBJECTS-2.4 - Caption lines outside the editor
 
@@ -113,12 +113,12 @@ Verification: `src/engine/caption-views.test.ts`, `src/components/document-edito
 Implementation: `src/model/schema/caption-text.ts`, `src/model/schema/object-layout.ts`
 Verification: `src/model/schema/caption-text.test.ts`
 
-### DOCE-OBJECTS-2.5 - Table and figure captions edited in the caption
+### DOCE-OBJECTS-2.5 - Captions edited in the caption
 
-A table's or a figure's caption shall be edited as any text of the document, in place: the caret goes into it as into a paragraph, and what the writer types, pastes, undoes or another writer changes is in the document at once. A caption is one line: Enter and Shift-Enter add nothing in it, and Backspace at its start and Delete at its end join it to nothing. `editCaption`, given the view, selects the caption's text and shows the caption, hidden or not. Select All in a caption selects its text, and a second Select All everything. A press on a figure's image selects the figure. A pasted table without its caption, or an HTML table, reads as a table with its HTML caption or an empty one. A code block's caption keeps its field (DOCE-OBJECTS-2.3).
+A table's, a figure's or a code block's caption shall be edited as any text of the document, in place: the caret goes into it as into a paragraph, and what the writer types, pastes, undoes or another writer changes is in the document at once. A caption is one line: Enter and Shift-Enter add nothing in it, and Backspace at its start and Delete at its end join it to nothing. `editCaption`, given the view, selects the caption's text and shows the caption, hidden or not. Select All in a caption selects its text, and a second Select All everything. A press on a figure's image selects the figure. A pasted table without its caption, or an HTML table, reads as a table with its HTML caption or an empty one.
 
 Implementation: `src/engine/caption-editing.ts`, `src/engine/object-views.ts`, `src/engine/document-editing.ts`, `src/model/schema/caption-nodes.ts`
-Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`, `e2e/session.spec.ts`
+Verification: `src/engine/caption-editing.test.ts`, `e2e/captions.spec.ts`, `e2e/session.spec.ts`, `e2e/objects.spec.ts`
 
 ## DOCE-OBJECTS-3 - Object views
 

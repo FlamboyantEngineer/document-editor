@@ -1,9 +1,17 @@
-// Code: a block of code typed in, with its caption and the line it starts at when pagination splits
-// it, and a block that shows code from an address.
+// Code: a block of code typed in, held after its caption by a `code_figure`, with the line it starts
+// at when pagination splits it, and a block that shows code from an address, whose caption is
+// derived from the address.
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
-import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
+import {
+  DOMParser,
+  Fragment,
+  type Node as ProseMirrorNode,
+  type NodeSpec,
+  type Schema,
+} from 'prosemirror-model';
 import { nodes as basicNodes } from 'prosemirror-schema-basic';
+import { captionHolder } from './caption-holder.js';
 import { deriveLinkedCodeBlockCaption, normalizeCaptionText } from './caption-text.js';
 import {
   CODE_BLOCK_CONTINUED_ATTR,
@@ -26,34 +34,29 @@ function readLineStart(dom: HTMLElement): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function captionLine(kind: 'code' | 'linked-code', text: string) {
-  const className = kind === 'code' ? 'doc-code-caption-line' : 'doc-linked-code-caption-line';
+// Linked code's caption line, derived from its address and not edited.
+function linkedCaptionLine(text: string) {
   return [
     'div',
-    { class: `doc-caption-line ${className}`, 'data-caption-kind': kind },
+    { class: 'doc-caption-line doc-linked-code-caption-line', 'data-caption-kind': 'linked-code' },
     ['span', { class: 'doc-caption-text', 'data-doc-caption-text': 'true' }, text],
     ['span', { class: 'doc-caption-continued', 'data-doc-caption-continued': 'true' }, ''],
   ];
 }
 
 function readCodeBlockAttrs(dom: HTMLElement) {
-  const captionText = dom.querySelector(
-    ':scope > .doc-caption-line [data-doc-caption-text="true"]',
-  )?.textContent;
   return {
     language: readLanguage(dom),
     captionEnabled: dom.getAttribute('data-caption-enabled') !== 'false',
-    caption: normalizeCaptionText(dom.getAttribute(CODE_CAPTION_TEXT_ATTR) || captionText || ''),
     codeBlockContinued: dom.getAttribute(CODE_BLOCK_CONTINUED_ATTR) === 'true',
     codeLineStart: readLineStart(dom),
   };
 }
 
 function renderCodeBlock(node: ProseMirrorNode) {
-  const { language, caption, captionEnabled, codeBlockContinued, codeLineStart } = node.attrs;
+  const { language, captionEnabled, codeBlockContinued, codeLineStart } = node.attrs;
   const attrs: DomAttributes = {
     'data-code-language': String(language || 'plaintext'),
-    [CODE_CAPTION_TEXT_ATTR]: normalizeCaptionText(caption || ''),
     spellcheck: 'false',
   };
   if (captionEnabled === false) attrs['data-caption-enabled'] = 'false';
@@ -61,15 +64,16 @@ function renderCodeBlock(node: ProseMirrorNode) {
   if (Number.isInteger(codeLineStart) && Number(codeLineStart) > 1) {
     attrs[CODE_LINE_START_ATTR] = String(codeLineStart);
   }
-  const code = ['code', { spellcheck: 'false' }, 0];
-  return ['pre', attrs, captionLine('code', normalizeCaptionText(caption || '')), code];
+  return ['pre', attrs, ['code', { spellcheck: 'false' }, 0]];
 }
 
+// A code block sits in its `code_figure`, after its caption, so it is in no group of its own.
+const { group: _group, ...basicCodeBlock } = basicNodes.code_block;
+
 const codeBlock: NodeSpec = {
-  ...basicNodes.code_block,
+  ...basicCodeBlock,
   attrs: {
     language: { default: 'plaintext' },
-    caption: { default: '' },
     captionEnabled: { default: true },
     codeBlockContinued: { default: false },
     codeLineStart: { default: 1 },
@@ -85,6 +89,32 @@ const codeBlock: NodeSpec = {
   toDOM: (node) => renderCodeBlock(node) as unknown as OutputSpec,
 };
 
+// A code block pasted alone, read as its caption and the code: the caption from the caption line an
+// older copy drew in it, or from its caption attribute.
+function pastedCode(dom: HTMLElement, schema: Schema): Fragment {
+  const { code_block: code, code_caption: caption } = schema.nodes;
+  if (!code || !caption) return Fragment.empty;
+  const parser = DOMParser.fromSchema(schema);
+  // The code block's own rule reads its attributes, with its element's identity.
+  const rule = code.spec.parseDOM?.find((each) => each.tag === 'pre');
+  const block = code.create(rule?.getAttrs?.(dom) || readCodeBlockAttrs(dom));
+  const element = dom.querySelector(':scope > code') ?? dom;
+  const text = parser.parse(element, { topNode: block, preserveWhitespace: 'full' });
+  const line = dom.querySelector(':scope > .doc-caption-line [data-doc-caption-text]');
+  const attribute = normalizeCaptionText(dom.getAttribute(CODE_CAPTION_TEXT_ATTR) ?? '');
+  const shown = line
+    ? parser.parse(line, { topNode: caption.create() })
+    : caption.create(null, attribute ? schema.text(attribute) : null);
+  return Fragment.from([shown, text]);
+}
+
+/** A code block with its caption. */
+const codeFigure: NodeSpec = captionHolder({
+  className: 'doc-code-figure',
+  content: 'code_caption code_block',
+  alone: { tag: 'pre', content: pastedCode },
+});
+
 function renderLinkedCodeBlock(node: ProseMirrorNode) {
   const language = String(node.attrs.language || 'plaintext');
   const attrs: DomAttributes = {
@@ -95,7 +125,7 @@ function renderLinkedCodeBlock(node: ProseMirrorNode) {
     class: 'linked-code-block',
   };
   if (node.attrs.codeBlockContinued) attrs[CODE_BLOCK_CONTINUED_ATTR] = 'true';
-  const caption = captionLine('linked-code', deriveLinkedCodeBlockCaption(node.attrs.url || ''));
+  const caption = linkedCaptionLine(deriveLinkedCodeBlockCaption(node.attrs.url || ''));
   const code = ['code', { spellcheck: 'false' }, String(node.attrs.code || '')];
   const pre = ['pre', { 'data-code-language': language, spellcheck: 'false' }, caption, code];
   return ['div', attrs, pre];
@@ -126,10 +156,11 @@ const linkedCodeBlock: NodeSpec = {
   toDOM: (node) => renderLinkedCodeBlock(node) as unknown as OutputSpec,
 };
 
-/** Code blocks and linked code blocks. */
+/** Code blocks with their holders, and linked code blocks. */
 export const codeNodesExtension: RichTextExtension = {
   name: 'code-nodes',
   nodes: [
+    { name: 'code_figure', spec: codeFigure, order: DOCUMENT_NODE_ORDER.code_figure },
     { name: 'code_block', spec: codeBlock, order: DOCUMENT_NODE_ORDER.code_block },
     {
       name: 'linked_code_block',

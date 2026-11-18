@@ -1389,20 +1389,21 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
     expect(allowed(inserted, taken, 'writer')).toBe(false);
   });
 
-  it('refuses a footnote number the editors’ numbering does not give, also beside a suggested footnote', () => {
+  it('refuses a change to any footnote attribute without edit rights, the writer’s own suggested footnote too', () => {
     const before = start();
     const markerAt = listFootnotes(before.doc).get('n1')?.marker ?? 0;
-    const forged = before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7);
-    expect(allowed(before, forged, 'writer')).toBe(false);
+    const renamed = before.tr.setNodeAttribute(markerAt, 'footnoteId', 'n7');
+    expect(allowed(before, renamed, 'writer')).toBe(false);
     const inserted = suggested();
     expect(allowed(before, inserted, 'writer')).toBe(true);
     const entryAt = listFootnotes(inserted.doc).get('n1')?.entry ?? 0;
-    const renumbered = inserted.tr.setNodeAttribute(entryAt, 'footnoteNumber', 1);
-    expect(allowed(before, { doc: renumbered.doc }, 'writer')).toBe(false);
-    // The writer's own suggested footnote takes no other number either.
+    const entry = inserted.tr.setNodeAttribute(entryAt, 'footnoteId', 'n7');
+    expect(allowed(before, { doc: entry.doc }, 'writer')).toBe(false);
     const ownAt = listFootnotes(inserted.doc).get('n0')?.marker ?? 0;
-    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteNumber', 5);
+    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteId', 'n5');
     expect(allowed(before, { doc: own.doc }, 'writer')).toBe(false);
+    // A footnote's number is no attribute of the schema: setting one changes nothing.
+    expect(before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7).doc.eq(before.doc)).toBe(true);
   });
 
   it('lets only a writer who decides reject another writer’s suggested footnote', () => {
@@ -1613,19 +1614,25 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       const item = paragraph && nodes.list_item?.create(attrs, paragraph);
       return item ? nodes.bullet_list?.create(null, item) : undefined;
     };
+    // A code block in its holder after its caption, the holder or caption marked as given.
+    const heldCode = (
+      code: Record<string, unknown>,
+      holder: Record<string, unknown> = {},
+      continuedText: string | null = null,
+    ) => {
+      const block = nodes.code_block?.create(code, schema.text('x'));
+      const caption = nodes.code_caption?.create({ continuedText });
+      return block && caption ? nodes.code_figure?.create(holder, [caption, block]) : undefined;
+    };
     const attacks: [string, ProseMirrorNode | undefined][] = [
       ['a paragraph marked as a part', paragraphOf({ splitPartIndex: 1 })],
       ['a placeholder paragraph', paragraphOf({ continuationPlaceholder: true })],
       ['a list item continued from a page', listOf({ orphanedListContinuation: true })],
       ['a list item marked as a part', listOf({ splitPartIndex: 0 })],
-      [
-        'a continued code block',
-        nodes.code_block?.create({ codeBlockContinued: true }, schema.text('x')),
-      ],
-      [
-        'code starting at a later line',
-        nodes.code_block?.create({ codeLineStart: 5 }, schema.text('x')),
-      ],
+      ['a continued code block', heldCode({ codeBlockContinued: true })],
+      ['code starting at a later line', heldCode({ codeLineStart: 5 })],
+      ['a code holder marked as a part', heldCode({}, { splitPartIndex: 1 })],
+      ['a code caption showing text only the pages draw', heldCode({}, {}, 'Not its text')],
       ['continued linked code', nodes.linked_code_block?.create({ codeBlockContinued: true })],
       ['contents from a later entry', nodes.toc_block?.create({ entryStart: 3 })],
       ['contents to an earlier entry', nodes.toc_block?.create({ entryEnd: 4 })],
@@ -1633,7 +1640,11 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     ];
     // Every attribute only the pages set has its case here or in the caption case above.
     const attacked = new Set(
-      [...attacks.map(([, node]) => node), ...attacks.flatMap(([, node]) => node?.firstChild ?? [])]
+      [
+        ...attacks.map(([, node]) => node),
+        ...attacks.flatMap(([, node]) => node?.firstChild ?? []),
+        ...attacks.flatMap(([, node]) => node?.lastChild ?? []),
+      ]
         .flatMap((node) => (node ? [node] : []))
         .flatMap((node) =>
           Object.entries(wholeValuesOf(node.type.name))
@@ -1643,7 +1654,7 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     );
     attacked.add('continuedText');
     const pageOnly = new Set(
-      [...Object.keys(FRAGMENT_RULES), 'table_caption'].flatMap((name) =>
+      [...Object.keys(FRAGMENT_RULES), 'table_caption', 'code_caption'].flatMap((name) =>
         Object.keys(wholeValuesOf(name)),
       ),
     );
@@ -1663,6 +1674,47 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
         await room.provider.whenStored();
         expect(room.provider.getState().refusal, name).toBe('unauthorized-write');
         expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
+  it('refuses a footnote number set by hand in a room, from an editor or a writer who may only suggest', async () => {
+    // The shared type of the room's first footnote marker.
+    const markerOf = (type: Y.Type): Y.Type | null => {
+      if (type.name === 'footnote_reference') return type;
+      const value = type.toDelta() as unknown as {
+        children: { start: { insert?: unknown; next: unknown } | null };
+      };
+      for (let op = value.children.start; op; op = op.next as typeof op) {
+        if (!Array.isArray(op.insert)) continue;
+        for (const child of op.insert as unknown[]) {
+          const found = child instanceof Y.Type ? markerOf(child) : null;
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    for (const granted of [editor, suggestOnly]) {
+      let current = editor;
+      const room = await setup({ resolvePermissions: () => current });
+      try {
+        // An editor cites a footnote, which the room keeps.
+        change(room.doc, (state) =>
+          runCommand(caretAt(state, 'Original'), insertFootnote({ newId: () => 'n1' })),
+        );
+        expect(await room.provider.whenStored()).toBe(true);
+        expect(room.provider.getState().refusal).toBeNull();
+        const stored = yjsToDocument(room.handle.snapshot(), { schema });
+        current = granted;
+        const marker = markerOf(room.doc.get('content'));
+        if (!marker) throw new Error('No footnote marker in the room.');
+        room.doc.transact(() => marker.setAttr('footnoteNumber', 7));
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal, String(granted.edit)).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(stored);
+        expect(JSON.stringify(room.handle.snapshot())).not.toMatch(/footnoteNumber/);
       } finally {
         await room.close();
       }
@@ -2179,6 +2231,215 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion h
   it('refuses a block put under a later id of another writer’s suggestion joined by one comment thread', () => {
     const runs = [deleted('Origi', 's0000050', 'c0000001'), deleted('nal', 's0000051', 'c0000001')];
     expect(markFigure(runs, 's0000051')).toBe(false);
+  });
+});
+
+describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 code captions in a guarded room', () => {
+  const suggestOnly = { edit: false, suggest: true, comment: true, decide: false };
+  const editor = { edit: true, suggest: true, comment: true, decide: false };
+  type Stored = DocumentFile['sections'][number]['content'][number];
+  const code = (caption: Stored[]): Stored => ({
+    type: 'codeBlock',
+    attrs: { id: 'k0000001' },
+    content: [{ type: 'caption', content: caption }, text('x = 1')],
+  });
+  const stateOf = (caption: Stored[]) =>
+    EditorState.create({
+      doc: readDocumentFile(
+        { formatVersion: 1, sections: [{ name: null, content: [code(caption)] }] },
+        schema,
+      ).doc,
+    });
+  // Where the code's caption text starts.
+  const captionStart = (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'code_caption') at = pos + 1;
+      return at < 0;
+    });
+    return at;
+  };
+  const allowed = (before: EditorState, after: EditorState['doc'], granted = suggestOnly) =>
+    checkDocumentChange({ before: before.doc, after, actor: 'writer', permissions: granted });
+  // The room's held code block, as an editor's own state builds it.
+  const heldCode = () => {
+    const figure = stateOf([text('Setup')]).doc.firstChild?.firstChild?.child(1)?.firstChild;
+    if (figure?.type.name !== 'code_figure') throw new Error('No code block with its caption.');
+    return figure;
+  };
+  // Inserts a node after the room's paragraph.
+  const insertAfterParagraph = (doc: Y.Doc, node: ProseMirrorNode, mark?: Mark) =>
+    change(doc, (state) => {
+      let end = -1;
+      state.doc.descendants((each, pos) => {
+        if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+        return end < 0;
+      });
+      const tr = state.tr.insert(end, node);
+      return state.apply(mark ? tr.addMark(end, end + node.nodeSize, mark) : tr);
+    });
+
+  it('lets a code caption’s text change as any text does: edited by an editor, suggested by a suggester', () => {
+    const before = stateOf([text('Setup')]);
+    const from = captionStart(before);
+    const edited = before.tr.insertText('First setup', from, from + 'Setup'.length);
+    expect(allowed(before, edited.doc)).toBe(false);
+    expect(allowed(before, edited.doc, editor)).toBe(true);
+    const suggestion = suggestTransaction(before.tr.insertText('First ', from), before, {
+      author: 'writer',
+      newId: () => 's0000001',
+    });
+    if (!suggestion) throw new Error('The change was not suggested.');
+    expect(allowed(before, before.apply(suggestion).doc)).toBe(true);
+  });
+
+  it('leaves another writer’s suggestion in a code caption to them and to deciders', () => {
+    const theirs = {
+      type: 'text',
+      text: 'First ',
+      marks: [{ type: 'insertion', attrs: { id: 's0000009', author: 'other' } }],
+    };
+    const before = stateOf([theirs, text('Setup')]);
+    const from = captionStart(before);
+    const insertion = schema.marks.insertion;
+    if (!insertion) throw new Error('Missing insertion.');
+    const taken = before.tr.removeMark(from, from + 'First '.length, insertion);
+    const dropped = before.tr.delete(from, from + 'First '.length);
+    expect(allowed(before, taken.doc)).toBe(false);
+    expect(allowed(before, dropped.doc)).toBe(false);
+  });
+
+  it('refuses even an editor a code block, or its holder, that is not whole', async () => {
+    const figure = heldCode();
+    const caption = figure.firstChild;
+    const block = figure.lastChild;
+    const paragraph = schema.nodes.paragraph?.create(null, schema.text('Block'));
+    if (!caption || !block || !paragraph) throw new Error('No caption.');
+    const shapes: [string, ProseMirrorNode][] = [
+      ['a code block with no holder', block],
+      ['a holder without its caption', figure.type.create(null, [block])],
+      ['a holder with two captions', figure.type.create(null, [caption, caption, block])],
+      [
+        'a block inside a caption',
+        figure.type.create(null, [caption.type.create(caption.attrs, [paragraph]), block]),
+      ],
+    ];
+    for (const [name, shape] of shapes) {
+      const room = await setup({ granted: editor });
+      try {
+        // Built without the schema's checks, as a writer sending raw content could.
+        const held = readContent(schema, room.doc.get('content'));
+        if (!held) throw new Error('Missing seeded content.');
+        let at = -1;
+        held.descendants((each, pos) => {
+          if (at < 0 && each.type.name === 'paragraph') at = pos;
+          return at < 0;
+        });
+        const $at = held.resolve(at);
+        let next = $at.parent.copy($at.parent.content.addToEnd(shape));
+        for (let depth = $at.depth - 1; depth >= 0; depth -= 1) {
+          const node = $at.node(depth);
+          next = node.copy(node.content.replaceChild($at.index(depth), next));
+        }
+        room.doc.get('content').applyDelta(diffNodes(held, next) as never);
+        // Refused as a conflict, or for the writer's rights; either way the room keeps nothing.
+        await vi.waitFor(() => {
+          const { refusal, refusedChanges } = room.provider.getState();
+          expect(refusal === 'unauthorized-write' || refusedChanges === 1, name).toBe(true);
+        });
+        expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
+  // A code block is no suggested block: inserting or deleting a whole one while suggesting is
+  // refused, and the room refuses a whole code block marked as a suggester's.
+  it('refuses a suggester a whole code block with its caption, even marked as the suggester’s', async () => {
+    const room = await setup();
+    try {
+      const insertion = schema.marks.insertion?.create({
+        dataId: 's0000002',
+        dataAuthor: 'writer',
+      });
+      if (!insertion) throw new Error('Missing insertion.');
+      insertAfterParagraph(room.doc, heldCode(), insertion);
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
+    } finally {
+      await room.close();
+    }
+  });
+
+  it('accepts a whole code block with its caption from an editor, stored with its caption first', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      insertAfterParagraph(room.doc, heldCode());
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBeNull();
+      const stored = yjsToDocument(room.handle.snapshot(), { schema });
+      expect(stored?.sections[0]?.content[1]).toMatchObject({
+        type: 'codeBlock',
+        content: [{ type: 'caption', content: [{ type: 'text', text: 'Setup' }] }, text('x = 1')],
+      });
+    } finally {
+      await room.close();
+    }
+  });
+
+  it('admits a footnote suggested in a code caption, cited in reading order before another', () => {
+    const before = caretAt(
+      footnoteState([
+        code([text('Setup')]),
+        {
+          type: 'paragraph',
+          content: [
+            text('Before after.'),
+            { type: 'footnote', attrs: { id: 'n1' }, content: [text('Old')] },
+          ],
+        },
+      ]),
+      'Setup',
+      5,
+    );
+    let after = before;
+    insertFootnote({ newId: () => 'n0' })(before, (tr) => {
+      const rewritten = suggestTransaction(tr, before, {
+        author: 'writer',
+        newId: () => 's0000001',
+      });
+      if (!rewritten) throw new Error('The change was not suggested.');
+      after = before.apply(rewritten);
+    });
+    let citedIn = '';
+    after.doc.descendants((node, _pos, parent) => {
+      if (node.type.name === 'footnote_reference' && node.attrs.footnoteId === 'n0') {
+        citedIn = parent?.type.name ?? '';
+      }
+    });
+    expect(citedIn).toBe('code_caption');
+    expect(footnoteParts(after).filter((part) => part.startsWith('marker:'))).toEqual([
+      'marker:n0',
+      'marker:n1',
+    ]);
+    expect(
+      checkDocumentChange({
+        before: before.doc,
+        after: after.doc,
+        actor: 'writer',
+        permissions: suggestOnly,
+      }),
+    ).toBe(true);
+    expect(
+      checkDocumentChange({
+        before: before.doc,
+        after: after.doc,
+        actor: 'other',
+        permissions: suggestOnly,
+      }),
+    ).toBe(false);
   });
 });
 

@@ -390,10 +390,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "python",
-            "caption": "Watering rule, soil",
             "id": "7e5a0022"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Watering rule, soil"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "def water(bed, litres=2):\n    return bed.wet(litres)"
@@ -679,10 +687,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "python",
-            "caption": "Watering rule, soil",
             "id": "7e5a003c"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Watering rule, soil"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "def water(bed, litres=3):\n    return bed.wet(litres)"
@@ -1196,10 +1212,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "python",
-            "caption": "Watering rule, water",
             "id": "7e5a006d"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Watering rule, water"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "def water(bed, litres=4):\n    return bed.wet(litres)"
@@ -1485,10 +1509,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "python",
-            "caption": "Watering rule, water",
             "id": "7e5a0087"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Watering rule, water"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "def water(bed, litres=5):\n    return bed.wet(litres)"
@@ -2002,10 +2034,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "python",
-            "caption": "Watering rule, seeds",
             "id": "7e5a00b8"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Watering rule, seeds"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "def water(bed, litres=6):\n    return bed.wet(litres)"
@@ -2291,10 +2331,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "python",
-            "caption": "Watering rule, seeds",
             "id": "7e5a00d2"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Watering rule, seeds"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "def water(bed, litres=7):\n    return bed.wet(litres)"
@@ -8621,10 +8669,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "python",
-            "caption": "Watering rule, annex",
             "id": "7e5a0347"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Watering rule, annex"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "def water(bed, litres=8):\n    return bed.wet(litres)"

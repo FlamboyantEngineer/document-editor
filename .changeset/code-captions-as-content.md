@@ -1,0 +1,5 @@
+---
+'@flamboyantengineer/document-editor': minor
+---
+
+A typed code block's caption is document content, as a table's is: a new node, `code_figure`, holds a code block's caption (`code_caption`) and the code, and the code block no longer has a `caption` attribute. The stored format keeps the code block and writes its caption as its first child (`{ type: 'caption' }`), always, and no longer reads the `caption` attribute on code blocks. The caption holds text with its marks, footnotes, suggestions and comments, is edited in place and cited in the one footnote numbering; Word and Markdown write it in its formats, and Markdown reads an all-italic paragraph after a captionless fenced code block as its caption. Linked code keeps its derived, read-only caption. The pages split a code block with its caption, a later part repeating its text. Removed: the caption field over a code block, `captionEditingAt`, `commitCaptionEditing` and `cancelCaptionEditing`. A room's guard refuses a code block outside its holder and a code caption showing text only the pages draw, and refuses a whole code block as a suggester's while its caption's text is suggested as any text.

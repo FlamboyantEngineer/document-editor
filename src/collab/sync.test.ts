@@ -12,6 +12,8 @@ import {
 } from '../../test/collab-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { createDocumentEditing } from '../engine/document-editing.js';
+import { renumberFootnotes } from '../engine/footnote-numbers.js';
+import { insertFootnote } from '../engine/footnotes.js';
 import { isRemoteTransaction, isSystemChange } from '../engine/transaction-kind.js';
 import { BASE_TEMPLATE, type DocumentFile } from '../model/index.js';
 import { readCollabChange } from './sync.js';
@@ -208,6 +210,31 @@ describe('collab sync', () => {
     await settle();
     expect(sent).toEqual([]);
     expectConverged(a, b);
+  });
+
+  it('DOCE-COLLAB-4.2 DOCE-FOOTNOTES-2.2 sends nothing back for another writer’s footnote, in any layout', async () => {
+    const template = () => BASE_TEMPLATE;
+    const plugins = createDocumentEditing(documentSchema, { template, history: false });
+    const a = headlessEditor(start(), { plugins });
+    const docB = new Y.Doc();
+    Y.applyUpdate(docB, Y.encodeStateAsUpdate(a.doc));
+    const b = headlessEditor(start(), { doc: docB, plugins });
+    // The second writer's layout numbers footnotes in each section, the first's through the document.
+    b.dispatch(renumberFootnotes(b.state.tr, 'section'));
+    await settle();
+    const sent: Uint8Array[] = [];
+    docB.on('update', (update: Uint8Array, origin: unknown) => {
+      if (origin !== 'network') sent.push(update);
+    });
+    const at = block(a.state.doc, 1).to;
+    a.dispatch(a.state.tr.setSelection(TextSelection.create(a.state.doc, at)));
+    expect(insertFootnote({ newId: () => 'f0000001' })(a.state, a.dispatch)).toBe(true);
+    Y.applyUpdate(b.doc, Y.encodeStateAsUpdate(a.doc, Y.encodeStateVector(b.doc)), 'network');
+    await settle();
+    await settle();
+    expect(sent).toEqual([]);
+    expectConverged(a, b);
+    expect(JSON.stringify(sharedDocument(b.doc)?.toJSON())).not.toMatch(/footnoteNumber/);
   });
 
   it('DOCE-COLLAB-4.2 seeds an empty shared document with the editor’s document, ids given first', async () => {

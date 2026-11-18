@@ -3,11 +3,13 @@
 // and the object deleted.
 
 import { type Command, NodeSelection, type Selection, TextSelection } from 'prosemirror-state';
+import { CAPTION_HOLDER_TYPES } from '../model/schema/caption-content.js';
 
 /** The block types a reader acts on as one object rather than as text. */
 export const OBJECT_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'table_figure',
   'table',
+  'code_figure',
   'figure',
   'code_block',
   'linked_code_block',
@@ -20,12 +22,13 @@ export const OBJECT_BLOCK_TYPES: ReadonlySet<string> = new Set([
 
 /**
  * The position before the object block a selection selects, or else the outermost object block
- * holding its start; null when it is in no object. A table is the node holding it and its caption.
+ * holding its start; null when it is in no object. A table or a code block is the node holding it
+ * and its caption.
  */
 export function objectBlockAt(selection: Selection): number | null {
   if (selection instanceof NodeSelection && OBJECT_BLOCK_TYPES.has(selection.node.type.name)) {
     const { $from } = selection;
-    return $from.parent.type.name === 'table_figure' ? $from.before() : selection.from;
+    return CAPTION_HOLDER_TYPES.has($from.parent.type.name) ? $from.before() : selection.from;
   }
   const { $from } = selection;
   for (let depth = 1; depth <= $from.depth; depth += 1) {

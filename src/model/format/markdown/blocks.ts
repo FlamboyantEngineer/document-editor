@@ -2,6 +2,7 @@
 // figures, rules, template blocks and lists of abbreviations, as tables. A block a suggestion
 // leaves out, a page break and any other list of contents are left out.
 
+import { storedBodyOf } from '../../schema/caption-content.js';
 import { storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { assetAddress } from '../writer-values.js';
@@ -114,7 +115,10 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
   blockquote: (node, writing) =>
     prefixed(blocks(node.content, writing).join('\n\n'), ['> ', '> ', '>']),
   codeBlock: (node, writing) =>
-    captioned(fenced(inlineText(node.content), node.attrs?.language), captionLine(node, writing)),
+    captioned(
+      fenced(inlineText(storedBodyOf(node)), node.attrs?.language),
+      captionLine(node, writing),
+    ),
   linkedCode: (node) => fenced(text(node.attrs?.code), node.attrs?.language),
   mathBlock: (node) => `$$\n${storedMathSource(node)}\n$$`,
   table: (node, writing) => tableOf(node, writing, blocks),

@@ -32,6 +32,7 @@ export {
 export type { ClipboardOptions, PasteFilter } from './clipboard.js';
 export { createClipboard } from './clipboard.js';
 export { pasteUnformattedText } from './clipboard-text.js';
+export { insertCodeBlock } from './code-commands.js';
 export type { ContentsGroup, ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
 export {
   CONTENTS_LABELS,
@@ -77,7 +78,6 @@ export { laidOutFigureSize } from './figure-measure.js';
 export {
   convertMath,
   insertCharacter,
-  insertCodeBlock,
   insertContents,
   insertFigure,
   insertMath,

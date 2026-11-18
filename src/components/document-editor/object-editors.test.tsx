@@ -31,8 +31,10 @@ const initial = () =>
               },
               {
                 type: 'codeBlock',
-                attrs: { caption: 'The board' },
-                content: [{ type: 'text', text: 'x = 1' }],
+                content: [
+                  { type: 'caption', content: [{ type: 'text', text: 'The board' }] },
+                  { type: 'text', text: 'x = 1' },
+                ],
               },
             ],
           },
@@ -105,21 +107,16 @@ describe('ObjectEditors', () => {
     expect(screen.getByRole('textbox', { name: 'Report' })).toHaveTextContent('x^2+y');
   });
 
-  it('DOCE-OBJECTS-2.3 keeps the caption being typed while a change before its object moves it', async () => {
-    const user = userEvent.setup();
+  it('DOCE-OBJECTS-2.3 edits a code block’s caption as text, with no field over it', () => {
     const editor = mounted();
     selectNode(editor, 'code_block');
-    // The command a double click on the caption line runs; the field then takes focus.
     act(() => {
       editCaption(editor.view.state, editor.view.dispatch);
     });
-    const field = await screen.findByRole('textbox', { name: 'Caption' });
-    await user.type(field, ' at noon');
-    typeRemotely(editor);
-    expect(screen.getByRole('textbox', { name: 'Caption' })).toBe(field);
-    expect(field).toHaveValue('The board at noon');
-    await user.keyboard('{Enter}');
-    expect(screen.getByRole('textbox', { name: 'Report' })).toHaveTextContent('The board at noon');
+    const { $from, from, to } = editor.view.state.selection;
+    expect($from.parent.type.name).toBe('code_caption');
+    expect(editor.view.state.doc.textBetween(from, to)).toBe('The board');
+    expect(screen.queryByRole('textbox', { name: 'Caption' })).not.toBeInTheDocument();
   });
 
   it('DOCE-OBJECTS-1.8 starts each edit with the math as it is', async () => {

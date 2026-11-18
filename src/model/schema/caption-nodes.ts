@@ -1,14 +1,15 @@
-// Captions as document content: a figure's caption, its only child, and a table's caption, which a
-// thin `table_figure` holds before the table, since a table holds only rows. A caption holds text
-// with its marks, footnote markers and the other inline content of a paragraph. The template's label
-// and number lead it, and a later part of a split table shows its continued suffix after it.
+// Captions as document content: a figure's caption, its only child, and a table's or a code block's
+// caption, which a thin `table_figure` or `code_figure` holds before the table or code, since a
+// table holds only rows and a code block only its code. A caption holds text with its marks,
+// footnote markers and the other inline content of a paragraph. The template's label and number
+// lead it, and a later part of a split table or code block shows its continued suffix after it.
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import { DOMParser, Fragment, type NodeSpec, type Schema } from 'prosemirror-model';
+import { captionHolder } from './caption-holder.js';
 import { normalizeCaptionText } from './caption-text.js';
 import {
   DATA_CONTRIBUTOR_ATTR,
-  SPLIT_PART_INDEX_ATTR,
   SUGGESTION_SPLIT_ID_ATTR,
   SUGGESTION_SPLIT_KIND_ATTR,
   TABLE_CAPTION_TEXT_ATTR,
@@ -18,7 +19,7 @@ import { DOCUMENT_NODE_ORDER } from './node-order.js';
 import { tableContentElement } from './table-nodes.js';
 
 type OutputSpec = ReturnType<NonNullable<NodeSpec['toDOM']>>;
-type CaptionKind = 'figure' | 'table';
+type CaptionKind = 'figure' | 'table' | 'code';
 
 const TEXT = { class: 'doc-caption-text', 'data-doc-caption-text': 'true' };
 const CONTINUED_TEXT_ATTR = 'data-continued-text';
@@ -30,11 +31,6 @@ const CONTINUED_TEXT: IdentityAttribute = {
   dom: CONTINUED_TEXT_ATTR,
   onCopy: 'clear',
 };
-const SPLIT_PART: IdentityAttribute = {
-  name: 'splitPartIndex',
-  dom: SPLIT_PART_INDEX_ATTR,
-  onCopy: 'clear',
-};
 // A table suggested whole: the suggestion and its writer, on the holder, which a reader accepts or
 // rejects with its caption and table. A copy is a new table, by its paster, no suggestion's.
 const SUGGESTED_WHOLE: readonly IdentityAttribute[] = [
@@ -42,33 +38,6 @@ const SUGGESTED_WHOLE: readonly IdentityAttribute[] = [
   { name: 'suggestionSplitId', dom: SUGGESTION_SPLIT_ID_ATTR, onCopy: 'clear' },
   { name: 'dataAuthor', dom: DATA_CONTRIBUTOR_ATTR, onCopy: 'clear' },
 ];
-
-// The holder's attributes its element carries, as the pages and a paste read them.
-function readHolder(dom: HTMLElement) {
-  return {
-    splitPartIndex: readPart(dom),
-    ...Object.fromEntries(
-      SUGGESTED_WHOLE.map(({ name, dom: attr }) => [name, dom.getAttribute(attr) || null]),
-    ),
-  };
-}
-
-function writeHolder(attrs: Readonly<Record<string, unknown>>): Record<string, string> {
-  const written: Record<string, string> = {};
-  const part = attrs.splitPartIndex;
-  if (Number.isInteger(part)) written[SPLIT_PART_INDEX_ATTR] = String(part);
-  for (const { name, dom } of SUGGESTED_WHOLE) {
-    const value = attrs[name];
-    if (typeof value === 'string' && value) written[dom] = value;
-  }
-  return written;
-}
-
-// The part of a split table a holder is, as the pages mark it.
-function readPart(dom: HTMLElement): number | null {
-  const index = Number.parseInt(dom.getAttribute(SPLIT_PART_INDEX_ATTR) ?? '', 10);
-  return Number.isInteger(index) && index >= 0 ? index : null;
-}
 const CONTINUED = { class: 'doc-caption-continued', 'data-doc-caption-continued': 'true' };
 
 // A caption line: the label and number the stylesheet sets, the caption's content, and the
@@ -79,18 +48,19 @@ function captionSpec(kind: CaptionKind, tag: string): NodeSpec {
     class: `doc-caption-line doc-${kind}-caption-line`,
     'data-caption-kind': kind,
   };
+  const repeats = kind !== 'figure';
   return {
     content: 'inline*',
     defining: true,
     isolating: true,
     selectable: false,
-    attrs: kind === 'table' ? { continuedText: { default: null } } : {},
-    ...(kind === 'table' ? { identityAttributes: [CONTINUED_TEXT] } : {}),
+    attrs: repeats ? { continuedText: { default: null } } : {},
+    ...(repeats ? { identityAttributes: [CONTINUED_TEXT] } : {}),
     parseDOM: [
       {
         tag: kind === 'figure' ? 'figcaption' : `${tag}[data-caption-kind="${kind}"]`,
         getAttrs: (dom) => {
-          if (kind !== 'table') return null;
+          if (!repeats) return null;
           const text = dom.querySelector(`:scope > [${CONTINUED_TEXT_ATTR}]`);
           return { continuedText: text?.getAttribute(CONTINUED_TEXT_ATTR) ?? null };
         },
@@ -115,38 +85,21 @@ const figureCaption: NodeSpec = captionSpec('figure', 'figcaption');
 /** A table's caption, before the table in its `table_figure`. */
 const tableCaption: NodeSpec = captionSpec('table', 'div');
 
+/** A code block's caption, before the code in its `code_figure`. */
+const codeCaption: NodeSpec = captionSpec('code', 'div');
+
 /**
  * A table with its caption. The table keeps its id, layout and caption settings, and the stored
  * format stores the table alone, with its caption; the holder keeps the part of a split table it
  * is, and a suggestion of the whole table, which the stored format keeps on the table.
  */
-const tableFigure: NodeSpec = {
-  group: 'block',
+const tableFigure: NodeSpec = captionHolder({
+  className: 'doc-table-figure',
   content: 'table_caption table',
-  defining: true,
-  isolating: true,
-  // Not an element of its own: it takes no element id, and the stored format stores the table.
-  // The pages split it with its table, each part numbered as its table's part is.
-  unstored: true,
-  attrs: {
-    splitPartIndex: { default: null },
-    suggestionSplitKind: { default: null },
-    suggestionSplitId: { default: null },
-    dataAuthor: { default: null },
-  },
-  identityAttributes: [SPLIT_PART, ...SUGGESTED_WHOLE],
-  parseDOM: [
-    { tag: 'div.doc-table-figure', getAttrs: readHolder },
-    // A table pasted alone, with its caption from its own caption element or attribute.
-    {
-      tag: 'table',
-      priority: 60,
-      getAttrs: (dom) => (dom.parentElement?.classList.contains('doc-table-figure') ? false : null),
-      getContent: (dom, schema) => pastedTable(dom as HTMLElement, schema),
-    },
-  ],
-  toDOM: (node) => ['div', { class: 'doc-table-figure', ...writeHolder(node.attrs) }, 0],
-};
+  // A table pasted alone, with its caption from its own caption element or attribute.
+  alone: { tag: 'table', content: pastedTable },
+  attributes: SUGGESTED_WHOLE,
+});
 
 // A table pasted alone, read as its caption and the table: the caption from the table's caption
 // element, or the caption text an older copy wrote on the table.
@@ -164,12 +117,13 @@ function pastedTable(dom: HTMLElement, schema: Schema): Fragment {
   return Fragment.from([line, rows]);
 }
 
-/** The caption nodes and the table's figure. */
+/** The caption nodes and the table's figure; the code block's is with the code nodes. */
 export const captionNodesExtension: RichTextExtension = {
   name: 'caption-nodes',
   nodes: [
     { name: 'table_figure', spec: tableFigure, order: DOCUMENT_NODE_ORDER.table_figure },
     { name: 'table_caption', spec: tableCaption, order: DOCUMENT_NODE_ORDER.table_caption },
     { name: 'figure_caption', spec: figureCaption, order: DOCUMENT_NODE_ORDER.figure_caption },
+    { name: 'code_caption', spec: codeCaption, order: DOCUMENT_NODE_ORDER.code_caption },
   ],
 };

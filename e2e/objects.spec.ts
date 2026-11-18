@@ -566,15 +566,15 @@ test.describe('objects', () => {
     await expect(field).toBeInViewport();
   });
 
-  test('DOCE-OBJECTS-3.4 puts the caret in the code for a press on its padding, gutter or caption line', async ({
+  test('DOCE-OBJECTS-3.4 puts the caret in the code for a press on its padding or gutter, and in its caption for a press there', async ({
     page,
   }) => {
     await newParagraph(page, 'Power', '');
     await page.keyboard.press('ControlOrMeta+Alt+C');
     await page.keyboard.type('alpha();\nbeta();');
     await page.keyboard.press('ArrowUp');
-    const block = content(page).locator('pre', { hasText: 'beta();' });
-    // Where the selection is: in the code block's text, and at which offset.
+    const block = content(page).locator('.doc-code-figure', { hasText: 'beta();' });
+    // Where the selection is: in the code block's text or its caption, and collapsed or not.
     const caret = () =>
       page.evaluate(() => {
         const selection = getSelection();
@@ -582,6 +582,7 @@ test.describe('objects', () => {
         const element = node instanceof Element ? node : node?.parentElement;
         return {
           inCode: Boolean(element?.closest('pre > code')),
+          inCaption: Boolean(element?.closest('.doc-code-caption-line')),
           collapsed: selection?.isCollapsed,
         };
       });
@@ -589,19 +590,22 @@ test.describe('objects', () => {
     if (!box) throw new Error('The code block is drawn');
     const gutter = await block.locator('.de-code-gutter__number').nth(1).boundingBox();
     const caption = await block.locator('.doc-caption-line').boundingBox();
+    if (!gutter || !caption) throw new Error('The gutter and caption are drawn');
     const points = [
       { x: box.x + 2, y: box.y + box.height - 2 },
-      ...(gutter ? [{ x: gutter.x + gutter.width / 2, y: gutter.y + gutter.height / 2 }] : []),
-      ...(caption ? [{ x: caption.x + caption.width - 4, y: caption.y + caption.height / 2 }] : []),
+      { x: gutter.x + gutter.width / 2, y: gutter.y + gutter.height / 2 },
     ];
     for (const [index, point] of points.entries()) {
       await content(page).locator('h1', { hasText: 'Power' }).click();
       await page.mouse.click(point.x, point.y);
       await expect.poll(caret, { message: `press ${String(index)}` }).toEqual({
         inCode: true,
+        inCaption: false,
         collapsed: true,
       });
     }
+    await page.mouse.click(caption.x + caption.width - 4, caption.y + caption.height / 2);
+    await expect.poll(caret).toEqual({ inCode: false, inCaption: true, collapsed: true });
     // A drag from the padding selects code text.
     await page.mouse.move(box.x + 2, box.y + box.height - 2);
     await page.mouse.down();
@@ -610,6 +614,37 @@ test.describe('objects', () => {
     await page.mouse.move(text.x + 1, text.y + 4, { steps: 4 });
     await page.mouse.up();
     await expect.poll(() => page.evaluate(() => String(getSelection()))).toContain('alpha');
+  });
+
+  test('DOCE-OBJECTS-2.1 DOCE-FOOTNOTES-1.2 types a code block’s caption as text, bold, with a footnote cited from it', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await page.keyboard.press('ControlOrMeta+Alt+C');
+    await page.keyboard.type('alpha();');
+    const block = content(page).locator('.doc-code-figure', { hasText: 'alpha();' });
+    const line = block.locator('.doc-code-caption-line');
+    const caption = line.locator('[data-doc-caption-text]');
+    // The caption is empty, so the press goes on its line, after its label.
+    const box = await line.boundingBox();
+    if (!box) throw new Error('The caption line is drawn');
+    await page.mouse.click(box.x + box.width - 4, box.y + box.height / 2);
+    await page.keyboard.type('Setup ');
+    await page.keyboard.press('ControlOrMeta+B');
+    await page.keyboard.type('steps');
+    await expect(caption).toHaveText('Setup steps');
+    await expect(caption.locator('strong')).toHaveText('steps');
+    // Enter adds no line to a caption, and the code is left as it was.
+    await page.keyboard.press('Enter');
+    await expect(block.locator('code')).toHaveText('alpha();');
+    const button = toolbar(page).getByRole('button', { name: 'Footnote' });
+    await expect(button).toBeEnabled();
+    await button.click();
+    await page.keyboard.type('From the code caption.');
+    await expect(
+      content(page).locator('.pm-footnote-entry', { hasText: 'From the code caption.' }),
+    ).toHaveCount(1);
+    await expect(caption.locator('.footnote-reference')).toHaveCount(1);
   });
 
   test('DOCE-OBJECTS-3.2 draws a signature from its strokes with the signer name', async ({

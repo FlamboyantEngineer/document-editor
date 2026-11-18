@@ -18,7 +18,7 @@ const schema = createDocumentSchema();
 // The objects stored content reads as: a table without the node that holds it and its caption.
 const readObjects = (content: Parameters<typeof readStoredContent>[0]) =>
   readStoredContent(content, schema).map((node) =>
-    node.type.name === 'table_figure' ? (node.lastChild ?? node) : node,
+    ['table_figure', 'code_figure'].includes(node.type.name) ? (node.lastChild ?? node) : node,
   );
 
 describe('script output builders', () => {

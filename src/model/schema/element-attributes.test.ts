@@ -26,8 +26,9 @@ const ORIGIN: IdentityAttribute = { name: 'origin', dom: 'data-origin', onCopy: 
 describe('element attributes', () => {
   it('DOCE-SCHEMA-2.1 gives every node type but text an id, its author and its split part', () => {
     for (const [name, type] of Object.entries(documentSchema.nodes)) {
-      // The node holding a table and its caption is not stored, and is no element of its own.
-      if (name === 'text' || name === 'table_figure') continue;
+      // The nodes holding a table or a code block and its caption are not stored, and are no
+      // element of their own.
+      if (name === 'text' || name === 'table_figure' || name === 'code_figure') continue;
       expect(Object.keys(type.spec.attrs ?? {}), name).toEqual(
         expect.arrayContaining(['dataId', 'dataAuthor', 'dataAiSession', 'splitPartIndex']),
       );

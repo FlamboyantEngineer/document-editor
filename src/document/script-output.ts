@@ -110,21 +110,12 @@ export function buildScriptList(
  */
 export type ScriptCaption = string | false | undefined;
 
-// A code block's stored caption attributes for a script's caption: none, its text, or a hidden
-// caption.
-function captionAttrs(caption: ScriptCaption): Record<string, unknown> {
-  if (caption === undefined) return {};
-  return caption === false
-    ? { captionEnabled: false }
-    : { caption: caption.replace(/\s+/g, ' ').trim() };
-}
-
-// A figure's or a table's stored caption for a script's caption, its first child: empty when the
+// A captioned object's stored caption for a script's caption, its first child: empty when the
 // script gives no text.
 const storedCaptionFor = (caption: ScriptCaption): StoredNode =>
   storedCaption(typeof caption === 'string' ? caption : '');
 
-// A hidden caption's attribute, for a figure or a table, whose caption text is its first child.
+// A hidden caption's attribute; the caption text is the object's first child.
 const hiddenCaption = (caption: ScriptCaption) =>
   caption === false ? { captionEnabled: false } : {};
 
@@ -268,10 +259,7 @@ export function buildScriptCode(
   code: string,
   { language, caption }: { language?: string | undefined; caption?: ScriptCaption } = {},
 ): StoredNode {
-  const attrs = { ...(language ? { language } : {}), ...captionAttrs(caption) };
-  return {
-    type: 'codeBlock',
-    ...withAttrs(attrs),
-    ...(code ? { content: [{ type: 'text', text: code }] } : {}),
-  };
+  const attrs = { ...(language ? { language } : {}), ...hiddenCaption(caption) };
+  const text = code ? [{ type: 'text', text: code }] : [];
+  return { type: 'codeBlock', ...withAttrs(attrs), content: [storedCaptionFor(caption), ...text] };
 }

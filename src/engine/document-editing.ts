@@ -18,12 +18,7 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
 import type { TelemetryAdapter } from '../host/index.js';
-import {
-  findTemplateSection,
-  resolveFootnoteSettings,
-  type TemplateFile,
-  templatePageMetrics,
-} from '../model/index.js';
+import { findTemplateSection, type TemplateFile, templatePageMetrics } from '../model/index.js';
 import { addParagraphNear, deleteEmptyParagraph } from './block-keys.js';
 import { BODY_EDGE_KEYS } from './body-edge.js';
 import { splitChecklistItem } from './checklists.js';
@@ -38,6 +33,7 @@ import {
   splitBlockKeepingLevel,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
+import { createFootnoteNumbers, unpagedNumbering } from './footnote-numbers.js';
 import { createFootnotes } from './footnotes.js';
 import { createHistoryReveal } from './history-reveal.js';
 import { createListJoins } from './list-joins.js';
@@ -159,9 +155,8 @@ const selectAtom =
     return true;
   };
 
-// The text blocks that are one line of text each: a footnote entry and a figure's or a table's
-// caption.
-const ONE_LINE = new Set(['footnote_entry', 'figure_caption', 'table_caption']);
+// The text blocks that are one line of text each: a footnote entry and a caption.
+const ONE_LINE = new Set(['footnote_entry', 'figure_caption', 'table_caption', 'code_caption']);
 
 // Inside a footnote entry or a caption, which is one paragraph of text: Enter and Shift+Enter add
 // nothing, and Backspace at its start and Delete at its end join nothing.
@@ -240,10 +235,12 @@ const tableWidth = (template: () => TemplateFile) => ({
   },
 });
 
-// Whether footnotes are numbered in document order after each change: unless the template numbers
-// them on each page, which the pagination does.
-const numbersInOrder = (template: (() => TemplateFile) | undefined) => () =>
-  !template || resolveFootnoteSettings(template(), null).numbering !== 'page';
+// The footnote numbers the state's own view draws, by its template (DOCE-FOOTNOTES-2.2).
+const footnoteNumbersPlugin = (template: (() => TemplateFile) | undefined) => ({
+  name: 'footnote-numbers',
+  priority: 491,
+  build: () => [createFootnoteNumbers({ numbering: () => unpagedNumbering(template?.()) })],
+});
 
 // Numbered paragraphs, when given the template, after the custom styles.
 const paragraphNumberingPlugin = (template: (() => TemplateFile) | undefined) => ({
@@ -280,7 +277,6 @@ export function createDocumentEditingExtension<C = unknown>(
 ): RichTextExtension<C> {
   const { template, author, history: keepHistory = true } = options;
   const isRemote = options.isRemote && includeAppended(options.isRemote);
-  const footnotes = { numberInOrder: numbersInOrder(template), isRemote };
   return {
     name: 'document-editing',
     plugins: [
@@ -298,7 +294,8 @@ export function createDocumentEditingExtension<C = unknown>(
         priority: 480,
         build: () => [createElementIds({ author, isRemote })],
       },
-      { name: 'footnotes', priority: 490, build: () => [createFootnotes(footnotes)] },
+      { name: 'footnotes', priority: 490, build: () => [createFootnotes({ isRemote })] },
+      footnoteNumbersPlugin(template),
       { name: 'comment-draft', priority: 495, build: () => [createCommentDraft()] },
       { name: 'comment-anchors', priority: 496, build: () => [createCommentAnchors()] },
       { name: 'suggestion-refusal', priority: 497, build: () => [createSuggestionRefusal()] },

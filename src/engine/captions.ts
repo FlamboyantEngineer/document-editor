@@ -1,11 +1,12 @@
 // Captions of the captioned objects, tables, figures and code blocks: finding the object at the
 // selection, setting its caption text, and showing or hiding its caption. The caption's label and
 // number come from the template and the object's place. A figure's caption is its content, a
-// table's the caption before it in its `table_figure`; a code block's is its caption attribute.
+// table's or a code block's the caption before it in its `table_figure` or `code_figure`.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import { normalizeCaptionText } from '../model/index.js';
+import { CAPTION_HOLDER_TYPES } from '../model/schema/caption-content.js';
 
 /** The node types that carry a caption. */
 export const CAPTIONED_TYPES: readonly string[] = ['table', 'figure', 'code_block'];
@@ -16,12 +17,12 @@ export interface CaptionedObject {
   readonly pos: number;
 }
 
-// The captioned object a node is, or holds as a table's figure, at a position.
+// The captioned object a node is, or holds as a table's or a code block's figure, at a position.
 function captionedObject(node: ProseMirrorNode, pos: number): CaptionedObject | null {
-  if (node.type.name === 'table_figure') {
-    const table = node.lastChild;
+  if (CAPTION_HOLDER_TYPES.has(node.type.name)) {
+    const object = node.lastChild;
     const first = node.firstChild;
-    return table && first ? { node: table, pos: pos + 1 + first.nodeSize } : null;
+    return object && first ? { node: object, pos: pos + 1 + first.nodeSize } : null;
   }
   return CAPTIONED_TYPES.includes(node.type.name) ? { node, pos } : null;
 }
@@ -42,8 +43,8 @@ export function captionedAt(state: EditorState): CaptionedObject | null {
 }
 
 /**
- * Where a figure's or table's caption is: its position and node; null for a code block, whose
- * caption is an attribute. A table's caption is before it, in its `table_figure`.
+ * Where a captioned object's caption is: its position and node. A table's or a code block's caption
+ * is before it, in its `table_figure` or `code_figure`.
  */
 export function captionNodeAt(
   doc: ProseMirrorNode,
@@ -53,12 +54,11 @@ export function captionNodeAt(
     const first = found.node.firstChild;
     return first ? { pos: found.pos + 1, node: first } : null;
   }
-  if (found.node.type.name !== 'table') return null;
-  const $table = doc.resolve(found.pos);
-  const holder = $table.parent;
+  const $object = doc.resolve(found.pos);
+  const holder = $object.parent;
   const first = holder.firstChild;
-  if (holder.type.name !== 'table_figure' || !first) return null;
-  return { pos: $table.start(), node: first };
+  if (!CAPTION_HOLDER_TYPES.has(holder.type.name) || !first) return null;
+  return { pos: $object.start(), node: first };
 }
 
 // Changes the captioned object's attributes.
@@ -76,15 +76,11 @@ function setCaptionAttrs(change: (node: ProseMirrorNode) => Record<string, unkno
 
 /**
  * Sets the caption of the captioned object at the selection to a line of plain text, and shows its
- * caption: a figure's or a table's caption content, or a code block's caption attribute.
+ * caption.
  */
 export function setCaption(text: string): Command {
   const value = normalizeCaptionText(text);
-  const attrs = setCaptionAttrs((node) =>
-    node.type.name === 'code_block'
-      ? { caption: value, captionEnabled: true }
-      : { captionEnabled: true },
-  );
+  const attrs = setCaptionAttrs(() => ({ captionEnabled: true }));
   return (state, dispatch) => {
     const found = captionedAt(state);
     const caption = found ? captionNodeAt(state.doc, found) : null;

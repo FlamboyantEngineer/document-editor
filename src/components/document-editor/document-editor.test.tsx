@@ -724,7 +724,8 @@ describe('DocumentEditor', () => {
       const [state, setState] = useState(() =>
         EditorState.create({
           doc: readDocumentFile(file, documentSchema).doc,
-          plugins: createDocumentEditing(documentSchema, { template: () => template }),
+          // The editor's template numbers them, though the state's own plugins were not given it.
+          plugins: createDocumentEditing(documentSchema),
         }),
       );
       return (
@@ -741,8 +742,11 @@ describe('DocumentEditor', () => {
     const markers = () =>
       [...container.querySelectorAll('[data-footnote-number]')]
         .filter((element) => element.closest('.pm-page-content'))
-        .map((element) => element.getAttribute('data-footnote-number'));
-    await waitFor(() => expect(markers()).toEqual(['1', '2', '1']));
+        .map(
+          (element) =>
+            `${String(element.getAttribute('data-footnote-number'))}:${String(element.textContent)}`,
+        );
+    await waitFor(() => expect(markers()).toEqual(['1:1', '2:2', '1:1']));
   });
 });
 
