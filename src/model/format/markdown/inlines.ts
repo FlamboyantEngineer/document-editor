@@ -2,7 +2,6 @@
 // footnote references, abbreviations, mentions, variables and images.
 
 import { storedCaptionOf } from '../../schema/caption-content.js';
-import { normalizeCaptionText } from '../../schema/caption-text.js';
 import { safeHref } from '../../schema/dom-attributes.js';
 import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
@@ -138,14 +137,10 @@ const italicized = (content: readonly StoredNode[]): StoredNode[] =>
   });
 
 /**
- * An object's caption as one line of Markdown in italics: a figure's or a table's in its formats,
- * with its footnotes, comments and suggestions as any text's; a code block's from its text.
+ * An object's caption as one line of Markdown in italics, in its formats, with its footnotes,
+ * comments and suggestions as any text's.
  */
 export function captionLine(node: StoredNode, writing: Writing): string {
-  if (node.type === 'codeBlock') {
-    const caption = normalizeCaptionText(node.attrs?.caption);
-    return caption ? `*${escapeText(caption)}*` : '';
-  }
   const content = storedCaptionOf(node)?.content ?? [];
   return inlines(italicized(content), writing).trim();
 }

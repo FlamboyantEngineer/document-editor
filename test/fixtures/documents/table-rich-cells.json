@@ -196,6 +196,9 @@
                       },
                       "content": [
                         {
+                          "type": "caption"
+                        },
+                        {
                           "type": "text",
                           "text": "ls -la"
                         }

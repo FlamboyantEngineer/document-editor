@@ -41,13 +41,16 @@ function joinText(content: readonly StoredNode[]): StoredNode[] {
 const sameMarks = (a: StoredNode, b: StoredNode) =>
   JSON.stringify(a.marks ?? []) === JSON.stringify(b.marks ?? []);
 
-// The block after `last` with a caption paragraph taken in: into a figure before it, or into the
-// table after it; null when it takes none.
+// The block after `last` with a caption paragraph taken in: into a figure or code block before it,
+// or into the table after it; null when it takes none.
 function captioned(last: StoredNode | undefined, block: StoredNode): StoredNode | null {
   const caption = captionContent(block);
   if (caption !== null && last?.type === 'figure' && last.attrs?.captionEnabled === false) {
     const { captionEnabled: _, ...attrs } = last.attrs;
     return { ...last, attrs, content: [{ type: 'caption', content: caption }] };
+  }
+  if (caption !== null && last?.type === 'codeBlock' && !storedCaptionText(last)) {
+    return { ...last, content: [{ type: 'caption', content: caption }, ...storedBodyOf(last)] };
   }
   const above = captionContent(last);
   if (block.type === 'table' && above !== null && !storedCaptionText(block)) {
@@ -57,7 +60,7 @@ function captioned(last: StoredNode | undefined, block: StoredNode): StoredNode 
 }
 
 // A paragraph holding only an image as a figure, and a caption paragraph taken into the table
-// after it or the figure before it, as the writer places them.
+// after it or the figure or code block before it, as the writer places them.
 export function withObjects(blocks: readonly StoredNode[]): StoredNode[] {
   const out: StoredNode[] = [];
   for (const block of blocks) {

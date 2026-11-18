@@ -4,10 +4,9 @@
 
 import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
-import { createFigure } from '../model/schema/caption-content.js';
+import { CAPTION_HOLDER_TYPES, createFigure } from '../model/schema/caption-content.js';
 import { normalizeCaptionText } from '../model/schema/caption-text.js';
 import { safeHref } from '../model/schema/dom-attributes.js';
-import { placeBlockAt } from './block-place.js';
 import { keepNodeSelected } from './caption-editing.js';
 import { newBlockRange } from './tables.js';
 
@@ -29,48 +28,15 @@ function insertBlock(node: ProseMirrorNode, caret: 'inside' | 'select' = 'inside
   };
 }
 
-// The text blocks the selection covers, as one range of the page's body, when they are all
-// top-level or in the same parent; null otherwise.
-function selectedBlocks(state: EditorState) {
-  const { $from, $to, empty } = state.selection;
-  if (empty || !$from.parent.isTextblock || !$to.parent.isTextblock) return null;
-  const from = $from.before();
-  const to = $to.after();
-  const shared = $from.node($from.depth - 1) === $to.node($to.depth - 1);
-  return shared ? { from, to } : null;
-}
-
-/**
- * Inserts a code block: holding exactly the text selected, line by line, which leaves the text it
- * came from, or empty where a new block goes, with the caret at the end of its text.
- */
-export function insertCodeBlock(language = 'plaintext'): Command {
-  return (state, dispatch) => {
-    const type = state.schema.nodes.code_block;
-    if (!type) return false;
-    if (!selectedBlocks(state)) return insertBlock(type.create({ language }))(state, dispatch);
-    const { from, to } = state.selection;
-    const text = state.doc.textBetween(from, to, '\n', ' ');
-    const node = type.create({ language }, text ? state.schema.text(text) : null);
-    const tr = state.tr.delete(from, to);
-    const at = placeBlockAt(tr, tr.mapping.map(from), node);
-    if (at === null) return false;
-    if (dispatch) {
-      tr.setSelection(TextSelection.create(tr.doc, at + 1 + text.length));
-      dispatch(tr.scrollIntoView());
-    }
-    return true;
-  };
-}
-
 /** The innermost node of a type holding, or selected at, the selection. */
 export function nodeAtSelection(state: EditorState, types: readonly string[]) {
   const { selection } = state;
   const found = (node: ProseMirrorNode, pos: number) => {
-    // A table is found through the node holding it and its caption, too.
-    const held = node.type.name === 'table_figure' && types.includes('table');
-    const table = held ? node.lastChild : null;
-    if (table && node.firstChild) return { node: table, pos: pos + 1 + node.firstChild.nodeSize };
+    // A table or a code block is found through the node holding it and its caption, too.
+    const object = CAPTION_HOLDER_TYPES.has(node.type.name) ? node.lastChild : null;
+    if (object && node.firstChild && types.includes(object.type.name)) {
+      return { node: object, pos: pos + 1 + node.firstChild.nodeSize };
+    }
     return types.includes(node.type.name) ? { node, pos } : null;
   };
   if (selection instanceof NodeSelection) {

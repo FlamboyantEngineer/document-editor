@@ -8,13 +8,13 @@ import {
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { parseCodeLines, readDocumentFile, type StoredNode } from '../model/index.js';
+import { insertCodeBlock } from './code-commands.js';
 import { setContentsDepth } from './contents-commands.js';
 import { documentKeys } from './document-editing.js';
 import { setObjectLayout } from './figure-commands.js';
 import {
   convertMath,
   insertCharacter,
-  insertCodeBlock,
   insertContents,
   insertFigure,
   insertMath,
@@ -79,13 +79,15 @@ describe('object commands', () => {
     const to = find(state, 'b = 2;') + 'b = 2;'.length;
     state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
     state = run(state, insertCodeBlock('typescript'));
-    expect(outline(state)).toEqual(['code_block:let a = 1;\nlet b = 2;', 'paragraph:After']);
+    expect(outline(state)).toEqual(['code_figure:let a = 1;\nlet b = 2;', 'paragraph:After']);
     state = run(state, setCodeLanguage('javascript'));
-    expect(state.doc.child(0).child(0).child(1).child(0).attrs.language).toBe('javascript');
+    expect(state.doc.child(0).child(0).child(1).child(0).child(1).attrs.language).toBe(
+      'javascript',
+    );
     const insertKey = documentKeys(documentSchema)['Mod-Alt-c'];
     if (!insertKey) throw new Error('No key inserts a code block');
     state = run(select(stateOf(paragraph('Text')), 'Text'), insertKey);
-    expect(outline(state)).toEqual(['paragraph:Text', 'code_block:']);
+    expect(outline(state)).toEqual(['paragraph:Text', 'code_figure:']);
   });
 
   it('DOCE-OBJECTS-1.1 takes exactly the text selected, leaving the rest of its blocks around it', () => {
@@ -96,7 +98,7 @@ describe('object commands', () => {
     state = run(state, insertCodeBlock());
     expect(outline(state)).toEqual([
       'paragraph:Keep this. ',
-      'code_block:let a = 1;\nlet b = 2;',
+      'code_figure:let a = 1;\nlet b = 2;',
       'paragraph: keep that.',
     ]);
     // The caret ends after the code, where the writer goes on typing.
@@ -107,7 +109,7 @@ describe('object commands', () => {
       dispatch?.(current.tr.insertText('!'));
       return true;
     });
-    expect(outline(state)[1]).toBe('code_block:let a = 1;\nlet b = 2;!');
+    expect(outline(state)[1]).toBe('code_figure:let a = 1;\nlet b = 2;!');
     expect(outline(state)[2]).toBe('paragraph: keep that.');
   });
 
@@ -117,12 +119,12 @@ describe('object commands', () => {
     const end = find(state, 'Before') + 'Before'.length;
     state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, end)));
     state = run(state, insertCodeBlock());
-    expect(outline(state)).toEqual(['paragraph:Before', 'code_block:', 'figure:']);
+    expect(outline(state)).toEqual(['paragraph:Before', 'code_figure:', 'figure:']);
     state = run(state, (current, dispatch) => {
       dispatch?.(current.tr.insertText('x = 1'));
       return true;
     });
-    expect(outline(state)).toEqual(['paragraph:Before', 'code_block:x = 1', 'figure:']);
+    expect(outline(state)).toEqual(['paragraph:Before', 'code_figure:x = 1', 'figure:']);
   });
 
   it('DOCE-OBJECTS-1.2 inserts linked code and reads the lines a URL names', () => {

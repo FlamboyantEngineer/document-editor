@@ -2,6 +2,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { createCodeFigure } from '../model/schema/caption-content.js';
 import { codeHighlightName, copyCodeHighlights, highlightCode } from './code-highlighting.js';
 import { setCodeLanguage } from './object-commands.js';
 import { createObjectViews, type LineNumbers } from './object-views.js';
@@ -26,7 +27,8 @@ const { nodes } = documentSchema;
 
 // A view of a code block and linked code, both in a language.
 function viewOfCode(language: string, lineNumbers?: LineNumbers): EditorView {
-  const code = nodes.code_block?.create({ language }, documentSchema.text('const size = 4;'));
+  const block = nodes.code_block?.create({ language }, documentSchema.text('const size = 4;'));
+  const code = block && createCodeFigure(documentSchema, block);
   const linked = nodes.linked_code_block?.create({ code: 'return "a";', language });
   if (!code || !linked) throw new Error('The schema has code and linked code');
   const doc = documentSchema.topNodeType.createAndFill(null, [code, linked]);
@@ -82,10 +84,12 @@ describe('code highlighting', () => {
   it('DOCE-OBJECTS-3.3 highlights again as the code or its language changes', () => {
     const shown = viewOfCode('plaintext', 'none');
     expect(painted('keyword')).toEqual([]);
+    // In the code's caption, which finds the code block it captions.
     shown.dispatch(shown.state.tr.setSelection(TextSelection.create(shown.state.doc, 2)));
     setCodeLanguage('typescript')(shown.state, shown.dispatch);
     expect(painted('keyword')).toEqual(['const']);
-    shown.dispatch(shown.state.tr.insertText('let ', 1));
+    // At the start of the code, after its empty caption.
+    shown.dispatch(shown.state.tr.insertText('let ', 4));
     expect(painted('keyword')).toEqual(['let', 'const']);
     expect(tokens(shown.dom.querySelector('[data-linked-code-block] code'), 'keyword')).toEqual([]);
     shown.destroy();

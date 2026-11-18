@@ -45,14 +45,18 @@ describe('setTextblockType', () => {
       }),
     ).toBe(true);
     const blocks: [string, unknown, unknown][] = [];
-    next.doc.forEach((node) => blocks.push([node.type.name, node.attrs.level, node.attrs.dataId]));
+    next.doc.forEach((node) => {
+      // A code block is held after its caption, which is no paragraph or heading to restyle.
+      const block = node.type.name === 'code_figure' ? (node.lastChild ?? node) : node;
+      blocks.push([block.type.name, block.attrs.level, block.attrs.dataId]);
+    });
     expect(blocks).toEqual([
       ['heading', 2, 'aaaa0001'],
       ['code_block', undefined, 'aaaa0002'],
       ['heading', 2, 'aaaa0003'],
     ]);
     // A selection of only a code block has nothing to restyle.
-    const code = EditorState.create({ doc, selection: TextSelection.create(doc, 7) });
+    const code = EditorState.create({ doc, selection: TextSelection.create(doc, 10) });
     expect(setTextblockType(heading, { level: 2 })(code)).toBe(false);
   });
 });

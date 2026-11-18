@@ -82,7 +82,7 @@ Verification: `src/model/schema/figure-nodes.test.ts`, `src/model/schema/image-n
 
 ### DOCE-SCHEMA-3.4 - Code and math
 
-A code block shall keep its language (default `plaintext`), caption, whether the caption shows, whether it continues a block pagination split, and the number of its first line, and write its caption in a caption line before the code. A linked code block shall keep its address, language, code and first line, and take its caption from the address's file name. Inline and display math shall hold their LaTeX as text without marks and write it as the content attribute too.
+A code block shall keep its language (default `plaintext`), whether its caption shows, whether it continues a block pagination split, and the number of its first line. A typed code block shall sit after its caption in a `code_figure`, as a table sits in its `table_figure`: the caption is content, with the inline content and marks a table's caption holds, always present and empty when the block has none, and a code block outside its holder is not valid document content. A linked code block shall keep its address, language, code and first line, and take its caption from the address's file name. Inline and display math shall hold their LaTeX as text without marks and write it as the content attribute too.
 
 Implementation: `src/model/schema/code-nodes.ts`, `src/model/schema/math-nodes.ts`, `src/model/schema/caption-text.ts`
 Verification: `src/model/schema/code-nodes.test.ts`

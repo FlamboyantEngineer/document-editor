@@ -113,21 +113,12 @@ function captionedOn(
   return -1;
 }
 
-// Whether a block has its caption already: a code block's attribute, or a figure's or a table's
-// first child.
-const hasCaption = (node: StoredNode) =>
-  node.type === 'codeBlock'
-    ? typeof node.attrs?.caption === 'string'
-    : storedCaptionText(node) !== '';
+// Whether a block has its caption already, its first child.
+const hasCaption = (node: StoredNode) => storedCaptionText(node) !== '';
 
-// Gives a block its caption, shown: a code block's attribute, or a figure's or a table's first
-// child.
+// Gives a block its caption, shown, as its first child.
 function setCaption(node: StoredNode, caption: CaptionPiece): void {
   const { captionEnabled: _, ...attrs } = node.attrs ?? {};
-  if (node.type === 'codeBlock') {
-    node.attrs = { ...attrs, caption: caption.text };
-    return;
-  }
   node.attrs = attrs;
   const content = caption.content.length ? { content: [...caption.content] } : {};
   node.content = [{ type: 'caption', ...content }, ...storedBodyOf(node)];

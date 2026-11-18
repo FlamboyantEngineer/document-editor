@@ -5,28 +5,11 @@
 // block object is kept from typing.
 
 import { DOMSerializer, type Node as ProseMirrorNode } from 'prosemirror-model';
-import {
-  type Command,
-  type EditorState,
-  NodeSelection,
-  Plugin,
-  PluginKey,
-  TextSelection,
-} from 'prosemirror-state';
-import { DecorationSet, type EditorView, type NodeView } from 'prosemirror-view';
+import { type Command, NodeSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import type { EditorView, NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
-import {
-  cancelCaptionOf,
-  captionDoubleClick,
-  captionEditingDecorations,
-  captionEditingOf,
-  commitCaptionOf,
-  editCaptionOf,
-  updateCaptionEditing,
-} from './caption-views.js';
-import type { CaptionedObject } from './captions.js';
 import { codeTokenAttrs, highlightCode, paintCodeHighlights } from './code-highlighting.js';
 
 /** The line numbers of a code text, from its first line's number, one per line. */
@@ -203,16 +186,24 @@ function signatureView(node: ProseMirrorNode, view: EditorView): NodeView {
   };
 }
 
-// A press on a code block's padding or caption line, outside its text, puts the caret at the code
-// position nearest to it, as a press on the gutter does, so it never lands in the caption or
-// beside the block. Linked code, which takes no caret, and double presses are left alone.
+// The code element of the typed code block a press is on, beside its text: in the code's box or in
+// the box holding it with its caption, outside the caption; null for anything else.
+function pressedCode(target: Element): Element | null {
+  const holder = target.closest('.doc-code-figure');
+  if (holder && target.closest('.doc-caption-line')) return null;
+  const pre = target.closest('pre') ?? holder?.querySelector(':scope > pre');
+  if (!pre || pre.closest('[data-linked-code-block]')) return null;
+  return pre.querySelector(':scope > code');
+}
+
+// A press on a code block's padding, outside its text, puts the caret at the code position nearest
+// to it, as a press on the gutter does, so it never lands beside the block. Its caption is text,
+// pressed as any text is; linked code, which takes no caret, and double presses are left alone.
 function codePress(view: EditorView, event: MouseEvent): boolean {
   if (event.button !== 0 || event.detail > 1 || !view.editable) return false;
   const target = isElement(event.target) ? event.target : null;
-  const pre = target?.closest('pre');
-  const code = pre?.querySelector(':scope > code');
-  if (!pre || !code || code.contains(target) || !view.dom.contains(pre)) return false;
-  if (pre.closest('[data-linked-code-block]')) return false;
+  const code = target && pressedCode(target);
+  if (!code || code.contains(target) || !view.dom.contains(code)) return false;
   const box = code.getBoundingClientRect();
   const left = Math.min(Math.max(event.clientX, box.left + 1), box.right - 1);
   const top = Math.min(Math.max(event.clientY, box.top + 1), box.bottom - 1);
@@ -265,31 +256,11 @@ export interface ObjectViewsOptions {
   readonly lineNumbers?: LineNumbers | undefined;
 }
 
-/** What the object views keep: the caption edited in place. */
-interface ObjectViewsState {
-  readonly caption: number | null;
-}
-
-const objectViewsKey = new PluginKey<ObjectViewsState>('object-views');
-
-/** The captioned object whose caption is edited in place, which the editor draws its field over. */
-export function captionEditingAt(state: EditorState): CaptionedObject | null {
-  return captionEditingOf(objectViewsKey, state);
-}
-
 /**
- * Edits the caption of the table, figure or code block at the selection in place: a table's or a
- * figure's as text, its text selected, a code block's in a field over it.
+ * Edits the caption of the table, figure or code block at the selection in place, as text, its
+ * text selected.
  */
-export const editCaption: Command = (state, dispatch, view) =>
-  editCaptionText(state, dispatch, view) || editCaptionOf(objectViewsKey)(state, dispatch, view);
-
-/** Commits the caption edited in place with its text, shown; the object is selected after. */
-export const commitCaptionEditing = (text: string): Command =>
-  commitCaptionOf(objectViewsKey, text);
-
-/** Stops editing a caption in place, leaving it as it is. */
-export const cancelCaptionEditing: Command = cancelCaptionOf(objectViewsKey);
+export const editCaption: Command = editCaptionText;
 
 /**
  * Draws code with its line numbers and highlighted tokens (`highlightCode`), and signatures from
@@ -298,25 +269,16 @@ export const cancelCaptionEditing: Command = cancelCaptionOf(objectViewsKey);
  */
 export function createObjectViews({
   lineNumbers: numbered = 'all',
-}: ObjectViewsOptions = {}): Plugin<ObjectViewsState> {
+}: ObjectViewsOptions = {}): Plugin {
   const code = (node: ProseMirrorNode, view: EditorView) =>
     codeView(node, view, numbered === 'all');
   const linked = (node: ProseMirrorNode, view: EditorView) =>
     codeView(node, view, numbered !== 'none');
-  const key = objectViewsKey;
-  return new Plugin<ObjectViewsState>({
-    key,
-    state: {
-      init: () => ({ caption: null }),
-      apply: (tr, value) => ({ caption: updateCaptionEditing(key, tr, value.caption) }),
-    },
+  return new Plugin({
+    key: new PluginKey('object-views'),
     view: paintCodeHighlights,
     props: {
-      decorations(state) {
-        const editing = captionEditingDecorations(captionEditingAt(state));
-        return editing.length ? DecorationSet.create(state.doc, editing) : undefined;
-      },
-      handleDOMEvents: { dblclick: captionDoubleClick(key), mousedown: codePress },
+      handleDOMEvents: { mousedown: codePress },
       handleClickOn: selectFigureOnImage,
       handleTextInput: ({ state }) =>
         state.selection instanceof NodeSelection && !isReplacedOnType(state.selection.node),

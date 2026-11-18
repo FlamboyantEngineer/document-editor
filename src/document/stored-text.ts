@@ -4,6 +4,7 @@
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { shownText } from '../engine/search-text.js';
 import { type DocumentFile, readDocumentFile } from '../model/index.js';
+import { isCaptionNode } from '../model/schema/caption-content.js';
 
 // The character search reads an inline object that shows no text as.
 const OBJECT = '\uFFFC';
@@ -15,17 +16,18 @@ function inlineText(node: ProseMirrorNode): string {
   return shownText(node).replaceAll(OBJECT, '');
 }
 
-// The text an object shows from its attributes: its caption when it shows one, and the code a
-// linked code block holds, a line per line.
-function shownAttrsText(node: ProseMirrorNode): string[] {
-  const { caption, captionEnabled, code } = node.attrs;
-  const lines: string[] = [];
-  if (typeof caption === 'string' && caption.trim() && captionEnabled !== false)
-    lines.push(caption);
-  if (node.type.name === 'linked_code_block' && typeof code === 'string') {
-    lines.push(...code.split('\n').filter((line) => line.trim()));
-  }
-  return lines;
+// The code a linked code block holds, a line per line.
+function linkedCodeText(node: ProseMirrorNode): string[] {
+  const { code } = node.attrs;
+  if (node.type.name !== 'linked_code_block' || typeof code !== 'string') return [];
+  return code.split('\n').filter((line) => line.trim());
+}
+
+// Whether a caption is hidden: its figure, or the table or code block its holder holds, shows none.
+function isHiddenCaption(node: ProseMirrorNode, parent: ProseMirrorNode | null): boolean {
+  if (!parent || !isCaptionNode(node)) return false;
+  const object = parent.type.name === 'figure' ? parent : parent.lastChild;
+  return object?.attrs.captionEnabled === false;
 }
 
 /**
@@ -38,8 +40,9 @@ export function storedDocumentText(file: DocumentFile, schema: Schema): string {
   const { doc } = readDocumentFile(file, schema, { unknown: 'drop' });
   const deletion = schema.marks.deletion;
   const lines: string[] = [];
-  doc.descendants((node) => {
-    lines.push(...shownAttrsText(node));
+  doc.descendants((node, _pos, parent) => {
+    lines.push(...linkedCodeText(node));
+    if (isHiddenCaption(node, parent)) return false;
     if (!node.isTextblock) return true;
     let line = '';
     node.forEach((child) => {

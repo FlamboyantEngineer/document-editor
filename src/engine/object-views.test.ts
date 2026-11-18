@@ -1,11 +1,12 @@
 import { userEvent } from '@testing-library/user-event';
-import { Schema } from 'prosemirror-model';
+import { type Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { EditorState, NodeSelection, type Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
 import { readDocumentFile } from '../model/index.js';
+import { createCodeFigure } from '../model/schema/caption-content.js';
 import { createDocumentEditing } from './document-editing.js';
 import { createObjectViews } from './object-views.js';
 
@@ -92,6 +93,9 @@ const gutterLines = (element: Element | null | undefined) =>
     line.querySelector('.de-code-gutter__text')?.textContent,
   ]);
 
+// A code block in the node holding it after its empty caption.
+const held = (code: ProseMirrorNode) => createCodeFigure(documentSchema, code) ?? code;
+
 describe('line numbers', () => {
   it('DOCE-OBJECTS-3.1 numbers authored code from its first line once the view is built, and a new line at once', () => {
     const code = nodes.code_block?.create(null, documentSchema.text('let a = 1;\nlet b = 2;'));
@@ -100,7 +104,7 @@ describe('line numbers', () => {
       documentSchema.text('x\ny'),
     );
     if (!code || !later) throw new Error('The schema has code blocks');
-    const doc = documentSchema.topNodeType.createAndFill(null, [code, later]);
+    const doc = documentSchema.topNodeType.createAndFill(null, [held(code), held(later)]);
     if (!doc) throw new Error('The document is valid');
     view = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc, plugins: [createObjectViews()] }),
@@ -116,7 +120,8 @@ describe('line numbers', () => {
     expect(first?.style.getPropertyValue('--de-code-gutter-digits')).toBe('3');
     expect(gutterLines(second).map(([number]) => number)).toEqual(['99', '100']);
     // A line break typed adds its number in the same update, before the browser paints.
-    view.dispatch(view.state.tr.insertText('\n', 11));
+    // After the first code's empty caption.
+    view.dispatch(view.state.tr.insertText('\n', 14));
     expect(gutterLines(view.dom.querySelector('pre'))).toEqual([
       ['1', 'let a = 1;'],
       ['2', ''],
@@ -128,7 +133,7 @@ describe('line numbers', () => {
     const code = nodes.code_block?.create(null, documentSchema.text('a'));
     const linked = nodes.linked_code_block?.create({ code: 'b\nc', startLine: 7 });
     if (!code || !linked) throw new Error('The schema has code and linked code');
-    const doc = documentSchema.topNodeType.createAndFill(null, [code, linked]);
+    const doc = documentSchema.topNodeType.createAndFill(null, [held(code), linked]);
     if (!doc) throw new Error('The document is valid');
     view = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc, plugins: [createObjectViews({ lineNumbers: 'linked' })] }),

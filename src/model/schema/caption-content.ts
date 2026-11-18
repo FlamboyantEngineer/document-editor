@@ -1,35 +1,41 @@
-// A captioned object's caption: a figure's caption is its content, a table's the caption before
-// it in its `table_figure`, and a code block's its caption attribute. The stored format keeps a
-// figure's or table's caption as its first child, of type `caption`.
+// A captioned object's caption: a figure's caption is its content, a table's or a code block's the
+// caption before it in its `table_figure` or `code_figure`. The stored format keeps each caption as
+// the object's first child, of type `caption`.
 
 import type { Attrs, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { StoredNode } from '../format/document-format.js';
 import { normalizeCaptionText } from './caption-text.js';
 
-const CAPTION_TYPES = new Set(['figure_caption', 'table_caption']);
+const CAPTION_TYPES = new Set(['figure_caption', 'table_caption', 'code_caption']);
 
-/** Whether a node is a figure's or a table's caption. */
+// The objects held after their caption.
+const HELD_TYPES = new Set(['table', 'code_block']);
+
+/** The nodes holding a table or a code block after its caption. */
+export const CAPTION_HOLDER_TYPES: ReadonlySet<string> = new Set(['table_figure', 'code_figure']);
+const HOLDER_TYPES = CAPTION_HOLDER_TYPES;
+
+/** Whether a node is a figure's, a table's or a code block's caption. */
 export const isCaptionNode = (node: ProseMirrorNode | null | undefined): boolean =>
   Boolean(node && CAPTION_TYPES.has(node.type.name));
 
 /**
- * The caption node of a figure, of a `table_figure`, or of a table given with its parent; null for
- * any other node, and for a code block, whose caption is an attribute.
+ * The caption node of a figure, of a `table_figure` or `code_figure`, or of a table or code block
+ * given with its parent; null for any other node.
  */
 export function captionNodeOf(
   node: ProseMirrorNode,
   parent?: ProseMirrorNode | null,
 ): ProseMirrorNode | null {
   const name = node.type.name;
-  const holder = name === 'table' ? parent : node;
-  if (name !== 'figure' && name !== 'table_figure' && name !== 'table') return null;
+  const holder = HELD_TYPES.has(name) ? parent : node;
+  if (name !== 'figure' && !HOLDER_TYPES.has(name) && !HELD_TYPES.has(name)) return null;
   const first = holder?.firstChild;
   return first && CAPTION_TYPES.has(first.type.name) ? first : null;
 }
 
-/** A captioned object's caption as one line of text: its caption node's, or a code block's. */
+/** A captioned object's caption as one line of text. */
 export function captionTextOf(node: ProseMirrorNode, parent?: ProseMirrorNode | null): string {
-  if (node.type.name === 'code_block') return normalizeCaptionText(node.attrs.caption);
   return normalizeCaptionText(captionNodeOf(node, parent)?.textContent ?? '');
 }
 
@@ -39,7 +45,7 @@ export function storedCaptionOf(node: StoredNode): StoredNode | null {
   return first?.type === 'caption' ? first : null;
 }
 
-/** A stored node's children after its caption: a table's rows. */
+/** A stored node's children after its caption: a table's rows, a code block's text. */
 export const storedBodyOf = (node: StoredNode): StoredNode[] =>
   storedCaptionOf(node) ? (node.content ?? []).slice(1) : (node.content ?? []);
 
@@ -54,20 +60,19 @@ function storedText(content: readonly StoredNode[] | undefined): string {
     .join('');
 }
 
-/** A stored captioned object's caption as one line of text: its caption's, or a code block's. */
+/** A stored captioned object's caption as one line of text. */
 export function storedCaptionText(node: StoredNode): string {
-  if (node.type === 'codeBlock') return normalizeCaptionText(node.attrs?.caption);
   return normalizeCaptionText(storedText(storedCaptionOf(node)?.content));
 }
 
-/** A stored caption holding one line of text, as a figure's or a table's first child. */
+/** A stored caption holding one line of text, as a captioned object's first child. */
 export function storedCaption(text: string): StoredNode {
   const line = normalizeCaptionText(text);
   return line ? { type: 'caption', content: [{ type: 'text', text: line }] } : { type: 'caption' };
 }
 
 // A caption node of a type holding one line of text, or empty.
-function captionOf(schema: Schema, name: 'figure_caption' | 'table_caption', text: string) {
+function captionOf(schema: Schema, name: string, text: string) {
   const line = normalizeCaptionText(text);
   return schema.nodes[name]?.create(null, line ? schema.text(line) : null) ?? null;
 }
@@ -90,4 +95,14 @@ export function createTableFigure(
 ): ProseMirrorNode | null {
   const line = captionOf(schema, 'table_caption', caption);
   return line ? (schema.nodes.table_figure?.create(null, [line, table]) ?? null) : null;
+}
+
+/** A code block with its caption of one line of text, empty by default, in the node holding both. */
+export function createCodeFigure(
+  schema: Schema,
+  code: ProseMirrorNode,
+  caption = '',
+): ProseMirrorNode | null {
+  const line = captionOf(schema, 'code_caption', caption);
+  return line ? (schema.nodes.code_figure?.create(null, [line, code]) ?? null) : null;
 }

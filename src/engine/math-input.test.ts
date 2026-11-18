@@ -2,6 +2,7 @@ import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../test/document-markup.js';
+import { createCodeFigure } from '../model/schema/caption-content.js';
 import { createDocumentEditing } from './document-editing.js';
 import { cancelMathEditing, commitMathEditing, mathEditingAt } from './math-views.js';
 
@@ -16,19 +17,21 @@ const { nodes } = documentSchema;
 
 // An editable view of paragraphs of text, or of a code block, with the caret at the end of the first.
 function viewOf(texts: readonly string[], code = false): EditorView {
-  const blocks = texts.map((text) =>
-    (code ? nodes.code_block : nodes.paragraph)?.create(
+  const blocks = texts.map((text) => {
+    const block = (code ? nodes.code_block : nodes.paragraph)?.create(
       null,
       text ? documentSchema.text(text) : null,
-    ),
-  );
+    );
+    return code && block ? createCodeFigure(documentSchema, block) : block;
+  });
   const doc = documentSchema.topNodeType.createAndFill(
     null,
     blocks.filter((block) => !!block),
   );
   if (!doc) throw new Error('The document is valid');
   const state = EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) });
-  const end = (texts[0]?.length ?? 0) + 1;
+  // After the code's empty caption, inside the code block.
+  const end = (texts[0]?.length ?? 0) + (code ? 4 : 1);
   view = new EditorView(document.createElement('div'), {
     state: state.apply(state.tr.setSelection(TextSelection.create(state.doc, end))),
   });

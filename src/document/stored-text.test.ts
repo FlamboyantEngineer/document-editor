@@ -84,8 +84,11 @@ describe('storedDocumentText', () => {
           content: [
             {
               type: 'codeBlock',
-              attrs: { id: 'a0000001', caption: 'Hidden caption', captionEnabled: false },
-              content: [{ type: 'text', text: 'const shown = 1;' }],
+              attrs: { id: 'a0000001', captionEnabled: false },
+              content: [
+                { type: 'caption', content: [{ type: 'text', text: 'Hidden caption' }] },
+                { type: 'text', text: 'const shown = 1;' },
+              ],
             },
           ],
         },

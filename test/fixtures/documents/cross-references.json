@@ -86,10 +86,18 @@
         {
           "type": "codeBlock",
           "attrs": {
-            "caption": "Target code",
             "id": "c9265e2f"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Target code"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "x = 1"

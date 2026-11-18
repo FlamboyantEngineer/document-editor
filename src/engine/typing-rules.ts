@@ -21,6 +21,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { canJoin, findWrapping, type Step } from 'prosemirror-transform';
+import { createCodeFigure } from '../model/schema/caption-content.js';
 
 /** Which typing shortcuts run. Each group is on unless turned off. */
 export interface TypingRulesOptions {
@@ -85,6 +86,26 @@ function paragraphTo(
   });
 }
 
+// Typing the pattern at the start of a paragraph makes it a code block after an empty caption, the
+// paragraph's text its code and the caret where the pattern was.
+function paragraphToCode(pattern: RegExp, schema: Schema): InputRule {
+  return new InputRule(pattern, (state, _match, ...[start, end]: RuleRange) => {
+    const $start = state.doc.resolve(start);
+    const paragraph = $start.parent;
+    const holder = schema.nodes.code_figure;
+    const index = $start.index(-1);
+    if (paragraph.type.name !== 'paragraph' || !holder) return null;
+    if (!$start.node(-1).canReplaceWith(index, index + 1, holder)) return null;
+    const rest = state.doc.textBetween(end, $start.end(), '\n', ' ');
+    const code = schema.nodes.code_block?.create(null, rest ? schema.text(rest) : null);
+    const figure = code && createCodeFigure(schema, code);
+    if (!figure) return null;
+    const tr = state.tr.replaceWith($start.before(), $start.after(), figure);
+    const inside = $start.before() + 1 + (figure.firstChild?.nodeSize ?? 0) + 1;
+    return tr.setSelection(TextSelection.create(tr.doc, inside));
+  });
+}
+
 // Typing the pattern at the start of a paragraph wraps it in a list or a quote. A number typed
 // right after a list of the same kind that ends there joins that list when it carries on its count.
 interface Wrapping {
@@ -143,14 +164,14 @@ function checklistItem(bulletList: NodeType): InputRule {
 
 function blockRules(schema: Schema): InputRule[] {
   const { heading, blockquote } = schema.nodes;
-  const codeBlock = schema.nodes.code_block;
+  const codeBlock = schema.nodes.code_figure;
   const bulletList = schema.nodes.bullet_list;
   const orderedList = schema.nodes.ordered_list;
   const horizontalRule = schema.nodes.horizontal_rule;
   const rules: (InputRule | false | undefined)[] = [
     horizontalRule && ruleLine(horizontalRule),
     heading && paragraphTo(/^(#{1,6})\s$/, heading, (match) => ({ level: match[1]?.length ?? 1 })),
-    codeBlock && paragraphTo(/^```\s$/, codeBlock),
+    codeBlock && paragraphToCode(/^```\s$/, schema),
     blockquote && paragraphInto(/^\s*>\s$/, blockquote),
     bulletList && schema.nodes.list_item?.spec.attrs?.checked && checklistItem(bulletList),
     bulletList && paragraphInto(/^\s*[-+*]\s$/, bulletList),

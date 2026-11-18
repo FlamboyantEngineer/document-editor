@@ -1,4 +1,4 @@
-// A table's or a figure's caption is document content, edited as text in place: the caret goes
+// A table's, a figure's or a code block's caption is document content, edited as text in place: the caret goes
 // into it as into any text, and what the writer types is in the document as they type it. Select
 // All in a caption selects its text, and a press on a figure's image selects the figure; the
 // document keys add no line in a caption, which is one line (`document-editing.ts`).
@@ -38,8 +38,8 @@ const selectCaptionText =
   };
 
 /**
- * Selects the text of the caption of the table or figure at the selection, and shows it, so the
- * writer edits it in place; false for a code block, whose caption is an attribute.
+ * Selects the text of the caption of the table, figure or code block at the selection, and shows
+ * it, so the writer edits it in place.
  */
 export const editCaptionText: Command = (state, dispatch, view) => {
   const found = captionedAt(state);

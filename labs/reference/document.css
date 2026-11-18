@@ -701,9 +701,40 @@ div.de-host-view {
   pre:not(
     [data-code-block-continued='true'],
     [data-code-block-continued='true'] > pre,
-    [data-caption-enabled='false']
+    [data-caption-enabled='false'],
+    .doc-code-figure > pre
   ) {
   counter-increment: codeblock;
+}
+
+/* A code block is counted by what holds it with its caption, which comes first. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .doc-code-figure:has(
+    > pre:not([data-code-block-continued='true'], [data-caption-enabled='false'])
+  ) {
+  counter-increment: codeblock;
+}
+
+/*
+ * A code block and its caption: one box on the code's background, the caption above or below the
+ * code inside it, and the code with no box of its own.
+ */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-code-figure {
+  display: flex;
+  flex-direction: column;
+  margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
+  padding: 8px;
+  background: var(--doc-code-background);
+  color: var(--doc-code-color);
+  font-size: var(--doc-code-font-size);
+  line-height: var(--doc-code-line-height, 1.4);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-code-figure > pre {
+  margin: 0;
+  padding: 0;
+  background: none;
 }
 
 /*
@@ -968,6 +999,9 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   [data-caption-enabled='false']
   > pre
+  > .doc-caption-line,
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-code-figure:has(> pre[data-caption-enabled='false'])
   > .doc-caption-line {
   display: none;
 }
@@ -995,7 +1029,11 @@ div.de-host-view {
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
-  :is(pre[data-code-block-continued='true'], [data-code-block-continued='true'] > pre)
+  :is(
+    pre[data-code-block-continued='true'],
+    [data-code-block-continued='true'] > pre,
+    .doc-code-figure:has(> pre[data-code-block-continued='true'])
+  )
   .doc-caption-continued::after {
   content: var(--doc-code-caption-continued, '');
 }

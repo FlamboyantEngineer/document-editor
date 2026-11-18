@@ -116,6 +116,7 @@ describe('fragment rule registry', () => {
       linked_code_block: { whole: { ...part, codeBlockContinued: false }, ...joined },
       table: { whole: part, ...joined },
       table_figure: { whole: part, ...joined },
+      code_figure: { whole: part, ...joined },
       blockquote: { whole: part, ...joined },
       script_block: { whole: part, ...joined },
       embed: { whole: part, ...joined },
