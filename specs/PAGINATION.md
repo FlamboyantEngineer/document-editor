@@ -508,9 +508,9 @@ Verification: `src/engine/body-edge.test.ts`, `src/pagination/page-caret.test.ts
 
 ### DOCE-PAGINATION-7.22 - Input right after focus
 
-A click or key that comes right after the editor takes focus, on the pages or in the web layout, shall keep its selection on a busy page: when the writer's input comes before the view's check, after focus, of the selection the browser shows, the view shall read the browser's selection first, so that the check does not draw the view's older selection back over it. A focus with no input after it keeps the view's selection, as before.
+A click or key that comes right after the editor takes focus, on the pages or in the web layout, shall keep its selection on a busy page. The view takes focus itself and makes one check of the selection the browser shows, twenty milliseconds on, in place of the engine's own: when a press on the view brought focus or input came after it, the check reads the browser's selection, so that nothing draws the view's older selection back over a key the browser has acted on but not yet reported; a focus with no input, such as one from the keyboard or the host, keeps the view's selection, as before.
 
-Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/editor-body.tsx`
+Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/editor-body.tsx`
 Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`, `e2e/presence.spec.ts`
 
 ### DOCE-PAGINATION-7.23 - Inline atoms at a paragraph's edge
@@ -519,6 +519,13 @@ On the pages, text typed with the caret after an inline atom that ends its parag
 
 Implementation: `src/components/document-editor/pages-view.tsx`
 Verification: `e2e/references.spec.ts`
+
+### DOCE-PAGINATION-7.24 - The first key after a click
+
+The first key or character the writer types right after a click, on the pages or in the web layout, shall act at the caret the click placed, without waiting for the browser to report it: whether the click brought focus or the editor had it, and before any selection change from the click reaches the document.
+
+Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/pages-view.tsx`
+Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`
 
 ## DOCE-PAGINATION-8 - Page headers and footers
 

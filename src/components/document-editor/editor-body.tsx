@@ -14,7 +14,7 @@ import {
   useState,
 } from 'react';
 import { matchesShortcut, shortcutsOf } from '../../engine/index.js';
-import { inputAfterFocusKeeper } from '../../utils/dom-selection.js';
+import { keepInputAfterFocus } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import { useEditorPanesContext } from '../document-panels/document-panels.js';
@@ -117,8 +117,6 @@ function useBodyViewProps({
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
   const decorations = useWritingDecorations(props, labels, held);
-  // One per view, so the focus it saw outlives new props (DOCE-PAGINATION-7.22).
-  const [keepInput] = useState(inputAfterFocusKeeper);
   const [plain] = useState(plainPaste);
   return useMemo(() => {
     const images = figurePasteOptions({ assets, feedback }, labels);
@@ -155,7 +153,7 @@ function useBodyViewProps({
       // A secondary click belongs to the context menu, which selects what it opens on: left to the
       // engine, its release would select the clicked object again and take focus from the menu.
       handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => event.button === 2,
-      handleDOMEvents: keepingInput(keepInput, {
+      handleDOMEvents: keepingInput({
         ...READ_SELECTION_FIRST,
         ...(host.focus ? { focus: host.focus } : {}),
         ...plainPasteCancels(plain, host.blur),
@@ -173,17 +171,16 @@ function useBodyViewProps({
     menuKeys,
     decorations,
     onCopyLink,
-    keepInput,
     plain,
   ]);
 }
 
-// DOM handlers with a click or key right after focus kept, in the web layout's view; the pages
-// view keeps them on the pages itself.
-const keepingInput = (
-  keep: ReturnType<typeof inputAfterFocusKeeper>,
-  handlers: NonNullable<EditorProps['handleDOMEvents']>,
-) => ({ ...handlers, ...keep(handlers) });
+// DOM handlers with a click or key right after focus kept, on the pages as in the web layout
+// (DOCE-PAGINATION-7.22).
+const keepingInput = (handlers: NonNullable<EditorProps['handleDOMEvents']>) => ({
+  ...handlers,
+  ...keepInputAfterFocus(handlers),
+});
 
 // The projection takes each of its states itself (`projectionDispatch`), so a commit the engine
 // makes has nothing more to do.
