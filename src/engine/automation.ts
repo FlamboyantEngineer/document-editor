@@ -6,6 +6,7 @@
 import type { Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
 import { isEmbed, readStoredContent, type StoredNode } from '../model/index.js';
+import { EMPTY_AI_SESSION } from '../model/schema/dom-attributes.js';
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import {
   type EditAddress,
@@ -144,10 +145,15 @@ function range(batch: Batch, at: EditAddress) {
 }
 
 // The marks the actor's text carries: who wrote it, when the actor is not a person.
+// The session an actor's text records: an agent's own, or the empty session when it names none, so
+// what an agent writes always reads as generated; none for a person or the system.
+const sessionOf = (actor: Actor): string | null =>
+  actor.kind === 'agent' ? (actor.session ?? EMPTY_AI_SESSION) : (actor.session ?? null);
+
 function writtenBy(schema: Schema, actor: Actor) {
   const contributor = schema.marks.contributor;
   if (!contributor || actor.kind === 'human') return [];
-  return [contributor.create({ dataAuthor: actor.id, dataAiSession: actor.session ?? null })];
+  return [contributor.create({ dataAuthor: actor.id, dataAiSession: sessionOf(actor) })];
 }
 
 // Whether stored content holds what ties it to a suggestion or a comment thread: a review mark,
@@ -179,7 +185,7 @@ function authored(node: ProseMirrorNode, actor: Actor): ProseMirrorNode {
   node.content.forEach((child) => children.push(authored(child, actor)));
   const attrs =
     'dataAuthor' in node.attrs
-      ? { ...node.attrs, dataAuthor: actor.id, dataAiSession: actor.session ?? null }
+      ? { ...node.attrs, dataAuthor: actor.id, dataAiSession: sessionOf(actor) }
       : node.attrs;
   return node.type.create(attrs, children, marks);
 }

@@ -14,6 +14,8 @@ export interface StoredDecisionOptions {
   readonly ids?: readonly string[] | undefined;
   /** Who opened a thread, for the writer of a suggestion that records none. */
   readonly threadAuthor?: ((thread: string) => string | null | undefined) | undefined;
+  /** Who decides: generated text they accept is credited to them, still marked as generated. */
+  readonly decider?: string | null | undefined;
 }
 
 /** A stored document with suggestions decided, and which ones. */
@@ -32,13 +34,14 @@ export interface StoredDecision {
  */
 export function decideStoredSuggestions(
   file: DocumentFile,
-  { schema, decision, ids, threadAuthor }: StoredDecisionOptions,
+  { schema, decision, ids, threadAuthor, decider }: StoredDecisionOptions,
 ): StoredDecision {
   const { doc } = readDocumentFile(file, schema, { unknown: 'keep' });
   const { tr } = EditorState.create({ doc });
   const report = decideSuggestions(tr, decision, {
     ids: ids ? new Set(ids) : null,
     threadAuthor,
+    decider,
   });
   if (!report) return { file, decided: [], dependents: [] };
   return {

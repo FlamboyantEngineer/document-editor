@@ -6,7 +6,7 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
@@ -76,6 +76,8 @@ async function setup(
     fields?: boolean;
     empty?: boolean;
     pending?: boolean;
+    /** The pending suggestion is an agent's generated text. */
+    generated?: boolean;
     granted?: typeof permissions;
     authorOf?: RoomChangeGuardOptions['authorOf'];
     resolvePermissions?: RoomChangeGuardOptions['permissions'];
@@ -124,8 +126,12 @@ async function setup(
               state.doc.descendants((node, pos) => {
                 if (node.isText) start = pos;
               });
-              const proposal = suggestTransaction(state.tr.insertText('X', start), state, {
-                author: 'owner',
+              const { contributor } = schema.marks;
+              const typed = options.generated
+                ? state.tr.insert(start, schema.text('X', [generatedBy(contributor, 'agent-1')]))
+                : state.tr.insertText('X', start);
+              const proposal = suggestTransaction(typed, state, {
+                author: options.generated ? 'agent-1' : 'owner',
                 newId: () => 'b0000001',
               });
               if (!proposal) throw new Error('Unsupported proposal.');
@@ -195,6 +201,24 @@ async function setup(
       for (const snapshot of snapshots) snapshot.destroy();
     },
   };
+}
+
+// The contributor mark of generated text: who it is credited to, and the agent's session.
+const generatedBy = (type: MarkType | undefined, author: string) => {
+  if (!type) throw new Error('The schema has no contributor mark.');
+  return type.create({ dataAuthor: author, dataAiSession: 's1' });
+};
+
+// The contributor marks on a room's text, as author and session.
+function creditsOf(doc: Y.Doc): (readonly [unknown, unknown])[] {
+  const content = readContent(schema, doc.get('content'));
+  const found: (readonly [unknown, unknown])[] = [];
+  content?.descendants((node) => {
+    for (const mark of node.marks)
+      if (mark.type.name === 'contributor')
+        found.push([mark.attrs.dataAuthor, mark.attrs.dataAiSession] as const);
+  });
+  return found;
 }
 
 function change(doc: Y.Doc, action: (state: EditorState) => EditorState) {
@@ -787,6 +811,101 @@ it('DOCE-COLLAB-7.2 permits an explicit decision without edit or suggest', async
   } finally {
     await room.close();
   }
+});
+
+describe('DOCE-SUGGESTIONS-2.7 credit for accepted generated text', () => {
+  const decider = { edit: false, suggest: false, comment: false, decide: true };
+  // Accepts every suggestion in the room as the guarded writer, crediting what they accept to
+  // `credited`, and says whether the room took it.
+  async function accept(
+    granted: typeof permissions,
+    options: { generated: boolean; credited: string },
+  ) {
+    const room = await setup({ pending: true, generated: options.generated, granted });
+    try {
+      change(room.doc, (state) => {
+        const tr = state.tr;
+        decideSuggestions(tr, 'accept', { decider: options.credited });
+        return state.apply(tr);
+      });
+      await room.provider.whenStored();
+      const refused = room.provider.getState().refusal !== null;
+      return { refused, credits: creditsOf(room.snapshot()) };
+    } finally {
+      await room.close();
+    }
+  }
+
+  it('lets a writer who may decide take generated text as their own, still marked generated', async () => {
+    const taken = await accept(decider, { generated: true, credited: 'writer' });
+    expect(taken.refused).toBe(false);
+    expect(taken.credits).toEqual([['writer', 's1']]);
+  });
+
+  it('refuses crediting generated text to anyone but the writer who accepts it', async () => {
+    const taken = await accept(decider, { generated: true, credited: 'someone-else' });
+    expect(taken.refused).toBe(true);
+    expect(taken.credits).toEqual([['agent-1', 's1']]);
+  });
+
+  it('keeps a person’s accepted suggestion theirs, refusing a decider who would take it', async () => {
+    expect((await accept(decider, { generated: false, credited: 'writer' })).credits).toEqual([
+      ['owner', null],
+    ]);
+    const room = await setup({ pending: true, granted: decider });
+    try {
+      change(room.doc, (state) => {
+        const tr = state.tr;
+        const [suggested] = listSuggestions(state.doc);
+        if (!suggested) throw new Error('The room should hold a suggestion.');
+        decideSuggestions(tr, 'accept');
+        const credit = generatedBy(schema.marks.contributor, 'writer');
+        tr.addMark(suggested.from, suggested.to, credit);
+        return state.apply(tr);
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+    } finally {
+      await room.close();
+    }
+  });
+
+  it('refuses a writer who may only suggest accepting generated text, credit or none', async () => {
+    const taken = await accept(permissions, { generated: true, credited: 'writer' });
+    expect(taken.refused).toBe(true);
+    expect(taken.credits).toEqual([['agent-1', 's1']]);
+  });
+
+  // Accepts the room's generated suggestion as a decider, then gives its text the contributor
+  // `credit` returns (none takes the mark off), and says whether the room refused it.
+  async function acceptRecredited(credit: (contributor: MarkType) => Mark | null) {
+    const room = await setup({ pending: true, generated: true, granted: decider });
+    try {
+      change(room.doc, (state) => {
+        const tr = state.tr;
+        const [suggested] = listSuggestions(state.doc);
+        const { contributor } = schema.marks;
+        if (!suggested || !contributor) throw new Error('The room should hold a suggestion.');
+        decideSuggestions(tr, 'accept');
+        tr.removeMark(suggested.from, suggested.to, contributor);
+        const mark = credit(contributor);
+        if (mark) tr.addMark(suggested.from, suggested.to, mark);
+        return state.apply(tr);
+      });
+      await room.provider.whenStored();
+      return room.provider.getState().refusal !== null;
+    } finally {
+      await room.close();
+    }
+  }
+
+  it('refuses a decider who takes generated text without its session', async () => {
+    expect(await acceptRecredited((type) => type.create({ dataAuthor: 'writer' }))).toBe(true);
+  });
+
+  it('refuses a decider who takes the contributor off generated text they accept', async () => {
+    expect(await acceptRecredited(() => null)).toBe(true);
+  });
 });
 
 it('DOCE-COLLAB-7.2 validates protected proposals when raw removal empties content', async () => {

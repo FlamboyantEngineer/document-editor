@@ -19,6 +19,7 @@ import type {
   CompletionAvailability,
   CompletionContext,
 } from '../host/index.js';
+import { EMPTY_AI_SESSION } from '../model/schema/dom-attributes.js';
 import { type Actor, automationKey } from './automation.js';
 import { commentDraft } from './comment-draft.js';
 import { followChange, takesWriterAway } from './completion-follow.js';
@@ -108,9 +109,6 @@ export function completionStatus(state: EditorState): CompletionStatus | null {
   const phase = value.offer ? 'offered' : value.asking === null ? 'idle' : 'asking';
   return { enabled: value.enabled, availability: value.availability, phase };
 }
-
-// The session marking generated text whose answer named none.
-const EMPTY_AI_SESSION = '00000000000';
 
 // The text a completion puts in: the writer's who takes it, marked as generated in the answer's
 // session; the change is the agent's, so the writer's own marking leaves it as it is.
