@@ -1,5 +1,5 @@
-// Whole objects while suggesting: a figure or layout section a deletion covers is suggested for
-// deletion as one block, named the writer's by the deletion marks on its text.
+// Whole objects while suggesting: a figure, table or layout section a deletion covers is suggested
+// for deletion as one block, named the writer's by the deletion marks on its text.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 
@@ -7,8 +7,8 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 export const hasKindAttrs = (node: ProseMirrorNode) =>
   Object.hasOwn(node.type.spec.attrs ?? {}, 'suggestionSplitKind');
 
-// The blocks a range covers whole that a suggestion deletes as blocks, outermost first: a figure or
-// a layout section, which a reader accepts or rejects whole rather than leaving it empty.
+// The blocks a range covers whole that a suggestion deletes as blocks, outermost first: a figure, a
+// table or a layout section, which a reader accepts or rejects whole rather than leaving it empty.
 export function wholeBlocks(doc: ProseMirrorNode, [from, to]: readonly [number, number]) {
   const blocks: { node: ProseMirrorNode; pos: number }[] = [];
   doc.nodesBetween(from, to, (node, pos) => {
@@ -34,10 +34,9 @@ const isOwnBlock = (node: ProseMirrorNode, author: string | null) =>
   node.attrs.suggestionSplitKind === 'insertion' && node.attrs.dataAuthor === author;
 
 /**
- * Whether a deletion of a range cannot be suggested: it covers a whole figure or layout section,
- * not the writer's own suggested block, and no text in the range takes the writer's deletion mark,
- * which names the suggestion the block joins as theirs (DOCE-SUGGESTIONS-1.4). A table, which
- * cannot be a suggested block, has its text suggested for deletion instead.
+ * Whether a deletion of a range cannot be suggested: it covers a whole figure, table or layout
+ * section, not the writer's own suggested block, and no text in the range takes the writer's
+ * deletion mark, which names the suggestion the block joins as theirs (DOCE-SUGGESTIONS-1.4).
  */
 export function cannotSuggestDeleting(
   doc: ProseMirrorNode,

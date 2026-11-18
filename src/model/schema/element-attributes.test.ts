@@ -33,8 +33,12 @@ describe('element attributes', () => {
       );
     }
     expect(documentSchema.nodes.text?.spec.attrs).toBeUndefined();
+    // It keeps the part of a split table it is, and a suggestion of the whole table.
     expect(Object.keys(documentSchema.nodes.table_figure?.spec.attrs ?? {})).toEqual([
       'splitPartIndex',
+      'suggestionSplitKind',
+      'suggestionSplitId',
+      'dataAuthor',
     ]);
   });
 

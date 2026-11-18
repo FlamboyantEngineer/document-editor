@@ -18,7 +18,6 @@ import {
   suggestionDecisionOf,
 } from './suggestion-decisions.js';
 import { suggestTransaction } from './suggestions.js';
-import { insertTable } from './tables.js';
 import { markSystemChange } from './transaction-kind.js';
 
 const paragraph = (value: string): StoredNode => ({
@@ -227,11 +226,14 @@ describe('suggest mode', () => {
   it('DOCE-SUGGESTIONS-1.5 refuses to insert a block that cannot be suggested', () => {
     const state = EditorState.create({ doc: read(paragraph('One')) });
     const inText = select(state, positionOf(state.doc, 'One') + 1);
-    let offered = 0;
-    const insert = insertTable({ rows: 2, columns: 2 });
-    if (insert(inText)) offered += 1;
+    const code = state.schema.nodes.code_block;
+    if (!code) throw new Error('No code blocks.');
+    // A code block put after the paragraph.
+    const insert: Command = (current, dispatch) => {
+      dispatch?.(current.tr.insert(positionOf(current.doc, 'One') + 4, code.create()));
+      return true;
+    };
     expect(suggest(inText, insert)).toBeNull();
-    expect(offered).toBe(1);
   });
 
   it('DOCE-SUGGESTIONS-1.5 leaves a system change as it is', () => {
@@ -330,11 +332,11 @@ describe('whole objects while suggesting', () => {
     expect(removed && listSuggestions(removed.doc)).toEqual([]);
   });
 
-  it('DOCE-SUGGESTIONS-1.5 suggests deleting a whole table’s text, as a table is no suggested block', () => {
+  it('DOCE-SUGGESTIONS-1.4 suggests deleting a whole table as a block, with its text', () => {
     const doc = read(paragraph('Before'), captioned('table', 'Totals'), paragraph('After'));
     const state = selectNode(EditorState.create({ doc }), 'table_figure');
     const deleted = suggest(state, deleteSelection);
-    expect(deleted && types(deleted.doc)).toEqual(['table_figure']);
+    expect(deleted && types(deleted.doc)).toEqual(['table_figure:deletion']);
     expect(deleted && markup(deleted.doc)).toEqual(['Before', '[-Totals]', '[-Cell]', 'After']);
   });
 
