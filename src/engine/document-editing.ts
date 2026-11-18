@@ -55,6 +55,7 @@ import {
 } from './shortcuts.js';
 import { noteSplitSource } from './split-authorship.js';
 import { keepIdentityWithContent } from './split-identity.js';
+import { createSuggestionRefusal } from './suggestion-refusal.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing } from './tables.js';
 import { anyLock, lockedTemplateSections } from './template-sync.js';
@@ -300,6 +301,7 @@ export function createDocumentEditingExtension<C = unknown>(
       { name: 'footnotes', priority: 490, build: () => [createFootnotes(footnotes)] },
       { name: 'comment-draft', priority: 495, build: () => [createCommentDraft()] },
       { name: 'comment-anchors', priority: 496, build: () => [createCommentAnchors()] },
+      { name: 'suggestion-refusal', priority: 497, build: () => [createSuggestionRefusal()] },
       ...objectPlugins(options),
       {
         name: 'clipboard',

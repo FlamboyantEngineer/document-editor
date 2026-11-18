@@ -218,6 +218,8 @@ export {
 } from './suggestion-decisions.js';
 export type { SuggestionPermissions, SuggestionPolicy } from './suggestion-policy.js';
 export { decideWithPolicy, suggestionPermissions } from './suggestion-policy.js';
+export type { SuggestionRefusal, SuggestionRefusalReason } from './suggestion-refusal.js';
+export { markSuggestionRefused, suggestionRefusalOf } from './suggestion-refusal.js';
 export type { SuggestOptions } from './suggestions.js';
 export { suggestionsKey, suggestTransaction } from './suggestions.js';
 export type { CellTextAlign, CellVerticalAlign } from './table-format.js';

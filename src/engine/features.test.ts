@@ -24,6 +24,7 @@ const EDITING_KEYS = [
   'footnotes',
   'comment-draft',
   'comment-anchors',
+  'suggestion-refusal',
   'math-views',
   'object-views',
   'clipboard',

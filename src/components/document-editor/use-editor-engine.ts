@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   automationActor,
   isReviewOnlyChange,
+  markSuggestionRefused,
   proofingUpdate,
   type ReviewChange,
   reviewChangeOf,
@@ -34,8 +35,8 @@ type DispatchBody = NonNullable<RichTextEngineEvents['dispatchTransaction']>;
 
 // The dispatch body. A transaction that only brings proofing results commits on the latest state,
 // which the view may not show yet. While suggesting, each local change is rewritten as a
-// suggestion, and one a suggestion cannot record is dropped; the host's own body, if any, then
-// decides what commits.
+// suggestion, and one a suggestion cannot record is dropped, recording why in its place; the
+// host's own body, if any, then decides what commits.
 export function useDispatchBody(
   props: EnginePlumbingProps,
   suggesting: boolean,
@@ -62,10 +63,11 @@ export function useDispatchBody(
         suggesting && !automationActor(tr) && !isReviewOnlyChange(tr)
           ? (suggest(tr) ?? asTyped())
           : tr;
-      if (!next) return;
-      if (body) body(next, view, commit);
-      else if (next === tr) commit.applyDefault();
-      else commit.applyDefault(next);
+      // A change a suggestion cannot record is not made: the editor tells the writer why instead.
+      const made = next ?? markSuggestionRefused(view.state, tr);
+      if (body) body(made, view, commit);
+      else if (made === tr) commit.applyDefault();
+      else commit.applyDefault(made);
     },
     [suggesting, author, body, onStateChange],
   );
