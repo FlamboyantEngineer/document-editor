@@ -274,15 +274,13 @@ const isMarkupStep = (step: Step) =>
   step.slice.content.childCount === 1;
 
 // Copies a step of a footnote's bookkeeping (`footnoteStep`): an entry inserted as it is, the
-// caret going into it, or a renumbering left out. Null when the entry cannot be copied, undefined
-// for any other step.
+// caret going into it. Null when the entry cannot be copied, undefined for any other step.
 function copyFootnoteStep(
   out: Transaction,
   mapped: Step | null,
-  { kind, caret }: { kind: ReturnType<typeof footnoteStep>; caret: number | undefined },
+  kind: ReturnType<typeof footnoteStep>,
 ): { caret: number | undefined } | null | undefined {
   if (kind === null) return undefined;
-  if (kind === 'skip') return { caret };
   if (!(mapped instanceof ReplaceStep) || out.maybeStep(mapped).failed) return null;
   return { caret: mapped.from + 1 };
 }
@@ -300,10 +298,7 @@ function rewriteSteps(
   let structural = false;
   for (const [index, step] of tr.steps.entries()) {
     const start = out.steps.length;
-    const footnote = copyFootnoteStep(out, step.map(mapping), {
-      kind: footnoteStep(step, tr.docs[index] ?? tr.before),
-      caret,
-    });
+    const footnote = copyFootnoteStep(out, step.map(mapping), footnoteStep(step));
     if (footnote === null) return null;
     if (footnote !== undefined) {
       caret = footnote.caret;

@@ -61,7 +61,7 @@ Verification: `src/model/schema/element-attributes.test.ts`
 
 ### DOCE-SCHEMA-3.1 - Pages and footnotes
 
-A section (`div.pm-section`) shall hold pages, each a header, content, footnote area and footer in that order. A section shall keep its name, its CSS variables, its header and footer markup and whether it is editable; a locked section shall be written as not editable. A page header or footer shall keep its template markup and hold the placeholder when it is empty, unless its section's markup is explicitly empty. A footnote marker (`sup[data-footnote-id]`) shall read before the superscript mark and pair by id with its entry in the page's footnote area; both shall write the number, the entry as a separate number before its content. A manual page break shall be `hr[data-page-break="manual"]`.
+A section (`div.pm-section`) shall hold pages, each a header, content, footnote area and footer in that order. A section shall keep its name, its CSS variables, its header and footer markup and whether it is editable; a locked section shall be written as not editable. A page header or footer shall keep its template markup and hold the placeholder when it is empty, unless its section's markup is explicitly empty. A footnote marker (`sup[data-footnote-id]`) shall read before the superscript mark and pair by id with its entry in the page's footnote area; the entry shall write an empty number element before its content, and neither shall read or write a number, which the view draws (DOCE-FOOTNOTES-2.2). A manual page break shall be `hr[data-page-break="manual"]`.
 
 Implementation: `src/model/schema/page-nodes.ts`, `src/model/schema/footnote-nodes.ts`
 Verification: `src/model/schema/page-nodes.test.ts`

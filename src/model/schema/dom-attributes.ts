@@ -105,9 +105,3 @@ export function parseTemplateAssetImageAlignment(value: unknown): 'left' | 'cent
     .toLowerCase();
   return normalized === 'center' || normalized === 'right' ? normalized : 'left';
 }
-
-/** An element's integer attribute, NaN when it is not a number, or null when it is absent. */
-export function integerAttributeOrNull(dom: Element, name: string): number | null {
-  if (!dom.hasAttribute(name)) return null;
-  return Number.parseInt(dom.getAttribute(name) || '', 10);
-}

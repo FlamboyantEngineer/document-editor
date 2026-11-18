@@ -11,7 +11,7 @@ function formatting(node: Node): string {
       Object.entries(node.attrs).filter(
         ([name]) =>
           !identity.has(name) &&
-          !['orphanedListContinuation', 'continuationPlaceholder', 'footnoteNumber'].includes(name),
+          !['orphanedListContinuation', 'continuationPlaceholder'].includes(name),
       ),
     ),
   });

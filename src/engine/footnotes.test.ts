@@ -1,4 +1,4 @@
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -12,10 +12,8 @@ import {
   text,
   textPos,
 } from '../../test/footnote-fixtures.js';
-import { readDocumentFile } from '../model/index.js';
 import { createTableFigure } from '../model/schema/caption-content.js';
 import { documentKeys } from './document-editing.js';
-import { numberFootnotes } from './footnote-model.js';
 import {
   canInsertFootnote,
   createFootnotes,
@@ -27,27 +25,6 @@ import {
   insertFootnote,
   listFootnotes,
 } from './footnotes.js';
-import {
-  createSectionFootnoteNumbers,
-  sectionFootnoteNumbersKey,
-} from './section-footnote-numbers.js';
-import { markRemote } from './transaction-kind.js';
-
-// Two sections, the first citing two footnotes and the second one.
-const twoSections = () =>
-  readDocumentFile(
-    {
-      formatVersion: 1,
-      sections: [
-        {
-          name: null,
-          content: [paragraph(text('One'), note('a', 'A'), text(' two'), note('b', 'B'))],
-        },
-        { name: null, content: [paragraph(text('Three'), note('c', 'C'))] },
-      ],
-    },
-    documentSchema,
-  ).doc;
 
 describe('footnotes', () => {
   it('DOCE-FOOTNOTES-1.1 inserts a marker and an entry in marker order, with the caret in the entry', () => {
@@ -246,44 +223,5 @@ describe('footnotes', () => {
     expect(editFootnote('none')(state)).toBe(false);
     expect(goToFootnoteMarker('none')(state)).toBe(false);
     expect(deleteFootnote('none')(state)).toBe(false);
-  });
-
-  it('DOCE-FOOTNOTES-2.1 numbers footnotes from 1 in each section, when enabled', () => {
-    let enabled = true;
-    let state = EditorState.create({
-      doc: twoSections(),
-      plugins: [createSectionFootnoteNumbers({ enabled: () => enabled })],
-    });
-    state = state.apply(state.tr.setMeta(sectionFootnoteNumbersKey, true));
-    expect(footnoteParts(state, 'number')).toEqual([
-      'marker:1',
-      'marker:2',
-      'entry:1:A',
-      'entry:2:B',
-      'marker:1',
-      'entry:1:C',
-    ]);
-    // Switched off, as on pages, it leaves the numbers to others: here, document order.
-    enabled = false;
-    const tr = state.tr;
-    expect(numberFootnotes(tr)).toBe(true);
-    expect(footnoteParts(state.apply(tr), 'number').slice(4)).toEqual(['marker:3', 'entry:3:C']);
-  });
-
-  it('DOCE-FOOTNOTES-2.1 DOCE-EDITING-3.3 leaves the numbers of a remote change as they came', () => {
-    const numbers = createSectionFootnoteNumbers({ enabled: () => true });
-    const state = EditorState.create({ doc: twoSections(), plugins: [numbers] });
-    // Another writer's change, numbered by their layout: here across the document.
-    const split = () => {
-      const tr = state.tr.split(textPos(state, ' two'));
-      numberFootnotes(tr);
-      return tr;
-    };
-    const asTheyCame = ['marker:1', 'marker:2', 'entry:1:A', 'entry:2:B', 'marker:3', 'entry:3:C'];
-    expect(footnoteParts(state.apply(markRemote(split())), 'number')).toEqual(asTheyCame);
-    expect(footnoteParts(state.apply(split()), 'number').slice(4)).toEqual([
-      'marker:1',
-      'entry:1:C',
-    ]);
   });
 });

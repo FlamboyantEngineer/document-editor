@@ -26,22 +26,16 @@ import {
   idOf,
   listFootnotes,
   markerRanks,
-  numberFootnotes,
 } from './footnote-model.js';
 import { reconcileFootnotes } from './footnote-reconcile.js';
 import { isInlineTextOnly, isRemoteTransaction } from './transaction-kind.js';
 import { typingMarks } from './typing-marks.js';
 
 export type { FootnoteAt } from './footnote-model.js';
-export { canInsertFootnote, listFootnotes, numberFootnotes } from './footnote-model.js';
+export { canInsertFootnote, listFootnotes } from './footnote-model.js';
 
 /** How the footnote plugin numbers footnotes and where it lets them be cited. */
 export interface FootnotesOptions {
-  /**
-   * Whether markers and entries are numbered in document order after each change; the pages number
-   * them per page instead when the template asks for it. Defaults to true.
-   */
-  readonly numberInOrder?: (() => boolean) | undefined;
   /**
    * The blocks a citing paragraph may sit in, from its parent up to the page's content. Defaults to
    * lists, body cells, quotes and layout columns.
@@ -101,7 +95,6 @@ export function insertFootnote(options: { readonly newId?: () => string } = {}):
       const ranks = markerRanks(tr.doc);
       const place = entryPlace(tr.doc, tr.mapping.map(area), ranks.get(id) ?? ranks.size);
       tr.insert(place, entry.create({ footnoteId: id }));
-      numberFootnotes(tr);
       tr.setSelection(TextSelection.create(tr.doc, place + 1));
       dispatch(tr.scrollIntoView());
     }
@@ -191,7 +184,6 @@ export function deleteFootnote(id: string): Command {
         const node = tr.doc.nodeAt(pos);
         if (node) tr.delete(pos, pos + node.nodeSize);
       }
-      numberFootnotes(tr);
       dispatch(tr.scrollIntoView());
     }
     return true;
@@ -246,15 +238,14 @@ function reconcileAfter(
     bodies,
     newId,
   });
-  const numbered = (options.numberInOrder ?? (() => true))() && numberFootnotes(tr);
   const meta: FootnotesMeta = { reconciled: true, ...(kept.size > 0 ? { bodies: kept } : {}) };
   tr.setMeta(footnotesKey, meta);
-  return changed || numbered;
+  return changed;
 }
 
 /**
  * Keeps footnote entries with their markers after each of the writer's changes (`reconcileFootnotes`),
- * numbers them in document order, gives the caret the marks typing there takes (`typingMarks`:
+ * gives the caret the marks typing there takes (`typingMarks`:
  * beside a marker those of the text around it, inside struck text none of the deletion), and marks
  * the part of a footnote the reader was taken to with `data-de-revealed`.
  */

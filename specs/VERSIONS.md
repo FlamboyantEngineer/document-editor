@@ -69,7 +69,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.10 - Generated values
 
-Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a footnote's number, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`, or a comparison's `generated` in the editor), a block whose only change is in such values shall be a `modification` marked `generated`.
+Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`, or a comparison's `generated` in the editor), a block whose only change is in such values shall be a `modification` marked `generated`.
 
 Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
 Verification: `src/engine/version-compare.test.ts`, `src/engine/version-changes.test.ts`

@@ -98,10 +98,10 @@ describe('renderPrintPage', () => {
       '<a href="https://example.test/doc-7" data-print-link="citation">SPEC-7</a>',
     );
     expect(view).toMatch(
-      /<sup[^>]* id="fnref-n1"[^>]*><a href="#fn-n1" data-print-link="footnote">/,
+      /<sup[^>]* data-footnote-number="1" id="fnref-n1"[^>]*><a href="#fn-n1" data-print-link="footnote">1<\/a>/,
     );
     expect(view).toMatch(
-      /<p[^>]* id="fn-n1"[^>]*><span[^>]*><a href="#fnref-n1" data-print-link="footnote-back">/,
+      /<p[^>]* id="fn-n1"[^>]*><span[^>]*><a href="#fnref-n1" data-print-link="footnote-back">1<\/a>/,
     );
   });
 

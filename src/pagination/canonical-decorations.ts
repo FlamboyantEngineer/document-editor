@@ -5,6 +5,7 @@
 
 import { type EditorState, Plugin } from 'prosemirror-state';
 import { Decoration, type DecorationAttrs, DecorationSet } from 'prosemirror-view';
+import { footnoteNumbersKey } from '../engine/footnote-numbers.js';
 import type { ProjectionMap } from './projection-map.js';
 
 /** What the drawn decorations read: the canonical state and the map onto the projection. */
@@ -131,6 +132,8 @@ export function canonicalDecorations(source: DecorationSource): Plugin {
         const canonical = source.canonical();
         const sets: DecorationSet[] = [];
         for (const plugin of canonical.plugins) {
+          // The pages number their footnotes for themselves.
+          if (plugin.spec.key === footnoteNumbersKey) continue;
           const set = plugin.props.decorations?.call(plugin, canonical);
           if (set instanceof DecorationSet && set !== DecorationSet.empty) {
             sets.push(onProjection(set, map));

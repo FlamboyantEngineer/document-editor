@@ -1381,20 +1381,21 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
     expect(allowed(inserted, taken, 'writer')).toBe(false);
   });
 
-  it('refuses a footnote number the editors’ numbering does not give, also beside a suggested footnote', () => {
+  it('refuses a change to any footnote attribute without edit rights, the writer’s own suggested footnote too', () => {
     const before = start();
     const markerAt = listFootnotes(before.doc).get('n1')?.marker ?? 0;
-    const forged = before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7);
-    expect(allowed(before, forged, 'writer')).toBe(false);
+    const renamed = before.tr.setNodeAttribute(markerAt, 'footnoteId', 'n7');
+    expect(allowed(before, renamed, 'writer')).toBe(false);
     const inserted = suggested();
     expect(allowed(before, inserted, 'writer')).toBe(true);
     const entryAt = listFootnotes(inserted.doc).get('n1')?.entry ?? 0;
-    const renumbered = inserted.tr.setNodeAttribute(entryAt, 'footnoteNumber', 1);
-    expect(allowed(before, { doc: renumbered.doc }, 'writer')).toBe(false);
-    // The writer's own suggested footnote takes no other number either.
+    const entry = inserted.tr.setNodeAttribute(entryAt, 'footnoteId', 'n7');
+    expect(allowed(before, { doc: entry.doc }, 'writer')).toBe(false);
     const ownAt = listFootnotes(inserted.doc).get('n0')?.marker ?? 0;
-    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteNumber', 5);
+    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteId', 'n5');
     expect(allowed(before, { doc: own.doc }, 'writer')).toBe(false);
+    // A footnote's number is no attribute of the schema: setting one changes nothing.
+    expect(before.tr.setNodeAttribute(markerAt, 'footnoteNumber', 7).doc.eq(before.doc)).toBe(true);
   });
 
   it('lets only a writer who decides reject another writer’s suggested footnote', () => {
@@ -1655,6 +1656,47 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
         await room.provider.whenStored();
         expect(room.provider.getState().refusal, name).toBe('unauthorized-write');
         expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
+  it('refuses a footnote number set by hand in a room, from an editor or a writer who may only suggest', async () => {
+    // The shared type of the room's first footnote marker.
+    const markerOf = (type: Y.Type): Y.Type | null => {
+      if (type.name === 'footnote_reference') return type;
+      const value = type.toDelta() as unknown as {
+        children: { start: { insert?: unknown; next: unknown } | null };
+      };
+      for (let op = value.children.start; op; op = op.next as typeof op) {
+        if (!Array.isArray(op.insert)) continue;
+        for (const child of op.insert as unknown[]) {
+          const found = child instanceof Y.Type ? markerOf(child) : null;
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    for (const granted of [editor, suggestOnly]) {
+      let current = editor;
+      const room = await setup({ resolvePermissions: () => current });
+      try {
+        // An editor cites a footnote, which the room keeps.
+        change(room.doc, (state) =>
+          runCommand(caretAt(state, 'Original'), insertFootnote({ newId: () => 'n1' })),
+        );
+        expect(await room.provider.whenStored()).toBe(true);
+        expect(room.provider.getState().refusal).toBeNull();
+        const stored = yjsToDocument(room.handle.snapshot(), { schema });
+        current = granted;
+        const marker = markerOf(room.doc.get('content'));
+        if (!marker) throw new Error('No footnote marker in the room.');
+        room.doc.transact(() => marker.setAttr('footnoteNumber', 7));
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal, String(granted.edit)).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(stored);
+        expect(JSON.stringify(room.handle.snapshot())).not.toMatch(/footnoteNumber/);
       } finally {
         await room.close();
       }

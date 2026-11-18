@@ -51,10 +51,5 @@ export function readFootnoteSuggestions(before: Node, after: Node): FootnoteSugg
 export const entryFootnote = (node: Node): string | null =>
   node.type.name === 'footnote_entry' ? footnoteIdOf(node) : null;
 
-/** An inline node as stored, without its mark set or a footnote's number, which each editor sets. */
-export function storedInline(node: Node): Node {
-  const bare = node.mark([]);
-  return bare.attrs.footnoteNumber == null
-    ? bare
-    : bare.type.create({ ...bare.attrs, footnoteNumber: null }, bare.content);
-}
+/** An inline node as stored, without its mark set. */
+export const storedInline = (node: Node): Node => node.mark([]);
