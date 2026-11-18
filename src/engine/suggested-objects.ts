@@ -20,26 +20,23 @@ export function wholeBlocks(doc: ProseMirrorNode, [from, to]: readonly [number, 
   return blocks;
 }
 
-// Whether a deletion would mark some text of a block as the writer's: text that is neither the
-// writer's own suggested insertion, which goes outright, nor already suggested for deletion.
-function hasWritersMark(block: ProseMirrorNode, author: string | null): boolean {
-  let marked = false;
-  block.descendants((node) => {
-    if (marked || !node.isText) return !marked;
-    const kinds = node.marks.map((mark) => mark.type.name);
-    const own = node.marks.some(
-      (mark) => mark.type.name === 'insertion' && mark.attrs.dataAuthor === author,
-    );
-    marked = !own && !kinds.includes('deletion');
-    return !marked;
-  });
-  return marked;
-}
+// Whether a text takes the writer's deletion mark: it is neither the writer's own suggested
+// insertion, which goes outright, nor already suggested for deletion.
+const takesWritersMark = (node: ProseMirrorNode, author: string | null) =>
+  node.isText &&
+  !node.marks.some(
+    (mark) =>
+      mark.type.name === 'deletion' ||
+      (mark.type.name === 'insertion' && mark.attrs.dataAuthor === author),
+  );
+
+const isOwnBlock = (node: ProseMirrorNode, author: string | null) =>
+  node.attrs.suggestionSplitKind === 'insertion' && node.attrs.dataAuthor === author;
 
 /**
- * Whether a deletion of a range cannot be suggested: it covers a whole figure or layout section
- * none of whose text would take the writer's deletion mark, which names the block's suggestion as
- * theirs (DOCE-SUGGESTIONS-1.4), unless it is the writer's own suggested block. A table, which
+ * Whether a deletion of a range cannot be suggested: it covers a whole figure or layout section,
+ * not the writer's own suggested block, and no text in the range takes the writer's deletion mark,
+ * which names the suggestion the block joins as theirs (DOCE-SUGGESTIONS-1.4). A table, which
  * cannot be a suggested block, has its text suggested for deletion instead.
  */
 export function cannotSuggestDeleting(
@@ -47,16 +44,17 @@ export function cannotSuggestDeleting(
   [from, to]: readonly [number, number],
   author: string | null,
 ): boolean {
-  let refused = false;
+  let block = false;
+  let named = false;
   doc.nodesBetween(from, to, (node, pos) => {
-    if (pos < from || pos + node.nodeSize > to) return !refused;
-    if (!node.isTextblock && hasKindAttrs(node)) {
-      const own =
-        node.attrs.suggestionSplitKind === 'insertion' && node.attrs.dataAuthor === author;
-      if (!own && !node.attrs.suggestionSplitKind && !hasWritersMark(node, author)) refused = true;
-      return false;
+    const whole = pos >= from && pos + node.nodeSize <= to;
+    if (whole && !node.isTextblock && hasKindAttrs(node)) {
+      // The writer's own block goes outright, its text with it.
+      if (isOwnBlock(node, author)) return false;
+      if (!node.attrs.suggestionSplitKind) block = true;
     }
-    return !refused;
+    if (takesWritersMark(node, author)) named = true;
+    return true;
   });
-  return refused;
+  return block && !named;
 }

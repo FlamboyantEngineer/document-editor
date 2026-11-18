@@ -1775,6 +1775,13 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       const theirs = marked(deletion, 'other');
       expect(check(theirs, theirs.apply(asDeleted(theirs)), suggestOnly)).toBe(false);
       expect(deleting(theirs)).toBeNull();
+      // Deleting other text with it names the writer: the figure joins that text's suggestion.
+      const start = at - 'Original'.length - 2;
+      const both = suggested(own, own.tr.delete(start, at + figure.nodeSize));
+      if (!both) throw new Error('The deletion was not suggested.');
+      expect(both.doc.nodeAt(figureAt(both))?.attrs.suggestionSplitKind).toBe('deletion');
+      expect(check(own, both, suggestOnly)).toBe(true);
+      expect(check(own, both, suggestOnly, 'other')).toBe(false);
     });
 
     it('refuses a figure marked for deletion without its writer’s marks, or with another’s', () => {

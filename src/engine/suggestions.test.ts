@@ -338,6 +338,34 @@ describe('whole objects while suggesting', () => {
     expect(deleted && markup(deleted.doc)).toEqual(['Before', '[-Totals]', '[-Cell]', 'After']);
   });
 
+  it('DOCE-SUGGESTIONS-1.4 suggests deleting a figure of the writer’s own text with other text, which names the writer', () => {
+    const doc = read(paragraph('Before'), {
+      type: 'figure',
+      attrs: { src: 'sample.png' },
+      content: [
+        {
+          type: 'caption',
+          content: [
+            {
+              type: 'text',
+              text: 'Mine',
+              marks: [{ type: 'insertion', attrs: { id: 's0000077', author: 'writer' } }],
+            },
+          ],
+        },
+      ],
+    });
+    const state = EditorState.create({ doc });
+    const figure = posOf(doc, 'figure');
+    const size = doc.nodeAt(figure)?.nodeSize ?? 0;
+    const deleted = suggest(select(state, 1, 1), (current, dispatch) => {
+      dispatch?.(current.tr.delete(figure - 'Before'.length - 2, figure + size));
+      return true;
+    });
+    expect(deleted && types(deleted.doc)).toEqual(['figure:deletion']);
+    expect(deleted && markup(deleted.doc)).toEqual(['[-Before]', '']);
+  });
+
   it('DOCE-SUGGESTIONS-1.5 refuses to delete a whole figure none of whose text would take the writer’s mark', () => {
     const figureOnly = (caption: StoredNode['content']) =>
       read(paragraph('Before'), {
