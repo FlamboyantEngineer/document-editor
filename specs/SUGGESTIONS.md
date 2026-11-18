@@ -20,21 +20,21 @@ Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-1.3 - A writer's own suggestions
 
-Deleting text the same writer suggested inserting shall remove it outright; deleting another writer's suggested insertion shall suggest its deletion.
+Deleting text, or a whole block (DOCE-SUGGESTIONS-1.4), the same writer suggested inserting shall remove it outright; deleting another writer's suggested insertion shall suggest its deletion.
 
 Implementation: `src/engine/suggestions.ts`
 Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-1.4 - Suggested blocks
 
-Splitting a text block inside its text, as Enter does, shall keep the block as a suggested deletion and add its two halves after it as suggested insertions, the caret at the start of the second; splitting at its end or start shall suggest an empty block after or before it. Whole blocks a change inserts shall be suggested insertions. Paragraphs, headings, figures and layout sections can be suggested blocks; a block's type and attributes the command sets on the new half are kept.
+Splitting a text block inside its text, as Enter does, shall keep the block as a suggested deletion and add its two halves after it as suggested insertions, the caret at the start of the second; splitting at its end or start shall suggest an empty block after or before it. Whole blocks a change inserts shall be suggested insertions. Paragraphs, headings, figures and layout sections can be suggested blocks; a block's type and attributes the command sets on the new half are kept. A deletion that covers a whole figure or layout section, its caption included, shall suggest deleting it as a block, its text marked with the same suggestion, so accepting removes the whole object and rejecting keeps it; the writer's own suggested block goes outright.
 
 Implementation: `src/engine/suggestions.ts`, `src/model/schema/element-attributes.ts`
 Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-1.5 - What suggest mode leaves alone
 
-A change that does not edit content, a change a suggestion built or decided, a change outside the history, such as the pagination's, a system change (`markSystemChange`), and an undo or redo, which replays changes that were already suggestions, shall be returned as it is. A change a suggestion cannot record shall give null, and the editor shall drop it rather than make it unsuggested: splitting a list item or a block laid out across pages, a change of structure around blocks, such as wrapping them in a list, nesting or lifting them, the insertion of a block that cannot be suggested, such as a table, a change of the formatting of a block that cannot be suggested (DOCE-SUGGESTIONS-4.2), and a formatting mark set on a node itself. A command that types text with its formatting, as a link typed at a caret (DOCE-OBJECTS-1.6), makes both in one step, so the suggestion records an insertion. A mark that is not formatting, such as a comment's highlight, is made as it is. A footnote inserted while suggesting is suggested by its marker, a suggested insertion like typed text; its entry, which follows its marker (DOCE-FOOTNOTES-1.3), is inserted as it is, and the footnotes' numbers are left to the footnote plugin, so accepting the marker keeps the footnote and rejecting it removes the entry with it.
+A change that does not edit content, a change a suggestion built or decided, a change outside the history, such as the pagination's, a system change (`markSystemChange`), and an undo or redo, which replays changes that were already suggestions, shall be returned as it is. A change a suggestion cannot record shall give null, and the editor shall drop it rather than make it unsuggested: splitting a list item or a block laid out across pages, a change of structure around blocks, such as wrapping them in a list, nesting or lifting them, the insertion of a block that cannot be suggested, such as a table, and a deletion that covers a whole table with its caption, a change of the formatting of a block that cannot be suggested (DOCE-SUGGESTIONS-4.2), and a formatting mark set on a node itself. A command that types text with its formatting, as a link typed at a caret (DOCE-OBJECTS-1.6), makes both in one step, so the suggestion records an insertion. A mark that is not formatting, such as a comment's highlight, is made as it is. A footnote inserted while suggesting is suggested by its marker, a suggested insertion like typed text; its entry, which follows its marker (DOCE-FOOTNOTES-1.3), is inserted as it is, and the footnotes' numbers are left to the footnote plugin, so accepting the marker keeps the footnote and rejecting it removes the entry with it.
 
 Implementation: `src/engine/suggestions.ts`, `src/engine/suggested-footnotes.ts`
 Verification: `src/engine/suggestions.test.ts`, `src/engine/suggested-footnotes.test.ts`, `src/engine/template-sync.test.ts`, `e2e/shared-room.spec.ts`
