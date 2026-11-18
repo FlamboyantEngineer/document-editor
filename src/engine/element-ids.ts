@@ -50,6 +50,21 @@ function isTextStep(step: Step): boolean {
 }
 
 /**
+ * Calls `visit` for each stored element of a document in order: every node an element id names,
+ * and not the page chrome or the structure around the elements.
+ */
+export function forEachStoredElement(
+  doc: ProseMirrorNode,
+  visit: (node: ProseMirrorNode, pos: number) => void,
+): void {
+  doc.descendants((node, pos) => {
+    if (node.isText || isDrawnRegion(node)) return false;
+    if (!isStructureNode(node) && node.type.spec.unstored !== true) visit(node, pos);
+    return true;
+  });
+}
+
+/**
  * Gives each element without a valid id, or with one an earlier element holds, a fresh id, and
  * returns whether it changed the document. Elements that get one are attributed to `author` when
  * they have no author, or when they copied another element's id, as a split does.
@@ -59,11 +74,7 @@ export function assignElementIds(
   { author = null, newId = createElementId }: AssignOptions,
 ): boolean {
   const walk: Walk = { tr, seen: new Set(), author, newId, changed: false };
-  tr.doc.descendants((node, pos) => {
-    if (node.isText || isDrawnRegion(node)) return false;
-    if (!isStructureNode(node) && node.type.spec.unstored !== true) identify(walk, node, pos);
-    return true;
-  });
+  forEachStoredElement(tr.doc, (node, pos) => identify(walk, node, pos));
   return walk.changed;
 }
 

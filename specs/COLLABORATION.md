@@ -270,6 +270,13 @@ A change the guard refuses only because, merged with what the room already holds
 Implementation: `src/collab/room-change-guard.ts`, `src/collab/guard-snapshots.ts`
 Verification: `src/collab/room-change-guard-security.test.ts`, `src/session/room-reload.test.ts`
 
+### DOCE-COLLAB-7.5 - One element for each id
+
+A suggestion's signature names the blocks it holds by their element ids, so every stored element the room holds shall keep a well-formed id of its own (DOCE-SCHEMA-2.3). The guard shall refuse a change after which the room holds more stored elements without a well-formed id than before, or an element id on more nodes than held it before, the drawn regions' included (a footnote entry or a header holds none, so a copy there is refused too, and a writer without edit rights may not change their attributes at all), from any writer: a writer may send either, such as a suggester's block with no id or another's, and honest changes can merge into the second, as two moves of one block or two changes of its type do. Another writer's editor would give an element without an id one at its next structural change, changing the first writer's suggestion, and be refused for it, so one writer's block could otherwise cut others off. The refusal is a `conflict` (DOCE-COLLAB-7.4) when the change is otherwise one the writer may make: nothing of it is applied, so the room keeps its ids whatever the answer, and a writer who is honest but whose merge collides loses one change rather than the connection, while the server's bound cuts off a writer who keeps sending them. What a stored room already holds, an element without an id or an id held twice, does not refuse later changes, and no change may add another copy of it. Each new reading of the room is read once for its ids.
+
+Implementation: `src/collab/guard-element-ids.ts`, `src/collab/room-change-guard.ts`
+Verification: `src/collab/room-change-guard-security.test.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                                           | Description                                                                                                     |
