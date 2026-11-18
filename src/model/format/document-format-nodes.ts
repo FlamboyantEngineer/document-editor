@@ -22,6 +22,7 @@ import {
 } from './document-format.js';
 import { readFormatRecords } from './format-records.js';
 import type { FootnoteIds } from './stored-footnote-ids.js';
+import { holderAttrsOf } from './stored-table-suggestion.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -40,9 +41,8 @@ export function formatError(path: string, message: string): DocumentFormatError 
 }
 
 /** Whether an error is a stored document that cannot be read. */
-export function isDocumentFormatError(error: unknown): error is DocumentFormatError {
-  return error instanceof Error && error.name === 'DocumentFormatError';
-}
+export const isDocumentFormatError = (error: unknown): error is DocumentFormatError =>
+  error instanceof Error && error.name === 'DocumentFormatError';
 
 const PAGE_TYPES = new Set([
   'page',
@@ -62,9 +62,8 @@ const SCHEMA_MARK_NAMES = new Map(
   Object.entries(STORED_MARK_TYPES).map(([name, mapping]) => [mapping.type, name]),
 );
 
-export function isRecord(value: unknown): value is Attrs {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
+export const isRecord = (value: unknown): value is Attrs =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 /** What a read carries: the schema, the policy and the problems and footnotes found so far. */
 export interface ReadContext {
@@ -340,11 +339,12 @@ function readTable(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode 
   const captionType = schema.nodes.table_caption;
   if (!holder || !captionType) return null;
   const { caption, rest } = readCaption(stored, { type: captionType, at });
-  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  const { holder: whole, table: own } = holderAttrsOf(stored.attrs);
+  const attrs = readAttrs(own, { type, mappings: STORED_NODE_TYPES }, at);
   const rows = readContent(rest, { ...at, path: `${at.path}.content` }, false);
   const table = createNode(type, attrs, { content: rows, at });
   if (!table || !caption) return null;
-  return createNode(holder, {}, { content: [caption, table], at });
+  return createNode(holder, whole, { content: [caption, table], at });
 }
 
 // A stored figure, with its caption as its content.

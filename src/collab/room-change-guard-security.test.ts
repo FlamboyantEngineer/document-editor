@@ -7,7 +7,7 @@ import {
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
 import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, EditorState, type Transaction } from 'prosemirror-state';
+import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
 import { documentSchema as schema } from '../../test/document-markup.js';
@@ -27,7 +27,9 @@ import {
   listSuggestions,
   rejectAllSuggestions,
 } from '../engine/suggestion-decisions.js';
+import { decideWithPolicy, type SuggestionPolicy } from '../engine/suggestion-policy.js';
 import { suggestTransaction } from '../engine/suggestions.js';
+import { insertTable } from '../engine/tables.js';
 import { createMemoryHost } from '../host/index.js';
 import { type DocumentFile, readDocumentFile } from '../model/index.js';
 import { FRAGMENT_RULES } from '../model/pagination/fragments.js';
@@ -79,6 +81,8 @@ async function setup(
     /** The pending suggestion is an agent's generated text. */
     generated?: boolean;
     granted?: typeof permissions;
+    /** The room's content, and a change made to it before anyone joins. */
+    seeded?: { file: DocumentFile; change?: (state: EditorState) => EditorState };
     authorOf?: RoomChangeGuardOptions['authorOf'];
     resolvePermissions?: RoomChangeGuardOptions['permissions'];
     /** How many merge refusals one connection may have before it is cut off. */
@@ -129,7 +133,8 @@ async function setup(
         seed: async () => {
           if (options.empty) return null;
           const seed = new Y.Doc();
-          Y.applyUpdate(seed, documentToYjs(file('Original'), { schema }));
+          Y.applyUpdate(seed, documentToYjs(options.seeded?.file ?? file('Original'), { schema }));
+          if (options.seeded?.change) change(seed, options.seeded.change);
           if (options.pending)
             change(seed, (state) => {
               let start = 0;
@@ -2166,5 +2171,177 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion h
   it('refuses a block put under a later id of another writer’s suggestion joined by one comment thread', () => {
     const runs = [deleted('Origi', 's0000050', 'c0000001'), deleted('nal', 's0000051', 'c0000001')];
     expect(markFigure(runs, 's0000051')).toBe(false);
+  });
+});
+
+describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 a table suggested whole in a room', () => {
+  const decider = { edit: false, suggest: true, comment: true, decide: true };
+  const tableWith = (
+    id: string,
+    cell: string,
+  ): DocumentFile['sections'][number]['content'][number] => ({
+    type: 'table',
+    attrs: { id },
+    content: [
+      { type: 'caption', content: [text(id)] },
+      { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph(text(cell))] }] },
+    ],
+  });
+  const tables: DocumentFile = {
+    formatVersion: 1,
+    template: null,
+    sections: [
+      {
+        name: null,
+        content: [
+          { type: 'paragraph', attrs: { id: 'a0000001' }, content: [text('Intro')] },
+          tableWith('t1', 'One'),
+          tableWith('t2', 'Two'),
+          { type: 'paragraph', attrs: { id: 'a0000002' }, content: [text('Outro')] },
+        ],
+      },
+    ],
+  };
+  // Where each table's holder starts.
+  const holders = (state: EditorState) => {
+    const found: { node: ProseMirrorNode; pos: number }[] = [];
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'table_figure') found.push({ node, pos });
+      return node.type.name !== 'table_figure';
+    });
+    return found;
+  };
+  const suggestAs = (state: EditorState, tr: Transaction, author: string, id = 's0000001') => {
+    const rewritten = suggestTransaction(tr, state, { author, newId: () => id });
+    if (!rewritten) throw new Error('The change was not suggested.');
+    return state.apply(rewritten);
+  };
+  // Suggests a table after the opening paragraph, as `author`.
+  const insertAs = (author: string) => (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.isText) at = pos + 1;
+      return at < 0;
+    });
+    const placed = state.apply(state.tr.setSelection(TextSelection.create(state.doc, at)));
+    let next = placed;
+    insertTable({ rows: 1, columns: 1 })(placed, (tr) => {
+      next = suggestAs(placed, tr, author);
+    });
+    return next;
+  };
+  // The suggestion kind of each table in the room.
+  const kindsIn = (doc: Y.Doc) => {
+    const content = readContent(schema, doc.get('content'));
+    if (!content) return [];
+    return holders(EditorState.create({ doc: content })).map(
+      ({ node }) => node.attrs.suggestionSplitKind,
+    );
+  };
+  // Makes a change in a room as the guarded writer, and says whether the room refused it.
+  async function inRoom(
+    options: Parameters<typeof setup>[0],
+    action: (state: EditorState) => EditorState,
+  ): Promise<{ refused: boolean; kinds: unknown[] }> {
+    const room = await setup({ ...options, seeded: options?.seeded ?? { file: tables } });
+    try {
+      change(room.doc, action);
+      await room.provider.whenStored();
+      return {
+        refused: room.provider.getState().refusal !== null,
+        kinds: kindsIn(room.snapshot()),
+      };
+    } finally {
+      await room.close();
+    }
+  }
+  const decide =
+    (policy: SuggestionPolicy, decision: 'accept' | 'reject') => (state: EditorState) => {
+      let next = state;
+      if (!decideWithPolicy(policy, decision)(state, (tr) => (next = state.apply(tr))))
+        throw new Error('Nothing was decided.');
+      return next;
+    };
+  const pending = { file: tables, change: insertAs('owner') };
+
+  it('admits a writer’s honest table insertion and whole-table deletion', async () => {
+    expect(await inRoom({}, insertAs('writer'))).toEqual({
+      refused: false,
+      kinds: ['insertion', null, null],
+    });
+    const deleted = await inRoom({}, (state) => {
+      const [first] = holders(state);
+      if (!first) throw new Error('No table.');
+      return suggestAs(
+        state,
+        state.tr.delete(first.pos, first.pos + first.node.nodeSize),
+        'writer',
+      );
+    });
+    expect(deleted).toEqual({ refused: false, kinds: ['deletion', null] });
+  });
+
+  it('admits the owner’s withdrawal of their pending table', async () => {
+    const own = { file: tables, change: insertAs('writer') };
+    const withdrawn = await inRoom(
+      { seeded: own },
+      decide({ me: 'writer', canWithdraw: true, canDecide: false }, 'reject'),
+    );
+    expect(withdrawn).toEqual({ refused: false, kinds: [null, null] });
+  });
+
+  it('admits a decider’s accepting or rejecting another writer’s table, and refuses one who may only suggest', async () => {
+    const reviewer = { me: 'writer', canDecide: true };
+    expect(await inRoom({ seeded: pending, granted: decider }, decide(reviewer, 'accept'))).toEqual(
+      {
+        refused: false,
+        kinds: [null, null, null],
+      },
+    );
+    expect(await inRoom({ seeded: pending, granted: decider }, decide(reviewer, 'reject'))).toEqual(
+      {
+        refused: false,
+        kinds: [null, null],
+      },
+    );
+    expect((await inRoom({ seeded: pending }, decide(reviewer, 'reject'))).refused).toBe(true);
+  });
+
+  it('refuses moving another writer’s whole-table deletion onto a table they did not choose', async () => {
+    // The owner's one suggestion deletes the first table whole and text around and after it, so
+    // its extent stays as a block deletion moves from one table to the other.
+    const owned = {
+      file: tables,
+      change: (state: EditorState) => {
+        const [first] = holders(state);
+        const at = (value: string) => {
+          let found = -1;
+          state.doc.descendants((node, pos) => {
+            if (found < 0 && node.text === value) found = pos;
+            return found < 0;
+          });
+          return found;
+        };
+        if (!first) throw new Error('No table.');
+        const all = state.tr
+          .delete(at('Outro'), at('Outro') + 2)
+          .delete(at('Two'), at('Two') + 2)
+          .delete(first.pos, first.pos + first.node.nodeSize)
+          .delete(at('Intro'), at('Intro') + 2);
+        return suggestAs(state, all, 'owner', 's0000005');
+      },
+    };
+    const moved = await inRoom({ seeded: owned, granted: decider }, (state) => {
+      const [first, second] = holders(state);
+      if (!first || !second) throw new Error('No tables.');
+      return state.apply(
+        state.tr
+          .setNodeAttribute(first.pos, 'suggestionSplitKind', null)
+          .setNodeAttribute(first.pos, 'suggestionSplitId', null)
+          .setNodeAttribute(second.pos, 'suggestionSplitKind', 'deletion')
+          .setNodeAttribute(second.pos, 'suggestionSplitId', 's0000005'),
+      );
+    });
+    expect(moved).toEqual({ refused: true, kinds: ['deletion', null] });
   });
 });
