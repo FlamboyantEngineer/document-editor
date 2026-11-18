@@ -44,7 +44,7 @@ Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequen
 Asked to (`compareVersions(older, newer, { suggestions: 'accepted' })`, or a comparison's `suggestions` in the editor), the versions shall be compared with every suggestion accepted: the text a suggestion deletes left out, the text and blocks it inserts compared. Inline markup shall not show text the document still shows as suggested for deletion a second time as deleted text: its line keeps the deletion's bar, and the struck suggestion stands for it.
 
 Implementation: `src/engine/version-compare.ts`, `src/engine/version-changes.ts`, `src/engine/version-decorations.ts`, `src/components/document-editor/use-document-layout.ts`
-Verification: `src/engine/version-compare.test.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/suggested-tables.test.ts`
 
 ### DOCE-VERSIONS-1.7 - Containers
 

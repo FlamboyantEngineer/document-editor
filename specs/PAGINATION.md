@@ -30,7 +30,7 @@ Verification: `src/model/pagination/fragments.test.ts`
 A table's fragments shall join their rows in order, without the leading header rows a continuation repeats from the first fragment, so they appear once.
 
 Implementation: `src/model/pagination/fragments.ts`
-Verification: `src/model/pagination/fragments.test.ts`
+Verification: `src/model/pagination/fragments.test.ts`, `src/engine/suggested-tables.test.ts`
 
 ### DOCE-PAGINATION-1.5 - Lists
 

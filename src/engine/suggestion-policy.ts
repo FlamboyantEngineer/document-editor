@@ -8,6 +8,7 @@ import {
   type Suggestion,
   suggestionAuthor,
   type SuggestionDecision,
+  suggestionDecisionOf,
 } from './suggestion-decisions.js';
 import { suggestionsKey } from './suggestions.js';
 
@@ -72,6 +73,11 @@ export function decideWithPolicy(
     const chosen = new Set(allowed.map((each) => each.id));
     const options = { ids: chosen, threadAuthor: policy.threadAuthor, decider: policy.me };
     if (!decideSuggestions(tr, decision, options)) return false;
+    // A decision that takes another suggestion with it, as withdrawing a table takes the text
+    // suggested in its cells, needs the right to decide that one too.
+    const taken = suggestionDecisionOf(tr)?.dependents ?? [];
+    if (taken.some(({ suggestion }) => !suggestionPermissions(suggestion, policy)[decision]))
+      return false;
     dispatch?.(tr.scrollIntoView());
     return true;
   };

@@ -6,7 +6,13 @@
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import { DOMParser, Fragment, type NodeSpec, type Schema } from 'prosemirror-model';
 import { normalizeCaptionText } from './caption-text.js';
-import { SPLIT_PART_INDEX_ATTR, TABLE_CAPTION_TEXT_ATTR } from './dom-attributes.js';
+import {
+  DATA_CONTRIBUTOR_ATTR,
+  SPLIT_PART_INDEX_ATTR,
+  SUGGESTION_SPLIT_ID_ATTR,
+  SUGGESTION_SPLIT_KIND_ATTR,
+  TABLE_CAPTION_TEXT_ATTR,
+} from './dom-attributes.js';
 import type { IdentityAttribute } from './element-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 import { tableContentElement } from './table-nodes.js';
@@ -29,6 +35,34 @@ const SPLIT_PART: IdentityAttribute = {
   dom: SPLIT_PART_INDEX_ATTR,
   onCopy: 'clear',
 };
+// A table suggested whole: the suggestion and its writer, on the holder, which a reader accepts or
+// rejects with its caption and table. A copy is a new table, by its paster, no suggestion's.
+const SUGGESTED_WHOLE: readonly IdentityAttribute[] = [
+  { name: 'suggestionSplitKind', dom: SUGGESTION_SPLIT_KIND_ATTR, onCopy: 'clear' },
+  { name: 'suggestionSplitId', dom: SUGGESTION_SPLIT_ID_ATTR, onCopy: 'clear' },
+  { name: 'dataAuthor', dom: DATA_CONTRIBUTOR_ATTR, onCopy: 'clear' },
+];
+
+// The holder's attributes its element carries, as the pages and a paste read them.
+function readHolder(dom: HTMLElement) {
+  return {
+    splitPartIndex: readPart(dom),
+    ...Object.fromEntries(
+      SUGGESTED_WHOLE.map(({ name, dom: attr }) => [name, dom.getAttribute(attr) || null]),
+    ),
+  };
+}
+
+function writeHolder(attrs: Readonly<Record<string, unknown>>): Record<string, string> {
+  const written: Record<string, string> = {};
+  const part = attrs.splitPartIndex;
+  if (Number.isInteger(part)) written[SPLIT_PART_INDEX_ATTR] = String(part);
+  for (const { name, dom } of SUGGESTED_WHOLE) {
+    const value = attrs[name];
+    if (typeof value === 'string' && value) written[dom] = value;
+  }
+  return written;
+}
 
 // The part of a split table a holder is, as the pages mark it.
 function readPart(dom: HTMLElement): number | null {
@@ -82,8 +116,9 @@ const figureCaption: NodeSpec = captionSpec('figure', 'figcaption');
 const tableCaption: NodeSpec = captionSpec('table', 'div');
 
 /**
- * A table with its caption. It has no attributes of its own: the table keeps its id, layout and
- * caption settings, and the stored format stores the table alone, with its caption.
+ * A table with its caption. The table keeps its id, layout and caption settings, and the stored
+ * format stores the table alone, with its caption; the holder keeps the part of a split table it
+ * is, and a suggestion of the whole table, which the stored format keeps on the table.
  */
 const tableFigure: NodeSpec = {
   group: 'block',
@@ -93,10 +128,15 @@ const tableFigure: NodeSpec = {
   // Not an element of its own: it takes no element id, and the stored format stores the table.
   // The pages split it with its table, each part numbered as its table's part is.
   unstored: true,
-  attrs: { splitPartIndex: { default: null } },
-  identityAttributes: [SPLIT_PART],
+  attrs: {
+    splitPartIndex: { default: null },
+    suggestionSplitKind: { default: null },
+    suggestionSplitId: { default: null },
+    dataAuthor: { default: null },
+  },
+  identityAttributes: [SPLIT_PART, ...SUGGESTED_WHOLE],
   parseDOM: [
-    { tag: 'div.doc-table-figure', getAttrs: (dom) => ({ splitPartIndex: readPart(dom) }) },
+    { tag: 'div.doc-table-figure', getAttrs: readHolder },
     // A table pasted alone, with its caption from its own caption element or attribute.
     {
       tag: 'table',
@@ -105,11 +145,7 @@ const tableFigure: NodeSpec = {
       getContent: (dom, schema) => pastedTable(dom as HTMLElement, schema),
     },
   ],
-  toDOM: (node) => {
-    const part: unknown = node.attrs.splitPartIndex;
-    const attrs = Number.isInteger(part) ? { 'data-split-part-index': String(part) } : {};
-    return ['div', { class: 'doc-table-figure', ...attrs }, 0];
-  },
+  toDOM: (node) => ['div', { class: 'doc-table-figure', ...writeHolder(node.attrs) }, 0],
 };
 
 // A table pasted alone, read as its caption and the table: the caption from the table's caption

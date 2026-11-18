@@ -392,7 +392,7 @@ describe('createDocumentSession in room mode', () => {
     const connection = connected.value;
     await connection.whenSynced;
     expect(connection.state()).toMatchObject({ status: 'connected', access: 'read-write' });
-    expect(connection.unconfirmedUpdate()).toBeNull();
+    expect(connection.unconfirmedUpdates()).toEqual([]);
     connection.close();
     expect(room.sockets.at(-1)?.closedByClient).toBe(true);
   });

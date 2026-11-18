@@ -73,7 +73,7 @@ import { useFirstLayout } from './first-layout.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
 import { debugParts, rootData } from './root-data.js';
-import { type EditorSession, useSaveShortcut } from './save-status-item.js';
+import { type EditorSession, useRoomReloadNotice, useSaveShortcut } from './save-status-item.js';
 import { usePinnedScripts } from './script-entries.js';
 import type { TextChromeProps } from './text-chrome.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
@@ -443,6 +443,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const [menuKeys] = useState<MenuKeys>(() => new Set());
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
+  useRoomReloadNotice(props.session, props.feedback, labels.roomChangeRefused);
   const reach = { root, refs, progress, transactions: engine.transactions };
   const { find, scope, exports } = useHostReach(props, view, reach);
   const templateStyle = useMemo(() => templateProperties(template), [template]);

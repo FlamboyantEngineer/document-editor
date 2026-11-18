@@ -19,6 +19,7 @@ import {
   type StoredTypeSpec,
 } from './document-format.js';
 import { convertBlockRecord, writeRecordedMarks } from './format-records.js';
+import { withTableSuggestion } from './stored-table-suggestion.js';
 import type { RegionSettings, TemplatePin } from './template-format.js';
 
 type Attrs = Record<string, unknown>;
@@ -100,6 +101,9 @@ function writeTableFigure(node: ProseMirrorNode, context: WriteContext): StoredN
   if (!caption || !table) return { type: 'table' };
   const stored = { ...writeElement(table, context), ...writeMarks(table) };
   stored.content = [writeNode(caption, context), ...(stored.content ?? [])];
+  // A table suggested whole keeps the suggestion on the table.
+  const attrs = withTableSuggestion(stored.attrs, node.attrs);
+  if (attrs) stored.attrs = attrs;
   return stored;
 }
 

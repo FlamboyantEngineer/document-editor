@@ -6,7 +6,7 @@ import { SaveStatus } from '@flamboyantengineer/ui-components/save-status';
 import type { EditorState } from 'prosemirror-state';
 import { type RefObject, useEffect, useSyncExternalStore } from 'react';
 import { matchesShortcut, shortcutsOf } from '../../engine/index.js';
-import type { EditorCapabilities, SavedState } from '../../host/index.js';
+import type { EditorCapabilities, FeedbackAdapter, SavedState } from '../../host/index.js';
 import type { TemplatePin } from '../../model/index.js';
 import type { SessionConnection } from '../../session/document-session.js';
 import type { SessionStatusStore } from '../../session/status.js';
@@ -18,6 +18,11 @@ export interface EditorSession {
   readonly status: SessionStatusStore;
   /** In room mode, where the room connection is; null, or left out, in store mode. */
   readonly connection?: ValueStore<SessionConnection | null> | undefined;
+  /**
+   * In room mode, the last time the room refused the reader's change for its merge and the
+   * document took the room's content again (DOCE-SESSION-3.11); left out in store mode.
+   */
+  readonly reloads?: ValueStore<{ readonly reason: string } | null> | undefined;
   /** Saves now; the status reports the outcome, so a failure needs no handling here. */
   save(): Promise<void>;
   /**
@@ -84,6 +89,24 @@ export function ConnectionStatusItem({
   return current ? (
     <ConnectionStatus phase={current.phase} editable={current.gate.editable} labels={labels} />
   ) : null;
+}
+
+/**
+ * Tells the reader through `feedback`, with `text`, each time the session's room refused their
+ * change for its merge and the document took the room's content again (DOCE-SESSION-3.11).
+ */
+export function useRoomReloadNotice(
+  session: EditorSession | undefined,
+  feedback: FeedbackAdapter | undefined,
+  text: string,
+) {
+  const reloads = session?.reloads;
+  useEffect(() => {
+    if (!reloads || !feedback) return undefined;
+    return reloads.subscribe((reload) => {
+      if (reload) feedback.notify({ tone: 'warning', text });
+    });
+  }, [reloads, feedback, text]);
 }
 
 /**
