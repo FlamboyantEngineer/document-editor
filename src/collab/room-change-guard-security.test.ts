@@ -2345,3 +2345,112 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 a table suggested whole in a room
     expect(moved).toEqual({ refused: true, kinds: ['deletion', null] });
   });
 });
+
+describe('DOCE-COLLAB-7.5 element ids in a guarded room', () => {
+  const positionOf = (doc: ProseMirrorNode, matches: (node: ProseMirrorNode) => boolean) => {
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (at < 0 && matches(node)) at = pos;
+      return at < 0;
+    });
+    return at;
+  };
+  const editor = { edit: true, suggest: true, comment: true, decide: true };
+  const paragraphAfterFirst = (state: EditorState, id: string, text: string) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'paragraph') at = pos + node.nodeSize;
+      return at < 0;
+    });
+    return state.tr.insert(at, schema.node('paragraph', { dataId: id }, schema.text(text)));
+  };
+  const suggesting = (doc: Y.Doc, id: string, text: string) =>
+    change(doc, (state) => {
+      const proposal = suggestTransaction(paragraphAfterFirst(state, id, text), state, {
+        author: 'writer',
+        newId: () => `s${id.slice(1)}`,
+      });
+      if (!proposal) throw new Error('Unsupported proposal.');
+      // The engine gives a suggested block an id of its own; a writer may send any.
+      const suggested = state.apply(proposal);
+      const at = positionOf(
+        suggested.doc,
+        (node) => node.attrs.suggestionSplitKind === 'insertion',
+      );
+      return suggested.apply(suggested.tr.setNodeAttribute(at, 'dataId', id));
+    });
+  const idsOf = (room: Awaited<ReturnType<typeof setup>>) => {
+    const ids: string[] = [];
+    const stored = yjsToDocument(room.handle.snapshot(), { schema });
+    JSON.stringify(stored, (key, value: unknown) => {
+      if (key === 'id' && typeof value === 'string') ids.push(value);
+      return value;
+    });
+    return ids;
+  };
+
+  // A suggester's block whose id copies another element's would let one suggestion's signature
+  // name two blocks; the room refuses it whole and keeps the writer (DOCE-COLLAB-7.5).
+  it('refuses a suggested block whose id copies an existing element’s, and keeps the writer', async () => {
+    const room = await setup();
+    try {
+      const before = yjsToDocument(room.handle.snapshot(), { schema });
+      suggesting(room.provider.doc, 'a0000001', 'Copy');
+      await vi.waitFor(() => expect(room.provider.getState().refusedChanges).toBe(1));
+      expect(room.provider.getState()).toMatchObject({ status: 'connected', refusal: null });
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(before);
+      // The same block with an id of its own is taken on the same connection.
+      suggesting(room.provider.doc, 'a0000002', 'Own');
+      await room.provider.whenStored();
+      expect(idsOf(room).filter((id) => id === 'a0000001')).toHaveLength(1);
+      expect(idsOf(room)).toContain('a0000002');
+      expect(room.events.filter((event) => event.type === 'guard-repaired')).toEqual([]);
+    } finally {
+      await room.close();
+    }
+  });
+
+  // Two editors who each move the same block, before seeing the other's move, would leave it twice
+  // with one id: the later move is refused as a conflict and its writer reloaded (DOCE-COLLAB-7.5).
+  it('refuses the later of two moves of one block as a conflict', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      change(room.doc, (state) => state.apply(paragraphAfterFirst(state, 'a0000002', 'Second')));
+      await room.provider.whenStored();
+      await vi.waitFor(() =>
+        expect(readContent(schema, room.observerDoc.get('content'))?.textContent).toContain(
+          'Second',
+        ),
+      );
+      const moving = (doc: Y.Doc) => {
+        const copy = new Y.Doc();
+        Y.applyUpdate(copy, Y.encodeStateAsUpdate(doc));
+        const vector = Y.encodeStateVector(copy);
+        change(copy, (state) => {
+          const at = positionOf(state.doc, (node) => node.type.name === 'paragraph');
+          const first = state.doc.nodeAt(at);
+          if (!first) throw new Error('No first paragraph.');
+          const moved = state.tr.delete(at, at + first.nodeSize);
+          const content = positionOf(moved.doc, (node) => node.type.name === 'page_content');
+          const end = content + (moved.doc.nodeAt(content)?.nodeSize ?? 0) - 1;
+          return state.apply(moved.insert(end, first));
+        });
+        const update = Y.encodeStateAsUpdate(copy, vector);
+        copy.destroy();
+        return update;
+      };
+      const firstMove = moving(room.doc);
+      const secondMove = moving(room.observerDoc);
+      Y.applyUpdate(room.doc, firstMove);
+      await room.provider.whenStored();
+      const admitted = yjsToDocument(room.handle.snapshot(), { schema });
+      Y.applyUpdate(room.observerDoc, secondMove);
+      await vi.waitFor(() => expect(room.observer.getState().refusedChanges).toBe(1));
+      expect(room.observer.getState()).toMatchObject({ status: 'connected', refusal: null });
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(admitted);
+      expect(idsOf(room).filter((id) => id === 'a0000001')).toHaveLength(1);
+    } finally {
+      await room.close();
+    }
+  });
+});

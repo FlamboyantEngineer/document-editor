@@ -3,6 +3,7 @@ import type { Node, Schema } from 'prosemirror-model';
 import { hasGuardAnchors } from './guard-anchors.js';
 import { checkCommentChanges, type GuardPermissions } from './guard-comments.js';
 import { checkDocumentChange } from './guard-content.js';
+import { sharesNewElementId } from './guard-element-ids.js';
 import { hasGuardedShape } from './guard-shape.js';
 import { type GuardSnapshot, readGuardRecords, watchGuardSnapshots } from './guard-snapshots.js';
 import { resolveRoomScope, type RoomScope } from './room-scope.js';
@@ -64,7 +65,8 @@ function checkSnapshot(
   if (after === undefined) return false;
   after?.check();
   if (!allowedChange(before, after, options)) return false;
-  return exact === undefined ? 'conflict' : true;
+  // Two elements with one id are refused as a merge that does not fit (DOCE-COLLAB-7.5).
+  return exact === undefined || sharesNewElementId(before.content, after) ? 'conflict' : true;
 }
 
 function allowedChange(

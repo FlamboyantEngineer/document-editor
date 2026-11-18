@@ -270,6 +270,13 @@ A change the guard refuses only because, merged with what the room already holds
 Implementation: `src/collab/room-change-guard.ts`, `src/collab/guard-snapshots.ts`
 Verification: `src/collab/room-change-guard-security.test.ts`, `src/session/room-reload.test.ts`
 
+### DOCE-COLLAB-7.5 - One element for each id
+
+A suggestion's signature names the blocks it holds by their element ids, so the room shall never come to hold an id twice. The guard shall refuse a change after which the room holds an element id twice that it held once or not at all before, from any writer, whether the writer sent the copy, as a suggester may by giving a block another's id, or two honest moves of one block merged into it; the refusal is a `conflict` (DOCE-COLLAB-7.4) when the change is otherwise one the writer may make, so its writer stays connected and reloads the room's content, and the server's bound cuts off a writer who keeps sending them. An id a stored room already holds twice does not refuse later changes. Each new reading of the room is read once for its ids.
+
+Implementation: `src/collab/guard-element-ids.ts`, `src/collab/room-change-guard.ts`
+Verification: `src/collab/room-change-guard-security.test.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                                           | Description                                                                                                     |
