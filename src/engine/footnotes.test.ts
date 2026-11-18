@@ -13,6 +13,7 @@ import {
   textPos,
 } from '../../test/footnote-fixtures.js';
 import { readDocumentFile } from '../model/index.js';
+import { createTableFigure } from '../model/schema/caption-content.js';
 import { documentKeys } from './document-editing.js';
 import { numberFootnotes } from './footnote-model.js';
 import {
@@ -106,12 +107,15 @@ describe('footnotes', () => {
       block('table_header', null, para('Head')),
       block('table_cell', null, para('Cell')),
     ]);
-    const table = block('table', null, row);
+    // A table sits in the node holding it with its caption.
+    const table = createTableFigure(documentSchema, block('table', null, row));
+    if (!table) throw new Error('No table');
     const list = block('bullet_list', null, block('list_item', null, para('Output')));
     const script = block('script_block', null, list);
     let state = footnoteState([paragraph(text('Body text'))]);
     const start = caretAt(state, 'Body').selection.$from.before();
     state = state.apply(state.tr.insert(start, [table, script]));
+    expect(caretAt(state, 'Cell', 1).selection.$from.node(-3).type.name).toBe('table');
     expect(canInsertFootnote(caretAt(state, 'Cell', 1))).toBe(true);
     expect(canInsertFootnote(caretAt(state, 'Head', 1))).toBe(true);
     expect(canInsertFootnote(caretAt(state, 'Output', 1))).toBe(false);
