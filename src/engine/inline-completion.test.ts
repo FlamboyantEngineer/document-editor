@@ -104,8 +104,8 @@ describe('inline completion', () => {
     expect(inlineCompletion(state)).toBeNull();
   });
 
-  it('DOCE-AUTOMATION-3.5 attributes a taken completion to the provider’s agent and session', () => {
-    let state = stateAt('Recovery takes', 'Recovery takes'.length);
+  it('DOCE-AUTOMATION-3.5 credits a taken completion to the writer, marked with the answer’s session, as the agent’s change', () => {
+    let state = stateAt('Recovery takes', 'Recovery takes'.length, { author: () => 'ada' });
     const pos = state.selection.head;
     let taken: Parameters<typeof automationActor>[0] | null = null;
     state = run(state, offerCompletion({ pos, text: ' one second.', session: 's9' }));
@@ -121,12 +121,29 @@ describe('inline completion', () => {
     const node = state.doc.nodeAt(pos);
     expect(node?.text).toBe(' one second.');
     const mark = node?.marks.find((each) => each.type.name === 'contributor');
-    expect(mark?.attrs).toMatchObject({ dataAuthor: 'agent-1', dataAiSession: 's9' });
+    expect(mark?.attrs).toMatchObject({ dataAuthor: 'ada', dataAiSession: 's9' });
     expect(state.doc.nodeAt(pos - 1)?.marks.some((m) => m.type.name === 'contributor')).toBe(false);
   });
 
-  it('DOCE-AUTOMATION-3.5 takes a completion as the agent’s suggestion while the writer suggests', () => {
-    let state = stateAt('Recovery takes', 'Recovery takes'.length, { suggesting: () => true });
+  it('DOCE-AUTOMATION-3.5 marks a taken completion with the empty session when the answer names none, and credits the agent without a writer', () => {
+    for (const [author, expected] of [
+      [() => 'ada', 'ada'],
+      [undefined, 'agent-1'],
+    ] as const) {
+      let state = stateAt('Recovery takes', 'Recovery takes'.length, { author });
+      const pos = state.selection.head;
+      state = run(state, offerCompletion({ pos, text: ' one second.' }));
+      state = run(state, acceptCompletion);
+      const mark = state.doc.nodeAt(pos)?.marks.find((each) => each.type.name === 'contributor');
+      expect(mark?.attrs).toMatchObject({ dataAuthor: expected, dataAiSession: '00000000000' });
+    }
+  });
+
+  it('DOCE-AUTOMATION-3.5 takes a completion as the writer’s suggestion while they suggest', () => {
+    let state = stateAt('Recovery takes', 'Recovery takes'.length, {
+      suggesting: () => true,
+      author: () => 'ada',
+    });
     const pos = state.selection.head;
     state = run(state, offerCompletion({ pos, text: ' one second.' }));
     state = run(state, acceptCompletion);
@@ -135,8 +152,8 @@ describe('inline completion', () => {
       ?.marks.map((mark) => [mark.type.name, mark.attrs.dataAuthor]);
     expect(marks).toEqual(
       expect.arrayContaining([
-        ['insertion', 'agent-1'],
-        ['contributor', 'agent-1'],
+        ['insertion', 'ada'],
+        ['contributor', 'ada'],
       ]),
     );
     expect(state.selection.head).toBe(pos + ' one second.'.length);

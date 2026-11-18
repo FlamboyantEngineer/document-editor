@@ -99,9 +99,9 @@ A change that is not the writer's own (a collaborator's, a plugin's, the layout'
 Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-follow.ts`
 Verification: `src/engine/inline-completion.test.ts`
 
-### DOCE-AUTOMATION-3.5 - A taken completion is the agent's
+### DOCE-AUTOMATION-3.5 - A taken completion is the writer's, marked as generated
 
-The text a taken completion puts in shall carry one contributor mark, the provider's `agent` with the answer's session, in place of the one the text there carries, and the change shall be marked with that agent (`automationActor(tr)`), so the writer's own marking leaves it as it is. While the writer suggests (`suggesting`), it goes in as the agent's suggestion.
+The text a taken completion puts in shall carry one contributor mark, in place of the one the text there carries: the writer who takes it (`author`, as the document editing's) with the answer's session, or the empty session `00000000000` when the answer names none, so it reads as the writer's text and as generated (decision: the accepting person, marked AI). Without an `author` it is the provider's `agent`'s. The change shall be marked with the provider's agent (`automationActor(tr)`), so the writer's own marking leaves the mark as it is. While the writer suggests (`suggesting`), it goes in as the writer's suggestion.
 
 Implementation: `src/engine/inline-completion.ts`
 Verification: `src/engine/inline-completion.test.ts`, `e2e/full-editor.spec.ts`

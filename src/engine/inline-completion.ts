@@ -2,7 +2,8 @@
 // such as a language model, offers the text that may follow, shown after the caret as a suggestion
 // the writer takes with Tab or dismisses with Escape. Anything else the writer does dismisses it;
 // changes that are not the writer's, such as a collaborator's, a check's result or the layout's,
-// keep the offer where the caret is. Text the writer takes is the provider's agent's.
+// keep the offer where the caret is. Text the writer takes is the writer's, marked as generated in
+// the answer's session (the empty session when it gives none).
 
 import {
   type Command,
@@ -59,6 +60,11 @@ export interface InlineCompletionOptions {
   readonly enabled?: boolean | undefined;
   /** Whether a taken completion is a suggestion, as the writer's changes are while suggesting. */
   readonly suggesting?: (() => boolean) | undefined;
+  /**
+   * The writer taking completions, whose text it becomes, marked as generated; as the document
+   * editing's `author`. Without one, the text is the provider's agent's.
+   */
+  readonly author?: (() => string | null) | undefined;
   /** Makes an answer into the text offered; defaults to `normalizeCompletion`. */
   readonly normalize?: ((answer: string, request: CompletionContext) => string) | undefined;
 }
@@ -103,7 +109,11 @@ export function completionStatus(state: EditorState): CompletionStatus | null {
   return { enabled: value.enabled, availability: value.availability, phase };
 }
 
-// The text a completion puts in: the agent's, as the automation API marks an agent's text.
+// The session marking generated text whose answer named none.
+const EMPTY_AI_SESSION = '00000000000';
+
+// The text a completion puts in: the writer's who takes it, marked as generated in the answer's
+// session; the change is the agent's, so the writer's own marking leaves it as it is.
 function takeTransaction(
   state: EditorState,
   offered: InlineCompletion,
@@ -111,23 +121,25 @@ function takeTransaction(
 ) {
   const { schema } = state;
   const actor: Actor = { id: options.provider.agent, kind: 'agent', session: offered.session };
+  const writer = options.author?.() ?? actor.id;
   const contributor = schema.marks.contributor;
   const marks = (state.storedMarks ?? state.selection.$head.marks()).filter(
     (mark) => mark.type !== contributor,
   );
   if (contributor) {
-    marks.push(contributor.create({ dataAuthor: actor.id, dataAiSession: actor.session ?? null }));
+    const session = actor.session ?? EMPTY_AI_SESSION;
+    marks.push(contributor.create({ dataAuthor: writer, dataAiSession: session }));
   }
   const tr = state.tr.insert(offered.pos, schema.text(offered.text, marks));
   tr.setSelection(TextSelection.create(tr.doc, offered.pos + offered.text.length));
-  const taken = options.suggesting?.() ? suggestTransaction(tr, state, { author: actor.id }) : tr;
+  const taken = options.suggesting?.() ? suggestTransaction(tr, state, { author: writer }) : tr;
   const meta: CompletionMeta = { clear: true };
   return taken?.setMeta(automationKey, actor).setMeta(completionKey, meta).scrollIntoView() ?? null;
 }
 
 /**
  * Takes the completion offered: its text goes in at the caret, which moves after it, as the
- * provider's agent's text, and as the agent's suggestion while the writer suggests.
+ * writer's text marked as generated, and as the writer's suggestion while they suggest.
  */
 export const acceptCompletion: Command = (state, dispatch) => {
   const offered = inlineCompletion(state);
