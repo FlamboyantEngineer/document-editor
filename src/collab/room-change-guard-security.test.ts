@@ -2389,6 +2389,52 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 code captions in a guarded room', () 
     }
   });
 
+  // The holder is no stored element; its caption and code each keep an id of their own, so an
+  // honest code block leaves the count of elements without an id where it was (DOCE-COLLAB-7.5).
+  it('DOCE-COLLAB-7.5 keeps a code block’s caption and code on ids of their own, the holder on none', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      insertAfterParagraph(room.doc, heldCode());
+      await room.provider.whenStored();
+      expect(room.provider.getState()).toMatchObject({ refusal: null, refusedChanges: 0 });
+      const stored = readContent(schema, room.snapshot().get('content'));
+      const ids: Record<string, unknown[]> = {};
+      stored?.descendants((node) => {
+        if (node.type.name.startsWith('code_'))
+          (ids[node.type.name] ??= []).push(node.attrs.dataId ?? null);
+      });
+      expect(ids.code_figure).toEqual([null]);
+      for (const type of ['code_caption', 'code_block'])
+        expect(ids[type]).toEqual([expect.stringMatching(/^[a-f0-9]{8}$/)]);
+      // The same block with a caption that has no id of its own is refused, and nothing stored.
+      const before = yjsToDocument(room.handle.snapshot(), { schema });
+      const figure = heldCode();
+      const caption = figure.firstChild;
+      const block = figure.lastChild;
+      if (!caption || !block) throw new Error('No caption.');
+      const unnamed = figure.type.create(figure.attrs, [
+        caption.type.create({ ...caption.attrs, dataId: null }, caption.content),
+        block.type.create({ ...block.attrs, dataId: 'c0de0001' }, block.content),
+      ]);
+      change(
+        room.doc,
+        (state) => {
+          let end = -1;
+          state.doc.descendants((each, pos) => {
+            if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+            return end < 0;
+          });
+          return state.apply(state.tr.insert(end, unnamed));
+        },
+        true,
+      );
+      await vi.waitFor(() => expect(room.provider.getState().refusedChanges).toBe(1));
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(before);
+    } finally {
+      await room.close();
+    }
+  });
+
   it('admits a footnote suggested in a code caption, cited in reading order before another', () => {
     const before = caretAt(
       footnoteState([
