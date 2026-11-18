@@ -267,6 +267,17 @@ function initialState(): EditorState {
         },
       ],
     },
+    // Text an agent generated in a session, which authorship shows apart from the writers' own.
+    {
+      type: 'paragraph',
+      content: [
+        text('A summary follows. '),
+        {
+          ...text('The agent drafted this sentence.'),
+          marks: [{ type: 'contributor', attrs: { author: 'agent', aiSession: 'lab-session' } }],
+        },
+      ],
+    },
   );
   // A landscape appendix, then the body again on portrait pages, each with a thread.
   file.sections.push(

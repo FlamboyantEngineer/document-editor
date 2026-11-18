@@ -32,12 +32,17 @@ const STORAGE = createSafeStorage({
 // The document's title, a heading the outline may leave out.
 const TITLE = 'Sample document';
 
+const LONG_HEADING =
+  'Recovery of every degraded condition reported during the timing responses, step by step, until normal operation is reached again';
+
 const PANES = ['outline', 'search', 'properties', 'contributors'] as const;
 
 function initialState(): EditorState {
   const schema = createDocumentSchema();
   const file = sampleDocument(['Scope', 'Interfaces', 'Timing']);
   file.sections[0]?.content.unshift(heading(1, TITLE));
+  // A nested heading longer than the widest panel, which the outline clips on one line.
+  file.sections[0]?.content.push(heading(3, LONG_HEADING));
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
     plugins: createDocumentEditing(schema, { template: () => BASE_TEMPLATE, author: () => 'lab' }),

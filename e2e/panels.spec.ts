@@ -115,4 +115,45 @@ test.describe('side panels lab', () => {
     await expect(outline.getByRole('link', { name: /Sample document/ })).toHaveCount(0);
     await expect(outline.getByRole('link', { name: /Timing/ }).first()).toBeVisible();
   });
+
+  test('DOCE-LABS-3.6 keeps a long nested heading on one line, clipped at its end with its number shown, at the narrowest and widest panel', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('panels');
+    const panel = navigation(page);
+    const outline = panel.getByRole('navigation', { name: 'Outline' });
+    const link = outline.getByRole('link', { name: /Recovery of every degraded condition/ });
+    const handle = panel.getByRole('separator');
+    for (const bound of ['Home', 'End']) {
+      await handle.focus();
+      await page.keyboard.press(bound);
+      await expect(page.getByRole('status', { name: 'Panel report' })).toHaveText(
+        bound === 'Home' ? 'Resized to 220' : 'Resized to 420',
+      );
+      await link.scrollIntoViewIfNeeded();
+      const shape = await link.evaluate((element) => {
+        const label = element.querySelector('.ui-outline__label') ?? element;
+        const tree = element.closest('[role="navigation"]');
+        const lineHeight = parseFloat(getComputedStyle(label).lineHeight) || 20;
+        const box = label.getBoundingClientRect();
+        const start = tree?.getBoundingClientRect().left ?? 0;
+        return {
+          clipped: label.scrollWidth > label.clientWidth,
+          oneLine: box.height < lineHeight * 1.5,
+          // The number leads the label, so a label clipped at its end keeps it in view.
+          numbered: /^\d+(\.\d+)*\.?\s/.test(label.textContent ?? ''),
+          numberInside: box.left >= start,
+          overflow: tree ? tree.scrollWidth - tree.clientWidth : 0,
+        };
+      });
+      expect(shape, bound).toEqual({
+        clipped: true,
+        oneLine: true,
+        numbered: true,
+        numberInside: true,
+        overflow: 0,
+      });
+    }
+  });
 });

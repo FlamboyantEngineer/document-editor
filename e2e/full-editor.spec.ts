@@ -178,6 +178,51 @@ test.describe('full editor lab', () => {
     await expect(written.locator('[data-author-slot]')).toHaveCount(0);
   });
 
+  test('DOCE-COLLAB-3.2 DOCE-COLLAB-3.1 tints each writer apart and stripes generated text, without drawing the pages again', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Written by Ada');
+    // Keep the page elements: the same ones must stay while authorship shows and hides. (A
+    // property, not an attribute, which the editor would take for a change to its pages.)
+    const sheets = content(page).locator('.pm-page');
+    const kept = await sheets.evaluateAll((all) => {
+      Object.assign(window, { keptSheets: all });
+      return all.length;
+    });
+    await page.getByLabel('Authorship').check();
+    const look = (selector: string) =>
+      content(page)
+        .locator(selector)
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return { tint: style.backgroundColor, stripes: style.backgroundImage };
+        });
+    const ada = await look('[data-author="ada"]');
+    const grace = await look('[data-author="grace"]');
+    const generated = await look('[data-author-source="generated"]');
+    for (const each of [ada, grace]) expect(each.tint).not.toBe('rgba(0, 0, 0, 0)');
+    expect(ada.tint).not.toBe(grace.tint);
+    expect(ada.stripes).toBe('none');
+    expect(generated.stripes).toContain('repeating-linear-gradient');
+    await expect(content(page).locator('[data-author-source="generated"]')).toHaveText(
+      'The agent drafted this sentence.',
+    );
+    await page.getByLabel('Authorship').uncheck();
+    await expect(content(page).locator('[data-author-slot]')).toHaveCount(0);
+    await expect(content(page).locator('[data-author-source]')).toHaveCount(0);
+    const same = await sheets.evaluateAll((all) => {
+      const before = (window as unknown as { keptSheets: Element[] }).keptSheets;
+      return all.filter((sheet) => before.includes(sheet)).length;
+    });
+    expect(same).toBe(kept);
+  });
+
   test('DOCE-EDITOR-4.8 DOCE-OBJECTS-4.3 runs the host scripts into their blocks', async ({
     lab,
     page,

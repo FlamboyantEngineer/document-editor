@@ -111,6 +111,18 @@ export const BUDGETS = {
     target: '≤ 3, no growth',
     meets: atMost(3),
   },
+  pageReads5: {
+    bar: 'Page in view',
+    metric: 'page boxes read per wheel, 5 pages',
+    target: '≤ 8',
+    meets: atMost(8),
+  },
+  pageReads40: {
+    bar: 'Page in view',
+    metric: 'page boxes read per wheel, 40 pages',
+    target: '≤ 12, no scan of every page',
+    meets: atMost(12),
+  },
   styleScope: {
     bar: 'Typing style scope',
     metric: 'restyled elements per key, growth 5 → 40 pages',
@@ -521,6 +533,22 @@ export interface WheelRun {
   readonly pagesAfter: number;
   readonly layoutsPerWheel: number;
   readonly restylesPerWheel: number;
+  /** How many times per wheel event the editor read a page's box to tell which pages are in view. */
+  readonly pageReadsPerWheel: number;
+}
+
+// Counts the reads of a page's box from now on, in the page's own window.
+async function countPageReads(page: Page) {
+  await page.evaluate(() => {
+    const counted = window as unknown as { pageReads?: number };
+    counted.pageReads = 0;
+    const read = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      if (this.classList.contains('pm-page')) counted.pageReads = (counted.pageReads ?? 0) + 1;
+      return read.call(this);
+    };
+  });
+  return () => page.evaluate(() => (window as unknown as { pageReads?: number }).pageReads ?? 0);
 }
 
 /** The browser's layouts per wheel event on 5 and 40 pages, and what each run did. */
@@ -536,6 +564,7 @@ export async function measureWheel(lab: LabFixture, page: Page) {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Performance.enable');
     const before = await browserMetrics(cdp);
+    const pageReads = await countPageReads(page);
     const wheels = 20;
     for (let index = 0; index < wheels; index += 1) {
       await page.mouse.wheel(0, index < wheels / 2 ? 300 : -300);
@@ -549,6 +578,7 @@ export async function measureWheel(lab: LabFixture, page: Page) {
       pagesAfter: await pages(),
       layoutsPerWheel: per('LayoutCount'),
       restylesPerWheel: per('RecalcStyleCount'),
+      pageReadsPerWheel: (await pageReads()) / wheels,
     });
   }
   const [small, large] = runs;

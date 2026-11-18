@@ -80,10 +80,10 @@ Verification: `src/collab/gesture-hold.test.ts`
 
 ### DOCE-COLLAB-3.1 - Who wrote what
 
-`documentAuthors(doc)` shall give the document's writers, the most text first, with the characters each wrote and a colour slot no other writer has (DOCE-COLLAB-1.4): a run of text is its contributor's, else its suggested insertion's writer's, else the writer of its block. `createAuthorship()` marks each writer's text with their slot (`data-author`, `data-author-slot`) while shown (`showAuthorship`, `isAuthorshipShown`).
+`documentAuthors(doc)` shall give the document's writers, the most text first, with the characters each wrote and a colour slot no other writer has (DOCE-COLLAB-1.4): a run of text is its contributor's, else its suggested insertion's writer's, else the writer of its block. `createAuthorship()` marks each writer's text with their slot (`data-author`, `data-author-slot`) while shown (`showAuthorship`, `isAuthorshipShown`), and text an agent generated, whose contributor mark names a session, also with `data-author-source="generated"`, so a stylesheet sets it apart (the reference sheet stripes it). Showing and hiding it changes only these marks: the pages are not drawn again.
 
-Implementation: `src/engine/authorship.ts`
-Verification: `src/engine/authorship.test.ts`
+Implementation: `src/engine/authorship.ts`, `labs/reference/editor-chrome.css`
+Verification: `src/engine/authorship.test.ts`, `e2e/full-editor.spec.ts`
 
 ### DOCE-COLLAB-3.2 - Showing authorship
 
@@ -281,6 +281,9 @@ Verification: `src/collab/guard-self-check.test.ts`
 | `data-phase`                            | attribute | `connecting`, `synced`, `offline`, `read-only`, `refused`, `generation-mismatch` | On the connection status: its phase.                                                                            |
 | `data-locked`                           | state     |                                                                                  | On the connection status: the phase locks every surface.                                                        |
 | `data-editable`                         | state     |                                                                                  | On the connection status: the reader may change the document.                                                   |
+| `data-author`                           | attribute |                                                                                  | On a writer's text while authorship shows: the writer's id.                                                     |
+| `data-author-slot`                      | attribute | `0`–`7`                                                                          | On a writer's text while authorship shows: their colour slot.                                                   |
+| `data-author-source`                    | attribute | `generated`                                                                      | On text an agent generated while authorship shows.                                                              |
 | `de-document-contributors`              | root      |                                                                                  | The contributors pane, with `data-authorship`.                                                                  |
 | `de-document-contributors__list`        | slot      |                                                                                  | The list of writers.                                                                                            |
 | `de-document-contributors__contributor` | slot      |                                                                                  | A writer, with `data-author`, `data-author-slot` and `data-kind` (`person`, `unresolved`, `system`, `unknown`). |
