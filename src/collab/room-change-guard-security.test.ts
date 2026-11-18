@@ -2620,3 +2620,65 @@ describe('DOCE-COLLAB-7.5 two type changes of one block', () => {
     }
   });
 });
+
+describe('DOCE-COLLAB-7.5 ids in the drawn regions', () => {
+  const decider = { edit: false, suggest: true, comment: true, decide: true };
+  const withFootnote = (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.isText) at = pos + 2;
+      return at < 0;
+    });
+    let next = state.apply(state.tr.setSelection(TextSelection.create(state.doc, at)));
+    insertFootnote({ newId: () => 'n0000001' })(next, (tr) => {
+      next = next.apply(tr);
+    });
+    return next;
+  };
+  // Marks the first node of `type` as a block of a suggestion that names `a0000001`, the body
+  // paragraph's id, so a signature would name two nodes.
+  const marking = (type: string) => (state: EditorState) => {
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === type) at = pos;
+      return at < 0;
+    });
+    if (at < 0) throw new Error(`No ${type}.`);
+    return state.apply(
+      state.tr
+        .setNodeAttribute(at, 'dataId', 'a0000001')
+        .setNodeAttribute(at, 'suggestionSplitKind', 'insertion')
+        .setNodeAttribute(at, 'suggestionSplitId', 'b0000001'),
+    );
+  };
+  const editor = { edit: true, suggest: true, comment: true, decide: true };
+  // A writer without edit rights may not change a region's attributes at all; an editor's copy of
+  // a body block's id there is refused as one id on two nodes.
+  it.each([
+    ['footnote_entry', permissions, 'unauthorized-write'],
+    ['footnote_entry', decider, 'unauthorized-write'],
+    ['page_header', permissions, 'unauthorized-write'],
+    ['page_header', decider, 'unauthorized-write'],
+    ['footnote_entry', editor, 'conflict'],
+    ['page_header', editor, 'conflict'],
+  ] as const)(
+    'refuses a %s marked with a body block’s id (%o): %s',
+    async (type, granted, answer) => {
+      const room = await setup({
+        granted,
+        pending: true,
+        seeded: { file: file('Original'), change: withFootnote },
+      });
+      try {
+        const before = yjsToDocument(room.handle.snapshot(), { schema });
+        change(room.doc, marking(type), true);
+        if (answer === 'conflict')
+          await vi.waitFor(() => expect(room.provider.getState().refusedChanges).toBe(1));
+        else await vi.waitFor(() => expect(room.provider.getState().refusal).toBe(answer));
+        expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(before);
+      } finally {
+        await room.close();
+      }
+    },
+  );
+});

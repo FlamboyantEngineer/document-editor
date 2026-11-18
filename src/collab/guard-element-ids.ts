@@ -1,7 +1,7 @@
 import type { Node } from 'prosemirror-model';
 import { ELEMENT_ID_PATTERN, forEachStoredElement } from '../engine/element-ids.js';
 
-// How many stored elements hold each id, and how many hold no well-formed id of their own.
+// How many nodes hold each id, and how many stored elements hold no well-formed id of their own.
 interface ElementIds {
   readonly counts: ReadonlyMap<string, number>;
   readonly unnamed: number;
@@ -16,13 +16,17 @@ function elementIdsOf(doc: Node | null): ElementIds {
   if (!doc) return NONE;
   const known = readings.get(doc);
   if (known) return known;
+  // Ids are counted on every node, the drawn regions' too, which a suggestion's blocks may be.
   const counts = new Map<string, number>();
-  let unnamed = 0;
-  forEachStoredElement(doc, (node) => {
+  doc.descendants((node) => {
     const id: unknown = node.attrs.dataId;
     if (typeof id === 'string' && ELEMENT_ID_PATTERN.test(id))
       counts.set(id, (counts.get(id) ?? 0) + 1);
-    else unnamed += 1;
+  });
+  let unnamed = 0;
+  forEachStoredElement(doc, (node) => {
+    const id: unknown = node.attrs.dataId;
+    if (typeof id !== 'string' || !ELEMENT_ID_PATTERN.test(id)) unnamed += 1;
   });
   const ids = { counts, unnamed };
   readings.set(doc, ids);
