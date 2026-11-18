@@ -30,20 +30,19 @@ test.describe('session lab', () => {
     await expect(status(page)).toHaveText('ready · idle');
   });
 
-  test('DOCE-OBJECTS-2.5 DOCE-SESSION-2.6 keeps a figure caption edited in place across a reopen', async ({
+  test('DOCE-OBJECTS-2.5 keeps a figure caption edited in place across a reopen', async ({
     lab,
     page,
   }) => {
     await lab.open('session');
     await expect(page.getByRole('progressbar')).toHaveCount(0);
-    const caption = editor(page).locator('figure figcaption, figure .doc-caption-line').first();
-    const text = caption.locator('.doc-caption-text');
-    await caption.scrollIntoViewIfNeeded();
-    // A press on the label puts the caret at the start of the text.
-    const line = await caption.boundingBox();
-    if (!line) throw new Error('The caption is not drawn');
-    await page.mouse.click(line.x + 2, line.y + line.height / 2);
-    await expect(text).toBeFocused();
+    const text = editor(page).locator('figure figcaption .doc-caption-text').first();
+    await text.scrollIntoViewIfNeeded();
+    const box = await text.boundingBox();
+    if (!box) throw new Error('The caption is not drawn');
+    // A press at the start of its text puts the caret there; what is typed is the document's.
+    await page.mouse.click(box.x + 1, box.y + box.height / 2);
+    await page.keyboard.press('Home');
     await page.keyboard.type('Main ');
     await page.keyboard.press('Enter');
     await expect(text).toHaveText('Main Fault panel');

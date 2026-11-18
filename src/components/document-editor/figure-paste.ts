@@ -11,6 +11,7 @@ import { DOMSerializer } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { AssetAdapter, FeedbackAdapter } from '../../host/index.js';
+import { createFigure } from '../../model/schema/caption-content.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { insertFigureAt, type PastePlace } from './paste-place.js';
@@ -105,9 +106,8 @@ function figureMarkup(
   asset: { fileAssetId: string; snapshotId: string },
   alt: string,
 ) {
-  const figure = view.state.schema.nodes.figure;
-  if (!figure) return '';
-  const node = figure.create({ ...asset, alt });
+  const node = createFigure(view.state.schema, { ...asset, alt });
+  if (!node) return '';
   const container = view.dom.ownerDocument.createElement('div');
   container.append(DOMSerializer.fromSchema(view.state.schema).serializeNode(node));
   return container.innerHTML;

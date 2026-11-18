@@ -16,7 +16,7 @@ import {
 import { DecorationSet, type EditorView, type NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
 import { isElement } from '../utils/is-element.js';
-import { CAPTION_HOST_TYPES, captionHostView, focusCaptionHost } from './caption-hosts.js';
+import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
 import {
   cancelCaptionOf,
   captionDoubleClick,
@@ -129,6 +129,25 @@ function codeView(node: ProseMirrorNode, view: EditorView, numbered: boolean): N
       return true;
     },
     // Only the code's own text is the document's; the gutter and the caption line are drawn.
+    ignoreMutation: (mutation) => !contentDOM || !contentDOM.contains(mutation.target),
+  };
+}
+
+// A table as its markup draws it. Only its rows are the document's: the drag of a column border
+// draws widths on the table and its column group, which the view leaves as they are.
+function tableView(node: ProseMirrorNode, view: EditorView): NodeView {
+  const spec = node.type.spec.toDOM?.(node);
+  if (!spec) throw new Error(`${node.type.name} has no markup`);
+  const { dom, contentDOM } = DOMSerializer.renderSpec(view.dom.ownerDocument, spec);
+  let current = node;
+  return {
+    dom,
+    contentDOM: contentDOM ?? undefined,
+    update(next) {
+      if (next.type !== current.type || !sameAttrs(next, current)) return false;
+      current = next;
+      return true;
+    },
     ignoreMutation: (mutation) => !contentDOM || !contentDOM.contains(mutation.target),
   };
 }
@@ -260,11 +279,10 @@ export function captionEditingAt(state: EditorState): CaptionedObject | null {
 
 /**
  * Edits the caption of the table, figure or code block at the selection in place: a table's or a
- * figure's in its caption, a code block's in a field over it.
+ * figure's as text, its text selected, a code block's in a field over it.
  */
 export const editCaption: Command = (state, dispatch, view) =>
-  (view !== undefined && focusCaptionHost(view, state, dispatch)) ||
-  editCaptionOf(objectViewsKey)(state, dispatch, view);
+  editCaptionText(state, dispatch, view) || editCaptionOf(objectViewsKey)(state, dispatch, view);
 
 /** Commits the caption edited in place with its text, shown; the object is selected after. */
 export const commitCaptionEditing = (text: string): Command =>
@@ -299,10 +317,11 @@ export function createObjectViews({
         return editing.length ? DecorationSet.create(state.doc, editing) : undefined;
       },
       handleDOMEvents: { dblclick: captionDoubleClick(key), mousedown: codePress },
+      handleClickOn: selectFigureOnImage,
       handleTextInput: ({ state }) =>
         state.selection instanceof NodeSelection && !isReplacedOnType(state.selection.node),
       nodeViews: {
-        ...Object.fromEntries(CAPTION_HOST_TYPES.map((type) => [type, captionHostView])),
+        table: (node, view) => tableView(node, view),
         signature: (node, view) => signatureView(node, view),
         linked_code_block: linked,
         ...(numbered === 'all' ? { code_block: code } : {}),

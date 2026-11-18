@@ -4,6 +4,7 @@
 // table of contents, a marker that it was skipped.
 
 import type { StoredNode } from '../../model/format/document-format.js';
+import { storedCaption } from '../../model/schema/caption-content.js';
 import {
   childElement,
   childElements,
@@ -99,6 +100,7 @@ function objectBlock(content: readonly StoredNode[], display: boolean): StoredNo
         ...(width ? { width, height } : {}),
         captionEnabled: false,
       },
+      content: [storedCaption('')],
     };
   }
   if (only?.type === 'math' && display)

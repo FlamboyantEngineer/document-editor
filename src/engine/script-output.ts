@@ -35,7 +35,7 @@ export interface ScriptOutput {
 }
 
 // The attributes that identify an element rather than say what it holds.
-const IDENTITY_ATTRS = new Set(['dataId', 'dataAuthor', 'dataAiSession', 'captionDataId']);
+const IDENTITY_ATTRS = new Set(['dataId', 'dataAuthor', 'dataAiSession']);
 
 // Whether two nodes hold the same: the same types, text, marks and attributes, identity aside.
 function sameOutput(a: ProseMirrorNode, b: ProseMirrorNode): boolean {

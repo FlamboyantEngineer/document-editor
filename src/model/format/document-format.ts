@@ -156,7 +156,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
       fileAssetId: 'assetId',
       snapshotId: 'assetRevision',
       alt: 'alt',
-      ...CAPTION_ATTRS,
+      captionEnabled: 'captionEnabled',
       width: 'width',
       height: 'height',
     },
@@ -186,10 +186,14 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
     attrs: {
       tableBorderClass: 'border',
       objectLayout: 'layout',
-      ...CAPTION_ATTRS,
-      captionDataId: 'captionId',
+      captionEnabled: 'captionEnabled',
     },
   },
+  // A figure's or a table's caption, its first child in the stored format; a table's caption and
+  // the table are held by a `table_figure` in the editor, which is not stored.
+  figure_caption: { type: 'caption' },
+  // A later part's caption shows its text only on the pages; joined, the table has no such part.
+  table_caption: { type: 'caption', attrs: { continuedText: null } },
   table_row: { type: 'tableRow' },
   table_cell: { type: 'tableCell', attrs: CELL_ATTRS },
   table_header: { type: 'tableHeader', attrs: CELL_ATTRS },

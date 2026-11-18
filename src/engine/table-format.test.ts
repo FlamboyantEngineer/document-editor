@@ -4,7 +4,8 @@ import { CellSelection } from 'prosemirror-tables';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
-import { captionedAt, setCaption, toggleCaption } from './captions.js';
+import { storedCaption } from '../model/schema/caption-content.js';
+import { captionedAt, captionNodeAt, setCaption, toggleCaption } from './captions.js';
 import { createDocumentEditing, documentKeys } from './document-editing.js';
 import {
   distributeColumns,
@@ -24,8 +25,7 @@ const cell = (value: string, attrs: Record<string, unknown> = {}): StoredNode =>
 const row = (...cells: StoredNode[]): StoredNode => ({ type: 'tableRow', content: cells });
 const table = (...rows: StoredNode[]): StoredNode => ({
   type: 'table',
-  attrs: { caption: 'Limits' },
-  content: rows,
+  content: [storedCaption('Limits'), ...rows],
 });
 const read = (...content: StoredNode[]) =>
   readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
@@ -139,17 +139,23 @@ describe('table formatting', () => {
 describe('captions', () => {
   it('DOCE-OBJECTS-2.1 sets the caption of the object at the selection, and hides and shows it', () => {
     let state = stateAt(grid(), 'B2');
-    expect(captionedAt(state)?.node.attrs.caption).toBe('Limits');
+    const captionOf = (at: EditorState) => {
+      const found = captionedAt(at);
+      return found ? captionNodeAt(at.doc, found)?.node.textContent : undefined;
+    };
+    expect(captionOf(state)).toBe('Limits');
     state = run(state, setCaption('  Power   limits '));
-    expect(captionedAt(state)?.node.attrs).toMatchObject({
-      caption: 'Power limits',
-      captionEnabled: true,
-    });
+    expect(captionOf(state)).toBe('Power limits');
+    expect(captionedAt(state)?.node.attrs.captionEnabled).toBe(true);
     state = run(state, toggleCaption());
     expect(captionedAt(state)?.node.attrs.captionEnabled).toBe(false);
     state = run(state, setCaption('Power limits'));
     expect(captionedAt(state)?.node.attrs.captionEnabled).toBe(true);
-    const figure = read({ type: 'figure', attrs: { src: 'a.png', caption: 'Board' } });
+    const figure = read({
+      type: 'figure',
+      attrs: { src: 'a.png' },
+      content: [storedCaption('Board')],
+    });
     let selected = EditorState.create({ doc: figure });
     let at = -1;
     figure.descendants((node, pos) => {

@@ -162,7 +162,12 @@
                     "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
                     "alt": "C",
                     "id": "8b9a11a4"
-                  }
+                  },
+                  "content": [
+                    {
+                      "type": "caption"
+                    }
+                  ]
                 }
               ]
             }

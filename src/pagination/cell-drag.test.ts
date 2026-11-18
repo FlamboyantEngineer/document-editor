@@ -15,7 +15,12 @@ function tableState() {
     node('page_section', [
       node('page', [
         node('page_header'),
-        node('page_content', [node('table', [node('table_row', [cell('A'), cell('B')])])]),
+        node('page_content', [
+          node('table_figure', [
+            node('table_caption'),
+            node('table', [node('table_row', [cell('A'), cell('B')])]),
+          ]),
+        ]),
         node('page_footnotes'),
         node('page_footer'),
       ]),

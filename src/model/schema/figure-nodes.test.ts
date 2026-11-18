@@ -16,18 +16,27 @@ const previewSchema = createDocumentSchema({
 const CAPTION =
   '<figcaption class="doc-caption-line doc-figure-caption-line" data-caption-kind="figure"><span class="doc-caption-text" data-doc-caption-text="true">Chart</span><span class="doc-caption-continued" data-doc-caption-continued="true"></span></figcaption>';
 
+// What the editor writes for a figure whose image markup ends `image`: the image, which is not
+// edited as text, and the caption in its slot.
+const written = (html: string) =>
+  html.replace(
+    `>${CAPTION}`,
+    ` contenteditable="false"><div class="doc-figure-caption-slot">${CAPTION}</div>`,
+  );
+
 describe('figure nodes', () => {
   it('DOCE-SCHEMA-3.3 keeps an addressed image figure with its caption, size and alignment', () => {
     const html = `<figure data-object-layout="center" data-figure-width="320" data-figure-height="200" data-figure-src="https://example.com/a.png" data-figure-type="image"><img src="https://example.com/a.png" alt="Chart" loading="lazy" decoding="async" style="display: block; width: 320px; height: 200px; margin-left: auto; margin-right: auto; max-width: 100%; object-fit: contain;" width="320" height="200">${CAPTION}</figure>`;
     const figure = findNode(parseMarkup(html), 'figure');
     expect(figure?.attrs).toMatchObject({
       src: 'https://example.com/a.png',
-      caption: 'Chart',
       objectLayout: 'center',
       width: 320,
       height: 200,
     });
-    expect(roundTrip(html)).toBe(html);
+    expect(figure?.textContent).toBe('Chart');
+    expect(roundTrip(html)).toBe(written(html));
+    expect(roundTrip(written(html))).toBe(written(html));
   });
 
   it('DOCE-SCHEMA-3.3 writes a size only when it is a positive number', () => {

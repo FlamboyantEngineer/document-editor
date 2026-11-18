@@ -213,23 +213,28 @@ function readPages(): PageRead[] {
         part: part(list),
         numbers: listNumbers(list),
       })),
-      tables: [...(body?.querySelectorAll(':scope > table') ?? [])].map((table) => {
-        const rows = [...table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr')];
-        return {
-          id: table.getAttribute('data-id'),
-          part: part(table),
-          headerRows: rows.filter(isHeaderRow).length,
-          bodyRows: rows
-            .filter((row) => !isHeaderRow(row))
-            .map((row) => row.getAttribute('data-id') ?? ''),
-          caption: table.querySelector(':scope > caption')
-            ? text(table.querySelector(':scope > caption'))
-            : null,
-          captionShown: [...table.querySelectorAll(':scope > caption')].some(
-            (caption) => getComputedStyle(caption).display !== 'none',
-          ),
-        };
-      }),
+      tables: [...(body?.querySelectorAll(':scope > .doc-table-figure > table') ?? [])].map(
+        (table) => {
+          const rows = [...table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr')];
+          // The caption before the table, a later part's showing the caption's text it repeats.
+          const line = table.parentElement?.querySelector(':scope > .doc-caption-line') ?? null;
+          const repeated = line?.querySelector('[data-continued-text]') ?? null;
+          return {
+            id: table.getAttribute('data-id'),
+            part: part(table),
+            headerRows: rows.filter(isHeaderRow).length,
+            bodyRows: rows
+              .filter((row) => !isHeaderRow(row))
+              .map((row) => row.getAttribute('data-id') ?? ''),
+            caption: repeated
+              ? repeated.getAttribute('data-continued-text')
+              : line
+                ? text(line)
+                : null,
+            captionShown: line !== null && getComputedStyle(line).display !== 'none',
+          };
+        },
+      ),
       code: [...(body?.querySelectorAll('pre') ?? [])].map((code) => ({
         id: code.getAttribute('data-id'),
         part: part(code),

@@ -94,6 +94,10 @@ const cell = (
 
 const row = (cells: StoredNode[]): StoredNode => ({ type: 'tableRow', content: cells });
 
+// A table's caption, its first child: empty when it has no text.
+const caption = (text: string): StoredNode =>
+  text ? { type: 'caption', content: [{ type: 'text', text }] } : { type: 'caption' };
+
 interface TableShape {
   readonly rows: number;
   readonly columns: number;
@@ -122,8 +126,7 @@ function table(rng: Random, shape: TableShape): StoredNode {
   );
   return {
     type: 'table',
-    ...(shape.caption ? { attrs: { caption: shape.caption } } : {}),
-    content: [row(header), ...body],
+    content: [caption(shape.caption ?? ''), row(header), ...body],
   };
 }
 
@@ -194,8 +197,8 @@ export function tablesDocument(copies: number): DocumentFile {
   footnotes = 0;
   const merged: StoredNode = {
     type: 'table',
-    attrs: { caption: 'Merged cells' },
     content: [
+      caption('Merged cells'),
       row([
         cell('tableHeader', 'Group', { rowspan: 2 }),
         cell('tableHeader', 'Readings', { colspan: 3 }),
@@ -256,8 +259,8 @@ export function paginationDocument(): DocumentFile {
   };
   const heavyCell: StoredNode = {
     type: 'table',
-    attrs: { caption: 'A row taller than a page' },
     content: [
+      caption('A row taller than a page'),
       row([cell('tableHeader', 'Item'), cell('tableHeader', 'Description')]),
       row([cell('tableCell', 'Short'), cell('tableCell', sentence(rng))]),
       row([cell('tableCell', 'Long'), cell('tableCell', sentences(rng, 60))]),

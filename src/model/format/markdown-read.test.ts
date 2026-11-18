@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { importWarningGroup } from '../../import/import-warnings.js';
+import { storedCaption } from '../schema/caption-content.js';
 import { createDocumentSchema } from '../schema/document-schema.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
 import { readDocumentFile } from './document-format-convert.js';
@@ -168,19 +169,22 @@ describe('reading Markdown', () => {
         '![Bare](bare.png)',
       ].join('\n'),
     );
-    expect(table?.attrs).toEqual({ caption: 'Rainfall' });
-    expect(table?.content?.[0]?.content?.map((cell) => [cell.type, cell.attrs])).toEqual([
+    expect(table?.attrs).toBeUndefined();
+    expect(table?.content?.[0]).toEqual(storedCaption('Rainfall'));
+    expect(table?.content?.[1]?.content?.map((cell) => [cell.type, cell.attrs])).toEqual([
       ['tableHeader', undefined],
       ['tableHeader', { align: 'right' }],
     ]);
-    expect(table?.content?.[1]?.content?.[1]?.content).toEqual([paragraph(text('4 | 5'))]);
+    expect(table?.content?.[2]?.content?.[1]?.content).toEqual([paragraph(text('4 | 5'))]);
     expect(figure).toEqual({
       type: 'figure',
-      attrs: { src: 'plot.png', alt: 'Plot', caption: 'The plot' },
+      attrs: { src: 'plot.png', alt: 'Plot' },
+      content: [storedCaption('The plot')],
     });
     expect(plain).toEqual({
       type: 'figure',
       attrs: { src: 'bare.png', alt: 'Bare', captionEnabled: false },
+      content: [{ type: 'caption' }],
     });
   });
 

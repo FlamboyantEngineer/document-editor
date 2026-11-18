@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
+import { storedCaption } from '../schema/caption-content.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
 import { readDocumentFile } from './document-format-convert.js';
 import { writeDocumentFile } from './document-format-write.js';
@@ -45,8 +46,8 @@ const FILE: DocumentFile = {
         { type: 'codeBlock', attrs: { language: 'ts' }, content: [text('let a = 1;')] },
         {
           type: 'table',
-          attrs: { caption: 'Limits' },
           content: [
+            storedCaption('Limits'),
             {
               type: 'tableRow',
               content: [cell('tableHeader', 'Item'), cell('tableHeader', 'Max')],
@@ -54,7 +55,11 @@ const FILE: DocumentFile = {
             { type: 'tableRow', content: [cell('tableCell', 'Volt'), cell('tableCell', '5')] },
           ],
         },
-        { type: 'figure', attrs: { src: 'board.png', alt: 'Board', caption: 'The board' } },
+        {
+          type: 'figure',
+          attrs: { src: 'board.png', alt: 'Board' },
+          content: [storedCaption('The board')],
+        },
       ],
     },
   ],

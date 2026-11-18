@@ -3,6 +3,7 @@
 // without knowing the stored format's names.
 
 import type { StoredMark, StoredNode } from '../model/index.js';
+import { storedCaption } from '../model/schema/caption-content.js';
 
 /** A run of text a script writes, with its marks. */
 export interface ScriptTextRun {
@@ -109,13 +110,23 @@ export function buildScriptList(
  */
 export type ScriptCaption = string | false | undefined;
 
-// The stored caption attributes for a script's caption: none, its text, or a hidden caption.
+// A code block's stored caption attributes for a script's caption: none, its text, or a hidden
+// caption.
 function captionAttrs(caption: ScriptCaption): Record<string, unknown> {
   if (caption === undefined) return {};
   return caption === false
     ? { captionEnabled: false }
     : { caption: caption.replace(/\s+/g, ' ').trim() };
 }
+
+// A figure's or a table's stored caption for a script's caption, its first child: empty when the
+// script gives no text.
+const storedCaptionFor = (caption: ScriptCaption): StoredNode =>
+  storedCaption(typeof caption === 'string' ? caption : '');
+
+// A hidden caption's attribute, for a figure or a table, whose caption text is its first child.
+const hiddenCaption = (caption: ScriptCaption) =>
+  caption === false ? { captionEnabled: false } : {};
 
 const withAttrs = (attrs: Record<string, unknown>) => (Object.keys(attrs).length ? { attrs } : {});
 
@@ -215,14 +226,15 @@ export function buildScriptTable(
   const attrs = {
     ...(fit === 'fit' ? { layout: 'fit-page-width' } : {}),
     ...(rules ? { border: RULES[rules] } : {}),
-    ...captionAttrs(caption),
+    ...hiddenCaption(caption),
   };
   return {
     type: 'table',
     ...withAttrs(attrs),
-    content: rows.map((cells, index) =>
-      tableRow(cells, { header: header && index === 0, options }),
-    ),
+    content: [
+      storedCaptionFor(caption),
+      ...rows.map((cells, index) => tableRow(cells, { header: header && index === 0, options })),
+    ],
   };
 }
 
@@ -246,9 +258,9 @@ export function buildScriptFigure({ src, alt, caption, width }: ScriptFigure): S
     src,
     ...(alt ? { alt } : {}),
     ...(width ? { width } : {}),
-    ...captionAttrs(caption),
+    ...hiddenCaption(caption),
   };
-  return { type: 'figure', attrs };
+  return { type: 'figure', attrs, content: [storedCaptionFor(caption)] };
 }
 
 /** A code block holding the code, in its language, with its caption (`ScriptCaption`). */

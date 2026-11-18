@@ -25,10 +25,11 @@ import {
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import type { MenuEntry, MenuItemEntry } from '@flamboyantengineer/ui-components/menu';
 import type { Command } from 'prosemirror-state';
-import { deleteColumn, deleteRow, deleteTable, mergeCells } from 'prosemirror-tables';
+import { deleteColumn, deleteRow, mergeCells } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
   deleteObject,
+  deleteTableWithCaption,
   distributeColumns,
   distributeRows,
   inEmbeddedTable,
@@ -233,7 +234,11 @@ function structureEntries(
       items: [
         item(deleteRow, { id: 'delete-row', label: labels.deleteRow, tone: danger }),
         item(deleteColumn, { id: 'delete-column', label: labels.deleteColumn, tone: danger }),
-        item(deleteTable, { id: 'delete-table', label: labels.deleteTable, tone: danger }),
+        item(deleteTableWithCaption, {
+          id: 'delete-table',
+          label: labels.deleteTable,
+          tone: danger,
+        }),
       ],
     },
     item(mergeCells, { id: 'merge-cells', label: labels.mergeCells, icon: MergeCellsGlyph }),
@@ -295,7 +300,9 @@ export function objectEntries(
   labels: DocumentEditorLabels,
   pos: number,
 ): MenuEntry[] {
-  if (view.state.doc.nodeAt(pos)?.type.name === 'table') return [];
+  // A table is deleted with the table's own entries (`tableCellEntries`).
+  const name = view.state.doc.nodeAt(pos)?.type.name;
+  if (name === 'table' || name === 'table_figure') return [];
   return [
     commandEntry(
       view,

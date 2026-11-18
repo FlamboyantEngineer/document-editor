@@ -32,8 +32,14 @@ const row = (name: 'table_cell' | 'table_header', ...values: string[]) =>
     null,
     values.map((value) => cell(name, value)),
   );
+// A part of a table split across pages, with its caption: a later part repeats it, empty.
 const table = (part: number, ...rows: Node[]) =>
-  create('table', { dataId: 't1', splitPartIndex: part }, rows);
+  create('table_figure', { splitPartIndex: part }, [
+    part === 0
+      ? create('table_caption', { dataId: 'c1' }, 'Totals')
+      : create('table_caption', { continuedText: 'Totals' }),
+    create('table', { dataId: 't1', splitPartIndex: part }, rows),
+  ]);
 
 function page(blocks: Node[], entries: Node[] = []): Node {
   return create('page', null, [

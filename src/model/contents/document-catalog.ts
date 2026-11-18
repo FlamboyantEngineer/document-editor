@@ -122,10 +122,12 @@ function countObject(node: ProseMirrorNode, counting: Counting): string | null {
 function list(
   [node, pos, numbered]: readonly [ProseMirrorNode, number, string | null],
   counting: Counting,
+  parent: ProseMirrorNode | null,
 ) {
   for (const [key, kind] of counting.kinds) {
     if (!kind.nodes.includes(node.type.name) || kind.include?.(node) === false) continue;
-    counting.catalog[key]?.push(nodeEntry([key, kind], [node, pos, numbered], counting.page));
+    const entry = nodeEntry([key, kind], [node, pos, numbered, parent], counting.page);
+    counting.catalog[key]?.push(entry);
   }
 }
 
@@ -160,7 +162,7 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
 }
 
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
-  content.descendants((node, offset) => {
+  content.descendants((node, offset, parent) => {
     if (start + offset >= counting.end) return false;
     if (counting.firstContents === null && isTableOfContents(node)) {
       counting.firstContents = start + offset;
@@ -169,7 +171,7 @@ function countBlocks(content: ProseMirrorNode, start: number, counting: Counting
     // The title and a heading set in a list, a table or a quote are neither numbered nor listed.
     if (!isHeading || isStructuralHeading(counting.doc, start + offset)) {
       const numbered = isHeading ? countHeading(node, counting) : countObject(node, counting);
-      list([node, start + offset, numbered], counting);
+      list([node, start + offset, numbered], counting, parent);
     }
     if (node.isTextblock && counting.inline) listMarks(node, start + offset + 1, counting);
     return !node.isTextblock || counting.inline;

@@ -7,6 +7,7 @@ import {
   style,
 } from '../../../test/fixtures/docx/build-docx-fixture.js';
 import type { StoredNode } from '../../model/format/document-format.js';
+import { storedBodyOf, storedCaptionText } from '../../model/schema/caption-content.js';
 import { type DocxRead, type DocxReadOptions, readDocx } from './read-docx.js';
 
 type Read = Extract<DocxRead, { ok: true }>;
@@ -66,7 +67,7 @@ const textOf = (node: StoredNode | undefined): string =>
 const summary = (result: Read) =>
   blocks(result).map((node) =>
     ['table', 'figure'].includes(node.type)
-      ? `${node.type}:${String(node.attrs?.caption ?? '-')}`
+      ? `${node.type}:${storedCaptionText(node) || '-'}`
       : `${node.type}:${textOf(node)}`,
   );
 const codes = (result: Read) =>
@@ -162,7 +163,8 @@ describe('reading the structure of word processing documents', () => {
     ]);
     const [heading, plot, cites] = blocks(result);
     expect(heading?.attrs?.id).toBe('00000002');
-    expect(plot?.attrs).toMatchObject({ id: '00000001', caption: 'Plot' });
+    expect(plot?.attrs).toMatchObject({ id: '00000001' });
+    expect(plot && storedCaptionText(plot)).toBe('Plot');
     expect(cites?.content).toEqual([
       { type: 'text', text: 'See ' },
       {
@@ -248,7 +250,9 @@ describe('reading the structure of word processing documents', () => {
     expect(body?.type).toBe('paragraph');
     expect(title?.attrs).toEqual({ title: true });
     expect(empty).toEqual({ type: 'paragraph' });
-    expect(cells?.content?.[0]?.content?.[0]?.content?.[0]?.type).toBe('paragraph');
+    expect(storedBodyOf(cells ?? { type: 'table' })[0]?.content?.[0]?.content?.[0]?.type).toBe(
+      'paragraph',
+    );
     expect(result.title).toBe('The title');
     expect(codes(result)).toEqual(
       expect.arrayContaining(['not-imported heading-level-clamped 2', 'applied title-applied 1']),
@@ -323,7 +327,7 @@ describe('reading the structure of word processing documents', () => {
     const result = await read([
       `<w:tbl><w:tblGrid><w:gridCol w:w="1500"/></w:tblGrid><w:tr><w:trPr><w:tblHeader/></w:trPr><w:tc>${paragraph(run('Head', '<w:b/><w:i/>'))}</w:tc></w:tr><w:tr><w:tc>${paragraph(run('Body', '<w:b/>'))}</w:tc></w:tr></w:tbl>`,
     ]);
-    const [head, body] = blocks(result)[0]?.content ?? [];
+    const [head, body] = storedBodyOf(blocks(result)[0] ?? { type: 'table' });
     expect(head?.content?.[0]?.content?.[0]?.content).toEqual([
       { type: 'text', text: 'Head', marks: [{ type: 'italic' }] },
     ]);

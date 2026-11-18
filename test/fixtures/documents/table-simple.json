@@ -22,10 +22,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Weekly rainfall",
             "id": "a6c1c7f7"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Weekly rainfall"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -579,6 +587,9 @@
             "id": "28ba45d8"
           },
           "content": [
+            {
+              "type": "caption"
+            },
             {
               "type": "tableRow",
               "attrs": {

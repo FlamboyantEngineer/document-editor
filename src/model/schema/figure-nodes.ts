@@ -3,7 +3,6 @@
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
-import { normalizeCaptionText } from './caption-text.js';
 import type { DomAttributes } from './dom-attributes.js';
 import { createImageNode } from './image-node.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
@@ -47,25 +46,10 @@ function readFigureAttrs(dom: HTMLElement) {
     fileAssetId,
     snapshotId,
     alt: image?.getAttribute('alt') || 'figure',
-    caption: dom.querySelector('figcaption')?.textContent || '',
     captionEnabled: dom.getAttribute('data-caption-enabled') !== 'false',
     width: sizeOf(dom.getAttribute('data-figure-width')),
     height: sizeOf(dom.getAttribute('data-figure-height')),
   };
-}
-
-function captionOutput(caption: unknown) {
-  const line = { class: 'doc-caption-line doc-figure-caption-line', 'data-caption-kind': 'figure' };
-  return [
-    'figcaption',
-    line,
-    [
-      'span',
-      { class: 'doc-caption-text', 'data-doc-caption-text': 'true' },
-      normalizeCaptionText(caption || ''),
-    ],
-    ['span', { class: 'doc-caption-continued', 'data-doc-caption-continued': 'true' }, ''],
-  ];
 }
 
 /** The style that sizes and aligns the image, so the caption spans the content width. */
@@ -118,12 +102,13 @@ function figureAttrs(node: ProseMirrorNode, asset: FigureAsset | null): DomAttri
 }
 
 function figureImageAttrs(node: ProseMirrorNode, previewSrc: string): DomAttributes {
-  const { figureType, src, alt, caption } = node.attrs;
+  const { figureType, src, alt } = node.attrs;
+  const caption = node.textContent;
   const isDiagram = figureType === 'diagram';
   const style = imageStyle(node);
   const attrs: DomAttributes = {
     src: isDiagram ? previewSrc || DIAGRAM_PLACEHOLDER : previewSrc || String(src || ''),
-    alt: isDiagram ? String(caption || 'diagram') : String(alt || 'figure'),
+    alt: isDiagram ? caption || 'diagram' : String(alt || 'figure'),
     loading: 'lazy',
     decoding: 'async',
   };
@@ -152,14 +137,26 @@ function renderFigure(node: ProseMirrorNode, options: ResolvedSchemaOptions) {
     ...figureAttrs(node, asset),
     'data-figure-type': node.attrs.figureType === 'diagram' ? 'diagram' : 'image',
   };
-  const image = ['img', figureImageAttrs(node, asset?.previewSrc ?? '')];
-  return ['figure', attrs, image, captionOutput(node.attrs.caption)] as const;
+  const image = [
+    'img',
+    { ...figureImageAttrs(node, asset?.previewSrc ?? ''), contenteditable: 'false' },
+  ];
+  // The caption is the figure's content, in a slot of its own after the image.
+  return ['figure', attrs, image, ['div', { class: 'doc-figure-caption-slot' }, 0]] as const;
+}
+
+// The element a figure's caption is read from: its caption slot, a pasted figure's own caption, or
+// none, which makes it empty. The image is the figure's attributes, not its content.
+function captionElement(dom: HTMLElement): HTMLElement {
+  const own = dom.querySelector<HTMLElement>(':scope > .doc-figure-caption-slot');
+  return own ?? dom.querySelector(':scope > figcaption') ?? dom.ownerDocument.createElement('div');
 }
 
 function createFigureNode(options: ResolvedSchemaOptions): NodeSpec {
   return {
     group: 'block',
-    atom: true,
+    content: 'figure_caption',
+    isolating: true,
     attrs: {
       figureType: { default: 'image' },
       objectLayout: { default: null },
@@ -168,12 +165,17 @@ function createFigureNode(options: ResolvedSchemaOptions): NodeSpec {
       fileAssetId: { default: '' },
       snapshotId: { default: '' },
       alt: { default: 'figure' },
-      caption: { default: '' },
       captionEnabled: { default: true },
       width: { default: null },
       height: { default: null },
     },
-    parseDOM: [{ tag: 'figure', getAttrs: readFigureAttrs }],
+    parseDOM: [
+      {
+        tag: 'figure',
+        getAttrs: readFigureAttrs,
+        contentElement: captionElement,
+      },
+    ],
     toDOM: (node) =>
       renderFigure(node, options) as unknown as ReturnType<NonNullable<NodeSpec['toDOM']>>,
   };

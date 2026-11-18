@@ -24,17 +24,35 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Target",
-            "caption": "Target figure",
             "id": "c4265650"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Target figure"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "table",
           "attrs": {
-            "caption": "Target table",
             "id": "c8265c9c"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Target table"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

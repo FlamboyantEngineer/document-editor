@@ -240,7 +240,10 @@ describe('attributes not of their kind', () => {
         doc.check();
       }).not.toThrow();
       expect(writeDocumentFile(doc).sections[0]?.content).toEqual([
-        { type: 'table', content: [{ type: 'tableRow', content: [plain, plain] }] },
+        {
+          type: 'table',
+          content: [{ type: 'caption' }, { type: 'tableRow', content: [plain, plain] }],
+        },
         { type: 'paragraph', content: [{ type: 'text', text: 'site' }] },
       ]);
     }

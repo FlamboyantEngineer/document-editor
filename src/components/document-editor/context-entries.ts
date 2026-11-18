@@ -165,8 +165,12 @@ function objectGroups(view: EditorView, { labels, editable }: ContextEntriesOpti
   const table = findTable(view.state.selection.$from);
   const align =
     table && 'objectLayout' in table.node.attrs ? [alignEntry(view, labels, table.node)] : [];
+  // The object is the table, or the node holding it and its caption.
+  const $table = table ? view.state.doc.resolve(table.pos) : null;
+  const held = $table?.parent.type.name === 'table_figure';
+  const tableObject = $table && held ? $table.before() : table?.pos;
   const tableGroup: MenuEntry[] =
-    table?.pos === object ? tableCellEntries(view, labels, align) : [];
+    table && tableObject === object ? tableCellEntries(view, labels, align) : [];
   return {
     table: tableGroup,
     object: objectEntries(view, labels, object),

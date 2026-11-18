@@ -57,6 +57,9 @@
               },
               "content": [
                 {
+                  "type": "caption"
+                },
+                {
                   "type": "tableRow",
                   "attrs": {
                     "id": "e1841f11"

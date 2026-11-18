@@ -206,10 +206,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 1",
             "id": "9cf01d24"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 1"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -1044,9 +1052,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 0",
-            "caption": "Figure 1",
             "id": "9bf01b91"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 1"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -1228,10 +1246,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 2",
             "id": "54f3e106"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 2"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -2066,9 +2092,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 1",
-            "caption": "Figure 2",
             "id": "55f1a402"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 2"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -2250,10 +2286,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 3",
             "id": "e15ecac3"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 3"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -3088,9 +3132,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 2",
-            "caption": "Figure 3",
             "id": "e65ed2a2"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 3"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -3272,10 +3326,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 4",
             "id": "d739b681"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 4"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -4110,9 +4172,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 3",
-            "caption": "Figure 4",
             "id": "d237700b"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 4"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "pageBreak",
@@ -4300,10 +4372,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 5",
             "id": "eea9f83d"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 5"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -5138,9 +5218,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 4",
-            "caption": "Figure 5",
             "id": "e5a9ea12"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 5"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -5322,10 +5412,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 6",
             "id": "b05e19fd"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 6"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -6160,9 +6258,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 5",
-            "caption": "Figure 6",
             "id": "a35bc6ef"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 6"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -6344,10 +6452,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 7",
             "id": "37d0ed72"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 7"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -7182,9 +7298,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 6",
-            "caption": "Figure 7",
             "id": "40d0fb9d"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 7"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -7366,10 +7492,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 8",
             "id": "90e9a7f6"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 8"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -8204,9 +8338,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 7",
-            "caption": "Figure 8",
             "id": "0de69b26"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 8"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "pageBreak",
@@ -8394,10 +8538,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 9",
             "id": "b04f68ee"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 9"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -9232,9 +9384,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 8",
-            "caption": "Figure 9",
             "id": "a74f5ac3"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 9"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -9416,10 +9578,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 10",
             "id": "b0f41a3d"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 10"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -10254,9 +10424,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 9",
-            "caption": "Figure 10",
             "id": "b3f65d8d"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 10"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -10438,10 +10618,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 11",
             "id": "21c65eb4"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 11"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -11276,9 +11464,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 10",
-            "caption": "Figure 11",
             "id": "1cc656d5"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 11"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "heading",
@@ -11460,10 +11658,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Values 12",
             "id": "fb26a726"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Values 12"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {
@@ -12298,9 +12504,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Figure 11",
-            "caption": "Figure 12",
             "id": "881f3658"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Figure 12"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "pageBreak",

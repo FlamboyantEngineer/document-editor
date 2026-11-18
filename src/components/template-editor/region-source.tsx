@@ -7,8 +7,9 @@
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { CodeGlyph } from '@flamboyantengineer/ui-components/core';
 import { PropertyRow } from '@flamboyantengineer/ui-components/property-panel';
-import { lazy, Suspense, useState } from 'react';
+import { useState } from 'react';
 import type { StoredContent } from '../../model/index.js';
+import type { RegionSourceDialog } from './region-source-dialog.js';
 import type { Rows } from './template-rows.js';
 import { settingAt } from './template-settings.js';
 
@@ -31,9 +32,12 @@ export const DEFAULT_REGION_SOURCE_LABELS: RegionSourceLabels = {
 
 type RegionKey = 'header' | 'footer';
 
-const RegionSourceDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./region-source-dialog.js')).RegionSourceDialog,
-}));
+// The dialog, loaded on first use. It opens once loaded, drawn at once rather than suspended, so
+// opening it waits only for the import.
+type Dialog = typeof RegionSourceDialog;
+let loadedDialog: Dialog | undefined;
+const loadDialog = async (): Promise<Dialog> =>
+  (loadedDialog ??= (await import('./region-source-dialog.js')).RegionSourceDialog);
 
 // The content a region shows: the scope's own, else the one it inherits.
 function shownContent({ target }: Rows, key: RegionKey): StoredContent {
@@ -46,6 +50,7 @@ function RegionSourceRow({ context, region }: { context: Rows; region: RegionKey
   const { labels, target, props } = context;
   // The document the dialog parses in, while it is open.
   const [owner, setOwner] = useState<Document | null>(null);
+  const Dialog = loadedDialog;
   const name = labels.regionSource(labels.regionNames[region]);
   const inherits = settingAt(target.own, [region, 'inherit']) === true;
   return (
@@ -57,20 +62,21 @@ function RegionSourceRow({ context, region }: { context: Rows; region: RegionKey
         label={name}
         tooltip={name}
         isDisabled={props.isDisabled === true || inherits}
-        onPress={(event) => setOwner(event.target.ownerDocument)}
+        onPress={(event) => {
+          const document = event.target.ownerDocument;
+          void loadDialog().then(() => setOwner(document));
+        }}
       />
-      {owner ? (
-        <Suspense fallback={null}>
-          <RegionSourceDialog
-            title={name}
-            fieldLabel={labels.regionSourceField}
-            applyLabel={labels.applyRegionSource}
-            content={shownContent(context, region)}
-            owner={owner}
-            onApply={(content) => target.set([region, 'content'], content)}
-            onClose={() => setOwner(null)}
-          />
-        </Suspense>
+      {owner && Dialog ? (
+        <Dialog
+          title={name}
+          fieldLabel={labels.regionSourceField}
+          applyLabel={labels.applyRegionSource}
+          content={shownContent(context, region)}
+          owner={owner}
+          onApply={(content) => target.set([region, 'content'], content)}
+          onClose={() => setOwner(null)}
+        />
       ) : null}
     </PropertyRow>
   );

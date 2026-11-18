@@ -26,6 +26,7 @@ import {
 import type { DocumentFile, StoredNode } from '../../model/format/document-format.js';
 import { readDocumentFile } from '../../model/format/document-format-convert.js';
 import { writeZip } from '../../model/format/zip.js';
+import { storedBodyOf, storedCaption } from '../../model/schema/caption-content.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
 import { composeDocumentFile } from '../../model/templates/template-sections.js';
 import { importWarningGroup } from '../import-warnings.js';
@@ -260,8 +261,9 @@ describe('reading word processing documents', () => {
 
   it('DOCE-IMPORT-2.4 reads tables with widths, spans, header rows, shading and a caption', async () => {
     const [table] = blocks(await read(TABLES));
-    expect(table?.attrs).toEqual({ caption: 'Rainfall' });
-    const [head, first, second] = table?.content ?? [];
+    expect(table?.attrs).toEqual({});
+    const [caption, head, first, second] = table?.content ?? [];
+    expect(caption).toEqual(storedCaption('Rainfall'));
     expect(head?.content?.map((cell) => [cell.type, cell.attrs])).toEqual([
       ['tableHeader', { colwidth: [100] }],
       ['tableHeader', { colspan: 2, colwidth: [200, 100] }],
@@ -348,8 +350,10 @@ describe('reading word processing documents', () => {
       body: `<w:tbl><w:tblGrid><w:gridCol w:w="1500"/></w:tblGrid><w:tr>${tc('<w:vMerge w:val="restart"/>', 'top')}</w:tr><w:tr>${tc('<w:vMerge/>', '')}</w:tr><w:tr>${tc('<w:vMerge/>', '')}</w:tr></w:tbl>`,
     });
     const [table] = blocks(result);
-    expect(table?.content).toHaveLength(1);
-    expect(table?.content?.[0]?.content?.[0]?.attrs).toEqual({ colwidth: [100] });
+    expect(storedBodyOf(table ?? { type: 'table' })).toHaveLength(1);
+    expect(storedBodyOf(table ?? { type: 'table' })[0]?.content?.[0]?.attrs).toEqual({
+      colwidth: [100],
+    });
     expect(() => readDocumentFile(result.file, schema)).not.toThrow();
   });
 
@@ -388,11 +392,9 @@ describe('reading word processing documents', () => {
         table('', 'many'),
       ].join(''),
     });
-    expect(blocks(result).map((each) => each.content?.[0]?.content?.[0]?.attrs?.colspan)).toEqual([
-      3,
-      1000,
-      undefined,
-    ]);
+    expect(
+      blocks(result).map((each) => storedBodyOf(each)[0]?.content?.[0]?.attrs?.colspan),
+    ).toEqual([3, 1000, undefined]);
     expect(() => readDocumentFile(result.file, schema)).not.toThrow();
   });
 
@@ -610,7 +612,8 @@ describe('reading word processing documents', () => {
     });
     expect(figure).toEqual({
       type: 'figure',
-      attrs: { src, alt: 'Plot plan', width: 100, height: 50, caption: 'Plot plan of the beds' },
+      attrs: { src, alt: 'Plot plan', width: 100, height: 50 },
+      content: [storedCaption('Plot plan of the beds')],
     });
     expect(result.images.map((image) => [image.path, image.mediaType])).toEqual([
       ['word/media/plot.png', 'image/png'],

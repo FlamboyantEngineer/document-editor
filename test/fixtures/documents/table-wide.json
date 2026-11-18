@@ -10,10 +10,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Twelve columns",
             "id": "01a48654"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Twelve columns"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

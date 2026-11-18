@@ -24,9 +24,19 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plot plan",
-            "caption": "Plot plan of the north beds",
             "id": "511f20aa"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Plot plan of the north beds"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "figure",
@@ -35,11 +45,21 @@
             "layout": "center",
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Water flow",
-            "caption": "Water flow",
             "width": 320,
             "height": 180,
             "id": "521f223d"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Water flow"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "figure",
@@ -49,7 +69,12 @@
             "alt": "Shed",
             "captionEnabled": false,
             "id": "4b1f1738"
-          }
+          },
+          "content": [
+            {
+              "type": "caption"
+            }
+          ]
         },
         {
           "type": "figure",
@@ -59,7 +84,12 @@
             "assetRevision": "rev-3",
             "alt": "Stored asset",
             "id": "4c1f18cb"
-          }
+          },
+          "content": [
+            {
+              "type": "caption"
+            }
+          ]
         },
         {
           "type": "figure",
@@ -67,9 +97,19 @@
             "layout": "fit-page-width",
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Wide map",
-            "caption": "Map across the page width",
             "id": "4d1f1a5e"
-          }
+          },
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Map across the page width"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "paragraph",

@@ -62,8 +62,17 @@ function detailsProvider(seen: (context: EditorContext) => void): ContextMenuPro
 }
 
 // Opens the context menu at the caret, with the keyboard.
-async function openMenu(user: ReturnType<typeof userEvent.setup>) {
+// Opens the menu from the keyboard, the caret in a text when one is given, or else where a click on
+// the editor puts it. The test document has no layout to place a click in a text, so the caret is
+// put there as the browser puts it.
+async function openMenu(user: ReturnType<typeof userEvent.setup>, at?: string) {
   await user.click(screen.getByRole('textbox', { name: 'Report' }));
+  const text = at ? screen.getByText(at).firstChild : null;
+  if (text) {
+    document.getSelection()?.collapse(text, 1);
+    document.dispatchEvent(new Event('selectionchange'));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
   await user.keyboard('{Shift>}{F10}{/Shift}');
   return screen.findByRole('menu');
 }
@@ -295,7 +304,7 @@ describe('the table entries', () => {
   it('DOCE-EDITOR-3.5 offers the table entries at the top level, in order', async () => {
     const user = userEvent.setup();
     render(<Harness initial={tableState()} />);
-    const menu = await openMenu(user);
+    const menu = await openMenu(user, 'Pump');
     const names = within(menu)
       .getAllByRole('menuitem')
       .map((item) => item.textContent);
@@ -319,7 +328,7 @@ describe('the table entries', () => {
   it('DOCE-EMBEDS-2.3 leaves out the entries changing rows and columns in a table an embed holds', async () => {
     const user = userEvent.setup();
     render(<Harness initial={tableState(true)} />);
-    const menu = await openMenu(user);
+    const menu = await openMenu(user, 'Pump');
     const names = within(menu)
       .getAllByRole('menuitem')
       .map((item) => item.textContent);
@@ -354,7 +363,7 @@ describe('the table entries', () => {
       },
     };
     render(<Harness initial={tableState(true)} contextMenu={{ providers: [embedEntries] }} />);
-    const menu = await openMenu(user);
+    const menu = await openMenu(user, 'Pump');
     const names = within(menu)
       .getAllByRole('menuitem')
       .map((item) => item.textContent);

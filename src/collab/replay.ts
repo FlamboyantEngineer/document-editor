@@ -3,17 +3,26 @@
 // only what changed and positions map through them.
 
 import * as delta from 'lib0/delta';
-import { type Fragment, type Node, type Schema, Slice } from 'prosemirror-model';
-import type { Transform } from 'prosemirror-transform';
+import { Fragment, type Node, type Schema, Slice } from 'prosemirror-model';
+import { ReplaceStep, type Transform } from 'prosemirror-transform';
 import { type AnyDelta, contentToDelta, deltaToFragment, deltaToNode } from './delta.js';
 
 type AttrOp = { key: string; value?: unknown };
 
-// Where a replay works: the transform, and the node at `at` (-1 for the document).
+// Where a replay works: the transform, and the node at `at` (-1 for the document). A strict
+// replay, as a guard's, places content exactly as the shared document holds it, and throws where
+// the schema refuses it there, rather than fitting it in with nodes of its own.
 interface Place {
   readonly tr: Transform;
   readonly schema: Schema;
   readonly at: number;
+  readonly strict?: boolean | undefined;
+}
+
+// Replaces a range with content: exactly, for a strict replay, or fitted to the schema.
+function replaceRange(place: Place, range: { from: number; to: number }, slice: Slice): void {
+  if (place.strict) place.tr.step(new ReplaceStep(range.from, range.to, slice));
+  else place.tr.replace(range.from, range.to, slice);
 }
 
 const nodeAt = ({ tr, at }: Place): Node => {
@@ -63,14 +72,15 @@ function replayInline(place: Place, node: Node, change: AnyDelta): void {
   const endA = snap(node.content, ends.a + overlap, true);
   const endB = snap(content, ends.b + overlap, true);
   const start = place.at + 1;
-  place.tr.replace(start + from, start + endA, new Slice(content.cut(from, endB), 0, 0));
+  const range = { from: start + from, to: start + endA };
+  replaceRange(place, range, new Slice(content.cut(from, endB), 0, 0));
 }
 
 // Walks the container's children by index; the container is read again after each change. A run
 // of deletions and insertions is replaced at once, so a container is never left empty in between,
 // which ProseMirror would fill with content of its own.
 function replayBlocks(place: Place, change: AnyDelta): void {
-  const { tr, schema } = place;
+  const { schema } = place;
   let pos = place.at + 1;
   let index = 0;
   let container = nodeAt(place);
@@ -83,7 +93,7 @@ function replayBlocks(place: Place, change: AnyDelta): void {
     if (deleted === 0 && inserted.length === 0) return;
     let end = pos;
     for (let count = 0; count < deleted; count += 1) end += container.child(index + count).nodeSize;
-    tr.replaceWith(pos, end, inserted);
+    replaceRange(place, { from: pos, to: end }, new Slice(Fragment.from(inserted), 0, 0));
     container = nodeAt(place);
     advance(inserted.length);
     deleted = 0;
@@ -99,7 +109,7 @@ function replayBlocks(place: Place, change: AnyDelta): void {
       if (delta.$retainOp.check(op)) {
         advance(op.retain);
       } else if (delta.$modifyOp.check(op)) {
-        replayChange({ tr, schema, at: pos }, op.value as AnyDelta);
+        replayChange({ ...place, at: pos }, op.value as AnyDelta);
         container = nodeAt(place);
         advance(1);
       } else {

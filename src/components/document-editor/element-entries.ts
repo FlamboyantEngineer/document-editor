@@ -15,7 +15,6 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
-  captionedAt,
   convertMath,
   deleteFootnote,
   editFootnote,
@@ -30,9 +29,9 @@ import {
   setCodeLanguage,
   setLink,
   setObjectLayout,
-  toggleCaption,
 } from '../../engine/index.js';
 import { abbreviationEntries } from './abbreviation-entries.js';
+import { captionEntries } from './caption-entries.js';
 import { contentsEntries } from './contents-entries.js';
 import type { ObjectDialog, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -265,21 +264,6 @@ function linkEntries(view: EditorView, options: ElementEntriesOptions): MenuEntr
   return [
     ...dialogEntry(options, { id: 'edit-link', label: labels.editLink }, { kind: 'link' }),
     commandEntry(view, { id: 'remove-link', label: labels.removeLink }, setLink('')),
-  ];
-}
-
-function captionEntries(view: EditorView, options: ElementEntriesOptions): MenuEntry[] {
-  const captioned = captionedAt(view.state);
-  if (!captioned) return [];
-  const { labels } = options;
-  const shown = captioned.node.attrs.captionEnabled !== false;
-  return [
-    ...dialogEntry(options, { id: 'edit-caption', label: labels.editCaption }, { kind: 'caption' }),
-    commandEntry(
-      view,
-      { id: 'toggle-caption', label: labels.showCaption(!shown) },
-      toggleCaption(),
-    ),
   ];
 }
 

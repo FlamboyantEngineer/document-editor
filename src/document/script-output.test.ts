@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { createDocumentSchema, readStoredContent } from '../model/index.js';
+import { captionTextOf } from '../model/schema/caption-content.js';
 import {
   buildScriptCode,
   buildScriptEquation,
@@ -13,6 +14,12 @@ import {
 } from './script-output.js';
 
 const schema = createDocumentSchema();
+
+// The objects stored content reads as: a table without the node that holds it and its caption.
+const readObjects = (content: Parameters<typeof readStoredContent>[0]) =>
+  readStoredContent(content, schema).map((node) =>
+    node.type.name === 'table_figure' ? (node.lastChild ?? node) : node,
+  );
 
 describe('script output builders', () => {
   it('DOCE-OBJECTS-4.5 writes text runs with their marks, leaving empty runs out', () => {
@@ -49,7 +56,7 @@ describe('script output builders', () => {
         { header: true },
       ),
     ];
-    const nodes = readStoredContent(content, schema);
+    const nodes = readObjects(content);
     expect(nodes.map((node) => node.type.name)).toEqual([
       'heading',
       'heading',
@@ -74,9 +81,14 @@ describe('script output builders', () => {
       buildScriptCode('x = 1', { language: 'python', caption: false }),
       buildScriptTable([['b']]),
     ];
-    const nodes = readStoredContent(content, schema);
+    const held = readStoredContent(content, schema);
+    const nodes = readObjects(content);
     expect(
-      nodes.map((node) => [node.type.name, node.attrs.caption, node.attrs.captionEnabled]),
+      nodes.map((node, index) => [
+        node.type.name,
+        captionTextOf(held[index] ?? node),
+        node.attrs.captionEnabled,
+      ]),
     ).toEqual([
       ['table', 'Stock levels', true],
       ['figure', 'Trend', true],
@@ -133,11 +145,13 @@ describe('script output builders', () => {
       ),
       buildScriptTable([['a']], { fit: 'natural', rules: 'none' }),
     ];
-    const [table, natural] = readStoredContent(content, schema);
+    const [figure, natural] = readObjects(content);
+    const [held] = readStoredContent(content, schema);
+    const table = figure;
+    expect(held && captionTextOf(held)).toBe('Reviewers');
     expect(table?.attrs).toMatchObject({
       objectLayout: 'fit-page-width',
       tableBorderClass: 'table-border-horizontal',
-      caption: 'Reviewers',
     });
     expect(natural?.attrs).toMatchObject({
       objectLayout: null,

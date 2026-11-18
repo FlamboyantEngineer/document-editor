@@ -51,7 +51,8 @@ const blocks = (view: EditorView) => {
   view.state.doc.descendants((node) => {
     if (node.type.name === 'figure') found.push(`[${String(node.attrs.alt)}]`);
     else if (node.isTextblock) found.push(node.textContent);
-    return !node.isTextblock;
+    // A figure's caption is its content.
+    return !node.isTextblock && node.type.name !== 'figure';
   });
   return found;
 };

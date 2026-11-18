@@ -15,6 +15,9 @@
           },
           "content": [
             {
+              "type": "caption"
+            },
+            {
               "type": "tableRow",
               "attrs": {
                 "id": "7b777cf0"

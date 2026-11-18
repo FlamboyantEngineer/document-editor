@@ -2,6 +2,7 @@
 // and numbers, quotes, code, display math with its number, tables, figures with their caption, page
 // breaks, rules and the table of contents as a field Word fills in.
 
+import { storedCaptionText } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
 import { keptContent } from '../left-out.js';
 import { assetAddress } from '../writer-values.js';
@@ -101,7 +102,7 @@ function figureOf(node: StoredNode, writing: Writing): string {
   const settings = writing.counting.styles.figure?.caption;
   const caption = captionParagraph(
     label,
-    captioned ? text(node.attrs?.caption) : '',
+    captioned ? storedCaptionText(node) : '',
     settings?.alignment,
   );
   const address = assetAddress(node, writing.values);

@@ -34,8 +34,9 @@ const text = (value: string) => ({ type: 'text', text: value });
 // A table of one row of two cells 120 pixels wide, captioned, aligned as given.
 const benchTable = (caption: string, cells: string[], layout?: string) => ({
   type: 'table',
-  attrs: { caption, captionEnabled: true, ...(layout ? { layout } : {}) },
+  attrs: { captionEnabled: true, ...(layout ? { layout } : {}) },
   content: [
+    { type: 'caption', content: [{ type: 'text', text: caption }] },
     {
       type: 'tableRow',
       content: cells.map((value) => ({

@@ -8,6 +8,7 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../index.js';
+import { storedCaption } from '../schema/caption-content.js';
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
 const heading = (level: number, value: string): StoredNode => ({
@@ -18,8 +19,9 @@ const heading = (level: number, value: string): StoredNode => ({
 const paragraph = (value: string): StoredNode => ({ type: 'paragraph', content: [text(value)] });
 const table = (caption: string, captionEnabled = true): StoredNode => ({
   type: 'table',
-  attrs: { caption, ...(captionEnabled ? {} : { captionEnabled: false }) },
+  ...(captionEnabled ? {} : { attrs: { captionEnabled: false } }),
   content: [
+    storedCaption(caption),
     {
       type: 'tableRow',
       content: [{ type: 'tableCell', content: [paragraph('Cell')] }],
@@ -122,7 +124,8 @@ describe('document catalog', () => {
   it('DOCE-CONTENTS-1.2 neither numbers nor lists a figure or code block whose caption is hidden', () => {
     const figure = (caption: string, shown = true): StoredNode => ({
       type: 'figure',
-      attrs: { src: 'a.png', caption, ...(shown ? {} : { captionEnabled: false }) },
+      attrs: { src: 'a.png', ...(shown ? {} : { captionEnabled: false }) },
+      content: [storedCaption(caption)],
     });
     const code = (caption: string, shown = true): StoredNode => ({
       type: 'codeBlock',
@@ -393,7 +396,7 @@ describe('document catalog', () => {
               },
               { type: 'contents', attrs: { kind: 'toc' } },
               heading(1, 'Scope'),
-              { ...table('Limits'), attrs: { caption: 'Limits', id: 'limits-table' } },
+              { ...table('Limits'), attrs: { id: 'limits-table' } },
               {
                 type: 'paragraph',
                 content: [

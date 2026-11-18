@@ -48,8 +48,8 @@ export function chapter(name: string): StoredNode[] {
     list('orderedList', ['Detect the condition', 'Report it', 'Recover']),
     {
       type: 'table',
-      attrs: { caption: `${name} limits` },
       content: [
+        { type: 'caption', content: [{ type: 'text', text: `${name} limits` }] },
         {
           type: 'tableRow',
           content: [cell('tableHeader', 'Condition'), cell('tableHeader', 'Limit')],

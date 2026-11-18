@@ -61,7 +61,7 @@ export function assignElementIds(
   const walk: Walk = { tr, seen: new Set(), author, newId, changed: false };
   tr.doc.descendants((node, pos) => {
     if (node.isText || isDrawnRegion(node)) return false;
-    if (!isStructureNode(node)) identify(walk, node, pos);
+    if (!isStructureNode(node) && node.type.spec.unstored !== true) identify(walk, node, pos);
     return true;
   });
   return walk.changed;

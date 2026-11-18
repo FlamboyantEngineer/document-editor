@@ -6,7 +6,7 @@ describe('caption placement', () => {
     expect(resolveCaptionPlacement('below')).toBe('below');
     expect(resolveCaptionPlacement('left', 'below')).toBe('below');
     expect(buildCaptionPlacementVariables(null)).toEqual({
-      '--doc-table-caption-side': 'top',
+      '--doc-table-caption-order': '-1',
       '--doc-figure-caption-order': '1',
       '--doc-code-caption-order': '-1',
     });
@@ -16,7 +16,7 @@ describe('caption placement', () => {
         codeBlock: { caption: { placement: 'below' } },
       }),
     ).toEqual({
-      '--doc-table-caption-side': 'bottom',
+      '--doc-table-caption-order': '1',
       '--doc-figure-caption-order': '1',
       '--doc-code-caption-order': '1',
     });

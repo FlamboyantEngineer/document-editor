@@ -40,7 +40,10 @@ const cell = (value: string): StoredNode => ({
 const rows = (...values: string[]): StoredContent => [
   {
     type: 'table',
-    content: values.map((value) => ({ type: 'tableRow', content: [cell(value)] })),
+    content: [
+      { type: 'caption' },
+      ...values.map((value) => ({ type: 'tableRow', content: [cell(value)] })),
+    ],
   },
 ];
 

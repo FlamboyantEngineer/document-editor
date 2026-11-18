@@ -1,5 +1,5 @@
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
@@ -136,6 +136,9 @@ describe('proofing entries', () => {
   it('DOCE-PROOFING-3.2 leads a table cell menu with the Spelling submenu, keeping the table actions', async () => {
     const view = await proofedView('A teh cell', true);
     const [issue] = listProofingIssues(view.state);
+    // The menu opens where the writer pressed: in the cell, not the table's caption before it.
+    const { state } = view;
+    view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, (issue?.from ?? 0) + 1)));
     const target = resolveContextTarget(view.state, (issue?.from ?? 0) + 1, true);
     const groups = contextGroups(view, target, {
       labels: DEFAULT_EDITOR_LABELS,

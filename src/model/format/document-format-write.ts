@@ -88,7 +88,19 @@ const writeMarks = (node: ProseMirrorNode) =>
 function writeNode(node: ProseMirrorNode, context: WriteContext): StoredNode {
   if (node.isText) return { type: 'text', text: node.text ?? '', ...writeMarks(node) };
   if (KEPT_TYPES.has(node.type.name)) return cloneJson(node.attrs.stored as StoredNode);
+  if (node.type.name === 'table_figure') return writeTableFigure(node, context);
   return { ...writeElement(node, context), ...writeMarks(node) };
+}
+
+// A table and its caption, stored as the table with its caption first; the node holding them is
+// the editor's own and is not stored.
+function writeTableFigure(node: ProseMirrorNode, context: WriteContext): StoredNode {
+  const caption = node.firstChild;
+  const table = node.lastChild;
+  if (!caption || !table) return { type: 'table' };
+  const stored = { ...writeElement(table, context), ...writeMarks(table) };
+  stored.content = [writeNode(caption, context), ...(stored.content ?? [])];
+  return stored;
 }
 
 function writeElement(node: ProseMirrorNode, context: WriteContext): StoredNode {

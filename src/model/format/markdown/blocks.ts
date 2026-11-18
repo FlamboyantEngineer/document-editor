@@ -2,6 +2,7 @@
 // figures, rules, template blocks and lists of abbreviations, as tables. A block a suggestion
 // leaves out, a page break and any other list of contents are left out.
 
+import { storedCaptionText } from '../../schema/caption-content.js';
 import { storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { assetAddress } from '../writer-values.js';
@@ -48,7 +49,8 @@ function listOf(node: StoredNode, writing: Writing): string {
 // A figure as an image with its caption; one with no address is written as its caption alone.
 function figureOf(node: StoredNode, writing: Writing): string | null {
   const address = assetAddress(node, writing.values);
-  const { alt, caption } = node.attrs ?? {};
+  const alt = node.attrs?.alt;
+  const caption = storedCaptionText(node);
   if (!address) return text(caption) ? `*${escapeText(text(caption))}*` : null;
   return captioned(`![${escapeText(text(alt))}](${linkAddress(address)})`, caption);
 }

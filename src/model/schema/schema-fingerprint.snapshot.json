@@ -426,12 +426,55 @@
       }
     },
     {
-      "name": "figure",
+      "name": "table_figure",
       "ordinal": 19,
       "group": "block",
-      "content": null,
+      "content": "table_caption table",
       "marks": null,
-      "flags": { "atom": true },
+      "flags": { "defining": true, "isolating": true },
+      "attrs": { "splitPartIndex": { "default": null } },
+      "parseDOM": [
+        { "tag": "div.doc-table-figure", "getAttrs": "function" },
+        { "tag": "table", "priority": 60, "getAttrs": "function", "getContent": "function" }
+      ],
+      "toDOM": {
+        "defaults": "<div class=\"doc-table-figure\"></div>",
+        "filled": "<div class=\"doc-table-figure\"></div>"
+      }
+    },
+    {
+      "name": "table_caption",
+      "ordinal": 20,
+      "group": null,
+      "content": "inline*",
+      "marks": null,
+      "flags": { "defining": true, "isolating": true, "selectable": false },
+      "attrs": {
+        "continuedText": { "default": null },
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [
+        {
+          "tag": "div[data-caption-kind=\"table\"]",
+          "getAttrs": "function",
+          "contentElement": "function"
+        }
+      ],
+      "toDOM": {
+        "defaults": "<div class=\"doc-caption-line doc-table-caption-line\" data-caption-kind=\"table\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div>",
+        "filled": "<div class=\"doc-caption-line doc-table-caption-line\" data-caption-kind=\"table\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\" data-continued-text=\"sample-continuedText\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div>"
+      }
+    },
+    {
+      "name": "figure",
+      "ordinal": 21,
+      "group": "block",
+      "content": "figure_caption",
+      "marks": null,
+      "flags": { "isolating": true },
       "attrs": {
         "figureType": { "default": "image" },
         "objectLayout": { "default": null },
@@ -439,7 +482,6 @@
         "fileAssetId": { "default": "" },
         "snapshotId": { "default": "" },
         "alt": { "default": "figure" },
-        "caption": { "default": "" },
         "captionEnabled": { "default": true },
         "width": { "default": null },
         "height": { "default": null },
@@ -451,15 +493,15 @@
         "suggestionSplitId": { "default": null },
         "suggestionFormat": { "default": null }
       },
-      "parseDOM": [{ "tag": "figure", "getAttrs": "function" }],
+      "parseDOM": [{ "tag": "figure", "getAttrs": "function", "contentElement": "function" }],
       "toDOM": {
-        "defaults": "<figure data-figure-type=\"image\"><img src=\"\" alt=\"figure\" loading=\"lazy\" decoding=\"async\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>",
-        "filled": "<figure data-caption-enabled=\"false\" data-figure-width=\"320\" data-figure-height=\"200\" data-file-asset-id=\"sample-fileAssetId\" data-snapshot-id=\"sample-snapshotId\" data-figure-src=\"sample-src\" data-figure-type=\"image\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"><img src=\"sample-src\" alt=\"sample-alt\" loading=\"lazy\" decoding=\"async\" style=\"display: block; width: 320px; height: 200px; max-width: 100%; object-fit: contain;\" width=\"320\" height=\"200\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-caption</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>"
+        "defaults": "<figure data-figure-type=\"image\"><img src=\"\" alt=\"figure\" loading=\"lazy\" decoding=\"async\" contenteditable=\"false\"><div class=\"doc-figure-caption-slot\"></div></figure>",
+        "filled": "<figure data-caption-enabled=\"false\" data-figure-width=\"320\" data-figure-height=\"200\" data-file-asset-id=\"sample-fileAssetId\" data-snapshot-id=\"sample-snapshotId\" data-figure-src=\"sample-src\" data-figure-type=\"image\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"><img src=\"sample-src\" alt=\"sample-alt\" loading=\"lazy\" decoding=\"async\" style=\"display: block; width: 320px; height: 200px; max-width: 100%; object-fit: contain;\" width=\"320\" height=\"200\" contenteditable=\"false\"><div class=\"doc-figure-caption-slot\"></div></figure>"
       }
     },
     {
       "name": "footnote_reference",
-      "ordinal": 20,
+      "ordinal": 22,
       "group": "inline",
       "content": null,
       "marks": null,
@@ -479,8 +521,27 @@
       }
     },
     {
+      "name": "figure_caption",
+      "ordinal": 23,
+      "group": null,
+      "content": "inline*",
+      "marks": null,
+      "flags": { "defining": true, "isolating": true, "selectable": false },
+      "attrs": {
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [{ "tag": "figcaption", "getAttrs": "function", "contentElement": "function" }],
+      "toDOM": {
+        "defaults": "<figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption>",
+        "filled": "<figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption>"
+      }
+    },
+    {
       "name": "image",
-      "ordinal": 21,
+      "ordinal": 24,
       "group": "inline",
       "content": null,
       "marks": null,
@@ -522,7 +583,7 @@
     },
     {
       "name": "hard_break",
-      "ordinal": 22,
+      "ordinal": 25,
       "group": "inline",
       "content": null,
       "marks": null,
@@ -541,7 +602,7 @@
     },
     {
       "name": "ordered_list",
-      "ordinal": 23,
+      "ordinal": 26,
       "group": "block",
       "content": "list_item+",
       "marks": null,
@@ -561,7 +622,7 @@
     },
     {
       "name": "bullet_list",
-      "ordinal": 24,
+      "ordinal": 27,
       "group": "block",
       "content": "list_item+",
       "marks": null,
@@ -580,7 +641,7 @@
     },
     {
       "name": "list_item",
-      "ordinal": 25,
+      "ordinal": 28,
       "group": null,
       "content": "paragraph block*",
       "marks": null,
@@ -601,17 +662,15 @@
     },
     {
       "name": "table",
-      "ordinal": 26,
-      "group": "block",
+      "ordinal": 29,
+      "group": null,
       "content": "table_row+",
       "marks": null,
       "flags": { "isolating": true },
       "attrs": {
         "tableBorderClass": { "default": "" },
         "objectLayout": { "default": null },
-        "caption": { "default": "" },
         "captionEnabled": { "default": true },
-        "captionDataId": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
@@ -619,13 +678,13 @@
       },
       "parseDOM": [{ "tag": "table", "contentElement": "function", "getAttrs": "function" }],
       "toDOM": {
-        "defaults": "<table data-caption-text=\"\"><caption class=\"doc-caption-line doc-table-caption-line\" data-caption-kind=\"table\" contenteditable=\"false\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></caption><colgroup></colgroup><tbody></tbody></table>",
-        "filled": "<table data-caption-enabled=\"false\" data-caption-text=\"sample-caption\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><colgroup></colgroup><tbody></tbody></table>"
+        "defaults": "<table><colgroup></colgroup><tbody></tbody></table>",
+        "filled": "<table data-caption-enabled=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><colgroup></colgroup><tbody></tbody></table>"
       }
     },
     {
       "name": "table_row",
-      "ordinal": 27,
+      "ordinal": 30,
       "group": null,
       "content": "(table_cell | table_header)*",
       "marks": null,
@@ -644,7 +703,7 @@
     },
     {
       "name": "table_cell",
-      "ordinal": 28,
+      "ordinal": 31,
       "group": null,
       "content": "(paragraph | block)+",
       "marks": null,
@@ -671,7 +730,7 @@
     },
     {
       "name": "table_header",
-      "ordinal": 29,
+      "ordinal": 32,
       "group": null,
       "content": "(paragraph | block)+",
       "marks": null,
@@ -698,7 +757,7 @@
     },
     {
       "name": "linked_code_block",
-      "ordinal": 30,
+      "ordinal": 33,
       "group": "block",
       "content": null,
       "marks": null,
@@ -722,7 +781,7 @@
     },
     {
       "name": "math_inline",
-      "ordinal": 31,
+      "ordinal": 34,
       "group": "inline",
       "content": "text*",
       "marks": "",
@@ -753,7 +812,7 @@
     },
     {
       "name": "math_display",
-      "ordinal": 32,
+      "ordinal": 35,
       "group": "block",
       "content": "text*",
       "marks": "",
@@ -784,7 +843,7 @@
     },
     {
       "name": "signature",
-      "ordinal": 33,
+      "ordinal": 36,
       "group": "inline",
       "content": null,
       "marks": null,
@@ -807,7 +866,7 @@
     },
     {
       "name": "abbreviation_reference",
-      "ordinal": 34,
+      "ordinal": 37,
       "group": "inline",
       "content": null,
       "marks": null,
@@ -832,7 +891,7 @@
     },
     {
       "name": "layout_section",
-      "ordinal": 35,
+      "ordinal": 38,
       "group": "layout",
       "content": "layout_column+",
       "marks": null,
@@ -855,7 +914,7 @@
     },
     {
       "name": "layout_column",
-      "ordinal": 36,
+      "ordinal": 39,
       "group": null,
       "content": "(paragraph | block)+",
       "marks": null,
@@ -874,7 +933,7 @@
     },
     {
       "name": "script_block",
-      "ordinal": 37,
+      "ordinal": 40,
       "group": "block",
       "content": "block*",
       "marks": null,
@@ -904,7 +963,7 @@
     },
     {
       "name": "kept_block",
-      "ordinal": 38,
+      "ordinal": 41,
       "group": "block",
       "content": null,
       "marks": null,
@@ -924,7 +983,7 @@
     },
     {
       "name": "kept_inline",
-      "ordinal": 39,
+      "ordinal": 42,
       "group": "inline",
       "content": null,
       "marks": null,
@@ -944,9 +1003,9 @@
     },
     {
       "name": "embed",
-      "ordinal": 40,
+      "ordinal": 43,
       "group": "block",
-      "content": "(paragraph | heading | bullet_list | ordered_list | table | figure | math_display | code_block | horizontal_rule)+",
+      "content": "(paragraph | heading | bullet_list | ordered_list | table_figure | figure | math_display | code_block | horizontal_rule)+",
       "marks": null,
       "flags": { "isolating": true },
       "attrs": {
@@ -968,7 +1027,7 @@
     },
     {
       "name": "embed_inline",
-      "ordinal": 41,
+      "ordinal": 44,
       "group": "inline",
       "content": null,
       "marks": null,

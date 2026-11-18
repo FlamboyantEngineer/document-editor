@@ -72,7 +72,6 @@ import { EditorSurface } from './editor-surface.js';
 import { useFirstLayout } from './first-layout.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
-import { usePendingCaption } from './pending-caption.js';
 import { debugParts, rootData } from './root-data.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
 import { usePinnedScripts } from './script-entries.js';
@@ -436,7 +435,6 @@ export function DocumentEditor(given: DocumentEditorProps) {
     measureIn,
     context: editorContext,
   });
-  usePendingCaption(props.session, view);
   useEffect(() => {
     if (view && layout === 'web') ready.signal();
   }, [view, layout, ready]);

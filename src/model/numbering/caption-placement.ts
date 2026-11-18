@@ -30,9 +30,7 @@ export function buildCaptionPlacementVariables(
     if (!defaults && !placement) continue;
     const fallback = kind === 'figure' ? 'below' : 'above';
     const above = resolveCaptionPlacement(placement, fallback) === 'above';
-    if (kind === 'table') variables['--doc-table-caption-side'] = above ? 'top' : 'bottom';
-    else
-      variables[`--doc-${kind === 'codeBlock' ? 'code' : kind}-caption-order`] = above ? '-1' : '1';
+    variables[`--doc-${kind === 'codeBlock' ? 'code' : kind}-caption-order`] = above ? '-1' : '1';
   }
   return variables;
 }

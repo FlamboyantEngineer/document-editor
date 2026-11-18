@@ -22,10 +22,18 @@
         {
           "type": "table",
           "attrs": {
-            "caption": "Shelf list",
             "id": "756b1130"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Shelf list"
+                }
+              ]
+            },
             {
               "type": "tableRow",
               "attrs": {

@@ -5,10 +5,12 @@
 import { MathPreview } from '@flamboyantengineer/ui-components/math-preview';
 import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
+import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ComponentType, Suspense, useCallback, useState } from 'react';
 import {
   captionedAt,
+  captionNodeAt,
   insertMath,
   linkAt,
   setCaption,
@@ -196,8 +198,16 @@ function LinkDialog({ view, labels, onClose }: DialogProps) {
   );
 }
 
+// The caption text of the object at the selection: its caption's text, or a code block's attribute.
+function captionTextOf(state: EditorState): string {
+  const found = captionedAt(state);
+  if (!found) return '';
+  const caption = captionNodeAt(state.doc, found);
+  return caption ? caption.node.textContent : String(found.node.attrs.caption ?? '');
+}
+
 function CaptionDialog({ view, labels, onClose }: DialogProps) {
-  const [initial] = useState(() => String(captionedAt(view.state)?.node.attrs.caption ?? ''));
+  const [initial] = useState(() => captionTextOf(view.state));
   const [caption, setCaptionText] = useState(initial);
   return (
     <EditorModal
