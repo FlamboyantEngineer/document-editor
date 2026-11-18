@@ -2,11 +2,15 @@
 // width and zoom: what either types reaches the other, the room's seed comes from `documentToYjs`,
 // and each writer's undo undoes only their own changes. Either can go offline and edit on their
 // own, then come back and merge, and either can switch between the pages and the web layout. The
-// page shows the harness the document each writer's editor holds (`window.collabRoom`).
+// page shows the harness the document each writer's editor holds (`window.collabRoom`). With
+// `?document=long`, the document ends with code and a list of contents too long for one page, which
+// the pages split while the room holds each whole.
 
 import type { EditorState } from 'prosemirror-state';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { readContent } from '../../src/collab/delta.js';
+import { wholeValuesOf } from '../../src/collab/guard-shape.js';
 import {
   DocumentEditor,
   DocumentSessionBoundary,
@@ -14,16 +18,34 @@ import {
   useSessionValue,
 } from '../../src/components/index.js';
 import { createMemoryHost, type EditorHost } from '../../src/host/index.js';
+import type { DocumentFile } from '../../src/model/index.js';
 import type { DocumentSession } from '../../src/session/index.js';
+import { documentSchema } from '../../test/document-markup.js';
 import { createSessionRooms } from '../../test/session-rooms.js';
 import { sampleDocument } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 
 const DOCUMENT_ID = 'collab-room';
 
-const ROOMS = createSessionRooms({
-  documents: [{ id: DOCUMENT_ID, content: sampleDocument(['Startup', 'Shutdown']) }],
-});
+// The lab's document, with a long listing and a long list of contents after it when asked.
+function labDocument(): DocumentFile {
+  const file = sampleDocument(['Startup', 'Shutdown']);
+  if (new URLSearchParams(window.location.search).get('document') !== 'long') return file;
+  const lines = Array.from({ length: 90 }, (_, index) => `step ${String(index + 1)} = done`);
+  const steps = Array.from({ length: 70 }, (_, index) => ({
+    type: 'heading',
+    attrs: { level: 2 },
+    content: [{ type: 'text', text: `Check ${String(index + 1)}` }],
+  }));
+  file.sections[0]?.content.push(
+    { type: 'codeBlock', content: [{ type: 'text', text: lines.join('\n') }] },
+    { type: 'contents', attrs: { kind: 'toc', depth: 2 } },
+    ...steps,
+  );
+  return file;
+}
+
+const ROOMS = createSessionRooms({ documents: [{ id: DOCUMENT_ID, content: labDocument() }] });
 
 interface Writer {
   id: string;
@@ -71,11 +93,27 @@ function Connection({ person }: { person: string }) {
 export interface CollabRoomProbe {
   /** The text of the document a writer's editor holds, the state its pages project. */
   canonicalText(name: string): string | null;
+  /** The attributes only the pages set that a writer's room document holds other than whole. */
+  pageOnlyInRoom(name: string): string[];
 }
 
 const STATES = new Map<string, EditorState>();
 const probe: CollabRoomProbe = {
   canonicalText: (name) => STATES.get(name)?.doc.textContent ?? null,
+  pageOnlyInRoom: (name) => {
+    const person = WRITERS.find((writer) => writer.name === name);
+    const doc = person ? ROOMS.providerOf(person.id)?.doc : null;
+    const held = doc ? readContent(documentSchema, doc.get('content')) : null;
+    const found: string[] = [];
+    held?.descendants((node) => {
+      for (const [attr, whole] of Object.entries(wholeValuesOf(node.type.name))) {
+        const value: unknown = node.attrs[attr];
+        if (value !== undefined && value !== whole) found.push(`${node.type.name}.${attr}`);
+      }
+      return true;
+    });
+    return found;
+  },
 };
 Object.assign(window, { collabRoom: probe });
 

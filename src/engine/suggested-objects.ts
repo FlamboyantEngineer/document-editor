@@ -1,5 +1,5 @@
 // Whole objects while suggesting: a figure or layout section a deletion covers is suggested for
-// deletion as one block, and a table, which cannot be a suggested block, is refused whole.
+// deletion as one block, named the writer's by the deletion marks on its text.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 
@@ -20,10 +20,27 @@ export function wholeBlocks(doc: ProseMirrorNode, [from, to]: readonly [number, 
   return blocks;
 }
 
+// Whether a deletion would mark some text of a block as the writer's: text that is neither the
+// writer's own suggested insertion, which goes outright, nor already suggested for deletion.
+function hasWritersMark(block: ProseMirrorNode, author: string | null): boolean {
+  let marked = false;
+  block.descendants((node) => {
+    if (marked || !node.isText) return !marked;
+    const kinds = node.marks.map((mark) => mark.type.name);
+    const own = node.marks.some(
+      (mark) => mark.type.name === 'insertion' && mark.attrs.dataAuthor === author,
+    );
+    marked = !own && !kinds.includes('deletion');
+    return !marked;
+  });
+  return marked;
+}
+
 /**
- * Whether a deletion of a range cannot be suggested: it covers a whole table, which cannot be a
- * suggested block (DOCE-SUGGESTIONS-1.5), or a whole figure or layout section with no text, which
- * its writer's marks could not name as theirs, unless it is the writer's own suggested block.
+ * Whether a deletion of a range cannot be suggested: it covers a whole figure or layout section
+ * none of whose text would take the writer's deletion mark, which names the block's suggestion as
+ * theirs (DOCE-SUGGESTIONS-1.4), unless it is the writer's own suggested block. A table, which
+ * cannot be a suggested block, has its text suggested for deletion instead.
  */
 export function cannotSuggestDeleting(
   doc: ProseMirrorNode,
@@ -33,11 +50,11 @@ export function cannotSuggestDeleting(
   let refused = false;
   doc.nodesBetween(from, to, (node, pos) => {
     if (pos < from || pos + node.nodeSize > to) return !refused;
-    if (node.type.name === 'table_figure') refused = true;
-    else if (!node.isTextblock && hasKindAttrs(node) && !node.textContent) {
+    if (!node.isTextblock && hasKindAttrs(node)) {
       const own =
         node.attrs.suggestionSplitKind === 'insertion' && node.attrs.dataAuthor === author;
-      if (!own) refused = true;
+      if (!own && !node.attrs.suggestionSplitKind && !hasWritersMark(node, author)) refused = true;
+      return false;
     }
     return !refused;
   });

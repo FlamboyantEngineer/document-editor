@@ -30,6 +30,7 @@ import {
 import { suggestTransaction } from '../engine/suggestions.js';
 import { createMemoryHost } from '../host/index.js';
 import { type DocumentFile, readDocumentFile } from '../model/index.js';
+import { FRAGMENT_RULES } from '../model/pagination/fragments.js';
 import { createFigure } from '../model/schema/caption-content.js';
 import { createRoomCommentStore } from './comment-store.js';
 import {
@@ -42,6 +43,7 @@ import {
 import { nodeToDelta, readContent } from './delta.js';
 import { diffNodes } from './diff.js';
 import { checkDocumentChange } from './guard-content.js';
+import { wholeValuesOf } from './guard-shape.js';
 import { openRoomChangeGuard, type RoomChangeGuardOptions } from './room-change-guard.js';
 import { createRoomScope } from './room-scope.js';
 
@@ -1473,7 +1475,36 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       ['a placeholder paragraph', paragraphOf({ continuationPlaceholder: true })],
       ['a list item continued from a page', listOf({ orphanedListContinuation: true })],
       ['a list item marked as a part', listOf({ splitPartIndex: 0 })],
+      [
+        'a continued code block',
+        nodes.code_block?.create({ codeBlockContinued: true }, schema.text('x')),
+      ],
+      [
+        'code starting at a later line',
+        nodes.code_block?.create({ codeLineStart: 5 }, schema.text('x')),
+      ],
+      ['continued linked code', nodes.linked_code_block?.create({ codeBlockContinued: true })],
+      ['contents from a later entry', nodes.toc_block?.create({ entryStart: 3 })],
+      ['contents to an earlier entry', nodes.toc_block?.create({ entryEnd: 4 })],
+      ['contents without its title', nodes.toc_block?.create({ showTitle: false })],
     ];
+    // Every attribute only the pages set has its case here or in the caption case above.
+    const attacked = new Set(
+      [...attacks.map(([, node]) => node), ...attacks.flatMap(([, node]) => node?.firstChild ?? [])]
+        .flatMap((node) => (node ? [node] : []))
+        .flatMap((node) =>
+          Object.entries(wholeValuesOf(node.type.name))
+            .filter(([attr, whole]) => node.attrs[attr] !== whole && node.attrs[attr] !== undefined)
+            .map(([attr]) => attr),
+        ),
+    );
+    attacked.add('continuedText');
+    const pageOnly = new Set(
+      [...Object.keys(FRAGMENT_RULES), 'table_caption'].flatMap((name) =>
+        Object.keys(wholeValuesOf(name)),
+      ),
+    );
+    expect([...attacked].sort()).toEqual([...pageOnly].sort());
     for (const [name, attack] of attacks) {
       if (!attack) throw new Error(name);
       const room = await setup({ granted: editor });
@@ -1560,7 +1591,8 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
   });
 
   // A table cannot be a suggested block (DOCE-SUGGESTIONS-1.5): the suggestion engine refuses to
-  // insert or delete one whole, and the room refuses a whole table marked as a suggester's.
+  // insert one, suggesting a deletion of its text instead, and the room refuses a whole table
+  // marked as a suggester's.
   it('refuses a suggester a whole table with its caption, even marked as the suggester’s', async () => {
     const room = await setup();
     try {
@@ -1711,6 +1743,38 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       // Another suggester may suggest deleting it, as another writer's suggested text.
       const deleted = deleting(state, 'other');
       expect(deleted && check(state, deleted, suggestOnly, 'other')).toBe(true);
+    });
+
+    it('refuses a figure marked for deletion whose text takes no mark of its writer, which the engine never suggests', () => {
+      const plain = figured('Board', true);
+      const at = figureAt(plain);
+      const figure = plain.doc.nodeAt(at);
+      const { insertion, deletion } = schema.marks;
+      if (!figure || !insertion || !deletion) throw new Error('No figure.');
+      const caption = { from: at + 2, to: at + 2 + 'Board'.length };
+      const marked = (type: typeof insertion, author: string) =>
+        plain.apply(
+          plain.tr.addMark(
+            caption.from,
+            caption.to,
+            type.create({ dataId: 's0000088', dataAuthor: author }),
+          ),
+        );
+      const asDeleted = (state: EditorState) =>
+        state.tr.setNodeMarkup(at, null, {
+          ...figure.attrs,
+          suggestionSplitKind: 'deletion',
+          suggestionSplitId: 's0000099',
+        });
+      // The caption is all the writer's own suggested text, which a deletion takes out outright.
+      const own = marked(insertion, 'writer');
+      const emptied = own.apply(asDeleted(own).delete(caption.from, caption.to));
+      expect(check(own, emptied, suggestOnly)).toBe(false);
+      expect(deleting(own)).toBeNull();
+      // The caption is all suggested for deletion by another writer, whose marks stay.
+      const theirs = marked(deletion, 'other');
+      expect(check(theirs, theirs.apply(asDeleted(theirs)), suggestOnly)).toBe(false);
+      expect(deleting(theirs)).toBeNull();
     });
 
     it('refuses a figure marked for deletion without its writer’s marks, or with another’s', () => {

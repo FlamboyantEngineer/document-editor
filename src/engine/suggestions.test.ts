@@ -330,21 +330,42 @@ describe('whole objects while suggesting', () => {
     expect(removed && listSuggestions(removed.doc)).toEqual([]);
   });
 
-  it('DOCE-SUGGESTIONS-1.5 refuses to delete a whole table, as it refuses to insert one, or a figure with no text', () => {
+  it('DOCE-SUGGESTIONS-1.5 suggests deleting a whole table’s text, as a table is no suggested block', () => {
     const doc = read(paragraph('Before'), captioned('table', 'Totals'), paragraph('After'));
     const state = selectNode(EditorState.create({ doc }), 'table_figure');
-    expect(suggest(state, deleteSelection)).toBeNull();
-    const blank = read(paragraph('Before'), captioned('figure', ''));
-    expect(
-      suggest(selectNode(EditorState.create({ doc: blank }), 'figure'), deleteSelection),
-    ).toBeNull();
-    const inCell = select(
-      EditorState.create({ doc }),
-      positionOf(doc, 'Cell'),
-      positionOf(doc, 'Cell') + 4,
-    );
-    const cellText = suggest(inCell, deleteSelection);
-    expect(cellText && markup(cellText.doc)).toEqual(['Before', 'Totals', '[-Cell]', 'After']);
+    const deleted = suggest(state, deleteSelection);
+    expect(deleted && types(deleted.doc)).toEqual(['table_figure']);
+    expect(deleted && markup(deleted.doc)).toEqual(['Before', '[-Totals]', '[-Cell]', 'After']);
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 refuses to delete a whole figure none of whose text would take the writer’s mark', () => {
+    const figureOnly = (caption: StoredNode['content']) =>
+      read(paragraph('Before'), {
+        type: 'figure',
+        attrs: { src: 'sample.png' },
+        content: [{ type: 'caption', ...(caption ? { content: caption } : {}) }],
+      });
+    const mark = (type: string, author: string) => ({
+      type,
+      attrs: { id: 's0000077', author },
+    });
+    for (const [name, caption] of [
+      ['no text', undefined],
+      [
+        'all the writer’s own suggested text',
+        [{ type: 'text', text: 'Mine', marks: [mark('insertion', 'writer')] }],
+      ],
+      [
+        'all suggested for deletion by another',
+        [{ type: 'text', text: 'Theirs', marks: [mark('deletion', 'other')] }],
+      ],
+    ] as const) {
+      const doc = figureOnly(caption as StoredNode['content']);
+      expect(
+        suggest(selectNode(EditorState.create({ doc }), 'figure'), deleteSelection),
+        name,
+      ).toBeNull();
+    }
   });
 });
 
