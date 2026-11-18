@@ -78,6 +78,21 @@ test.describe('objects', () => {
     await expect(cell.locator('.footnote-reference')).toHaveCount(1);
   });
 
+  test('DOCE-FOOTNOTES-1.2 cites a footnote from a figure caption', async ({ page }) => {
+    const figure = await insertWidePanel(page, 'The panel');
+    const caption = figure.locator('[data-doc-caption-text]');
+    await caption.click();
+    await page.keyboard.press('End');
+    const button = toolbar(page).getByRole('button', { name: 'Footnote' });
+    await expect(button).toBeEnabled();
+    await button.click();
+    await page.keyboard.type('From the caption.');
+    await expect(
+      content(page).locator('.pm-footnote-entry', { hasText: 'From the caption.' }),
+    ).toHaveCount(1);
+    await expect(caption.locator('.footnote-reference')).toHaveCount(1);
+  });
+
   test('DOCE-FOOTNOTES-1.3 DOCE-FOOTNOTES-1.4 deletes a footnote with Backspace after or on its marker and Delete before it', async ({
     page,
   }) => {

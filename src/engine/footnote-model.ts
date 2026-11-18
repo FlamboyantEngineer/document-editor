@@ -37,14 +37,15 @@ export interface FootnotesMeta {
 }
 
 /**
- * The blocks a citing paragraph may sit in, from the paragraph's parent up to the page's content:
- * lists, table cells, header cells too, in the node that holds a table with its caption, quotes and
- * layout columns. Script output and footnote entries are left out.
+ * The blocks a citing paragraph or caption may sit in, from its parent up to the page's content:
+ * lists, table cells, header cells too, figures, the node that holds a table with its caption,
+ * quotes and layout columns. Script output and footnote entries are left out.
  */
 export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'list_item',
   'bullet_list',
   'ordered_list',
+  'figure',
   'table_figure',
   'table',
   'table_row',
@@ -168,9 +169,20 @@ function inCitingPlaces($pos: ResolvedPos, from: number, places: ReadonlySet<str
   return false;
 }
 
-/** Whether a footnote may be cited at a position: in a paragraph of the page's body, in its places. */
+/**
+ * Whether a text block may hold a footnote's marker: a paragraph, or a figure's or table's caption
+ * other than the one the pages repeat on a table's later part, which is not edited.
+ */
+export function isCitingBlock(node: ProseMirrorNode): boolean {
+  const name = node.type.name;
+  if (name === 'figure_caption') return true;
+  if (name === 'table_caption') return !node.attrs.continuedText;
+  return name === 'paragraph';
+}
+
+/** Whether a footnote may be cited at a position: in a citing block of the body, in its places. */
 function canCiteAt($pos: ResolvedPos, places: ReadonlySet<string>): boolean {
-  return $pos.parent.type.name === 'paragraph' && inCitingPlaces($pos, $pos.depth - 1, places);
+  return isCitingBlock($pos.parent) && inCitingPlaces($pos, $pos.depth - 1, places);
 }
 
 /**

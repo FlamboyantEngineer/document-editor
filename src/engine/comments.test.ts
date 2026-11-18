@@ -76,6 +76,41 @@ describe('comment anchors', () => {
     ]);
   });
 
+  it('DOCE-COMMENTS-1.1 anchors a thread in a figure or table caption, kept when stored', () => {
+    const caption = (value: string): StoredNode => ({
+      type: 'caption',
+      content: [{ type: 'text', text: value }],
+    });
+    const doc = read(
+      { type: 'figure', attrs: { src: 'sample.png' }, content: [caption('Chart of flow')] },
+      {
+        type: 'table',
+        content: [
+          caption('Totals'),
+          { type: 'table_row', content: [{ type: 'table_cell', content: [paragraph('Cell')] }] },
+        ],
+      },
+    );
+    let state = EditorState.create({ doc });
+    for (const [thread, value] of [
+      ['t1', 'flow'],
+      ['t2', 'Totals'],
+    ] as const) {
+      const from = positionOf(state.doc, value);
+      const chosen = state.apply(
+        state.tr.setSelection(TextSelection.create(state.doc, from, from + value.length)),
+      );
+      expect(canStartComment(chosen)).toBe(true);
+      state = run(chosen, addCommentAnchor(thread)) ?? state;
+    }
+    expect(listCommentAnchors(state.doc).map(({ thread, text }) => [thread, text])).toEqual([
+      ['t1', 'flow'],
+      ['t2', 'Totals'],
+    ]);
+    const stored = readDocumentFile(writeDocumentFile(state.doc), documentSchema).doc;
+    expect(listCommentAnchors(stored).map(({ text }) => text)).toEqual(['flow', 'Totals']);
+  });
+
   it('DOCE-COMMENTS-1.4 gives a new anchor an element id, one for all its ranges', () => {
     const next = run(
       selected('blue', 'Gamma'),

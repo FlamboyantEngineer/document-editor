@@ -7,6 +7,7 @@ import {
   canCiteBeside,
   canInsertFootnote,
   citingPlacesOf,
+  isCitingBlock,
   isFootnoteMarker,
 } from './footnote-model.js';
 
@@ -41,12 +42,11 @@ function dropMarkers(fragment: Fragment, places: ReadonlySet<string> | null): Fr
       kept.push(node);
       return;
     }
-    const name = node.type.name;
     const inner = node.isTextblock
-      ? name === 'paragraph'
+      ? isCitingBlock(node)
         ? places
         : null
-      : places?.has(name)
+      : places?.has(node.type.name)
         ? places
         : null;
     kept.push(node.copy(dropMarkers(node.content, inner)));

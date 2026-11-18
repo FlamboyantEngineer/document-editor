@@ -36,11 +36,11 @@ export interface ContentChange {
 const COMMENT_MARKS: ReadonlySet<string> = new Set(['comment_highlight']);
 const SUGGESTION_MARKS: ReadonlySet<string> = new Set(['insertion', 'deletion', 'format_change']);
 const SUGGESTED_MARKS: ReadonlySet<string> = new Set(['insertion', 'deletion']);
-// The block attributes a suggestion sets, as `suggestions.ts` and `suggested-split.ts` do.
+// The block attributes a suggestion sets, as `suggestions.ts` and `suggested-split.ts` do. The part
+// of a split block a node is (`splitPartIndex`) is the pages' alone, which a room never holds.
 const SUGGESTION_ATTRS: ReadonlySet<string> = new Set([
   'suggestionSplitKind',
   'suggestionSplitId',
-  'splitPartIndex',
   'suggestionFormat',
 ]);
 

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import type { CollabRoomProbe } from '../labs/src/collab-room.lab.js';
-import { expect, test } from './fixtures.js';
+import { expect, test, waitForLab } from './fixtures.js';
 
 declare global {
   interface Window {
@@ -264,6 +264,31 @@ test.describe('shared room lab', () => {
       await expect(entries).toHaveCount(1);
       await expect(entries.first()).toContainText('Second note');
       await expect(entries.first()).toHaveAttribute('data-footnote-number', '1');
+    }
+    await expectSameDocument(page);
+  });
+
+  test('DOCE-COLLAB-7.2 DOCE-PAGINATION-1 keeps a split code block and list of contents whole in the room', async ({
+    page,
+  }) => {
+    await page.goto('collab-room.html?document=long');
+    await waitForLab(page);
+    await expect(status(page, 'Ada')).toHaveText(/^ready · /);
+    const ada = editor(page, 'Ada');
+    // The pages split both: a later part of the code is continued, the contents show in parts.
+    const continued = ada.locator('[data-code-block-continued="true"]');
+    await expect(continued.first()).toBeAttached();
+    await expect.poll(() => ada.locator('.de-contents').count()).toBeGreaterThan(1);
+    // An edit in a later part reaches the other writer, and the room holds every block whole.
+    await continued.first().scrollIntoViewIfNeeded();
+    await continued.first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' checked');
+    await expect
+      .poll(() => page.evaluate(() => window.collabRoom.canonicalText('Grace')))
+      .toContain('checked');
+    for (const name of ['Ada', 'Grace']) {
+      expect(await page.evaluate((who) => window.collabRoom.pageOnlyInRoom(who), name)).toEqual([]);
     }
     await expectSameDocument(page);
   });

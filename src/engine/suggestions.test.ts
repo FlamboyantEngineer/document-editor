@@ -2,7 +2,7 @@ import { deleteSelection, lift, splitBlock } from 'prosemirror-commands';
 import { history, undo } from 'prosemirror-history';
 import type { Node } from 'prosemirror-model';
 import { liftListItem, sinkListItem, wrapInList } from 'prosemirror-schema-list';
-import { type Command, EditorState, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
@@ -248,6 +248,124 @@ describe('suggest mode', () => {
     expect(typed && markup(typed.doc)).toEqual(['Alpha[+!]']);
     const undone = typed && suggest(typed, undo);
     expect(undone && markup(undone.doc)).toEqual(['Alpha']);
+  });
+});
+
+describe('whole objects while suggesting', () => {
+  const captioned = (type: 'figure' | 'table', text: string): StoredNode => ({
+    type,
+    ...(type === 'figure' ? { attrs: { src: 'sample.png' } } : {}),
+    content: [
+      { type: 'caption', content: text ? [{ type: 'text', text }] : [] },
+      ...(type === 'table'
+        ? [{ type: 'table_row', content: [{ type: 'table_cell', content: [paragraph('Cell')] }] }]
+        : []),
+    ],
+  });
+  const types = (doc: Node) => {
+    const names: string[] = [];
+    doc.descendants((node) => {
+      if (node.type.name === 'figure' || node.type.name === 'table_figure') {
+        const kind = node.attrs.suggestionSplitKind as string | null;
+        names.push(kind ? `${node.type.name}:${kind}` : node.type.name);
+      }
+      return true;
+    });
+    return names;
+  };
+  const posOf = (doc: Node, name: string) => {
+    let found = -1;
+    doc.descendants((node, pos) => {
+      if (found < 0 && node.type.name === name) found = pos;
+      return found < 0;
+    });
+    return found;
+  };
+  const selectNode = (state: EditorState, name: string) =>
+    state.apply(state.tr.setSelection(NodeSelection.create(state.doc, posOf(state.doc, name))));
+
+  it('DOCE-SUGGESTIONS-1.4 suggests deleting a whole figure as one block, its caption with it', () => {
+    const doc = read(paragraph('Before'), captioned('figure', 'Chart'), paragraph('After'));
+    const state = selectNode(EditorState.create({ doc }), 'figure');
+    const deleted = suggest(state, deleteSelection);
+    expect(deleted && types(deleted.doc)).toEqual(['figure:deletion']);
+    expect(deleted && markup(deleted.doc)).toEqual(['Before', '[-Chart]', 'After']);
+    expect(deleted && listSuggestions(deleted.doc)).toEqual([
+      expect.objectContaining({ author: 'writer', deleted: 'Chart' }),
+    ]);
+    const accepted = decide(deleted, acceptAllSuggestions);
+    expect(accepted && types(accepted.doc)).toEqual([]);
+    expect(accepted && markup(accepted.doc)).toEqual(['Before', 'After']);
+    const rejected = decide(deleted, rejectAllSuggestions);
+    expect(rejected && types(rejected.doc)).toEqual(['figure']);
+    expect(rejected && markup(rejected.doc)).toEqual(['Before', 'Chart', 'After']);
+  });
+
+  it('DOCE-SUGGESTIONS-1.1 suggests text typed in a caption, decided and stored as any text', () => {
+    const doc = read(captioned('table', 'Totals'));
+    const typed = suggest(
+      select(EditorState.create({ doc }), positionOf(doc, 'Totals') + 6),
+      typing(' by year'),
+    );
+    expect(typed && markup(typed.doc)).toEqual(['Totals[+ by year]', 'Cell']);
+    const stored = typed && readDocumentFile(writeDocumentFile(typed.doc), documentSchema).doc;
+    expect(stored && markup(stored)).toEqual(['Totals[+ by year]', 'Cell']);
+    const accepted = decide(typed, acceptAllSuggestions);
+    expect(accepted && markup(accepted.doc)).toEqual(['Totals by year', 'Cell']);
+    const rejected = decide(typed, rejectAllSuggestions);
+    expect(rejected && markup(rejected.doc)).toEqual(['Totals', 'Cell']);
+  });
+
+  it('DOCE-SUGGESTIONS-1.3 removes a writer’s own suggested figure outright', () => {
+    const doc = read(paragraph('Before'), captioned('figure', 'Chart'));
+    const figure = doc.nodeAt(posOf(doc, 'figure'));
+    const start = select(EditorState.create({ doc: read(paragraph('Before')) }), 1);
+    const inserted = suggest(start, (state, dispatch) => {
+      if (figure) dispatch?.(state.tr.insert(state.doc.resolve(1).after(), figure));
+      return true;
+    });
+    expect(inserted && types(inserted.doc)).toEqual(['figure:insertion']);
+    const removed = inserted && suggest(selectNode(inserted, 'figure'), deleteSelection);
+    expect(removed && types(removed.doc)).toEqual([]);
+    expect(removed && listSuggestions(removed.doc)).toEqual([]);
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 suggests deleting a whole table’s text, as a table is no suggested block', () => {
+    const doc = read(paragraph('Before'), captioned('table', 'Totals'), paragraph('After'));
+    const state = selectNode(EditorState.create({ doc }), 'table_figure');
+    const deleted = suggest(state, deleteSelection);
+    expect(deleted && types(deleted.doc)).toEqual(['table_figure']);
+    expect(deleted && markup(deleted.doc)).toEqual(['Before', '[-Totals]', '[-Cell]', 'After']);
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 refuses to delete a whole figure none of whose text would take the writer’s mark', () => {
+    const figureOnly = (caption: StoredNode['content']) =>
+      read(paragraph('Before'), {
+        type: 'figure',
+        attrs: { src: 'sample.png' },
+        content: [{ type: 'caption', ...(caption ? { content: caption } : {}) }],
+      });
+    const mark = (type: string, author: string) => ({
+      type,
+      attrs: { id: 's0000077', author },
+    });
+    for (const [name, caption] of [
+      ['no text', undefined],
+      [
+        'all the writer’s own suggested text',
+        [{ type: 'text', text: 'Mine', marks: [mark('insertion', 'writer')] }],
+      ],
+      [
+        'all suggested for deletion by another',
+        [{ type: 'text', text: 'Theirs', marks: [mark('deletion', 'other')] }],
+      ],
+    ] as const) {
+      const doc = figureOnly(caption as StoredNode['content']);
+      expect(
+        suggest(selectNode(EditorState.create({ doc }), 'figure'), deleteSelection),
+        name,
+      ).toBeNull();
+    }
   });
 });
 

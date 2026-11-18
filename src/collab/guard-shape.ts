@@ -1,6 +1,7 @@
 import * as Y from '@y/y';
 import * as delta from 'lib0/delta';
 import type { Schema } from 'prosemirror-model';
+import { FRAGMENT_RULES } from '../model/pagination/fragments.js';
 import type { AnyDelta } from './delta.js';
 import { isGuardFormatRecord, isGuardProposalMark } from './guard-format.js';
 import type { RoomScope } from './room-scope.js';
@@ -31,18 +32,33 @@ function hasKnownSplit(type: Y.Type): boolean {
   return kind !== 'insertion' || (typeof author === 'string' && author.length > 0);
 }
 
-// What only the pages draw: a later part's caption text, and which part of a split table a node
-// holding a table and its caption is. A room holds the document whole, so neither is ever set there;
-// set, a caption would show text that is not its own.
-const PAGE_ONLY: Readonly<Record<string, string>> = {
-  table_caption: 'continuedText',
-  table_figure: 'splitPartIndex',
+// What only the pages set, as each type's value when whole: the attributes its fragment rule gives
+// back when the parts join (`FRAGMENT_RULES`), which part of a split block a node is, a list item
+// continued from an earlier page, a continued container's placeholder, and a later part's caption
+// text. A room holds the document whole, so each holds its whole value there; another would draw a
+// block as a part of one, or a caption with text that is not its own.
+const WHOLE_ANY: Readonly<Record<string, unknown>> = {
+  splitPartIndex: null,
+  orphanedListContinuation: false,
+  continuationPlaceholder: false,
+};
+const WHOLE_OWN: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
+  table_caption: { continuedText: null },
 };
 
+/** Each attribute only the pages set on a node type, with its value when the node is whole. */
+export function wholeValuesOf(name: string): Readonly<Record<string, unknown>> {
+  return { ...WHOLE_ANY, ...FRAGMENT_RULES[name]?.whole, ...WHOLE_OWN[name] };
+}
+
+// Whether a stored value is the whole value: unset, the value itself, or null for false.
+const isWhole = (value: unknown, whole: unknown) =>
+  value === undefined || value === whole || (value === null && whole === false);
+
 function hasPageOnlyAttr(type: Y.Type, name: string): boolean {
-  const attr = PAGE_ONLY[name];
-  const value: unknown = attr ? type.getAttr(attr) : undefined;
-  return value !== undefined && value !== null;
+  return Object.entries(wholeValuesOf(name)).some(
+    ([attr, whole]) => !isWhole(type.getAttr(attr), whole),
+  );
 }
 
 function hasKnownContent(type: Y.Type, options: { schema: Schema; root: Y.Type }): boolean {

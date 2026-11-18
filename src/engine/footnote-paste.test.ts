@@ -62,6 +62,25 @@ describe('pasting where footnotes have rules', () => {
     expect(markers(flattenFootnotePaste(new Slice(Fragment.from(table), 0, 0), body))).toBe(1);
   });
 
+  it('DOCE-FOOTNOTES-1.6 keeps markers pasted into a caption, and in a pasted figure’s caption', () => {
+    const marker = nodes.footnote_reference?.create({ footnoteId: 'n9' });
+    const inline = new Slice(Fragment.from(marker), 0, 0);
+    const figured = footnoteState([
+      {
+        type: 'figure',
+        attrs: { src: 'sample.png' },
+        content: [{ type: 'caption', content: [text('Chart')] }],
+      },
+      paragraph(text('Body')),
+    ]);
+    expect(flattenFootnotePaste(inline, caretAt(figured, 'Chart'))).toBe(inline);
+    const caption = nodes.figure_caption?.create(null, marker);
+    const figure = nodes.figure?.create({ src: 'sample.png' }, caption);
+    if (!figure) throw new Error('No figure');
+    const whole = new Slice(Fragment.from(figure), 0, 0);
+    expect(markers(flattenFootnotePaste(whole, caretAt(figured, 'Body')))).toBe(1);
+  });
+
   it('DOCE-FOOTNOTES-1.6 keeps the markers of whole paragraphs pasted with the caret in a heading', () => {
     const heading = caretAt(
       footnoteState([{ type: 'heading', attrs: { level: 1 }, content: [text('Title')] }]),

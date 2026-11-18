@@ -12,6 +12,7 @@ import { addMarkInOrder } from '../model/index.js';
 import { createElementId } from './element-ids.js';
 import { footnoteStep } from './suggested-footnotes.js';
 import { suggestFormatting } from './suggested-formatting.js';
+import { cannotSuggestDeleting, hasKindAttrs, wholeBlocks } from './suggested-objects.js';
 import { isSystemChange } from './transaction-kind.js';
 
 /** Marks a transaction a suggestion built or decided, which suggest mode leaves as it is. */
@@ -33,9 +34,6 @@ export interface Suggesting {
   readonly author: string | null;
   readonly newId: () => string;
 }
-
-const hasKindAttrs = (node: ProseMirrorNode) =>
-  Object.hasOwn(node.type.spec.attrs ?? {}, 'suggestionSplitKind');
 
 const suggestionOf = (marks: readonly Mark[], type: MarkType) =>
   marks.find((mark) => mark.type === type) ?? null;
@@ -70,23 +68,43 @@ export function inlineRuns(doc: ProseMirrorNode, from: number, to: number) {
 }
 
 /**
- * Suggests deleting a range: text the same writer suggested inserting goes, the rest is marked as
- * a suggested deletion. Returns the suggestion's id, or null when the range holds no text.
+ * Suggests deleting a range: text and whole blocks the same writer suggested inserting go, the
+ * rest is marked as a suggested deletion, a figure or layout section it covers whole as a block.
+ * Returns the suggestion's id, or null when the range holds no text or block.
  */
 function suggestDeletion(suggesting: Suggesting, [from, to]: readonly [number, number]) {
   const { tr, insertion, deletion, author } = suggesting;
-  const runs = inlineRuns(tr.doc, from, to);
-  if (!runs.length) return null;
+  const blocks = wholeBlocks(tr.doc, [from, to]);
+  const ownBlocks = blocks.filter(
+    ({ node }) =>
+      node.attrs.suggestionSplitKind === 'insertion' && node.attrs.dataAuthor === author,
+  );
+  const inOwnBlock = (pos: number) =>
+    ownBlocks.some((block) => pos >= block.pos && pos < block.pos + block.node.nodeSize);
+  const runs = inlineRuns(tr.doc, from, to).filter((run) => !inOwnBlock(run.from));
+  if (!runs.length && !blocks.length) return null;
   const group =
     adjacentId(suggesting, from, deletion) ??
     adjacentId(suggesting, to, deletion) ??
     suggesting.newId();
+  for (const { node, pos } of blocks) {
+    if (ownBlocks.some((block) => block.pos === pos) || node.attrs.suggestionSplitKind) continue;
+    tr.setNodeMarkup(pos, null, {
+      ...node.attrs,
+      suggestionSplitKind: 'deletion',
+      suggestionSplitId: group,
+    });
+  }
   const own = runs.filter((run) => suggestionOf(run.marks, insertion)?.attrs.dataAuthor === author);
   for (const run of runs) {
     if (own.includes(run) || suggestionOf(run.marks, deletion)) continue;
     addMarkInOrder(tr, run, markOf(suggesting, deletion, group));
   }
-  for (const run of [...own].reverse()) tr.delete(run.from, run.to);
+  const removals = [
+    ...own,
+    ...ownBlocks.map(({ node, pos }) => ({ from: pos, to: pos + node.nodeSize })),
+  ].sort((a, b) => b.from - a.from);
+  for (const removal of removals) tr.delete(removal.from, removal.to);
   return group;
 }
 
@@ -217,6 +235,7 @@ function suggestReplace(
   const { tr } = suggesting;
   const inline = inlineContent(slice);
   if (inline) {
+    if (from < to && cannotSuggestDeleting(tr.doc, [from, to], suggesting.author)) return null;
     const before = tr.steps.length;
     const id = from < to ? suggestDeletion(suggesting, [from, to]) : null;
     const map = tr.mapping.slice(before);
