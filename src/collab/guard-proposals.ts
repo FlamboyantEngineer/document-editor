@@ -1,5 +1,9 @@
 import type { Node } from 'prosemirror-model';
-import { listSuggestions, type Suggestion } from '../engine/suggestion-decisions.js';
+import {
+  listSuggestions,
+  type Suggestion,
+  suggestionOfPart,
+} from '../engine/suggestion-decisions.js';
 
 interface ProposalIndex {
   readonly list: readonly Suggestion[];
@@ -9,7 +13,8 @@ interface ProposalIndex {
 
 const indexes = new WeakMap<Node, ProposalIndex>();
 
-// The blocks each suggestion marks, by its id, in document order: each block's kind and element
+// The blocks each suggestion marks, by the id of the suggestion their part belongs to (a part
+// joined to another by a comment thread is that suggestion's), in document order: each block's kind and element
 // id, so a change of the blocks a suggestion holds changes its signature as a change of its text
 // does.
 function suggestedBlocks(doc: Node): Map<string, string[]> {
@@ -19,7 +24,8 @@ function suggestedBlocks(doc: Node): Map<string, string[]> {
     const kind: unknown = node.attrs.suggestionSplitKind;
     if (typeof id === 'string' && id && typeof kind === 'string') {
       const element = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : node.type.name;
-      blocks.set(id, [...(blocks.get(id) ?? []), `${kind}:${element}`]);
+      const owner = suggestionOfPart(doc, id) ?? id;
+      blocks.set(owner, [...(blocks.get(owner) ?? []), `${kind}:${element}`]);
     }
     return !node.isTextblock;
   });

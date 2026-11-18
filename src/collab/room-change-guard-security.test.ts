@@ -1916,7 +1916,15 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
 });
 
 describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion holds', () => {
-  it('refuses a writer who may suggest and decide but not edit a block put under another writer’s pending suggestion', () => {
+  const permissions = { edit: false, suggest: true, comment: true, decide: true };
+  const deleted = (value: string, id: string, thread?: string) => ({
+    type: 'text',
+    text: value,
+    marks: [{ type: 'deletion', attrs: { id, author: 'other', ...(thread ? { thread } : {}) } }],
+  });
+
+  // Marks the figure for deletion under a suggestion id, as a suggest and decide writer.
+  function markFigure(runs: readonly object[], id: string) {
     const before = EditorState.create({
       doc: readDocumentFile(
         {
@@ -1925,17 +1933,7 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion h
             {
               name: null,
               content: [
-                {
-                  type: 'paragraph',
-                  attrs: { id: 'p0000001' },
-                  content: [
-                    {
-                      type: 'text',
-                      text: 'Original',
-                      marks: [{ type: 'deletion', attrs: { id: 's0000050', author: 'other' } }],
-                    },
-                  ],
-                },
+                { type: 'paragraph', attrs: { id: 'p0000001' }, content: runs },
                 {
                   type: 'figure',
                   attrs: { id: 'f0000001', src: 'https://example.com/a.png' },
@@ -1959,12 +1957,23 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion h
       before.tr.setNodeMarkup(at, null, {
         ...figure.attrs,
         suggestionSplitKind: 'deletion',
-        suggestionSplitId: 's0000050',
+        suggestionSplitId: id,
       }),
     );
-    const permissions = { edit: false, suggest: true, comment: true, decide: true };
-    expect(
-      checkDocumentChange({ before: before.doc, after: after.doc, actor: 'writer', permissions }),
-    ).toBe(false);
+    return checkDocumentChange({
+      before: before.doc,
+      after: after.doc,
+      actor: 'writer',
+      permissions,
+    });
+  }
+
+  it('refuses a writer who may suggest and decide but not edit a block put under another writer’s pending suggestion', () => {
+    expect(markFigure([deleted('Original', 's0000050')], 's0000050')).toBe(false);
+  });
+
+  it('refuses a block put under a later id of another writer’s suggestion joined by one comment thread', () => {
+    const runs = [deleted('Origi', 's0000050', 'c0000001'), deleted('nal', 's0000051', 'c0000001')];
+    expect(markFigure(runs, 's0000051')).toBe(false);
   });
 });

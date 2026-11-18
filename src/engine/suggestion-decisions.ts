@@ -191,6 +191,14 @@ export function listSuggestions(doc: ProseMirrorNode): readonly Suggestion[] {
 }
 
 /**
+ * The id of the suggestion a part id belongs to: parts with other ids discussed in the same comment
+ * thread are one suggestion, which takes its first part's id.
+ */
+export function suggestionOfPart(doc: ProseMirrorNode, partId: string): string | undefined {
+  return indexSuggestions(doc).ofKey.get(`id:${partId}`);
+}
+
+/**
  * Who made a suggestion: its writer, or, for a suggestion no writer is recorded on, the writer of
  * the thread it is discussed in.
  */
