@@ -138,7 +138,7 @@ describe('Enter in each text block', () => {
     ['a quote', [quote('Alpha')], ['blockquote:Alpha']],
     ['a list item', [bullets('Alpha')], ['bullet_list:Alpha']],
     ['a table cell', [table('Alpha', 'Beta')], ['table_figure:AlphaBeta']],
-    ['a code block', [code('Alpha')], ['code_block:Al\npha']],
+    ['a code block', [code('Alpha')], ['code_figure:Al\npha']],
   ];
 
   it.each(cases)(

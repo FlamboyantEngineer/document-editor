@@ -279,6 +279,19 @@ function joinTableFigures(tr: Transform, pos: number, rules: FragmentRules) {
   makeWhole(tr, pos - previous.nodeSize + 1 + (previous.firstChild?.nodeSize ?? 0), rules);
 }
 
+// A code block with its caption joins as its code blocks join: the caption a later part repeats
+// goes, and the later code joins the first's, through the boundary between the two, with the line
+// break the split dropped, in one step.
+function joinCodeFigures(tr: Transform, pos: number, rules: FragmentRules) {
+  const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
+  const repeated = next?.firstChild;
+  if (!previous?.lastChild || !repeated || next.childCount !== 2) return;
+  const lineBreak = new Slice(Fragment.from(tr.doc.type.schema.text('\n')), 0, 0);
+  // Inside the first code block after its text, to inside the later one before its text.
+  tr.step(new ReplaceStep(pos - 2, pos + 2 + repeated.nodeSize, lineBreak));
+  makeWhole(tr, pos - previous.nodeSize + 1 + (previous.firstChild?.nodeSize ?? 0), rules);
+}
+
 // A code block splits at a line break and drops it, so joining puts it back.
 function joinCodeBlocks(tr: Transform, pos: number) {
   tr.insert(pos - 1, tr.doc.type.schema.text('\n'));
@@ -314,6 +327,7 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   linked_code_block: { whole: { ...PART, codeBlockContinued: false }, join: joinLinkedCode },
   table: { whole: PART, join: joinTables },
   table_figure: { whole: PART, join: joinTableFigures },
+  code_figure: { whole: PART, join: joinCodeFigures },
   blockquote: { whole: PART, join: joinContainers },
   script_block: { whole: PART, join: joinContainers },
   embed: { whole: PART, join: joinContainers },

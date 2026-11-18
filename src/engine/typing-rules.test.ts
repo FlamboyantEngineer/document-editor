@@ -123,7 +123,9 @@ describe('typing shortcuts', () => {
   it('DOCE-EDITING-6.1 makes a code block and a horizontal rule', () => {
     const code = viewOf([paragraph()]);
     type(code, '``` x');
-    expect(shape(code.state.doc)).toEqual(['code_block:x']);
+    expect(shape(code.state.doc)).toEqual(['code_figure', 'code_caption:', 'code_block:x']);
+    // The caret is in the code, after its empty caption.
+    expect(code.state.selection.$from.parent.type.name).toBe('code_block');
 
     const rule = viewOf([paragraph('Above'), paragraph()]);
     type(rule, '---');
@@ -143,7 +145,11 @@ describe('typing shortcuts', () => {
 
     const code = viewOf([{ type: 'code_block', content: [] }]);
     type(code, '# a **b** -- "c"');
-    expect(shape(code.state.doc)).toEqual(['code_block:# a **b** -- "c"']);
+    expect(shape(code.state.doc)).toEqual([
+      'code_figure',
+      'code_caption:',
+      'code_block:# a **b** -- "c"',
+    ]);
   });
 
   it('DOCE-EDITING-6.2 wraps delimited text in its mark once the closing delimiter is typed', () => {

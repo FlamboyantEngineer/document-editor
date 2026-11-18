@@ -14,6 +14,7 @@ import type {
   TextMeasure,
   TextMeasurement,
 } from '../model/index.js';
+import { CAPTION_HOLDER_TYPES } from '../model/schema/caption-content.js';
 import { childElement, elementOf } from './block-elements.js';
 import {
   cachedBlock,
@@ -214,10 +215,11 @@ function measureContent(measuring: Measuring, placed: Placed): unknown {
   if (name === 'toc_block') return rowsMeasurement(measuring, relative);
   if (TEXT_TYPES.has(name)) return textMeasurement(measuring, relative);
   if (name === 'linked_code_block') return codeMeasurement(measuring, relative);
-  // A table with its caption is measured by its table's rows, the caption above or below them.
-  if (name === 'table_figure' && node.lastChild && node.firstChild) {
-    const table = { node: node.lastChild, relative: relative + 1 + node.firstChild.nodeSize };
-    return measureContent(measuring, table);
+  // A table or a code block with its caption is measured by its table's rows or its code's lines,
+  // the caption above or below them.
+  if (CAPTION_HOLDER_TYPES.has(name) && node.lastChild && node.firstChild) {
+    const object = { node: node.lastChild, relative: relative + 1 + node.firstChild.nodeSize };
+    return measureContent(measuring, object);
   }
   if (!CONTAINER_TYPES.has(name)) return undefined;
   const children = childLayouts(measuring, node, relative);

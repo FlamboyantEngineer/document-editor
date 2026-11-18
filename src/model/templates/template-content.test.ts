@@ -68,8 +68,10 @@ describe('template content', () => {
         node.check();
       }).not.toThrow();
     }
-    const [code, math, list] = nodes;
-    // Code and math hold text only.
+    const [held, math, list] = nodes;
+    // Code and math hold text only; the code after its caption.
+    const code = held?.lastChild;
+    expect(held?.type.name).toBe('code_figure');
     expect(code?.childCount).toBe(1);
     expect(code?.textContent).toBe('Hello {{name}}!');
     expect(math?.textContent).toBe('x^{{n}}');

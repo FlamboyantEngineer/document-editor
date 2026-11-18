@@ -187,12 +187,7 @@ export type { InvalidMathText, MathViewsOptions } from './math-views.js';
 export { createMathViews, DEFAULT_INVALID_MATH_TEXT } from './math-views.js';
 export { cancelMathEditing, commitMathEditing, mathEditingAt } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
-export {
-  cancelCaptionEditing,
-  captionEditingAt,
-  commitCaptionEditing,
-  editCaption,
-} from './object-views.js';
+export { editCaption } from './object-views.js';
 export type { OutlineOptions } from './outline.js';
 export { headingSectionSpan } from './outline.js';
 export type { NumberedParagraph, ParagraphNumberingOptions } from './paragraph-numbering.js';

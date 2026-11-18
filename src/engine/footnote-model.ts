@@ -38,8 +38,8 @@ export interface FootnotesMeta {
 
 /**
  * The blocks a citing paragraph or caption may sit in, from its parent up to the page's content:
- * lists, table cells, header cells too, figures, the node that holds a table with its caption,
- * quotes and layout columns. Script output and footnote entries are left out.
+ * lists, table cells, header cells too, figures, the nodes that hold a table or a code block with
+ * its caption, quotes and layout columns. Script output and footnote entries are left out.
  */
 export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'list_item',
@@ -47,6 +47,7 @@ export const defaultCitingPlaces: readonly string[] = Object.freeze([
   'ordered_list',
   'figure',
   'table_figure',
+  'code_figure',
   'table',
   'table_row',
   'table_cell',
@@ -170,13 +171,13 @@ function inCitingPlaces($pos: ResolvedPos, from: number, places: ReadonlySet<str
 }
 
 /**
- * Whether a text block may hold a footnote's marker: a paragraph, or a figure's or table's caption
- * other than the one the pages repeat on a table's later part, which is not edited.
+ * Whether a text block may hold a footnote's marker: a paragraph, or a figure's, table's or code
+ * block's caption other than the one the pages repeat on a later part, which is not edited.
  */
 export function isCitingBlock(node: ProseMirrorNode): boolean {
   const name = node.type.name;
   if (name === 'figure_caption') return true;
-  if (name === 'table_caption') return !node.attrs.continuedText;
+  if (name === 'table_caption' || name === 'code_caption') return !node.attrs.continuedText;
   return name === 'paragraph';
 }
 

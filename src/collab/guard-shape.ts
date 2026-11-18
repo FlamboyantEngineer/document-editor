@@ -44,6 +44,7 @@ const WHOLE_ANY: Readonly<Record<string, unknown>> = {
 };
 const WHOLE_OWN: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
   table_caption: { continuedText: null },
+  code_caption: { continuedText: null },
 };
 
 /** Each attribute only the pages set on a node type, with its value when the node is whole. */

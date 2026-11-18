@@ -159,9 +159,8 @@ const selectAtom =
     return true;
   };
 
-// The text blocks that are one line of text each: a footnote entry and a figure's or a table's
-// caption.
-const ONE_LINE = new Set(['footnote_entry', 'figure_caption', 'table_caption']);
+// The text blocks that are one line of text each: a footnote entry and a caption.
+const ONE_LINE = new Set(['footnote_entry', 'figure_caption', 'table_caption', 'code_caption']);
 
 // Inside a footnote entry or a caption, which is one paragraph of text: Enter and Shift+Enter add
 // nothing, and Backspace at its start and Delete at its end join nothing.

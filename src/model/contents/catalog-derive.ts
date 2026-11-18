@@ -6,6 +6,7 @@
 
 import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import { type Mapping, ReplaceStep, type Step } from 'prosemirror-transform';
+import { CAPTION_HOLDER_TYPES } from '../schema/caption-content.js';
 import {
   type CatalogEntry,
   type ContentsKind,
@@ -67,11 +68,12 @@ function editedBlock(step: Step, before: ProseMirrorNode, after: ProseMirrorNode
 }
 
 // Whether a block's ancestors, apart from the document's sections and pages, are listed.
-// A table's caption is in the `table_figure` holding the table, which is listed with it.
+// A table's or a code block's caption is in the node holding it, which is listed with it.
 function underListed($from: ResolvedPos, nodes: ReadonlySet<string>) {
   for (let depth = 1; depth < $from.depth; depth += 1) {
-    const name = $from.node(depth).type.name;
-    if (nodes.has(name) || (name === 'table_figure' && nodes.has('table'))) return true;
+    const node = $from.node(depth);
+    const held = CAPTION_HOLDER_TYPES.has(node.type.name) ? node.lastChild : null;
+    if (nodes.has(node.type.name) || (held && nodes.has(held.type.name))) return true;
   }
   return false;
 }

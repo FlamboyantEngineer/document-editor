@@ -133,8 +133,11 @@ function objects(words: TemplatePreviewText): StoredNode[] {
     table(words),
     {
       type: 'codeBlock',
-      attrs: { language: 'javascript', caption: words.codeCaption, captionEnabled: true },
-      content: [text(Array.from({ length: CONTINUED / 3 }, () => words.code).join('\n'))],
+      attrs: { language: 'javascript', captionEnabled: true },
+      content: [
+        storedCaption(words.codeCaption),
+        text(Array.from({ length: CONTINUED / 3 }, () => words.code).join('\n')),
+      ],
     },
     { type: 'mathBlock', attrs: { source: words.equation } },
   ];

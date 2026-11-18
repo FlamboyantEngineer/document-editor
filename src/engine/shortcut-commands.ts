@@ -7,6 +7,7 @@ import type { Command } from 'prosemirror-state';
 import { setTextblockType } from './block-type.js';
 import { selectAllInCaption } from './caption-editing.js';
 import { checklistCommands } from './checklists.js';
+import { insertCodeBlock } from './code-commands.js';
 import {
   clearFormatting,
   insertPageBreak,
@@ -14,7 +15,6 @@ import {
   wrapInListAndJoin,
 } from './editing-commands.js';
 import { insertFootnote } from './footnotes.js';
-import { insertCodeBlock } from './object-commands.js';
 import type { ShortcutId, ShortcutTable } from './shortcuts.js';
 import { insertTable } from './tables.js';
 import { redoCommand, undoCommand } from './undo-commands.js';

@@ -992,10 +992,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 1",
             "id": "9df01eb7"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 1"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -2032,10 +2040,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 2",
             "id": "53f3df73"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 2"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -3072,10 +3088,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 3",
             "id": "e05ec930"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 3"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -4112,10 +4136,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 4",
             "id": "d439b1c8"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 4"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -5158,10 +5190,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 5",
             "id": "eba9f384"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 5"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -6198,10 +6238,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 6",
             "id": "af5e186a"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 6"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -7238,10 +7286,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 7",
             "id": "36d0ebdf"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 7"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -8278,10 +8334,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 8",
             "id": "91e9a989"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 8"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -9324,10 +9388,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 9",
             "id": "b14f6a81"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 9"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -10364,10 +10436,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 10",
             "id": "a1f402a0"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 10"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -11404,10 +11484,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 11",
             "id": "22c66047"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 11"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"
@@ -12444,10 +12532,18 @@
           "type": "codeBlock",
           "attrs": {
             "language": "shell",
-            "caption": "Commands 12",
             "id": "0626b877"
           },
           "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Commands 12"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)"

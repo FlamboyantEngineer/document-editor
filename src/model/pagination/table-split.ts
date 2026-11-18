@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type ChildLayout, isContainerMeasurement } from './container-split.js';
+import { splitHeldWith } from './held-split.js';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
 
 function rowsOf(table: ProseMirrorNode): ProseMirrorNode[] {
@@ -125,27 +126,7 @@ export function splitTableWith(repeatHeader: boolean) {
 
 /**
  * A table with its caption split as its table splits (`splitTableWith`), the node holding them
- * measured by its table's rows. Each part holds a caption: the first the caption itself, a later
- * one an empty caption showing its text (`continuedText`), which the pages do not edit.
+ * measured by its table's rows (`splitHeldWith`).
  */
-export function splitTableFigureWith(repeatHeader: boolean) {
-  const splitTable = splitTableWith(repeatHeader);
-  return (block: LayoutBlock, fitting: number): SplitBlock | null => {
-    const { node } = block;
-    const caption = node.firstChild;
-    const table = node.lastChild;
-    if (node.childCount !== 2 || !caption || !table) return null;
-    const split = splitTable({ ...block, node: table }, fitting);
-    if (!split) return null;
-    const holder = (part: ProseMirrorNode, line: ProseMirrorNode) =>
-      node.type.create({ ...node.attrs, splitPartIndex: part.attrs.splitPartIndex }, [line, part]);
-    // A later part split again repeats the text its own empty caption shows.
-    const shown: unknown = caption.attrs.continuedText;
-    const text = typeof shown === 'string' ? shown : caption.textContent;
-    const repeated = caption.type.create({ continuedText: text });
-    return {
-      head: { ...split.head, node: holder(split.head.node, caption) },
-      tail: split.tail.map((part) => ({ ...part, node: holder(part.node, repeated) })),
-    };
-  };
-}
+export const splitTableFigureWith = (repeatHeader: boolean) =>
+  splitHeldWith(splitTableWith(repeatHeader));

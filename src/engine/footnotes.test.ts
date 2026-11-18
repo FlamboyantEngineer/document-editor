@@ -168,6 +168,26 @@ describe('footnotes', () => {
     expect(canInsertFootnote(at(repeated))).toBe(false);
   });
 
+  it('DOCE-FOOTNOTES-1.2 cites a footnote in a code block’s caption in reading order, not in a repeated one', () => {
+    let state = footnoteState([
+      {
+        type: 'codeBlock',
+        content: [{ type: 'caption', content: [text('Setup')] }, text('x = 1')],
+      },
+      paragraph(text('Body'), note('n2', 'Second')),
+    ]);
+    // Not in the code itself, which holds text only.
+    expect(canInsertFootnote(caretAt(state, 'x = 1', 2))).toBe(false);
+    expect(canInsertFootnote(caretAt(state, 'Setup', 5))).toBe(true);
+    state = runCommand(caretAt(state, 'Setup', 5), insertFootnote({ newId: () => 'n1' }));
+    expect(state.doc.nodeAt(textPos(state, 'Setup', 5))?.type.name).toBe('footnote_reference');
+    const markers = footnoteParts(state).filter((part) => part.startsWith('marker:'));
+    expect(markers).toEqual(['marker:n1', 'marker:n2']);
+    const captionAt = caretAt(state, 'Setup').selection.$from.before();
+    const repeated = state.apply(state.tr.setNodeAttribute(captionAt, 'continuedText', 'Setup'));
+    expect(canInsertFootnote(caretAt(repeated, 'Setup', 2))).toBe(false);
+  });
+
   it('DOCE-FOOTNOTES-1.2 lets the host choose the places with citingPlaces', () => {
     const quote: Parameters<typeof footnoteState>[0] = [
       { type: 'blockquote', content: [paragraph(text('Quoted'))] },

@@ -343,13 +343,12 @@
     {
       "name": "code_block",
       "ordinal": 15,
-      "group": "block",
+      "group": null,
       "content": "text*",
       "marks": "",
       "flags": { "code": true, "defining": true },
       "attrs": {
         "language": { "default": "plaintext" },
-        "caption": { "default": "" },
         "captionEnabled": { "default": true },
         "codeBlockContinued": { "default": false },
         "codeLineStart": { "default": 1 },
@@ -367,8 +366,8 @@
         }
       ],
       "toDOM": {
-        "defaults": "<pre data-code-language=\"plaintext\" data-code-caption-text=\"\" spellcheck=\"false\"><div class=\"doc-caption-line doc-code-caption-line\" data-caption-kind=\"code\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div><code spellcheck=\"false\"></code></pre>",
-        "filled": "<pre data-code-language=\"sample-language\" data-code-caption-text=\"sample-caption\" spellcheck=\"false\" data-caption-enabled=\"false\" data-code-block-continued=\"true\" data-code-line-start=\"3\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><div class=\"doc-caption-line doc-code-caption-line\" data-caption-kind=\"code\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-caption</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div><code spellcheck=\"false\"></code></pre>"
+        "defaults": "<pre data-code-language=\"plaintext\" spellcheck=\"false\"><code spellcheck=\"false\"></code></pre>",
+        "filled": "<pre data-code-language=\"sample-language\" spellcheck=\"false\" data-caption-enabled=\"false\" data-code-block-continued=\"true\" data-code-line-start=\"3\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><code spellcheck=\"false\"></code></pre>"
       }
     },
     {
@@ -1048,6 +1047,49 @@
       "toDOM": {
         "defaults": "<span class=\"de-embed-inline\" data-embed-kind=\"\" data-embed-source=\"\" data-embed-label=\"\"></span>",
         "filled": "<span class=\"de-embed-inline\" data-embed-kind=\"sample-kind\" data-embed-source=\"sample-source\" data-embed-label=\"sample-label\" data-embed-snapshot=\"sample-snapshot\" data-embed-pinned=\"true\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\">sample-text</span>"
+      }
+    },
+    {
+      "name": "code_figure",
+      "ordinal": 45,
+      "group": "block",
+      "content": "code_caption code_block",
+      "marks": null,
+      "flags": { "defining": true, "isolating": true },
+      "attrs": { "splitPartIndex": { "default": null } },
+      "parseDOM": [
+        { "tag": "div.doc-code-figure", "getAttrs": "function" },
+        { "tag": "pre", "priority": 60, "getAttrs": "function", "getContent": "function" }
+      ],
+      "toDOM": {
+        "defaults": "<div class=\"doc-code-figure\"></div>",
+        "filled": "<div class=\"doc-code-figure\"></div>"
+      }
+    },
+    {
+      "name": "code_caption",
+      "ordinal": 46,
+      "group": null,
+      "content": "inline*",
+      "marks": null,
+      "flags": { "defining": true, "isolating": true, "selectable": false },
+      "attrs": {
+        "continuedText": { "default": null },
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [
+        {
+          "tag": "div[data-caption-kind=\"code\"]",
+          "getAttrs": "function",
+          "contentElement": "function"
+        }
+      ],
+      "toDOM": {
+        "defaults": "<div class=\"doc-caption-line doc-code-caption-line\" data-caption-kind=\"code\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div>",
+        "filled": "<div class=\"doc-caption-line doc-code-caption-line\" data-caption-kind=\"code\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\" data-continued-text=\"sample-continuedText\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div>"
       }
     }
   ],

@@ -129,8 +129,8 @@ describe('document catalog', () => {
     });
     const code = (caption: string, shown = true): StoredNode => ({
       type: 'codeBlock',
-      attrs: { caption, ...(shown ? {} : { captionEnabled: false }) },
-      content: [text('x = 1')],
+      ...(shown ? {} : { attrs: { captionEnabled: false } }),
+      content: [storedCaption(caption), text('x = 1')],
     });
     const objects = readDocumentFile(
       {

@@ -11,13 +11,26 @@
           "type": "codeBlock",
           "attrs": {
             "language": "sample-language",
-            "caption": "sample-caption",
             "captionEnabled": false,
             "id": "codeBlock-1",
             "author": "author-1",
             "aiSession": "session-1"
           },
-          "content": [{ "type": "text", "text": "Sample text" }]
+          "content": [
+            {
+              "type": "caption",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "sample-caption"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Sample text"
+            }
+          ]
         }
       ]
     }

@@ -444,13 +444,13 @@ describe('reading word processing documents', () => {
     const [below, above] = blocks(await read(WRITER_SHAPES));
     expect(below).toEqual({
       type: 'codeBlock',
-      attrs: { caption: 'Below the code' },
-      content: [text('let rain = 1;')],
+      attrs: {},
+      content: [{ type: 'caption', content: [text('Below the code')] }, text('let rain = 1;')],
     });
     expect(above).toEqual({
       type: 'codeBlock',
-      attrs: { caption: 'Above the code' },
-      content: [text('let sun = 2;')],
+      attrs: {},
+      content: [{ type: 'caption', content: [text('Above the code')] }, text('let sun = 2;')],
     });
   });
 

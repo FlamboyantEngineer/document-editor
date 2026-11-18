@@ -113,12 +113,6 @@ const byAbbreviation = (a: CatalogEntry, b: CatalogEntry) =>
     { abbr: b.number, expansion: b.text, entryId: b.identity ?? '' },
   );
 
-// A code block's caption, and a linked one's, which names its source.
-const codeText = (node: ProseMirrorNode) =>
-  node.type.name === 'linked_code_block'
-    ? deriveLinkedCodeBlockCaption(node.attrs.url)
-    : attrText(node.attrs.caption);
-
 // Whether a table, figure or code block shows its caption, which one that is listed and numbered
 // does.
 const isCaptioned = (node: ProseMirrorNode) => node.attrs.captionEnabled !== false;
@@ -141,7 +135,6 @@ export const DEFAULT_CONTENTS_KINDS = {
   codeBlocks: {
     nodes: ['code_block', 'linked_code_block'],
     include: isCaptioned,
-    text: codeText,
     after: true,
     separator: ' - ',
   },
@@ -255,19 +248,19 @@ function currentText(node: ProseMirrorNode): string {
 }
 
 // A node's caption when its type has one, as it reads now, or its text as it reads now. A table's
-// caption is in its parent, before it.
+// or a code block's caption is in its parent, before it; linked code's names its source.
 function defaultText(node: ProseMirrorNode, parent?: ProseMirrorNode | null): string {
-  if (node.type.name === 'code_block') return attrText(node.attrs.caption);
+  if (node.type.name === 'linked_code_block') return deriveLinkedCodeBlockCaption(node.attrs.url);
   const caption = captionNodeOf(node, parent);
   if (caption) return currentText(caption);
   return isCaptionedType(node) ? '' : currentText(node);
 }
 
-// The node holding another, which holds a table's caption.
+// The node holding another, which holds a table's or a code block's caption.
 type ParentNode = ProseMirrorNode | null;
 
 const isCaptionedType = (node: ProseMirrorNode) =>
-  node.type.name === 'figure' || node.type.name === 'table';
+  ['figure', 'table', 'code_block'].includes(node.type.name);
 
 /**
  * A node's entry in a kind of list, with the number counting gave it (null for a node the template

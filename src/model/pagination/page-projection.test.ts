@@ -139,8 +139,16 @@ describe('page projection', () => {
     const shrink = new Transform(two);
     repaginate(shrink, one);
     expect(shrink.doc.eq(one)).toBe(true);
-    const code = (attrs: Attrs, text: string) =>
-      create('code_block', { dataId: 'c1', ...attrs }, text);
+    // A code block in its holder after its caption, which a later part repeats as its text.
+    const code = (attrs: Attrs, text: string) => {
+      const part = attrs.splitPartIndex ?? null;
+      const caption =
+        Number(part) > 0
+          ? create('code_caption', { continuedText: 'Setup' })
+          : create('code_caption', null, 'Setup');
+      const block = create('code_block', { dataId: 'c1', ...attrs }, text);
+      return create('code_figure', { splitPartIndex: part }, [caption, block]);
+    };
     const wholeCode = doc(section(page([code({}, 'one\ntwo\nthree')])));
     const splitCode = doc(
       section(

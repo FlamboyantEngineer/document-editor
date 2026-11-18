@@ -101,7 +101,6 @@ const ELEMENT_ATTRS: Readonly<Record<string, string | null>> = Object.freeze({
   suggestionFormat: 'suggestionFormat',
 });
 
-const CAPTION_ATTRS = { caption: 'caption', captionEnabled: 'captionEnabled' };
 const CELL_ATTRS = {
   colspan: 'colspan',
   rowspan: 'rowspan',
@@ -132,7 +131,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
     type: 'codeBlock',
     attrs: {
       language: 'language',
-      ...CAPTION_ATTRS,
+      captionEnabled: 'captionEnabled',
       codeBlockContinued: null,
       codeLineStart: null,
     },
@@ -194,6 +193,8 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
   figure_caption: { type: 'caption' },
   // A later part's caption shows its text only on the pages; joined, the table has no such part.
   table_caption: { type: 'caption', attrs: { continuedText: null } },
+  // A code block's caption and the code are held by a `code_figure`, which is not stored.
+  code_caption: { type: 'caption', attrs: { continuedText: null } },
   table_row: { type: 'tableRow' },
   table_cell: { type: 'tableCell', attrs: CELL_ATTRS },
   table_header: { type: 'tableHeader', attrs: CELL_ATTRS },

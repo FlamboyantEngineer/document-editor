@@ -2,6 +2,7 @@
 // and numbers, quotes, code, display math with its number, tables, figures with their caption, page
 // breaks, rules and the table of contents as a field Word fills in.
 
+import { storedBodyOf } from '../../schema/caption-content.js';
 import type { StoredNode } from '../document-format.js';
 import { keptContent } from '../left-out.js';
 import { assetAddress } from '../writer-values.js';
@@ -122,7 +123,7 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
           ? '<w:p><w:pPr><w:pStyle w:val="Quote"/>'
           : '<w:p><w:pPr><w:pStyle w:val="Quote"/></w:pPr>',
     ),
-  codeBlock: (node, writing) => codeOf(inlineText(node.content), node, writing),
+  codeBlock: (node, writing) => codeOf(inlineText(storedBodyOf(node)), node, writing),
   linkedCode: (node, writing) => codeOf(text(node.attrs?.code), node, writing),
   mathBlock: mathOf,
   table: (node, writing) => writeTable(node, writing, writeBlocks),

@@ -5,6 +5,7 @@
 import type { Fragment, Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { cloneJson } from '../clone-json.js';
 import { FRAGMENT_RULES, type FragmentRules, joinFragments } from '../pagination/fragments.js';
+import { CAPTION_HOLDER_TYPES } from '../schema/caption-content.js';
 import {
   DOCUMENT_FORMAT_VERSION,
   type DocumentFile,
@@ -88,17 +89,16 @@ const writeMarks = (node: ProseMirrorNode) =>
 function writeNode(node: ProseMirrorNode, context: WriteContext): StoredNode {
   if (node.isText) return { type: 'text', text: node.text ?? '', ...writeMarks(node) };
   if (KEPT_TYPES.has(node.type.name)) return cloneJson(node.attrs.stored as StoredNode);
-  if (node.type.name === 'table_figure') return writeTableFigure(node, context);
+  if (CAPTION_HOLDER_TYPES.has(node.type.name)) return writeHolder(node, context);
   return { ...writeElement(node, context), ...writeMarks(node) };
 }
 
-// A table and its caption, stored as the table with its caption first; the node holding them is
-// the editor's own and is not stored.
-function writeTableFigure(node: ProseMirrorNode, context: WriteContext): StoredNode {
+// A table or a code block and its caption, stored as the object with its caption first.
+function writeHolder(node: ProseMirrorNode, context: WriteContext): StoredNode {
   const caption = node.firstChild;
-  const table = node.lastChild;
-  if (!caption || !table) return { type: 'table' };
-  const stored = { ...writeElement(table, context), ...writeMarks(table) };
+  const object = node.lastChild;
+  if (!caption || !object || node.childCount !== 2) return writeElement(node, context);
+  const stored = { ...writeElement(object, context), ...writeMarks(object) };
   stored.content = [writeNode(caption, context), ...(stored.content ?? [])];
   return stored;
 }
