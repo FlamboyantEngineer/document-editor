@@ -7,6 +7,11 @@ export type DomAttributes = Record<string, string>;
 export const DATA_ID_ATTR = 'data-id';
 export const DATA_CONTRIBUTOR_ATTR = 'data-au';
 export const DATA_AI_SESSION_ATTR = 'data-ai';
+/**
+ * The session generated text records when the agent that wrote it names none, so the text still
+ * reads as generated: whoever it is credited to, a contributor that names a session is an agent's.
+ */
+export const EMPTY_AI_SESSION = '00000000000';
 export const SPLIT_PART_INDEX_ATTR = 'data-split-part-index';
 export const ORPHANED_LIST_CONTINUATION_ATTR = 'data-orphaned-list-continuation';
 export const CONTINUATION_PLACEHOLDER_ATTR = 'data-continuation-placeholder';

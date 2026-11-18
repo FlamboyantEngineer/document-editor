@@ -106,10 +106,10 @@ Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-2.7 - Accepted text keeps its writer
 
-Accepting an insertion shall mark its text, where no contributor is named, as its writer's (the contributor mark), so authorship outlives the suggestion.
+Accepting an insertion shall mark its text, where no contributor is named, as its writer's (the contributor mark), so authorship outlives the suggestion. Generated text, whose contributor names a session (an agent's, DOCE-AUTOMATION-1.2, or a taken completion's, DOCE-AUTOMATION-3.5), shall be credited to the person who accepts it (`decideSuggestions`' `decider`, the policy's `me` in `decideWithPolicy`, `decider` in `decideStoredSuggestions`), keeping its session, so it reads as theirs and as generated (decision: the accepting person, marked AI). A person's own suggestion keeps its writer whoever accepts it, and with no `decider` generated text stays its agent's. In a guarded room, accepting may leave a contributor as it is, name the suggester where none is named, or credit generated text to the writer who accepts it with its session, and nothing else (DOCE-COLLAB-7.2).
 
-Implementation: `src/engine/suggestion-decisions.ts`
-Verification: `src/engine/suggestions.test.ts`
+Implementation: `src/engine/suggestion-decisions.ts`, `src/engine/suggestion-policy.ts`, `src/document/stored-suggestions.ts`, `src/collab/guard-marks.ts`
+Verification: `src/engine/suggestions.test.ts`, `src/engine/accepted-credit.test.ts`, `src/collab/room-change-guard-security.test.ts`
 
 ### DOCE-SUGGESTIONS-2.8 - One decide policy
 

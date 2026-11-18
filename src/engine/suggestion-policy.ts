@@ -70,8 +70,8 @@ export function decideWithPolicy(
     if (!allowed.length) return false;
     const tr = state.tr.setMeta(suggestionsKey, 'decide');
     const chosen = new Set(allowed.map((each) => each.id));
-    if (!decideSuggestions(tr, decision, { ids: chosen, threadAuthor: policy.threadAuthor }))
-      return false;
+    const options = { ids: chosen, threadAuthor: policy.threadAuthor, decider: policy.me };
+    if (!decideSuggestions(tr, decision, options)) return false;
     dispatch?.(tr.scrollIntoView());
     return true;
   };

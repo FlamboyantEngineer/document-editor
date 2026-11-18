@@ -4,6 +4,7 @@
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, PluginKey, type Transaction } from 'prosemirror-state';
+import { keepAuthor } from './accepted-credit.js';
 import { decideFormatting, formatPartsOf } from './suggested-formatting.js';
 import { keepSuggestedBlock, type ReplacedBlocks } from './suggested-split.js';
 import { suggestionsKey } from './suggestions.js';
@@ -242,17 +243,11 @@ export interface DecideOptions {
   readonly ids?: ReadonlySet<string> | null | undefined;
   /** Who opened a thread, for the writer of a suggestion that records none. */
   readonly threadAuthor?: ((thread: string) => string | null | undefined) | undefined;
-}
-
-// Keeps who wrote accepted text: inserted text that names no contributor takes its suggester.
-function keepAuthor(
-  tr: Transaction,
-  { node, pos }: { node: ProseMirrorNode; pos: number },
-  author: string | null,
-) {
-  const { contributor } = tr.doc.type.schema.marks;
-  if (!author || !contributor || contributor.isInSet(node.marks)) return;
-  tr.addMark(pos, pos + node.nodeSize, contributor.create({ dataAuthor: author }));
+  /**
+   * Who decides, as suggestions name their writers: generated text they accept is credited to
+   * them, still marked as generated. Unknown by default, when accepted text keeps its writer.
+   */
+  readonly decider?: string | null | undefined;
 }
 
 // The suggestions the decision removed besides those decided, each with the decided one it was in.
@@ -278,7 +273,8 @@ function dependentsOf(
 
 /**
  * Accepts or rejects suggestions, every one or those with the given ids: accepting keeps what a
- * suggestion inserts, attributed to its writer, and removes what it deletes; rejecting the reverse.
+ * suggestion inserts, attributed to its writer (generated text to the `decider`, still marked as
+ * generated), and removes what it deletes; rejecting the reverse.
  * The first half of an accepted split is the element it split (`keepSuggestedBlock`).
  * Returns what it decided, which the transaction also carries (`suggestionDecisionOf`), or null
  * when the document did not change.
@@ -289,6 +285,7 @@ export function decideSuggestions(
   options: DecideOptions = {},
 ): SuggestionDecisionReport | null {
   const ids = options.ids ?? null;
+  const decider = options.decider ?? null;
   const { insertion, deletion } = tr.doc.type.schema.marks;
   if (!insertion || !deletion) return null;
   const before = indexSuggestions(tr.doc);
@@ -326,7 +323,8 @@ export function decideSuggestions(
       if (id === null) continue;
       if (mark.type === kept) {
         tr.removeMark(pos, pos + node.nodeSize, mark);
-        if (kept === insertion) keepAuthor(tr, { node, pos }, authors.get(id) ?? null);
+        const author = authors.get(id) ?? null;
+        if (kept === insertion) keepAuthor(tr, { node, pos }, { author, decider });
       }
       if (mark.type === removed) ranges.push([pos, pos + node.nodeSize]);
     }

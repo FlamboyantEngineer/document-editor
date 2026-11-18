@@ -37,6 +37,30 @@ function mayWithdrawFormat(
   );
 }
 
+const named = (marks: readonly Mark[], name: string) =>
+  marks.find((mark) => mark.type.name === name);
+const sessionOf = (mark: Mark): unknown => mark.attrs.dataAiSession || null;
+
+// What accepting an insertion may do to its text's contributor: leave it, name the suggester where
+// none is named, or credit generated text (a contributor naming a session) to the writer who
+// accepts it, keeping its session. Anything else is an edit.
+function mayCredit(before: readonly Mark[], after: readonly Mark[], actor: string | null): boolean {
+  const inserted = named(before, 'insertion');
+  if (!inserted || named(after, 'insertion')) return true;
+  const was = named(before, 'contributor');
+  const is = named(after, 'contributor');
+  if (!is) return !was;
+  if (was?.eq(is)) return true;
+  if (!was) {
+    const suggester: unknown = inserted.attrs.dataAuthor;
+    return !sessionOf(is) && (!suggester || is.attrs.dataAuthor === suggester);
+  }
+  const session = sessionOf(was);
+  return (
+    Boolean(session) && actor !== null && is.attrs.dataAuthor === actor && sessionOf(is) === session
+  );
+}
+
 /** A proposal marker never grants permission to alter unrelated formatting alongside a decision. */
 export function canChangeGuardMarks(
   before: readonly Mark[],
@@ -46,6 +70,7 @@ export function canChangeGuardMarks(
   if (!options.permissions.manageProposals && !hasAuthenticAdditions(before, after, options.actor))
     return false;
   if (options.permissions.edit) return true;
+  if (!mayCredit(before, after, options.actor)) return false;
   const a = formatting(before);
   const b = formatting(after);
   if (same(a, b)) return true;
