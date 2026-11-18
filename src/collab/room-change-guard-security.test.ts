@@ -1907,3 +1907,57 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     }
   });
 });
+
+describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion holds', () => {
+  it('refuses a writer who may suggest and decide but not edit a block put under another writer’s pending suggestion', () => {
+    const before = EditorState.create({
+      doc: readDocumentFile(
+        {
+          formatVersion: 1,
+          sections: [
+            {
+              name: null,
+              content: [
+                {
+                  type: 'paragraph',
+                  attrs: { id: 'p0000001' },
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Original',
+                      marks: [{ type: 'deletion', attrs: { id: 's0000050', author: 'other' } }],
+                    },
+                  ],
+                },
+                {
+                  type: 'figure',
+                  attrs: { id: 'f0000001', src: 'https://example.com/a.png' },
+                  content: [{ type: 'caption', content: [text('Board')] }],
+                },
+              ],
+            },
+          ],
+        },
+        schema,
+      ).doc,
+    });
+    let at = -1;
+    before.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'figure') at = pos;
+      return at < 0;
+    });
+    const figure = before.doc.nodeAt(at);
+    if (!figure) throw new Error('No figure.');
+    const after = before.apply(
+      before.tr.setNodeMarkup(at, null, {
+        ...figure.attrs,
+        suggestionSplitKind: 'deletion',
+        suggestionSplitId: 's0000050',
+      }),
+    );
+    const permissions = { edit: false, suggest: true, comment: true, decide: true };
+    expect(
+      checkDocumentChange({ before: before.doc, after: after.doc, actor: 'writer', permissions }),
+    ).toBe(false);
+  });
+});
