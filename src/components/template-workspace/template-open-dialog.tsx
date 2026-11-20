@@ -5,8 +5,8 @@
 
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { FolderGlyph } from '@flamboyantengineer/ui-components/core';
+import { Dialog } from '@flamboyantengineer/ui-components/dialog';
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
-import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { lazy, Suspense, useState } from 'react';
 import type { TemplateSummary } from '../../host/adapters.js';
 import type { TemplateWorkspaceLabels } from './workspace-labels.js';
@@ -67,7 +67,7 @@ export function TemplateOpenDialog({
           setOpen(true);
         }}
       />
-      <Modal
+      <Dialog
         isOpen={isOpen}
         onOpenChange={setOpen}
         title={labels.openTitle}
@@ -90,7 +90,7 @@ export function TemplateOpenDialog({
             onOpen={open}
           />
         </Suspense>
-      </Modal>
+      </Dialog>
     </>
   );
 }

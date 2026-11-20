@@ -6,7 +6,7 @@
 import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import type { Key } from '@flamboyantengineer/ui-components/core';
-import { Modal } from '@flamboyantengineer/ui-components/modal';
+import { Dialog } from '@flamboyantengineer/ui-components/dialog';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
@@ -158,7 +158,7 @@ function SaveVersion<R>({
   return (
     <>
       <Button onPress={() => setOpen(true)}>{labels.saveVersion}</Button>
-      <Modal
+      <Dialog
         isOpen={isOpen}
         onOpenChange={(open) => {
           setOpen(open);
@@ -182,7 +182,7 @@ function SaveVersion<R>({
           maxLength={REVISION_NAME_MAX_LENGTH}
           autoFocus
         />
-      </Modal>
+      </Dialog>
     </>
   );
 }

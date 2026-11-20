@@ -6,7 +6,7 @@
 
 import { Combobox } from '@flamboyantengineer/ui-components/combobox';
 import type { Key } from '@flamboyantengineer/ui-components/core';
-import type { ModalAction } from '@flamboyantengineer/ui-components/modal';
+import type { DialogAction } from '@flamboyantengineer/ui-components/dialog';
 import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-choice';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useEffect, useRef, useState } from 'react';
@@ -85,7 +85,7 @@ function addAction(
     display,
     onError,
   }: { draft: Draft; display: AbbreviationDisplay; onError: (error: string) => void },
-): ModalAction {
+): DialogAction {
   return {
     label: labels.addToGlossary,
     isDisabled: !draft.abbreviation.trim() || !draft.expansion.trim(),
