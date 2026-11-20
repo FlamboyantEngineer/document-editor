@@ -1213,7 +1213,7 @@
 }
 
 /* The linked code dialog: the address and its example stay, and only the preview scrolls. */
-.ui-modal[data-dialog='linked-code'] .ui-modal__body {
+.ui-dialog[data-dialog='linked-code'] .ui-dialog__body {
   display: flex;
   flex-direction: column;
   gap: 12px;

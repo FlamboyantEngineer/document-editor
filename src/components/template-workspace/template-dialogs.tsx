@@ -4,7 +4,7 @@
 
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { CopyGlyph, DeleteGlyph } from '@flamboyantengineer/ui-components/core';
-import { Modal } from '@flamboyantengineer/ui-components/modal';
+import { Dialog } from '@flamboyantengineer/ui-components/dialog';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { type ReactNode, useState } from 'react';
 import type { TemplateFile } from '../../model/index.js';
@@ -77,7 +77,7 @@ export function SaveAsDialog({
         isDisabled={isDisabled}
         onPress={begin}
       />
-      <Modal
+      <Dialog
         isOpen={identity !== null}
         onOpenChange={(open) => {
           if (!open && !isPending) setIdentity(null);
@@ -108,7 +108,7 @@ export function SaveAsDialog({
           onChange={(value) => setIdentity((current) => current && { ...current, name: value })}
         />
         {fields && copy ? fields(copy, setExtra) : null}
-      </Modal>
+      </Dialog>
     </>
   );
 }
@@ -128,7 +128,7 @@ export function RemoveDialog({ workspace, labels, isDisabled }: DialogProps) {
         isDisabled={isDisabled}
         onPress={() => setOpen(true)}
       />
-      <Modal
+      <Dialog
         role="alertdialog"
         isOpen={isOpen}
         onOpenChange={setOpen}

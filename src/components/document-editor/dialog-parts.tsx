@@ -1,7 +1,11 @@
 // What the editor's object dialogs share: the dialog itself, open until it closes and handing focus
 // back to the document, and its primary action, which runs a command on the view.
 
-import { Modal, type ModalAction, type ModalProps } from '@flamboyantengineer/ui-components/modal';
+import {
+  Dialog,
+  type DialogAction,
+  type DialogProps as LibraryDialogProps,
+} from '@flamboyantengineer/ui-components/dialog';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -36,7 +40,7 @@ export const titleOf = (label: string) => label.replace(/…$/, '');
 export const applying = (
   view: EditorView,
   { label, command, isDisabled = false }: { label: string; command: Command; isDisabled?: boolean },
-): ModalAction => ({
+): DialogAction => ({
   label,
   isDisabled: isDisabled || !command(view.state, undefined, view),
   onPress: (close) => {
@@ -54,13 +58,13 @@ export function EditorModal({
   onClose,
   children,
   ...rest
-}: Omit<ModalProps, 'isOpen' | 'onOpenChange' | 'children'> & {
+}: Omit<LibraryDialogProps, 'isOpen' | 'onOpenChange' | 'children'> & {
   view: EditorView;
   onClose: () => void;
-  children: ModalProps['children'];
+  children: LibraryDialogProps['children'];
 }) {
   return (
-    <Modal
+    <Dialog
       {...rest}
       isOpen
       onOpenChange={(open) => {
@@ -69,6 +73,6 @@ export function EditorModal({
       finalFocus={() => view.dom}
     >
       {children}
-    </Modal>
+    </Dialog>
   );
 }

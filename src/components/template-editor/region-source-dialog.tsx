@@ -2,7 +2,7 @@
 // markup its blocks write, in a code editor, read back through the schema when applied.
 
 import { CodeEditor } from '@flamboyantengineer/ui-components/code-editor';
-import { Modal } from '@flamboyantengineer/ui-components/modal';
+import { Dialog } from '@flamboyantengineer/ui-components/dialog';
 import { useState } from 'react';
 import {
   createDocumentSchema,
@@ -36,7 +36,7 @@ export function RegionSourceDialog({
   const [schema] = useState(createDocumentSchema);
   const [html, setHtml] = useState(() => writeHtmlContent(content, schema, owner));
   return (
-    <Modal
+    <Dialog
       isOpen
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -60,6 +60,6 @@ export function RegionSourceDialog({
         value={html}
         onChange={setHtml}
       />
-    </Modal>
+    </Dialog>
   );
 }

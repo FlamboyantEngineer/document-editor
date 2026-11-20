@@ -6,7 +6,7 @@
 
 import { type CodeDiagnostic, CodeEditor } from '@flamboyantengineer/ui-components/code-editor';
 import { Switch } from '@flamboyantengineer/ui-components/switch';
-import { Tab, TabList, TabPanel, Tabs } from '@flamboyantengineer/ui-components/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@flamboyantengineer/ui-components/tabs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ScriptCheckContext,
@@ -184,11 +184,11 @@ export function ScriptEditor({
         onChange={onScriptChange}
       />
       <Tabs {...hooks.slot('aside')} defaultSelectedKey="preview" size="sm">
-        <TabList aria-label={labels.scriptAside}>
-          <Tab id="preview">{labels.scriptPreview}</Tab>
-          <Tab id="reference">{labels.scriptReference}</Tab>
-        </TabList>
-        <TabPanel id="preview" shouldForceMount>
+        <TabsList aria-label={labels.scriptAside}>
+          <TabsTrigger id="preview">{labels.scriptPreview}</TabsTrigger>
+          <TabsTrigger id="reference">{labels.scriptReference}</TabsTrigger>
+        </TabsList>
+        <TabsContent id="preview" shouldForceMount>
           <ScriptPreview
             template={template}
             labels={labels}
@@ -197,10 +197,10 @@ export function ScriptEditor({
             blocked={hasScriptErrors(diagnostics)}
             views={previewViews}
           />
-        </TabPanel>
-        <TabPanel id="reference" shouldForceMount>
+        </TabsContent>
+        <TabsContent id="reference" shouldForceMount>
           <ScriptReference vocabulary={vocabulary} labels={labels} />
-        </TabPanel>
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -554,7 +554,7 @@ test.describe('objects', () => {
     // A whole file scrolls in the preview, while the field stays in view.
     await field.fill('https://example.com/firmware/schedule.ts');
     await expect(numbers).toHaveCount(120);
-    const body = modal.locator('.ui-modal__body');
+    const body = modal.locator('.ui-dialog__body');
     const sizes = await body.evaluate((element) => ({
       scrolls: element.scrollHeight > element.clientHeight + 1,
     }));

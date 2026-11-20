@@ -4,9 +4,9 @@
 // place, inserts a section before or after it and deletes it once confirmed.
 
 import type { Key } from '@flamboyantengineer/ui-components/core';
+import { Dialog } from '@flamboyantengineer/ui-components/dialog';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
-import { Modal } from '@flamboyantengineer/ui-components/modal';
-import { Tab, TabList } from '@flamboyantengineer/ui-components/tabs';
+import { TabsList, TabsTrigger } from '@flamboyantengineer/ui-components/tabs';
 import { useState } from 'react';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import {
@@ -58,7 +58,7 @@ function DeleteSectionDialog(
 ) {
   const { section, labels, onClose } = props;
   return (
-    <Modal
+    <Dialog
       role="alertdialog"
       isOpen={section !== null}
       onOpenChange={(open) => {
@@ -111,7 +111,7 @@ export function TemplateSectionTabs(props: SectionTabsProps) {
   };
   return (
     <>
-      <TabList
+      <TabsList
         aria-label={labels.scopes}
         onAdd={isDisabled ? undefined : () => insert(sections.length)}
         onRename={(key, text) => {
@@ -134,13 +134,13 @@ export function TemplateSectionTabs(props: SectionTabsProps) {
         }}
         getMenuItems={isDisabled ? undefined : menu}
       >
-        <Tab id={DOCUMENT_TAB}>{labels.documentTab}</Tab>
+        <TabsTrigger id={DOCUMENT_TAB}>{labels.documentTab}</TabsTrigger>
         {sections.map((section) => (
-          <Tab key={section.name} id={section.name} textValue={labelOf(section)}>
+          <TabsTrigger key={section.name} id={section.name} textValue={labelOf(section)}>
             {labelOf(section)}
-          </Tab>
+          </TabsTrigger>
         ))}
-      </TabList>
+      </TabsList>
       <DeleteSectionDialog {...props} section={deleting} onClose={() => setDeleting(null)} />
     </>
   );

@@ -3,7 +3,7 @@
 
 import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
-import { TabPanel } from '@flamboyantengineer/ui-components/tabs';
+import { TabsContent } from '@flamboyantengineer/ui-components/tabs';
 import { lazy, type ReactNode, type Ref, Suspense } from 'react';
 import type { ScriptRunnerAdapter, VariablesAdapter } from '../../host/adapters.js';
 import type { AssetAdapter } from '../../host/asset-adapters.js';
@@ -207,8 +207,8 @@ export function WorkspaceTabPanel({
 }) {
   if (!hasTabs) return <div {...workspaceHooks.slot('main')}>{children}</div>;
   return (
-    <TabPanel id={tabOf(scope)} {...workspaceHooks.slot('main')}>
+    <TabsContent id={tabOf(scope)} {...workspaceHooks.slot('main')}>
       {children}
-    </TabPanel>
+    </TabsContent>
   );
 }
