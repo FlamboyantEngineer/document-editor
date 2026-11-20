@@ -1,11 +1,14 @@
 import type { Node } from 'prosemirror-model';
 import { readDocumentFile } from '../../../../src/model/format/document-format-convert.js';
+import type { DocumentFile, StoredNode } from '../../../../src/model/index.js';
 import { createDocumentSchema } from '../../../../src/model/schema/document-schema.js';
 import marks from '../../../../test/fixtures/documents/inline-marks.json' with { type: 'json' };
 import writing from '../../../../test/fixtures/documents/line-breaks-and-writing-systems.json' with { type: 'json' };
 import mixed from '../../../../test/fixtures/documents/long-mixed.json' with { type: 'json' };
 import math from '../../../../test/fixtures/documents/math.json' with { type: 'json' };
 import lists from '../../../../test/fixtures/documents/nested-lists.json' with { type: 'json' };
+import { shortListsDocument, singleSectionDocument } from '../../stress/scale-documents.js';
+import { paginationDocument } from '../../stress/stress-documents.js';
 
 export function requireValue<T>(value: T | null | undefined, description: string): T {
   if (value === undefined || value === null) throw new Error(`Missing ${description}`);
@@ -104,25 +107,94 @@ const examples = [
   text('split-paragraph', (sample.text + ' ').repeat(32)),
 ];
 
-export type Workload = 'examples' | 'short' | 'medium' | 'long' | 'unsupported';
-export function fixture(name: Workload) {
-  const counts = { short: 48, medium: 380, long: 4800 };
-  const blocks =
-    name === 'examples'
-      ? examples
-      : name === 'unsupported'
-        ? [
-            text('normal-text', 'Text before unsupported content.'),
-            { type: 'rule', attrs: { id: 'unsupported-rule' } },
-          ]
-        : Array.from({ length: counts[name] }, (_, index) => {
-            const block = requireValue(
-              mixedBlocks[index % mixedBlocks.length],
-              'workload fixture block',
-            );
-            return { ...block, attrs: { ...block.attrs, id: `workload-${String(index)}` } };
-          });
-  return { formatVersion: 1, sections: [{ name: null, content: blocks }] };
+// Keep the exact stress source blocks for long paragraphs, heading runs and empty paragraphs.
+function mixedStressDocument(): DocumentFile {
+  const source = requireValue(
+    paginationDocument().sections[0],
+    'pagination stress section',
+  ).content;
+  const firstCode = source.findIndex((node) => node.type === 'codeBlock');
+  if (firstCode < 2) throw new Error('The pagination stress fixture needs its opening text');
+  const headingAndText = source.slice(0, firstCode - 1);
+  const emptyParagraphs = source.filter(
+    (node) => node.type === 'paragraph' && !node.content?.length,
+  );
+  const mixed = Array.from({ length: 18 }, (_, copy) =>
+    examples.map((node) => stressCopy(node, copy)),
+  ).flat();
+  return {
+    formatVersion: 1,
+    sections: [{ name: null, content: [...headingAndText, ...emptyParagraphs, ...mixed] }],
+  };
+}
+
+// Give repeated fixtures distinct identities and vary their explicit object sizes.
+function stressCopy(node: StoredNode, copy: number): StoredNode {
+  const attrs = { ...node.attrs };
+  if (typeof attrs.id === 'string') attrs.id = `mixed-${String(copy)}-${attrs.id}`;
+  if (node.type === 'figure') {
+    attrs.width = 120 + 12 * (copy % 8);
+    attrs.height = 50 + 17 * (copy % 6);
+  }
+  if (Array.isArray(attrs.colwidth)) {
+    attrs.colwidth = attrs.colwidth.map((width: unknown) => Number(width) + 5 * ((copy % 7) - 3));
+  }
+  const content = node.content?.map((child) => stressCopy(child, copy));
+  if (node.type === 'codeBlock' && content?.[0]?.text) {
+    content[0] = { ...content[0], text: (content[0].text + '\n').repeat(1 + (copy % 6)) };
+  }
+  return {
+    ...node,
+    ...(Object.keys(attrs).length ? { attrs } : {}),
+    ...(content ? { content } : {}),
+  };
+}
+
+const stressFixtures = {
+  'stress-text': () => singleSectionDocument(4420),
+  'stress-lists': () => shortListsDocument(560),
+  'stress-mixed': mixedStressDocument,
+  'stress-pagination': paginationDocument,
+};
+
+export type Workload =
+  'examples' | 'short' | 'medium' | 'long' | 'unsupported' | keyof typeof stressFixtures;
+export function fixture(name: Workload): DocumentFile {
+  switch (name) {
+    case 'stress-text':
+    case 'stress-lists':
+    case 'stress-mixed':
+    case 'stress-pagination':
+      return stressFixtures[name]();
+    case 'examples':
+      return { formatVersion: 1, sections: [{ name: null, content: examples }] };
+    case 'unsupported':
+      return {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              text('normal-text', 'Text before unsupported content.'),
+              { type: 'rule', attrs: { id: 'unsupported-rule' } },
+            ],
+          },
+        ],
+      };
+    case 'short':
+    case 'medium':
+    case 'long': {
+      const counts = { short: 48, medium: 380, long: 4800 };
+      const content = Array.from({ length: counts[name] }, (_, index) => {
+        const block = requireValue(
+          mixedBlocks[index % mixedBlocks.length],
+          'workload fixture block',
+        );
+        return { ...block, attrs: { ...block.attrs, id: `workload-${String(index)}` } };
+      });
+      return { formatVersion: 1, sections: [{ name: null, content }] };
+    }
+  }
 }
 
 export function readFixture(file: ReturnType<typeof fixture>) {

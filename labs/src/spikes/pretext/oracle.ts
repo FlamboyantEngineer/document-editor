@@ -8,12 +8,11 @@ import type { BlockReport, LayoutIndex } from './protocol.js';
 const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
 const inlineMathSelector = '[data-inline-type="latex"]';
 
-function browserLines(node: Node, element: HTMLElement) {
+function browserLines(node: Node, element: HTMLElement, rect: DOMRect) {
   const css = getComputedStyle(element);
   const leading = Number.parseFloat(css.lineHeight);
   const padTop = Number.parseFloat(css.paddingTop);
   const padBottom = Number.parseFloat(css.paddingBottom);
-  const rect = element.getBoundingClientRect();
   const count = Math.max(1, Math.round((rect.height - padTop - padBottom) / leading));
   const starts = Array<number | undefined>(count);
   const explicit = new Map<number, number>([[0, 0]]);
@@ -63,7 +62,7 @@ function browserLines(node: Node, element: HTMLElement) {
     from: start ?? explicit.get(index) ?? offset,
     width: 0,
   }));
-  return { lines, leading };
+  return { lines, leading: (rect.height - padTop - padBottom) / count };
 }
 
 interface Difference {
@@ -97,20 +96,36 @@ function children(node: Node, element: HTMLElement, reports: readonly BlockRepor
   }));
 }
 
+// The oracle has one tolerance for CSS pixel measurements. Source offsets compare exactly.
+const geometryTolerance = 0.5;
+
+function compareDimension(
+  differences: Difference[],
+  path: string,
+  id: string,
+  metric: string,
+  predicted: number,
+  html: number,
+) {
+  if (Math.abs(predicted - html) > geometryTolerance)
+    differences.push({ path, id, metric, predicted, html });
+}
+
 function measure(
   node: Node,
   element: HTMLElement,
   report: BlockReport,
   differences: Difference[],
 ): Block {
-  const height = element.getBoundingClientRect().height;
+  const rect = element.getBoundingClientRect();
   const { marginTop, marginBottom } = getComputedStyle(element);
   const id = blockId(node) ?? node.type.name;
   function compare(metric: string, predicted: number | number[], html: number | number[]) {
     differences.push({ path: report.path, id, metric, predicted, html });
   }
-  if (Math.abs(height - report.height) > 0.5) compare('height', report.height, height);
-  const actual = report.lines ? browserLines(node, element) : undefined;
+  compareDimension(differences, report.path, id, 'height', report.height, rect.height);
+  compareDimension(differences, report.path, id, 'width', report.width, rect.width);
+  const actual = report.lines ? browserLines(node, element, rect) : undefined;
   if (actual && report.lines) {
     const html = actual.lines.map((line) => line.from);
     const predicted = report.lines.map((line) => line.from);
@@ -130,7 +145,8 @@ function measure(
   return {
     node,
     path: report.path,
-    height,
+    width: rect.width,
+    height: rect.height,
     before: Number.parseFloat(marginTop),
     after: Number.parseFloat(marginBottom),
     ...actual,
@@ -138,18 +154,78 @@ function measure(
   };
 }
 
-export function pageOverflow(pages: Iterable<HTMLElement>) {
-  const overflows: number[] = [];
-  for (const page of pages) {
+export function verifyPages(
+  sheets: HTMLElement,
+  index: LayoutIndex,
+  sources: readonly Node[],
+  mountPage: (page: number) => void,
+) {
+  const overflow: number[] = [];
+  const pageDifferences: Difference[] = [];
+  let comparedFragments = 0;
+  index.pages.forEach((fragments, position) => {
+    mountPage(position);
+    const number = String(position + 1);
+    const page = requireValue(
+      sheets.querySelector<HTMLElement>(`[data-page="${number}"]`),
+      `rendered page ${number}`,
+    );
     const body = requireValue(
       page.querySelector<HTMLElement>('.pm-page-content'),
       'rendered page content',
     );
     if (body.scrollHeight > body.clientHeight + 1 || body.scrollWidth > body.clientWidth + 1) {
-      overflows.push(Number(page.dataset.page));
+      overflow.push(position + 1);
     }
-  }
-  return overflows;
+    const pageRect = page.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+    const path = `page ${number}`;
+    compareDimension(pageDifferences, path, number, 'page width', index.width, pageRect.width);
+    compareDimension(pageDifferences, path, number, 'page height', index.height, pageRect.height);
+    compareDimension(
+      pageDifferences,
+      path,
+      number,
+      'body width',
+      index.contentWidth,
+      bodyRect.width,
+    );
+    compareDimension(
+      pageDifferences,
+      path,
+      number,
+      'body height',
+      index.contentHeight,
+      bodyRect.height,
+    );
+    if (body.children.length !== fragments.length)
+      pageDifferences.push({
+        path,
+        id: number,
+        metric: 'fragment count',
+        predicted: fragments.length,
+        html: body.children.length,
+      });
+    fragments.slice(0, body.childElementCount).forEach((fragment, at) => {
+      const element = requireValue(body.children[at], 'rendered fragment');
+      const rect = element.getBoundingClientRect();
+      const id =
+        blockId(requireValue(sources[fragment.block], 'fragment source block')) ??
+        String(fragment.block);
+      compareDimension(pageDifferences, path, id, 'fragment width', fragment.width, rect.width);
+      compareDimension(pageDifferences, path, id, 'fragment height', fragment.height, rect.height);
+      compareDimension(
+        pageDifferences,
+        path,
+        id,
+        'fragment top',
+        fragment.top,
+        rect.top - bodyRect.top,
+      );
+      comparedFragments += 1;
+    });
+  });
+  return { overflow, pageDifferences, comparedPages: index.pages.length, comparedFragments };
 }
 
 export function verify(

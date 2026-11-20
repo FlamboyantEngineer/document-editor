@@ -264,10 +264,10 @@ Verification: `e2e/pretext-pagination.spec.ts`
 
 ### DOCE-LABS-5.2 - Independent HTML parity
 
-The lab shall compare its predictions against natural HTML line layout at multiple widths, including line counts, source start offsets, block box heights, page boundaries, and page overflow. It shall report real discrepancies and test stored-content preservation.
+The lab shall compare its predictions against natural HTML line layout at multiple widths, including line counts, source start offsets, block box dimensions, page boundaries, and page overflow. It shall verify page and content dimensions, fragmentation, and vertical placement for every rendered page of the text, list and mixed stress documents. It shall report real discrepancies, unsupported content and stored-content preservation.
 
-Implementation: `labs/src/spikes/pretext/oracle.ts`
-Verification: `e2e/pretext-pagination.spec.ts`
+Implementation: `labs/src/spikes/pretext/oracle.ts`, `labs/src/spikes/pretext/fixtures.ts`
+Verification: `e2e/pretext-pagination.spec.ts`, `e2e/pretext-pagination-stress.spec.ts`
 
 ### DOCE-LABS-5.3 - Complete measurements
 

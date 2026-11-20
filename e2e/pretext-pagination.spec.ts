@@ -68,7 +68,7 @@ test('DOCE-LABS-5.2 compares natural HTML offsets, heights, boundaries and overf
 }, info) => {
   await page.goto(`${url}?measure`);
   const parity = await page.evaluate(async () =>
-    Promise.all([600, 510, 375].map((width) => window.pretextPagination.verifyExamples(width))),
+    Promise.all([600, 510, 375].map((width) => window.pretextPagination.verify('examples', width))),
   );
   await info.attach('HTML parity', {
     body: JSON.stringify(parity, null, 2),
@@ -80,12 +80,9 @@ test('DOCE-LABS-5.2 compares natural HTML offsets, heights, boundaries and overf
     expect(result.htmlPages).toBe(result.predictedPages);
     expect(result.boundaryMismatches).toEqual([]);
     expect(result.overflow).toEqual([]);
-    // Retain the known fallback line-box discrepancies and fail on new discrepancies.
-    expect(
-      result.differences.filter(
-        ({ metric, id }) => metric !== 'height' || !['29ed5596', 'mixed-wrap'].includes(id),
-      ),
-    ).toEqual([]);
+    expect(result.differences).toEqual([]);
+    expect(result.pageDifferences).toEqual([]);
+    expect(result.comparedPages).toBe(result.predictedPages);
     expect(
       result.predictedBoundaries.flat().filter(([id]) => id === 'split-paragraph').length,
     ).toBeGreaterThan(1);

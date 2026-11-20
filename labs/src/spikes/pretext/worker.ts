@@ -10,8 +10,8 @@ setLocale('en');
 const cache = new PreparationCache();
 let doc: Node | undefined;
 
-function report({ path, height, lines, children }: Block): BlockReport {
-  return { path, height, lines, children: children?.map(report) };
+function report({ path, width, height, lines, children }: Block): BlockReport {
+  return { path, width, height, lines, children: children?.map(report) };
 }
 
 function predict(request: LayoutRequest): LayoutResult {
@@ -25,12 +25,16 @@ function predict(request: LayoutRequest): LayoutResult {
     ? {
         width: index.width,
         contentWidth: index.contentWidth,
+        contentHeight: index.contentHeight,
         height: index.height,
         pages: index.pages.map((page) =>
-          page.map(({ block, from, to }) => ({
+          page.map(({ block, from, to, top, height }) => ({
             block: Number(block.path),
             from,
             to,
+            width: block.width,
+            height,
+            top,
           })),
         ),
       }

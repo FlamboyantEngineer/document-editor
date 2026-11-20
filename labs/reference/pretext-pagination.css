@@ -45,7 +45,8 @@
 [data-pretext-lab] .pm-page-content :not(pre) > code {
   font-family: 'Courier New', monospace;
   font-size: inherit;
-  line-height: inherit;
+  /* Keep the paragraph's line box when a monospace run has different font metrics. */
+  line-height: 0;
   font-weight: inherit;
   font-style: inherit;
   padding: 0;
@@ -120,6 +121,15 @@
   font: 12px/1.3 monospace;
   overflow: hidden;
   background: #eff2f6;
+}
+
+/* The packer trims page-edge margins, including object rules with higher specificity. */
+[data-pretext-lab] .pretext-extent .pm-page-content > :first-child {
+  margin-block-start: 0;
+}
+
+[data-pretext-lab] .pretext-extent .pm-page-content > :last-child {
+  margin-block-end: 0;
 }
 
 [data-pretext-lab] .pm-page-content [data-pretext-continuation] {

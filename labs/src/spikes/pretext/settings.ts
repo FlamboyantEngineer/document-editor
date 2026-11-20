@@ -56,7 +56,10 @@ export const displayMath = { width: 200, height: 40 };
 export const pageGap = 16;
 const { width, height, margins } = templatePageMetrics(BASE_TEMPLATE);
 export const contentHeight = Math.floor(height - margins.top - margins.bottom);
-export const defaultWidth = Math.floor(width - margins.left - margins.right);
+// Preserve the template's fractional width in the CSS layout units used by Chromium.
+const layoutUnitsPerPixel = 64;
+export const defaultWidth =
+  Math.floor((width - margins.left - margins.right) * layoutUnitsPerPixel) / layoutUnitsPerPixel;
 export const pageHeight = contentHeight + margins.top + margins.bottom;
 export const pageWidth = (contentWidth: number) => contentWidth + margins.left + margins.right;
 

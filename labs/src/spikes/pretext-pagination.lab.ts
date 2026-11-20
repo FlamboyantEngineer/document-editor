@@ -119,17 +119,17 @@ function choose() {
     pages.jump(0);
     jumpTo.value = '1';
     jumpTo.max = String(result.index.pages.length);
-    check.disabled = selected !== 'examples';
+    check.disabled = false;
     jump.disabled = false;
     status.textContent = `${String(result.index.pages.length)} pages indexed`;
     document.documentElement.dataset.labReady = 'true';
   });
 }
 
-async function verifyExamples(width = defaultWidth) {
+async function verify(workload: Workload = 'examples', width = defaultWidth) {
   await fontsReady();
   const worker = new PredictionWorker();
-  const file = fixture('examples');
+  const file = fixture(workload);
   try {
     const doc = readFixture(file);
     const saved = JSON.stringify(writeDocumentFile(doc));
@@ -152,22 +152,16 @@ async function verifyExamples(width = defaultWidth) {
       host.append(scroll);
       const sample = new VirtualPages(scroll, paper);
       sample.show(result.index, blocks, 0);
-      const overflow = new Set<number>();
       try {
-        for (let page = 0; page < result.index.pages.length; page += 1) {
-          sample.jump(page);
-          oracle
-            .pageOverflow(paper.querySelectorAll<HTMLElement>('[data-page]'))
-            .forEach((n) => overflow.add(n));
-        }
+        return {
+          ...comparison,
+          width: result.index.contentWidth,
+          ...oracle.verifyPages(paper, result.index, blocks, (page) => sample.jump(page)),
+          sourceUnchanged: JSON.stringify(writeDocumentFile(doc)) === saved,
+        };
       } finally {
         sample.destroy();
       }
-      return {
-        ...comparison,
-        overflow: [...overflow],
-        sourceUnchanged: JSON.stringify(writeDocumentFile(doc)) === saved,
-      };
     } finally {
       host.remove();
     }
@@ -268,10 +262,30 @@ if (!measureOnly) {
   overscan.addEventListener('change', () => pages.setOverscan(overscanCount()));
   jump.addEventListener('click', () => pages.jump((jumpTo.valueAsNumber || 1) - 1));
   check.addEventListener('click', () => {
+    const selected = workload.value as Workload;
+    const number = generation;
+    check.disabled = true;
+    details.open = true;
+    output.textContent = 'Comparing with naturally wrapped HTML…';
     queue(async () => {
-      const result = await verifyExamples();
-      output.textContent = JSON.stringify(result, null, 2);
-      details.open = true;
+      try {
+        const { predictedBoundaries, htmlBoundaries, ...result } = await verify(selected);
+        if (number !== generation) return;
+        output.textContent = JSON.stringify(
+          {
+            ...result,
+            mismatchedPages: result.boundaryMismatches.map((page) => ({
+              page,
+              predicted: predictedBoundaries[page - 1],
+              html: htmlBoundaries[page - 1],
+            })),
+          },
+          null,
+          2,
+        );
+      } finally {
+        if (number === generation) check.disabled = false;
+      }
     });
   });
   document.fonts.addEventListener('loadingdone', choose);
@@ -283,9 +297,9 @@ declare global {
   interface Window {
     pretextPagination: {
       compare: typeof compare;
-      verifyExamples: typeof verifyExamples;
+      verify: typeof verify;
       compareProductionBoundaries: typeof compareProductionBoundaries;
     };
   }
 }
-window.pretextPagination = { compare, verifyExamples, compareProductionBoundaries };
+window.pretextPagination = { compare, verify, compareProductionBoundaries };

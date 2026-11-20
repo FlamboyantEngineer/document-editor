@@ -40,6 +40,7 @@ export interface Line {
 export interface Block {
   readonly node: Node;
   readonly path: string;
+  readonly width: number;
   readonly height: number;
   readonly before: number;
   readonly after: number;
@@ -52,10 +53,13 @@ export interface Fragment {
   /** Offsets into the original block's ProseMirror content, including atoms. */
   readonly from: number;
   readonly to: number;
+  readonly top: number;
+  readonly height: number;
 }
 export interface PageIndex {
   readonly width: number;
   readonly contentWidth: number;
+  readonly contentHeight: number;
   readonly height: number;
   readonly pages: readonly (readonly Fragment[])[];
 }
@@ -183,6 +187,7 @@ class Predictor {
     return {
       node,
       path,
+      width,
       lines,
       leading: style.leading,
       height: lines.length * style.leading + 2 * padding,
@@ -203,6 +208,7 @@ class Predictor {
     const table = node.lastChild;
     const widths: number[] = [];
     table?.firstChild?.forEach((cell) => widths.push(columnWidth(cell) ?? 0));
+    const tableWidth = widths.reduce((sum, value) => sum + value, 0);
     if (
       node.firstChild?.content.size ||
       table?.attrs.captionEnabled !== false ||
@@ -210,7 +216,7 @@ class Predictor {
       table?.attrs.tableBorderClass ||
       !widths.length ||
       widths.some((value) => value <= 2 * (cellPadding + cellBorder)) ||
-      widths.reduce((sum, value) => sum + value, 0) > width
+      tableWidth > width
     ) {
       this.issue(
         node,
@@ -243,6 +249,7 @@ class Predictor {
         cells.push({
           node: cell,
           path: cellPath,
+          width: column,
           children: paragraphs,
           before: 0,
           after: 0,
@@ -254,17 +261,26 @@ class Predictor {
       children.push({
         node: row,
         path: rowPath,
+        width: tableWidth,
         children: cells.map((cell) => ({ ...cell, height })),
         height,
         before: 0,
         after: 0,
       });
     });
-    return { node, path, children, height: stack(children), before: 0, after: paragraph.after };
+    return {
+      node,
+      path,
+      width: tableWidth,
+      children,
+      height: stack(children),
+      before: 0,
+      after: paragraph.after,
+    };
   }
 
   block(node: Node, path: string, width: number, nested = false): Block {
-    const plain = { node, path, height: 0, before: 0, after: nested ? 0 : paragraph.after };
+    const plain = { node, path, width, height: 0, before: 0, after: nested ? 0 : paragraph.after };
     if (width <= 0) this.issue(node, path, 'no space remains after nesting or cell padding');
     if (node.attrs.suggestionFormat || node.attrs.suggestionSplitKind)
       this.issue(node, path, 'suggestion projections are unsupported');
@@ -337,7 +353,7 @@ class Predictor {
       case 'math_display':
         if (displayMath.width > width)
           this.issue(node, path, 'display math box is wider than the content area');
-        return { ...plain, height: displayMath.height };
+        return { ...plain, width: displayMath.width, height: displayMath.height };
       default:
         this.issue(node, path, `unsupported block ${node.type.name}`);
         return plain;
@@ -382,7 +398,10 @@ export function measureDocument(doc: Node, width: number, cache: PreparationCach
 }
 
 type MeasuredFragment = LayoutBlock & {
-  readonly measurement: Fragment & { readonly firstLine: number; readonly lastLine: number };
+  readonly measurement: Omit<Fragment, 'top' | 'height'> & {
+    readonly firstLine: number;
+    readonly lastLine: number;
+  };
 };
 
 function piece(
@@ -392,9 +411,10 @@ function piece(
   firstLine: number,
   lastLine: number,
 ): MeasuredFragment {
+  const whole = from === 0 && to === block.node.content.size;
   return {
     node: block.node,
-    height: block.leading ? (lastLine - firstLine) * block.leading : block.height,
+    height: whole || !block.leading ? block.height : (lastLine - firstLine) * block.leading,
     marginTop: from === 0 ? block.before : 0,
     marginBottom: to === block.node.content.size ? block.after : 0,
     measurement: { block, from, to, firstLine, lastLine },
@@ -434,8 +454,20 @@ export function indexPages(blocks: readonly Block[], width: number): PageIndex {
   return {
     width: pageWidth(width),
     contentWidth: width,
+    contentHeight,
     height: pageHeight,
-    pages: pages.map((page) => page.map((item) => (item as MeasuredFragment).measurement)),
+    pages: pages.map((page) => {
+      let bottom = 0;
+      let previous: LayoutBlock | undefined;
+      return page.map((layout) => {
+        const item = layout as MeasuredFragment;
+        const top = previous ? bottom + Math.max(previous.marginBottom, item.marginTop, 0) : 0;
+        previous = item;
+        bottom = top + item.height;
+        const { block, from, to } = item.measurement;
+        return { block, from, to, top, height: item.height };
+      });
+    }),
   };
 }
 

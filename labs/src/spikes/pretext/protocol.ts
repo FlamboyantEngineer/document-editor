@@ -3,6 +3,7 @@ import type { Line } from './prediction.js';
 
 export interface BlockReport {
   readonly path: string;
+  readonly width: number;
   readonly height: number;
   readonly lines?: readonly Line[];
   readonly children?: readonly BlockReport[];
@@ -11,10 +12,14 @@ export interface PageFragment {
   readonly block: number;
   readonly from: number;
   readonly to: number;
+  readonly width: number;
+  readonly height: number;
+  readonly top: number;
 }
 export interface LayoutIndex {
   readonly width: number;
   readonly contentWidth: number;
+  readonly contentHeight: number;
   readonly height: number;
   readonly pages: readonly (readonly PageFragment[])[];
 }
