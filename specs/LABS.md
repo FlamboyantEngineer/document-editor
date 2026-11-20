@@ -252,3 +252,26 @@ The reference stylesheet shall align a figure's caption text where the figure is
 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`
+
+## DOCE-LABS-5 - Pretext pagination spike
+
+### DOCE-LABS-5.1 - DOM-free prediction and virtual pages
+
+The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker. It shall reuse prepared inline data on width changes and discard it when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
+
+Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/html.ts`
+Verification: `e2e/pretext-pagination.spec.ts`
+
+### DOCE-LABS-5.2 - Independent HTML parity
+
+The lab shall compare its predictions against natural HTML line layout at multiple widths, including line counts, source start offsets, block box heights, page boundaries, and page overflow. It shall report real discrepancies and test stored-content preservation.
+
+Implementation: `labs/src/spikes/pretext/oracle.ts`
+Verification: `e2e/pretext-pagination.spec.ts`
+
+### DOCE-LABS-5.3 - Complete measurements
+
+The lab shall provide an opt-in repeated browser benchmark from the same stored inputs through index production and visible HTML for both the experiment and the existing projection path. The benchmark shall record first visible paint timing, complete index timing, main-thread long tasks, mounted pages and elements, and prepared-data reuse on width changes.
+
+Implementation: `labs/src/spikes/pretext/benchmark.ts`, `labs/src/spikes/pretext-pagination.lab.ts`
+Verification: `e2e/pretext-pagination.performance.spec.ts`

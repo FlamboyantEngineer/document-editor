@@ -8,6 +8,7 @@
 @import '@flamboyantengineer/ui-components/reference.css';
 @import './reference/document.css';
 @import './reference/editor-chrome.css';
+@import './reference/pretext-pagination.css';
 
 :root[data-reference-document] {
   background: var(--ref-surface);

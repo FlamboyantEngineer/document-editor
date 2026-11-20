@@ -26,6 +26,7 @@ const options = {
     // The base library's reference stylesheet, the document reference stylesheet and the lab layout.
     reference: join(labsDir, 'reference.css'),
     chrome: join(labSourceDir, 'chrome', 'mount.tsx'),
+    'pretext-pagination-worker': join(labSourceDir, 'spikes', 'pretext', 'worker.ts'),
     ...Object.fromEntries(labs.map(({ name, file }) => [name, file])),
   },
   outdir,

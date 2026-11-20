@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <title>Pretext pagination · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/pretext-pagination.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" data-pretext-lab>
+      <h1>Pretext pagination</h1>
+      <p>
+        Predict page boundaries in a worker and render only nearby pages. Check predictions against
+        naturally wrapped reference HTML.
+      </p>
+      <div class="lab-controls">
+        <div>
+          <label for="pretext-workload">Document</label>
+          <select id="pretext-workload">
+            <option value="examples">Formatting examples</option>
+            <option value="short">Short document</option>
+            <option value="medium">Medium document</option>
+            <option value="long">Long document</option>
+            <option value="unsupported">Unsupported example</option>
+          </select>
+        </div>
+        <label
+          >Overscan <input id="pretext-overscan" type="number" value="1" min="0" max="3"
+        /></label>
+        <label>Page <input id="pretext-page" type="number" value="1" min="1" /></label>
+        <button id="pretext-jump" type="button">Go to page</button>
+        <button id="pretext-verify" type="button">Check HTML parity</button>
+      </div>
+      <p id="pretext-status" role="status"></p>
+      <div
+        class="de-document-editor pretext-scroll"
+        id="pretext-reader"
+        tabindex="0"
+        role="region"
+        aria-label="Document pages"
+      >
+        <div class="pretext-extent"></div>
+      </div>
+      <details id="pretext-details">
+        <summary>HTML parity report</summary>
+        <pre id="pretext-report"></pre>
+      </details>
+    </main>
+  </body>
+</html>
