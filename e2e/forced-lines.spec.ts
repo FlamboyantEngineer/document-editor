@@ -141,13 +141,10 @@ for (const { name, query } of MODES) {
 
     test('Arrow Up and Down move one forced line and keep the column', async ({ page }) => {
       await open(page);
-      // Lines read before the pages settle can still move; and a caret at a line's very start is
-      // also the end of the line before it, so the column is taken inside the line.
-      await settle(page);
       const tops = await lineTops(page, 0);
       expect(tops.length).toBeGreaterThanOrEqual(5);
       const box = await paragraphs(page).first().boundingBox();
-      await page.mouse.click((box?.x ?? 0) + 40, (tops[3] ?? 0) + 9);
+      await page.mouse.click((box?.x ?? 0) + 3, (tops[3] ?? 0) + 9);
       await expect.poll(async () => (await caret(page)).top).toBe(tops[3]);
       const start = await caret(page);
       for (const [key, line] of [
