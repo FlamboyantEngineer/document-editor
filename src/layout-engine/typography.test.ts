@@ -63,6 +63,20 @@ describe('typography', () => {
     expect(at('8pt', 1.5)).toBe(16);
   });
 
+  it('DOCE-PAGINATION-9.2 resolves a relative paragraph size once, against the default size', () => {
+    const at = (size: string) =>
+      blockTypography(first('<p>a</p>', 'paragraph'), {
+        template: { ...BASE_TEMPLATE, styles: { paragraph: { size, lineHeight: 1.5 } } },
+      });
+    expect(at('150%')).toMatchObject({ font: { size: 18 }, leading: 27 });
+    expect(at('1.5em').font.size).toBe(18);
+    // A heading's relative size still resolves against the paragraph's.
+    const heading = blockTypography(first('<h1>a</h1>', 'heading'), {
+      template: { ...BASE_TEMPLATE, styles: { paragraph: { size: '150%' } } },
+    });
+    expect(heading.font.size).toBe(36);
+  });
+
   it('DOCE-PAGINATION-9.2 lays a custom style over a paragraph and only its size and slant over a heading', () => {
     const paragraph = documentSchema.nodes.paragraph?.create({ className: 'Quote' });
     const heading = documentSchema.nodes.heading?.create({ level: 1, className: 'Quote' });

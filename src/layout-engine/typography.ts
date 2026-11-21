@@ -50,7 +50,11 @@ interface TypographySource {
   readonly fontStacks?: FontStacks | undefined;
 }
 
-type Defaults = Pick<TextSettings, 'lineHeight' | 'size'> & { readonly weight: number };
+type Defaults = Pick<TextSettings, 'lineHeight' | 'size'> & {
+  readonly weight: number;
+  /** The size the style's relative size resolves against; the paragraph's when not given. */
+  readonly base?: number;
+};
 
 /** The size relative lengths resolve against when the paragraph style sets none. */
 const DEFAULT_PARAGRAPH_SIZE = 12;
@@ -145,10 +149,10 @@ function blockOf(
   defaults: Defaults,
   context: ScopeFonts,
 ): BlockTypography {
-  const base = context.paragraph.size;
+  const base = defaults.base ?? context.paragraph.size;
   const fallback: FontStyle = {
     ...context.paragraph,
-    size: resolveLength(defaults.size, base) ?? base,
+    size: resolveLength(defaults.size, context.paragraph.size) ?? context.paragraph.size,
     weight: defaults.weight,
     italic: false,
   };
@@ -245,7 +249,10 @@ export function blockTypography(
         italic: custom.italic ?? false,
       })
     : styles.paragraph;
-  return blockOf(paragraph, { lineHeight: 1.5, weight: 400 }, context);
+  // The paragraph's own size is relative to the default, as the scope's paragraph font is, not to
+  // itself.
+  const defaults = { lineHeight: 1.5, weight: 400, base: DEFAULT_PARAGRAPH_SIZE };
+  return blockOf(paragraph, defaults, context);
 }
 
 /** The font text with these marks takes inside a block. */
