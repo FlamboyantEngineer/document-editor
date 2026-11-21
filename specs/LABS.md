@@ -310,14 +310,14 @@ Verification: `e2e/pretext-pagination-fuzz.spec.ts`
 
 ### DOCE-LABS-6.1 - Pretext lines in the live editor
 
-The forced-lines lab shall show the document editor on pages with every top-level paragraph and heading drawn on the lines Pretext computes for it: each line except a block's last ends in a forced break, centred and right-aligned lines start after the room Pretext left them, and justified lines stretch their spaces to the column, so the browser neither wraps nor aligns a line itself. The lines shall follow each keystroke at once. Arrow Up and Down shall move one drawn line and keep the column, Home and End shall stay on the line, double and triple clicks shall select a word and the paragraph, and composition, copy and paste, find, proofing, suggestions, bidirectional text and paragraphs split across pages shall keep the drawn lines. The lab shall draw the lines either as canonical decorations or on the pages' own view, and its guard (`window.forcedLines.check()`) shall report any block whose drawn lines differ from the breaks placed. The experiment shall leave the library unchanged.
+The forced-lines lab shall show the document editor on pages with every top-level paragraph and heading drawn on the lines Pretext computes for it: each line except a block's last ends in a forced break, centred and right-aligned lines start after the room Pretext left them, and justified lines stretch their spaces to the column, so the browser neither wraps nor aligns a line itself. The lines shall follow each keystroke at once. Arrow Up and Down shall move one drawn line and keep the column, Home and End shall stay on the line, a caret at a line's start shall stay drawn there when the editor writes the selection itself (as after an edit), unless the browser last drew it at the line above's end, double and triple clicks shall select a word and the paragraph, and composition, copy and paste, find, proofing, suggestions, bidirectional text and paragraphs split across pages shall keep the drawn lines. The lab shall draw the lines either as canonical decorations or on the pages' own view, and its guard (`window.forcedLines.check()`) shall report any block whose drawn lines differ from the breaks placed. The lab shall offer no inline completion, whose offer Pretext does not lay out. The experiment shall leave the library unchanged.
 
 Implementation: `labs/forced-lines.html`, `labs/src/forced-lines.lab.tsx`, `labs/src/spikes/forced-lines/`
 Verification: `e2e/forced-lines.spec.ts`
 
 ### DOCE-LABS-6.2 - Typing with forced lines
 
-With the lines drawn on the pages' own view and pages off screen skipping their layout, each keystroke on 40 and 300 pages shall meet the typing budgets of DOCE-LABS-2.3, measured beside the same documents with the browser's own lines.
+With the lines drawn on the pages' own view and pages off screen skipping their layout, each keystroke on 40 and 300 pages shall meet the typing budgets of DOCE-LABS-2.3, measured beside the same documents with the browser's own lines, as the middle of three rounds of each, taken in turn.
 
 Implementation: `labs/src/spikes/forced-lines/direct.ts`, `labs/forced-lines.html`
 Verification: `e2e/forced-lines.performance.spec.ts`
