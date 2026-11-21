@@ -24,11 +24,21 @@ export interface ShapeOptions {
 }
 
 /** One font file, unscaled: every number is in font units. */
+export interface LineExtents {
+  /** Above the baseline, positive. */
+  readonly ascender: number;
+  /** Below the baseline, negative. */
+  readonly descender: number;
+  readonly lineGap: number;
+}
+
 export interface HarfBuzzFace {
   readonly unitsPerEm: number;
   glyphOf(codePoint: number): number | null;
   advanceOf(glyph: number): number;
   extentsOf(glyph: number): GlyphExtents;
+  /** The face's line metrics in font units, as HarfBuzz reads them (OS/2 or hhea). */
+  lineExtents(): LineExtents;
   shape(text: string, options: ShapeOptions): ShapedRun;
 }
 
@@ -57,6 +67,7 @@ interface Exports {
   hb_font_get_nominal_glyph(font: Pointer, codePoint: number, glyph: Pointer): number;
   hb_font_get_glyph_h_advance(font: Pointer, glyph: number): number;
   hb_font_get_glyph_extents(font: Pointer, glyph: number, extents: Pointer): number;
+  hb_font_get_h_extents(font: Pointer, extents: Pointer): number;
   hb_buffer_create(): Pointer;
   hb_buffer_clear_contents(buffer: Pointer): void;
   hb_buffer_add_utf16(
@@ -204,7 +215,7 @@ function createShaper(native: Exports, views: HeapViews) {
 function bindHarfBuzz(native: Exports): HarfBuzz {
   const views = heapViews(native);
   const shape = createShaper(native, views);
-  const scratch = native.malloc(16);
+  const scratch = native.malloc(64);
 
   function createFace(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): HarfBuzzFace {
     const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -224,6 +235,16 @@ function bindHarfBuzz(native: Exports): HarfBuzz {
         native.hb_font_get_glyph_extents(font, glyph, scratch);
         const values = views.i32();
         return { bearing: values[scratch / 4] ?? 0, width: values[scratch / 4 + 2] ?? 0 };
+      },
+      lineExtents: () => {
+        native.hb_font_get_h_extents(font, scratch);
+        const values = views.i32();
+        const at = scratch / 4;
+        return {
+          ascender: values[at] ?? 0,
+          descender: values[at + 1] ?? 0,
+          lineGap: values[at + 2] ?? 0,
+        };
       },
       shape: (text, options) => shape(font, text, options),
     };

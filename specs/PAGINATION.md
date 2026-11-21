@@ -722,3 +722,10 @@ The measurer shall shape as Chromium's Canvas does: each space, and each zero-wi
 
 Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/faces.ts`
 Verification: `src/layout-engine/font-files/measurer.test.ts`
+
+### DOCE-PAGINATION-11.3 - Line metrics from the font files
+
+The measurer's `measureText` shall also give `fontBoundingBoxAscent` and `fontBoundingBoxDescent`: the primary face's ascender and descender, as HarfBuzz reads them from the font's tables, at the font's size and rounded to whole pixels, as Linux Chromium's Canvas gives them, so a line's strut needs no Canvas either. The primary face is the first matched face whose `unicode-range` holds the space.
+
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/harfbuzz.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`

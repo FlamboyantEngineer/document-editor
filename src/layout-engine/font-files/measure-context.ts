@@ -23,6 +23,9 @@ export interface FontFileMetrics {
   readonly width: number;
   readonly actualBoundingBoxLeft: number;
   readonly actualBoundingBoxRight: number;
+  /** The primary face's ascent and descent at the size, rounded as Linux Chromium's Canvas gives them. */
+  readonly fontBoundingBoxAscent: number;
+  readonly fontBoundingBoxDescent: number;
 }
 
 export interface FontFileContext {
@@ -231,6 +234,22 @@ function measureWord({ word, request, faces }: WordInput, shaping: Shaping) {
   return { width: Math.fround(pen / FIXED), left: left / FIXED, right: right / FIXED };
 }
 
+// Chromium's primary font: the first face whose unicode-range holds the space.
+const primaryFace = (faces: readonly MatchedFace[]) =>
+  (faces.find(({ covers }) => covers(0x20)) ?? faces[0])?.face;
+
+// The primary face's line metrics, which Canvas reports whatever the text: the face's ascender and
+// descender (OS/2 or hhea, as HarfBuzz picks them) at the size, each rounded to a whole pixel.
+function lineBox(face: HarfBuzzFace | undefined, size: number) {
+  if (!face) return { fontBoundingBoxAscent: 0, fontBoundingBoxDescent: 0 };
+  const { ascender, descender } = face.lineExtents();
+  const scale = size / face.unitsPerEm;
+  return {
+    fontBoundingBoxAscent: Math.round(ascender * scale),
+    fontBoundingBoxDescent: Math.round(-descender * scale),
+  };
+}
+
 /** A new context over the served faces; `problems` collects what the faces could not measure. */
 export function createFontFileContext(
   faceSet: FaceSet,
@@ -279,6 +298,7 @@ export function createFontFileContext(
         width,
         actualBoundingBoxLeft: Number.isFinite(left) ? -left : 0,
         actualBoundingBoxRight: Number.isFinite(right) ? right : 0,
+        ...lineBox(primaryFace(faces), request.size),
       };
     },
   };

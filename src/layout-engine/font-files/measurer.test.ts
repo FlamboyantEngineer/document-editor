@@ -48,3 +48,24 @@ describe('DOCE-PAGINATION-11.2 Canvas words', () => {
     expect([...problems.missingGlyphs]).toEqual([0x2603]);
   });
 });
+
+describe('DOCE-PAGINATION-11.3 line metrics from the font files', () => {
+  // Linux Chromium Canvas's fontBoundingBoxAscent and fontBoundingBoxDescent for the same faces.
+  it.each([
+    ['16px "Lab Geist"', 16, 5],
+    ['14.666667px "Lab Geist"', 15, 4],
+    ['13.333333px "Lab Geist Mono"', 13, 4],
+    ['21.5px "Lab KaTeX Main"', 19, 6],
+    ['bold 13.333333px "Lab KaTeX Main"', 13, 4],
+    ['italic 14.666667px "Lab KaTeX Main"', 11, 4],
+    ['11px "Lab KaTeX Sans"', 8, 3],
+  ])('gives %s the ascent and descent Canvas gives', async (font, ascent, descent) => {
+    const context = (await measurer()).createContext();
+    context.font = font;
+    const metrics = context.measureText('x');
+    expect([metrics.fontBoundingBoxAscent, metrics.fontBoundingBoxDescent]).toEqual([
+      ascent,
+      descent,
+    ]);
+  });
+});
