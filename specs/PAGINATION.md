@@ -584,7 +584,7 @@ The text layout engine (`src/layout-engine/`) lays a text block's lines out from
 
 ### DOCE-PAGINATION-9.1 - The line table
 
-`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading or a code block out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1.
+`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block or a footnote entry out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1.
 
 Implementation: `src/layout-engine/line-table.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
@@ -644,6 +644,13 @@ Verification: `src/layout-engine/text-layout.test.ts`, `src/model/pagination/tex
 
 Implementation: `src/layout-engine/numbers.ts`, `src/engine/paragraph-numbering.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
 Verification: `src/layout-engine/numbers.test.ts`
+
+### DOCE-PAGINATION-9.10 - Footnote entries
+
+A footnote entry's typography shall be its scope's footnote text style (`resolveFootnoteSettings`), with no margins of its own (the footnote area sets entries apart): unset, the paragraph's family at 10px, a weight of 400 and a line height of 1.4. A place's `footnoteNumber` shall be laid out before the content on the first line, in the marker style (unset: the entry's family at 0.85 of its size, a weight of 600, upright), followed by the numbering suffix and a quarter of the marker size; a marker family that is not served refuses the block. The renderer draws the number and the entry text in these fonts, so an entry's inherited family is the paragraph's, not the page's.
+
+Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/footnote-marker.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/runs.ts`
+Verification: `src/layout-engine/footnote-marker.test.ts`
 
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
 
