@@ -23,6 +23,7 @@ import {
   displayMath,
   font,
   headings,
+  inlineCodeFamily,
   inlineMath,
   listAfter,
   listBefore,
@@ -118,7 +119,7 @@ export class PreparationCache {
   }
 }
 
-export const inlineCodeFamily = '"Courier New", monospace';
+export { inlineCodeFamily };
 
 export function blockId(node: Node): string | null {
   const id: unknown = node.attrs.dataId;

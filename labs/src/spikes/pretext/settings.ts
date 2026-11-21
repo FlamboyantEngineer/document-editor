@@ -5,6 +5,7 @@ import {
   templateScopeStyles,
 } from '../../../../src/model/templates/template-properties.js';
 import { textStyleProperties } from '../../../../src/model/templates/template-text-properties.js';
+import { MONO_FAMILY, SANS_FAMILY, servesFonts } from './fonts.js';
 
 export const px = (value: number) => `${String(value)}px`;
 const length = (value: unknown) => Number.parseFloat(lengthToCssPx(value) ?? '0');
@@ -25,7 +26,22 @@ export function font(style: Typography): string {
 
 // This spike resolves one template scope. Both HTML paths receive the same explicit geometry.
 const styles = templateScopeStyles(BASE_TEMPLATE, null);
-const properties = textStyleProperties(styles);
+// With served fonts, every text style takes the served families in place of the template's.
+const properties = servedFamilies(textStyleProperties(styles));
+
+function servedFamilies<T extends Record<string, string>>(source: T): T {
+  if (!servesFonts) return source;
+  return Object.fromEntries(
+    Object.entries(source).map(([key, value]) =>
+      key.endsWith('-font-family')
+        ? [key, key.startsWith('--doc-code-') ? `"${MONO_FAMILY}"` : `"${SANS_FAMILY}"`]
+        : [key, value],
+    ),
+  ) as T;
+}
+
+/** The family of inline code, which the reference stylesheet takes from `--pretext-inline-code-family`. */
+export const inlineCodeFamily = servesFonts ? `"${MONO_FAMILY}"` : '"Courier New", monospace';
 function type(prefix: string, defaultLeading: number): Typography {
   const property = (key: string) => properties[`--doc-${prefix}-${key}`];
   const size = length(property('font-size'));
@@ -72,6 +88,7 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--doc-page-height', pageHeight);
   set('--pretext-content-width', contentWidth);
   set('--pretext-content-height', contentHeight);
+  root.style.setProperty('--pretext-inline-code-family', inlineCodeFamily);
   set('--pretext-code-padding', codePadding);
   set('--pretext-inline-math-width', inlineMath.width);
   set('--pretext-inline-math-height', inlineMath.height);

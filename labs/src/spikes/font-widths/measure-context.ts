@@ -79,6 +79,31 @@ export function splitCanvasWords(text: string): string[] {
   return words;
 }
 
+// Chromium trims adjacent full-width punctuation to half its width (text-spacing-trim: normal,
+// HanKerning in han_kerning.cc) through the font's `halt` feature: an opening bracket after
+// punctuation, and a closing bracket or ideographic comma or stop before closing punctuation.
+const opening = new Set([0x3008, 0x300a, 0x300c, 0x300e, 0x3010, 0x3014, 0x3016, 0x3018, 0x301a, 0xff08, 0xff3b, 0xff5b]);
+const closing = new Set([0x3009, 0x300b, 0x300d, 0x300f, 0x3011, 0x3015, 0x3017, 0x3019, 0x301b, 0xff09, 0xff3d, 0xff5d]);
+const dots = new Set([0x3001, 0x3002, 0xff0c, 0xff0e]);
+const middles = new Set([0x30fb, 0xff1a, 0xff1b]);
+
+/** UTF-16 offsets of the punctuation Chromium draws at half width in one shaped word. */
+export function trimmedPunctuation(text: string): number[] {
+  const trimmed: number[] = [];
+  const at = (index: number) => text.charCodeAt(index);
+  for (let index = 0; index < text.length; index += 1) {
+    const code = at(index);
+    const previous = at(index - 1);
+    const next = at(index + 1);
+    const afterPunctuation =
+      opening.has(previous) || closing.has(previous) || dots.has(previous) || middles.has(previous);
+    const beforeClosing = closing.has(next) || dots.has(next) || middles.has(next);
+    if ((opening.has(code) && afterPunctuation) || ((closing.has(code) || dots.has(code)) && beforeClosing))
+      trimmed.push(index);
+  }
+  return trimmed;
+}
+
 function codePointsOf(cluster: string) {
   return [...cluster].map((character) => character.codePointAt(0) ?? 0);
 }
@@ -87,12 +112,15 @@ function codePointsOf(cluster: string) {
 // has its first one, else the first face's missing glyph.
 function faceFor(cluster: string, faces: readonly MatchedFace[], problems: MeasureProblems) {
   const codes = codePointsOf(cluster).filter((code) => !zeroWidth.test(String.fromCodePoint(code)));
-  const has = (face: HarfBuzzFace, code: number) =>
-    code === 0x20 || face.glyphOf(code === 0x2028 || code === 0x2029 ? 0x20 : code) !== null;
-  const whole = faces.find(({ face }) => codes.every((code) => has(face, code)));
+  // A face draws a character its unicode-range holds and its file has a glyph for.
+  const has = ({ face, covers }: MatchedFace, code: number) => {
+    const drawn = code === 0x2028 || code === 0x2029 ? 0x20 : code;
+    return covers(drawn) && face.glyphOf(drawn) !== null;
+  };
+  const whole = faces.find((matched) => codes.every((code) => has(matched, code)));
   if (whole) return whole.face;
   const first = codes[0] ?? 0x20;
-  const partial = faces.find(({ face }) => has(face, first));
+  const partial = faces.find((matched) => has(matched, first));
   if (!partial) problems.missingGlyphs.add(first);
   return (partial ?? faces[0])?.face;
 }
@@ -163,8 +191,16 @@ function measureWord({ word, request, faces }: WordInput, shaping: Shaping) {
   let pen = 0;
   let left = Infinity;
   let right = -Infinity;
+  // Punctuation is trimmed by its neighbours in the word, whichever font file draws them.
+  const trimmed = trimmedPunctuation(word);
+  let start = 0;
   for (const { face, text } of piecesOf(word, faces, shaping.problems)) {
-    const run = face.shape(text.replace(drawnAsSpace, ' '), shaping);
+    const halves = trimmed
+      .filter((index) => index >= start && index < start + text.length)
+      .map((index) => `halt[${String(index - start)}]`);
+    start += text.length;
+    const features = halves.length ? [...shaping.features, ...halves] : shaping.features;
+    const run = face.shape(text.replace(drawnAsSpace, ' '), { ...shaping, features });
     const advances = advancesOf(face, run, request.size);
     // Ink extents in 1/65536 px, as the advances are.
     const unit = scaleOf(request.size, face.unitsPerEm).harfBuzz / face.unitsPerEm;
@@ -182,7 +218,10 @@ function measureWord({ word, request, faces }: WordInput, shaping: Shaping) {
 }
 
 /** A new context over the served faces; `problems` collects what the faces could not measure. */
-export function createFontFileContext(faceSet: FaceSet, problems: MeasureProblems): FontFileContext {
+export function createFontFileContext(
+  faceSet: FaceSet,
+  problems: MeasureProblems,
+): FontFileContext {
   let font = '10px sans-serif';
   let request: FontRequest = { italic: false, weight: 400, size: 10, families: ['sans-serif'] };
   let faces: readonly MatchedFace[] = faceSet.facesFor(request);

@@ -14,7 +14,7 @@ import { readWoff } from './woff.js';
 
 export interface FontFileMeasurerOptions {
   /** The bytes of harfbuzzjs's `harfbuzz.wasm`. */
-  readonly wasm: ArrayBuffer | Uint8Array;
+  readonly wasm: ArrayBuffer | Uint8Array<ArrayBuffer>;
   /** The served font files, WOFF or OpenType. */
   readonly faces: readonly ServedFace[];
   /** The served family each generic keyword (`monospace`, `serif`) stands for. */

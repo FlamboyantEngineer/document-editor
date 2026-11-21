@@ -7,7 +7,7 @@ const ENTRY = 20;
 const SFNT_HEADER = 12;
 const SFNT_ENTRY = 16;
 
-async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
+async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
@@ -15,7 +15,7 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
 const padded = (length: number) => (length + 3) & ~3;
 
 /** The font file inside a WOFF 1.0 file, or the bytes as they are when they are not WOFF. */
-export async function readWoff(source: ArrayBuffer | Uint8Array): Promise<Uint8Array> {
+export async function readWoff(source: ArrayBuffer | Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (bytes.byteLength < HEADER || view.getUint32(0) !== 0x774f4646) return bytes;

@@ -28,7 +28,7 @@
 }
 
 [data-pretext-lab] .pm-page-content :not(pre) > code {
-  font-family: 'Courier New', monospace;
+  font-family: var(--pretext-inline-code-family, 'Courier New', monospace);
   font-size: inherit;
   /* Keep the paragraph's line box when a monospace run has different font metrics. */
   line-height: 0;

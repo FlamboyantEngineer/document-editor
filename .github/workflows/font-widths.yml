@@ -22,10 +22,14 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx playwright install chromium
       - run: node scripts/font-widths.mjs font-widths-${{ matrix.os }}.json
+      - run: npm install --no-save --ignore-scripts @fontsource/noto-sans-jp@5.3.1 @fontsource/noto-sans-arabic@5.3.0 @fontsource/noto-sans-hebrew@5.3.0 @fontsource/noto-sans-devanagari@5.3.0
+      - run: node scripts/font-widths-coverage.mjs coverage-${{ matrix.os }}.json
       - uses: actions/upload-artifact@v4
         with:
           name: font-widths-${{ matrix.os }}
-          path: font-widths-${{ matrix.os }}.json
+          path: |
+            font-widths-${{ matrix.os }}.json
+            coverage-${{ matrix.os }}.json
   compare:
     needs: measure
     runs-on: ubuntu-latest
@@ -35,4 +39,9 @@ jobs:
         with:
           path: reports
           merge-multiple: true
-      - run: node scripts/font-widths-compare.mjs reports/*.json
+      - run: node scripts/font-widths-compare.mjs reports/font-widths-*.json
+      - run: for f in reports/coverage-*.json; do echo "$f"; node -e "const r=require('./'+process.argv[1]);console.log(r.os,r.shell,r.full,JSON.stringify(r.problems));for(const x of r.rows)console.log(x.name.padEnd(30),x.fontFiles.toFixed(4),'shell',(x.shell.canvas-x.fontFiles).toFixed(4),(x.shell.domPrecise-x.fontFiles).toFixed(4),(x.shell.domAuto-x.fontFiles).toFixed(4),'full',(x.full.canvas-x.fontFiles).toFixed(4),(x.full.domPrecise-x.fontFiles).toFixed(4),(x.full.domAuto-x.fontFiles).toFixed(4))" "$f"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: font-widths-all
+          path: reports

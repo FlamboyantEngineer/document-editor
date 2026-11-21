@@ -33,7 +33,7 @@ export interface HarfBuzzFace {
 }
 
 export interface HarfBuzz {
-  createFace(bytes: ArrayBuffer | Uint8Array): HarfBuzzFace;
+  createFace(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): HarfBuzzFace;
   /** Bytes of the WebAssembly heap, which faces' font data live in. */
   heapBytes(): number;
 }
@@ -44,7 +44,13 @@ interface Exports {
   malloc(size: number): Pointer;
   free(pointer: Pointer): void;
   __wasm_call_ctors?: () => void;
-  hb_blob_create(data: Pointer, length: number, mode: number, user: Pointer, destroy: Pointer): Pointer;
+  hb_blob_create(
+    data: Pointer,
+    length: number,
+    mode: number,
+    user: Pointer,
+    destroy: Pointer,
+  ): Pointer;
   hb_face_create(blob: Pointer, index: number): Pointer;
   hb_face_get_upem(face: Pointer): number;
   hb_font_create(face: Pointer): Pointer;
@@ -53,7 +59,13 @@ interface Exports {
   hb_font_get_glyph_extents(font: Pointer, glyph: number, extents: Pointer): number;
   hb_buffer_create(): Pointer;
   hb_buffer_clear_contents(buffer: Pointer): void;
-  hb_buffer_add_utf16(buffer: Pointer, text: Pointer, length: number, offset: number, count: number): void;
+  hb_buffer_add_utf16(
+    buffer: Pointer,
+    text: Pointer,
+    length: number,
+    offset: number,
+    count: number,
+  ): void;
   hb_buffer_set_language(buffer: Pointer, language: Pointer): void;
   hb_language_from_string(text: Pointer, length: number): Pointer;
   hb_buffer_guess_segment_properties(buffer: Pointer): void;
@@ -70,7 +82,7 @@ const MAX_FEATURES = 16;
 const WASM_PAGE = 65_536;
 
 /** Instantiates HarfBuzz from the bytes of harfbuzzjs's `harfbuzz.wasm`. */
-export async function createHarfBuzz(wasm: ArrayBuffer | Uint8Array): Promise<HarfBuzz> {
+export async function createHarfBuzz(wasm: ArrayBuffer | Uint8Array<ArrayBuffer>): Promise<HarfBuzz> {
   let memory: WebAssembly.Memory | undefined;
   const env = {
     _emscripten_runtime_keepalive_clear: () => undefined,
@@ -169,7 +181,7 @@ function bindHarfBuzz(native: Exports): HarfBuzz {
     return { glyphs, clusters, advances };
   }
 
-  function createFace(bytes: ArrayBuffer | Uint8Array): HarfBuzzFace {
+  function createFace(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): HarfBuzzFace {
     const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     const pointer = native.malloc(data.byteLength);
     u8().set(data, pointer);
@@ -180,7 +192,9 @@ function bindHarfBuzz(native: Exports): HarfBuzz {
     return {
       unitsPerEm,
       glyphOf: (codePoint) =>
-        native.hb_font_get_nominal_glyph(font, codePoint, scratch) ? (u32()[scratch / 4] ?? 0) : null,
+        native.hb_font_get_nominal_glyph(font, codePoint, scratch)
+          ? (u32()[scratch / 4] ?? 0)
+          : null,
       advanceOf: (glyph) => native.hb_font_get_glyph_h_advance(font, glyph),
       extentsOf: (glyph) => {
         native.hb_font_get_glyph_extents(font, glyph, scratch);

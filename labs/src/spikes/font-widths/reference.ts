@@ -15,7 +15,12 @@ export const REFERENCE_FACES: readonly ReferenceFace[] = [
   { family: 'Lab Geist', weight: 700, italic: false, file: 'geist-latin-700-normal.woff' },
   { family: 'Lab Geist', weight: 400, italic: true, file: 'geist-latin-400-italic.woff' },
   { family: 'Lab Geist', weight: 700, italic: true, file: 'geist-latin-700-italic.woff' },
-  { family: 'Lab Geist Mono', weight: 400, italic: false, file: 'geist-mono-latin-400-normal.woff' },
+  {
+    family: 'Lab Geist Mono',
+    weight: 400,
+    italic: false,
+    file: 'geist-mono-latin-400-normal.woff',
+  },
   { family: 'Lab KaTeX Main', weight: 400, italic: false, file: 'KaTeX_Main-Regular.woff' },
   { family: 'Lab KaTeX Main', weight: 700, italic: false, file: 'KaTeX_Main-Bold.woff' },
   { family: 'Lab KaTeX Main', weight: 400, italic: true, file: 'KaTeX_Main-Italic.woff' },
@@ -56,7 +61,8 @@ export function measureReference(measurer: Measurer): Record<string, number> {
     for (const size of REFERENCE_SIZES) {
       const font = fontOf(face, size);
       measurer.font = font;
-      for (const text of REFERENCE_STRINGS) widths[`${font}|${text}`] = measurer.measureText(text).width;
+      for (const text of REFERENCE_STRINGS)
+        widths[`${font}|${text}`] = measurer.measureText(text).width;
     }
   }
   return widths;

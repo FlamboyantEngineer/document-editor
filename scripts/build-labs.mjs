@@ -2,12 +2,14 @@
 // Bundles every labs/src/<name>.lab.ts(x) into labs/build/<name>.js (ESM with shared chunks), the
 // lab chrome every page loads into labs/build/chrome.js, the settings each page applies from its
 // head into labs/build/boot.js, and the Reference stylesheet labs/reference.css into
-// labs/build/reference.css.
+// labs/build/reference.css. The fonts the Pretext labs serve, and HarfBuzz's wasm for font-file
+// widths (DOCE-LABS-7), are copied into labs/build/fonts/.
 //   node scripts/build-labs.mjs [--dev] [--profile] [--watch]
 // --profile keeps the production build readable, unminified with source maps, for a profiler.
 
-import { rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { flag } from '@flamboyantengineer/ui-components/tooling/lib/script.mjs';
 import * as esbuild from 'esbuild';
 import { labsDir, labSourceDir, listLabSources } from './lib/labs.mjs';
@@ -19,6 +21,22 @@ const profile = flag('profile');
 const labs = listLabSources();
 
 rmSync(outdir, { recursive: true, force: true });
+
+// Geist and Geist Mono (Latin, WOFF), and HarfBuzz, as files the labs fetch.
+const require = createRequire(import.meta.url);
+const fontsDir = join(outdir, 'fonts');
+mkdirSync(fontsDir, { recursive: true });
+for (const name of ['@fontsource/geist', '@fontsource/geist-mono']) {
+  const files = join(dirname(require.resolve(`${name}/package.json`)), 'files');
+  for (const file of readdirSync(files).filter((file) =>
+    /-latin-(400|700)-(normal|italic)\.woff$/u.test(file),
+  ))
+    copyFileSync(join(files, file), join(fontsDir, file));
+}
+copyFileSync(
+  join(dirname(require.resolve('harfbuzzjs')), 'harfbuzz.wasm'),
+  join(fontsDir, 'harfbuzz.wasm'),
+);
 
 /** @type {import('esbuild').BuildOptions} */
 const options = {

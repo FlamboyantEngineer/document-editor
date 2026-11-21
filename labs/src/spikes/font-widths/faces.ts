@@ -10,7 +10,9 @@ export interface ServedFace {
   readonly family: string;
   readonly weight: number;
   readonly italic: boolean;
-  readonly bytes: ArrayBuffer | Uint8Array;
+  readonly bytes: ArrayBuffer | Uint8Array<ArrayBuffer>;
+  /** The rule's `unicode-range`, such as `U+0000-00FF,U+0131`; every character when absent. */
+  readonly unicodeRange?: string;
 }
 
 /** A CSS font shorthand, resolved: style, weight, size in CSS pixels and the family list. */
@@ -24,6 +26,8 @@ export interface FontRequest {
 export interface MatchedFace {
   readonly family: string;
   readonly face: HarfBuzzFace;
+  /** Whether the face's `unicode-range` holds a code point. */
+  covers(codePoint: number): boolean;
 }
 
 export interface FaceSet {
@@ -36,13 +40,35 @@ interface Entry {
   readonly weight: number;
   readonly italic: boolean;
   readonly face: HarfBuzzFace;
+  readonly covers: (codePoint: number) => boolean;
 }
 
 const generic = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
-const keywordWeights: Record<string, number> = { normal: 400, bold: 700, lighter: 100, bolder: 900 };
+const keywordWeights: Record<string, number> = {
+  normal: 400,
+  bold: 700,
+  lighter: 100,
+  bolder: 900,
+};
 const sizeAndFamilies = /(?:^|\s)([\d.]+)px(?:\/\S+)?\s+(.+)$/u;
 
-const normalize = (family: string) => family.trim().replace(/^["']|["']$/gu, '').toLowerCase();
+/** A `unicode-range` descriptor as a test of a code point. */
+export function parseUnicodeRange(range: string | undefined): (codePoint: number) => boolean {
+  if (!range) return () => true;
+  const spans = range.split(',').map((part) => {
+    const [from = '0', to] = part.trim().replace(/^U\+/iu, '').split('-');
+    const low = Number.parseInt(from.replace(/\?/gu, '0'), 16);
+    const high = Number.parseInt((to ?? from).replace(/\?/gu, 'F'), 16);
+    return [low, high] as const;
+  });
+  return (codePoint) => spans.some(([low, high]) => codePoint >= low && codePoint <= high);
+}
+
+const normalize = (family: string) =>
+  family
+    .trim()
+    .replace(/^["']|["']$/gu, '')
+    .toLowerCase();
 
 /** Parses the shorthand Pretext sets on a context, such as `italic 700 16px "Geist", serif`. */
 export function parseFont(font: string): FontRequest | null {
@@ -57,7 +83,10 @@ export function parseFont(font: string): FontRequest | null {
     else if (/^\d+$/u.test(word)) weight = Number(word);
     else if (word in keywordWeights) weight = keywordWeights[word] ?? weight;
   }
-  const families = list.split(',').map((family) => family.trim()).filter(Boolean);
+  const families = list
+    .split(',')
+    .map((family) => family.trim())
+    .filter(Boolean);
   const pixels = Number(size);
   if (!families.length || !Number.isFinite(pixels)) return null;
   return { italic, weight, size: pixels, families };
@@ -95,10 +124,15 @@ export function createFaceSet(
   generics: Readonly<Record<string, string>> = {},
 ): FaceSet {
   const families = new Map<string, Entry[]>();
-  for (const { family, weight, italic, bytes } of faces) {
+  for (const { family, weight, italic, bytes, unicodeRange } of faces) {
     const key = normalize(family);
     const list = families.get(key) ?? [];
-    list.push({ weight, italic, face: harfBuzz.createFace(bytes) });
+    list.push({
+      weight,
+      italic,
+      face: harfBuzz.createFace(bytes),
+      covers: parseUnicodeRange(unicodeRange),
+    });
     families.set(key, list);
   }
   const resolve = (family: string) => {
@@ -109,8 +143,8 @@ export function createFaceSet(
     facesFor(request) {
       const matched: MatchedFace[] = [];
       for (const family of request.families) {
-        for (const { face } of nearest(families.get(resolve(family)) ?? [], request))
-          matched.push({ family: resolve(family), face });
+        for (const { face, covers } of nearest(families.get(resolve(family)) ?? [], request))
+          matched.push({ family: resolve(family), face, covers });
       }
       return matched;
     },
