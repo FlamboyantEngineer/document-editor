@@ -5,7 +5,7 @@ import {
   templateScopeStyles,
 } from '../../../../src/model/templates/template-properties.js';
 import { textStyleProperties } from '../../../../src/model/templates/template-text-properties.js';
-import { MONO_FAMILY, SANS_FAMILY, servesFonts } from './fonts.js';
+import { labMeasurer, MONO_FAMILY, SANS_FAMILY, servesFonts } from './fonts.js';
 
 export const px = (value: number) => `${String(value)}px`;
 const length = (value: unknown) => Number.parseFloat(lengthToCssPx(value) ?? '0');
@@ -89,6 +89,12 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--pretext-content-width', contentWidth);
   set('--pretext-content-height', contentHeight);
   root.style.setProperty('--pretext-inline-code-family', inlineCodeFamily);
+  // Font-file widths are unhinted, so the page lays its text out unhinted too, as pages under
+  // Pretext layout do (DOCE-PAGINATION-11); the headless shell hints DOM text otherwise.
+  if (labMeasurer === 'font-files') {
+    root.style.textRendering = 'geometricPrecision';
+    root.style.setProperty('font-synthesis', 'none');
+  }
   set('--pretext-code-padding', codePadding);
   set('--pretext-inline-math-width', inlineMath.width);
   set('--pretext-inline-math-height', inlineMath.height);
