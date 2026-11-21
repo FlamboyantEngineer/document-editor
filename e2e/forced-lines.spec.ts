@@ -182,6 +182,26 @@ for (const { name, query } of MODES) {
       await expectForced(page);
     });
 
+    test('a caret at a forced line start stays there when the editor draws it', async ({
+      page,
+    }) => {
+      await open(page);
+      const tops = await lineTops(page, 0);
+      const box = await paragraphs(page).first().boundingBox();
+      const start = { top: tops[1], left: Math.round(box?.x ?? 0) };
+      await page.mouse.click((box?.x ?? 0) + 3, (tops[1] ?? 0) + 9);
+      await expect.poll(() => caret(page)).toEqual(start);
+      // The edit makes the editor write the caret itself, which drew it at the end of the line
+      // above before the lab kept the browser's side.
+      await page.keyboard.type('x');
+      await page.keyboard.press('Backspace');
+      await expect.poll(() => caret(page)).toEqual(start);
+      // End still draws the caret at the line's end, and the editor keeps it there.
+      await page.keyboard.press('ArrowUp');
+      await page.keyboard.press('End');
+      await expect.poll(async () => (await caret(page)).top).toBe(tops[0]);
+    });
+
     test('double and triple clicks select a word and the whole paragraph', async ({ page }) => {
       await open(page);
       const tops = await lineTops(page, 0);
