@@ -236,6 +236,11 @@ export interface DocumentEditorProps
   /** How long the pages wait for the template's fonts, in milliseconds; `FONT_TIMEOUT` by default. */
   fontTimeout?: number | undefined;
   /**
+   * How the pages lay their text out: measured in the DOM (`dom`, the default), or computed by the
+   * layout engine and drawn on its lines (`pretext`, DOCE-PAGINATION-11). Read when the pages mount.
+   */
+  textLayout?: 'dom' | 'pretext' | undefined;
+  /**
    * The host's layout rules by node type, over the library's: how its blocks split and keep
    * together on pages. Other rules lay the pages out again; rules passed inline with the same
    * settings do not, so keep any functions in them stable (DOCE-PAGINATION-5.11).

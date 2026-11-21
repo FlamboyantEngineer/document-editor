@@ -90,7 +90,7 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--pretext-content-height', contentHeight);
   root.style.setProperty('--pretext-inline-code-family', inlineCodeFamily);
   // Font-file widths are unhinted, so the page lays its text out unhinted too, as pages under
-  // Pretext layout do (DOCE-PAGINATION-11); the headless shell hints DOM text otherwise.
+  // Pretext layout do (DOCE-PAGINATION-11.1); the headless shell hints DOM text otherwise.
   if (labMeasurer === 'font-files') {
     root.style.textRendering = 'geometricPrecision';
     root.style.setProperty('font-synthesis', 'none');

@@ -700,30 +700,69 @@ Verification: `src/layout-engine/blocks/regions.test.ts`
 
 ### DOCE-PAGINATION-10.7 - Numbers counted by the engine
 
-A page out of view is not drawn, so a CSS counter there counts nothing. `blockNumbers(doc, template)` shall give, by node, each shown caption's label with the `-` after it (numbered by kind as the lists of contents number it, each section by its scope, restarting where a section restarts numbering; a caption switched off gets none and counts out), each ordered list item's marker (from the list's start, each list on its own, in the template's list format, prefix and suffix, else `1. `), and each footnote marker's and entry's number. The atom cache shall keep an atom by the text a view draws in it (`shownOf`), and the DOM measurer shall draw that text in a leaf atom, so a footnote marker is measured with its number. Heading and paragraph numbers come from the text layout engine (DOCE-PAGINATION-9).
+A page out of view is not drawn, so a CSS counter there counts nothing. `blockNumbers(doc, template)` shall give, by node, each shown caption's label with the `-` after it (numbered by kind as the lists of contents number it, each section by its scope, restarting where a section restarts numbering; a caption switched off gets none and counts out), each ordered list item's marker (from the list's start, each list on its own, in the template's list format, prefix and suffix, else `1. `), and each footnote marker's and entry's number. The atom cache shall keep an atom by the text a view draws in it (`shownOf`), and the DOM measurer shall draw that text in a leaf atom, so a footnote marker is measured with its number; block geometry shall lay each footnote entry out with its number (`footnoteOf`), which the text layout engine draws before it (DOCE-PAGINATION-9.10). Heading and paragraph numbers come from the text layout engine (DOCE-PAGINATION-9).
 
-Implementation: `src/layout-engine/blocks/numbers.ts`, `src/layout-engine/atoms.ts`, `src/layout-engine/dom-atoms.ts`
-Verification: `src/layout-engine/blocks/numbers.test.ts`, `src/layout-engine/atoms.test.ts`, `src/layout-engine/dom-atoms.test.ts`
+Implementation: `src/layout-engine/blocks/numbers.ts`, `src/layout-engine/atoms.ts`, `src/layout-engine/dom-atoms.ts`, `src/layout-engine/blocks/text-blocks.ts`
+Verification: `src/layout-engine/blocks/numbers.test.ts`, `src/layout-engine/atoms.test.ts`, `src/layout-engine/dom-atoms.test.ts`, `src/layout-engine/blocks/regions.test.ts`
 
-## DOCE-PAGINATION-11 - Widths from the font files
+## DOCE-PAGINATION-11 - The layout engine on the pages
+
+Behind the editor's `textLayout: 'pretext'` option, off by default, the pages are laid out and drawn with the text layout engine (DOCE-PAGINATION-9, DOCE-PAGINATION-10) in place of the DOM's measuring. The engine's module loads only when the option is on. The web layout keeps the DOM's lines.
+
+### DOCE-PAGINATION-11.1 - Measuring with the engine
+
+With the option on, the paged projection shall load the engine with its first layout and make it again for each template the pages are laid out with. Each top-level block of a section's page content shall take its height, margins and split measurement from the engine, in the section's content width, kept by node, its heading or paragraph number and its section; a block with a layout rule of its own, or one the engine cannot lay out yet, shall be measured in the DOM as before, with the reason counted in the projection's `stats().textLayout`. When atoms that were still loading settle, the engine shall forget what it kept and the pages be laid out again. The engine shall take text widths from one injectable source (`measureContext`), by default a Canvas measuring unhinted (`geometricPrecision`), and fit lines in the device pixels of the window the pages show in; the pages shall then draw their text unhinted too (`text-rendering: geometricPrecision` in the reference stylesheet), since hinted widths differ by script.
+
+Implementation: `src/pagination/text-engine.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`, `src/pagination/projection.ts`
+Verification: `src/pagination/text-engine.test.ts`, `src/pagination/measure-blocks.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.2 - Forced lines
+
+With the option on, the pages shall draw each top-level paragraph and heading the engine lays out on the engine's lines, so the browser chooses no line break in them. The block shall carry `de-forced-lines`, `data-lines` with its number of lines and, for a numbered heading's first part, `data-number` with the engine's number; each line that wraps shall end at its last character, marked `de-forced-lines__end`, which the stylesheet draws followed by a line feed, never cutting a character in two; a line that starts in from the content edge, as a centred or right-aligned one, shall start with `de-forced-lines__start` and `--de-line-indent`; a wrapped justified line shall carry `de-forced-lines__justified` and the `--de-word-spacing` that fills it. Numbered paragraphs are still drawn on the browser's lines. The decorations shall be drawn on the pages' own view and kept by node, so a keystroke lays out only the block it changed again and every other block keeps its decorations.
+
+Implementation: `src/pagination/forced-lines.ts`, `labs/reference/document.css`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.3 - The computed lines
+
+The editor handle's `textLines()` shall give, page by page, each top-level paragraph and heading with its element id, its part, its position, where its content starts in the whole block, and the lines the engine computed for it on that page, as offsets in the whole block with their text; or no lines and the reason when the browser draws it. Without the option it shall give no pages.
+
+Implementation: `src/pagination/text-lines.ts`, `src/components/document-editor/editor-handle.ts`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.4 - The guard on forced lines
+
+`findWrappedLines(root)` shall give each forced block whose drawn lines differ in number from its computed ones, as when the browser wrapped a line by itself, with its element id and both counts. It reads every forced block's boxes, so tests and development call it, not each layout.
+
+Implementation: `src/pagination/layout-validation.ts`
+Verification: `src/pagination/layout-validation.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.5 - Typing with the engine
+
+The stress lab's typing measurement shall also run with the option on at 40 and 300 pages and record each keystroke's time. Until the pages' DOM walk per key is reduced, these times are recorded and not yet held to the typing budgets.
+
+Implementation: `labs/src/stress/stress-lab.tsx`, `e2e/budgets.ts`
+Verification: `e2e/performance.spec.ts`
+
+## DOCE-PAGINATION-12 - Widths from the font files
 
 Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.
 
-### DOCE-PAGINATION-11.1 - The font-file measurer
+### DOCE-PAGINATION-12.1 - The font-file measurer
 
 `createFontFileMeasurer({ wasm, faces, generics })` shall take harfbuzzjs's `harfbuzz.wasm` and the served faces (family, weight, style, optional `unicode-range`, and the bytes of a WOFF 1.0 or OpenType file) as bytes, fetch nothing, and give `createContext()`, a Canvas-shaped measuring context for Pretext's `setMeasureContext`. The reference text (55 strings at five sizes in nine Geist and KaTeX faces) shall measure to fingerprint `c2be3986`, and Pretext shall break 120 seeded paragraphs at nine widths into 7,400 lines with fingerprint `b95b5806`, in Node, a page and a worker, on Linux, Windows and macOS (DOCE-LABS-7.1). The widths shall follow Linux Chromium's Canvas: glyph advances at the size floored to 1/64 px, kerning at the size floored to 1/100 px, each word's width a float32 and the words summed in float32. The module shall not be exported or reached from an entry until the editor's Pretext layout uses it.
 
 Implementation: `src/layout-engine/font-files/measurer.ts`, `src/layout-engine/font-files/harfbuzz.ts`, `src/layout-engine/font-files/woff.ts`, `src/layout-engine/font-files/faces.ts`
 Verification: `src/layout-engine/font-files/measurer.test.ts`
 
-### DOCE-PAGINATION-11.2 - Canvas words, fallback and missing glyphs
+### DOCE-PAGINATION-12.2 - Canvas words, fallback and missing glyphs
 
 The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A character no served face has shall take the first face's .notdef advance and be recorded in `problems.missingGlyphs`; there is no system fallback.
 
 Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/faces.ts`
 Verification: `src/layout-engine/font-files/measurer.test.ts`
 
-### DOCE-PAGINATION-11.3 - Line metrics from the font files
+### DOCE-PAGINATION-12.3 - Line metrics from the font files
 
 The measurer's `measureText` shall also give `fontBoundingBoxAscent` and `fontBoundingBoxDescent`: the primary face's ascender and descender, as HarfBuzz reads them from the font's tables, at the font's size and rounded to whole pixels, as Linux Chromium's Canvas gives them, so a line's strut needs no Canvas either. The primary face is the first matched face whose `unicode-range` holds the space.
 

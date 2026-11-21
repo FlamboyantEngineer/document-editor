@@ -53,6 +53,11 @@ export interface MeasureOptions {
   cache?: MeasureCache | undefined;
   /** Layout rules whose `measure` measures their node type in place of the built-in measuring. */
   rules?: LayoutRules | undefined;
+  /**
+   * Lays a block out without the DOM, behind the `textLayout: 'pretext'` option; a block it gives
+   * null for is measured in the view (DOCE-PAGINATION-11.1).
+   */
+  engine?: ((node: ProseMirrorNode) => LayoutBlock | null) | undefined;
 }
 
 const CONTAINER_TYPES = new Set([
@@ -245,6 +250,11 @@ function measureDrawn(view: EditorView, at: DrawnBlock, options: MeasureOptions)
   return block;
 }
 
+// Whether a host's layout rule measures a node type itself, which the engine then leaves alone.
+function hasOwnMeasure(rules: LayoutRules | undefined, node: ProseMirrorNode): boolean {
+  return Boolean(rules && Object.hasOwn(rules, node.type.name) && rules[node.type.name]?.measure);
+}
+
 /** The blocks a node at a position holds, measured in order, such as a page's content. */
 export function measureChildBlocks(
   view: EditorView,
@@ -257,7 +267,9 @@ export function measureChildBlocks(
   parent?.forEach((node, offset) => {
     const at = pos + 1 + offset;
     const drawn = childElement(view, element, { node, pos: at });
-    if (drawn) blocks.push(measureDrawn(view, { node, pos: at, element: drawn }, options));
+    const laid = hasOwnMeasure(options.rules, node) ? null : options.engine?.(node);
+    if (laid) blocks.push(laid);
+    else if (drawn) blocks.push(measureDrawn(view, { node, pos: at, element: drawn }, options));
     else blocks.push(undrawnBlock(view, { node, pos }));
     element = drawn ?? element;
   });

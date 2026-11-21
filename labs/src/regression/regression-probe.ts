@@ -14,7 +14,12 @@ import {
   type StoredNode,
   writeDocumentFile,
 } from '../../../src/model/index.js';
-import { pageMap } from '../../../src/pagination/index.js';
+import {
+  findWrappedLines,
+  pageMap,
+  type PageTextLines,
+  type WrappedBlock,
+} from '../../../src/pagination/index.js';
 
 /** Where a caret goes at a fragment boundary: the head fragment's end or its continuation's start. */
 export type FragmentEdge = 'head-end' | 'continuation-start';
@@ -35,6 +40,10 @@ export interface RegressionProbe {
   caretAtJoined(at: number): boolean;
   /** The pages as a snapshot for printing (`exportSnapshot`), or null before the editor shows. */
   snapshot(options?: SnapshotProbeOptions): string | null;
+  /** With `textLayout=pretext`, the lines the layout engine computed for each page's text blocks. */
+  textLines(): PageTextLines[];
+  /** With `textLayout=pretext`, the forced blocks the browser drew on other lines (the guard). */
+  wrappedLines(): WrappedBlock[];
 }
 
 /** What the probe's snapshot takes: the editor's snapshot options. */
@@ -169,6 +178,8 @@ export function useRegressionProbe(handle: RefObject<DocumentEditorHandle | null
         return view.state.doc.resolve(at).parent.isTextblock;
       },
       snapshot: (options) => handle.current?.exportSnapshot(options) ?? null,
+      textLines: () => handle.current?.textLines() ?? [],
+      wrappedLines: () => findWrappedLines(document),
     };
     Object.assign(window, { regressionLab: probe });
   }, [handle]);

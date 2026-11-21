@@ -12,7 +12,7 @@ const LINES_FINGERPRINT = 'b95b5806';
 
 const measurer = () => createFontFileMeasurer({ wasm: harfBuzzWasm(), faces: referenceFaces() });
 
-describe('DOCE-PAGINATION-11.1 widths from the font files', () => {
+describe('DOCE-PAGINATION-12.1 widths from the font files', () => {
   it('measures the reference text to the recorded fingerprint', async () => {
     const { createContext, problems } = await measurer();
     expect(fingerprintWidths(measureReference(createContext()))).toBe(WIDTHS_FINGERPRINT);
@@ -28,7 +28,7 @@ describe('DOCE-PAGINATION-11.1 widths from the font files', () => {
   });
 });
 
-describe('DOCE-PAGINATION-11.2 Canvas words', () => {
+describe('DOCE-PAGINATION-12.2 Canvas words', () => {
   it('ends the shaping run at a zero-width space and a soft hyphen, not at a joiner', async () => {
     const context = (await measurer()).createContext();
     context.font = '16px "Lab Geist"';
@@ -49,7 +49,7 @@ describe('DOCE-PAGINATION-11.2 Canvas words', () => {
   });
 });
 
-describe('DOCE-PAGINATION-11.3 line metrics from the font files', () => {
+describe('DOCE-PAGINATION-12.3 line metrics from the font files', () => {
   // Linux Chromium Canvas's fontBoundingBoxAscent and fontBoundingBoxDescent for the same faces.
   it.each([
     ['16px "Lab Geist"', 16, 5],

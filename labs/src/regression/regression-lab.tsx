@@ -54,6 +54,11 @@ const COMPARE = new URLSearchParams(window.location.search).has('compare')
   ? ({ previous: 'opened', display: 'bars' } as const)
   : undefined;
 
+// How the pages lay their text out: measured in the DOM, or by the layout engine on its lines
+// (`textLayout=pretext`, DOCE-PAGINATION-11).
+const TEXT_LAYOUT =
+  new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+
 // Whether the host draws quotes with a React view of its own (`hostViews`).
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
 
@@ -116,6 +121,7 @@ function RegressionLab() {
         onStateChange={setState}
         template={template}
         layout={LAYOUT}
+        textLayout={TEXT_LAYOUT}
         compare={COMPARE}
         nodeViews={HOST ? HOST_VIEWS : undefined}
         codeSource={REGRESSION_CODE}

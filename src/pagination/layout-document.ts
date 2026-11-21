@@ -18,6 +18,7 @@ import {
 import { measureChildBlocks } from './measure-blocks.js';
 import { blockMargin, type MeasureCache, measureCacheCounts } from './measure-cache.js';
 import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
+import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
  * A section's page height inside its margins, in CSS pixels. Its header, footer and footnotes take
@@ -46,6 +47,8 @@ export interface DocumentLayoutOptions {
   onSection?: ((section: SectionReport) => void) | undefined;
   /** Where each section's layout is kept, so the next layout reuses the pages a change leaves. */
   memory?: LayoutMemory | undefined;
+  /** Lays the blocks it can out without the DOM (`textLayout: 'pretext'`, DOCE-PAGINATION-11.1). */
+  engine?: PagesTextEngine | null | undefined;
 }
 
 /** What a layout did in one section. */
@@ -238,6 +241,8 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   const shown = new Set<string>();
   const measuredSoFar = () => (cache ? measureCacheCounts(cache).measured : 0);
   const places = sectionPlaces(view.state.doc);
+  const { engine } = options;
+  engine?.number(view.state.doc);
   const sections = places.map(({ section, content, footnotes, header, footer }, index) => {
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
@@ -248,7 +253,9 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const before = measuredSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const blocks = measureChildBlocks(view, content, { scale, cache, rules });
+    const scope = (section.attrs.sectionName as string | null | undefined) ?? null;
+    const laid = engine ? (node: ProseMirrorNode) => engine.measureBlock(node, scope) : undefined;
+    const blocks = measureChildBlocks(view, content, { scale, cache, rules, engine: laid });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnotes === null ? null : measureFootnotes(view, footnotes, { scale });
     const baseHeight = pageHeight - regions.header - regions.footer;
