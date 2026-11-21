@@ -43,7 +43,9 @@ function expectSound(block: LayoutBlock) {
   const { measurement } = block;
   if (isContainerMeasurement(measurement)) expectChildrenInside(measurement.children, block.height);
   if (isTextMeasurement(measurement)) {
-    expect(measurement.measure(0, Number.POSITIVE_INFINITY).lines).toBeGreaterThan(0);
+    // A holder's measurement is its object's, so the range is the measured lines' own.
+    const end = measurement.lines?.lines.at(-1)?.to ?? 0;
+    expect(measurement.measure(0, end).lines).toBeGreaterThan(0);
   }
 }
 

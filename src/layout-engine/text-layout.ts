@@ -25,7 +25,7 @@ export interface TextLayoutOptions {
 }
 
 /** Where a text block is laid out. */
-interface TextBlockPlace {
+export interface TextBlockPlace {
   /** The width the block gets, its padding included. */
   readonly width: number;
   /** The template section the block is in; the template's own scope when absent. */
@@ -35,12 +35,12 @@ interface TextBlockPlace {
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
-type TextBlockLayout =
+export type TextBlockLayout =
   | { readonly ok: true; readonly table: LineTable }
   | { readonly ok: false; readonly reason: string };
 
 /** A text layout engine for one template, language and set of fonts. */
-interface TextLayout {
+export interface TextLayout {
   /** A text block's typography in a scope. */
   readonly typography: (node: ProseMirrorNode, scope?: string | null) => BlockTypography;
   /** A text block's lines at a width. */

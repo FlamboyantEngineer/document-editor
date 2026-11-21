@@ -3,34 +3,11 @@
 // a footer, and a paragraph none in a list item or a table cell.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { TextMeasure, TextMeasurement } from '../../model/index.js';
+import { lineTableMeasurement } from '../text-layout.js';
 import { type BlockContext, type BlockParent, type Laid, laid, notLaid } from './context.js';
-import type { TextLines } from './types.js';
 
 // Where the stylesheet zeroes a paragraph's margins (`li > p`, `td > p`).
 const PARAGRAPH_FLUSH: ReadonlySet<BlockParent> = new Set(['list-item', 'cell', 'region']);
-
-/**
- * A line table as the splitters' text measurement: the height and number of the lines that the
- * text between two offsets touches. What a block takes beyond its lines, such as a code block's
- * padding, the splitters read from its height.
- */
-function textMeasurementOf(table: TextLines): TextMeasurement {
-  const { lines } = table;
-  const measure = (from: number, to: number): TextMeasure => {
-    let height = 0;
-    let count = 0;
-    lines.forEach((line, index) => {
-      const end = lines[index + 1]?.from ?? Number.POSITIVE_INFINITY;
-      if (line.from < to && end > from) {
-        height += line.height;
-        count += 1;
-      }
-    });
-    return { height, lines: count };
-  };
-  return { offset: 0, measure };
-}
 
 function flushMargins(node: ProseMirrorNode, parent: BlockParent): boolean {
   if (parent === 'region') return true;
@@ -57,6 +34,6 @@ export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid
     height: table.height + table.overhead,
     marginTop: margins.marginTop,
     marginBottom: margins.marginBottom,
-    measurement: textMeasurementOf(table),
+    measurement: lineTableMeasurement(table),
   });
 }
