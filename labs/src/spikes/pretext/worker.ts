@@ -1,4 +1,4 @@
-import { setLayoutScale, setLocale } from '@chenglou/pretext';
+import { setLayoutScale, setLocale, setMeasureContext } from '@chenglou/pretext';
 import type { Node } from 'prosemirror-model';
 import { readFixture } from './fixtures.js';
 import { type Block, indexPages, measureDocument, PreparationCache } from './prediction.js';
@@ -6,6 +6,14 @@ import type { BlockReport, LayoutRequest, LayoutResult } from './protocol.js';
 
 if (typeof document !== 'undefined') throw new Error('Prediction must run without a DOM');
 setLocale('en');
+// Chrome's headless shell hints Canvas widths unless text renders with geometricPrecision, so
+// widths would differ from machine to machine.
+setMeasureContext(() => {
+  const context = new OffscreenCanvas(1, 1).getContext('2d');
+  if (!context) throw new Error('Prediction requires an OffscreenCanvas 2D context');
+  context.textRendering = 'geometricPrecision';
+  return context;
+});
 
 const cache = new PreparationCache();
 let doc: Node | undefined;
