@@ -1,0 +1,38 @@
+# Temporary (font-widths spike, DOCE-LABS-7): measures the reference text with the font-file
+# measurer and with Canvas on Linux, Windows and macOS, then compares. Removed before merge.
+name: font-widths
+on:
+  push:
+    branches: [claude/project-thread-5a1ury]
+permissions:
+  contents: read
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install chromium
+      - run: node scripts/font-widths.mjs font-widths-${{ matrix.os }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: font-widths-${{ matrix.os }}
+          path: font-widths-${{ matrix.os }}.json
+  compare:
+    needs: measure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          path: reports
+          merge-multiple: true
+      - run: node scripts/font-widths-compare.mjs reports/*.json
