@@ -299,6 +299,13 @@ The lab index shall link directly to page 150 of the 4,800-block fixture. The vi
 Implementation: `labs/pretext-page-link.html`, `labs/reference/pretext-viewport.css`, `labs/src/spikes/pretext-page-link.lab.ts`, `labs/src/spikes/pretext/html.ts`, `labs/src/chrome/mount.tsx`
 Verification: `e2e/pretext-page-link.spec.ts`
 
+### DOCE-LABS-5.6 - Closeness to the browser
+
+The lab tests shall measure how close the prediction is to Chromium's own line breaking. Seeded paragraphs of plain text, words that kern with a following space, bold, italic, inline code, links and a dense mix shall be laid out at nine widths by the worker and by natural HTML, and the paragraphs with different line starts or line counts, the pages with different boundaries and the overflowing pages shall equal a recorded budget per kind. The same run shall happen in Chromium launched at device pixel ratios 1, 1.25 and 2, each checking that the page reports its ratio. A threshold test shall find, in the browser and in the prediction, the narrowest column that keeps a case's last character on its first line: plain controls shall match, and each case of a known fault shall be recorded as an expected miss naming its finding, so a fix fails the test until its miss and budgets are updated.
+
+Implementation: `labs/src/spikes/pretext/thresholds.ts`, `labs/src/spikes/pretext-pagination.lab.ts`, `playwright.config.ts`
+Verification: `e2e/pretext-pagination-fuzz.spec.ts`
+
 ## DOCE-LABS-6 - Forced-lines spike
 
 ### DOCE-LABS-6.1 - Pretext lines in the live editor

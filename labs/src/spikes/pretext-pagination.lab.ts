@@ -12,6 +12,7 @@ import {
 import { VirtualPages } from './pretext/html.js';
 import { blockId } from './pretext/prediction.js';
 import { applySettings, defaultWidth } from './pretext/settings.js';
+import type { FitCase } from './pretext/thresholds.js';
 
 function mount<T extends HTMLElement>(selector: string) {
   return requireValue(document.querySelector<T>(selector), selector);
@@ -292,7 +293,21 @@ declare global {
       compare: typeof compare;
       verify: typeof verify;
       compareProductionBoundaries: typeof compareProductionBoundaries;
+      lineFitThresholds: typeof lineFitThresholds;
     };
   }
 }
-window.pretextPagination = { compare, verify, compareProductionBoundaries };
+async function lineFitThresholds(cases: readonly FitCase[]) {
+  await fontsReady();
+  const host = document.createElement('div');
+  host.className = 'de-document-editor';
+  root.append(host);
+  try {
+    const thresholds = await import('./pretext/thresholds.js');
+    return await thresholds.lineFitThresholds(host, cases);
+  } finally {
+    host.remove();
+  }
+}
+
+window.pretextPagination = { compare, verify, compareProductionBoundaries, lineFitThresholds };
