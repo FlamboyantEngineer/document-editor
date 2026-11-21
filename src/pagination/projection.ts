@@ -9,11 +9,10 @@
 // engine, renders `projection` with the `plugins` it carries, passes each of its transactions to
 // `receive`, and takes each new projection state from `onProjection`.
 
-import type { Slice } from 'prosemirror-model';
 import {
   type Command,
   EditorState,
-  Plugin,
+  type Plugin,
   type PluginKey,
   type Transaction,
 } from 'prosemirror-state';
@@ -23,14 +22,13 @@ import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
 import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
 import {
-  canonicalKeys,
-  canonicalPaste,
   canonicalPlugins,
   type CanonicalPluginsSource,
   canonicalViewOf,
 } from './canonical-plugins.js';
 import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
+import { forcedLines } from './forced-lines.js';
 import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
@@ -42,15 +40,13 @@ import type { LayoutTraceSink } from './layout-trace.js';
 import { awaitReady, followMeasuring, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-cache.js';
-import { pressBelowContent } from './page-caret.js';
 import { pageChromeDecorations } from './page-chrome.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
-import { canonicalCellAt, projectionKeys } from './projection-input.js';
+import { inputPlugin } from './projection-input-plugin.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import {
   dispatchCanonical,
   layout,
-  moveAcrossBreak,
   prepare,
   quietly,
   receive,
@@ -58,7 +54,6 @@ import {
   replug,
   requestLayout,
   runCommand,
-  send,
   type Session,
   settleTyping,
   showCanonical,
@@ -67,6 +62,13 @@ import {
   take,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
+import {
+  holdTextEngine,
+  type TextEngineHolder,
+  type TextLayoutSetting,
+} from './text-engine-holder.js';
+import type { TextEngineStats } from './text-engine-types.js';
+import { type PageTextLines, pageTextLines } from './text-lines.js';
 import { createTypingProbe } from './typing-probe.js';
 
 /** A canonical transaction as the projection applied it: the state it was applied to, and made. */
@@ -137,6 +139,11 @@ export interface PagedProjectionOptions {
   readonly ready?: PromiseLike<unknown> | undefined;
   /** Where the layout's trace goes while it is read (`LayoutTrace`); nothing is written otherwise. */
   readonly trace?: LayoutTraceSink | undefined;
+  /**
+   * Lays the text out with the layout engine and draws its lines on the pages (`textLayout:
+   * 'pretext'`, DOCE-PAGINATION-11); measured in the DOM when absent.
+   */
+  readonly textLayout?: TextLayoutSetting | undefined;
 }
 
 /** What a projection has done since it was made: what its layouts did. */
@@ -145,6 +152,8 @@ export interface ProjectionStats extends PaginationStats {
   readonly refused: number;
   /** Canonical changes that could not be mirrored, after which the pages were laid out at once. */
   readonly relaid: number;
+  /** With `textLayout`, the blocks the engine laid out and those it left to the DOM, and why. */
+  readonly textLayout?: TextEngineStats | undefined;
 }
 
 /** A paged projection of a canonical state. */
@@ -187,54 +196,9 @@ export interface PagedProjection {
   /** Resolves with `settled` or `failed` once no layout is pending. */
   whenSettled(): Promise<LayoutState>;
   stats(): ProjectionStats;
+  /** With `textLayout`, the lines the pages draw their top-level text blocks on, page by page. */
+  textLines(): PageTextLines[];
   destroy(): void;
-}
-
-// The projection's own plugin: keys and paste run on the canonical state, and a press may start a
-// cell selection across the parts of a split table.
-function inputPlugin(session: () => Session, source: CanonicalPluginsSource): Plugin {
-  let keys: ReturnType<typeof projectionKeys> | null = null;
-  const delegated = canonicalKeys(source);
-  const pasted = canonicalPaste(source);
-  return new Plugin({
-    props: {
-      handleKeyDown(view, event) {
-        if (view.composing || event.isComposing) return false;
-        keys ??= projectionKeys({
-          keys: session().options.keys,
-          run: (command) => runCommand(session(), command),
-          across: (move) => moveAcrossBreak(session(), move),
-          delegate: (pressed) => delegated(view, pressed),
-        });
-        const handled = keys(view, event);
-        const arrow = !event.shiftKey && event.key.startsWith('Arrow');
-        if (!handled && arrow) session().cells.release();
-        return handled;
-      },
-      handlePaste: (view, event, slice: Slice) =>
-        pasted(view, event, slice) ||
-        runCommand(session(), (state, dispatch) => {
-          dispatch?.(state.tr.replaceSelection(slice).scrollIntoView());
-          return true;
-        }),
-      handleDOMEvents: {
-        mousedown(view, event) {
-          const current = session();
-          if (pressBelowContent(view, event, source)) return true;
-          current.cells.release();
-          current.cells.drag(view, event, {
-            cellAt: (moved) => canonicalCellAt(view, current, moved),
-            canonical: () => current.canonical,
-            select(tr) {
-              send(current, tr);
-              take(current, current.projection.tr);
-            },
-          });
-          return false;
-        },
-      },
-    },
-  });
 }
 
 // What the canonical plugins run on: the session's canonical state, map and dispatch.
@@ -250,7 +214,11 @@ function sourceOf(session: () => Session): CanonicalPluginsSource {
 
 // The projection's first state: the canonical document and selection, with the plugins that route input to the
 // canonical state and draw what it draws, and the host's.
-function projectionState(options: PagedProjectionOptions, session: () => Session): EditorState {
+function projectionState(
+  options: PagedProjectionOptions,
+  session: () => Session,
+  text: TextEngineHolder | null,
+): EditorState {
   const source = sourceOf(session);
   return EditorState.create({
     doc: options.state.doc,
@@ -264,6 +232,9 @@ function projectionState(options: PagedProjectionOptions, session: () => Session
       }),
       canonicalDecorations(source),
       pageChromeDecorations(),
+      ...(text
+        ? [forcedLines({ engine: () => text.engine(), version: () => text.version() })]
+        : []),
       checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
       // The pages number their own footnotes, through the document or on each page.
@@ -278,6 +249,14 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
   const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
   const mount = options.mountGhost ?? mountMeasuringView;
+  const text = options.textLayout
+    ? holdTextEngine({
+        setting: options.textLayout,
+        measureIn: options.measureIn,
+        changed: () => requestLayout(session()),
+      })
+    : null;
+  const ready = text ? Promise.all([options.ready, text.loaded]) : options.ready;
   const ghost = mount(options.measureIn, {
     state: EditorState.create({
       doc: options.state.doc,
@@ -307,7 +286,8 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       passes: 0,
       restart: false,
       memory: createLayoutMemory(),
-      ready: awaitReady(options.ready, () => refreshLayout(session(), true)),
+      ready: awaitReady(ready, () => refreshLayout(session(), true)),
+      text,
       draws: checkDraws({
         scale: options.scale,
         cache,
@@ -316,7 +296,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       }),
     },
     canonical: options.state,
-    projection: projectionState(options, session),
+    projection: projectionState(options, session, text),
     shown: options.state.doc,
     map: createProjectionMap(options.state.doc, rules),
     view: null,
@@ -386,7 +366,12 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     refresh: ({ remeasure = false } = {}) => refreshLayout(live, remeasure),
     layoutState: live.pace.readiness.state,
     whenSettled: live.pace.readiness.whenSettled,
-    stats: () => ({ ...live.pace.counter.stats(), ...live.counts }),
+    stats: () => ({
+      ...live.pace.counter.stats(),
+      ...live.counts,
+      ...(live.pace.text ? { textLayout: live.pace.text.engine()?.stats() } : {}),
+    }),
+    textLines: () => pageTextLines(live.projection),
     destroy() {
       unlisten();
       live.cells.release();
@@ -395,6 +380,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       live.pace.readiness.destroy();
       live.probe.stop();
       live.ghost.destroy();
+      live.pace.text?.destroy();
     },
   };
 }

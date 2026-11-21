@@ -18,6 +18,7 @@ import {
 import type { MeasureCache } from './measure-cache.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { nearAfter, projectionSelection } from './selection-mirror.js';
+import type { PagesTextEngine } from './text-engine-types.js';
 
 /** The views and state a layout reads. */
 interface LayoutSource {
@@ -38,6 +39,8 @@ interface ProjectionLayoutOptions {
   readonly rules?: SectionLayoutRules | undefined;
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
   readonly fragmentRules: FragmentRules;
+  /** Lays the blocks it can out without the DOM, with the `textLayout` option. */
+  readonly engine?: PagesTextEngine | null | undefined;
 }
 
 /** A layout: the projection transaction onto the new pages, the map after it, and the pages. */
@@ -63,6 +66,7 @@ export function layOutProjection(
     memory,
     onPage: (page) => metrics.push(page),
     onSection,
+    engine: options.engine,
   });
   const target = projectDocument(ghost.view.state.doc, sections, options);
   const tr = projection.tr;

@@ -30,7 +30,7 @@ import {
 import type { ReferenceSourceAdapter, SelectionActionsAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { CitationHref } from '../../model/schema/reference-mark.js';
-import type { LayoutState, PaginationStats } from '../../pagination/index.js';
+import type { LayoutState, PageTextLines, PaginationStats } from '../../pagination/index.js';
 import { keepCentred } from '../../utils/keep-centred.js';
 import type {
   CommentPointer,
@@ -131,6 +131,11 @@ export interface DocumentEditorHandle {
   whenSettled(): Promise<LayoutState>;
   /** What the page layouts have done (`PaginationStats`); null in the web layout. */
   layoutStats(): PaginationStats | null;
+  /**
+   * With `textLayout: 'pretext'`, the lines the layout engine computed for each page's top-level
+   * paragraphs and headings, which the pages draw them on (DOCE-PAGINATION-11.3); none otherwise.
+   */
+  textLines(): PageTextLines[];
   /** The elements with an element id on screen now, with their boxes in the window. */
   visibleElements(): readonly VisibleElement[];
   /** The pages on screen now, each with its sheet and its content's box in the window. */
@@ -303,6 +308,7 @@ export function useEditorHandle(
         view ? runSelectionAction(view, adapter, options) : null,
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
+      textLines: layout.textLines,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
       visiblePages: () => (view ? measureVisiblePages(view) : []),
       revealPane: (paneId, options) => panes.reveal(paneId, options),

@@ -30,12 +30,13 @@ import {
   type PagedProjectionOptions,
   pageVariablesKey,
   type SectionLayoutRules,
+  type TextLayoutMode,
 } from '../../pagination/index.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
 import type { PagedEditor } from './use-paged-projection.js';
 
 // What lays the pages out: a projection of the state.
-export type LayoutRunner = Pick<PagedProjection, 'whenSettled' | 'stats'>;
+export type LayoutRunner = Pick<PagedProjection, 'whenSettled' | 'stats' | 'textLines'>;
 
 // The height inside the page margins of a section's template scope.
 function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
@@ -138,7 +139,7 @@ export function startPaging(
     refs,
     setPaged,
   }: {
-    settings: { footnoteNumbering: 'document' | 'page' };
+    settings: { footnoteNumbering: 'document' | 'page'; textLayout: TextLayoutMode };
     refs: PagingRefs;
     setPaged: (paged: PagedEditor | null) => void;
   },
@@ -151,6 +152,9 @@ export function startPaging(
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,
+    // The layout engine lays the text out with the template the pages show now.
+    textLayout:
+      settings.textLayout === 'pretext' ? { template: () => latest.current.template } : undefined,
   };
   const start = () => startProjectionOf(setup, latest, { refs, setPaged });
   if (!ghostWith(latest)) return start();

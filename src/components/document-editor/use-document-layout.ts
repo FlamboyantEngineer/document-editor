@@ -50,8 +50,10 @@ import {
   type LayoutState,
   pageDebugKey,
   type PageDebugParts,
+  type PageTextLines,
   pageVariablesKey,
   type PaginationStats,
+  type TextLayoutMode,
 } from '../../pagination/index.js';
 import type { DocumentEditorDebug } from './document-editor.js';
 import { type EditorContentsOptions, lackedPlugins } from './editor-contents.js';
@@ -133,6 +135,8 @@ export interface DocumentLayoutOptions {
   readonly fragmentRules?: FragmentRules | undefined;
   /** The host's font faces, which the pages wait for (DOCE-PAGINATION-5.6). */
   readonly fonts?: FontsAdapter | undefined;
+  /** How the pages lay text out: measured in the DOM, or by the layout engine (DOCE-PAGINATION-11). */
+  readonly textLayout?: TextLayoutMode | undefined;
   /** Edits the pages' headers and footers in place, handing each edit here. */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /** Edits a template's section content and placeholders in place, handing each edit here. */
@@ -266,6 +270,8 @@ export interface LayoutProgress {
   whenSettled(): Promise<LayoutState>;
   /** What the layouts did since the pages were first laid out; null in the web layout. */
   stats(): PaginationStats | null;
+  /** The lines the layout engine drew the pages' text on (`textLayout: 'pretext'`); none else. */
+  textLines(): PageTextLines[];
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
@@ -274,6 +280,7 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
     () => ({
       whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
       stats: () => active.current?.stats() ?? null,
+      textLines: () => active.current?.textLines() ?? [],
     }),
     [active],
   );
@@ -294,6 +301,7 @@ export function useDocumentLayout(
   // when they do.
   const repeatHeaders = repeatHeaderKey(template);
   const footnoteNumbering = resolveFootnoteSettings(template, null).numbering ?? 'document';
+  const textLayout = options.textLayout ?? 'dom';
   const latest = useRef(options);
   useEffect(() => {
     latest.current = options;
@@ -332,11 +340,11 @@ export function useDocumentLayout(
       return undefined;
     }
     return startPaging(element, latest, {
-      settings: { footnoteNumbering },
+      settings: { footnoteNumbering, textLayout },
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, measureIn, repeatHeaders, footnoteNumbering, schema]);
+  }, [layout, measureIn, repeatHeaders, footnoteNumbering, textLayout, schema]);
 
   useLayoutPlugins(options, ownPlugins);
 

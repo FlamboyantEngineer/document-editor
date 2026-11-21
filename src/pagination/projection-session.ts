@@ -216,7 +216,7 @@ function layOutPages(session: Session) {
   }
   return layOutProjection(
     { projection, ghost, canonical, cache, memory: pace.memory, onSection: pace.counter.section },
-    { ...options, fragmentRules: rules },
+    { ...options, fragmentRules: rules, engine: pace.text?.engine() },
   );
 }
 
