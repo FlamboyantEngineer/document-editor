@@ -1,6 +1,6 @@
 # Labs
 
-Labs are static demo pages that show each area of the editor with neutral sample documents. They are debugging and review pages, not package API. Each lab is a static file `labs/<name>.html` that loads the bundle `npm run build:labs` builds into `labs/build/<name>.js`, and `npm run serve:labs` serves them at `127.0.0.1`, port 4183 or the `LABS_PORT` environment variable.
+Labs are static demo pages that show each area of the editor with neutral sample documents. They are debugging and review pages, not package API. Each lab is a static file `labs/<name>.html` that loads the bundle `npm run build:labs` builds into `labs/build/<name>.js`, and `npm run serve:labs` serves them at `127.0.0.1`, starting at port 4183 or the port set by `LABS_PORT`.
 
 ## DOCE-LABS-1 - Pages
 
@@ -8,7 +8,9 @@ Labs are static demo pages that show each area of the editor with neutral sample
 
 `npm run labs` shall bring a checkout's labs up to date before serving them with the supplied server, passing its server options through: it runs `npm ci` when the dependencies are missing or `package-lock.json` changed since the last install, and `npm run build:labs` after an install, when the labs are not built, or when a lab source (the library and lab sources, the lab stylesheets `labs/reference.css`, `labs/shadcn.css`, `labs/lab-pages.css`, `labs/reference/`, `labs/shadcn/` and the package's `shadcn.css`, the installed dependencies, the package and TypeScript configuration and the labs build scripts) changed, was added or was removed since the last build. It leaves a `node_modules` linked from another checkout alone. `--dry-run` prints the steps it would run, or that the labs are up to date, without running them or serving.
 
-Implementation: `scripts/start-labs.mjs`, `package.json`
+Both lab launchers shall use the shared lab server to try successively higher ports when the starting port is busy and print the bound URL. An explicit `--port` sets the starting port. Playwright shall use `--strict-port` to require the configured address.
+
+Implementation: `scripts/start-labs.mjs`, `scripts/serve-labs.mjs`, `playwright.config.ts`, `package.json`
 Verification: `test/start-labs.test.ts`
 
 ### DOCE-LABS-1.2 - Lab toolbar
@@ -259,3 +261,40 @@ The reference stylesheet shall align a figure's caption text where the figure is
 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`
+
+## DOCE-LABS-5 - Pretext pagination spike
+
+### DOCE-LABS-5.1 - DOM-free prediction and virtual pages
+
+The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker. It shall reuse prepared inline data on width changes, reuse item-local line offsets at the same width, and discard both when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
+
+Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/html.ts`
+Verification: `e2e/pretext-pagination.spec.ts`
+
+### DOCE-LABS-5.2 - Independent HTML parity
+
+The lab shall compare its predictions against natural HTML line layout at multiple widths, including line counts, source start offsets, block box dimensions, page boundaries, and page overflow. It shall verify page and content dimensions, fragmentation, and vertical placement for every rendered page of the text, list and mixed stress documents. It shall check exact source offsets on both sides of a wrap threshold and in naturally rendered split paragraphs, including consecutive hard breaks and mixed inline objects. The identified 300-page text fixture shall also be checked against the production projection at both benchmark widths. It shall report real discrepancies, unsupported content and stored-content preservation.
+
+Implementation: `labs/src/spikes/pretext/oracle.ts`, `labs/src/spikes/pretext/fixtures.ts`
+Verification: `e2e/pretext-pagination.spec.ts`, `e2e/pretext-pagination-stress.spec.ts`
+
+### DOCE-LABS-5.3 - Complete measurements
+
+The lab shall provide an opt-in repeated browser benchmark from the same stored inputs through index production and visible HTML for both the experiment and the existing projection path. It shall include the 4,420-block text stress document and a version with distinct paragraph text alongside the repeated-text workloads. The benchmark shall record first visible paint timing, complete index timing, main-thread long tasks, mounted pages and elements, and prepared-data reuse on width changes.
+
+Implementation: `labs/src/spikes/pretext/benchmark.ts`, `labs/src/spikes/pretext-pagination.lab.ts`
+Verification: `e2e/pretext-pagination.performance.spec.ts`
+
+### DOCE-LABS-5.4 - Edit and review the stress documents
+
+The Pretext lab shall open every fixture in the full editor, including content the prediction worker cannot paginate. The editor shall support its normal formatting, context menu, comments, suggested edits, decisions and undo. Switching documents or views shall preserve each draft and its comment threads in memory until reload. The Pretext preview and its parity check shall read the selected draft with inline review markup. Opening the preview directly or running measurements shall work without mounting the interactive editor.
+
+Implementation: `labs/pretext-pagination.html`, `labs/src/spikes/pretext/editor.tsx`, `labs/src/spikes/pretext-pagination.lab.ts`
+Verification: `e2e/pretext-pagination-editor.spec.ts`, `e2e/pretext-pagination.spec.ts`
+
+### DOCE-LABS-5.5 - Open a virtual page by link
+
+The lab index shall link directly to page 150 of the 4,800-block fixture. The virtual page lab shall use the indexed scroll extent to open the requested page with one page of overscan on either side. A cold load and reload shall mount only the destination window. The lab shall report the visible page, total pages, mounted range and DOM count as the reader scrolls. Following links and using browser history shall reveal the corresponding page. Out-of-range page numbers shall clamp to the document. The scroll geometry shall keep the mounted window bounded with the reference presentation switched off.
+
+Implementation: `labs/pretext-page-link.html`, `labs/reference/pretext-viewport.css`, `labs/src/spikes/pretext-page-link.lab.ts`, `labs/src/spikes/pretext/html.ts`, `labs/src/chrome/mount.tsx`
+Verification: `e2e/pretext-page-link.spec.ts`

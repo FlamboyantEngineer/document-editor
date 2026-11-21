@@ -28,6 +28,7 @@ const options = {
     // The same on the base library's shadcn/ui stylesheet, with the editor's shadcn/ui retouch.
     shadcn: join(labsDir, 'shadcn.css'),
     chrome: join(labSourceDir, 'chrome', 'mount.tsx'),
+    'pretext-pagination-worker': join(labSourceDir, 'spikes', 'pretext', 'worker.ts'),
     ...Object.fromEntries(labs.map(({ name, file }) => [name, file])),
   },
   outdir,

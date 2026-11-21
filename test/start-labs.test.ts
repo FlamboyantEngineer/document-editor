@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import {
   copyFileSync,
   mkdirSync,
@@ -120,27 +121,47 @@ describe('lab start', () => {
     ]);
   });
 
-  it('DOCE-LABS-1.1 serves current labs with the server options', async () => {
+  it('DOCE-LABS-1.1 serves on the next available port and honours strict-port', async () => {
     const fixture = checkout({ ...upToDate, 'labs/index.html': 100 });
-    const server = spawn(process.execPath, [
-      join(fixture, 'scripts/start-labs.mjs'),
-      '--port',
-      '0',
-    ]);
-    try {
-      const url = await new Promise<string>((resolve, reject) => {
+    const scope = join(fixture, 'node_modules', '@flamboyantengineer');
+    mkdirSync(scope, { recursive: true });
+    symlinkSync(
+      join(process.cwd(), 'node_modules', '@flamboyantengineer', 'ui-components'),
+      join(scope, 'ui-components'),
+      'junction',
+    );
+    const servers = new Set<ReturnType<typeof spawn>>();
+    async function start(...args: string[]) {
+      const server = spawn(process.execPath, [join(fixture, 'scripts/start-labs.mjs'), ...args]);
+      servers.add(server);
+      return new Promise<URL>((resolve, reject) => {
+        let output = '';
         server.stdout.on('data', (chunk: Buffer) => {
-          const match = chunk.toString().match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
-          if (match) resolve(match);
+          output += chunk.toString();
+          const url = output.match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
+          if (url) resolve(new URL(url));
         });
-        server.once('exit', (code) => reject(new Error(`Lab server exited with ${code}`)));
+        server.once('error', reject);
+        server.once('exit', (code) => {
+          servers.delete(server);
+          reject(new Error(`Lab server exited with ${String(code)}`));
+        });
       });
-      const response = await fetch(`${url}index.html`);
-      expect(await response.text()).toBe('labs/index.html');
+    }
+    try {
+      const first = await start('--port', '0');
+      const next = await start('--port', first.port);
+      expect(Number(next.port)).toBeGreaterThan(Number(first.port));
+      expect(await (await fetch(next)).text()).toBe('labs/index.html');
+      await expect(start('--strict-port', '--port', first.port)).rejects.toThrow('exited with 1');
     } finally {
-      const stopped = new Promise<void>((resolve) => server.once('exit', () => resolve()));
-      server.kill();
-      await stopped;
+      await Promise.all(
+        [...servers].map(async (server) => {
+          const stopped = once(server, 'exit');
+          server.kill();
+          await stopped;
+        }),
+      );
     }
   });
 });

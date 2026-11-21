@@ -57,13 +57,13 @@ npm run check   # every gate: lint, format, types, references, specs, build and 
 Labs are static demo pages in `labs/`, one per area of the editor, bundled from `labs/src/<name>.lab.ts(x)`. A toolbar at the top of each page picks the stylesheet (the bundled Reference stylesheet `labs/reference.css`, the shadcn/ui stylesheet `labs/shadcn.css`, none, or a URL) and the theme it writes on the root element; the choice carries from page to page.
 
 ```sh
-npm run labs         # install and build what is out of date, then serve labs/ at http://127.0.0.1:4183/
+npm run labs         # install and build what is out of date, then serve labs/ and print the URL
 npm run build:labs   # bundle every lab into labs/build/; add `-- --dev --watch` to rebuild on save
 npm run test:labs    # browser tests against the built labs
 npm run test:perf    # performance harness: the budgets in specs/LABS.md, measured on the scale lab
 ```
 
-`npm run labs` runs `npm ci` when `package-lock.json` changed since the last install and `npm run build:labs` when a lab source changed since the last build. `npm run labs -- --dry-run` lists those steps without running them; `npm run serve:labs` serves `labs/` as it is. Both, and the browser tests, use port 4183; set the `LABS_PORT` environment variable to use another.
+`npm run labs` runs `npm ci` when `package-lock.json` changed since the last install and `npm run build:labs` when a lab source changed since the last build. `npm run labs -- --dry-run` lists those steps without running them; `npm run serve:labs` serves `labs/` as it is. Both launchers start at port 4183 and print the next available URL if that port is busy. Set `LABS_PORT` or pass `-- --port 4200` to start elsewhere. Use `-- --strict-port` to require an exact port. Browser tests use the configured port in strict mode.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the branch, versioning and source rules.
 

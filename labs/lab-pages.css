@@ -4,6 +4,8 @@
  * fill. It is not part of the package. Everything here reads the theme's `--ref-*` tokens.
  */
 
+@import './reference/pretext-pagination.css';
+
 :root[data-reference-document] {
   background: var(--ref-surface);
 }
