@@ -39,6 +39,13 @@ The package shall expose `./reference.css` as an explicit opt-in stylesheet, usi
 Implementation: `package.json`, `reference.css`, `labs/reference/document.css`, `labs/reference/editor-chrome.css`
 Verification: `test/reference-stylesheet.test.ts`
 
+### DOCE-ENTRY-1.6 - Optional shadcn/ui presentation
+
+The package shall expose `./shadcn.css`, loaded instead of `./reference.css` after the base controls' shadcn/ui stylesheet (`@flamboyantengineer/ui-components/shadcn.css`): the same document and editor chrome partials, unchanged, in the `document-reference` layer, then the editor's shadcn/ui retouch `labs/shadcn/editor-chrome.css` in the `document-shadcn` layer above it (DOCE-LABS-1.7). Its package files shall include the retouch without the lab page layout, and it shall import neither base library stylesheet.
+
+Implementation: `package.json`, `shadcn.css`, `labs/shadcn/editor-chrome.css`
+Verification: `test/reference-stylesheet.test.ts`
+
 ## DOCE-ENTRY-2 - Browser entry size
 
 ### DOCE-ENTRY-2.1 - Consumer bundle budgets

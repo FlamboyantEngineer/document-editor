@@ -1,0 +1,10 @@
+/*
+ * Optional shadcn/ui presentation, loaded instead of `reference.css`: import it after the base
+ * controls' shadcn/ui stylesheet (`@flamboyantengineer/ui-components/shadcn.css`), which points
+ * the `--ref-*` tokens these partials read at the page's shadcn/ui theme. The document and editor
+ * chrome partials are the reference ones, unchanged; the retouch above them redraws the editor's
+ * chrome in the shadcn/ui look and gives it the compact control scale. The pages stay paper.
+ */
+@import './labs/reference/document.css' layer(document-reference);
+@import './labs/reference/editor-chrome.css' layer(document-reference);
+@import './labs/shadcn/editor-chrome.css' layer(document-shadcn);

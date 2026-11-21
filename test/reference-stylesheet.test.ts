@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('optional reference presentation', () => {
-  it('DOCE-ENTRY-1.5 ships explicit layered document styles without importing lab layout', () => {
+  it('DOCE-ENTRY-1.5 DOCE-ENTRY-1.6 ships explicit layered document styles without importing lab layout', () => {
     const manifest = JSON.parse(readFileSync('package.json', 'utf8')) as {
       exports: Record<string, unknown>;
       sideEffects: string[];
@@ -16,6 +16,14 @@ describe('optional reference presentation', () => {
     const css = readFileSync('reference.css', 'utf8');
     expect(css).toContain('layer(document-reference)');
     expect(css).not.toContain('ui-components/reference.css');
+    expect(manifest.exports['./shadcn.css']).toBe('./shadcn.css');
+    const shadcn = readFileSync('shadcn.css', 'utf8');
+    expect(shadcn).toContain("@import './labs/reference/document.css' layer(document-reference);");
+    expect(shadcn).toContain(
+      "@import './labs/reference/editor-chrome.css' layer(document-reference);",
+    );
+    expect(shadcn).toContain("@import './labs/shadcn/editor-chrome.css' layer(document-shadcn);");
+    expect(shadcn).not.toMatch(/@import [^;]*ui-components/);
     const cache = mkdtempSync(join(tmpdir(), 'document-reference-pack-'));
     let files: string[];
     try {
@@ -47,9 +55,13 @@ describe('optional reference presentation', () => {
       'reference.css',
       'labs/reference/document.css',
       'labs/reference/editor-chrome.css',
+      'shadcn.css',
+      'labs/shadcn/editor-chrome.css',
     ])
       expect(files).toContain(path);
     expect(files).not.toContain('labs/reference.css');
+    expect(files).not.toContain('labs/shadcn.css');
+    expect(files).not.toContain('labs/lab-pages.css');
   }, 15_000);
 });
 
@@ -77,7 +89,11 @@ function hasSubjects(css: string): string[] {
 
 describe('reference stylesheet selectors', () => {
   it('DOCE-LABS-1.6 never makes the page, the root or a bare compound the subject of :has()', () => {
-    for (const path of ['labs/reference/document.css', 'labs/reference/editor-chrome.css']) {
+    for (const path of [
+      'labs/reference/document.css',
+      'labs/reference/editor-chrome.css',
+      'labs/shadcn/editor-chrome.css',
+    ]) {
       for (const subject of hasSubjects(readFileSync(path, 'utf8'))) {
         expect(subject, path).not.toMatch(/^(\*|body|html|:root)?$/);
       }

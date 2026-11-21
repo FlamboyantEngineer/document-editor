@@ -12,12 +12,17 @@ const dryRun = flag('dry-run');
 
 // What labs/build is made from. npm rewrites node_modules/.package-lock.json on every install.
 // The base library's reference stylesheet comes in with the installed dependencies; the lab
-// stylesheets (labs/reference.css and the partials it bundles) are built into labs/build too.
+// stylesheets (labs/reference.css, labs/shadcn.css and the partials they bundle) are built into
+// labs/build too.
 const BUILD_SOURCES = [
   'src',
   'labs/src',
   'labs/reference.css',
   'labs/reference',
+  'labs/shadcn.css',
+  'labs/shadcn',
+  'labs/lab-pages.css',
+  'shadcn.css',
   'node_modules/.package-lock.json',
   'package.json',
   'tsconfig.json',
