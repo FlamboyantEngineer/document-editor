@@ -17,7 +17,11 @@ test('DOCE-LABS-5.4 opens every stress fixture for editing, including unsupporte
   expect(workloads).toContain('stress-pagination');
   for (const name of workloads) {
     await picker.selectOption(name);
-    await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true');
+    // The largest stress fixtures take about 6 s to lay out on an idle machine, so under a full
+    // parallel run they need longer than the default wait.
+    await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
+      timeout: 40_000,
+    });
     const editor = page.locator('#pretext-editor .de-document-editor');
     await expect(editor).toHaveAttribute('data-layout-state', 'settled');
     const block = editor
