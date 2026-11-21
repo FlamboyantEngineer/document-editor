@@ -1,4 +1,4 @@
-import { setLayoutScale, setLocale, setMeasureContext } from '@chenglou/pretext';
+import { setLayoutScale, setLocale } from '@chenglou/pretext';
 import type { Node } from 'prosemirror-model';
 import { createFontFileMeasurer } from '../font-widths/measurer.js';
 import { readFixture } from './fixtures.js';
@@ -8,14 +8,6 @@ import type { BlockReport, LayoutRequest, LayoutResult } from './protocol.js';
 
 if (typeof document !== 'undefined') throw new Error('Prediction must run without a DOM');
 setLocale('en');
-// Chrome's headless shell hints Canvas widths unless text renders with geometricPrecision, so
-// widths would differ from machine to machine.
-setMeasureContext(() => {
-  const context = new OffscreenCanvas(1, 1).getContext('2d');
-  if (!context) throw new Error('Prediction requires an OffscreenCanvas 2D context');
-  context.textRendering = 'geometricPrecision';
-  return context;
-});
 
 // The served fonts, given once by the page: added to the worker's own font set for Canvas, or
 // read into HarfBuzz for font-file widths, which then replace Canvas as Pretext's measure.

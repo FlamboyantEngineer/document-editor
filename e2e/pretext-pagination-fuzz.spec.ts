@@ -15,6 +15,10 @@ import {
 // device pixel ratio of each project. The findings named here are in docs/pretext-pagination-spike.md.
 // Today's counts, per project and kind, over 36 layouts of 120 paragraphs. They are exact: a fork
 // fix that is pinned lowers them in the same pull request, and a rise is a regression.
+// kerning overflow 1 (every ratio): D1, not a prediction error. A page cut right after a word that
+// kerns with its following space (seed 37, 547.984375 px, p-37-51) drops that space's kerning in
+// the preview's re-wrapped piece, so the browser wraps the word again. Forced-line rendering
+// removes it.
 const budgets: Record<string, Record<string, Counts>> = {
   chromium: {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },

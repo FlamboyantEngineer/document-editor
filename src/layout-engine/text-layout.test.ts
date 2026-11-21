@@ -1,0 +1,216 @@
+import type * as Pretext from '@chenglou/pretext';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { installFakeCanvas } from '../../test/canvas-fixtures.js';
+import { documentSchema, findNode, parseMarkup } from '../../test/document-markup.js';
+import type { TemplateFile } from '../model/format/template-format.js';
+import { planParagraphSplit } from '../model/pagination/text-split.js';
+import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import type { LineTable } from './line-table.js';
+import { createTextLayout, lineTableMeasurement, type TextLayoutOptions } from './text-layout.js';
+
+const pretext = vi.hoisted(() => ({ locales: [] as (string | undefined)[] }));
+
+vi.mock('@chenglou/pretext', async (original) => {
+  const actual = await original<typeof Pretext>();
+  return {
+    ...actual,
+    setLocale: (locale?: string) => {
+      pretext.locales.push(locale);
+      actual.setLocale(locale);
+    },
+  };
+});
+
+// With the fake Canvas, a 12px character is 6px wide and a space 3px: `aaaa ` is 27px.
+const WORDS = 'aaaa bbbb cccc dddd eeee';
+
+function block(markup: string, type = 'paragraph'): ProseMirrorNode {
+  const node = findNode(parseMarkup(markup), type);
+  if (!node) throw new Error(`no ${type} in ${markup}`);
+  return node;
+}
+
+function table(node: ProseMirrorNode, width: number, options?: Partial<TextLayoutOptions>) {
+  const result = createTextLayout({ template: BASE_TEMPLATE, ...options }).layoutText(node, {
+    width,
+  });
+  if (!result.ok) throw new Error(result.reason);
+  return result.table;
+}
+
+const starts = (lines: LineTable) => lines.lines.map((line) => [line.from, line.to, line.end]);
+
+beforeEach(() => {
+  installFakeCanvas();
+  pretext.locales.length = 0;
+});
+
+describe('createTextLayout', () => {
+  it('DOCE-PAGINATION-9.1 lays a paragraph out on lines that tile its content', () => {
+    const lines = table(block(`<p>${WORDS}</p>`), 60);
+    expect(starts(lines)).toEqual([
+      [0, 10, 'wrap'],
+      [10, 20, 'wrap'],
+      [20, 24, 'end'],
+    ]);
+    expect(lines.lines.map((line) => [line.width, line.top, line.height])).toEqual([
+      [51, 0, 18],
+      [51, 18, 18],
+      [24, 36, 18],
+    ]);
+    expect(lines).toMatchObject({ width: 60, height: 54, overhead: 0 });
+  });
+
+  it('DOCE-PAGINATION-9.1 gives an empty paragraph one line', () => {
+    expect(table(block('<p></p>'), 60).lines).toEqual([
+      { from: 0, to: 0, width: 0, left: 0, top: 0, height: 18, end: 'end' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, and same-font neighbours as one run', () => {
+    const plain = table(block(`<p>${WORDS}</p>`), 60);
+    const linked = table(
+      block('<p>aaaa <a href="https://example.com">bbbb</a> cccc dddd eeee</p>'),
+      60,
+    );
+    expect(starts(linked)).toEqual(starts(plain));
+    const bold = table(block('<p><strong>aaaa</strong></p>'), 60);
+    expect(bold.lines[0]?.width).toBe(24);
+    const code = table(block('<p><code>aaaa</code></p>'), 60);
+    expect(code.lines[0]?.width).toBe(26);
+  });
+
+  it('DOCE-PAGINATION-9.4 ends a line at each hard break, and a final break makes an empty line', () => {
+    const lines = table(block('<p>aa<br>bb<br></p>'), 200);
+    expect(starts(lines)).toEqual([
+      [0, 3, 'break'],
+      [3, 6, 'break'],
+      [6, 6, 'end'],
+    ]);
+    expect(lines.height).toBe(54);
+  });
+
+  it('DOCE-PAGINATION-9.4 keeps runs of spaces and tabs, which hang at a line end', () => {
+    const spaced = documentSchema.nodes.paragraph?.create(
+      null,
+      documentSchema.text('aaaa    bbbb'),
+    );
+    if (!spaced) throw new Error('schema has no paragraph');
+    const lines = table(spaced, 40);
+    expect(starts(lines)).toEqual([
+      [0, 8, 'wrap'],
+      [8, 12, 'end'],
+    ]);
+    expect(lines.lines[0]?.width).toBe(24);
+    const code = table(block('<pre><code>a\tb</code></pre>', 'code_block'), 400);
+    expect(code.lines[0]?.width).toBeGreaterThan(10);
+  });
+
+  it('DOCE-PAGINATION-9.5 draws a prefix before the first line and sizes inline atoms', () => {
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    const heading = block('<h1>aaaa</h1>', 'heading');
+    const numbered = engine.layoutText(heading, { width: 400, prefix: '1. ' });
+    if (!numbered.ok) throw new Error(numbered.reason);
+    // 22px: two prefix characters and a space, then four letters.
+    expect(numbered.table.lines[0]).toMatchObject({ from: 0, width: 11 * 2 + 5.5 + 11 * 4 });
+    const atom = documentSchema.nodes.math_inline?.create();
+    const math = documentSchema.nodes.paragraph?.create(null, [
+      documentSchema.text('aa'),
+      ...(atom ? [atom] : []),
+      documentSchema.text('bb'),
+    ]);
+    if (!math) throw new Error('schema has no paragraph');
+    expect(engine.layoutText(math, { width: 400 })).toEqual({
+      ok: false,
+      reason: 'no size for inline math_inline',
+    });
+    // The fake Canvas has no font metrics: a 12px font rises 10px and falls 2px, so an 18px line's
+    // strut is 13px above the baseline and 5px below.
+    const sized = table(math, 400, { measureAtom: () => ({ width: 30, height: 40 }) });
+    expect(sized.lines[0]).toMatchObject({ width: 6 * 4 + 30, height: 45 });
+    const centred = table(math, 400, {
+      measureAtom: () => ({ width: 30, height: 40, baseline: 30 }),
+    });
+    expect(centred.lines[0]?.height).toBe(40);
+    const small = table(math, 400, { measureAtom: () => ({ width: 30, height: 10, baseline: 8 }) });
+    expect(small.lines[0]?.height).toBe(18);
+  });
+
+  it('DOCE-PAGINATION-9.5 keeps a template variable on one line', () => {
+    const variable = documentSchema.nodes.template_variable?.create(
+      { variableKey: 'title' },
+      documentSchema.text('cccc dddd'),
+    );
+    const paragraph = documentSchema.nodes.paragraph?.create(null, [
+      documentSchema.text('aaaa '),
+      ...(variable ? [variable] : []),
+    ]);
+    if (!paragraph) throw new Error('schema has no paragraph');
+    expect(starts(table(paragraph, 60))).toEqual([
+      [0, 5, 'wrap'],
+      [5, paragraph.content.size, 'end'],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {
+    const centred: TemplateFile = {
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        paragraph: { ...BASE_TEMPLATE.styles?.paragraph, alignment: 'center' },
+      },
+    };
+    expect(table(block('<p>aaaa</p>'), 60, { template: centred }).lines[0]?.left).toBe(18);
+    const right: TemplateFile = {
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        paragraph: { ...BASE_TEMPLATE.styles?.paragraph, alignment: 'right' },
+      },
+    };
+    expect(table(block('<p>aaaa</p>'), 60, { template: right }).lines[0]?.left).toBe(36);
+    const code = table(block('<pre><code>aaaa</code></pre>', 'code_block'), 100);
+    expect(code).toMatchObject({ width: 100, height: 14, overhead: 16 });
+    expect(code.lines[0]).toMatchObject({ left: 8, width: 20 });
+  });
+
+  it('DOCE-PAGINATION-9.7 refuses a block whose font is not served', () => {
+    const engine = createTextLayout({
+      template: BASE_TEMPLATE,
+      isFontServed: (family) => family === 'Arial',
+    });
+    expect(engine.layoutText(block('<p>aaaa</p>'), { width: 60 }).ok).toBe(true);
+    expect(engine.layoutText(block('<p><code>aaaa</code></p>'), { width: 60 })).toEqual({
+      ok: false,
+      reason: 'font not served: Courier New',
+    });
+    expect(
+      engine.layoutText(documentSchema.nodes.horizontal_rule?.create() ?? block('<p></p>'), {
+        width: 60,
+      }).ok,
+    ).toBe(false);
+  });
+
+  it('DOCE-PAGINATION-9.7 breaks lines in the document’s language', () => {
+    table(block('<p>aaaa</p>'), 60, { language: 'ja' });
+    expect(pretext.locales).toEqual(['ja']);
+  });
+
+  it('DOCE-PAGINATION-9.8 measures ranges and splits a paragraph at a line start', () => {
+    const lines = table(block(`<p>${WORDS} ffff gggg</p>`), 60);
+    const measurement = lineTableMeasurement(lines);
+    expect(measurement.measure(0, 24)).toEqual({ height: 54, lines: 3 });
+    expect(measurement.measure(12, 12)).toEqual({ height: 18, lines: 1 });
+    const text = `${WORDS} ffff gggg`;
+    const plan = planParagraphSplit({ text, height: lines.height, fitting: 40, measurement });
+    expect(plan).toEqual({ end: 20, next: 20, headHeight: 36, tailHeight: 36 });
+    const tail = planParagraphSplit({
+      text: text.slice(20),
+      height: 36,
+      fitting: 20,
+      measurement: lineTableMeasurement(lines, 20),
+    });
+    expect(tail).toBeNull();
+  });
+});
