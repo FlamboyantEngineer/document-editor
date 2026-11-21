@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { AxeBuilder } from '@axe-core/playwright';
+import type { Page } from '@playwright/test';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // Every lab the build serves, by name.
@@ -10,6 +11,18 @@ const LABS = readdirSync(new URL('../labs/', import.meta.url))
 
 // The impacts that fail a lab: what blocks or seriously hinders a reader.
 const FAILING = new Set(['serious', 'critical']);
+
+/** The serious and critical axe violations on the page, each with its first few targets. */
+async function seriousViolations(page: Page) {
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  return violations
+    .filter((violation) => FAILING.has(violation.impact ?? ''))
+    .map((violation) => ({
+      id: violation.id,
+      help: violation.help,
+      targets: violation.nodes.slice(0, 3).map((node) => node.target.join(' ')),
+    }));
+}
 
 test.describe('accessibility', () => {
   for (const name of LABS) {
@@ -30,16 +43,26 @@ test.describe('accessibility', () => {
       } else {
         await lab.open(name);
       }
-      const { violations } = await new AxeBuilder({ page }).analyze();
-      const failing = violations
-        .filter((violation) => FAILING.has(violation.impact ?? ''))
-        .map((violation) => ({
-          id: violation.id,
-          help: violation.help,
-          targets: violation.nodes.slice(0, 3).map((node) => node.target.join(' ')),
-        }));
-      expect(failing).toEqual([]);
+      expect(await seriousViolations(page)).toEqual([]);
     });
+  }
+});
+
+// The shadcn/ui stylesheet, in both themes: every lab but the stress labs, whose documents the
+// Reference pass above already reads in full and whose chrome is the editor's own.
+test.describe('accessibility under the shadcn/ui stylesheet', () => {
+  for (const name of LABS.filter((lab) => !lab.startsWith('stress'))) {
+    for (const theme of ['light', 'dark']) {
+      test(`DOCE-LABS-1.7 the ${name} lab has no serious or critical axe violations in ${theme}`, async ({
+        page,
+      }) => {
+        test.setTimeout(60_000);
+        await page.goto(`${name}.html?stylesheet=shadcn&theme=${theme}`);
+        await waitForLab(page);
+        await expect(page.locator('html')).toHaveAttribute('data-lab-stylesheet', 'shadcn');
+        expect(await seriousViolations(page)).toEqual([]);
+      });
+    }
   }
 });
 

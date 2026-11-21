@@ -54,7 +54,8 @@
       "default": "./dist/import/index.js"
     },
     "./package.json": "./package.json",
-    "./reference.css": "./reference.css"
+    "./reference.css": "./reference.css",
+    "./shadcn.css": "./shadcn.css"
   },
   "files": [
     "dist",
@@ -64,9 +65,12 @@
     "specs",
     "CHANGELOG.md",
     "./reference.css",
+    "./shadcn.css",
     "labs/reference/document.css",
     "labs/reference/editor-chrome.css",
-    "!labs/reference.css"
+    "labs/shadcn/editor-chrome.css",
+    "!labs/reference.css",
+    "!labs/shadcn.css"
   ],
   "scripts": {
     "build": "node scripts/clean.mjs dist && tsc -p tsconfig.build.json",

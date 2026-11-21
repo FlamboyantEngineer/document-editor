@@ -202,6 +202,13 @@
   color: var(--doc-heading-6-color, inherit);
 }
 
+/* On a dark theme the chrome is not paper: the field and the style names keep the chrome's text
+   color, since the template's colors are chosen for the white page. */
+:is(.dark, [data-theme='dark'])
+  :is(.de-document-editor__block-style, .de-document-editor__style-preview) {
+  color: inherit;
+}
+
 /* Each text style's name in the template's style, but for its size. */
 .de-document-editor__style-preview {
   font-family: var(--doc-paragraph-font-family, inherit);
@@ -269,7 +276,7 @@
   padding: 2px 12px;
   border-top: 1px solid var(--ref-border, #d0d7de);
   background: var(--ref-raised, #fff);
-  color: var(--ref-text-muted, #59636e);
+  color: var(--ref-muted);
   font-size: 12px;
   line-height: 20px;
 }
@@ -503,7 +510,7 @@
 
 /* The shared room's connection in the status bar: a warning while it locks the document. */
 .de-connection-status {
-  color: var(--ref-text-muted, #59636e);
+  color: var(--ref-muted);
 }
 
 .de-connection-status[data-phase='offline'],
@@ -613,7 +620,7 @@
 
 /* The unit after a style's size, on its font row. */
 .de-template-editor__unit {
-  color: var(--ref-text-muted);
+  color: var(--ref-muted);
   font-size: 0.85em;
 }
 
@@ -752,7 +759,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--ref-text-muted, #59636e);
+  color: var(--ref-muted);
 }
 
 .de-comments-panel__row .ui-list-row-content__title,
@@ -848,7 +855,7 @@
 
 .de-revision-list__summary,
 .de-revision-list__empty {
-  color: var(--ref-text-muted, #59636e);
+  color: var(--ref-muted);
 }
 
 /* Who wrote what, while the editor shows authorship: each writer's text tinted in their slot. */
@@ -937,7 +944,7 @@
 
 .de-script-editor__status {
   margin: 0;
-  color: var(--ref-text-muted, #59636e);
+  color: var(--ref-muted);
 }
 
 .de-script-editor__preview[data-status='error'] .de-script-editor__status {
@@ -961,7 +968,7 @@
 
 .de-script-editor__entry dd {
   margin: 2px 0 0;
-  color: var(--ref-text-muted, #59636e);
+  color: var(--ref-muted);
 }
 
 @media (width < 720px) {
@@ -1048,7 +1055,7 @@
 
 .de-document-editor__placeholder {
   padding: 24px;
-  color: var(--ref-text-muted, #59636e);
+  color: var(--ref-muted);
 }
 
 .de-document-editor__placeholder ~ .de-document-editor__body {
@@ -1096,7 +1103,7 @@
   border: 1px solid var(--ref-border, #d0d7de);
   border-radius: 4px;
   background: var(--ref-raised, #fff);
-  color: var(--ref-text-muted, #6e7781);
+  color: var(--ref-muted);
   font: inherit;
   line-height: 18px;
   text-indent: 0;
@@ -1117,7 +1124,7 @@
   border: 1px dashed var(--ref-border, #d0d7de);
   border-radius: 4px;
   background: var(--ref-raised, #fff);
-  color: var(--ref-text-muted, #6e7781);
+  color: var(--ref-muted);
   font: inherit;
   font-size: 0.875rem;
   white-space: nowrap;
@@ -1139,7 +1146,7 @@
   width: 0;
   height: 1em;
   margin-inline-end: -2px;
-  border-inline-start: 2px solid var(--ref-text-muted, #6e7781);
+  border-inline-start: 2px solid var(--ref-muted);
   vertical-align: text-bottom;
 }
 
@@ -1148,7 +1155,7 @@
 .de-placeholder {
   float: inline-start;
   height: 0;
-  color: var(--ref-text-muted, #6e7781);
+  color: var(--ref-muted);
   pointer-events: none;
   user-select: none;
 }
@@ -1275,7 +1282,7 @@
   overflow: hidden;
   border: 1px solid var(--ref-border, #cbd5e1);
   border-radius: 6px;
-  background: var(--ref-sunken, #f8fafc);
+  background: var(--ref-surface);
 }
 
 .de-figure-preview__image {
