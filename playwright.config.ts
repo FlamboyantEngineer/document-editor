@@ -6,6 +6,23 @@ const origin = `http://${String(LABS_HOST)}:${String(LABS_PORT)}`;
 // A browser of the machine's own, when Playwright's is not installed.
 const executablePath = process.env.CHROMIUM_PATH;
 
+// Chromium at a real device pixel ratio, which changes its layout unit. Playwright's emulated
+// `deviceScaleFactor` does not, so the browser is launched with the ratio and no emulated viewport.
+function devicePixelRatio(ratio: number) {
+  return {
+    name: `chromium-dpr-${String(ratio)}`,
+    use: {
+      browserName: 'chromium' as const,
+      viewport: null,
+      launchOptions: {
+        args: [`--force-device-scale-factor=${String(ratio)}`, '--window-size=1280,720'],
+        ...(executablePath ? { executablePath } : {}),
+      },
+    },
+    testMatch: /\/pretext-pagination-fuzz\.spec\.ts$/,
+  };
+}
+
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
@@ -31,6 +48,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testIgnore: [/\.performance\.spec\.ts$/, /\/performance\.spec\.ts$/],
     },
+    // How close the Pretext prediction is to the browser at real device pixel ratios (DOCE-LABS-5.6).
+    devicePixelRatio(1.25),
+    devicePixelRatio(2),
     // The heaviest timing test, 300 pages beside 500 comment threads, alone after the lab tests, so
     // it slows no other timing test.
     {

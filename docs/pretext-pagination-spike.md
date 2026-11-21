@@ -58,6 +58,31 @@ A separate failure involved text containing only collapsible whitespace. In the 
 
 The full pagination stress document also reports footnotes, page breaks, block quotes and oversized indivisible objects. This experiment uses one base template scope and two-line paragraph widow and orphan limits. Lists, code and tables stay whole. Custom template scopes, captions, merged cells, downloadable fonts and numbering geometry remain outside its scope. The browser measurements cover Chromium with the system fonts listed below.
 
+## Closeness to the browser
+
+`e2e/pretext-pagination-fuzz.spec.ts` measures how often the prediction breaks a line where Chromium does not (DOCE-LABS-5.6). For each kind of text it lays out four seeded documents of 120 paragraphs (30 to 80 words) at nine widths from 301 to 599.123 px, 4,320 paragraph layouts, and counts the paragraphs whose line starts or line counts differ, the pages whose boundaries differ and the pages that overflow in natural HTML. Projects `chromium-dpr-1.25` and `chromium-dpr-2` repeat it in Chromium launched with `--force-device-scale-factor`, because an emulated `deviceScaleFactor` leaves Chromium's layout unit unchanged. The counts are exact budgets: a pinned fork fix lowers them in the same pull request, and a rise fails the test.
+
+| Text                                      |     Ratio 1 |  Ratio 1.25 |     Ratio 2 |
+| ----------------------------------------- | ----------: | ----------: | ----------: |
+| Plain                                     |   0 / 0 / 0 |   4 / 0 / 0 |   5 / 0 / 2 |
+| One word in ten ending in A, L, T, Y or P | 16 / 3 / 24 | 19 / 3 / 24 | 18 / 3 / 24 |
+| A quarter of the words bold               |  24 / 1 / 2 |  23 / 1 / 2 |  19 / 0 / 2 |
+| A quarter italic                          |  21 / 1 / 3 |  21 / 1 / 3 |  14 / 1 / 3 |
+| A quarter inline code                     |  19 / 2 / 4 |  19 / 2 / 6 |  16 / 2 / 6 |
+| A quarter links                           | 45 / 4 / 19 | 46 / 4 / 19 | 41 / 4 / 19 |
+| 60% styled, all kinds, with kerning words | 65 / 9 / 23 | 61 / 8 / 23 | 59 / 7 / 23 |
+
+Each cell gives paragraphs with different line starts, paragraphs with a different line count and pages with a different boundary, out of 4,320 paragraphs. Pages overflow in the bold, italic, code, link and mixed runs: 1 or 2 per run.
+
+A second test finds the narrowest column that keeps a case's last character on its first line, in the browser and in the prediction, in steps of 1/512 px. Plain sentences match at ratio 1. Each other case is an expected miss naming its cause, and passes only while it still misses:
+
+- F1: a line-end word that kerns with the following space (A, L, T, Y, P in Arial) is charged the kerning on the space, where Chromium charges it to the word unless the text needs an accurate end position. Pretext needs 0.20 to 0.66 px more.
+- F2: kerning between a space and the first letter of a link is dropped across the item edge although both resolve to the same font. Pretext needs 0.20 px more.
+- F3: Chromium rounds each text item's piece of a line up to its layout unit; Pretext adds raw widths. Chromium needs up to one unit more per item.
+- F4: the lab's `inlineFitWidth` allowance assumes a device pixel ratio of 1, where the unit is 1/64 px; at 1.25 and 2 plain lines can miss by less than a unit.
+
+When a fix is pinned, remove its expected misses and lower the budgets to the counts the failure reports. The baseline is Playwright's Chromium on Linux with Liberation Sans standing in for Arial; a Playwright upgrade that changes the browser can move the counts.
+
 ## Benchmark
 
 The recorded samples used the published `@chenglou/pretext@1.0.0` before the switch to the fork. Five paired runs per document alternated which implementation ran first. Chromium 156.0.8078.79 ran on Debian 13 with five available logical CPUs. Arial and Courier New resolved to Liberation Sans and Liberation Mono. Both paths awaited font readiness before timing. Loading the common lab bundle and generating the input fixture are outside the timed interval.
