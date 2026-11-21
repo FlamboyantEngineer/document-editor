@@ -62,16 +62,6 @@ const blinkLayoutWidth = (width: number) =>
   Math.floor(width * layoutUnitsPerPixel) / layoutUnitsPerPixel;
 export const defaultWidth = blinkLayoutWidth(width - margins.left - margins.right);
 
-// Blink's LineBreaker::AvailableWidthToFit adds one LayoutUnit. The pinned Pretext
-// 1.0.0 Blink profile already adds 0.005px internally. Apply the balance only to the
-// line-fit decision and keep the actual box width for both pagination and rendering.
-const pretextBlinkFitEpsilon = 0.005;
-// It assumes a device pixel ratio of 1 (finding F4, measured by e2e/pretext-pagination-fuzz.spec.ts)
-// and goes once the fork's fit arithmetic is pinned.
-const blink = /(?:Chrome|Chromium)\//u.test(globalThis.navigator?.userAgent ?? '');
-export function inlineFitWidth(width: number) {
-  return blink ? blinkLayoutWidth(width) + 1 / layoutUnitsPerPixel - pretextBlinkFitEpsilon : width;
-}
 export const pageHeight = contentHeight + margins.top + margins.bottom;
 export const pageWidth = (contentWidth: number) => contentWidth + margins.left + margins.right;
 
