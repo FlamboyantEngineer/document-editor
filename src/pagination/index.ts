@@ -24,8 +24,8 @@ export {
 } from './layout-marks.js';
 export type { LayoutState } from './layout-readiness.js';
 export type { LayoutTrace, LayoutTraceSink } from './layout-trace.js';
-export type { PageOverflow } from './layout-validation.js';
-export { findPageOverflow } from './layout-validation.js';
+export type { PageOverflow, WrappedBlock } from './layout-validation.js';
+export { findPageOverflow, findWrappedLines } from './layout-validation.js';
 export { createListStarts, listStartsKey } from './list-starts.js';
 export type { MeasureOptions } from './measure-blocks.js';
 export { measureChildBlocks } from './measure-blocks.js';

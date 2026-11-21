@@ -6,13 +6,7 @@ import { Plugin } from 'prosemirror-state';
 import { canonicalKeys, canonicalPaste, type CanonicalPluginsSource } from './canonical-plugins.js';
 import { pressBelowContent } from './page-caret.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
-import {
-  moveAcrossBreak,
-  runCommand,
-  send,
-  type Session,
-  take,
-} from './projection-session.js';
+import { moveAcrossBreak, runCommand, send, type Session, take } from './projection-session.js';
 
 // The projection's own plugin: keys and paste run on the canonical state, and a press may start a
 // cell selection across the parts of a split table.

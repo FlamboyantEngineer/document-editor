@@ -49,7 +49,11 @@ interface Reading {
   readonly before: Map<string, number>;
 }
 
-function linesOf(reading: Reading, node: ProseMirrorNode, at: { pos: number; scope: string | null }) {
+function linesOf(
+  reading: Reading,
+  node: ProseMirrorNode,
+  at: { pos: number; scope: string | null },
+) {
   if (reading.numbered.has(at.pos)) return { lines: null, reason: 'numbered paragraph' };
   const prefix = isContinued(node) ? undefined : reading.headings.get(at.pos);
   const table = reading.engine.lines(node, { scope: at.scope, prefix });
@@ -99,7 +103,8 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
       blocks = [];
       pages.push({ blocks });
     }
-    if (parent?.type.name !== 'page_content') return name !== 'page_header' && name !== 'page_footer';
+    if (parent?.type.name !== 'page_content')
+      return name !== 'page_header' && name !== 'page_footer';
     if (FORCED_TYPES.has(name)) blocks.push(blockOf(reading, node, { pos, scope }));
     return false;
   });

@@ -125,9 +125,9 @@ test.describe('performance', () => {
     lab: Parameters<typeof openScale>[0],
     page: Page,
     size: number,
-    compare = false,
+    options: { compare?: boolean; textLayout?: 'dom' | 'pretext' } = {},
   ) {
-    await openScale(lab, page, size, { compare });
+    await openScale(lab, page, size, options);
     await caretAtEnd(page, 3);
     return percentile(await keystrokeWork(page, 60), 0.95);
   }
@@ -153,6 +153,20 @@ test.describe('performance', () => {
     expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40));
   });
 
+  // With the layout engine (DOCE-PAGINATION-11.5) the typing budgets are recorded, not enforced
+  // yet: pages off screen still lay out, so each key's selection and React's commit read every
+  // page's forced lines. They are enforced once off-screen pages skip layout.
+  test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 records each keystroke on 40 and 300 pages with the layout engine', async ({
+    lab,
+    page,
+  }) => {
+    const options = { textLayout: 'pretext' } as const;
+    report(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40, options));
+    const work = await typingWork(lab, page, SIZE.pages300, options);
+    report(BUDGETS.latency300, work);
+    expect(work).toBeGreaterThan(0);
+  });
+
   test('DOCE-LABS-2.3 draws each remote keystroke on 300 pages within its budget', async ({
     lab,
     page,
@@ -169,7 +183,7 @@ test.describe('performance', () => {
     page,
   }) => {
     // Typing compares only the block typed in; its work is reported beside plain typing's budget.
-    const typing = await typingWork(lab, page, SIZE.pages300, true);
+    const typing = await typingWork(lab, page, SIZE.pages300, { compare: true });
     report(BUDGETS.latencyCompare300, typing);
     expect(typing).toBeGreaterThan(0);
     // A remote change compares the whole document, at once, within the remote typing budget.

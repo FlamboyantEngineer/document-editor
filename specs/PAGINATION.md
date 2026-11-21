@@ -690,3 +690,42 @@ Verification: `src/layout-engine/blocks/tables.test.ts`
 
 Implementation: `src/layout-engine/blocks/regions.ts`
 Verification: `src/layout-engine/blocks/regions.test.ts`
+
+## DOCE-PAGINATION-11 - The layout engine on the pages
+
+Behind the editor's `textLayout: 'pretext'` option, off by default, the pages are laid out and drawn with the text layout engine (DOCE-PAGINATION-9, DOCE-PAGINATION-10) in place of the DOM's measuring. The engine's module loads only when the option is on. The web layout keeps the DOM's lines.
+
+### DOCE-PAGINATION-11.1 - Measuring with the engine
+
+With the option on, the paged projection shall load the engine with its first layout and make it again for each template the pages are laid out with. Each top-level block of a section's page content shall take its height, margins and split measurement from the engine, in the section's content width, kept by node, its heading or paragraph number and its section; a block with a layout rule of its own, or one the engine cannot lay out yet, shall be measured in the DOM as before, with the reason counted in the projection's `stats().textLayout`. When atoms that were still loading settle, the engine shall forget what it kept and the pages be laid out again.
+
+Implementation: `src/pagination/text-engine.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`, `src/pagination/projection.ts`
+Verification: `src/pagination/text-engine.test.ts`, `src/pagination/measure-blocks.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.2 - Forced lines
+
+With the option on, the pages shall draw each top-level paragraph and heading the engine lays out on the engine's lines, so the browser chooses no line break in them. The block shall carry `de-forced-lines`, `data-lines` with its number of lines and, for a numbered heading's first part, `data-number` with the engine's number; each line that wraps shall end at its last character, marked `de-forced-lines__end`, which the stylesheet draws followed by a line feed, never cutting a character in two; a line that starts in from the content edge, as a centred or right-aligned one, shall start with `de-forced-lines__start` and `--de-line-indent`; a wrapped justified line shall carry `de-forced-lines__justified` and the `--de-word-spacing` that fills it. Numbered paragraphs are still drawn on the browser's lines. The decorations shall be drawn on the pages' own view and kept by node, so a keystroke lays out only the block it changed again and every other block keeps its decorations.
+
+Implementation: `src/pagination/forced-lines.ts`, `labs/reference/document.css`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.3 - The computed lines
+
+The editor handle's `textLines()` shall give, page by page, each top-level paragraph and heading with its element id, its part, its position, where its content starts in the whole block, and the lines the engine computed for it on that page, as offsets in the whole block with their text; or no lines and the reason when the browser draws it. Without the option it shall give no pages.
+
+Implementation: `src/pagination/text-lines.ts`, `src/components/document-editor/editor-handle.ts`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.4 - The guard on forced lines
+
+`findWrappedLines(root)` shall give each forced block whose drawn lines differ in number from its computed ones, as when the browser wrapped a line by itself, with its element id and both counts. It reads every forced block's boxes, so tests and development call it, not each layout.
+
+Implementation: `src/pagination/layout-validation.ts`
+Verification: `src/pagination/layout-validation.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.5 - Typing with the engine
+
+The stress lab's typing measurement shall also run with the option on at 40 and 300 pages and record each keystroke's time. Until the pages' DOM walk per key is reduced, these times are recorded and not yet held to the typing budgets.
+
+Implementation: `labs/src/stress/stress-lab.tsx`, `e2e/budgets.ts`
+Verification: `e2e/performance.spec.ts`

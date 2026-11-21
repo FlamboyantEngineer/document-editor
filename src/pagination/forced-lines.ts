@@ -102,7 +102,11 @@ function prefixOf(builder: Builder, node: ProseMirrorNode, pos: number): string 
 }
 
 // A forced block's own decorations, relative to its content, kept by node and number.
-function blockSet(builder: Builder, node: ProseMirrorNode, drawn: { table: DrawnLines; key: string }) {
+function blockSet(
+  builder: Builder,
+  node: ProseMirrorNode,
+  drawn: { table: DrawnLines; key: string },
+) {
   const { table, key } = drawn;
   const kept = builder.blocks.get(node);
   if (kept?.key === key) return kept.set;
@@ -140,7 +144,11 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
 
 // A node's set, kept by node: page content holds the forced blocks; sections and pages hold the
 // sets of their page content.
-function setOf(builder: Builder, node: ProseMirrorNode, at: { pos: number } & Scope): DecorationSet {
+function setOf(
+  builder: Builder,
+  node: ProseMirrorNode,
+  at: { pos: number } & Scope,
+): DecorationSet {
   const kept = builder.containers.get(node);
   if (kept) return kept;
   const name = node.type.name;
@@ -152,7 +160,8 @@ function setOf(builder: Builder, node: ProseMirrorNode, at: { pos: number } & Sc
     const start = name === 'doc' ? 0 : at.pos + 1;
     node.forEach((child, offset) => {
       const childSet = setOf(builder, child, { pos: start + offset, name: scope });
-      if (childSet !== DecorationSet.empty) children.push(offset, offset + child.nodeSize, childSet);
+      if (childSet !== DecorationSet.empty)
+        children.push(offset, offset + child.nodeSize, childSet);
     });
     if (children.length) set = new makeSet([], children);
   }

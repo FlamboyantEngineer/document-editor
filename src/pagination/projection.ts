@@ -62,9 +62,13 @@ import {
   take,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
-import { holdTextEngine, type TextEngineHolder, type TextLayoutSetting } from './text-engine-holder.js';
+import {
+  holdTextEngine,
+  type TextEngineHolder,
+  type TextLayoutSetting,
+} from './text-engine-holder.js';
 import type { TextEngineStats } from './text-engine-types.js';
-import { type PageTextLines,pageTextLines } from './text-lines.js';
+import { type PageTextLines, pageTextLines } from './text-lines.js';
 import { createTypingProbe } from './typing-probe.js';
 
 /** A canonical transaction as the projection applied it: the state it was applied to, and made. */
@@ -228,7 +232,9 @@ function projectionState(
       }),
       canonicalDecorations(source),
       pageChromeDecorations(),
-      ...(text ? [forcedLines({ engine: () => text.engine(), version: () => text.version() })] : []),
+      ...(text
+        ? [forcedLines({ engine: () => text.engine(), version: () => text.version() })]
+        : []),
       checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
       // The pages number their own footnotes, through the document or on each page.

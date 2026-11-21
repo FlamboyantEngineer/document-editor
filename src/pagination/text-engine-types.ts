@@ -18,7 +18,7 @@ export interface TextEngineOptions {
 }
 
 /** A text block's place on the pages. */
-export interface LinesPlace {
+interface LinesPlace {
   /** The template section its page is in; null for the template's own scope. */
   readonly scope: string | null;
   /** Text before its content on its first line, such as a heading's number. */
@@ -31,7 +31,7 @@ export interface DrawnLines extends LineTable {
 }
 
 /** A document's numbered blocks, by position. */
-export interface DocumentNumbering {
+interface DocumentNumbering {
   /** Each numbered heading's number with its space. */
   readonly headings: ReadonlyMap<number, string>;
   /** The numbered paragraphs, which the browser still draws on its own lines. */

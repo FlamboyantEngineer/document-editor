@@ -229,3 +229,21 @@ describe('measured block cache', () => {
     view.destroy();
   });
 });
+
+describe('measuring with the layout engine', () => {
+  it('DOCE-PAGINATION-11.1 takes the blocks the engine lays out and measures the rest in the view', () => {
+    stubRangeLayout();
+    const view = paragraphsView(['One', 'Two']);
+    const laid = { node: view.state.doc.firstChild, height: 42, marginTop: 0, marginBottom: 0 };
+    const engine = vi.fn((node: { textContent: string }) =>
+      node.textContent === 'One' ? { ...laid, node: node as never } : null,
+    );
+    const blocks = measureChildBlocks(view, contentPos(view), { engine });
+    expect(engine).toHaveBeenCalledTimes(2);
+    expect(blocks.map((block) => [block.node.textContent, block.height])).toEqual([
+      ['One', 42],
+      ['Two', 0],
+    ]);
+    view.destroy();
+  });
+});

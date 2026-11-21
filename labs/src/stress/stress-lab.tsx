@@ -93,6 +93,11 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
   return sizes?.find(({ value }) => value === asked)?.value ?? sizes?.[0]?.value ?? 1;
 }
 
+// `?textLayout=pretext` lays the text out with the layout engine and draws its lines (DOCE-PAGINATION-11),
+// so the budgets can be measured with it.
+const TEXT_LAYOUT =
+  new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+
 // `?compare` shows the document's changes since it was opened as change bars, as a reader reviewing
 // changes sees it, so the budgets can be measured with a comparison running.
 const COMPARE = new URLSearchParams(window.location.search).has('compare')
@@ -232,6 +237,7 @@ function StressLab({ build, sizes, remote, threads, plugins, editor }: StressLab
         onStateChange={setState}
         template={TEMPLATE}
         layout={layout}
+        textLayout={TEXT_LAYOUT}
         toolbar={TOOLBAR}
         scrollable
         statusBar
