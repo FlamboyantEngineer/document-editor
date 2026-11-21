@@ -3,6 +3,7 @@
 // served fonts with Canvas `measureText`, under each device pixel ratio and text rendering mode, and
 // prints the widths with a fingerprint of each mode. Run it on each operating system and compare.
 //   node canvas-widths.mjs <fonts-dir> [out.json]
+// PROBE_CHANNEL=chromium measures in the full browser rather than the headless shell.
 // <fonts-dir> holds geist-latin-wght-normal.woff2, KaTeX_Main-Regular.woff2 and
 // KaTeX_SansSerif-Regular.woff2. CHROMIUM_PATH picks the browser; otherwise Playwright's own.
 
@@ -42,6 +43,7 @@ function fontFaces() {
 async function measure(dpr, faces) {
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
+    channel: process.env.PROBE_CHANNEL || undefined,
     args: [`--force-device-scale-factor=${String(dpr)}`],
   });
   try {
@@ -147,7 +149,10 @@ for (const dpr of DPRS) {
     }
   }
 }
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
+const browser = await chromium.launch({
+  executablePath: process.env.CHROMIUM_PATH || undefined,
+  channel: process.env.PROBE_CHANNEL || undefined,
+});
 const version = browser.version();
 await browser.close();
 const report = { os: `${platform()} ${release()}`, chromium: version, runs };
