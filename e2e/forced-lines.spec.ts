@@ -58,7 +58,7 @@ function lineTops(page: Page, index: number) {
 }
 
 for (const { name, query } of MODES) {
-  test.describe(`Forced lines spike, drawn by ${name}`, () => {
+  test.describe(`DOCE-LABS-6.1 Forced lines spike, drawn by ${name}`, () => {
     test.beforeEach(() => {
       mode = query;
     });

@@ -10,9 +10,12 @@ export interface ForcedLinesReport {
     readonly drawn: number;
     readonly expected: number;
   }[];
-  /** The furthest any drawn line reaches past its block's right edge, in pixels. */
+  /** The furthest any drawn character reaches past the column's right edge, in pixels. */
   readonly overhang: number;
 }
+
+// The room past the column the lab's stylesheet gives forced blocks (`margin-inline-end`).
+const SLACK = 8;
 
 declare global {
   interface Window {
@@ -20,16 +23,26 @@ declare global {
   }
 }
 
-// The distinct line boxes the text of `element` is drawn on.
+// The distinct line boxes the text of `element` is drawn on, and how far its furthest drawn
+// character other than a space reaches.
 function drawnLines(element: Element): { count: number; right: number } {
   const range = document.createRange();
   range.selectNodeContents(element);
   const tops: number[] = [];
-  let right = -Infinity;
   for (const rect of range.getClientRects()) {
     if (rect.height === 0) continue;
-    right = Math.max(right, rect.right);
     if (!tops.some((top) => Math.abs(top - rect.top) < rect.height / 2)) tops.push(rect.top);
+  }
+  let right = -Infinity;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.nodeValue ?? '';
+    for (let at = 0; at < text.length; at += 1) {
+      if (text[at] === ' ') continue;
+      range.setStart(node, at);
+      range.setEnd(node, at + 1);
+      right = Math.max(right, range.getBoundingClientRect().right);
+    }
   }
   return { count: Math.max(1, tops.length), right };
 }
@@ -52,7 +65,8 @@ function check(): ForcedLinesReport {
     const expected = breaks + 1;
     const { count, right } = drawnLines(block);
     lines += count;
-    const edge = block.getBoundingClientRect().right;
+    // The column ends where the block's box would without the lab's slack.
+    const edge = block.getBoundingClientRect().right - SLACK;
     overhang = Math.max(overhang, right - edge);
     if (count !== expected)
       mismatches.push({ text: (block.textContent ?? '').slice(0, 60), drawn: count, expected });

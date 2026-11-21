@@ -34,7 +34,7 @@ function measure(budget: Budget, size: number) {
   });
 }
 
-test.describe('Forced lines spike typing', () => {
+test.describe('DOCE-LABS-6.2 Forced lines spike typing', () => {
   measure(BUDGETS.latency40, SIZE.pages40);
   measure(BUDGETS.latency300, SIZE.pages300);
 });
