@@ -9,7 +9,7 @@ import type { PageTextLines } from '../src/pagination/index.js';
 import { type BlockAt, readDrawnLines, readDrawnPages } from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
-// The one-result invariant (specs/LABS.md DOCE-LABS-7): with `textLayout: 'pretext'`, the lines and
+// The one-result invariant (specs/LABS.md DOCE-LABS-8): with `textLayout: 'pretext'`, the lines and
 // pages the layout engine computed are the ones the editor draws. For every document of the
 // regression set, at zooms from 50 to 150 percent and at real device pixel ratios of 1, 1.25 and 2
 // (the `chromium-dpr-*` projects), each page holds the text blocks the engine put on it, and each
@@ -113,10 +113,10 @@ function zoomRuns(testInfo: TestInfo, zoom: number) {
   return testInfo.project.name === 'chromium' || DPR_ZOOMS.includes(zoom);
 }
 
-test.describe('DOCE-LABS-7.1 computed lines and pages are the drawn ones', () => {
+test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () => {
   for (const name of NAMES) {
     for (const zoom of ZOOMS) {
-      test(`DOCE-LABS-7.1 ${name} at ${String(zoom)}%`, async ({ page }, testInfo) => {
+      test(`DOCE-LABS-8.1 ${name} at ${String(zoom)}%`, async ({ page }, testInfo) => {
         test.skip(!zoomRuns(testInfo, zoom), 'the middle zooms run at a device pixel ratio of 1');
         await open(page, name, zoom);
         await expectOneResult(page);
@@ -124,7 +124,7 @@ test.describe('DOCE-LABS-7.1 computed lines and pages are the drawn ones', () =>
     }
   }
 
-  test('DOCE-LABS-7.1 a line the browser wraps by itself fails the check', async ({ page }) => {
+  test('DOCE-LABS-8.1 a line the browser wraps by itself fails the check', async ({ page }) => {
     await open(page, 'long-mixed', 100);
     expect(await mismatchesOf(page)).toEqual([]);
     // A column narrower than the one the engine fitted the lines to: the browser wraps them again.
@@ -136,8 +136,8 @@ test.describe('DOCE-LABS-7.1 computed lines and pages are the drawn ones', () =>
   });
 });
 
-test.describe('DOCE-LABS-7.2 the invariant holds through editing', () => {
-  test('DOCE-LABS-7.2 typing and deleting at a paragraph split between pages', async ({ page }) => {
+test.describe('DOCE-LABS-8.2 the invariant holds through editing', () => {
+  test('DOCE-LABS-8.2 typing and deleting at a paragraph split between pages', async ({ page }) => {
     await open(page, 'oversized-blocks', 100);
     const caret = await page.evaluate(() =>
       window.regressionLab.caretAtFragment('paragraph', 'head-end'),
@@ -151,7 +151,7 @@ test.describe('DOCE-LABS-7.2 the invariant holds through editing', () => {
     await expectOneResult(page);
   });
 
-  test('DOCE-LABS-7.2 a hard break and a new paragraph at 125%', async ({ page }) => {
+  test('DOCE-LABS-8.2 a hard break and a new paragraph at 125%', async ({ page }) => {
     await open(page, 'oversized-blocks', 125);
     const caret = await page.evaluate(() =>
       window.regressionLab.caretAtFragment('paragraph', 'continuation-start'),

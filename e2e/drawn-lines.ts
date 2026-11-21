@@ -1,4 +1,4 @@
-// Reading the lines the editor draws (DOCE-LABS-7): each text block's characters grouped by the line
+// Reading the lines the editor draws (DOCE-LABS-8): each text block's characters grouped by the line
 // box the browser drew them on, page by page. The reader knows nothing of how lines are forced: it
 // takes a block's own text, leaves out what the writer cannot edit (atoms and widgets drawn beside
 // the text), and starts a line wherever a character sits below every character of the line before.

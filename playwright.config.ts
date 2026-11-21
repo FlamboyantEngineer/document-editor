@@ -49,7 +49,7 @@ export default defineConfig({
       testIgnore: [/\.performance\.spec\.ts$/, /\/performance\.spec\.ts$/],
     },
     // How close the Pretext prediction is to the browser (DOCE-LABS-5.6), and that the editor draws
-    // the lines it computed (DOCE-LABS-7), at real device pixel ratios.
+    // the lines it computed (DOCE-LABS-8), at real device pixel ratios.
     devicePixelRatio(1.25),
     devicePixelRatio(2),
     // The heaviest timing test, 300 pages beside 500 comment threads, alone after the lab tests, so

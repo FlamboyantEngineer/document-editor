@@ -322,18 +322,18 @@ With the lines drawn on the pages' own view and pages off screen skipping their 
 Implementation: `labs/src/spikes/forced-lines/direct.ts`, `labs/forced-lines.html`
 Verification: `e2e/forced-lines.performance.spec.ts`
 
-## DOCE-LABS-7 - One layout result
+## DOCE-LABS-8 - One layout result
 
-### DOCE-LABS-7.1 - Computed lines and pages are the drawn ones
+### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones
 
 With `textLayout: 'pretext'`, the regression lab shall show (`window.regressionLab.textLines()`) the layout engine's result: page by page, each text block fragment it laid out with the lines it draws on that page, and each block it left to the DOM with the reason. For every document of the regression set, at zooms of 50, 75, 100, 125 and 150 percent at a device pixel ratio of 1, and of 50, 100 and 150 percent in Chromium launched at device pixel ratios 1.25 and 2, the editor shall draw as many pages as computed, each page shall draw exactly the forced blocks the engine put on it, and each block's drawn lines, read from the line boxes its own characters sit on, shall equal the computed lines in count and text. A block drawn in a narrower column than its lines were fitted to shall fail the check. The regression lab shall take a `zoom` query in percent.
 
 Implementation: `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`, `playwright.config.ts`
 Verification: `e2e/layout-invariant.spec.ts`
 
-### DOCE-LABS-7.2 - The invariant through editing
+### DOCE-LABS-8.2 - The invariant through editing
 
-Typing and deleting at a paragraph split between pages, a hard break and a new paragraph shall keep DOCE-LABS-7.1: after the edit settles, the drawn lines and pages shall equal those computed again.
+Typing and deleting at a paragraph split between pages, a hard break and a new paragraph shall keep DOCE-LABS-8.1: after the edit settles, the drawn lines and pages shall equal those computed again.
 
 Implementation: `labs/src/regression/regression-probe.ts`
 Verification: `e2e/layout-invariant.spec.ts`
