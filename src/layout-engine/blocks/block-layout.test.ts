@@ -43,7 +43,9 @@ function expectSound(block: LayoutBlock) {
   const { measurement } = block;
   if (isContainerMeasurement(measurement)) expectChildrenInside(measurement.children, block.height);
   if (isTextMeasurement(measurement)) {
-    expect(measurement.measure(0, Number.POSITIVE_INFINITY).lines).toBeGreaterThan(0);
+    // An empty block's one line is the line its start is on.
+    const all = measurement.measure(0, Number.POSITIVE_INFINITY).lines;
+    expect(all || measurement.measure(0, 0).lines).toBeGreaterThan(0);
   }
 }
 

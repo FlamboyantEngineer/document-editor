@@ -7,6 +7,7 @@
 // opens (a timing experiment).
 
 import { setLayoutScale, setMeasureContext } from '@chenglou/pretext';
+import { keepForcedLineCaretSide } from './spikes/forced-lines/caret.js';
 import { drawForcedLinesDirectly } from './spikes/forced-lines/direct.js';
 import { casesDocument, singleSectionDocument } from './spikes/forced-lines/documents.js';
 import { createForcedLines, type ForcedAlignment } from './spikes/forced-lines/plugin.js';
@@ -48,11 +49,15 @@ const options = {
 // `?direct` draws the lines on the pages' own view rather than as canonical decorations.
 const direct = forced && query.has('direct');
 if (direct) drawForcedLinesDirectly(options);
+if (forced) keepForcedLineCaretSide();
 
 mountStressLab({
   build: (size) => (SCENARIOS[size] ?? SCENARIOS[0]).build(),
   sizes: SCENARIOS.map(({ label }, value) => ({ label, value })),
   editor: { find: true, suggesting: query.has('suggest') },
   plugins: () => (forced && !direct ? [createForcedLines(options)] : []),
+  // A completion offer is drawn inline after a pause, and Pretext does not lay it out, so the
+  // browser would wrap the line it sits on. Off until the engine lays offers out with their line.
+  completion: false,
 });
 installForcedLinesProbe();

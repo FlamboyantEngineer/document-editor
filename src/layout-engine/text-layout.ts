@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
+import { footnoteMarkerItem } from './footnote-marker.js';
 import type { LineTable } from './line-table.js';
 import { createLineCache, layoutLines } from './lines.js';
 import { strutOf, textWidth } from './metrics.js';
@@ -27,7 +28,7 @@ export interface TextLayoutOptions {
 }
 
 /** Where a text block is laid out. */
-interface TextBlockPlace {
+export interface TextBlockPlace {
   /** The width the block gets, its padding included. */
   readonly width: number;
   /** The template section the block is in; the template's own scope when absent. */
@@ -36,10 +37,12 @@ interface TextBlockPlace {
   readonly prefix?: string | undefined;
   /** A numbered paragraph's number (`documentNumbers`), drawn in a box before its first line. */
   readonly number?: ParagraphNumber | undefined;
+  /** A footnote entry's number, drawn before its content in the template's marker style. */
+  readonly footnoteNumber?: string | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
-type TextBlockLayout =
+export type TextBlockLayout =
   | { readonly ok: true; readonly table: LineTable }
   | { readonly ok: false; readonly reason: string };
 
@@ -51,7 +54,7 @@ interface TextLayout {
   readonly layoutText: (node: ProseMirrorNode, place: TextBlockPlace) => TextBlockLayout;
 }
 
-const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block']);
+const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block', 'footnote_entry']);
 
 function hasCode(node: ProseMirrorNode): boolean {
   let found = false;
@@ -64,10 +67,11 @@ function hasCode(node: ProseMirrorNode): boolean {
 function unservedFamily(
   node: ProseMirrorNode,
   typography: BlockTypography,
-  isFontServed: (family: string) => boolean,
+  { isFontServed, marker }: { isFontServed: (family: string) => boolean; marker?: string },
 ): string | null {
   const families = [typography.font.family];
   if (hasCode(node)) families.push(typography.codeFamily);
+  if (marker) families.push(marker);
   return families.map(firstFamily).find((family) => !isFontServed(family)) ?? null;
 }
 
@@ -82,8 +86,15 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       if (!TEXT_BLOCKS.has(node.type.name))
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
+      const marker =
+        place.footnoteNumber === undefined
+          ? null
+          : footnoteMarkerItem(place.footnoteNumber, style, { ...options, scope: place.scope });
       const unserved = options.isFontServed
-        ? unservedFamily(node, style, options.isFontServed)
+        ? unservedFamily(node, style, {
+            isFontServed: options.isFontServed,
+            ...(marker ? { marker: marker.family } : {}),
+          })
         : null;
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
       const font = fontString(style.font);
@@ -98,7 +109,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       const runs = buildRuns({
         node,
         typography: style,
-        prefix: place.prefix,
+        prefix: marker?.item ?? place.prefix,
         lead: numbered?.box,
         measureAtom: options.measureAtom,
       });
