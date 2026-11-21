@@ -19,10 +19,13 @@ export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid
   const { options, place, parent } = context;
   const scope = place.scope ?? null;
   const prefix = options.labelOf?.(node);
+  const footnoteNumber =
+    node.type.name === 'footnote_entry' ? options.footnoteOf?.(node) : undefined;
   const result = options.text.layoutText(node, {
     width: place.width,
     scope,
     ...(prefix ? { prefix } : {}),
+    ...(footnoteNumber === undefined ? {} : { footnoteNumber }),
   });
   if (!result.ok) return notLaid(node, result.reason);
   const { table } = result;
