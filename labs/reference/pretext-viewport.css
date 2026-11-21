@@ -1,0 +1,21 @@
+/* Scroll geometry stays active when the reader switches the reference presentation off. */
+[data-pretext-lab] .pretext-scroll {
+  height: 68vh;
+  min-height: 360px;
+  overflow: auto;
+  overflow-anchor: none;
+}
+
+[data-pretext-lab] .pretext-extent {
+  position: relative;
+  min-width: var(--doc-page-width);
+}
+
+[data-pretext-lab] .pretext-extent > .pm-page {
+  position: absolute;
+  box-sizing: border-box;
+  width: var(--doc-page-width);
+  height: var(--doc-page-height);
+  left: max(0px, (100% - var(--doc-page-width)) / 2);
+  contain: layout paint;
+}

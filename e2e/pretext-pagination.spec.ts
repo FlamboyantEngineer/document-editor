@@ -4,10 +4,10 @@ const url = '/pretext-pagination.html';
 const largePage = 271;
 
 test('DOCE-LABS-5.1 predicts off-document and keeps mounted pages bounded through a distant jump', async ({
-  lab,
   page,
 }) => {
-  await lab.open('pretext-pagination');
+  await page.goto(`${url}?view=preview`);
+  await expect(page.locator('#pretext-editor')).toBeEmpty();
   const status = page.getByRole('status').filter({ hasText: 'pages indexed' });
   await expect(status).toHaveText('4 pages indexed');
   const reader = page.getByRole('region', { name: 'Document pages' });
@@ -70,6 +70,7 @@ test('DOCE-LABS-5.2 compares natural HTML offsets, heights, boundaries and overf
   page,
 }, info) => {
   await page.goto(`${url}?measure`);
+  await expect(page.locator('#pretext-editor')).toBeEmpty();
   const parity = await page.evaluate(async () =>
     Promise.all([600, 510, 375].map((width) => window.pretextPagination.verify('examples', width))),
   );

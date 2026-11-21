@@ -1,21 +1,6 @@
 [data-pretext-lab] .pretext-scroll {
-  height: 68vh;
-  min-height: 360px;
-  overflow: auto;
-  overflow-anchor: none;
   background: var(--ref-surface);
   border: 1px solid var(--ref-border);
-}
-
-[data-pretext-lab] .pretext-extent {
-  position: relative;
-  min-width: var(--doc-page-width);
-}
-
-[data-pretext-lab] .pretext-extent > .pm-page {
-  position: absolute;
-  left: max(0px, (100% - var(--doc-page-width)) / 2);
-  contain: layout paint;
 }
 
 [data-pretext-lab] .pretext-extent .pm-page-content {

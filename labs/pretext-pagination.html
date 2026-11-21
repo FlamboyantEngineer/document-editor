@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="reference/pretext-viewport.css" />
     <link rel="icon" href="data:," />
     <style>
       html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
@@ -16,11 +17,11 @@
   </head>
   <body>
     <header id="lab-chrome"></header>
-    <main id="lab-root" data-pretext-lab>
+    <main id="lab-root" class="lab-fill">
       <h1>Pretext pagination</h1>
       <p>
-        Predict page boundaries in a worker and render only nearby pages. Check predictions against
-        naturally wrapped reference HTML.
+        Edit and review a document, then preview its pages with Pretext. Drafts last until you
+        reload.
       </p>
       <div class="lab-controls">
         <div>
@@ -39,27 +40,39 @@
             <option value="unsupported">Unsupported example</option>
           </select>
         </div>
-        <label
-          >Overscan <input id="pretext-overscan" type="number" value="1" min="0" max="3"
-        /></label>
-        <label>Page <input id="pretext-page" type="number" value="1" min="1" /></label>
-        <button id="pretext-jump" type="button">Go to page</button>
-        <button id="pretext-verify" type="button">Check HTML parity</button>
+        <div>
+          <label for="pretext-view">View</label>
+          <select id="pretext-view">
+            <option value="editor">Full editor</option>
+            <option value="preview">Pretext preview</option>
+          </select>
+        </div>
       </div>
-      <p id="pretext-status" role="status"></p>
-      <div
-        class="de-document-editor pretext-scroll"
-        id="pretext-reader"
-        tabindex="0"
-        role="region"
-        aria-label="Document pages"
-      >
-        <div class="pretext-extent"></div>
+      <div id="pretext-editor" class="lab-editor"></div>
+      <div data-pretext-lab>
+        <div class="lab-controls">
+          <label
+            >Overscan <input id="pretext-overscan" type="number" value="1" min="0" max="3"
+          /></label>
+          <label>Page <input id="pretext-page" type="number" value="1" min="1" /></label>
+          <button id="pretext-jump" type="button">Go to page</button>
+          <button id="pretext-verify" type="button">Check HTML parity</button>
+        </div>
+        <p id="pretext-status" role="status"></p>
+        <div
+          class="de-document-editor pretext-scroll"
+          id="pretext-reader"
+          tabindex="0"
+          role="region"
+          aria-label="Document pages"
+        >
+          <div class="pretext-extent"></div>
+        </div>
+        <details id="pretext-details">
+          <summary>HTML parity report</summary>
+          <pre id="pretext-report"></pre>
+        </details>
       </div>
-      <details id="pretext-details">
-        <summary>HTML parity report</summary>
-        <pre id="pretext-report"></pre>
-      </details>
     </main>
   </body>
 </html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="reference/pretext-viewport.css" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <title>Pretext virtual pages · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/pretext-page-link.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" data-pretext-lab>
+      <h1>Pretext virtual pages</h1>
+      <p>
+        Open a page of the 4,800-block document by its link. Scrolling mounts the visible pages and
+        one neighbouring page on either side.
+      </p>
+      <nav class="lab-controls" aria-label="Document page links">
+        <a href="#page=1">First page</a>
+        <a href="#page=150">Page 150</a>
+      </nav>
+      <p id="pretext-window" role="status">Indexing the document…</p>
+      <div
+        class="de-document-editor pretext-scroll"
+        tabindex="0"
+        role="region"
+        aria-label="Document pages"
+      >
+        <div class="pretext-extent"></div>
+      </div>
+    </main>
+  </body>
+</html>

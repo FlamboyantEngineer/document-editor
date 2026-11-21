@@ -7,8 +7,8 @@ import { labStorage } from './storage.js';
 
 function updateIndexLinks(index: HTMLElement, search: string) {
   for (const link of index.querySelectorAll<HTMLAnchorElement>('a[href]')) {
-    const page = link.getAttribute('href')?.split('?')[0] ?? '';
-    link.setAttribute('href', `${page}${search}`);
+    const page = link.getAttribute('href')?.split(/[?#]/u)[0] ?? '';
+    link.setAttribute('href', `${page}${search}${link.hash}`);
   }
 }
 

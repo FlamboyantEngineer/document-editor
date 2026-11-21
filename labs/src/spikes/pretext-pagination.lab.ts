@@ -1,5 +1,7 @@
 import { writeDocumentFile } from '../../../src/model/format/document-format-write.js';
 import { afterPaint, baseline, mountedDom, timed } from './pretext/benchmark.js';
+import { fontsReady, PredictionWorker } from './pretext/client.js';
+import type { createFixtureEditors } from './pretext/editor.js';
 import {
   contentBlocks,
   fixture,
@@ -9,21 +11,16 @@ import {
 } from './pretext/fixtures.js';
 import { VirtualPages } from './pretext/html.js';
 import { blockId } from './pretext/prediction.js';
-import type { LayoutRequest, LayoutResult } from './pretext/protocol.js';
-import {
-  applySettings,
-  code,
-  defaultWidth,
-  font,
-  headings,
-  paragraph,
-} from './pretext/settings.js';
+import { applySettings, defaultWidth } from './pretext/settings.js';
 
 function mount<T extends HTMLElement>(selector: string) {
   return requireValue(document.querySelector<T>(selector), selector);
 }
 
-const root = mount('#lab-root');
+const root = mount('[data-pretext-lab]');
+const editor = mount('#pretext-editor');
+const view = mount<HTMLSelectElement>('#pretext-view');
+let editors: ReturnType<typeof createFixtureEditors> | undefined;
 const reader = mount('#pretext-reader');
 const extent = mount('.pretext-extent');
 const workload = mount<HTMLSelectElement>('#pretext-workload');
@@ -37,54 +34,6 @@ const output = mount('#pretext-report');
 const pages = new VirtualPages(reader, extent);
 const widthAfterResize = defaultWidth - 120;
 const overscanCount = () => Math.min(3, Math.max(0, Math.floor(overscan.valueAsNumber || 0)));
-const fonts = [
-  paragraph,
-  ...headings,
-  code,
-  { ...paragraph, weight: 700 },
-  { ...paragraph, italic: true },
-  { ...paragraph, italic: true, weight: 700 },
-  { ...paragraph, family: '"Courier New", monospace' },
-];
-const fontsReady = async () => {
-  await Promise.all(fonts.map((style) => document.fonts.load(font(style))));
-  await document.fonts.ready;
-};
-
-class PredictionWorker {
-  private readonly worker = new Worker(new URL('./pretext-pagination-worker.js', import.meta.url), {
-    type: 'module',
-  });
-
-  request(request: LayoutRequest) {
-    return new Promise<LayoutResult>((resolve, reject) => {
-      const signal = new AbortController();
-      this.worker.addEventListener(
-        'message',
-        (event: MessageEvent<LayoutResult | { error: string }>) => {
-          signal.abort();
-          if ('error' in event.data) reject(new Error(event.data.error));
-          else resolve(event.data);
-        },
-        { signal: signal.signal },
-      );
-      this.worker.addEventListener(
-        'error',
-        (event) => {
-          signal.abort();
-          reject(new Error(event.message));
-        },
-        { signal: signal.signal },
-      );
-      this.worker.postMessage(request);
-    });
-  }
-
-  close() {
-    this.worker.terminate();
-  }
-}
-
 let generation = 0;
 let current: PredictionWorker | undefined;
 let queued = Promise.resolve();
@@ -108,9 +57,10 @@ function choose() {
     await fontsReady();
     current?.close();
     current = new PredictionWorker();
-    const file = fixture(selected);
+    const file = editors?.file(selected) ?? fixture(selected);
     const result = await current.request({ file, width: defaultWidth });
     if (number !== generation) return;
+    document.documentElement.dataset.labReady = 'true';
     if (!result.index) {
       status.textContent = result.issues.join(' · ');
       return;
@@ -122,14 +72,16 @@ function choose() {
     check.disabled = false;
     jump.disabled = false;
     status.textContent = `${String(result.index.pages.length)} pages indexed`;
-    document.documentElement.dataset.labReady = 'true';
   });
 }
 
-async function verify(workload: Workload = 'examples', width = defaultWidth) {
+async function verify(
+  workload: Workload = 'examples',
+  width = defaultWidth,
+  file = fixture(workload),
+) {
   await fontsReady();
   const worker = new PredictionWorker();
-  const file = fixture(workload);
   try {
     const doc = readFixture(file);
     const saved = JSON.stringify(writeDocumentFile(doc));
@@ -264,9 +216,35 @@ async function compareProductionBoundaries(
   }
 }
 
-const measureOnly = new URLSearchParams(location.search).has('measure');
-if (!measureOnly) {
-  workload.addEventListener('change', choose);
+const query = new URLSearchParams(location.search);
+function showView() {
+  const editing = view.value === 'editor';
+  root.hidden = editing;
+  document.documentElement.dataset.labReady = 'false';
+  if (!editing) {
+    editors?.close();
+    choose();
+    return;
+  }
+  const number = ++generation;
+  pages.clear();
+  const selected = workload.value as Workload;
+  queue(async () => {
+    const { createFixtureEditors } = await import('./pretext/editor.js');
+    if (number !== generation) return;
+    current?.close();
+    current = undefined;
+    editors ??= createFixtureEditors(editor);
+    editors.show(selected, () => {
+      if (number === generation) document.documentElement.dataset.labReady = 'true';
+    });
+  });
+}
+
+if (!query.has('measure')) {
+  if (query.get('view') === 'preview') view.value = 'preview';
+  workload.addEventListener('change', showView);
+  view.addEventListener('change', showView);
   overscan.addEventListener('change', () => pages.setOverscan(overscanCount()));
   jump.addEventListener('click', () => pages.jump((jumpTo.valueAsNumber || 1) - 1));
   check.addEventListener('click', () => {
@@ -277,7 +255,11 @@ if (!measureOnly) {
     output.textContent = 'Comparing with naturally wrapped HTML…';
     queue(async () => {
       try {
-        const { predictedBoundaries, htmlBoundaries, ...result } = await verify(selected);
+        const { predictedBoundaries, htmlBoundaries, ...result } = await verify(
+          selected,
+          defaultWidth,
+          editors?.file(selected),
+        );
         if (number !== generation) return;
         output.textContent = JSON.stringify(
           {
@@ -296,9 +278,12 @@ if (!measureOnly) {
       }
     });
   });
-  document.fonts.addEventListener('loadingdone', choose);
-  document.fonts.addEventListener('loadingerror', choose);
-  choose();
+  const refreshPreview = () => {
+    if (view.value === 'preview') choose();
+  };
+  document.fonts.addEventListener('loadingdone', refreshPreview);
+  document.fonts.addEventListener('loadingerror', refreshPreview);
+  showView();
 }
 
 declare global {

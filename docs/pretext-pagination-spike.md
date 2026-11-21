@@ -4,11 +4,15 @@
 
 ## Run it
 
-Start the lab with `npm run labs` and open [Pretext pagination](http://127.0.0.1:4183/pretext-pagination.html). Choose Long document, enter page 271, and select **Go to page**. The default overscan is one page on each side. **Check HTML parity** on the formatting examples displays line, height, page boundary, and overflow differences. Use the Reference stylesheet for the experiment's sizing rules.
+Run `npm run labs` and open `/pretext-pagination.html` on the URL the server prints. The full editor opens by default. Choose any document, including the full pagination stress case. Right-click text to comment, or select **Suggesting** in the formatting toolbar to track an edit. The editor uses production pagination. Drafts, undo history and review threads stay in memory when switching documents or views and are discarded on reload.
+
+The lab index also links to **Pretext virtual pages · Open page 150** at `/pretext-page-link.html#page=150`. This dedicated reader indexes the long fixture and mounts the destination window on its first render. Its status shows the page in view and the actual number of mounted page elements as you scroll. The fragment can be bookmarked or shared.
+
+Choose **Pretext preview** to paginate the current draft in the worker. The preview shows inline review marks and **Check HTML parity** compares that draft to natural HTML. For the standalone viewer, open `/pretext-pagination.html?view=preview`. Choose **Long document**, enter page 271, and select **Go to page**. The default overscan is one page on each side. **Check HTML parity** on the formatting examples displays line, height, page boundary, and overflow differences. Use the Reference stylesheet for the experiment's sizing rules.
 
 ```sh
 npm run build:labs
-CHROMIUM_PATH=/usr/bin/chromium npx playwright test e2e/pretext-pagination.spec.ts e2e/pretext-pagination-stress.spec.ts --project=chromium --workers=1
+CHROMIUM_PATH=/usr/bin/chromium npx playwright test e2e/pretext-pagination.spec.ts e2e/pretext-pagination-stress.spec.ts e2e/pretext-pagination-editor.spec.ts e2e/pretext-page-link.spec.ts --project=chromium --workers=1
 PRETEXT_BENCH=1 CHROMIUM_PATH=/usr/bin/chromium npx playwright test e2e/pretext-pagination.performance.spec.ts --project=performance --no-deps --workers=1 --reporter=json > /tmp/pretext-benchmark.json
 ```
 

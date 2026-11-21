@@ -37,19 +37,6 @@ export function listLabPages() {
 }
 
 /**
- * The value of `--name value` or `--name=value`, or `fallback`.
- * @param {string} name
- * @param {string} fallback
- */
-export function option(name, fallback) {
-  const args = process.argv.slice(2);
-  const inline = args.find((arg) => arg.startsWith(`--${name}=`));
-  if (inline) return inline.slice(name.length + 3);
-  const value = args[args.indexOf(`--${name}`) + 1];
-  return args.includes(`--${name}`) && value !== undefined ? value : fallback;
-}
-
-/**
  * Whether `--name` was given.
  * @param {string} name
  */

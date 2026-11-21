@@ -21,7 +21,7 @@ export default defineConfig({
     ...(executablePath ? { launchOptions: { executablePath } } : {}),
   },
   webServer: {
-    command: 'node scripts/serve-labs.mjs',
+    command: 'node scripts/serve-labs.mjs --strict-port',
     url: `${origin}/index.html`,
     reuseExistingServer: !process.env.CI,
   },

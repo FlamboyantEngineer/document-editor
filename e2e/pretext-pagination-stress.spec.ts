@@ -58,6 +58,7 @@ test('DOCE-LABS-5.1 explains unsupported features in the full pagination stress 
   page,
 }) => {
   await lab.open('pretext-pagination');
+  await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('preview');
   await page
     .getByRole('combobox', { name: 'Document', exact: true })
     .selectOption('stress-pagination');

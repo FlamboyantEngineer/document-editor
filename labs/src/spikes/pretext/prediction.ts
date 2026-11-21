@@ -178,6 +178,11 @@ class Predictor {
             case 'code':
               marked = { ...marked, family: inlineCodeFamily };
               break;
+            // In all-markup HTML these annotations change only decoration.
+            case 'comment_highlight':
+            case 'contributor':
+            case 'insertion':
+            case 'deletion':
             case 'link':
             case 'strike':
             case 'underline':

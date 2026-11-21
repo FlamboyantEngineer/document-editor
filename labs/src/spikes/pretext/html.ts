@@ -51,19 +51,26 @@ export class VirtualPages {
   constructor(
     private readonly scroll: HTMLElement,
     private readonly extent: HTMLElement,
+    private readonly onWindow?: (
+      visible: number,
+      first: number,
+      last: number,
+      total: number,
+    ) => void,
   ) {
     scroll.addEventListener('scroll', this.onScroll);
     this.resize.observe(scroll);
   }
 
-  show(index: LayoutIndex, blocks: readonly Node[], overscan: number) {
+  show(index: LayoutIndex, blocks: readonly Node[], overscan: number, initialPage?: number) {
     this.clear();
     applySettings(this.scroll, index.contentWidth);
     this.index = index;
     this.blocks = blocks;
     this.overscan = overscan;
     this.extent.style.height = `${String(Math.max(0, index.pages.length * (index.height + pageGap) - pageGap))}px`;
-    this.update();
+    if (initialPage === undefined) this.update();
+    else this.jump(initialPage);
   }
 
   setOverscan(overscan: number) {
@@ -136,5 +143,11 @@ export class VirtualPages {
       this.extent.insertBefore(sheet, next?.[1] ?? null);
       this.mounted.set(page, sheet);
     }
+    this.onWindow?.(
+      Math.min(firstVisible + 1, index.pages.length),
+      first + 1,
+      last + 1,
+      index.pages.length,
+    );
   }
 }
