@@ -266,9 +266,9 @@ Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-LABS-5.1 - DOM-free prediction and virtual pages
 
-The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker. It shall reuse prepared inline data on width changes, reuse item-local line offsets at the same width, and discard both when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
+The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker, laying text blocks out with the library's text layout engine (DOCE-PAGINATION-9). Its HTML shall draw what the engine computes: the editor's pre-wrap white space, the engine's leadings, and inline code in the code font and size with 3px of padding on each side of each line. It shall reuse prepared inline data on width changes, reuse item-local line offsets at the same width, and discard both when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
 
-Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/html.ts`
+Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/settings.ts`, `labs/src/spikes/pretext/html.ts`, `labs/reference/pretext-pagination.css`, `src/layout-engine/text-layout.ts`
 Verification: `e2e/pretext-pagination.spec.ts`
 
 ### DOCE-LABS-5.2 - Independent HTML parity

@@ -63,7 +63,7 @@ test('DOCE-LABS-5.1 explains unsupported features in the full pagination stress 
     .getByRole('combobox', { name: 'Document', exact: true })
     .selectOption('stress-pagination');
   const status = page.locator('#pretext-status');
-  await expect(status).toContainText('unsupported inline node footnote_reference');
+  await expect(status).toContainText('no size for inline footnote_reference');
   await expect(status).toContainText('an indivisible block exceeds the page content height');
   await expect(
     page.getByRole('region', { name: 'Document pages' }).locator('[data-page]'),

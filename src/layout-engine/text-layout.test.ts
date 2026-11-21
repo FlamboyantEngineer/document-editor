@@ -62,6 +62,15 @@ describe('createTextLayout', () => {
     expect(lines).toMatchObject({ width: 60, height: 54, overhead: 0 });
   });
 
+  it('DOCE-PAGINATION-9.1 counts the runs it prepares and the runs it finds prepared', () => {
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    const node = block('<p>aa<br>bb</p>');
+    engine.layoutText(node, { width: 60 });
+    expect(engine.stats()).toEqual({ hits: 0, misses: 2 });
+    engine.layoutText(node, { width: 30 });
+    expect(engine.stats()).toEqual({ hits: 2, misses: 2 });
+  });
+
   it('DOCE-PAGINATION-9.1 gives an empty paragraph one line', () => {
     expect(table(block('<p></p>'), 60).lines).toEqual([
       { from: 0, to: 0, width: 0, left: 0, top: 0, height: 18, end: 'end' },

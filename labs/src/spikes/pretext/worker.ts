@@ -1,13 +1,11 @@
-import { setLayoutScale, setLocale } from '@chenglou/pretext';
+import { setLayoutScale } from '@chenglou/pretext';
 import type { Node } from 'prosemirror-model';
 import { readFixture } from './fixtures.js';
-import { type Block, indexPages, measureDocument, PreparationCache } from './prediction.js';
+import { type Block, createPreparationCache, indexPages, measureDocument } from './prediction.js';
 import type { BlockReport, LayoutRequest, LayoutResult } from './protocol.js';
 
 if (typeof document !== 'undefined') throw new Error('Prediction must run without a DOM');
-setLocale('en');
-
-const cache = new PreparationCache();
+const cache = createPreparationCache();
 let doc: Node | undefined;
 
 function report({ path, width, height, lines, children }: Block): BlockReport {
@@ -44,8 +42,7 @@ function predict(request: LayoutRequest): LayoutResult {
     index: portable,
     issues,
     measurements: request.verify ? blocks.map(report) : undefined,
-    hits: cache.hits,
-    misses: cache.misses,
+    ...cache.stats(),
     prepareMs: prepared - start,
     packMs: performance.now() - prepared,
   };

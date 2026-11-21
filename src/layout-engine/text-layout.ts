@@ -8,7 +8,7 @@ import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 import { footnoteMarkerItem } from './footnote-marker.js';
 import type { LineTable } from './line-table.js';
-import { createLineCache, layoutLines } from './lines.js';
+import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { strutOf, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { buildRuns, type MeasureAtom } from './runs.js';
@@ -52,6 +52,8 @@ interface TextLayout {
   readonly typography: (node: ProseMirrorNode, scope?: string | null) => BlockTypography;
   /** A text block's lines at a width. */
   readonly layoutText: (node: ProseMirrorNode, place: TextBlockPlace) => TextBlockLayout;
+  /** How many text runs the engine found prepared, and how many it prepared. */
+  readonly stats: () => CacheStats;
 }
 
 const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block', 'footnote_entry']);
@@ -82,6 +84,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
   return {
     typography,
+    stats: cache.stats,
     layoutText(node, place) {
       if (!TEXT_BLOCKS.has(node.type.name))
         return { ok: false, reason: `not a text block: ${node.type.name}` };
