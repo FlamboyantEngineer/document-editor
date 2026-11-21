@@ -27,12 +27,24 @@ export interface AtomMeasure {
   readonly settled?: Promise<AtomSize> | undefined;
 }
 
-/** Measures one atom in the DOM at an available width; null when it cannot measure it. */
-export type AtomMeasurer = (node: ProseMirrorNode, width: number) => AtomMeasure | null;
+/**
+ * Measures one atom in the DOM at an available width, drawing `shown` as a leaf atom's text when
+ * given; null when it cannot measure it.
+ */
+export type AtomMeasurer = (
+  node: ProseMirrorNode,
+  width: number,
+  shown?: string,
+) => AtomMeasure | null;
 
 /** Where the atom cache gets its sizes from. */
 interface AtomCacheOptions {
   readonly measure: AtomMeasurer;
+  /**
+   * The text a view draws in a leaf atom that the document does not hold, such as a footnote
+   * marker's number (`blockNumbers`); an atom is kept by it as by its content.
+   */
+  readonly shownOf?: ((node: ProseMirrorNode) => string | undefined) | undefined;
   /** The most atoms kept; the least recently used go first. 2000 by default. */
   readonly limit?: number | undefined;
 }
@@ -71,18 +83,20 @@ function contentAttrs(node: ProseMirrorNode): Record<string, unknown> {
 }
 
 /**
- * The key an atom is cached by: its type, the attributes that show, its marks and its content, and
- * the width it is laid out in. Two atoms with the same key draw the same box.
+ * The key an atom is cached by: its type, the attributes that show, its marks and its content, the
+ * width it is laid out in, and the text a view draws in it, if any. Two atoms with the same key draw the same box.
  */
-export function atomKey(node: ProseMirrorNode, width: number): string {
+export function atomKey(node: ProseMirrorNode, width: number, shown?: string): string {
   const units = Math.round(Math.max(0, width) * LAYOUT_UNITS_PER_PX);
-  return JSON.stringify([
+  const key: unknown[] = [
     node.type.name,
     contentAttrs(node),
     node.marks.map((mark) => mark.toJSON() as unknown),
     node.content.toJSON() as unknown,
     units,
-  ]);
+  ];
+  if (shown !== undefined) key.push(shown);
+  return JSON.stringify(key);
 }
 
 function isSize(size: AtomSize | null | undefined): size is AtomSize {
@@ -103,6 +117,7 @@ interface Entry {
 /** Creates an atom cache over a host's measurer. */
 export function createAtomCache({
   measure,
+  shownOf,
   limit = DEFAULT_ATOM_CACHE_LIMIT,
 }: AtomCacheOptions): AtomCache {
   const entries = new Map<string, Entry>();
@@ -135,13 +150,14 @@ export function createAtomCache({
   };
 
   const measured = (node: ProseMirrorNode, width: number): MeasuredAtom | null => {
-    const key = atomKey(node, width);
+    const shown = shownOf?.(node);
+    const key = atomKey(node, width, shown);
     const cached = entries.get(key);
     if (cached) {
       keep(key, cached);
       return cached.size;
     }
-    const result = measure(node, width);
+    const result = shown === undefined ? measure(node, width) : measure(node, width, shown);
     if (!result || !isSize(result.size)) return null;
     const entry: Entry = { node, size: { ...result.size, provisional: Boolean(result.settled) } };
     keep(key, entry);
