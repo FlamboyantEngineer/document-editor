@@ -1,4 +1,4 @@
-import { setLayoutScale, setLocale } from '@chenglou/pretext';
+import { setLayoutScale, setLocale, setMeasureContext } from '@chenglou/pretext';
 import type { Node } from 'prosemirror-model';
 import { createFontFileMeasurer } from '../font-widths/measurer.js';
 import { readFixture } from './fixtures.js';
