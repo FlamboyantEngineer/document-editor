@@ -174,7 +174,7 @@ export const sectionScope = (section: ProseMirrorNode) =>
   (section.attrs.sectionName as string | null | undefined) ?? null;
 
 /** What the forced lines read: the engine, once loaded, and a count that moves when it forgets. */
-export interface ForcedLinesSource {
+interface ForcedLinesSource {
   readonly engine: () => PagesTextEngine | null;
   readonly version: () => number;
 }

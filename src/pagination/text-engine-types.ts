@@ -1,6 +1,7 @@
 // What the pages read from their text layout engine (`text-engine.ts`), which loads only when the
 // editor's `textLayout: 'pretext'` option is on, so the types live apart from it.
 
+import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
@@ -15,6 +16,8 @@ export interface TextEngineOptions {
   readonly measureIn: HTMLElement;
   /** Called when atoms that were still loading have their final sizes. */
   readonly onAtomsSettled: () => void;
+  /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
+  readonly measureContext?: (() => MeasureContext) | undefined;
 }
 
 /** A text block's place on the pages. */

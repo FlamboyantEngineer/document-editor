@@ -4,6 +4,7 @@
 // DOM measuring, with the reason counted. Results are kept by node, so a keystroke lays out only
 // the block it changed (DOCE-PAGINATION-11). This module is loaded only when the option is on.
 
+import { type MeasureContext, setLayoutScale, setMeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
@@ -95,9 +96,26 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   return { byNode, numbering };
 }
 
+// The width source by default: a Canvas measuring unhinted, as the pages draw their text under
+// `text-rendering: geometricPrecision`; hinted widths differ by script and no measurer predicts them.
+function unhintedContext(): MeasureContext {
+  const context = new OffscreenCanvas(1, 1).getContext('2d');
+  if (!context) throw new Error('The text layout engine needs a 2D canvas context');
+  context.textRendering = 'geometricPrecision';
+  return context;
+}
+
+// Measures with the host's width source, or unhinted, and fits lines in the device pixels of the
+// window the pages show in, as Chromium fits them.
+function measureIn(options: TextEngineOptions) {
+  setMeasureContext(options.measureContext ?? unhintedContext);
+  setLayoutScale(options.measureIn.ownerDocument.defaultView?.devicePixelRatio || 1);
+}
+
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
+  measureIn(options);
   const text = createTextLayout({ template });
   const host = atomHost(options.measureIn);
   const atoms = createAtomCache({ measure: createDomAtomMeasurer({ host }) });

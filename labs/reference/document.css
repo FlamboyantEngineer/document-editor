@@ -449,6 +449,11 @@ div.de-host-view {
  * With the layout engine, a list item is as tall as its blocks, as the engine counts it: the list
  * takes its paragraphs' line height, so an item's marker draws no taller line box than its text.
  */
+/* The layout engine measures text unhinted, so the pages draw it so (DOCE-PAGINATION-11.1). */
+:where(.de-document-editor[data-text-layout='pretext']) :is(.pm-page, .de-atom-measure) {
+  text-rendering: geometricPrecision;
+}
+
 :where(.de-document-editor[data-text-layout='pretext']) .pm-page-content :is(ol, ul) {
   line-height: var(--doc-paragraph-line-height, 1.5);
 }
