@@ -102,30 +102,30 @@ interface Counts {
 const budgets: Record<string, Record<string, Counts>> = {
   chromium: {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    kerning: { starts: 16, lines: 3, boundaries: 24, overflow: 0 },
+    kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 1 },
     bold: { starts: 24, lines: 1, boundaries: 2, overflow: 1 },
     italic: { starts: 21, lines: 1, boundaries: 3, overflow: 1 },
     code: { starts: 19, lines: 2, boundaries: 4, overflow: 2 },
-    link: { starts: 45, lines: 4, boundaries: 19, overflow: 2 },
-    mixed: { starts: 65, lines: 9, boundaries: 23, overflow: 2 },
+    link: { starts: 18, lines: 2, boundaries: 5, overflow: 2 },
+    mixed: { starts: 31, lines: 4, boundaries: 4, overflow: 2 },
   },
   'chromium-dpr-1.25': {
-    plain: { starts: 4, lines: 0, boundaries: 0, overflow: 0 },
-    kerning: { starts: 19, lines: 3, boundaries: 24, overflow: 0 },
-    bold: { starts: 23, lines: 1, boundaries: 2, overflow: 1 },
-    italic: { starts: 21, lines: 1, boundaries: 3, overflow: 1 },
-    code: { starts: 19, lines: 2, boundaries: 6, overflow: 2 },
-    link: { starts: 46, lines: 4, boundaries: 19, overflow: 2 },
-    mixed: { starts: 61, lines: 8, boundaries: 23, overflow: 2 },
+    plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    kerning: { starts: 1, lines: 0, boundaries: 0, overflow: 1 },
+    bold: { starts: 18, lines: 1, boundaries: 2, overflow: 1 },
+    italic: { starts: 18, lines: 1, boundaries: 3, overflow: 1 },
+    code: { starts: 16, lines: 1, boundaries: 0, overflow: 0 },
+    link: { starts: 15, lines: 1, boundaries: 3, overflow: 1 },
+    mixed: { starts: 16, lines: 3, boundaries: 4, overflow: 2 },
   },
   'chromium-dpr-2': {
-    plain: { starts: 5, lines: 0, boundaries: 2, overflow: 0 },
-    kerning: { starts: 18, lines: 3, boundaries: 24, overflow: 0 },
-    bold: { starts: 19, lines: 0, boundaries: 2, overflow: 1 },
-    italic: { starts: 14, lines: 1, boundaries: 3, overflow: 1 },
-    code: { starts: 16, lines: 2, boundaries: 6, overflow: 2 },
-    link: { starts: 41, lines: 4, boundaries: 19, overflow: 2 },
-    mixed: { starts: 59, lines: 7, boundaries: 23, overflow: 2 },
+    plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 1 },
+    bold: { starts: 13, lines: 0, boundaries: 2, overflow: 1 },
+    italic: { starts: 9, lines: 0, boundaries: 0, overflow: 0 },
+    code: { starts: 13, lines: 1, boundaries: 0, overflow: 0 },
+    link: { starts: 9, lines: 0, boundaries: 0, overflow: 0 },
+    mixed: { starts: 9, lines: 2, boundaries: 4, overflow: 2 },
   },
 };
 
@@ -193,18 +193,18 @@ const everywhere = (finding: string) => ({
   'chromium-dpr-1.25': finding,
   'chromium-dpr-2': finding,
 });
-const f4 = 'F4: the fit allowance assumes a device pixel ratio of 1';
+const f3 = 'F3: each text item is not rounded up to the layout unit';
 
 const fitCases: readonly FitCase[] = [
   {
     name: 'a plain sentence',
     runs: [text('The weather station on the ridge reports rainfall every morning')],
-    misses: { 'chromium-dpr-1.25': f4, 'chromium-dpr-2': f4 },
+    misses: {},
   },
   {
     name: 'a plain sentence ending in a full stop',
     runs: [text('every morning and Tuesday evening.')],
-    misses: { 'chromium-dpr-1.25': f4 },
+    misses: {},
   },
   {
     name: 'a word ending in a at a line end',
@@ -216,22 +216,26 @@ const fitCases: readonly FitCase[] = [
     name: `${word} at a line end`,
     runs: lineEnd(word),
     at: lead.length + word.length - 1,
-    misses: everywhere('F1: kerning with the following space is charged to the space'),
+    misses: {},
   })),
-  ...[
-    [text('rainfall '), styled('Tuesday', 'link'), text(' evening')],
-    [text('the ridge '), styled('Type', 'link'), text(' fjord')],
-  ].map((runs) => ({
-    name: `a space before a link starting ${runs[1]?.text ?? ''}`,
-    runs,
-    misses: everywhere('F2: kerning with a space is dropped across a same-font item edge'),
-  })),
+  // The space kerns across the link's edge since the fork's F2 fix; what is left is one layout
+  // unit, the link item's rounding (F3).
+  {
+    name: 'a space before a link starting Tuesday',
+    runs: [text('rainfall '), styled('Tuesday', 'link'), text(' evening')],
+    misses: everywhere(f3),
+  },
+  {
+    name: 'a space before a link starting Type',
+    runs: [text('the ridge '), styled('Type', 'link'), text(' fjord')],
+    misses: { chromium: f3, 'chromium-dpr-1.25': f3 },
+  },
   ...(['bold', 'italic', 'code'] as const).map((style) => ({
     name: `alternating plain and ${style} words`,
     runs: ['The', 'weather', 'station', 'on', 'the', 'ridge', 'reports', 'rainfall'].map(
       (word, index) => (index % 2 ? styled(word, style) : text(index ? ` ${word} ` : `${word} `)),
     ),
-    misses: everywhere('F3: each text item is not rounded up to the layout unit'),
+    misses: everywhere(f3),
   })),
 ];
 

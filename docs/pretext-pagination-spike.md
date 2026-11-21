@@ -22,7 +22,7 @@ Omit `CHROMIUM_PATH` when using Playwright's installed browser. The last command
 
 The lab reads stored fixtures through the editor schema and resolves the base template's typography and page metrics. The worker takes a stored document and returns page dimensions and ordered ranges in original block coordinates. The viewer serializes only fragments in the viewport window. Source ranges use ProseMirror offsets, including inline atoms. Rendering cuts source content at page boundaries and allows the HTML on each page to wrap naturally.
 
-The lab installs `@chenglou/pretext` as a development dependency from a release of the FlamboyantEngineer fork: a commit on the fork's `release` branch holding the built package, so installing it builds nothing (the fork's `FORK.md` gives the release steps). To move to another release, put its release commit in `package.json` and regenerate the lockfile with `npm install --strict-peer-deps`. [Pinned release 1.0.0-fe.1](https://github.com/FlamboyantEngineer/pretext/commit/598bc1c977a62b823ce02530c0da9c2fba5d30da)
+The lab installs `@chenglou/pretext` as a development dependency from a release of the FlamboyantEngineer fork: a commit on the fork's `release` branch holding the built package, so installing it builds nothing (the fork's `FORK.md` gives the release steps). To move to another release, put its release commit in `package.json` and regenerate the lockfile with `npm install --strict-peer-deps`. [Pinned release 1.0.0-fe.2](https://github.com/FlamboyantEngineer/pretext/commit/d12a4bf4e6b0316202651df1368c351509881751)
 
 The package exposes `prepareRichInline`, `walkRichInlineLineRanges`, and `materializeRichInlineLineRange` through `@chenglou/pretext/rich-inline`. The materialized fragments report item-local UTF-16 offsets and the API accepts fixed-width boxes. It provides line advances. The adapter supplies explicit line-box heights and all vertical geometry. The package can insert an emoji calibration span and read its DOM geometry in a document. A dedicated worker prevents this probe and uses Canvas from `OffscreenCanvas`. The worker retains preparation by text, font and whitespace policy across widths. Each prepared run also retains its item-local line offsets for its most recent width. A change of width replaces that layout. Each use maps the offsets back to its own source block. The lab waits for font readiness and restarts prediction on subsequent load or error events. The scope uses system fonts and needs no worker font registration.
 
@@ -52,7 +52,7 @@ Choose a stress document and select **Check HTML parity**. The text and list wor
 
 Each row sums the work over the listed widths. Across 20 document and width combinations, the line starts and source boundaries matched on all 3,397 pages. No page overflowed and every measured box stayed within the original 0.5 px tolerance. The split-line column counts source offsets checked a second time after cutting the paragraph and letting the browser wrap each piece naturally.
 
-The previous experiment found line-offset differences in 60 blocks and two shifted page boundaries at 601 px. Its report attributed those failures to kerning. A reduced line whose Canvas advance is exactly 601.0078125 px fits in a 601 px Chromium column and wraps one layout unit below it. Blink grants one extra layout unit (1/64 px) when testing a line. Pretext 1.0.0 already grants 0.005 px. The worker supplies the difference for Blink’s fit decision. The recorded box width, CSS, and oracle tolerance are unchanged. The regression test includes the immediately narrower and wider widths. [Chromium 156 line breaker](https://github.com/chromium/chromium/blob/156.0.8078.79/third_party/blink/renderer/core/layout/inline/line_breaker.h#L308-L313)
+The previous experiment found line-offset differences in 60 blocks and two shifted page boundaries at 601 px. Its report attributed those failures to kerning. A reduced line whose Canvas advance is exactly 601.0078125 px fits in a 601 px Chromium column and wraps one layout unit below it. Blink grants one extra layout unit (1/64 device px) over the width truncated to units when testing a line. Since fork release 1.0.0-fe.2, Pretext's Blink profile makes the same test, and the worker gives it the page's device pixel ratio with `setLayoutScale`. The recorded box width, CSS, and oracle tolerance are unchanged. The regression test includes the immediately narrower and wider widths. [Chromium 156 line breaker](https://github.com/chromium/chromium/blob/156.0.8078.79/third_party/blink/renderer/core/layout/inline/line_breaker.h#L308-L313)
 
 A separate failure involved text containing only collapsible whitespace. In the natural HTML column, such a paragraph can have zero height and its margins can collapse through to siblings. The worker now reports that case as unsupported. An empty paragraph with the reference minimum height and whitespace following a final hard break are both supported.
 
@@ -62,24 +62,21 @@ The full pagination stress document also reports footnotes, page breaks, block q
 
 `e2e/pretext-pagination-fuzz.spec.ts` measures how often the prediction breaks a line where Chromium does not (DOCE-LABS-5.6). For each kind of text it lays out four seeded documents of 120 paragraphs (30 to 80 words) at nine widths from 301 to 599.123 px, 4,320 paragraph layouts, and counts the paragraphs whose line starts or line counts differ, the pages whose boundaries differ and the pages that overflow in natural HTML. Projects `chromium-dpr-1.25` and `chromium-dpr-2` repeat it in Chromium launched with `--force-device-scale-factor`, because an emulated `deviceScaleFactor` leaves Chromium's layout unit unchanged. The counts are exact budgets: a pinned fork fix lowers them in the same pull request, and a rise fails the test.
 
-| Text                                      |     Ratio 1 |  Ratio 1.25 |     Ratio 2 |
-| ----------------------------------------- | ----------: | ----------: | ----------: |
-| Plain                                     |   0 / 0 / 0 |   4 / 0 / 0 |   5 / 0 / 2 |
-| One word in ten ending in A, L, T, Y or P | 16 / 3 / 24 | 19 / 3 / 24 | 18 / 3 / 24 |
-| A quarter of the words bold               |  24 / 1 / 2 |  23 / 1 / 2 |  19 / 0 / 2 |
-| A quarter italic                          |  21 / 1 / 3 |  21 / 1 / 3 |  14 / 1 / 3 |
-| A quarter inline code                     |  19 / 2 / 4 |  19 / 2 / 6 |  16 / 2 / 6 |
-| A quarter links                           | 45 / 4 / 19 | 46 / 4 / 19 | 41 / 4 / 19 |
-| 60% styled, all kinds, with kerning words | 65 / 9 / 23 | 61 / 8 / 23 | 59 / 7 / 23 |
+| Text                                      |    Ratio 1 | Ratio 1.25 |    Ratio 2 |
+| ----------------------------------------- | ---------: | ---------: | ---------: |
+| Plain                                     |  0 / 0 / 0 |  0 / 0 / 0 |  0 / 0 / 0 |
+| One word in ten ending in A, L, T, Y or P |  0 / 0 / 0 |  1 / 0 / 0 |  0 / 0 / 0 |
+| A quarter of the words bold               | 24 / 1 / 2 | 18 / 1 / 2 | 13 / 0 / 2 |
+| A quarter italic                          | 21 / 1 / 3 | 18 / 1 / 3 |  9 / 0 / 0 |
+| A quarter inline code                     | 19 / 2 / 4 | 16 / 1 / 0 | 13 / 1 / 0 |
+| A quarter links                           | 18 / 2 / 5 | 15 / 1 / 3 |  9 / 0 / 0 |
+| 60% styled, all kinds, with kerning words | 31 / 4 / 4 | 16 / 3 / 4 |  9 / 2 / 4 |
 
-Each cell gives paragraphs with different line starts, paragraphs with a different line count and pages with a different boundary, out of 4,320 paragraphs. Pages overflow in the bold, italic, code, link and mixed runs: 1 or 2 per run.
+Each cell gives paragraphs with different line starts, paragraphs with a different line count and pages with a different boundary, out of 4,320 paragraphs. Pages overflow in natural HTML in every run but plain: 0 to 2 per run (the kerning run's one page appeared with fork release 1.0.0-fe.2, whose line starts all match). Before the fork's kerning and fit fixes (1.0.0-fe.1), the counts at ratio 1 were 16 / 3 / 24 for kerning words, 45 / 4 / 19 for links and 65 / 9 / 23 for the mix.
 
-A second test finds the narrowest column that keeps a case's last character on its first line, in the browser and in the prediction, in steps of 1/512 px. Plain sentences match at ratio 1. Each other case is an expected miss naming its cause, and passes only while it still misses:
+A second test finds the narrowest column that keeps a case's last character on its first line, in the browser and in the prediction, in steps of 1/512 px. Plain sentences and line-end kerning match at every ratio. Each other case is an expected miss naming its cause, and passes only while it still misses. Findings F1 (line-end kerning), F2 (kerning across a same-font item edge) and F4 (the fit allowance at other ratios) are fixed in fork release 1.0.0-fe.2; one remains:
 
-- F1: a line-end word that kerns with the following space (A, L, T, Y, P in Arial) is charged the kerning on the space, where Chromium charges it to the word unless the text needs an accurate end position. Pretext needs 0.20 to 0.66 px more.
-- F2: kerning between a space and the first letter of a link is dropped across the item edge although both resolve to the same font. Pretext needs 0.20 px more.
-- F3: Chromium rounds each text item's piece of a line up to its layout unit; Pretext adds raw widths. Chromium needs up to one unit more per item.
-- F4: the lab's `inlineFitWidth` allowance assumes a device pixel ratio of 1, where the unit is 1/64 px; at 1.25 and 2 plain lines can miss by less than a unit.
+- F3: Chromium rounds each text item's piece of a line up to its layout unit; Pretext adds raw widths. Chromium needs up to one unit more per item. The cases of a space before a link now miss by this unit alone.
 
 When a fix is pinned, remove its expected misses and lower the budgets to the counts the failure reports. The baseline is Playwright's Chromium on Linux with Liberation Sans standing in for Arial; a Playwright upgrade that changes the browser can move the counts.
 
