@@ -4,37 +4,20 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { ChildLayout, LayoutBlock } from '../../model/index.js';
 import type { AtomCache } from '../atoms.js';
+import type { TextBlockLayout, TextBlockPlace } from '../text-layout.js';
+import type { BlockTypography } from '../typography.js';
 import type { BlockMetrics } from './metrics.js';
 
-/** A text block's lines as the text layout engine laid them out. */
-export interface TextLines {
-  readonly lines: readonly { readonly from: number; readonly height: number }[];
-  /** The lines together, without padding or margins. */
-  readonly height: number;
-  /** The height beyond the lines, such as a code block's padding. */
-  readonly overhead: number;
-}
-
-/** Where a text block is laid out. */
-interface TextPlace {
-  readonly width: number;
-  readonly scope?: string | null | undefined;
-  /** Text before the content on the first line, such as a caption's label. */
-  readonly prefix?: string | undefined;
-}
-
-/** The part of the text layout engine block geometry reads. */
+/**
+ * The part of the text layout engine (`TextLayout`) block geometry reads: a text block's margins
+ * and its line table. The engine is one; a test may stand in for it.
+ */
 export interface BlockTextLayout {
   typography(
     node: ProseMirrorNode,
     scope?: string | null,
-  ): { readonly marginTop: number; readonly marginBottom: number };
-  layoutText(
-    node: ProseMirrorNode,
-    place: TextPlace,
-  ):
-    | { readonly ok: true; readonly table: TextLines }
-    | { readonly ok: false; readonly reason: string };
+  ): Pick<BlockTypography, 'marginTop' | 'marginBottom'>;
+  layoutText(node: ProseMirrorNode, place: TextBlockPlace): TextBlockLayout;
 }
 
 /** Which part of a page a block is laid out in; a header's and a footer's blocks take no margins. */
