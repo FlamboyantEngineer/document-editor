@@ -31,9 +31,11 @@ const CJK_TEXT =
 function fontsourceFaces(name, family, scripts) {
   const dir = packageDir(name);
   const css = readFileSync(join(dir, '400.css'), 'utf8');
-  const rules = [...css.matchAll(/src: url\(\.\/files\/([^)]+)\.woff2\)[^}]*?unicode-range: ([^;]+);/gu)];
+  const rules = [
+    ...css.matchAll(/src: url\(\.\/files\/([^)]+)\.woff2\)[^}]*?unicode-range: ([^;]+);/gu),
+  ];
   return rules
-    .filter(([, file]) => scripts.some((script) => file.includes(`-${script}-400-normal`)))
+    .filter(([, file = '']) => scripts.some((script) => file.includes(`-${script}-400-normal`)))
     .map(([, file, unicodeRange]) => ({
       family,
       weight: 400,
@@ -45,7 +47,11 @@ function fontsourceFaces(name, family, scripts) {
 function cjkChunks() {
   const dir = packageDir('@fontsource/noto-sans-jp');
   const css = readFileSync(join(dir, '400.css'), 'utf8');
-  const rules = [...css.matchAll(/src: url\(\.\/files\/(noto-sans-jp-\d+-400-normal)\.woff2\)[^}]*?unicode-range: ([^;]+);/gu)];
+  const rules = [
+    ...css.matchAll(
+      /src: url\(\.\/files\/(noto-sans-jp-\d+-400-normal)\.woff2\)[^}]*?unicode-range: ([^;]+);/gu,
+    ),
+  ];
   const inRange = (code, range) =>
     range.split(',').some((part) => {
       const [low, high = low] = part.trim().slice(2).split('-');
@@ -73,7 +79,10 @@ const faces = [
   ...cjkChunks(),
   ...fontsourceFaces('@fontsource/noto-sans-arabic', 'Lab Noto Arabic', ['arabic', 'latin']),
   ...fontsourceFaces('@fontsource/noto-sans-hebrew', 'Lab Noto Hebrew', ['hebrew', 'latin']),
-  ...fontsourceFaces('@fontsource/noto-sans-devanagari', 'Lab Noto Devanagari', ['devanagari', 'latin']),
+  ...fontsourceFaces('@fontsource/noto-sans-devanagari', 'Lab Noto Devanagari', [
+    'devanagari',
+    'latin',
+  ]),
   {
     family: 'Lab KaTeX Math',
     weight: 400,
@@ -85,19 +94,49 @@ const faces = [
 const cases = [
   { name: 'CJK, 50 characters', font: '16px "Lab Noto JP"', text: CJK_TEXT.slice(0, 50) },
   { name: 'CJK words', font: '16px "Lab Noto JP"', text: '組版 改ページ 「例」' },
-  { name: 'Latin then CJK fallback', font: '16px "Lab Geist", "Lab Noto JP"', text: 'Pagination 改ページ test' },
+  {
+    name: 'Latin then CJK fallback',
+    font: '16px "Lab Geist", "Lab Noto JP"',
+    text: 'Pagination 改ページ test',
+  },
   { name: 'Arabic', font: '16px "Lab Noto Arabic"', text: 'مرحبا بالعالم، هذا نص تجريبي' },
   { name: 'Hebrew', font: '16px "Lab Noto Hebrew"', text: 'שלום עולם, זה טקסט לדוגמה' },
-  { name: 'Mixed directions', font: '16px "Lab Geist", "Lab Noto Arabic"', text: 'The word مرحبا means hello (123).' },
-  { name: 'Devanagari', font: '16px "Lab Noto Devanagari"', text: 'नमस्ते दुनिया, यह एक परीक्षण है' },
+  {
+    name: 'Mixed directions',
+    font: '16px "Lab Geist", "Lab Noto Arabic"',
+    text: 'The word مرحبا means hello (123).',
+  },
+  {
+    name: 'Devanagari',
+    font: '16px "Lab Noto Devanagari"',
+    text: 'नमस्ते दुनिया, यह एक परीक्षण है',
+  },
   { name: 'Missing glyphs', font: '16px "Lab Geist"', text: 'snow ☃ and 😀' },
-  { name: 'Letter spacing 0.5px', font: '16px "Lab Geist"', text: 'office affluent fjord', letterSpacing: '0.5px' },
-  { name: 'Letter spacing 1.25px', font: '16px "Lab Geist"', text: 'The quick brown fox', letterSpacing: '1.25px' },
+  {
+    name: 'Letter spacing 0.5px',
+    font: '16px "Lab Geist"',
+    text: 'office affluent fjord',
+    letterSpacing: '0.5px',
+  },
+  {
+    name: 'Letter spacing 1.25px',
+    font: '16px "Lab Geist"',
+    text: 'The quick brown fox',
+    letterSpacing: '1.25px',
+  },
   { name: 'Tabs', font: '16px "Lab Geist"', text: 'a\tb\tc' },
   { name: 'Kerning off', font: '16px "Lab Geist"', text: 'AVA To Ty Wa', kerning: 'none' },
-  { name: 'Invisible characters', font: '16px "Lab Geist"', text: 'non breaking zero​width soft­hyphen' },
+  {
+    name: 'Invisible characters',
+    font: '16px "Lab Geist"',
+    text: 'non breaking zero​width soft­hyphen',
+  },
   { name: 'Math italic', font: 'italic 16px "Lab KaTeX Math"', text: 'f(x) = ax + by' },
-  { name: 'Fractional size 14.666667px', font: '14.666667px "Lab Geist"', text: 'The weather station on the ridge' },
+  {
+    name: 'Fractional size 14.666667px',
+    font: '14.666667px "Lab Geist"',
+    text: 'The weather station on the ridge',
+  },
 ];
 
 const entry = `
@@ -132,15 +171,21 @@ async function browserWidths(launch) {
     await page.setContent('<!doctype html><html lang="en"><body></body></html>');
     const result = await page.evaluate(
       async ({ faces, cases }) => {
-        for (const { family, weight, italic, unicodeRange, bytes } of faces) {
-          const face = new FontFace(family, Uint8Array.from(atob(bytes), (c) => c.charCodeAt(0)), {
-            weight: String(weight),
-            style: italic ? 'italic' : 'normal',
-            ...(unicodeRange ? { unicodeRange } : {}),
-          });
+        for (const { family, weight, italic, bytes, ...rest } of faces) {
+          const unicodeRange = 'unicodeRange' in rest ? rest.unicodeRange : undefined;
+          const face = new FontFace(
+            family,
+            Uint8Array.from(atob(bytes), (c) => c.charCodeAt(0)),
+            {
+              weight: String(weight),
+              style: italic ? 'italic' : 'normal',
+              ...(unicodeRange ? { unicodeRange } : {}),
+            },
+          );
           document.fonts.add(face);
         }
         const context = new OffscreenCanvas(8, 8).getContext('2d');
+        if (!context) throw new Error('No Canvas 2D');
         context.textRendering = 'geometricPrecision';
         const span = document.createElement('span');
         span.style.whiteSpace = 'nowrap';
@@ -160,7 +205,7 @@ async function browserWidths(launch) {
         const canvas = cases.map(({ font, text, letterSpacing = '0px', kerning = 'auto' }) => {
           context.font = font;
           context.letterSpacing = letterSpacing;
-          context.fontKerning = kerning;
+          context.fontKerning = /** @type {CanvasFontKerning} */ (kerning);
           return context.measureText(text).width;
         });
         return { canvas, domPrecise: dom('geometricPrecision'), domAuto: dom('auto') };
@@ -175,15 +220,31 @@ async function browserWidths(launch) {
 
 const shell = await browserWidths({ executablePath: process.env.HEADLESS_SHELL_PATH || undefined });
 const full = await browserWidths(
-  process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : { channel: 'chromium' },
+  process.env.CHROMIUM_PATH
+    ? { executablePath: process.env.CHROMIUM_PATH }
+    : { channel: 'chromium' },
 );
 const rows = cases.map(({ name }, index) => ({
   name,
   fontFiles: fontFiles.widths[index],
-  shell: { canvas: shell.canvas[index], domPrecise: shell.domPrecise[index], domAuto: shell.domAuto[index] },
-  full: { canvas: full.canvas[index], domPrecise: full.domPrecise[index], domAuto: full.domAuto[index] },
+  shell: {
+    canvas: shell.canvas[index],
+    domPrecise: shell.domPrecise[index],
+    domAuto: shell.domAuto[index],
+  },
+  full: {
+    canvas: full.canvas[index],
+    domPrecise: full.domPrecise[index],
+    domAuto: full.domAuto[index],
+  },
 }));
-const report = { os: platform(), shell: shell.version, full: full.version, problems: fontFiles.problems, rows };
+const report = {
+  os: platform(),
+  shell: shell.version,
+  full: full.version,
+  problems: fontFiles.problems,
+  rows,
+};
 for (const { name, fontFiles: widths, shell: s, full: f } of rows) {
   const d = (value) => (value - widths).toFixed(4).padStart(9);
   console.log(

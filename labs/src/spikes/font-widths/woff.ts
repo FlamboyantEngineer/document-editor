@@ -15,7 +15,9 @@ async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<Array
 const padded = (length: number) => (length + 3) & ~3;
 
 /** The font file inside a WOFF 1.0 file, or the bytes as they are when they are not WOFF. */
-export async function readWoff(source: ArrayBuffer | Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+export async function readWoff(
+  source: ArrayBuffer | Uint8Array<ArrayBuffer>,
+): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (bytes.byteLength < HEADER || view.getUint32(0) !== 0x774f4646) return bytes;

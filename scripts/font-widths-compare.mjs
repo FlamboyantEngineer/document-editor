@@ -49,6 +49,7 @@ for (const kind of ['fontFiles', 'canvas']) {
     `\n${kind}: ${String(own.length)} runs, ${String(fingerprints.size)} distinct fingerprint(s): ${[...fingerprints].join(', ')}`,
   );
   const [base, ...rest] = own;
+  if (!base) continue;
   for (const run of rest) {
     const differences = compare(base.widths, run.widths).filter(Boolean);
     console.log(

@@ -321,3 +321,19 @@ With the lines drawn on the pages' own view and pages off screen skipping their 
 
 Implementation: `labs/src/spikes/forced-lines/direct.ts`, `labs/forced-lines.html`
 Verification: `e2e/forced-lines.performance.spec.ts`
+
+## DOCE-LABS-7 - Font-file widths spike
+
+### DOCE-LABS-7.1 - Widths from the font files
+
+The font-widths lab shall measure a fixed reference text (55 strings at five sizes in each served face: Geist regular, bold, italic and bold italic, Geist Mono, and the KaTeX main and sans faces) from the served font files, shaped with HarfBuzz in WebAssembly, and with the browser's Canvas, and show both fingerprints, the fingerprint of Pretext's line breaks for seeded paragraphs through each, and every string whose widths differ. The font-file widths and line breaks shall equal recorded fingerprints on every machine, in a page and in a worker alike, and the characters no served face has shall be reported. On Linux Chromium the font-file widths shall equal Canvas's, within the last bit of a float32 sum, wherever a served face has the glyphs. The measurer shall get the font files and the WebAssembly module from its caller, and shall leave the library unchanged.
+
+Implementation: `labs/font-widths.html`, `labs/src/font-widths.lab.ts`, `labs/src/spikes/font-widths/`, `scripts/build-labs.mjs`, `scripts/font-widths.mjs`, `scripts/font-widths-coverage.mjs`
+Verification: `e2e/font-widths.spec.ts`
+
+### DOCE-LABS-7.2 - Closeness with font-file widths
+
+The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind.
+
+Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/client.ts`, `labs/src/spikes/pretext/settings.ts`
+Verification: `e2e/font-widths.spec.ts`

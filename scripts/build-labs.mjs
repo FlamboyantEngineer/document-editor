@@ -22,21 +22,21 @@ const labs = listLabSources();
 
 rmSync(outdir, { recursive: true, force: true });
 
-// Geist and Geist Mono (Latin, WOFF), and HarfBuzz, as files the labs fetch.
+// Geist and Geist Mono (Latin, WOFF), four KaTeX faces and HarfBuzz, as files the labs fetch.
 const require = createRequire(import.meta.url);
 const fontsDir = join(outdir, 'fonts');
 mkdirSync(fontsDir, { recursive: true });
+const served = (file) => /-latin-(400|700)-(normal|italic)\.woff$/u.test(file);
 for (const name of ['@fontsource/geist', '@fontsource/geist-mono']) {
   const files = join(dirname(require.resolve(`${name}/package.json`)), 'files');
-  for (const file of readdirSync(files).filter((file) =>
-    /-latin-(400|700)-(normal|italic)\.woff$/u.test(file),
-  ))
+  for (const file of readdirSync(files).filter(served))
     copyFileSync(join(files, file), join(fontsDir, file));
 }
-copyFileSync(
-  join(dirname(require.resolve('harfbuzzjs')), 'harfbuzz.wasm'),
-  join(fontsDir, 'harfbuzz.wasm'),
-);
+const katexFonts = join(dirname(require.resolve('katex/package.json')), 'dist', 'fonts');
+for (const face of ['Main-Regular', 'Main-Bold', 'Main-Italic', 'SansSerif-Regular'])
+  copyFileSync(join(katexFonts, `KaTeX_${face}.woff`), join(fontsDir, `KaTeX_${face}.woff`));
+const harfBuzz = join(dirname(require.resolve('harfbuzzjs')), 'harfbuzz.wasm');
+copyFileSync(harfBuzz, join(fontsDir, 'harfbuzz.wasm'));
 
 /** @type {import('esbuild').BuildOptions} */
 const options = {

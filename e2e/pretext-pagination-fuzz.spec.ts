@@ -1,8 +1,8 @@
 import type { DocumentFile } from '../src/model/index.js';
 import { expect, test } from './fixtures.js';
 import {
-  type Counts,
   countDifferences,
+  type Counts,
   kinds,
   paragraphs,
   type Run,

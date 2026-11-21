@@ -100,9 +100,11 @@ export interface Counts {
   readonly overflow: number;
 }
 
-/** The differences over every seed and width, on a Pretext lab page that is already open. */
+/** The differences over every seed and width, on a Pretext lab page that is already open, and what
+ * measured the widths. */
 export async function countDifferences(page: Page, kind: Kind) {
   const counts = { starts: 0, lines: 0, boundaries: 0, overflow: 0 };
+  const measurers = new Set<string>();
   let blocks = 0;
   for (const seed of seeds) {
     const file = document(seed, kind, paragraphs);
@@ -115,9 +117,11 @@ export async function countDifferences(page: Page, kind: Kind) {
             lines: r.differences.filter((d) => d.metric === 'line count').length,
             boundaries: r.boundaryMismatches.length,
             overflow: r.overflow.length,
+            measurer: r.measurer,
           })),
         { file, width },
       );
+      measurers.add(result.measurer);
       blocks += result.blocks;
       counts.starts += result.starts;
       counts.lines += result.lines;
@@ -125,5 +129,5 @@ export async function countDifferences(page: Page, kind: Kind) {
       counts.overflow += result.overflow;
     }
   }
-  return { blocks, counts };
+  return { blocks, counts, measurers: [...measurers] };
 }

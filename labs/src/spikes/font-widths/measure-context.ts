@@ -45,7 +45,10 @@ const asciiWhitespace = /[\t\n\f\r]/gu;
 // Blink draws U+2028 and U+2029 with the space glyph and gives these default ignorables no width
 // (HarfBuzzGetGlyph, harfbuzz_face.cc; Character::TreatAsZeroWidthSpace).
 const drawnAsSpace = /[\u2028\u2029]/gu;
-const zeroWidth = /^[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]$/u;
+const zeroWidth = /^(?:\u034f|[\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff])$/u;
+// Invisible characters that also end the shaping run in Canvas, so no kerning reaches across them
+// (measured: zero\u200bwidth is zero plus width). Joiners, the word joiner and the isolates do not.
+const runBreaking = /^[\u00ad\u061c\u180e\u200b\u200e\u200f\u202a-\u202e\ufeff]$/u;
 const noLigatures = ['-liga', '-clig', '-dlig', '-hlig', '-calt'];
 const graphemes = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
@@ -59,17 +62,21 @@ function isCanvasWordLetter(code: number) {
   );
 }
 
-/** Canvas's words: each space alone, and a cut before a kana or ideograph after another character. */
+/**
+ * Canvas's words: each space alone, each run-breaking invisible character alone, and a cut before a
+ * kana or ideograph after another character.
+ */
 export function splitCanvasWords(text: string): string[] {
   const words: string[] = [];
   let word = '';
   for (const character of text) {
     const code = character.codePointAt(0) ?? 0;
-    if (character === ' ' || (word && isCanvasWordLetter(code))) {
+    const alone = character === ' ' || runBreaking.test(character);
+    if (alone || (word && isCanvasWordLetter(code))) {
       if (word) words.push(word);
       word = '';
-      if (character === ' ') {
-        words.push(' ');
+      if (alone) {
+        words.push(character);
         continue;
       }
     }
@@ -82,8 +89,12 @@ export function splitCanvasWords(text: string): string[] {
 // Chromium trims adjacent full-width punctuation to half its width (text-spacing-trim: normal,
 // HanKerning in han_kerning.cc) through the font's `halt` feature: an opening bracket after
 // punctuation, and a closing bracket or ideographic comma or stop before closing punctuation.
-const opening = new Set([0x3008, 0x300a, 0x300c, 0x300e, 0x3010, 0x3014, 0x3016, 0x3018, 0x301a, 0xff08, 0xff3b, 0xff5b]);
-const closing = new Set([0x3009, 0x300b, 0x300d, 0x300f, 0x3011, 0x3015, 0x3017, 0x3019, 0x301b, 0xff09, 0xff3d, 0xff5d]);
+const opening = new Set([
+  0x3008, 0x300a, 0x300c, 0x300e, 0x3010, 0x3014, 0x3016, 0x3018, 0x301a, 0xff08, 0xff3b, 0xff5b,
+]);
+const closing = new Set([
+  0x3009, 0x300b, 0x300d, 0x300f, 0x3011, 0x3015, 0x3017, 0x3019, 0x301b, 0xff09, 0xff3d, 0xff5d,
+]);
 const dots = new Set([0x3001, 0x3002, 0xff0c, 0xff0e]);
 const middles = new Set([0x30fb, 0xff1a, 0xff1b]);
 
@@ -98,7 +109,10 @@ export function trimmedPunctuation(text: string): number[] {
     const afterPunctuation =
       opening.has(previous) || closing.has(previous) || dots.has(previous) || middles.has(previous);
     const beforeClosing = closing.has(next) || dots.has(next) || middles.has(next);
-    if ((opening.has(code) && afterPunctuation) || ((closing.has(code) || dots.has(code)) && beforeClosing))
+    if (
+      (opening.has(code) && afterPunctuation) ||
+      ((closing.has(code) || dots.has(code)) && beforeClosing)
+    )
       trimmed.push(index);
   }
   return trimmed;

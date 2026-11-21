@@ -53,7 +53,9 @@ export function fingerprintLines(
   setLocale('en');
   setMeasureContext(createContext);
   const started = performance.now();
-  const prepared = paragraphs(count).map((items) => prepareRichInline(items, { whiteSpace: 'pre-wrap' }));
+  const prepared = paragraphs(count).map((items) =>
+    prepareRichInline(items, { whiteSpace: 'pre-wrap' }),
+  );
   const preparedAt = performance.now();
   let hash = 0x811c9dc5;
   let lines = 0;
@@ -72,5 +74,10 @@ export function fingerprintLines(
     }
   }
   const fingerprint = hash.toString(16).padStart(8, '0');
-  return { fingerprint, lines, prepareMs: preparedAt - started, layoutMs: performance.now() - preparedAt };
+  return {
+    fingerprint,
+    lines,
+    prepareMs: preparedAt - started,
+    layoutMs: performance.now() - preparedAt,
+  };
 }

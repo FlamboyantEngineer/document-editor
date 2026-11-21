@@ -82,8 +82,11 @@ const MAX_FEATURES = 16;
 const WASM_PAGE = 65_536;
 
 /** Instantiates HarfBuzz from the bytes of harfbuzzjs's `harfbuzz.wasm`. */
-export async function createHarfBuzz(wasm: ArrayBuffer | Uint8Array<ArrayBuffer>): Promise<HarfBuzz> {
-  let memory: WebAssembly.Memory | undefined;
+export async function createHarfBuzz(
+  wasm: ArrayBuffer | Uint8Array<ArrayBuffer>,
+): Promise<HarfBuzz> {
+  // Filled once the module exists; the module asks to grow its heap only while it runs.
+  const heap: { memory?: WebAssembly.Memory } = {};
   const env = {
     _emscripten_runtime_keepalive_clear: () => undefined,
     _abort_js: () => {
@@ -91,6 +94,7 @@ export async function createHarfBuzz(wasm: ArrayBuffer | Uint8Array<ArrayBuffer>
     },
     _setitimer_js: () => 0,
     emscripten_resize_heap: (size: number) => {
+      const { memory } = heap;
       if (!memory) return 0;
       memory.grow(Math.ceil((size - memory.buffer.byteLength) / WASM_PAGE));
       return 1;
@@ -105,7 +109,7 @@ export async function createHarfBuzz(wasm: ArrayBuffer | Uint8Array<ArrayBuffer>
     wasi_snapshot_preview1: { proc_exit },
   });
   const native = instance.exports as unknown as Exports;
-  memory = native.memory;
+  heap.memory = native.memory;
   native.__wasm_call_ctors?.();
   return bindHarfBuzz(native);
 }

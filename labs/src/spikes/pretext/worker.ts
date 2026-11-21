@@ -70,6 +70,7 @@ function predict(request: LayoutRequest): LayoutResult {
     misses: cache.misses,
     prepareMs: prepared - start,
     packMs: performance.now() - prepared,
+    measurer: labMeasurer,
   };
 }
 
