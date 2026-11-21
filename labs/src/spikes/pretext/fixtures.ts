@@ -151,7 +151,62 @@ function stressCopy(node: StoredNode, copy: number): StoredNode {
 }
 
 const stressFixtures = {
+  'stress-fragments': (): DocumentFile => ({
+    formatVersion: 1,
+    sections: [
+      {
+        name: null,
+        content: [
+          { type: 'paragraph', attrs: { id: 'empty-paragraph' } },
+          {
+            type: 'paragraph',
+            attrs: { id: 'hard-breaks' },
+            content: Array.from({ length: 80 }, (_, line) => [
+              { type: 'text', text: '   Line ' + String(line + 1) },
+              { type: 'lineBreak' },
+              { type: 'lineBreak' },
+            ])
+              .flat()
+              .concat({ type: 'text', text: '  ' }),
+          },
+          {
+            type: 'paragraph',
+            attrs: { id: 'split-inlines' },
+            content: Array.from({ length: 160 }, () => [
+              { type: 'text', text: 'A station reports ' },
+              {
+                type: 'text',
+                text: 'rain and wind',
+                marks: [{ type: 'bold' }, { type: 'italic' }],
+              },
+              { type: 'text', text: ' from 🧑🏽‍🚀 雨量 ' },
+              { type: 'math', attrs: { source: 'x²' } },
+              { type: 'text', text: ' this morning. ' },
+            ]).flat(),
+          },
+        ],
+      },
+    ],
+  }),
   'stress-text': () => singleSectionDocument(4420),
+  // A distinct first sentence defeats whole-paragraph cache hits while retaining the
+  // scale fixture's typography, vocabulary and block order in both benchmark paths.
+  'stress-distinct': (): DocumentFile => {
+    const source = singleSectionDocument(4420);
+    return {
+      ...source,
+      sections: source.sections.map((section) => ({
+        ...section,
+        content: section.content.map((block, index) => ({
+          ...block,
+          content: [
+            { type: 'text', text: `Record ${String(index + 1)}. ` },
+            ...(block.content ?? []),
+          ],
+        })),
+      })),
+    };
+  },
   'stress-lists': () => shortListsDocument(560),
   'stress-mixed': mixedStressDocument,
   'stress-pagination': paginationDocument,
@@ -161,6 +216,8 @@ export type Workload =
   'examples' | 'short' | 'medium' | 'long' | 'unsupported' | keyof typeof stressFixtures;
 export function fixture(name: Workload): DocumentFile {
   switch (name) {
+    case 'stress-fragments':
+    case 'stress-distinct':
     case 'stress-text':
     case 'stress-lists':
     case 'stress-mixed':
@@ -176,6 +233,7 @@ export function fixture(name: Workload): DocumentFile {
             name: null,
             content: [
               text('normal-text', 'Text before unsupported content.'),
+              text('only-whitespace', '  \t \n '),
               { type: 'rule', attrs: { id: 'unsupported-rule' } },
             ],
           },

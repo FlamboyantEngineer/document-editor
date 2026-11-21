@@ -10,7 +10,7 @@ test('DOCE-LABS-5.3 measures complete cold and width-change pagination costs', a
   test.setTimeout(120_000);
   await page.goto('/pretext-pagination.html?measure');
   const results = [];
-  for (const workload of ['short', 'medium', 'long'] as const) {
+  for (const workload of ['short', 'medium', 'long', 'stress-text', 'stress-distinct'] as const) {
     for (let sample = 0; sample < 5; sample += 1) {
       const result = await page.evaluate(
         ({ workload, sample }) => window.pretextPagination.compare(workload, sample % 2 === 1),
@@ -19,7 +19,11 @@ test('DOCE-LABS-5.3 measures complete cold and width-change pagination costs', a
       expect(result.predicted.warm.misses).toBe(result.predicted.cold.misses);
       expect(result.baseline.cold.totalPages).toBe(result.baseline.cold.mountedPages);
       expect(result.predicted.cold.mountedPages).toBeLessThanOrEqual(3);
-      if (workload === 'long') {
+      expect(result.predicted.cold.totalPages).toBe(result.baseline.cold.totalPages);
+      expect(result.predicted.warm.totalPages).toBe(result.baseline.warm.totalPages);
+      if (workload === 'stress-distinct') expect(result.predicted.cold.misses).toBe(4420);
+      if (workload === 'stress-text') expect(result.predicted.cold.misses).toBe(791);
+      if (workload === 'long' || workload === 'stress-text') {
         expect(result.baseline.cold.totalPages).toBeGreaterThanOrEqual(290);
         expect(result.predicted.cold.totalPages).toBeLessThanOrEqual(310);
       }

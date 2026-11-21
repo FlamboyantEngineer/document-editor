@@ -23,6 +23,7 @@ import {
   displayMath,
   font,
   headings,
+  inlineFitWidth,
   inlineMath,
   listAfter,
   listBefore,
@@ -66,27 +67,55 @@ export interface PageIndex {
 
 type Inline = RichInlineItem | RichInlineBox;
 interface Run {
+  endsWithBreak: boolean;
   readonly start: number;
   readonly items: Inline[];
   readonly offsets: number[];
 }
 
+interface RunLine {
+  readonly item: number;
+  readonly from: number;
+  readonly width: number;
+}
+interface PreparedRun {
+  readonly prepared: PreparedRichInline;
+  layout?: { readonly width: number; readonly lines: readonly RunLine[] };
+}
+
 export class PreparationCache {
-  readonly prepared = new Map<string, PreparedRichInline>();
+  private readonly runs = new Map<string, PreparedRun>();
   hits = 0;
   misses = 0;
 
-  get(items: Inline[], preserve: boolean) {
+  lines(items: Inline[], preserve: boolean, width: number) {
     const key = JSON.stringify([preserve, items]);
-    const cached = this.prepared.get(key);
-    if (cached) {
+    let run = this.runs.get(key);
+    if (run) {
       this.hits += 1;
-      return cached;
+      if (run.layout?.width === width) return run.layout.lines;
+    } else {
+      this.misses += 1;
+      run = {
+        prepared: prepareRichInline(items, { whiteSpace: preserve ? 'pre-wrap' : 'normal' }),
+      };
+      this.runs.set(key, run);
     }
-    this.misses += 1;
-    const prepared = prepareRichInline(items, { whiteSpace: preserve ? 'pre-wrap' : 'normal' });
-    this.prepared.set(key, prepared);
-    return prepared;
+
+    const { prepared } = run;
+    const lines: RunLine[] = [];
+    walkRichInlineLineRanges(prepared, width, (range) => {
+      const first = materializeRichInlineLineRange(prepared, range).fragments[0];
+      lines.push({
+        item: first?.itemIndex ?? 0,
+        from: first?.sourceStart ?? 0,
+        width: range.width,
+      });
+    });
+    // Keep one width per prepared run. Its item-local offsets can be reused even when
+    // the same inline items start elsewhere in another source paragraph.
+    run.layout = { width, lines };
+    return lines;
   }
 }
 
@@ -120,11 +149,12 @@ class Predictor {
   }
 
   runs(node: Node, path: string, style: Typography) {
-    let run: Run = { start: 0, items: [], offsets: [] };
+    let run: Run = { endsWithBreak: false, start: 0, items: [], offsets: [] };
     const runs = [run];
     node.forEach((child, offset) => {
       if (child.type.name === 'hard_break') {
-        run = { start: offset + child.nodeSize, items: [], offsets: [] };
+        run.endsWithBreak = true;
+        run = { endsWithBreak: false, start: offset + child.nodeSize, items: [], offsets: [] };
         runs.push(run);
       } else if (child.type.name === 'math_inline') {
         if (child.marks.length || style.leading < inlineMath.height + 2)
@@ -166,24 +196,24 @@ class Predictor {
 
   text(node: Node, path: string, width: number, style: Typography, preserve = false): Block {
     const padding = preserve ? codePadding : 0;
+    const fitWidth = inlineFitWidth(Math.max(1, width - 2 * padding));
     const lines: Line[] = [];
     for (const run of this.runs(node, path, style)) {
-      const prepared = this.cache.get(run.items, preserve);
-      const count = walkRichInlineLineRanges(
-        prepared,
-        Math.max(1, width - 2 * padding),
-        (range) => {
-          const first = materializeRichInlineLineRange(prepared, range).fragments[0];
-          lines.push({
-            from: first
-              ? (run.offsets[first.itemIndex] ?? run.start) + first.sourceStart
-              : run.start,
-            width: range.width,
-          });
-        },
-      );
-      if (!count) lines.push({ from: run.start, width: 0 });
+      const wrapped = this.cache.lines(run.items, preserve, fitWidth);
+      for (const line of wrapped) {
+        lines.push({ from: (run.offsets[line.item] ?? run.start) + line.from, width: line.width });
+      }
+      // A hard break creates a line even when the text before it collapses. After the
+      // final break, trailing collapsible whitespace does not create another line.
+      if (!wrapped.length && (preserve || !node.childCount || run.endsWithBreak))
+        lines.push({ from: run.start, width: 0 });
     }
+    if (!lines.length && node.textContent)
+      this.issue(
+        node,
+        path,
+        'blocks with only collapsed text and adjoining margins are unsupported',
+      );
     return {
       node,
       path,

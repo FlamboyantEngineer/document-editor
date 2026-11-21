@@ -156,7 +156,9 @@ async function verify(workload: Workload = 'examples', width = defaultWidth) {
         return {
           ...comparison,
           width: result.index.contentWidth,
-          ...oracle.verifyPages(paper, result.index, blocks, (page) => sample.jump(page)),
+          ...oracle.verifyPages(paper, result.index, blocks, result.measurements, (page) =>
+            sample.jump(page),
+          ),
           sourceUnchanged: JSON.stringify(writeDocumentFile(doc)) === saved,
         };
       } finally {
@@ -170,7 +172,10 @@ async function verify(workload: Workload = 'examples', width = defaultWidth) {
   }
 }
 
-async function compare(workload: 'short' | 'medium' | 'long', experimentFirst = false) {
+async function compare(
+  workload: 'short' | 'medium' | 'long' | 'stress-text' | 'stress-distinct',
+  experimentFirst = false,
+) {
   await fontsReady();
   const file = fixture(workload);
   async function experiment() {
@@ -232,15 +237,18 @@ async function compare(workload: 'short' | 'medium' | 'long', experimentFirst = 
   return { predicted: await experiment(), baseline: reference };
 }
 
-async function compareProductionBoundaries() {
+async function compareProductionBoundaries(
+  workload: 'short' | 'long' = 'short',
+  width = defaultWidth,
+) {
   await fontsReady();
-  const file = fixture('short');
+  const file = fixture(workload);
   const reference = baseline(root);
   const worker = new PredictionWorker();
   try {
     const nodes = contentBlocks(readFixture(file));
-    const result = await worker.request({ file, width: defaultWidth });
-    await reference.run(file, defaultWidth, performance.now());
+    const result = await worker.request({ file, width });
+    await reference.run(file, width, performance.now());
     const html = reference.boundaries();
     const predicted = result.index?.pages.map((page) =>
       page.map(({ block, from, to }) => [

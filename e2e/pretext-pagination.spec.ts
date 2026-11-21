@@ -60,6 +60,9 @@ test('DOCE-LABS-5.1 predicts off-document and keeps mounted pages bounded throug
   await expect(page.locator('#pretext-status')).toHaveText(
     /unsupported-rule.*unsupported block horizontal_rule/u,
   );
+  await expect(page.locator('#pretext-status')).toContainText(
+    'blocks with only collapsed text and adjoining margins',
+  );
   await expect(mounted).toHaveCount(0);
 });
 

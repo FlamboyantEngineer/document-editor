@@ -101,7 +101,8 @@ export function baseline(root: HTMLElement) {
             if (region.type.name !== 'page_content') return;
             region.forEach((node) => {
               const id = blockId(node);
-              if (!id) return;
+              if (!id)
+                throw new Error('Production boundary comparison requires identified source blocks');
               const from = offsets.get(id) ?? 0;
               const to = from + node.content.size;
               parts.push([id, from, to]);

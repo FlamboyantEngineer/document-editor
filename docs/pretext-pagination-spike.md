@@ -1,6 +1,6 @@
 # Pretext pagination spike
 
-**Recommendation.** Extend the experiment. The 300-page text workload painted its first page about five times faster and mounted two of 300 pages. Cold startup was slower on both smaller documents. The tested stress corpus now matches Chromium's HTML geometry. The timing benchmark uses many repeated paragraphs. Measure less repetitive documents and verify additional browser and font combinations before considering production use.
+**Extend the experiment for large read-only documents.** With 4,420 distinct text blocks, the first page painted in 339.5 ms median versus 762.8 ms for production. The two matched across all 312 pages by count, and the independent HTML oracle matched every source boundary. Cold startup still costs more on three- and 24-page documents. Verify downloadable fonts, another browser engine and currently unsupported document structures before adopting the viewer.
 
 ## Run it
 
@@ -12,15 +12,15 @@ CHROMIUM_PATH=/usr/bin/chromium npx playwright test e2e/pretext-pagination.spec.
 PRETEXT_BENCH=1 CHROMIUM_PATH=/usr/bin/chromium npx playwright test e2e/pretext-pagination.performance.spec.ts --project=performance --no-deps --workers=1 --reporter=json > /tmp/pretext-benchmark.json
 ```
 
-Omit `CHROMIUM_PATH` when using Playwright's installed browser. The file from the last command includes the raw samples as a JSON attachment.
+Omit `CHROMIUM_PATH` when using Playwright's installed browser. The last command records raw samples as a JSON attachment. The checked-in CSV contains every sample used in the table. [Benchmark samples](pretext-pagination-samples.csv)
 
 ## Prediction and HTML parity
 
 The lab reads stored fixtures through the editor schema and resolves the base template's typography and page metrics. The worker takes a stored document and returns page dimensions and ordered ranges in original block coordinates. The viewer serializes only fragments in the viewport window. Source ranges use ProseMirror offsets, including inline atoms. Rendering cuts source content at page boundaries and allows the HTML on each page to wrap naturally.
 
-The pinned `@chenglou/pretext@1.0.0` exposes `prepareRichInline`, `walkRichInlineLineRanges`, and `materializeRichInlineLineRange` through `@chenglou/pretext/rich-inline`. The materialized fragments report item-local UTF-16 offsets and the API accepts fixed-width boxes. It provides line advances. The adapter supplies explicit line-box heights and all vertical geometry. The package can insert an emoji calibration span and read its DOM geometry in a document. A dedicated worker prevents this probe and uses Canvas from `OffscreenCanvas`. The worker retains preparation by text, font and whitespace policy across widths. The lab waits for font readiness and restarts prediction on subsequent load or error events. The scope uses system fonts and needs no worker font registration.
+The pinned `@chenglou/pretext@1.0.0` exposes `prepareRichInline`, `walkRichInlineLineRanges`, and `materializeRichInlineLineRange` through `@chenglou/pretext/rich-inline`. The materialized fragments report item-local UTF-16 offsets and the API accepts fixed-width boxes. It provides line advances. The adapter supplies explicit line-box heights and all vertical geometry. The package can insert an emoji calibration span and read its DOM geometry in a document. A dedicated worker prevents this probe and uses Canvas from `OffscreenCanvas`. The worker retains preparation by text, font and whitespace policy across widths. Each prepared run also retains its item-local line offsets for its most recent width. A change of width replaces that layout. Each use maps the offsets back to its own source block. The lab waits for font readiness and restarts prediction on subsequent load or error events. The scope uses system fonts and needs no worker font registration.
 
-The oracle serializes the original blocks into a separate column with the same reference rules and natural browser wrapping. It compares rendered block widths and heights, line counts, and source starts. It then feeds browser dimensions into the shared page packer. A second pass mounts one virtual page at a time and checks the outer and content boxes, each fragment's width, height and top offset, and page overflow. A three-page text fixture also checks boundaries against the production projection. Geometry reads run on explicit verification. The preview lets browsers wrap lines naturally.
+The oracle serializes the original blocks into a separate column with the same reference rules and natural browser wrapping. It compares rendered block widths and heights, line counts, and source starts. It then feeds browser dimensions into the shared page packer. A second pass mounts one virtual page at a time and checks the outer and content boxes, each fragment's width, height and top offset, and page overflow. The split fragments also undergo an independent grapheme-range scan in their rendered pages, including fragments whose height and line count match. The production projection supplies a second boundary oracle on the three-page fixture and on all 300 pages of the long fixture, then all 320 after narrowing. Geometry reads run on explicit verification. The preview lets browsers wrap lines naturally.
 
 | Content width | Boxes compared | Line count and start differences | Height differences | Predicted / HTML pages | Boundary differences / overflow pages |
 | ------------: | -------------: | -------------------------------: | ------------------ | ---------------------: | ------------------------------------: |
@@ -28,52 +28,61 @@ The oracle serializes the original blocks into a separate column with the same r
 |        510 px |             64 |                                0 | 0                  |                  4 / 4 |                                 0 / 0 |
 |        375 px |             64 |                                0 | 0                  |                  5 / 5 |                                 0 / 0 |
 
-Box dimensions and positions use a 0.5 px tolerance. Line counts and source offsets compare exactly. The lab's inline code now preserves the surrounding line box. This resolves the two previous mixed-font height discrepancies, which added 1 px per line. The stored documents serialize identically before and after verification.
+Box dimensions and positions use a 0.5 px tolerance. Line counts and source offsets compare exactly. In collapsed whitespace the line start is its first visible grapheme or inline atom. Preserved whitespace and explicit breaks retain their source offsets. The lab's inline code now preserves the surrounding line box. This resolves the two previous mixed-font height discrepancies, which added 1 px per line. The stored documents serialize identically before and after verification.
 
 The checked subset covers paragraphs, headings, bold and italic, links and inline code, long words, collapsed whitespace and hard breaks, CJK, Arabic and emoji, nested bullet and ordered lists, pre-wrapped code, fixed-size images, simple fixed-width tables, and fixed-size inline and display math. Table rows take the tallest cell height. Math boxes display source as a placeholder with fixed geometry.
 
 ## Stress parity
 
-Choose a stress document in the lab and select **Check HTML parity**. The automated checks cover the unmodified scale fixtures with 4,420 blocks and 560 lists. The mixed stress document combines the pagination fixture's long paragraph, heading run and empty paragraphs with 18 sets of formatting examples that vary image sizes, table column widths and code lengths.
+Choose a stress document and select **Check HTML parity**. The text and list workloads use the original scale fixtures. The distinct-text variant adds a numbered opening sentence to every block so a cold run has 4,420 distinct inputs. The mixed document combines the pagination fixture’s long paragraph, heading run and empty paragraphs with 18 groups of formatting examples. The fragmentation case puts consecutive hard breaks, trailing collapsible whitespace, styled text, emoji, CJK and inline math in paragraphs that span several pages.
 
-| Stress document |         Content width | Boxes | Pages checked | Rendered fragments | Differences / overflow |
-| --------------- | --------------------: | ----: | ------------: | -----------------: | ---------------------: |
-| Text            | 601.6875 px (default) | 4,420 |           300 |              4,453 |                  0 / 0 |
-| Text            |                600 px | 4,420 |           301 |              4,456 |                  0 / 0 |
-| Text            |                480 px | 4,420 |           354 |              4,515 |                  0 / 0 |
-| Lists           | 601.6875 px (default) | 7,683 |           110 |              1,150 |                  0 / 0 |
-| Lists           |                600 px | 7,683 |           110 |              1,151 |                  0 / 0 |
-| Lists           |                480 px | 7,683 |           130 |              1,158 |                  0 / 0 |
-| Mixed           | 601.6875 px (default) | 1,189 |            69 |                432 |                  0 / 0 |
-| Mixed           |                600 px | 1,189 |            69 |                434 |                  0 / 0 |
-| Mixed           |                480 px | 1,189 |            80 |                448 |                  0 / 0 |
-| Mixed           |              375.5 px | 1,189 |            95 |                464 |                  0 / 0 |
+| Stress document | Content widths (CSS px)                         | Pages | Rendered fragments | Lines inside splits |
+| --------------- | ----------------------------------------------- | ----: | -----------------: | ------------------: |
+| text            | 601.6875, 600.984375, 601, 601.015625, 600, 480 | 1,855 |             26,786 |               1,116 |
+| distinct        | 601.6875, 481.6875                              |   681 |              9,156 |               1,408 |
+| lists           | 601.6875, 601, 600, 480                         |   460 |              4,609 |                  70 |
+| fragments       | 601.6875, 601, 375.5                            |    19 |                 25 |                 870 |
+| mixed           | 601.6875, 601, 600, 480, 375.5                  |   382 |              2,210 |              10,172 |
 
-The mixed run initially found 96 fragment-position differences and seven overflowing pages across three widths. The code figure's margin rule was overriding the page-edge margin reset. The lab now trims those margins at both page edges, as the packer already did.
+Each row sums the work over the listed widths. Across 20 document and width combinations, the line starts and source boundaries matched on all 3,397 pages. No page overflowed and every measured box stayed within the original 0.5 px tolerance. The split-line column counts source offsets checked a second time after cutting the paragraph and letting the browser wrap each piece naturally.
 
-The default preserves the A4 template's fractional content width on Chromium's 1/64 px layout grid. At the old 601 px width, the oracle found line-start discrepancies in 52 text blocks, seven list paragraphs and one mixed paragraph. Two mixed page boundaries moved. Chromium's HTML and the worker's Canvas disagree about kerning around some spaces near a wrap threshold. The old width remains reproducible through the verification harness. Parity at the widths in the table does not guarantee parity at every width.
+The previous experiment found line-offset differences in 60 blocks and two shifted page boundaries at 601 px. Its report attributed those failures to kerning. A reduced line whose Canvas advance is exactly 601.0078125 px fits in a 601 px Chromium column and wraps one layout unit below it. Blink grants one extra layout unit (1/64 px) when testing a line. Pretext 1.0.0 already grants 0.005 px. The worker supplies the difference for Blink’s fit decision. The recorded box width, CSS, and oracle tolerance are unchanged. The regression test includes the immediately narrower and wider widths. [Chromium 156 line breaker](https://github.com/chromium/chromium/blob/156.0.8078.79/third_party/blink/renderer/core/layout/inline/line_breaker.h#L308-L313)
 
-The unmodified full pagination stress document reports its unsupported content explicitly. That includes footnotes, page breaks, block quotes, and oversized code, list and table blocks. The lab uses one section with the base style profile and explicit geometry. It supports paragraph fragmentation with two-line widow and orphan limits. Lists, code and tables stay whole. Custom template scopes, captions, merged cells, loaded webfonts and numbering geometry remain outside the experiment. Results were verified in Chromium with the system fonts described below. Other layout engines and fonts still need coverage.
+A separate failure involved text containing only collapsible whitespace. In the natural HTML column, such a paragraph can have zero height and its margins can collapse through to siblings. The worker now reports that case as unsupported. An empty paragraph with the reference minimum height and whitespace following a final hard break are both supported.
 
-## Original benchmark
+The full pagination stress document also reports footnotes, page breaks, block quotes and oversized indivisible objects. This experiment uses one base template scope and two-line paragraph widow and orphan limits. Lists, code and tables stay whole. Custom template scopes, captions, merged cells, downloadable fonts and numbering geometry remain outside its scope. The browser measurements cover Chromium with the system fonts listed below.
 
-These timings are from the initial spike at the whole-pixel default width. Five paired runs per size, alternating which implementation ran first. Chromium 156.0.8078.79, Debian 13, AMD EPYC 9V74 with five available logical CPUs. System font matches for Arial and Courier New were Liberation Sans and Liberation Mono. Both paths completed font readiness before timing. Initial lab-bundle loading and common fixture generation are outside the measurements. Cold Pretext starts a fresh worker and parses the stored document in both contexts. Its total includes worker module startup, structured cloning, layout, and applying visible HTML. Warm changes the content width by 120 px in both paths. Pretext reuses its existing worker, source and prepared runs. The existing projection retains its editor and remeasures at the changed width. Production times include its measuring editor, page projection and DOM application.
+## Benchmark
 
-Timings are milliseconds, median (minimum–maximum). The index is available on worker response or at the production layout callback. Paint uses the second animation frame after the first rendered page update, allowing an intervening paint. End waits for that paint and layout settlement. Long tasks are main-thread entries of at least 50 ms during the measured interval. DOM counts are mounted pages and descendant nodes, including the production measuring view for node counts.
+Five paired runs per document alternated which implementation ran first. Chromium 156.0.8078.79 ran on Debian 13 with five available logical CPUs. Arial and Courier New resolved to Liberation Sans and Liberation Mono. Both paths awaited font readiness before timing. Loading the common lab bundle and generating the input fixture are outside the timed interval.
 
-| Document | Path     | Run          |                     Index |               First paint |                       End | Long tasks / total ms, median | Pages / DOM nodes |
-| -------- | -------- | ------------ | ------------------------: | ------------------------: | ------------------------: | ----------------------------: | ----------------: |
-| Short    | Existing | Cold         |            6.9 (5.2–26.1) |          33.5 (33.2–35.1) |          33.5 (33.2–35.1) |                         0 / 0 |           3 / 218 |
-| Short    | Pretext  | Cold         |         65.1 (57.8–126.5) |         68.4 (66.5–144.2) |         68.4 (66.5–144.2) |                         0 / 0 |            2 / 71 |
-| Short    | Existing | Width change |          34.8 (34.3–35.3) |          50.0 (49.9–50.2) |          66.6 (66.5–75.8) |                         0 / 0 |           4 / 223 |
-| Short    | Pretext  | Width change |             1.2 (0.9–1.8) |          33.4 (33.2–34.9) |          33.4 (33.2–34.9) |                         0 / 0 |            2 / 67 |
-| Medium   | Existing | Cold         |          23.2 (21.3–27.9) |          50.2 (49.9–67.0) |          50.2 (49.9–67.0) |                         0 / 0 |        24 / 1,651 |
-| Medium   | Pretext  | Cold         |          74.4 (66.2–81.0) |          83.4 (83.2–85.2) |          83.4 (83.2–85.2) |                         0 / 0 |            2 / 71 |
-| Medium   | Existing | Width change |          63.9 (55.4–78.1) |          66.6 (55.6–83.6) |         83.4 (66.7–100.1) |                         0 / 0 |        26 / 1,673 |
-| Medium   | Pretext  | Width change |             4.7 (4.0–6.7) |          33.3 (32.3–41.8) |          33.3 (32.3–41.8) |                         0 / 0 |            2 / 67 |
-| Long     | Existing | Cold         |       383.8 (327.6–548.9) |     742.9 (622.1–1,032.5) |     742.9 (622.1–1,032.5) |                       2 / 742 |      300 / 20,711 |
-| Long     | Pretext  | Cold         |       143.0 (120.9–165.7) |       150.3 (133.2–172.8) |       150.3 (133.2–172.8) |                         0 / 0 |            2 / 71 |
-| Long     | Existing | Width change | 1,116.8 (1,073.6–1,484.4) | 1,123.8 (1,075.2–1,486.5) | 1,131.0 (1,081.2–1,499.9) |                     3 / 1,117 |      320 / 20,971 |
-| Long     | Pretext  | Width change |          22.1 (20.2–33.6) |          33.3 (33.2–73.7) |          33.3 (33.2–73.7) |                         0 / 0 |            2 / 67 |
+Cold Pretext starts a fresh worker and includes parsing in both contexts, transfer in both directions, line layout, packing, visible DOM creation and paint. Cold production includes its measuring editor, the projected document and applying the page DOM. The width change narrows the content from 601.6875 to 481.6875 CSS px in both paths. Pretext retains its worker and prepared runs. Production retains its editor and remeasures the document.
 
-The virtual index also had 3, 24, and 300 pages cold and 4, 26, and 320 after narrowing. A distant jump in the long document mounted three pages. The 300-page benchmark repeats 37 distinct heading and paragraph inputs across 4,800 blocks. Worker-only cold parse and line measurement took 67.2 ms median, with another 8.1 ms for packing and building the result. The 143.0 ms index includes the remaining startup, handoff and main-thread source preparation costs. On width change there were 4,800 preparation hits and zero misses, with 12.7 ms for line measurement and 5.9 ms for packing and result construction. The benchmark represents a text-heavy read-only viewer. It cannot separate the benefit of Canvas prediction from the benefit of mounting fewer pages.
+The table gives medians and the observed minimum–maximum for index readiness and completion. First paint uses the second animation frame after the first page DOM update. End waits for paint and layout settlement. Long tasks include main-thread tasks of at least 50 ms during the timed interval. Mounted nodes include the production measuring view.
+
+| Document             | Path     | Run          |                 Index, ms | First paint, ms |                   End, ms | Long tasks / total ms | Mounted pages / nodes |
+| -------------------- | -------- | ------------ | ------------------------: | --------------: | ------------------------: | --------------------: | --------------------: |
+| Short                | Existing | Cold         |            5.6 (5.0–25.9) |            33.4 |          33.4 (33.2–33.4) |                 0 / 0 |               3 / 218 |
+| Short                | Pretext  | Cold         |         59.1 (56.0–316.0) |            66.9 |         66.9 (66.6–335.0) |                 0 / 0 |                2 / 71 |
+| Short                | Existing | Width change |          34.9 (34.4–38.3) |            50.0 |          66.8 (66.6–72.1) |                 0 / 0 |               4 / 223 |
+| Short                | Pretext  | Width change |             1.7 (1.7–3.2) |            33.2 |          33.2 (33.1–33.3) |                 0 / 0 |                2 / 67 |
+| Medium               | Existing | Cold         |          21.7 (19.9–26.3) |            50.1 |          50.1 (50.0–52.9) |                 0 / 0 |            24 / 1,651 |
+| Medium               | Pretext  | Cold         |         67.4 (64.6–156.6) |            83.3 |         83.3 (67.9–166.6) |                 0 / 0 |                2 / 71 |
+| Medium               | Existing | Width change |          58.2 (53.3–79.2) |            66.7 |         83.5 (66.7–100.1) |                 0 / 0 |            26 / 1,673 |
+| Medium               | Pretext  | Width change |             4.0 (3.7–4.5) |            33.3 |          33.3 (33.2–33.4) |                 0 / 0 |                2 / 67 |
+| Long, repeated       | Existing | Cold         |       343.8 (309.4–493.3) |           713.0 |     713.0 (627.5–1,015.2) |               2 / 711 |          300 / 20,711 |
+| Long, repeated       | Pretext  | Cold         |       131.8 (111.6–152.6) |           135.1 |       135.1 (122.9–155.9) |                 0 / 0 |                2 / 71 |
+| Long, repeated       | Existing | Width change | 1,431.8 (1,106.7–1,597.7) |         1,438.7 | 1,445.1 (1,115.1–1,600.0) |             3 / 1,431 |          320 / 20,971 |
+| Long, repeated       | Pretext  | Width change |          27.5 (16.9–35.3) |            33.5 |          33.5 (33.2–66.7) |                 0 / 0 |                2 / 67 |
+| Scale text           | Existing | Cold         |       388.6 (347.6–711.4) |           708.1 |     708.1 (660.1–1,147.1) |               2 / 707 |          300 / 19,257 |
+| Scale text           | Pretext  | Cold         |       147.7 (137.9–172.2) |           158.1 |       158.1 (149.9–176.3) |                 0 / 0 |                2 / 69 |
+| Scale text           | Existing | Width change | 1,079.6 (1,020.7–1,435.8) |         1,086.3 | 1,092.8 (1,033.0–1,455.9) |             3 / 1,080 |          354 / 19,651 |
+| Scale text           | Pretext  | Width change |          18.1 (17.4–18.8) |            33.3 |          33.3 (33.2–33.4) |                 0 / 0 |                2 / 57 |
+| Scale text, distinct | Existing | Cold         |       406.0 (401.0–484.8) |           762.8 |     762.8 (733.4–1,074.7) |               2 / 762 |          312 / 19,379 |
+| Scale text, distinct | Pretext  | Cold         |       327.3 (305.0–436.4) |           339.5 |       339.5 (310.7–458.2) |                 0 / 0 |                2 / 65 |
+| Scale text, distinct | Existing | Width change | 1,519.4 (1,402.3–1,795.4) |         1,521.2 | 1,533.5 (1,415.5–1,814.0) |             3 / 1,519 |          369 / 20,040 |
+| Scale text, distinct | Pretext  | Width change |          35.8 (34.3–61.0) |            66.6 |          66.6 (38.1–71.1) |                 0 / 0 |                2 / 57 |
+
+The two paths produced the same total page count in every cold and width-change run. The 4,800-block long fixture has 37 distinct rich-inline inputs. The original scale fixture has 791 across 4,420 blocks. Adding one unique sentence per block raises that to 4,420 and gives zero cold preparation hits. All three share vocabulary, so Pretext may still reuse individual word metrics. The gain from virtual pages persists as whole-paragraph reuse falls. The combined benchmark measures both prediction and virtualization.
+
+For the distinct fixture, cold worker parsing and line layout took 252.3 ms median of the 327.3 ms end-to-end index time. The width change reused all 4,420 preparations and spent 27.2 ms on worker line layout. Only the two visible or overscan pages were mounted in these runs. Source nodes, preparations and the page index still grow with document size. The CSV records cumulative preparation hits and misses as well as worker timings for each measurement.

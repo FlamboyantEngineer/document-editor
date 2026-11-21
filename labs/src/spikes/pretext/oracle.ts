@@ -158,11 +158,13 @@ export function verifyPages(
   sheets: HTMLElement,
   index: LayoutIndex,
   sources: readonly Node[],
+  predictions: readonly BlockReport[],
   mountPage: (page: number) => void,
 ) {
   const overflow: number[] = [];
   const pageDifferences: Difference[] = [];
   let comparedFragments = 0;
+  let comparedSplitLines = 0;
   index.pages.forEach((fragments, position) => {
     mountPage(position);
     const number = String(position + 1);
@@ -209,9 +211,30 @@ export function verifyPages(
     fragments.slice(0, body.childElementCount).forEach((fragment, at) => {
       const element = requireValue(body.children[at], 'rendered fragment');
       const rect = element.getBoundingClientRect();
-      const id =
-        blockId(requireValue(sources[fragment.block], 'fragment source block')) ??
-        String(fragment.block);
+      const source = requireValue(sources[fragment.block], 'fragment source block');
+      const id = blockId(source) ?? String(fragment.block);
+      if (fragment.from > 0 || fragment.to < source.content.size) {
+        const lines = requireValue(predictions[fragment.block]?.lines, 'split paragraph lines');
+        const cut = source.copy(source.content.cut(fragment.from, fragment.to));
+        const rendered = browserLines(cut, element as HTMLElement, rect).lines.map(
+          (line) => fragment.from + line.from,
+        );
+        const original = lines
+          .map((line) => line.from)
+          .filter((offset) => offset >= fragment.from && offset < fragment.to);
+        if (
+          rendered.length !== original.length ||
+          rendered.some((offset, i) => offset !== original[i])
+        )
+          pageDifferences.push({
+            path,
+            id,
+            metric: 'fragment line offsets',
+            predicted: original,
+            html: rendered,
+          });
+        comparedSplitLines += rendered.length;
+      }
       compareDimension(pageDifferences, path, id, 'fragment width', fragment.width, rect.width);
       compareDimension(pageDifferences, path, id, 'fragment height', fragment.height, rect.height);
       compareDimension(
@@ -225,7 +248,13 @@ export function verifyPages(
       comparedFragments += 1;
     });
   });
-  return { overflow, pageDifferences, comparedPages: index.pages.length, comparedFragments };
+  return {
+    overflow,
+    pageDifferences,
+    comparedPages: index.pages.length,
+    comparedFragments,
+    comparedSplitLines,
+  };
 }
 
 export function verify(

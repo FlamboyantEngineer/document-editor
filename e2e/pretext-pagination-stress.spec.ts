@@ -1,9 +1,21 @@
 import { expect, test } from './fixtures.js';
 
 const workloads = [
-  { name: 'stress-text', widths: [undefined, 600, 480], boxes: 4420, minimumPages: 290 },
-  { name: 'stress-lists', widths: [undefined, 600, 480], boxes: 7683, minimumPages: 100 },
-  { name: 'stress-mixed', widths: [undefined, 600, 480, 375.5], boxes: 1189, minimumPages: 60 },
+  {
+    name: 'stress-text',
+    widths: [undefined, 600.984375, 601, 601.015625, 600, 480],
+    boxes: 4420,
+    minimumPages: 290,
+  },
+  { name: 'stress-distinct', widths: [undefined, 481.6875], boxes: 4420, minimumPages: 300 },
+  { name: 'stress-lists', widths: [undefined, 601, 600, 480], boxes: 7683, minimumPages: 100 },
+  { name: 'stress-fragments', widths: [undefined, 601, 375.5], boxes: 3, minimumPages: 6 },
+  {
+    name: 'stress-mixed',
+    widths: [undefined, 601, 600, 480, 375.5],
+    boxes: 1189,
+    minimumPages: 60,
+  },
 ] as const;
 
 for (const { name, widths, boxes, minimumPages } of workloads) {
@@ -32,6 +44,7 @@ for (const { name, widths, boxes, minimumPages } of workloads) {
       expect(result.comparedPages).toBe(result.predictedPages);
       expect(result.htmlPages).toBe(result.predictedPages);
       expect(result.comparedFragments).toBeGreaterThan(result.predictedPages);
+      expect(result.comparedSplitLines).toBeGreaterThan(0);
       expect(result.differences).toEqual([]);
       expect(result.boundaryMismatches).toEqual([]);
       expect(result.pageDifferences).toEqual([]);
@@ -56,20 +69,21 @@ test('DOCE-LABS-5.1 explains unsupported features in the full pagination stress 
   ).toHaveCount(0);
 });
 
-test('DOCE-LABS-5.2 reports the mixed stress wrap discrepancy at the old rounded width', async ({
+test('DOCE-LABS-5.2 matches production source ranges on every page before and after narrowing', async ({
   page,
-}, info) => {
+}) => {
   await page.goto('/pretext-pagination.html?measure');
-  const result = await page.evaluate(() => window.pretextPagination.verify('stress-mixed', 601));
-  await info.attach('Rounded-width parity', {
-    body: JSON.stringify(result, null, 2),
-    contentType: 'application/json',
-  });
-  expect(result.htmlPages).toBe(result.predictedPages);
-  expect(result.pageDifferences).toEqual([]);
-  expect(result.overflow).toEqual([]);
-  for (const { path, metric } of result.differences) {
-    expect({ path, metric }).toEqual({ path: '1', metric: 'line offsets' });
+  for (const [width, pages] of [
+    [601.6875, 300],
+    [481.6875, 320],
+  ] as const) {
+    const { predicted, html } = await page.evaluate(
+      (width) => window.pretextPagination.compareProductionBoundaries('long', width),
+      width,
+    );
+    expect(html).toHaveLength(pages);
+    expect(predicted).toHaveLength(pages);
+    for (const [i, parts] of html.entries())
+      expect(predicted?.[i], `Page ${String(i + 1)} at ${String(width)} px`).toEqual(parts);
   }
-  for (const page of result.boundaryMismatches) expect(page).toBeLessThanOrEqual(2);
 });
