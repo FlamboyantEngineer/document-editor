@@ -612,9 +612,9 @@ Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.5 - Prefixes and inline atoms
 
-A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, and a line shall be as tall as its leading or its tallest atom; without a size the block shall not be laid out, with the reason.
+A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, drawn on one line, and sit on the baseline at its own baseline, or at its bottom when it gives none. A line shall be as tall as the block's strut (the font's ascent and descent rounded to whole pixels, with half the rest of the leading above and half below), grown by the atoms that reach above or below it. Without a size the block shall not be laid out, and the reason is given.
 
-Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`
+Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/metrics.ts`, `src/layout-engine/text-layout.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.6 - Alignment and padding
@@ -637,3 +637,10 @@ A line table as a text measurement (`lineTableMeasurement(table, offset)`) shall
 
 Implementation: `src/layout-engine/text-layout.ts`, `src/model/pagination/text-split.ts`
 Verification: `src/layout-engine/text-layout.test.ts`, `src/model/pagination/text-split.test.ts`
+
+### DOCE-PAGINATION-9.9 - Heading and paragraph numbers
+
+`documentNumbers(doc, template)` shall give, by block position, each numbered heading's number with the space after it, as its scope's heading numbering shows it (`numberedHeadings`), and each numbered paragraph's number, level and level positions, counted as the paragraph numbering counts them (DOCE-NUMBERING-6). A heading's number shall be laid out as its place's `prefix`. A paragraph given its `number` shall start its first line at the number position, with the number in a box as wide as the gap to the text position or as the number and a space, whichever is wider, and its other lines at the text position: the level's, or after the indentation (20pt a level below the first, else the paragraph style's), the number position and the room the label reserves in widths of the font's zero.
+
+Implementation: `src/layout-engine/numbers.ts`, `src/engine/paragraph-numbering.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
+Verification: `src/layout-engine/numbers.test.ts`
