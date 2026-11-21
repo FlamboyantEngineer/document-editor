@@ -2,12 +2,13 @@
 // and scrolling frame, proofed by a word-list proofer and completed inline, and the time its pages took to settle, first
 // and after the latest edit. A size picker builds a larger document.
 
-import { EditorState, type Transaction } from 'prosemirror-state';
+import { EditorState, type Plugin, type Transaction } from 'prosemirror-state';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
   type DocumentEditorHandle,
+  type DocumentEditorProps,
   type DocumentLayout,
   inlineCompletionItem,
 } from '../../../src/components/index.js';
@@ -67,6 +68,10 @@ export interface StressLabOptions {
   readonly remote?: boolean | undefined;
   /** The comment threads of a size's document, shown in the margin; none for sizes without. */
   readonly threads?: ((size: number) => readonly CommentThread[] | null) | undefined;
+  /** More canonical plugins, put before the editing plugins, such as a spike's. */
+  readonly plugins?: (() => readonly Plugin[]) | undefined;
+  /** More of the editor's own options, such as `find` or `suggesting`. */
+  readonly editor?: Partial<DocumentEditorProps> | undefined;
 }
 
 // An in-memory host keeping a size's comment threads, or none.
@@ -94,11 +99,12 @@ const COMPARE = new URLSearchParams(window.location.search).has('compare')
   ? ({ previous: 'opened', display: 'bars' } as const)
   : undefined;
 
-function stateOf(file: DocumentFile): EditorState {
+function stateOf(file: DocumentFile, more: StressLabOptions['plugins']): EditorState {
   const schema = createDocumentSchema();
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
     plugins: [
+      ...(more?.() ?? []),
       createContents({ template: () => TEMPLATE }),
       createInlineCompletion({ provider: COMPLETER }),
       createProofing({ proofer: PROOFER }),
@@ -150,9 +156,9 @@ function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
 const milliseconds = (value: number | null) =>
   value === null ? '…' : `${String(Math.round(value))} ms`;
 
-function StressLab({ build, sizes, remote, threads }: StressLabOptions) {
+function StressLab({ build, sizes, remote, threads, plugins, editor }: StressLabOptions) {
   const [size, setSize] = useState(() => initialSize(sizes));
-  const [state, setState] = useState(() => stateOf(build(size)));
+  const [state, setState] = useState(() => stateOf(build(size), plugins));
   const [layout, setLayout] = useState<DocumentLayout>('page');
   const review = useReviewHost(threads, size);
   const handle = useRef<DocumentEditorHandle>(null);
@@ -171,7 +177,7 @@ function StressLab({ build, sizes, remote, threads }: StressLabOptions) {
   const pick = (value: number) => {
     setSize(value);
     layoutTimes.restart();
-    setState(stateOf(build(value)));
+    setState(stateOf(build(value), plugins));
   };
   return (
     <>
@@ -231,6 +237,7 @@ function StressLab({ build, sizes, remote, threads }: StressLabOptions) {
         statusBar
         className="lab-document-editor"
         aria-label="Stress document"
+        {...editor}
         handleRef={handle}
         events={events}
         compare={COMPARE}
