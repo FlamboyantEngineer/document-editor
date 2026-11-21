@@ -140,7 +140,7 @@ const cases = [
 ];
 
 const entry = `
-import { createFontFileMeasurer } from './labs/src/spikes/font-widths/measurer.ts';
+import { createFontFileMeasurer } from './src/layout-engine/font-files/measurer.ts';
 globalThis.fontWidthsCoverage = async ({ wasm, faces, cases }) => {
   const measurer = await createFontFileMeasurer({ wasm, faces });
   const context = measurer.createContext();

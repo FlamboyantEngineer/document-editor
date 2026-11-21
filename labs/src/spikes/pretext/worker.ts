@@ -1,6 +1,6 @@
 import { setLayoutScale, setLocale, setMeasureContext } from '@chenglou/pretext';
 import type { Node } from 'prosemirror-model';
-import { createFontFileMeasurer } from '../font-widths/measurer.js';
+import { createFontFileMeasurer } from '../../../../src/layout-engine/font-files/measurer.js';
 import { readFixture } from './fixtures.js';
 import { addServedFaces, type FontSetup, labMeasurer } from './fonts.js';
 import { type Block, indexPages, measureDocument, PreparationCache } from './prediction.js';

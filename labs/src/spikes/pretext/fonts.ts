@@ -5,7 +5,7 @@
 // (font-widths spike, DOCE-LABS-7), instead of from Canvas. The worker reads the same query from
 // its name, since it has no page address.
 
-import type { ServedFace } from '../font-widths/faces.js';
+import type { ServedFace } from '../../../../src/layout-engine/font-files/faces.js';
 
 export type LabMeasurer = 'canvas' | 'font-files';
 

@@ -704,3 +704,21 @@ A page out of view is not drawn, so a CSS counter there counts nothing. `blockNu
 
 Implementation: `src/layout-engine/blocks/numbers.ts`, `src/layout-engine/atoms.ts`, `src/layout-engine/dom-atoms.ts`
 Verification: `src/layout-engine/blocks/numbers.test.ts`, `src/layout-engine/atoms.test.ts`, `src/layout-engine/dom-atoms.test.ts`
+
+## DOCE-PAGINATION-11 - Widths from the font files
+
+Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.
+
+### DOCE-PAGINATION-11.1 - The font-file measurer
+
+`createFontFileMeasurer({ wasm, faces, generics })` shall take harfbuzzjs's `harfbuzz.wasm` and the served faces (family, weight, style, optional `unicode-range`, and the bytes of a WOFF 1.0 or OpenType file) as bytes, fetch nothing, and give `createContext()`, a Canvas-shaped measuring context for Pretext's `setMeasureContext`. The reference text (55 strings at five sizes in nine Geist and KaTeX faces) shall measure to fingerprint `c2be3986`, and Pretext shall break 120 seeded paragraphs at nine widths into 7,400 lines with fingerprint `b95b5806`, in Node, a page and a worker, on Linux, Windows and macOS (DOCE-LABS-7.1). The widths shall follow Linux Chromium's Canvas: glyph advances at the size floored to 1/64 px, kerning at the size floored to 1/100 px, each word's width a float32 and the words summed in float32. The module shall not be exported or reached from an entry until the editor's Pretext layout uses it.
+
+Implementation: `src/layout-engine/font-files/measurer.ts`, `src/layout-engine/font-files/harfbuzz.ts`, `src/layout-engine/font-files/woff.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`
+
+### DOCE-PAGINATION-11.2 - Canvas words, fallback and missing glyphs
+
+The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A character no served face has shall take the first face's .notdef advance and be recorded in `problems.missingGlyphs`; there is no system fallback.
+
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`

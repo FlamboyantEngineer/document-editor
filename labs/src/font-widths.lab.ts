@@ -3,13 +3,13 @@
 // fingerprints of both and of Pretext's line breaks through each. `window.fontWidths` holds the
 // result for the browser tests.
 
-import { fingerprintLines, type LineFingerprint } from './spikes/font-widths/line-fingerprint.js';
-import { createFontFileMeasurer } from './spikes/font-widths/measurer.js';
+import { createFontFileMeasurer } from '../../src/layout-engine/font-files/measurer.js';
+import { fingerprintLines, type LineFingerprint } from '../../test/font-files-lines.js';
 import {
   fingerprintWidths,
   measureReference,
   REFERENCE_FACES,
-} from './spikes/font-widths/reference.js';
+} from '../../test/font-files-reference.js';
 import { requireValue } from './spikes/pretext/fixtures.js';
 
 export interface FontWidthsResult {

@@ -38,9 +38,9 @@ function read(file) {
 
 // The probe: the measurer and the reference text, bundled into one script for page and worker.
 const entry = `
-import { createFontFileMeasurer } from './labs/src/spikes/font-widths/measurer.ts';
-import { REFERENCE_FACES, fingerprintWidths, measureReference } from './labs/src/spikes/font-widths/reference.ts';
-import { fingerprintLines } from './labs/src/spikes/font-widths/line-fingerprint.ts';
+import { createFontFileMeasurer } from './src/layout-engine/font-files/measurer.ts';
+import { REFERENCE_FACES, fingerprintWidths, measureReference } from './test/font-files-reference.ts';
+import { fingerprintLines } from './test/font-files-lines.ts';
 globalThis.fontWidthsProbe = async ({ wasm, faces }) => {
   const started = performance.now();
   const measurer = await createFontFileMeasurer({ wasm, faces });
