@@ -11,12 +11,12 @@ export interface ShapedRun {
   readonly advances: Int32Array;
 }
 
-export interface GlyphExtents {
+interface GlyphExtents {
   readonly bearing: number;
   readonly width: number;
 }
 
-export interface ShapeOptions {
+interface ShapeOptions {
   /** OpenType features in HarfBuzz's syntax, such as `-kern`. */
   readonly features: readonly string[];
   /** BCP 47 language of the text, or null for none. */
@@ -24,7 +24,7 @@ export interface ShapeOptions {
 }
 
 /** One font file, unscaled: every number is in font units. */
-export interface LineExtents {
+interface LineExtents {
   /** Above the baseline, positive. */
   readonly ascender: number;
   /** Below the baseline, negative. */

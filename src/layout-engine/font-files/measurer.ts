@@ -12,7 +12,7 @@ import {
 } from './measure-context.js';
 import { readWoff } from './woff.js';
 
-export interface FontFileMeasurerOptions {
+interface FontFileMeasurerOptions {
   /** The bytes of harfbuzzjs's `harfbuzz.wasm`. */
   readonly wasm: ArrayBuffer | Uint8Array<ArrayBuffer>;
   /** The served font files, WOFF or OpenType. */
@@ -21,7 +21,7 @@ export interface FontFileMeasurerOptions {
   readonly generics?: Readonly<Record<string, string>>;
 }
 
-export interface FontFileMeasurer {
+interface FontFileMeasurer {
   createContext(): FontFileContext;
   readonly problems: MeasureProblems;
   /** Bytes of the WebAssembly heap, font data included. */

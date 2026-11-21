@@ -19,7 +19,7 @@ export interface MeasureProblems {
   readonly unservedFonts: Set<string>;
 }
 
-export interface FontFileMetrics {
+interface FontFileMetrics {
   readonly width: number;
   readonly actualBoundingBoxLeft: number;
   readonly actualBoundingBoxRight: number;
@@ -69,7 +69,7 @@ function isCanvasWordLetter(code: number) {
  * Canvas's words: each space alone, each run-breaking invisible character alone, and a cut before a
  * kana or ideograph after another character.
  */
-export function splitCanvasWords(text: string): string[] {
+function splitCanvasWords(text: string): string[] {
   const words: string[] = [];
   let word = '';
   for (const character of text) {
@@ -102,7 +102,7 @@ const dots = new Set([0x3001, 0x3002, 0xff0c, 0xff0e]);
 const middles = new Set([0x30fb, 0xff1a, 0xff1b]);
 
 /** UTF-16 offsets of the punctuation Chromium draws at half width in one shaped word. */
-export function trimmedPunctuation(text: string): number[] {
+function trimmedPunctuation(text: string): number[] {
   const trimmed: number[] = [];
   const at = (index: number) => text.charCodeAt(index);
   for (let index = 0; index < text.length; index += 1) {

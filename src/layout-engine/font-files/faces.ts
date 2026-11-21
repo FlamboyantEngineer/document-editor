@@ -53,7 +53,7 @@ const keywordWeights: Record<string, number> = {
 const sizeAndFamilies = /(?:^|\s)([\d.]+)px(?:\/\S+)?\s+(.+)$/u;
 
 /** A `unicode-range` descriptor as a test of a code point. */
-export function parseUnicodeRange(range: string | undefined): (codePoint: number) => boolean {
+function parseUnicodeRange(range: string | undefined): (codePoint: number) => boolean {
   if (!range) return () => true;
   const spans = range.split(',').map((part) => {
     const [from = '0', to] = part.trim().replace(/^U\+/iu, '').split('-');
