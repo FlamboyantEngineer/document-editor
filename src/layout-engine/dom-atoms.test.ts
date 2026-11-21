@@ -59,6 +59,20 @@ describe('DOM atom measurer', () => {
     expect(drawn).toEqual(['12']);
   });
 
+  it('DOCE-PAGINATION-10.2 counts an atom that is itself a loading image as provisional', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    stubBoxes({ img: { top: 0, width: 0, height: 0 } });
+    const render = () => {
+      const image = document.createElement('img');
+      image.src = 'https://example.org/a.png';
+      return image;
+    };
+    const measure = createDomAtomMeasurer({ host, render });
+    const figure = schema.node('figure', null, [schema.node('figure_caption')]);
+    expect(measure(figure, 400)?.settled).toBeInstanceOf(Promise);
+  });
+
   it('DOCE-PAGINATION-10.2 reports a provisional size until its images load', async () => {
     const host = document.createElement('div');
     document.body.append(host);
