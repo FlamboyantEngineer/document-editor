@@ -6,10 +6,13 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
+import { footnoteMarkerItem } from './footnote-marker.js';
 import type { LineTable } from './line-table.js';
 import { createLineCache, layoutLines } from './lines.js';
+import { strutOf, textWidth } from './metrics.js';
+import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { buildRuns, type MeasureAtom } from './runs.js';
-import { type BlockTypography, blockTypography, firstFamily } from './typography.js';
+import { type BlockTypography, blockTypography, firstFamily, fontString } from './typography.js';
 
 /** What the engine lays text out from. */
 export interface TextLayoutOptions {
@@ -32,6 +35,10 @@ export interface TextBlockPlace {
   readonly scope?: string | null | undefined;
   /** Text drawn before the content on its first line, such as a heading's number and its space. */
   readonly prefix?: string | undefined;
+  /** A numbered paragraph's number (`documentNumbers`), drawn in a box before its first line. */
+  readonly number?: ParagraphNumber | undefined;
+  /** A footnote entry's number, drawn before its content in the template's marker style. */
+  readonly footnoteNumber?: string | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
@@ -47,7 +54,7 @@ interface TextLayout {
   readonly layoutText: (node: ProseMirrorNode, place: TextBlockPlace) => TextBlockLayout;
 }
 
-const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block']);
+const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block', 'footnote_entry']);
 
 function hasCode(node: ProseMirrorNode): boolean {
   let found = false;
@@ -60,10 +67,11 @@ function hasCode(node: ProseMirrorNode): boolean {
 function unservedFamily(
   node: ProseMirrorNode,
   typography: BlockTypography,
-  isFontServed: (family: string) => boolean,
+  { isFontServed, marker }: { isFontServed: (family: string) => boolean; marker?: string },
 ): string | null {
   const families = [typography.font.family];
   if (hasCode(node)) families.push(typography.codeFamily);
+  if (marker) families.push(marker);
   return families.map(firstFamily).find((family) => !isFontServed(family)) ?? null;
 }
 
@@ -78,14 +86,31 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       if (!TEXT_BLOCKS.has(node.type.name))
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
+      const marker =
+        place.footnoteNumber === undefined
+          ? null
+          : footnoteMarkerItem(place.footnoteNumber, style, { ...options, scope: place.scope });
       const unserved = options.isFontServed
-        ? unservedFamily(node, style, options.isFontServed)
+        ? unservedFamily(node, style, {
+            isFontServed: options.isFontServed,
+            ...(marker ? { marker: marker.family } : {}),
+          })
         : null;
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
+      const font = fontString(style.font);
+      const numbered = place.number
+        ? placeNumber({
+            number: place.number,
+            size: style.font.size,
+            indentation: style.indentation,
+            measure: (text) => textWidth(text, font),
+          })
+        : null;
       const runs = buildRuns({
         node,
         typography: style,
-        prefix: place.prefix,
+        prefix: marker?.item ?? place.prefix,
+        lead: numbered?.box,
         measureAtom: options.measureAtom,
       });
       if (!runs.ok) return runs;
@@ -93,8 +118,11 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         runs: runs.runs,
         width: Math.max(1, place.width - 2 * style.padding),
         leading: style.leading,
+        strut: strutOf(font, style.font.size, style.leading),
         align: style.align,
         padding: style.padding,
+        firstStart: numbered?.firstStart ?? 0,
+        restStart: numbered?.restStart ?? 0,
       });
       return { ok: true, table };
     },

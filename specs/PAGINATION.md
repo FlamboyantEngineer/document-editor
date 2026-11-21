@@ -584,7 +584,7 @@ The text layout engine (`src/layout-engine/`) lays a text block's lines out from
 
 ### DOCE-PAGINATION-9.1 - The line table
 
-`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading or a code block out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1.
+`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block or a footnote entry out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1.
 
 Implementation: `src/layout-engine/line-table.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
@@ -612,9 +612,9 @@ Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.5 - Prefixes and inline atoms
 
-A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, and a line shall be as tall as its leading or its tallest atom; without a size the block shall not be laid out, with the reason.
+A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, drawn on one line, and sit on the baseline at its own baseline, or at its bottom when it gives none. A line shall be as tall as the block's strut (the font's ascent and descent rounded to whole pixels, with half the rest of the leading above and half below), grown by the atoms that reach above or below it. Without a size the block shall not be laid out, and the reason is given.
 
-Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`
+Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/metrics.ts`, `src/layout-engine/text-layout.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.6 - Alignment and padding
@@ -637,6 +637,20 @@ A line table as a text measurement (`lineTableMeasurement(table, offset)`) shall
 
 Implementation: `src/layout-engine/text-layout.ts`, `src/model/pagination/text-split.ts`
 Verification: `src/layout-engine/text-layout.test.ts`, `src/model/pagination/text-split.test.ts`
+
+### DOCE-PAGINATION-9.9 - Heading and paragraph numbers
+
+`documentNumbers(doc, template)` shall give, by block position, each numbered heading's number with the space after it, as its scope's heading numbering shows it (`numberedHeadings`), and each numbered paragraph's number, level and level positions, counted as the paragraph numbering counts them (DOCE-NUMBERING-6). A heading's number shall be laid out as its place's `prefix`. A paragraph given its `number` shall start its first line at the number position, with the number in a box as wide as the gap to the text position or as the number and a space, whichever is wider, and its other lines at the text position: the level's, or after the indentation (20pt a level below the first, else the paragraph style's), the number position and the room the label reserves in widths of the font's zero.
+
+Implementation: `src/layout-engine/numbers.ts`, `src/engine/paragraph-numbering.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
+Verification: `src/layout-engine/numbers.test.ts`
+
+### DOCE-PAGINATION-9.10 - Footnote entries
+
+A footnote entry's typography shall be its scope's footnote text style (`resolveFootnoteSettings`), with no margins of its own (the footnote area sets entries apart): unset, the paragraph's family at 10px, a weight of 400 and a line height of 1.4. A place's `footnoteNumber` shall be laid out before the content on the first line, in the marker style (unset: the entry's family at 0.85 of its size, a weight of 600, upright), followed by the numbering suffix and a quarter of the marker size; a marker family that is not served refuses the block. The renderer draws the number and the entry text in these fonts, so an entry's inherited family is the paragraph's, not the page's.
+
+Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/footnote-marker.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/runs.ts`
+Verification: `src/layout-engine/footnote-marker.test.ts`
 
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
 

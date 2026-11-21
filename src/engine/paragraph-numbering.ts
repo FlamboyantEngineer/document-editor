@@ -17,6 +17,7 @@ import {
   normalizeParagraphLevel,
   type NumberingAffixes,
   type NumberingStyleConfig,
+  type ParagraphLevelStyle,
   paragraphNumberingIndentationStyle,
   type ResolvedNumbering,
   resolveHeadingNumbering,
@@ -73,6 +74,14 @@ export interface NumberedParagraph {
   readonly level: number;
   readonly text: string;
   readonly style: string;
+  /** Its level's format and the positions of its number and text. */
+  readonly levelStyle: ParagraphLevelStyle;
+}
+
+/** A numbered heading: where it is, and its number as it shows, with the space after it. */
+interface NumberedHeading {
+  readonly pos: number;
+  readonly text: string;
 }
 
 // The counters of a scope of numbering: the headings', the paragraphs' and the heading the
@@ -111,18 +120,44 @@ function countHeading(
   node: ProseMirrorNode,
   counting: Counting,
   headings: readonly ResolvedNumbering[],
-) {
+): string {
   const level = Math.min(6, Math.max(1, Number(node.attrs.level) || 1));
   counting.counters = [];
   counting.headingDepth = level;
   counting.context = { text: '', separated: false };
-  if (node.attrs.numbered === false) return;
+  if (node.attrs.numbered === false) return '';
   counting.headings[level - 1] = (counting.headings[level - 1] ?? 0) + 1;
   counting.headings.fill(0, level);
   const numbering = headings[level - 1];
-  if (!numbering) return;
-  const text = headingNumberText(numbering.config, counting.headings.slice(0, level));
+  if (!numbering) return '';
+  const counters = counting.headings.slice(0, level);
+  const text = headingNumberText(numbering.config, counters);
   counting.context = { text, separated: numbering.config.hasTrailingSeparator };
+  const shown = text && headingNumberText(numbering.config, counters, numbering);
+  return shown ? `${shown} ` : '';
+}
+
+/**
+ * Every numbered heading of the body, in order, with the number the stylesheet shows before it
+ * and the space after it; counted as `numberedParagraphs` counts them.
+ */
+export function numberedHeadings(doc: ProseMirrorNode, template: TemplateFile): NumberedHeading[] {
+  const found: NumberedHeading[] = [];
+  let counting = freshCounting();
+  doc.forEach((section, sectionOffset) => {
+    if (section.type.name !== 'page_section') return;
+    const { headings, restarts } = sectionNumbering(template, section);
+    if (restarts) counting = freshCounting();
+    section.descendants((node, offset) => {
+      const name = node.type.name;
+      if (name === 'page' || name === 'page_content') return true;
+      if (name !== 'heading' || node.attrs.docTitle) return false;
+      const text = countHeading(node, counting, headings);
+      if (text) found.push({ pos: sectionOffset + 1 + offset, text });
+      return false;
+    });
+  });
+  return found;
 }
 
 /**
@@ -159,7 +194,7 @@ export function numberedParagraphs(
         : '';
       if (text) {
         const style = paragraphNumberingIndentationStyle(levelStyle, { level, label: text });
-        found.push({ pos: sectionOffset + 1 + offset, level, text, style });
+        found.push({ pos: sectionOffset + 1 + offset, level, text, style, levelStyle });
       }
       return false;
     });

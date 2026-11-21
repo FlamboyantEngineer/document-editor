@@ -125,8 +125,16 @@ describe('createTextLayout', () => {
       ok: false,
       reason: 'no size for inline math_inline',
     });
+    // The fake Canvas has no font metrics: a 12px font rises 10px and falls 2px, so an 18px line's
+    // strut is 13px above the baseline and 5px below.
     const sized = table(math, 400, { measureAtom: () => ({ width: 30, height: 40 }) });
-    expect(sized.lines[0]).toMatchObject({ width: 6 * 4 + 30, height: 40 });
+    expect(sized.lines[0]).toMatchObject({ width: 6 * 4 + 30, height: 45 });
+    const centred = table(math, 400, {
+      measureAtom: () => ({ width: 30, height: 40, baseline: 30 }),
+    });
+    expect(centred.lines[0]?.height).toBe(40);
+    const small = table(math, 400, { measureAtom: () => ({ width: 30, height: 10, baseline: 8 }) });
+    expect(small.lines[0]?.height).toBe(18);
   });
 
   it('DOCE-PAGINATION-9.5 keeps a template variable on one line', () => {
