@@ -52,3 +52,6 @@ export { createPagedProjection } from './projection.js';
 export type { ProjectionMap } from './projection-map.js';
 export type { ProjectionView, ProjectionViewOptions } from './projection-view.js';
 export { createProjectionView } from './projection-view.js';
+export type { TextLayoutSetting } from './text-engine-holder.js';
+export type { TextEngineStats, TextLayoutMode } from './text-engine-types.js';
+export type { BlockTextLines, ComputedLine, PageTextLines } from './text-lines.js';

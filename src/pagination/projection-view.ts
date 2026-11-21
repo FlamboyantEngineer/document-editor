@@ -58,6 +58,7 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     layoutState: projection.layoutState,
     whenSettled: projection.whenSettled,
     stats: projection.stats,
+    textLines: projection.textLines,
     destroy() {
       detach();
       shown.destroy();

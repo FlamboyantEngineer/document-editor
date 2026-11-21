@@ -29,7 +29,8 @@ function textMeasurementOf(table: TextLines): TextMeasurement {
     });
     return { height, lines: count };
   };
-  return { offset: 0, measure };
+  // The lines go with the measurement, so a paragraph splits exactly at a computed line start.
+  return { offset: 0, measure, lines: table };
 }
 
 function flushMargins(node: ProseMirrorNode, parent: BlockParent): boolean {
