@@ -711,7 +711,7 @@ Behind the editor's `textLayout: 'pretext'` option, off by default, the pages ar
 
 ### DOCE-PAGINATION-11.1 - Measuring with the engine
 
-With the option on, the paged projection shall load the engine with its first layout and make it again for each template the pages are laid out with. Each top-level block of a section's page content shall take its height, margins and split measurement from the engine, in the section's content width, kept by node, its heading or paragraph number and its section; a block with a layout rule of its own, or one the engine cannot lay out yet, shall be measured in the DOM as before, with the reason counted in the projection's `stats().textLayout`. When atoms that were still loading settle, the engine shall forget what it kept and the pages be laid out again. The engine shall take text widths from one injectable source (`measureContext`), by default a Canvas measuring unhinted (`geometricPrecision`), and fit lines in the device pixels of the window the pages show in; the pages shall then draw their text unhinted too (`text-rendering: geometricPrecision` in the reference stylesheet), since hinted widths differ by script.
+With the option on, the paged projection shall load the engine with its first layout and make it again for each template the pages are laid out with. Each top-level block of a section's page content shall take its height, margins and split measurement from the engine, in the section's content width, kept by node, its heading or paragraph number and its section; a block with a layout rule of its own, or one the engine cannot lay out yet, shall be measured in the DOM as before, with the reason counted in the projection's `stats().textLayout`. When atoms that were still loading settle, the engine shall forget what it kept and the pages be laid out again. The engine shall take text widths from one injectable source (`measureContext`), by default a Canvas measuring unhinted (`geometricPrecision`), and its font metrics from the same source, and fit lines in the device pixels of the window the pages show in; the pages shall then draw their text unhinted too (`text-rendering: geometricPrecision` in the reference stylesheet), since hinted widths differ by script.
 
 Implementation: `src/pagination/text-engine.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`, `src/pagination/projection.ts`
 Verification: `src/pagination/text-engine.test.ts`, `src/pagination/measure-blocks.test.ts`, `e2e/text-layout.spec.ts`
@@ -739,7 +739,28 @@ Verification: `src/pagination/layout-validation.test.ts`, `e2e/text-layout.spec.
 
 ### DOCE-PAGINATION-11.5 - Typing with the engine
 
-The stress lab's typing measurement shall also run with the option on at 40 and 300 pages and record each keystroke's time. Until the pages' DOM walk per key is reduced, these times are recorded and not yet held to the typing budgets.
+The stress lab's typing measurement shall also run with the option on at 40 and 300 pages, and each keystroke shall meet the typing budgets of DOCE-LABS-2.3 there too.
 
-Implementation: `labs/src/stress/stress-lab.tsx`, `e2e/budgets.ts`
+Implementation: `labs/src/stress/stress-lab.tsx`, `e2e/budgets.ts`, `src/pagination/drawn-pages.ts`
 Verification: `e2e/performance.spec.ts`
+
+### DOCE-PAGINATION-11.6 - Pages near the screen
+
+With the option on, only the pages near the screen, within one screen above and below it, and the page holding the caret shall be drawn on forced lines; a page farther away keeps the browser's lines, which its size does not depend on, and gets its forced lines once it comes near. The pages shall be watched as they are drawn, without reading their boxes, and a page coming near or going away shall draw the pages again with no layout. The check of the pages a layout draws (DOCE-PAGINATION-5.9) shall read only the pages drawn on forced lines. The reference stylesheet shall have the pages skip their layout while off screen (`content-visibility: auto`), so each keystroke walks no farther than the pages near it. A snapshot of the pages (`exportSnapshot`, `exportSnapshotAsync`) shall draw every page on forced lines while it is taken (`drawAllLines`, a `{ drawAll }` meta of the forced lines' key), then only those near the screen again.
+
+Implementation: `src/pagination/drawn-pages.ts`, `src/pagination/forced-lines.ts`, `src/pagination/layout-validation.ts`, `src/pagination/projection.ts`, `src/components/document-editor/editor-handle.ts`, `labs/reference/document.css`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.7 - The caret at a forced line's start
+
+A caret at the position where a forced line ends and the next starts shall be drawn at the next line's start, as the browser draws one at its own wraps, unless the browser last drew it at the line's end, as after End or a click past the line's end: when the editor writes the selection there itself, after an edit or once the DOM under it is drawn again, it shall move the caret to the next line's start, so a vertical move keeps its line and column.
+
+Implementation: `src/pagination/forced-caret.ts`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/layout-invariant.spec.ts`
+
+### DOCE-PAGINATION-11.8 - Offers on forced lines
+
+An offered completion (DOCE-AUTOMATION-3) drawn in a forced block shall take no room on its line, its text overflowing from the caret, so the line keeps the engine's breaks; the reference stylesheet draws it so.
+
+Implementation: `labs/reference/document.css`
+Verification: `e2e/layout-invariant.spec.ts`

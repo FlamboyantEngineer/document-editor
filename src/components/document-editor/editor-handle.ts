@@ -233,19 +233,41 @@ function snapshotMethods(
 ): Pick<DocumentEditorHandle, 'exportSnapshot' | 'exportSnapshotAsync' | 'snapshotOutline'> {
   const citationHref = hrefOf(references);
   return {
+    // Every page is drawn on the layout engine's lines while the snapshot is taken.
     exportSnapshot: (options) =>
-      view ? documentSnapshot(view, { citationHref, ...options, template }) : null,
+      view
+        ? allLines(layout, () => documentSnapshot(view, { citationHref, ...options, template }))
+        : null,
     exportSnapshotAsync: async (options) =>
       view
-        ? documentSnapshotWhenReady(view, {
-            citationHref,
-            ...options,
-            template,
-            whenSettled: layout.whenSettled,
-          })
+        ? allLines(layout, () =>
+            documentSnapshotWhenReady(view, {
+              citationHref,
+              ...options,
+              template,
+              whenSettled: layout.whenSettled,
+            }),
+          )
         : null,
     snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
   };
+}
+
+// Runs `take` with every page drawn on the layout engine's lines (DOCE-PAGINATION-11.6), and puts
+// back only the pages near the screen once it is done.
+function allLines<T>(layout: LayoutProgress, take: () => T): T {
+  layout.drawAllLines(true);
+  let async = false;
+  try {
+    const result = take();
+    if (result instanceof Promise) {
+      async = true;
+      return result.finally(() => layout.drawAllLines(false)) as T;
+    }
+    return result;
+  } finally {
+    if (!async) layout.drawAllLines(false);
+  }
 }
 
 /** Gives the host a handle on the editor through its `handleRef`. */

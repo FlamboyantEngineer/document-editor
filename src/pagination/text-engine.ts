@@ -11,6 +11,7 @@ import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
+import { setMetricsContext } from '../layout-engine/metrics.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { createTextLayout } from '../layout-engine/text-layout.js';
 import {
@@ -108,7 +109,9 @@ function unhintedContext(): MeasureContext {
 // Measures with the host's width source, or unhinted, and fits lines in the device pixels of the
 // window the pages show in, as Chromium fits them.
 function measureIn(options: TextEngineOptions) {
-  setMeasureContext(options.measureContext ?? unhintedContext);
+  const context = options.measureContext ?? unhintedContext;
+  setMeasureContext(context);
+  setMetricsContext(context);
   setLayoutScale(options.measureIn.ownerDocument.defaultView?.devicePixelRatio || 1);
 }
 
