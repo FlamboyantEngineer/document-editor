@@ -99,37 +99,42 @@ interface Counts {
 
 // Today's counts, per project and kind, over 36 layouts of 120 paragraphs. They are exact: a fork
 // fix that is pinned lowers them in the same pull request, and a rise is a regression.
-// kerning overflow 1 (every ratio): D1, not a prediction error. A page cut right after a word that
-// kerns with its following space (seed 37, 547.984375 px, p-37-51) drops that space's kerning in
-// the preview's re-wrapped piece, so the browser wraps the word again. Forced-line rendering
-// removes it.
+// The prediction is the library's text layout engine (DOCE-PAGINATION-9), and the HTML draws its
+// typography: pre-wrap white space, and inline code in the 10px code font with 3px of padding on
+// each line, as the editor does. Two fork findings raise the counts that the lab's former 12px,
+// unpadded code and normal white space did not show:
+// G1: under pre-wrap, a line with a bold or italic run fits up to a word more than Chrome (bold
+// starts 24 to 40 at a ratio of 1; under normal white space the counts stay as they were).
+// G2: inline code with padding that wraps inside its run breaks earlier than Chrome (code starts
+// 19 to 198, overflow 2 to 70), though a run on one line measures exactly.
+// The former kerning overflow (D1) is gone: pre-wrap keeps the space at a page cut.
 const budgets: Record<string, Record<string, Counts>> = {
   chromium: {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 1 },
-    bold: { starts: 24, lines: 1, boundaries: 2, overflow: 1 },
-    italic: { starts: 21, lines: 1, boundaries: 3, overflow: 1 },
-    code: { starts: 19, lines: 2, boundaries: 4, overflow: 2 },
+    kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    bold: { starts: 40, lines: 3, boundaries: 15, overflow: 1 },
+    italic: { starts: 44, lines: 7, boundaries: 21, overflow: 1 },
+    code: { starts: 198, lines: 27, boundaries: 124, overflow: 70 },
     link: { starts: 18, lines: 2, boundaries: 5, overflow: 2 },
-    mixed: { starts: 31, lines: 4, boundaries: 4, overflow: 2 },
+    mixed: { starts: 133, lines: 7, boundaries: 23, overflow: 36 },
   },
   'chromium-dpr-1.25': {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    kerning: { starts: 1, lines: 0, boundaries: 0, overflow: 1 },
-    bold: { starts: 18, lines: 1, boundaries: 2, overflow: 1 },
-    italic: { starts: 18, lines: 1, boundaries: 3, overflow: 1 },
-    code: { starts: 16, lines: 1, boundaries: 0, overflow: 0 },
+    kerning: { starts: 1, lines: 0, boundaries: 0, overflow: 0 },
+    bold: { starts: 37, lines: 3, boundaries: 15, overflow: 1 },
+    italic: { starts: 44, lines: 7, boundaries: 21, overflow: 1 },
+    code: { starts: 201, lines: 28, boundaries: 129, overflow: 71 },
     link: { starts: 15, lines: 1, boundaries: 3, overflow: 1 },
-    mixed: { starts: 16, lines: 3, boundaries: 4, overflow: 2 },
+    mixed: { starts: 126, lines: 7, boundaries: 23, overflow: 35 },
   },
   'chromium-dpr-2': {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 1 },
-    bold: { starts: 13, lines: 0, boundaries: 2, overflow: 1 },
-    italic: { starts: 9, lines: 0, boundaries: 0, overflow: 0 },
-    code: { starts: 13, lines: 1, boundaries: 0, overflow: 0 },
+    kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    bold: { starts: 36, lines: 2, boundaries: 15, overflow: 1 },
+    italic: { starts: 38, lines: 6, boundaries: 18, overflow: 0 },
+    code: { starts: 195, lines: 26, boundaries: 129, overflow: 69 },
     link: { starts: 9, lines: 0, boundaries: 0, overflow: 0 },
-    mixed: { starts: 9, lines: 2, boundaries: 4, overflow: 2 },
+    mixed: { starts: 126, lines: 7, boundaries: 23, overflow: 34 },
   },
 };
 

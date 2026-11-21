@@ -62,17 +62,24 @@ The full pagination stress document also reports footnotes, page breaks, block q
 
 `e2e/pretext-pagination-fuzz.spec.ts` measures how often the prediction breaks a line where Chromium does not (DOCE-LABS-5.6). For each kind of text it lays out four seeded documents of 120 paragraphs (30 to 80 words) at nine widths from 301 to 599.123 px, 4,320 paragraph layouts, and counts the paragraphs whose line starts or line counts differ, the pages whose boundaries differ and the pages that overflow in natural HTML. Projects `chromium-dpr-1.25` and `chromium-dpr-2` repeat it in Chromium launched with `--force-device-scale-factor`, because an emulated `deviceScaleFactor` leaves Chromium's layout unit unchanged. The counts are exact budgets: a pinned fork fix lowers them in the same pull request, and a rise fails the test.
 
-| Text                                      |    Ratio 1 | Ratio 1.25 |    Ratio 2 |
-| ----------------------------------------- | ---------: | ---------: | ---------: |
-| Plain                                     |  0 / 0 / 0 |  0 / 0 / 0 |  0 / 0 / 0 |
-| One word in ten ending in A, L, T, Y or P |  0 / 0 / 0 |  1 / 0 / 0 |  0 / 0 / 0 |
-| A quarter of the words bold               | 24 / 1 / 2 | 18 / 1 / 2 | 13 / 0 / 2 |
-| A quarter italic                          | 21 / 1 / 3 | 18 / 1 / 3 |  9 / 0 / 0 |
-| A quarter inline code                     | 19 / 2 / 4 | 16 / 1 / 0 | 13 / 1 / 0 |
-| A quarter links                           | 18 / 2 / 5 | 15 / 1 / 3 |  9 / 0 / 0 |
-| 60% styled, all kinds, with kerning words | 31 / 4 / 4 | 16 / 3 / 4 |  9 / 2 / 4 |
+The prediction is the library's text layout engine (`src/layout-engine/`, DOCE-PAGINATION-9), and the lab's HTML draws its typography: the editor's pre-wrap white space, and inline code in the template's 10px code font with 3px of padding on each of its lines, as the editor's stylesheet does.
 
-Each cell gives paragraphs with different line starts, paragraphs with a different line count and pages with a different boundary, out of 4,320 paragraphs. Pages overflow in natural HTML in every run but plain: 0 to 2 per run (the kerning run's one page appeared with fork release 1.0.0-fe.2, whose line starts all match: it is review finding D1, not a prediction error. A page cut right after a word that kerns with its following space (seed 37, 547.984375 px, p-37-51) drops that space's kerning in the preview's re-wrapped piece, so the browser wraps the word again. Forced-line rendering removes it.). Before the fork's kerning and fit fixes (1.0.0-fe.1), the counts at ratio 1 were 16 / 3 / 24 for kerning words, 45 / 4 / 19 for links and 65 / 9 / 23 for the mix.
+| Text                                      |        Ratio 1 |     Ratio 1.25 |        Ratio 2 |
+| ----------------------------------------- | -------------: | -------------: | -------------: |
+| Plain                                     |      0 / 0 / 0 |      0 / 0 / 0 |      0 / 0 / 0 |
+| One word in ten ending in A, L, T, Y or P |      0 / 0 / 0 |      1 / 0 / 0 |      0 / 0 / 0 |
+| A quarter of the words bold               |    40 / 3 / 15 |    37 / 3 / 15 |    36 / 2 / 15 |
+| A quarter italic                          |    44 / 7 / 21 |    44 / 7 / 21 |    38 / 6 / 18 |
+| A quarter inline code                     | 198 / 27 / 124 | 201 / 28 / 129 | 195 / 26 / 129 |
+| A quarter links                           |     18 / 2 / 5 |     15 / 1 / 3 |      9 / 0 / 0 |
+| 60% styled, all kinds, with kerning words |   133 / 7 / 23 |   126 / 7 / 23 |   126 / 7 / 23 |
+
+Each cell gives paragraphs with different line starts, paragraphs with a different line count and pages with a different boundary, out of 4,320 paragraphs. Pages overflow in natural HTML: none for plain and kerning text, 0 to 2 per run for bold, italic and links, about 70 for code and 35 for the mix. Two findings raise the counts that the lab's former typography (12px unpadded code, normal white space) hid. With that typography the counts at ratio 1 were 24 / 1 / 2 for bold, 21 / 1 / 3 for italic, 19 / 2 / 4 for code and 31 / 4 / 4 for the mix:
+
+- G1: under pre-wrap, a line holding a bold or italic run fits up to one word more than Chrome (seed 11, 301 px, p-11-86: Pretext keeps "rainfall" on the line ending "Wavy **weather** re-entry"). Under normal white space the counts are as before.
+- G2: inline code with padding that wraps inside its run breaks earlier than Chrome (seed 11, 455 px, p-11-48: five lines for Chrome's four), though a code run on one line measures exactly (78.013 px of text and 6 px of padding).
+
+Finding D1 (a page cut after a word that kerns with its following space) no longer overflows: pre-wrap keeps that space. Forced-line rendering removes every difference above, as the renderer draws the engine's lines.
 
 A second test finds the narrowest column that keeps a case's last character on its first line, in the browser and in the prediction, in steps of 1/512 px. Plain sentences and line-end kerning match at every ratio. Each other case is an expected miss naming its cause, and passes only while it still misses. Findings F1 (line-end kerning), F2 (kerning across a same-font item edge) and F4 (the fit allowance at other ratios) are fixed in fork release 1.0.0-fe.2; one remains:
 
