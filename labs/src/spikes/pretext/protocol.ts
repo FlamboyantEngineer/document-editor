@@ -34,6 +34,8 @@ export interface LayoutResult {
 }
 export interface LayoutRequest {
   readonly width: number;
+  /** The page's device pixel ratio, which Chrome's layout units count in. */
+  readonly scale?: number;
   readonly file?: ReturnType<typeof fixture>;
   readonly verify?: boolean;
 }

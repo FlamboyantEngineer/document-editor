@@ -43,7 +43,7 @@ export class PredictionWorker {
         },
         { signal: signal.signal },
       );
-      this.worker.postMessage(request);
+      this.worker.postMessage({ scale: devicePixelRatio, ...request });
     });
   }
 
