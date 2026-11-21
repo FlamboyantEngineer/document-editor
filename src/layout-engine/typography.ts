@@ -11,6 +11,7 @@ import type {
 } from '../model/format/template-format.js';
 import { lengthToCssPx, resolveFontStack } from '../model/templates/template-css-values.js';
 import { templateScopeStyles } from '../model/templates/template-properties.js';
+import { resolveFootnoteSettings } from '../model/templates/template-scopes.js';
 import { findTemplateSection } from '../model/templates/template-sections.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 
@@ -35,6 +36,8 @@ export interface BlockTypography {
   readonly marginBottom: number;
   /** The padding on each side of the block's text, such as a code block's. */
   readonly padding: number;
+  /** The paragraph style's indentation, which numbered paragraphs' positions start after. */
+  readonly indentation: number;
   /** The family inline code switches to. */
   readonly codeFamily: string;
   /** The size inline code switches to, or null to keep the size around it. */
@@ -62,7 +65,8 @@ const LAYOUT_UNIT = 1 / 64;
 const HEADING_SIZES = ['2em', '1.5em', '1.25em', '1.1em', '1em', '0.9em'];
 const ALIGNMENTS: readonly TextAlign[] = ['left', 'center', 'right', 'justify'];
 
-const snap = (value: number) => Math.round(value / LAYOUT_UNIT) * LAYOUT_UNIT;
+/** A length snapped to the layout unit. */
+export const snap = (value: number) => Math.round(value / LAYOUT_UNIT) * LAYOUT_UNIT;
 
 /** A length in CSS pixels; `em` and `%` against a base size, `rem` against the root's. */
 export function resolveLength(value: unknown, base: number): number | null {
@@ -129,6 +133,7 @@ interface ScopeFonts {
   readonly paragraph: FontStyle;
   readonly codeFamily: string;
   readonly codeSize: number | null;
+  readonly indentation: number;
   readonly fontStacks: FontStacks | undefined;
 }
 
@@ -152,6 +157,7 @@ function blockOf(
     marginTop: spacing(text, 'spaceBefore', font.size),
     marginBottom: spacing(text, 'spaceAfter', font.size),
     padding: 0,
+    indentation: context.indentation,
     codeFamily: context.codeFamily,
     codeSize: context.codeSize,
   };
@@ -176,6 +182,7 @@ function scopeFonts(styles: TemplateStyles, fontStacks: FontStacks | undefined):
     paragraph,
     codeFamily: resolveFontStack(styles.codeBlock?.font, 'monospace', fontStacks),
     codeSize: codeSize === null ? null : snap(codeSize),
+    indentation: snap(resolveLength(styles.paragraph?.indentation, paragraph.size) ?? 0),
     fontStacks,
   };
 }
@@ -193,7 +200,8 @@ function customHeading(heading: TextSettings | null | undefined, custom: TextSet
 
 /**
  * A text block's typography in its scope: a paragraph, a heading (the document's title in the
- * title style), or a code block, each with its custom style over it.
+ * title style), a code block, each with its custom style over it, or a footnote entry in the
+ * footnote text style.
  */
 export function blockTypography(
   node: ProseMirrorNode,
@@ -207,6 +215,13 @@ export function blockTypography(
   const context = scopeFonts(styles, fontStacks);
   const name = String(node.attrs.className ?? '');
   const custom = name ? styles.custom?.[name] : undefined;
+  if (node.type.name === 'footnote_entry') {
+    const section = scope ? findTemplateSection(template, scope) : null;
+    const { text } = resolveFootnoteSettings(template, section);
+    const entry = blockOf(text, { size: '10px', lineHeight: 1.4, weight: 400 }, context);
+    // The footnote area sets the entries apart; an entry has no margins of its own.
+    return { ...entry, marginTop: 0, marginBottom: 0 };
+  }
   if (node.type.name === 'code_block') {
     const code = blockOf(styles.codeBlock, { lineHeight: 1.4, weight: 400 }, context);
     const font = { ...code.font, family: context.codeFamily };

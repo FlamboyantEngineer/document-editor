@@ -6,12 +6,13 @@
 // their layout (content-visibility); `?limit=` forces only that many blocks when the document
 // opens (a timing experiment).
 
+import { setLayoutScale, setMeasureContext } from '@chenglou/pretext';
 import { keepForcedLineCaretSide } from './spikes/forced-lines/caret.js';
 import { drawForcedLinesDirectly } from './spikes/forced-lines/direct.js';
 import { casesDocument, singleSectionDocument } from './spikes/forced-lines/documents.js';
 import { createForcedLines, type ForcedAlignment } from './spikes/forced-lines/plugin.js';
 import { installForcedLinesProbe } from './spikes/forced-lines/probe.js';
-import { defaultWidth, inlineFitWidth } from './spikes/pretext/settings.js';
+import { defaultWidth } from './spikes/pretext/settings.js';
 import { mountStressLab } from './stress/stress-lab.js';
 
 const query = new URLSearchParams(window.location.search);
@@ -28,8 +29,18 @@ const SCENARIOS = [
   { label: 'About 300 pages', build: () => singleSectionDocument(4420) },
 ] as const;
 
+// Pretext fits a line as Chrome does, in layout units of the page's device pixel ratio, and
+// measures under geometricPrecision, which Chrome's headless shell needs to measure unhinted.
+setLayoutScale(window.devicePixelRatio);
+setMeasureContext(() => {
+  const context = document.createElement('canvas').getContext('2d');
+  if (!context) throw new Error('Forced lines require a canvas 2D context');
+  context.textRendering = 'geometricPrecision';
+  return context;
+});
+
 const options = {
-  fitWidth: inlineFitWidth(defaultWidth),
+  fitWidth: defaultWidth,
   columnWidth: defaultWidth,
   align,
   breaks: query.get('breaks') === 'widget' ? ('widget' as const) : ('end' as const),

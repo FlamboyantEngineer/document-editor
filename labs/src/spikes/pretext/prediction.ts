@@ -23,7 +23,6 @@ import {
   displayMath,
   font,
   headings,
-  inlineFitWidth,
   inlineMath,
   listAfter,
   listBefore,
@@ -201,7 +200,9 @@ class Predictor {
 
   text(node: Node, path: string, width: number, style: Typography, preserve = false): Block {
     const padding = preserve ? codePadding : 0;
-    const fitWidth = inlineFitWidth(Math.max(1, width - 2 * padding));
+    // Pretext's Blink profile fits a line as Chrome does, in layout units of the page's
+    // device pixel ratio (setLayoutScale in the worker).
+    const fitWidth = Math.max(1, width - 2 * padding);
     const lines: Line[] = [];
     for (const run of this.runs(node, path, style)) {
       const wrapped = this.cache.lines(run.items, preserve, fitWidth);
