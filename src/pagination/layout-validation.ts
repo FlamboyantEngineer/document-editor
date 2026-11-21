@@ -133,3 +133,41 @@ export function checkDrawnPages(
     },
   });
 }
+
+/** A forced block the browser drew on other lines than the layout engine computed. */
+export interface WrappedBlock {
+  /** Its element id, or empty. */
+  readonly elementId: string;
+  /** The lines the engine computed for it, and those the browser drew. */
+  readonly computed: number;
+  readonly drawn: number;
+}
+
+// The distinct line boxes an element's content is drawn on: boxes whose tops lie within half a
+// box of each other share a line, so an inline atom taller than the text joins its line.
+function drawnLineCount(element: Element): number {
+  const range = element.ownerDocument.createRange();
+  range.selectNodeContents(element);
+  const tops: number[] = [];
+  for (const rect of range.getClientRects()) {
+    if (rect.height === 0) continue;
+    if (!tops.some((top) => Math.abs(top - rect.top) < rect.height / 2)) tops.push(rect.top);
+  }
+  return Math.max(1, tops.length);
+}
+
+/**
+ * The guard on forced lines (DOCE-PAGINATION-11.4): each block drawn on the layout engine's lines
+ * (`de-forced-lines`) whose drawn lines differ in number from the computed ones, as when the
+ * browser wrapped a line by itself. It reads every forced block's boxes, so it is for tests and
+ * development, not for every layout.
+ */
+export function findWrappedLines(root: ParentNode): WrappedBlock[] {
+  const found: WrappedBlock[] = [];
+  for (const block of root.querySelectorAll<HTMLElement>('.de-forced-lines')) {
+    const computed = Number(block.dataset.lines);
+    const drawn = drawnLineCount(block);
+    if (computed !== drawn) found.push({ elementId: block.dataset.id ?? '', computed, drawn });
+  }
+  return found;
+}

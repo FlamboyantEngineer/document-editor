@@ -25,6 +25,8 @@ export function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
   return {
     markup: props.markup ?? 'all',
     layout,
+    // Only the pages lay text out with the engine; the web layout keeps the browser's lines.
+    textLayout: layout === 'page' ? (props.textLayout ?? 'dom') : 'dom',
     webWidth: props.webWidth ?? 'fill',
     mode: editable ? 'authoring' : 'reading',
     suggesting: editable && suggesting,

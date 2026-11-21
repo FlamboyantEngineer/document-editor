@@ -89,6 +89,10 @@ try {
     assert.equal(typeof document.tableFromRows, 'function');
     assert.equal(typeof model.createDocumentSchema, 'function');
     assert.equal(typeof collab.openRoomChangeGuard, 'function');
+    // The text layout engine's chunk, loaded behind \`textLayout: 'pretext'\`, imports the layout
+    // library, so a host's bundler resolves it even with the option off: it comes with the package.
+    const pretext = await import('@chenglou/pretext');
+    assert.equal(typeof pretext.prepare, 'function');
     `,
   );
   execFileSync(process.execPath, [join(consumer, 'consumer.mjs')], {

@@ -9,6 +9,11 @@ const SIZE = { pages40: 1, pages300: 2 } as const;
 // The chosen set-up: lines drawn on the pages' own view, and pages off screen skipping their layout.
 // FORCED_QUERY measures another, such as `&skip` for the lines as canonical decorations.
 const FORCED = process.env.FORCED_QUERY ?? '&direct&skip';
+// Rounds of each kind of line, taken in turn. One p95 over 60 keys is the third slowest key, and on
+// CI it moved by up to 7 ms between runs of the same lab for either kind (40 pages: forced lines
+// 9.8 to 17.6 ms, the browser's own 8.6 to 19.6 ms over 14 runs), so the spike's claim is read from
+// the middle of three.
+const ROUNDS = 3;
 
 async function typingWork(page: Page, size: number, forced: boolean) {
   await page.goto(`forced-lines.html?size=${String(size)}${forced ? FORCED : '&forced=off'}`);
@@ -22,14 +27,22 @@ async function typingWork(page: Page, size: number, forced: boolean) {
 
 function measure(budget: Budget, size: number) {
   test(`${budget.metric} with forced lines within its budget`, async ({ page }) => {
-    test.setTimeout(240_000);
-    const browser = await typingWork(page, size, false);
-    const forced = await typingWork(page, size, true);
+    test.setTimeout(600_000);
+    const browsers: number[] = [];
+    const forceds: number[] = [];
+    for (let round = 0; round < ROUNDS; round += 1) {
+      browsers.push(await typingWork(page, size, false));
+      forceds.push(await typingWork(page, size, true));
+    }
+    const browser = percentile(browsers, 0.5);
+    const forced = percentile(forceds, 0.5);
     test.info().annotations.push({
       type: budget.metric,
       description: `forced ${String(forced)}, browser lines ${String(browser)} (target ${budget.target})`,
     });
-    console.log(`${budget.metric}: forced ${String(forced)}, browser ${String(browser)}`);
+    console.log(
+      `${budget.metric}: forced ${String(forced)} of ${forceds.join(', ')}, browser ${String(browser)} of ${browsers.join(', ')}`,
+    );
     expect(budget.meets(forced), `${budget.metric}: ${String(forced)}`).toBe(true);
   });
 }

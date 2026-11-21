@@ -3,7 +3,7 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
-import { findPageOverflow } from './layout-validation.js';
+import { findPageOverflow, findWrappedLines } from './layout-validation.js';
 
 const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
@@ -63,5 +63,30 @@ describe('layout validation', () => {
     drawPages(900);
     expect(findPageOverflow(view)).toEqual([]);
     view.destroy();
+  });
+});
+
+describe('findWrappedLines', () => {
+  // Draws every range's boxes on lines 20 pixels apart, `lines` of them.
+  function drawLines(lines: number) {
+    const boxes = Array.from({ length: lines }, (_, line) => new DOMRect(0, line * 20, 100, 18));
+    // The test DOM draws nothing, so its ranges have no boxes to spy on.
+    Object.assign(Range.prototype, { getClientRects: () => boxes });
+  }
+
+  const forced = (id: string, lines: number) => {
+    const block = document.createElement('p');
+    block.className = 'de-forced-lines';
+    block.dataset.id = id;
+    block.dataset.lines = String(lines);
+    block.textContent = 'text';
+    return block;
+  };
+
+  it('DOCE-PAGINATION-11.4 finds each forced block the browser drew on other lines than computed', () => {
+    drawLines(2);
+    const root = document.createElement('div');
+    root.append(forced('kept', 2), forced('wrapped', 1));
+    expect(findWrappedLines(root)).toEqual([{ elementId: 'wrapped', computed: 1, drawn: 2 }]);
   });
 });
