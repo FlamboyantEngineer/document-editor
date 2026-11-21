@@ -35,6 +35,8 @@ export interface BlockTypography {
   readonly marginBottom: number;
   /** The padding on each side of the block's text, such as a code block's. */
   readonly padding: number;
+  /** The paragraph style's indentation, which numbered paragraphs' positions start after. */
+  readonly indentation: number;
   /** The family inline code switches to. */
   readonly codeFamily: string;
   /** The size inline code switches to, or null to keep the size around it. */
@@ -129,6 +131,7 @@ interface ScopeFonts {
   readonly paragraph: FontStyle;
   readonly codeFamily: string;
   readonly codeSize: number | null;
+  readonly indentation: number;
   readonly fontStacks: FontStacks | undefined;
 }
 
@@ -152,6 +155,7 @@ function blockOf(
     marginTop: spacing(text, 'spaceBefore', font.size),
     marginBottom: spacing(text, 'spaceAfter', font.size),
     padding: 0,
+    indentation: context.indentation,
     codeFamily: context.codeFamily,
     codeSize: context.codeSize,
   };
@@ -176,6 +180,7 @@ function scopeFonts(styles: TemplateStyles, fontStacks: FontStacks | undefined):
     paragraph,
     codeFamily: resolveFontStack(styles.codeBlock?.font, 'monospace', fontStacks),
     codeSize: codeSize === null ? null : snap(codeSize),
+    indentation: snap(resolveLength(styles.paragraph?.indentation, paragraph.size) ?? 0),
     fontStacks,
   };
 }

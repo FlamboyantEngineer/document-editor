@@ -43,6 +43,8 @@ interface RunInput {
   readonly typography: BlockTypography;
   /** Text drawn before the content, in the block's font. */
   readonly prefix?: string | undefined;
+  /** The width of a box drawn before the content, such as a paragraph's number. */
+  readonly lead?: number | undefined;
   readonly measureAtom?: MeasureAtom | undefined;
 }
 
@@ -91,9 +93,14 @@ function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInli
 }
 
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */
-export function buildRuns({ node, typography, prefix, measureAtom }: RunInput): TextRuns {
+export function buildRuns({ node, typography, prefix, lead, measureAtom }: RunInput): TextRuns {
   const runs: TextRun[] = [];
   let run = startRun(0);
+  if (lead) {
+    run.items.push({ width: lead });
+    run.offsets.push(-1);
+    run.atoms.push(null);
+  }
   if (prefix) {
     run.items.push({ text: prefix, font: fontString(typography.font) });
     run.offsets.push(-1);

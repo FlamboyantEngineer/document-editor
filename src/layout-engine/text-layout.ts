@@ -8,8 +8,10 @@ import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 import type { LineTable } from './line-table.js';
 import { createLineCache, layoutLines } from './lines.js';
+import { strutOf, textWidth } from './metrics.js';
+import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { buildRuns, type MeasureAtom } from './runs.js';
-import { type BlockTypography, blockTypography, firstFamily } from './typography.js';
+import { type BlockTypography, blockTypography, firstFamily, fontString } from './typography.js';
 
 /** What the engine lays text out from. */
 export interface TextLayoutOptions {
@@ -32,6 +34,8 @@ interface TextBlockPlace {
   readonly scope?: string | null | undefined;
   /** Text drawn before the content on its first line, such as a heading's number and its space. */
   readonly prefix?: string | undefined;
+  /** A numbered paragraph's number (`documentNumbers`), drawn in a box before its first line. */
+  readonly number?: ParagraphNumber | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
@@ -82,10 +86,20 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         ? unservedFamily(node, style, options.isFontServed)
         : null;
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
+      const font = fontString(style.font);
+      const numbered = place.number
+        ? placeNumber({
+            number: place.number,
+            size: style.font.size,
+            indentation: style.indentation,
+            measure: (text) => textWidth(text, font),
+          })
+        : null;
       const runs = buildRuns({
         node,
         typography: style,
         prefix: place.prefix,
+        lead: numbered?.box,
         measureAtom: options.measureAtom,
       });
       if (!runs.ok) return runs;
@@ -93,8 +107,11 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         runs: runs.runs,
         width: Math.max(1, place.width - 2 * style.padding),
         leading: style.leading,
+        strut: strutOf(font, style.font.size, style.leading),
         align: style.align,
         padding: style.padding,
+        firstStart: numbered?.firstStart ?? 0,
+        restStart: numbered?.restStart ?? 0,
       });
       return { ok: true, table };
     },
