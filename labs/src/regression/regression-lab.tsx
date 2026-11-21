@@ -1,7 +1,8 @@
 // The regression lab's page: a document of the regression set, picked by the Document picker or
 // the page's `document` query parameter, in the document editor with its scrolling frame and
 // status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view; with
-// `compare`, the changes since it opened as change bars. Its linked code resolves to sample lines.
+// `compare`, the changes since it opened as change bars; with `zoom`, at that zoom in percent. Its
+// linked code resolves to sample lines.
 // The regression scenarios (`e2e/regression.spec.ts`) read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
