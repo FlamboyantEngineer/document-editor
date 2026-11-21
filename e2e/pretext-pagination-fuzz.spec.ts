@@ -109,8 +109,8 @@ interface Counts {
 // G2, fixed in fork fe.4 (extraWidthEnd): padded inline code that wrapped inside its run broke
 // earlier than Chrome, which fits a line ending in the code without its end padding (code starts
 // 198 down to 51).
-// G3: Chrome's own HTML draws a padded code piece past the content edge, so pages with code
-// overflow in natural HTML (code overflow 2 to 72); forced-line rendering does not.
+// G3: a padded code piece ending a line keeps its hanging pre-wrap space, and Chrome paints the
+// end padding after it, past the content edge (code overflow 2 to 72). The lines fit; only ink.
 // The former kerning overflow (D1) is gone: pre-wrap keeps the space at a page cut.
 const budgets: Record<string, Record<string, Counts>> = {
   chromium: {
