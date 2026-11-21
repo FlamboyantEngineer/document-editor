@@ -80,11 +80,7 @@ export function drawForcedLinesDirectly(options: ForcedLinesOptions): void {
       name === 'decorations' &&
       f &&
       result === undefined &&
-      this.dom.closest(
-        new URLSearchParams(location.search).get('direct') === 'pages'
-          ? '.de-document-editor__content'
-          : '.de-document-editor',
-      )
+      this.dom.closest('.de-document-editor')
     ) {
       const state = this.state;
       const extra = f((() => setOf(state.doc)) as never);
