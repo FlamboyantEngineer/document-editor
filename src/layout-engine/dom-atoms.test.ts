@@ -44,6 +44,21 @@ describe('DOM atom measurer', () => {
     expect(cache.measureAtom(math)).toEqual({ width: 48, height: 20, baseline: 16 });
   });
 
+  it('DOCE-PAGINATION-10.7 draws the number a view shows in a leaf atom', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const drawn: string[] = [];
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.tagName === 'SUP') drawn.push(this.textContent);
+      return DOMRect.fromRect({ x: 0, y: 0, width: 8, height: 10 });
+    });
+    const measure = createDomAtomMeasurer({ host });
+    measure(schema.node('footnote_reference', { dataId: 'n1' }), 0, '12');
+    expect(drawn).toEqual(['12']);
+  });
+
   it('DOCE-PAGINATION-10.2 reports a provisional size until its images load', async () => {
     const host = document.createElement('div');
     document.body.append(host);
