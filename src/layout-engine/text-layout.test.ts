@@ -77,7 +77,7 @@ describe('createTextLayout', () => {
     ]);
   });
 
-  it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, and same-font neighbours as one run', () => {
+  it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, each text node as its own item', () => {
     const plain = table(block(`<p>${WORDS}</p>`), 60);
     const linked = table(
       block('<p>aaaa <a href="https://example.com">bbbb</a> cccc dddd eeee</p>'),

@@ -101,44 +101,38 @@ interface Counts {
 // fix that is pinned lowers them in the same pull request, and a rise is a regression.
 // The prediction is the library's text layout engine (DOCE-PAGINATION-9), and the HTML draws its
 // typography: pre-wrap white space, and inline code in the 10px code font with 3px of padding on
-// each line, as the editor does. That typography shows what the lab's former 12px, unpadded code
-// and normal white space did not:
-// G1 (F3): a line with a bold or italic run fits up to a word more than Chrome, because Chrome
-// rounds each item's piece of a line up to 1/64 px and Pretext adds raw widths (bold starts 24 to
-// 40 at a ratio of 1).
-// G2, fixed in fork fe.4 (extraWidthEnd): padded inline code that wrapped inside its run broke
-// earlier than Chrome, which fits a line ending in the code without its end padding (code starts
-// 198 down to 51).
+// each line, as the editor does. Every line matches Chromium's but one kerning start at a ratio of
+// 1.25. What is left:
 // G3: a padded code piece ending a line keeps its hanging pre-wrap space, and Chrome paints the
-// end padding after it, past the content edge (code overflow 2 to 72). The lines fit; only ink.
-// The former kerning overflow (D1) is gone: pre-wrap keeps the space at a page cut.
+// end padding after it, past the content edge, so those pages overflow in natural HTML. The lines
+// fit; only the ink overflows.
 const budgets: Record<string, Record<string, Counts>> = {
   chromium: {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    bold: { starts: 40, lines: 3, boundaries: 15, overflow: 1 },
-    italic: { starts: 44, lines: 7, boundaries: 21, overflow: 1 },
-    code: { starts: 51, lines: 9, boundaries: 37, overflow: 72 },
-    link: { starts: 18, lines: 2, boundaries: 5, overflow: 2 },
-    mixed: { starts: 72, lines: 2, boundaries: 6, overflow: 36 },
+    bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    code: { starts: 0, lines: 0, boundaries: 0, overflow: 71 },
+    link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 35 },
   },
   'chromium-dpr-1.25': {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     kerning: { starts: 1, lines: 0, boundaries: 0, overflow: 0 },
-    bold: { starts: 37, lines: 3, boundaries: 15, overflow: 1 },
-    italic: { starts: 44, lines: 7, boundaries: 21, overflow: 1 },
-    code: { starts: 51, lines: 10, boundaries: 43, overflow: 73 },
-    link: { starts: 15, lines: 1, boundaries: 3, overflow: 1 },
-    mixed: { starts: 65, lines: 2, boundaries: 6, overflow: 35 },
+    bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    code: { starts: 0, lines: 0, boundaries: 0, overflow: 72 },
+    link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 34 },
   },
   'chromium-dpr-2': {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    bold: { starts: 36, lines: 2, boundaries: 15, overflow: 1 },
-    italic: { starts: 38, lines: 6, boundaries: 18, overflow: 0 },
-    code: { starts: 44, lines: 8, boundaries: 43, overflow: 70 },
-    link: { starts: 9, lines: 0, boundaries: 0, overflow: 0 },
-    mixed: { starts: 65, lines: 2, boundaries: 6, overflow: 34 },
+    bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    code: { starts: 0, lines: 0, boundaries: 0, overflow: 69 },
+    link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 33 },
   },
 };
 
@@ -201,13 +195,6 @@ interface FitCase {
   readonly misses: Readonly<Record<string, string>>;
 }
 
-const everywhere = (finding: string) => ({
-  chromium: finding,
-  'chromium-dpr-1.25': finding,
-  'chromium-dpr-2': finding,
-});
-const f3 = 'F3: each text item is not rounded up to the layout unit';
-
 const fitCases: readonly FitCase[] = [
   {
     name: 'a plain sentence',
@@ -231,24 +218,24 @@ const fitCases: readonly FitCase[] = [
     at: lead.length + word.length - 1,
     misses: {},
   })),
-  // The space kerns across the link's edge since the fork's F2 fix; what is left is one layout
-  // unit, the link item's rounding (F3).
+  // The space kerns across the link's edge (F2, fork fe.2) and each item rounds up to the layout
+  // unit as Chromium's do (F3, fork fe.5).
   {
     name: 'a space before a link starting Tuesday',
     runs: [text('rainfall '), styled('Tuesday', 'link'), text(' evening')],
-    misses: everywhere(f3),
+    misses: {},
   },
   {
     name: 'a space before a link starting Type',
     runs: [text('the ridge '), styled('Type', 'link'), text(' fjord')],
-    misses: { chromium: f3, 'chromium-dpr-1.25': f3 },
+    misses: {},
   },
   ...(['bold', 'italic', 'code'] as const).map((style) => ({
     name: `alternating plain and ${style} words`,
     runs: ['The', 'weather', 'station', 'on', 'the', 'ridge', 'reports', 'rainfall'].map(
       (word, index) => (index % 2 ? styled(word, style) : text(index ? ` ${word} ` : `${word} `)),
     ),
-    misses: everywhere(f3),
+    misses: {},
   })),
 ];
 

@@ -1,6 +1,6 @@
 // A text block's content as Pretext rich inline items: one run per stretch between hard breaks,
-// each item with the content offset it starts at. Neighbouring text in the same font joins one
-// item, as Chromium shapes it as one run, so kerning across a link's or a highlight's edge counts.
+// each item with the content offset it starts at. Each text node is its own item, as Chromium
+// rounds each element's piece of a line on its own; Pretext still kerns across same-font items.
 
 import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inline';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -61,21 +61,6 @@ interface Builder {
 const startRun = (start: number): Builder => ({ items: [], offsets: [], atoms: [], start });
 
 function addText(run: Builder, item: RichInlineItem, offset: number) {
-  const last = run.items.at(-1);
-  const joins =
-    last &&
-    run.offsets.at(-1) !== -1 &&
-    'text' in last &&
-    typeof last.text === 'string' &&
-    last.font === item.font &&
-    !last.extraWidth &&
-    !item.extraWidth &&
-    last.break !== 'never' &&
-    item.break !== 'never';
-  if (joins) {
-    run.items[run.items.length - 1] = { ...last, text: last.text + item.text };
-    return;
-  }
   run.items.push(item);
   run.offsets.push(offset);
   run.atoms.push(null);
@@ -87,12 +72,14 @@ function finish(run: Builder, end: number, endsWithBreak: boolean): TextRun {
 
 function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInlineItem {
   const font = fontString(markedFont(typography, child.marks));
-  const code = child.marks.some((mark) => mark.type.name === 'code');
+  const names = new Set(child.marks.map((mark) => mark.type.name));
   const text = child.text ?? child.textContent;
   // A line that ends inside the code fits without its end padding, as Chromium fits a cloned box.
-  return code
-    ? { text, font, extraWidth: 2 * INLINE_CODE_PADDING, extraWidthEnd: INLINE_CODE_PADDING }
-    : { text, font };
+  if (names.has('code'))
+    return { text, font, extraWidth: 2 * INLINE_CODE_PADDING, extraWidthEnd: INLINE_CODE_PADDING };
+  // Chromium places the end of a line in underlined text exactly, its last letter's full width.
+  if (names.has('link') || names.has('underline')) return { text, font, accurateLineEnds: true };
+  return { text, font };
 }
 
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */

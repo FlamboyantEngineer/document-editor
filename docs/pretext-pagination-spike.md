@@ -22,7 +22,7 @@ Omit `CHROMIUM_PATH` when using Playwright's installed browser. The last command
 
 The lab reads stored fixtures through the editor schema and resolves the base template's typography and page metrics. The worker takes a stored document and returns page dimensions and ordered ranges in original block coordinates. The viewer serializes only fragments in the viewport window. Source ranges use ProseMirror offsets, including inline atoms. Rendering cuts source content at page boundaries and allows the HTML on each page to wrap naturally.
 
-The lab installs `@chenglou/pretext` as a development dependency from a release of the FlamboyantEngineer fork: a commit on the fork's `release` branch holding the built package, so installing it builds nothing (the fork's `FORK.md` gives the release steps). To move to another release, put its release commit in `package.json` and regenerate the lockfile with `npm install --strict-peer-deps`. [Pinned release 1.0.0-fe.4](https://github.com/FlamboyantEngineer/pretext/commit/ae1e8392df00139a9c793202820d1430e7ffef88)
+The lab installs `@chenglou/pretext` as a development dependency from a release of the FlamboyantEngineer fork: a commit on the fork's `release` branch holding the built package, so installing it builds nothing (the fork's `FORK.md` gives the release steps). To move to another release, put its release commit in `package.json` and regenerate the lockfile with `npm install --strict-peer-deps`. [Pinned release 1.0.0-fe.5](https://github.com/FlamboyantEngineer/pretext/commit/f20f63ec30d78e99f70036652e6bfb95bcebb79b)
 
 The package exposes `prepareRichInline`, `walkRichInlineLineRanges`, and `materializeRichInlineLineRange` through `@chenglou/pretext/rich-inline`. The materialized fragments report item-local UTF-16 offsets and the API accepts fixed-width boxes. It provides line advances. The adapter supplies explicit line-box heights and all vertical geometry. The package can insert an emoji calibration span and read its DOM geometry in a document. A dedicated worker prevents this probe and uses Canvas from `OffscreenCanvas`. The worker retains preparation by text, font and whitespace policy across widths. Each prepared run also retains its item-local line offsets for its most recent width. A change of width replaces that layout. Each use maps the offsets back to its own source block. The lab waits for font readiness and restarts prediction on subsequent load or error events. The scope uses system fonts and needs no worker font registration.
 
@@ -64,27 +64,26 @@ The full pagination stress document also reports footnotes, page breaks, block q
 
 The prediction is the library's text layout engine (`src/layout-engine/`, DOCE-PAGINATION-9), and the lab's HTML draws its typography: the editor's pre-wrap white space, and inline code in the template's 10px code font with 3px of padding on each of its lines, as the editor's stylesheet does.
 
-| Text                                      |     Ratio 1 |   Ratio 1.25 |     Ratio 2 |
-| ----------------------------------------- | ----------: | -----------: | ----------: |
-| Plain                                     |   0 / 0 / 0 |    0 / 0 / 0 |   0 / 0 / 0 |
-| One word in ten ending in A, L, T, Y or P |   0 / 0 / 0 |    1 / 0 / 0 |   0 / 0 / 0 |
-| A quarter of the words bold               | 40 / 3 / 15 |  37 / 3 / 15 | 36 / 2 / 15 |
-| A quarter italic                          | 44 / 7 / 21 |  44 / 7 / 21 | 38 / 6 / 18 |
-| A quarter inline code                     | 51 / 9 / 37 | 51 / 10 / 43 | 44 / 8 / 43 |
-| A quarter links                           |  18 / 2 / 5 |   15 / 1 / 3 |   9 / 0 / 0 |
-| 60% styled, all kinds, with kerning words |  72 / 2 / 6 |   65 / 2 / 6 |  65 / 2 / 6 |
+| Text                                      |   Ratio 1 | Ratio 1.25 |   Ratio 2 |
+| ----------------------------------------- | --------: | ---------: | --------: |
+| Plain                                     | 0 / 0 / 0 |  0 / 0 / 0 | 0 / 0 / 0 |
+| One word in ten ending in A, L, T, Y or P | 0 / 0 / 0 |  1 / 0 / 0 | 0 / 0 / 0 |
+| A quarter of the words bold               | 0 / 0 / 0 |  0 / 0 / 0 | 0 / 0 / 0 |
+| A quarter italic                          | 0 / 0 / 0 |  0 / 0 / 0 | 0 / 0 / 0 |
+| A quarter inline code                     | 0 / 0 / 0 |  0 / 0 / 0 | 0 / 0 / 0 |
+| A quarter links                           | 0 / 0 / 0 |  0 / 0 / 0 | 0 / 0 / 0 |
+| 60% styled, all kinds, with kerning words | 0 / 0 / 0 |  0 / 0 / 0 | 0 / 0 / 0 |
 
-Each cell gives paragraphs with different line starts, paragraphs with a different line count and pages with a different boundary, out of 4,320 paragraphs. Pages overflow in natural HTML: none for plain and kerning text, 0 to 2 per run for bold, italic and links, about 70 for code and 35 for the mix. The lab's former typography (12px unpadded code, normal white space) hid three findings. With that typography the counts at ratio 1 were 24 / 1 / 2 for bold, 21 / 1 / 3 for italic, 19 / 2 / 4 for code and 31 / 4 / 4 for the mix, and code overflowed on 2 pages:
+Each cell gives paragraphs with different line starts, paragraphs with a different line count and pages with a different boundary, out of 4,320 paragraphs. Pages overflow in natural HTML only with inline code: about 70 per run for code and 35 for the mix (G3 below). The lab's former typography (12px unpadded code, normal white space) and the earlier engine counted at ratio 1 24 / 1 / 2 for bold, 21 / 1 / 3 for italic, 19 / 2 / 4 for code, 18 / 2 / 5 for links and 31 / 4 / 4 for the mix. Drawing the editor's typography first raised them, then these fixes brought every count to the table's:
 
-- G1, open, which is F3 below: a line holding a bold or italic run fits up to one word more than Chrome (seed 11, 301 px, p-11-86: Chrome's pieces add up to 301.0625 px and Pretext's to 301.0137 px, so Pretext keeps "rainfall" on the line). Bold rose to 40 / 3 / 15 and italic to 44 / 7 / 21 at ratio 1. The fork thread is porting F3; its pin lowers these budgets.
-- G2, fixed in fork release 1.0.0-fe.4: inline code with padding that wrapped inside its run broke earlier than Chrome, because Chrome fits a line that ends inside a padded, cloned box without the box's end padding. The engine gives inline code that allowance (`extraWidthEnd`). Before the fix the code counts at ratio 1 were 198 / 27 / 124 and the mix 133 / 7 / 23; the table gives them after it.
-- G3, open: a padded code piece that ends a line under pre-wrap keeps its trailing space, which hangs past the line end, and Chrome paints its end padding after that space, past the content edge. About 70 pages with code overflow in natural HTML. The lines themselves fit, and Pretext and Chrome agree on them; the overflow is ink, not a line-break difference. The lab will stop counting the ink of hanging white space as overflow (thread G).
+- G1, fixed by F3 and a kerning fix in fork release 1.0.0-fe.5: a line holding a bold or italic run fitted up to one word more than Chrome (seed 11, 301 px, p-11-86: Chrome's pieces add up to 301.0625 px and Pretext's to 301.0137 px). Bold had risen to 40 / 3 / 15 and italic to 44 / 7 / 21 at ratio 1. fe.5 also keeps the kerning between a preserved space that starts an item and the word after it.
+- G2, fixed in fork release 1.0.0-fe.4: inline code with padding that wrapped inside its run broke earlier than Chrome, because Chrome fits a line that ends inside a padded, cloned box without the box's end padding. The engine gives inline code that allowance (`extraWidthEnd`). Code had risen to 198 / 27 / 124 and the mix to 133 / 7 / 23 at ratio 1.
+- Engine items: each text node is now its own Pretext item, as Chromium rounds each element's piece of a line, and links and underlined text place a line's end exactly (`accurateLineEnds`), as Chromium does for decorated text. These removed the last link and mix misses (for example p-23-86 at 412.467 px, where Chrome wraps the link "HTTP").
+- G3, open (thread G): a padded code piece that ends a line under pre-wrap keeps its trailing space, which hangs past the line end, and Chrome paints its end padding after that space, past the content edge. The lines themselves fit, and Pretext and Chrome agree on them; the overflow is ink, not a line-break difference. The lab will stop counting the ink of hanging white space as overflow, and the forced-line renderer is checked for the same ink.
 
-Finding D1 (a page cut after a word that kerns with its following space) no longer overflows: pre-wrap keeps that space. Forced-line rendering removes every difference above, as the renderer draws the engine's lines.
+Finding D1 (a page cut after a word that kerns with its following space) no longer overflows: pre-wrap keeps that space.
 
-A second test finds the narrowest column that keeps a case's last character on its first line, in the browser and in the prediction, in steps of 1/512 px. Plain sentences and line-end kerning match at every ratio. Each other case is an expected miss naming its cause, and passes only while it still misses. Findings F1 (line-end kerning), F2 (kerning across a same-font item edge) and F4 (the fit allowance at other ratios) are fixed in fork release 1.0.0-fe.2; one remains:
-
-- F3: Chromium rounds each text item's piece of a line up to its layout unit; Pretext adds raw widths. Chromium needs up to one unit more per item. The cases of a space before a link now miss by this unit alone.
+A second test finds the narrowest column that keeps a case's last character on its first line, in the browser and in the prediction, in steps of 1/512 px. Every case matches at every ratio: plain sentences, line-end kerning, a space before a link, and alternating plain and bold, italic or code words. Findings F1 (line-end kerning), F2 (kerning across a same-font item edge) and F4 (the fit allowance at other ratios) are fixed in fork release 1.0.0-fe.2, and F3 (Chromium rounds each text item's piece of a line up to its layout unit) in 1.0.0-fe.5. A case that misses again is listed with the finding that explains it, and passes only while it misses.
 
 When a fix is pinned, remove its expected misses and lower the budgets to the counts the failure reports. The baseline is Playwright's Chromium on Linux with Liberation Sans standing in for Arial; a Playwright upgrade that changes the browser can move the counts.
 
