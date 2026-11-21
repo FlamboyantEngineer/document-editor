@@ -7,7 +7,7 @@ on:
     branches: [claude/project-thread-a7myl2]
     paths:
       - .github/workflows/canvas-widths.yml
-      - labs/src/spikes/forced-lines/canvas-widths.mjs
+      - labs/src/spikes/forced-lines/canvas-widths*.mjs
 
 permissions:
   contents: read
@@ -44,9 +44,25 @@ jobs:
             if [ "$channel" = chromium ]; then export PROBE_CHANNEL=chromium; fi
             out="widths-${{ matrix.os }}-$channel.json"
             node canvas-widths.mjs ../fonts "$out"
-            node -e "const r=require('./'+process.argv[1]);console.log('JSON '+JSON.stringify({os:r.os,chromium:r.chromium,runs:r.runs.map(x=>({dpr:x.dpr,dpr2:x.devicePixelRatio,canvas:x.canvas.auto,geometric:x.canvas.geometricPrecision,worker:x.canvas.worker,dom:x.dom.auto}))}))" "$out"
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: widths-${{ matrix.os }}
           path: probe/widths-*.json
+
+  compare:
+    needs: widths
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@v4
+        with:
+          path: reports
+          merge-multiple: true
+      - name: Compare
+        run: |
+          for channel in shell chromium; do
+            echo "== $channel"
+            node labs/src/spikes/forced-lines/canvas-widths-compare.mjs reports/widths-ubuntu-latest-$channel.json reports/widths-windows-latest-$channel.json reports/widths-macos-latest-$channel.json
+          done
