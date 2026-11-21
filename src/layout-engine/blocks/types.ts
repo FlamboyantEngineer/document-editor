@@ -69,6 +69,8 @@ export interface BlockLayoutOptions {
   readonly metrics: (scope: string | null) => BlockMetrics;
   /** The label a caption's line starts with, such as `Table 1.2 - `; none by default. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
+  /** A footnote entry's number (`blockNumbers`); an entry without one is laid out without it. */
+  readonly footnoteOf?: ((entry: ProseMirrorNode) => string | undefined) | undefined;
 }
 
 /** Block geometry. */

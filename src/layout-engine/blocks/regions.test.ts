@@ -60,4 +60,14 @@ describe('page regions', () => {
     // No separator, and the base spacing of 12pt and 6pt.
     expect(plain.layoutRegion(area, place)).toMatchObject({ height: 16 + 14 + 8 + 28 });
   });
+
+  it('DOCE-PAGINATION-10.6 DOCE-PAGINATION-10.7 lays an entry out with the number it shows', () => {
+    // 600px holds 100 characters: the 98 characters of text fit alone, not after "12 ".
+    const entry = node('footnote_entry', { footnoteId: 'n1' }, [schema.text('f'.repeat(98))]);
+    const area = node('page_footnotes', null, [entry]);
+    const unnumbered = standInBlockLayout({ template }).layout.layoutRegion(area, place);
+    expect(unnumbered).toMatchObject({ height: 2 + 10 + 14 });
+    const { layout } = standInBlockLayout({ template, footnoteOf: () => '12' });
+    expect(layout.layoutRegion(area, place)).toMatchObject({ height: 2 + 10 + 28 });
+  });
 });
