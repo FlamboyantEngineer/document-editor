@@ -164,3 +164,115 @@ test.describe('DOCE-LABS-8.2 the invariant holds through editing', () => {
     await expectOneResult(page);
   });
 });
+
+// The tops of a forced paragraph's drawn lines and the place of each line's first character.
+interface LineStart {
+  readonly top: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The first forced paragraph with at least `least` lines, scrolled into view, and its line starts. */
+function lineStartsOf(page: Page, least: number) {
+  return page.evaluate((count) => {
+    const block = [...document.querySelectorAll('.pm-page p.de-forced-lines')].find(
+      (element) => Number(element.getAttribute('data-lines')) >= count,
+    );
+    if (!block) return null;
+    block.scrollIntoView({ block: 'center' });
+    const range = document.createRange();
+    const starts: LineStart[] = [];
+    let bottom = -Infinity;
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      for (let index = 0; index < (node.nodeValue ?? '').length; index += 1) {
+        range.setStart(node, index);
+        range.setEnd(node, index + 1);
+        const rect = [...range.getClientRects()].find((each) => each.height > 0);
+        if (!rect) continue;
+        if ((rect.top + rect.bottom) / 2 > bottom)
+          starts.push({ top: rect.top, x: rect.left + 1, y: (rect.top + rect.bottom) / 2 });
+        bottom = Math.max(bottom, rect.bottom);
+      }
+    }
+    return starts;
+  }, least);
+}
+
+/** Where the caret is drawn: the top and left of the collapsed selection. */
+const caretAt = (page: Page) =>
+  page.evaluate(() => {
+    const rect = getSelection()?.getRangeAt(0).getClientRects()[0];
+    return { top: rect?.top ?? -1, left: rect?.left ?? -1 };
+  });
+
+// Lands in thread I's second pull request after #301: until then these fail, and Playwright
+// reports them passing unexpectedly once they hold.
+test.describe('DOCE-LABS-8.3 the caret at forced line starts', () => {
+  test('DOCE-LABS-8.3 after an edit at a line start the caret is drawn on that line, and keeps its column', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
+    test.fail(true, 'caret side at forced line starts: thread I, second pull request after #301');
+    await open(page, 'long-mixed', 100);
+    const starts = await lineStartsOf(page, 3);
+    const [first, second, third] = starts ?? [];
+    if (!first || !second || !third) throw new Error('No paragraph with three lines.');
+    await page.mouse.click(second.x, second.y);
+    await page.keyboard.press('Home');
+    await page.keyboard.type('x');
+    await page.keyboard.press('Backspace');
+    await settle(page);
+    expect((await caretAt(page)).top, 'the caret on the line it starts').toBeCloseTo(
+      second.top,
+      -1,
+    );
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    const column = (await caretAt(page)).left;
+    await page.keyboard.press('ArrowDown');
+    expect((await caretAt(page)).top, 'Arrow Down moves one line').toBeCloseTo(third.top, -1);
+    await page.keyboard.press('ArrowUp');
+    const back = await caretAt(page);
+    expect(back.top).toBeCloseTo(second.top, -1);
+    expect(Math.abs(back.left - column), 'Arrow Up and Down keep the column').toBeLessThan(2);
+    // The exception: a caret the browser drew at a line's end, after End, stays there.
+    await page.mouse.click(first.x, first.y);
+    await page.keyboard.press('End');
+    expect((await caretAt(page)).top, 'End keeps the caret on its line').toBeCloseTo(first.top, -1);
+  });
+});
+
+test.describe('DOCE-LABS-8.4 inline offers keep the drawn lines', () => {
+  test('DOCE-LABS-8.4 an inline completion offer inside a full line wraps nothing', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
+    test.fail(true, 'inline offers on forced lines: thread I, second pull request after #301');
+    await page.goto('stress-long.html?textLayout=pretext');
+    await waitForLab(page);
+    await settle(page);
+    const starts = await lineStartsOf(page, 3);
+    const [first] = starts ?? [];
+    if (!first) throw new Error('No paragraph with three lines.');
+    // At the end of a full first line, so the offer drawn after the caret has no room on it.
+    await page.mouse.click(first.x, first.y);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' and');
+    const offer = page.locator('.de-document-editor__content .de-inline-completion');
+    await expect(offer).toHaveCount(1);
+    const block = await offer.evaluate((element) => {
+      const forced = element.closest('.de-forced-lines');
+      return {
+        page: [...document.querySelectorAll('.pm-page')].findIndex((each) =>
+          each.contains(element),
+        ),
+        elementId: forced?.getAttribute('data-id') ?? '',
+        part: Number(forced?.getAttribute('data-split-part-index') ?? 0),
+        computed: Number(forced?.getAttribute('data-lines') ?? 0),
+      };
+    });
+    const [drawn] = await readDrawnLines(page, [block]);
+    expect(drawn?.length, 'lines drawn with the offer showing').toBe(block.computed);
+  });
+});

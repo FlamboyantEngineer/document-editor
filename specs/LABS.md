@@ -337,3 +337,17 @@ Typing and deleting at a paragraph split between pages, a hard break and a new p
 
 Implementation: `labs/src/regression/regression-probe.ts`
 Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.3 - The caret at forced line starts
+
+After an edit at a forced line's start, the caret shall be drawn at the start of that line, not at the end of the line above, and Arrow Down and Arrow Up shall move one drawn line each and keep the caret's column. A caret the browser drew at a line's end, after End, shall stay there.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.4 - Inline offers keep the drawn lines
+
+With an inline completion offer showing inside a full forced line, the block shall draw exactly its computed lines: the browser shall wrap no line around the offer.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
