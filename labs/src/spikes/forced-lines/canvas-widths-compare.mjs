@@ -20,31 +20,34 @@ const modes = (run) => [
   ...Object.entries(run.dom).map(([mode, widths]) => [`dom ${mode}`, widths]),
 ];
 
+// The font of a width's key: "<weight> <size>px "<family>"|<text>", without the size.
+const fontOf = (key) => key.split('|')[0].replace(/ [\d.]+px /u, ' ');
+
 for (const [index, baseRun] of base.runs.entries()) {
   for (const [mode, baseWidths] of modes(baseRun)) {
     const keys = Object.keys(baseWidths);
+    const fonts = [...new Set(keys.map(fontOf))];
     const row = [];
-    for (const report of reports.slice(1)) {
-      const widths = Object.fromEntries(modes(report.runs[index]))[mode] ?? {};
-      let differ = 0;
-      let most = 0;
-      let example = '';
-      for (const key of keys) {
-        const gap = Math.abs((widths[key] ?? Number.NaN) - baseWidths[key]);
-        if (gap !== 0) {
-          differ += 1;
-          if (!(gap <= most)) {
-            most = gap;
-            example = `${key} ${String(baseWidths[key])} vs ${String(widths[key])}`;
+    for (const [at, left] of reports.entries()) {
+      for (const right of reports.slice(at + 1)) {
+        const a = Object.fromEntries(modes(left.runs[index]))[mode] ?? {};
+        const b = Object.fromEntries(modes(right.runs[index]))[mode] ?? {};
+        const byFont = fonts.map((font) => {
+          let differ = 0;
+          let most = 0;
+          const own = keys.filter((key) => fontOf(key) === font);
+          for (const key of own) {
+            const gap = Math.abs((a[key] ?? Number.NaN) - (b[key] ?? Number.NaN));
+            if (gap !== 0) differ += 1;
+            if (!(gap <= most)) most = gap;
           }
-        }
+          return differ
+            ? `${font} ${String(differ)}/${String(own.length)} max ${most.toFixed(4)}`
+            : `${font} same`;
+        });
+        row.push(`${left.name} vs ${right.name}: ${byFont.join('; ')}`);
       }
-      row.push(
-        differ
-          ? `${report.name}: ${String(differ)}/${String(keys.length)} differ, max ${most.toFixed(4)} (${example})`
-          : `${report.name}: identical`,
-      );
     }
-    console.log(`dpr ${String(baseRun.dpr)} ${mode}: ${row.join(' | ')}`);
+    console.log(`dpr ${String(baseRun.dpr)} ${mode}:\n  ${row.join('\n  ')}`);
   }
 }
