@@ -18,12 +18,15 @@ export interface ForcedLinesOptions {
   readonly columnWidth: number;
   readonly align: ForcedAlignment;
   readonly breaks: ForcedBreak;
+  /**
+   * Lays out only the first this many blocks when the document opens: an experiment that shows
+   * what each keystroke costs with fewer decorations to map onto the pages.
+   */
+  readonly limit?: number | undefined;
 }
 
 export interface ForcedLinesState {
   readonly decorations: DecorationSet;
-  /** Each forced block's lines, by the block's position, for the lab's guard. */
-  readonly lines: ReadonlyMap<number, readonly ForcedLine[]>;
   /** Blocks laid out by the latest transaction, and how long that took. */
   readonly laidOut: number;
   readonly milliseconds: number;
@@ -98,22 +101,33 @@ function lineDecorations(
   return decorations;
 }
 
+/** The decoration that marks a forced block, at `pos`. */
+export function forcedBlock(node: Node, pos: number, lines: readonly ForcedLine[]): Decoration {
+  return Decoration.node(pos, pos + node.nodeSize, {
+    class: 'fl-forced',
+    'data-fl-lines': String(lines.length),
+  });
+}
+
+/** The decorations that draw a block's lines, its content starting at `start`. */
+export function linesDecorations(
+  node: Node,
+  start: number,
+  lines: readonly ForcedLine[],
+  options: ForcedLinesOptions,
+): Decoration[] {
+  return lines.flatMap((line, index) =>
+    lineDecorations(node, start, line, lines[index + 1], options),
+  );
+}
+
 function blockDecorations(
   node: Node,
   pos: number,
   lines: readonly ForcedLine[],
   options: ForcedLinesOptions,
 ): Decoration[] {
-  const decorations = [
-    Decoration.node(pos, pos + node.nodeSize, {
-      class: 'fl-forced',
-      'data-fl-lines': String(lines.length),
-    }),
-  ];
-  lines.forEach((line, index) =>
-    decorations.push(...lineDecorations(node, pos + 1, line, lines[index + 1], options)),
-  );
-  return decorations;
+  return [forcedBlock(node, pos, lines), ...linesDecorations(node, pos + 1, lines, options)];
 }
 
 // The top-level paragraphs and headings of each page's content, with their positions.
@@ -146,20 +160,10 @@ function changedRanges(tr: Transaction): [number, number][] {
 function layOut(
   doc: Node,
   ranges: readonly [number, number][],
-  previous: ForcedLinesState | null,
   mapped: DecorationSet,
-  tr: Transaction | null,
   options: ForcedLinesOptions,
 ): ForcedLinesState {
   const started = performance.now();
-  let decorations = mapped;
-  const lines = new Map<number, readonly ForcedLine[]>();
-  if (previous && tr) {
-    for (const [pos, blockLines] of previous.lines) {
-      const result = tr.mapping.mapResult(pos, 1);
-      if (!result.deleted) lines.set(result.pos, blockLines);
-    }
-  }
   const remove: Decoration[] = [];
   const add: Decoration[] = [];
   const seen = new Set<number>();
@@ -168,22 +172,13 @@ function layOut(
       if (seen.has(pos)) return;
       seen.add(pos);
       const style = typographyOf(node);
-      if (!style) return;
-      remove.push(...decorations.find(pos, pos + node.nodeSize));
-      const blockLines = forcedLines(node, style, options.fitWidth);
-      lines.set(pos, blockLines);
-      add.push(...blockDecorations(node, pos, blockLines, options));
+      if (!style || (options.limit !== undefined && seen.size > options.limit)) return;
+      remove.push(...mapped.find(pos, pos + node.nodeSize));
+      add.push(...blockDecorations(node, pos, forcedLines(node, style, options.fitWidth), options));
     });
   }
-  // Positions of blocks whose lines were dropped with their content.
-  for (const pos of [...lines.keys()]) {
-    const node = doc.nodeAt(pos);
-    if (!node?.isTextblock) lines.delete(pos);
-  }
-  decorations = decorations.remove(remove).add(doc, add);
   return {
-    decorations,
-    lines,
+    decorations: mapped.remove(remove).add(doc, add),
     laidOut: seen.size,
     milliseconds: performance.now() - started,
   };
@@ -195,17 +190,12 @@ export function createForcedLines(options: ForcedLinesOptions): Plugin<ForcedLin
     key: forcedLinesKey,
     state: {
       init: (_config, state) =>
-        layOut(state.doc, [[0, state.doc.content.size]], null, DecorationSet.empty, null, options),
+        layOut(state.doc, [[0, state.doc.content.size]], DecorationSet.empty, options),
       apply(tr, value, _old, state) {
         if (!tr.docChanged) return value;
-        return layOut(
-          state.doc,
-          changedRanges(tr),
-          value,
-          value.decorations.map(tr.mapping, tr.doc),
-          tr,
-          options,
-        );
+        const mapped = value.decorations.map(tr.mapping, tr.doc);
+        // Blocks a keystroke touched are laid out again whatever the limit.
+        return layOut(state.doc, changedRanges(tr), mapped, { ...options, limit: undefined });
       },
     },
     props: {

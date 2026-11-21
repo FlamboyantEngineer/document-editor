@@ -17,6 +17,13 @@
         text-align: left;
         margin-inline-end: -8px;
       }
+      /* ?skip: pages off screen skip their layout and paint (content-visibility), as forced lines
+         and computed pages allow. Heading numbers drawn by CSS counters would need the layout
+         engine to number headings itself first. */
+      html[data-skip-pages] .de-document-editor__content .pm-page {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 1123px;
+      }
       .fl-end::after {
         content: '\A';
         white-space: pre;
