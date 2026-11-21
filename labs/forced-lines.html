@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+      /* The spike's forced lines: the browser aligns nothing and wraps nothing on its own. The
+         slack past the column keeps a line Pretext measured a little wider than the browser does
+         from wrapping its last word; the line still ends where Pretext said. */
+      .de-document-editor
+        :is(.de-document-editor__content, .de-document-editor__measure)
+        .fl-forced {
+        text-align: left;
+        margin-inline-end: -8px;
+      }
+      /* ?skip: pages off screen skip their layout and paint (content-visibility), as forced lines
+         and computed pages allow. Heading numbers drawn by CSS counters would need the layout
+         engine to number headings itself first. */
+      html[data-skip-pages] .de-document-editor__content .pm-page {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 1123px;
+      }
+      .fl-end::after {
+        content: '\A';
+        white-space: pre;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Spike: paragraphs drawn on the line breaks Pretext computed, in the live editor."
+    />
+    <title>Spike: forced lines · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/forced-lines.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" class="lab-fill">
+      <h1>Spike: forced lines</h1>
+      <p>
+        Every top-level paragraph and heading is drawn on the lines Pretext computed: a break before
+        each computed line start, and alignment drawn from the computed widths. Add
+        <code>?forced=off</code> for the browser's own lines and <code>?align=justify</code>,
+        <code>center</code> or <code>right</code> to align the text.
+      </p>
+      <div id="lab-editor" class="lab-editor"></div>
+    </main>
+  </body>
+</html>
