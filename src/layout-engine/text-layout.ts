@@ -40,7 +40,7 @@ export type TextBlockLayout =
   | { readonly ok: false; readonly reason: string };
 
 /** A text layout engine for one template, language and set of fonts. */
-export interface TextLayout {
+interface TextLayout {
   /** A text block's typography in a scope. */
   readonly typography: (node: ProseMirrorNode, scope?: string | null) => BlockTypography;
   /** A text block's lines at a width. */

@@ -16,7 +16,7 @@ import { templateScopeStyles } from '../../model/templates/template-properties.j
 import { findTemplateSection } from '../../model/templates/template-sections.js';
 
 /** The numbers of one document, by node. */
-export interface BlockNumbers {
+interface BlockNumbers {
   /** A caption's label and the ` - ` after it, as the label line draws it; none when it shows none. */
   labelOf(caption: ProseMirrorNode): string | undefined;
   /** An ordered list item's marker, its space after included; none for any other node. */
