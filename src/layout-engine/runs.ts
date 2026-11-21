@@ -41,8 +41,8 @@ type TextRuns =
 interface RunInput {
   readonly node: ProseMirrorNode;
   readonly typography: BlockTypography;
-  /** Text drawn before the content, in the block's font. */
-  readonly prefix?: string | undefined;
+  /** Text drawn before the content: in the block's font, or as an item in its own font. */
+  readonly prefix?: string | RichInlineItem | undefined;
   /** The width of a box drawn before the content, such as a paragraph's number. */
   readonly lead?: number | undefined;
   readonly measureAtom?: MeasureAtom | undefined;
@@ -102,7 +102,9 @@ export function buildRuns({ node, typography, prefix, lead, measureAtom }: RunIn
     run.atoms.push(null);
   }
   if (prefix) {
-    run.items.push({ text: prefix, font: fontString(typography.font) });
+    run.items.push(
+      typeof prefix === 'string' ? { text: prefix, font: fontString(typography.font) } : prefix,
+    );
     run.offsets.push(-1);
     run.atoms.push(null);
   }
