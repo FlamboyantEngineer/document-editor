@@ -89,7 +89,10 @@ function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInli
   const font = fontString(markedFont(typography, child.marks));
   const code = child.marks.some((mark) => mark.type.name === 'code');
   const text = child.text ?? child.textContent;
-  return code ? { text, font, extraWidth: 2 * INLINE_CODE_PADDING } : { text, font };
+  // A line that ends inside the code fits without its end padding, as Chromium fits a cloned box.
+  return code
+    ? { text, font, extraWidth: 2 * INLINE_CODE_PADDING, extraWidthEnd: INLINE_CODE_PADDING }
+    : { text, font };
 }
 
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */

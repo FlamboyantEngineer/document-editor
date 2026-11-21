@@ -88,6 +88,10 @@ describe('createTextLayout', () => {
     expect(bold.lines[0]?.width).toBe(24);
     const code = table(block('<p><code>aaaa</code></p>'), 60);
     expect(code.lines[0]?.width).toBe(26);
+    // A line ending inside the code fits without its 3px end padding: "aa aa" with both pads is
+    // 28.5px, and fits in 26px.
+    expect(table(block('<p><code>aa aa aa</code></p>'), 26).lines).toHaveLength(2);
+    expect(table(block('<p><code>aa aa aa</code></p>'), 25).lines).toHaveLength(3);
   });
 
   it('DOCE-PAGINATION-9.4 ends a line at each hard break, and a final break makes an empty line', () => {
