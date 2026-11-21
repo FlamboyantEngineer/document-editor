@@ -12,6 +12,11 @@ export interface TextMeasure {
   lines: number;
 }
 
+/** The lines a layout engine laid a text block out on, by content offset in the whole block. */
+interface MeasuredLines {
+  readonly lines: readonly { readonly from: number; readonly height: number }[];
+}
+
 /** What the editor measured a text block's layout from. */
 export interface TextMeasurement {
   /** Where the fragment starts in the whole block: a content offset, or a character of linked code. */
@@ -20,6 +25,8 @@ export interface TextMeasurement {
   readonly measure: (from: number, to: number) => TextMeasure;
   /** The height the block takes beyond its text, which each code fragment repeats. */
   readonly overhead?: number | undefined;
+  /** The block's computed lines; a paragraph then splits exactly at a line's start. */
+  readonly lines?: MeasuredLines | undefined;
 }
 
 /** The fewest rendered lines either fragment of a split paragraph keeps. */
@@ -114,11 +121,52 @@ function chooseWord(count: number, at: (index: number) => TextMeasure, input: Te
   return lines >= before && total - lines >= after ? chosen : -1;
 }
 
+// How many of a fragment's lines its first fragment keeps: as many as fit, at least the minimum on
+// each side; -1 when no split keeps them.
+function chooseLineCount(heights: readonly number[], overhead: number, input: TextSplitInput) {
+  const after = Math.max(MINIMUM_SPLIT_LINES, Math.floor(input.minimumTrailingLines ?? 0));
+  let count = 0;
+  let height = overhead;
+  while (count < heights.length && height + (heights[count] ?? 0) <= input.fitting) {
+    height += heights[count] ?? 0;
+    count += 1;
+  }
+  count = Math.min(count, heights.length - after);
+  return count >= MINIMUM_SPLIT_LINES ? count : -1;
+}
+
+// A paragraph's split at a computed line's start, from the lines the fragment holds.
+function planLineSplit(input: TextSplitInput, measured: MeasuredLines): TextSplitPlan | null {
+  const { offset } = input.measurement;
+  const end = offset + input.text.length;
+  const lines = measured.lines.filter(
+    (line) => line.from >= offset && line.from < Math.max(end, offset + 1),
+  );
+  const heights = lines.map((line) => line.height);
+  const total = heights.reduce((sum, height) => sum + height, 0);
+  const overhead = Math.max(0, input.height - total);
+  const count = chooseLineCount(heights, overhead, input);
+  const next = lines[count]?.from;
+  if (count < 0 || next === undefined) return null;
+  const headHeight = snap(
+    overhead + heights.slice(0, count).reduce((sum, height) => sum + height, 0),
+    1,
+  );
+  return {
+    end: next - offset,
+    next: next - offset,
+    headHeight,
+    tailHeight: snap(input.height - headHeight, 1),
+  };
+}
+
 /**
- * Where a paragraph splits: after the last word that fits, keeping at least two rendered lines in
- * each fragment; null when it fits whole or cannot split.
+ * Where a paragraph splits: at the start of the first line that does not fit when its lines were
+ * computed, else after the last word that fits, keeping at least two rendered lines in each
+ * fragment; null when it fits whole or cannot split.
  */
 export function planParagraphSplit(input: TextSplitInput): TextSplitPlan | null {
+  if (input.measurement.lines) return planLineSplit(input, input.measurement.lines);
   const words = [...input.text.matchAll(/\S+/g)];
   const { offset, measure } = input.measurement;
   const wordEnd = (index: number) => {
