@@ -577,3 +577,63 @@ Every page's copy of its section's header and footer shall take the writer's edi
 
 Implementation: `src/pagination/page-positions.ts`, `src/pagination/selection-mirror.ts`, `src/pagination/projection-layout.ts`
 Verification: `src/pagination/projection-view.test.ts`, `e2e/template-editor.spec.ts`
+
+## DOCE-PAGINATION-9 - Text layout engine
+
+The text layout engine (`src/layout-engine/`) lays a text block's lines out from its template typography with Pretext, without the DOM. Its line table is the one result calculation, editing, the viewer and print share: the renderer draws exactly its lines. It measures in Chromium's profile. Until the editor lays out with it, behind a `textLayout: 'pretext'` option that is off by default, the editor measures as DOCE-PAGINATION-5 says.
+
+### DOCE-PAGINATION-9.1 - The line table
+
+`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading or a code block out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1.
+
+Implementation: `src/layout-engine/line-table.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
+Verification: `src/layout-engine/text-layout.test.ts`
+
+### DOCE-PAGINATION-9.2 - Typography from the template
+
+A text block's typography (`typography(node, scope)`) shall be its template scope's (a section's styles over the template's): a paragraph the paragraph style, a heading its level's, the document's title the title style, a code block the code style; a custom style (`className`) over a paragraph shall set what it sets, its weight and slant else normal, and over a heading only its size and slant. Unset values shall take the reference stylesheet's fallbacks: a serif 12px paragraph at a line height of 1.5, headings from 2em down to 0.9em at 1.2, a 24px title, monospace code at 1.4 with 8px of padding. Relative lengths shall resolve against the paragraph's size (`rem` against 16px), and lengths and leadings snap to 1/64 px. A family the host serves (`fontStacks`) shall be measured in the stack it names.
+
+Implementation: `src/layout-engine/typography.ts`
+Verification: `src/layout-engine/typography.test.ts`
+
+### DOCE-PAGINATION-9.3 - Marks
+
+Text shall be measured in its marks' fonts, applied outermost first in the schema's mark order: strong text a bolder weight (CSS `bolder`), emphasis italic, inline code the code style's family and size (the size around it when the style sets none) with 3px of padding on each side of each line it reaches, and subscript and superscript at the size around them divided by 1.2. Neighbouring text in the same font, such as a link or a highlight beside plain text, shall be measured as one run, as Chromium shapes it. Marks that change only decoration change nothing. The renderer draws sub- and superscripts without growing the line and inline code with its padding on every line (`box-decoration-break: clone`).
+
+Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/runs.ts`
+Verification: `src/layout-engine/typography.test.ts`, `src/layout-engine/text-layout.test.ts`
+
+### DOCE-PAGINATION-9.4 - White space and hard breaks
+
+Text shall be laid out as `white-space: pre-wrap` with `overflow-wrap: break-word`, as the pages draw it: runs of spaces and tabs kept, spaces hanging at a line's end, and a word longer than a line broken. Each hard break shall end a line, and a block that ends with one shall have an empty last line after it.
+
+Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`
+Verification: `src/layout-engine/text-layout.test.ts`
+
+### DOCE-PAGINATION-9.5 - Prefixes and inline atoms
+
+A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, and a line shall be as tall as its leading or its tallest atom; without a size the block shall not be laid out, with the reason.
+
+Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`
+Verification: `src/layout-engine/text-layout.test.ts`
+
+### DOCE-PAGINATION-9.6 - Alignment and padding
+
+A line shall start at the block's left padding plus, when the block is centred, half the room its line leaves, and when right-aligned, all of it; a justified line starts at the edge. A code block's lines shall be laid out inside its 8px padding.
+
+Implementation: `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`
+Verification: `src/layout-engine/text-layout.test.ts`
+
+### DOCE-PAGINATION-9.7 - Served fonts and language
+
+Given `isFontServed`, a block whose font's first family, or whose inline code's, is not served shall not be laid out, with the reason, so no system font decides a line. Lines shall break by the rules of the document's `language`.
+
+Implementation: `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
+Verification: `src/layout-engine/text-layout.test.ts`
+
+### DOCE-PAGINATION-9.8 - Splitting at computed lines
+
+A line table as a text measurement (`lineTableMeasurement(table, offset)`) shall give a range's height and lines from the lines it touches, and carry the lines, so a paragraph splits at the start of its first line that does not fit, keeping at least two lines in each fragment and the trailing lines it is asked for.
+
+Implementation: `src/layout-engine/text-layout.ts`, `src/model/pagination/text-split.ts`
+Verification: `src/layout-engine/text-layout.test.ts`, `src/model/pagination/text-split.test.ts`

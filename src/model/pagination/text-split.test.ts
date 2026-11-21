@@ -123,4 +123,34 @@ describe('text splits', () => {
     const [joined] = joinFragments(pages.flat().map((entry) => entry.node));
     expect(joined?.textContent).toBe(words(16));
   });
+  it('DOCE-PAGINATION-9.8 splits at a computed line start, keeping the lines asked for', () => {
+    // Eight lines of eight characters, two words each, the third 15px tall.
+    const text = words(16);
+    const lines = Array.from({ length: 8 }, (_, index) => ({
+      from: index * 8,
+      height: index === 2 ? 15 : LINE,
+    }));
+    const measurement = { ...lineMeasurement(text), lines: { lines } };
+    const input = { text, height: 85, fitting: 36, measurement };
+    expect(planParagraphSplit(input)).toEqual({
+      end: 24,
+      next: 24,
+      headHeight: 35,
+      tailHeight: 50,
+    });
+    expect(planParagraphSplit({ ...input, minimumTrailingLines: 6 })).toEqual({
+      end: 16,
+      next: 16,
+      headHeight: 20,
+      tailHeight: 65,
+    });
+    expect(planParagraphSplit({ ...input, fitting: 15 })).toBeNull();
+    const tail = {
+      ...input,
+      text: text.slice(48),
+      height: 20,
+      measurement: { ...measurement, offset: 48 },
+    };
+    expect(planParagraphSplit({ ...tail, fitting: 100 })).toBeNull();
+  });
 });
