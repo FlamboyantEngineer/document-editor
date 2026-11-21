@@ -7,7 +7,7 @@ on:
     branches: [claude/project-thread-a7myl2]
     paths:
       - .github/workflows/canvas-widths.yml
-      - labs/src/spikes/forced-lines/canvas-widths*.mjs
+      - scripts/canvas-widths*.mjs
 
 permissions:
   contents: read
@@ -35,7 +35,7 @@ jobs:
           npx playwright install chromium
           cp "node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2" ../fonts/geist-latin-wght-normal.woff2
           cp node_modules/katex/dist/fonts/KaTeX_Main-Regular.woff2 node_modules/katex/dist/fonts/KaTeX_SansSerif-Regular.woff2 ../fonts/
-          cp ../labs/src/spikes/forced-lines/canvas-widths.mjs .
+          cp ../scripts/canvas-widths.mjs .
       - name: Measure
         shell: bash
         working-directory: probe
@@ -64,5 +64,5 @@ jobs:
         run: |
           for channel in shell chromium; do
             echo "== $channel"
-            node labs/src/spikes/forced-lines/canvas-widths-compare.mjs reports/widths-ubuntu-latest-$channel.json reports/widths-windows-latest-$channel.json reports/widths-macos-latest-$channel.json
+            node scripts/canvas-widths-compare.mjs reports/widths-ubuntu-latest-$channel.json reports/widths-windows-latest-$channel.json reports/widths-macos-latest-$channel.json
           done

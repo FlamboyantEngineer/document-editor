@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { BUDGETS, type Budget, caretAtEnd, keystrokeWork, percentile } from './budgets.js';
+import { type Budget, BUDGETS, caretAtEnd, keystrokeWork, percentile } from './budgets.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // The typing budgets (DOCE-LABS-2.3) with every paragraph drawn on Pretext's lines (the forced-lines

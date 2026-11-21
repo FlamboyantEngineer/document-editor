@@ -13,9 +13,9 @@
 
 import type { Node } from 'prosemirror-model';
 import { type Decoration, DecorationSet, EditorView } from 'prosemirror-view';
-import { type ForcedLine, forcedLines, typographyOf } from './lines.js';
 import type { Typography } from '../pretext/settings.js';
-import { type ForcedLinesOptions, forcedBlock, linesDecorations } from './plugin.js';
+import { type ForcedLine, forcedLines, typographyOf } from './lines.js';
+import { forcedBlock, type ForcedLinesOptions, linesDecorations } from './plugin.js';
 
 type DecorationSetConstructor = new (
   local: readonly Decoration[],

@@ -6,10 +6,10 @@
 // their layout (content-visibility); `?limit=` forces only that many blocks when the document
 // opens (a timing experiment).
 
-import { casesDocument, singleSectionDocument } from './spikes/forced-lines/documents.js';
 import { drawForcedLinesDirectly } from './spikes/forced-lines/direct.js';
+import { casesDocument, singleSectionDocument } from './spikes/forced-lines/documents.js';
+import { createForcedLines,type ForcedAlignment } from './spikes/forced-lines/plugin.js';
 import { installForcedLinesProbe } from './spikes/forced-lines/probe.js';
-import { type ForcedAlignment, createForcedLines } from './spikes/forced-lines/plugin.js';
 import { defaultWidth, inlineFitWidth } from './spikes/pretext/settings.js';
 import { mountStressLab } from './stress/stress-lab.js';
 

@@ -61,11 +61,14 @@ async function measure(dpr, faces) {
         await document.fonts.ready;
         const canvas = new OffscreenCanvas(8, 8);
         const context = canvas.getContext('2d');
+        if (!context) throw new Error('No 2D canvas');
         const span = document.createElement('span');
         span.style.whiteSpace = 'pre';
         document.body.append(span);
         const result = { devicePixelRatio: window.devicePixelRatio, canvas: {}, dom: {} };
-        for (const rendering of ['auto', 'geometricPrecision', 'optimizeSpeed']) {
+        /** @type {CanvasTextRendering[]} */
+        const renderings = ['auto', 'geometricPrecision', 'optimizeSpeed'];
+        for (const rendering of renderings) {
           const widths = {};
           for (const { family, weights } of faces) {
             for (const weight of weights) {
@@ -140,10 +143,10 @@ const runs = [];
 for (const dpr of DPRS) {
   const run = await measure(dpr, faces);
   runs.push({ dpr, ...run });
-  for (const [kind, modes] of [
+  for (const [kind, modes] of /** @type {[string, Record<string, object>][]} */ ([
     ['canvas', run.canvas],
     ['dom', run.dom],
-  ]) {
+  ])) {
     for (const [mode, widths] of Object.entries(modes)) {
       console.log(`${platform()} dpr=${String(dpr)} ${kind} ${mode} ${hash(widths)}`);
     }
