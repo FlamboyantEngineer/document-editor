@@ -1,4 +1,4 @@
-import { setLocale } from '@chenglou/pretext';
+import { setLayoutScale, setLocale } from '@chenglou/pretext';
 import type { Node } from 'prosemirror-model';
 import { readFixture } from './fixtures.js';
 import { type Block, indexPages, measureDocument, PreparationCache } from './prediction.js';
@@ -16,6 +16,7 @@ function report({ path, width, height, lines, children }: Block): BlockReport {
 
 function predict(request: LayoutRequest): LayoutResult {
   const start = performance.now();
+  if (request.scale !== undefined) setLayoutScale(request.scale);
   if (request.file) doc = readFixture(request.file);
   if (!doc) throw new Error('Prediction requires a document first');
   const { blocks, issues } = measureDocument(doc, request.width, cache);
