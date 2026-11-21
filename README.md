@@ -54,7 +54,7 @@ npm run check   # every gate: lint, format, types, references, specs, build and 
 
 ### Labs
 
-Labs are static demo pages in `labs/`, one per area of the editor, bundled from `labs/src/<name>.lab.ts(x)`. A toolbar at the top of each page picks the stylesheet (the bundled Reference stylesheet `labs/reference.css`, none, or a URL) and the theme it writes on the root element; the choice carries from page to page.
+Labs are static demo pages in `labs/`, one per area of the editor, bundled from `labs/src/<name>.lab.ts(x)`. A toolbar at the top of each page picks the stylesheet (the bundled Reference stylesheet `labs/reference.css`, the shadcn/ui stylesheet `labs/shadcn.css`, none, or a URL) and the theme it writes on the root element; the choice carries from page to page.
 
 ```sh
 npm run labs         # install and build what is out of date, then serve labs/ and print the URL
@@ -100,6 +100,11 @@ The editor loads no CSS. To use the neutral lab presentation explicitly, import
 `@flamboyantengineer/document-editor/reference.css`. Document presentation uses the
 `document-reference` cascade layer; lab page layout is excluded. Hosts can instead
 style the documented hooks themselves.
+
+For the shadcn/ui look, import `@flamboyantengineer/ui-components/shadcn.css`, then
+`@flamboyantengineer/document-editor/shadcn.css`, instead of the two reference sheets. It draws
+with the page's shadcn/ui tokens (light, and dark under `.dark` or `data-theme="dark"`), gives the
+editor's chrome the compact control scale and leaves the pages as paper.
 
 ### Linked spreadsheet captures
 

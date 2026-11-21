@@ -1,0 +1,11 @@
+/*
+ * The labs' shadcn/ui stylesheet, bundled into labs/build/shadcn.css: loaded instead of the
+ * Reference stylesheet, on the same hooks. The base library's shadcn/ui sheet (its tokens, its
+ * reference partials, the bridge from the `--ref-*` tokens to shadcn/ui's and its retouch), then
+ * the package's `shadcn.css` (the document and editor chrome partials, unchanged, and the editor's
+ * retouch), then the lab pages' own layout. The pages stay paper.
+ */
+
+@import '@flamboyantengineer/ui-components/shadcn.css';
+@import '../shadcn.css';
+@import './lab-pages.css';

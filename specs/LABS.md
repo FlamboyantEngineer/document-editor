@@ -6,7 +6,7 @@ Labs are static demo pages that show each area of the editor with neutral sample
 
 ### DOCE-LABS-1.1 - Local start
 
-`npm run labs` shall bring a checkout's labs up to date before serving them with the supplied server, passing its server options through: it runs `npm ci` when the dependencies are missing or `package-lock.json` changed since the last install, and `npm run build:labs` after an install, when the labs are not built, or when a lab source (the library and lab sources, the lab stylesheets `labs/reference.css` and `labs/reference/`, the installed dependencies, the package and TypeScript configuration and the labs build scripts) changed, was added or was removed since the last build. It leaves a `node_modules` linked from another checkout alone. `--dry-run` prints the steps it would run, or that the labs are up to date, without running them or serving.
+`npm run labs` shall bring a checkout's labs up to date before serving them with the supplied server, passing its server options through: it runs `npm ci` when the dependencies are missing or `package-lock.json` changed since the last install, and `npm run build:labs` after an install, when the labs are not built, or when a lab source (the library and lab sources, the lab stylesheets `labs/reference.css`, `labs/shadcn.css`, `labs/lab-pages.css`, `labs/reference/`, `labs/shadcn/` and the package's `shadcn.css`, the installed dependencies, the package and TypeScript configuration and the labs build scripts) changed, was added or was removed since the last build. It leaves a `node_modules` linked from another checkout alone. `--dry-run` prints the steps it would run, or that the labs are up to date, without running them or serving.
 
 Both lab launchers shall use the shared lab server to try successively higher ports when the starting port is busy and print the bound URL. An explicit `--port` sets the starting port. Playwright shall use `--strict-port` to require the configured address.
 
@@ -22,9 +22,9 @@ Verification: `e2e/labs.spec.ts`
 
 ### DOCE-LABS-1.3 - Stylesheet
 
-The Stylesheet picker (UIC-LABS-2.1) shall load, for Reference, the default, `labs/build/reference.css`, bundled from `labs/reference.css`: the base library's reference stylesheet, the document reference stylesheet `labs/reference/document.css` and the lab pages' layout. A classic script in each page's head (`labs/build/boot.js`) applies the choice with `bootLabSettings` before the body is parsed (UIC-LABS-2.5).
+The Stylesheet picker (UIC-LABS-2.1) shall load, for Reference, the default, `labs/build/reference.css`, bundled from `labs/reference.css`: the base library's reference stylesheet, the document reference stylesheet `labs/reference/document.css`, the editor chrome `labs/reference/editor-chrome.css` and the lab pages' layout `labs/lab-pages.css`. For shadcn/ui it shall load `labs/build/shadcn.css`, bundled from `labs/shadcn.css`: the base library's shadcn/ui stylesheet, the package's `shadcn.css` (DOCE-ENTRY-1.6) and the same lab pages' layout. A classic script in each page's head (`labs/build/boot.js`) applies the choice with `bootLabSettings` before the body is parsed (UIC-LABS-2.5).
 
-Implementation: `labs/src/chrome/boot.ts`, `labs/reference.css`, `scripts/build-labs.mjs`
+Implementation: `labs/src/chrome/boot.ts`, `labs/reference.css`, `labs/shadcn.css`, `labs/lab-pages.css`, `scripts/build-labs.mjs`
 Verification: `e2e/labs.spec.ts`
 
 ### DOCE-LABS-1.4 - Theme
@@ -43,10 +43,17 @@ Verification: `e2e/labs.spec.ts`
 
 ### DOCE-LABS-1.6 - Selectors that stay local
 
-The reference stylesheets shall never make `body`, `html`, `:root` or a compound with no type, class or attribute the subject of `:has()`, so a change inside the editor never makes the browser restyle the whole page.
+The reference stylesheets and the shadcn/ui retouch shall never make `body`, `html`, `:root` or a compound with no type, class or attribute the subject of `:has()`, so a change inside the editor never makes the browser restyle the whole page.
 
-Implementation: `labs/reference/document.css`, `labs/reference/editor-chrome.css`
+Implementation: `labs/reference/document.css`, `labs/reference/editor-chrome.css`, `labs/shadcn/editor-chrome.css`
 Verification: `test/reference-stylesheet.test.ts`
+
+### DOCE-LABS-1.7 - The shadcn/ui stylesheet
+
+With the shadcn/ui stylesheet, the editor's chrome shall read as shadcn/ui in both themes, under the page's shadcn/ui tokens (light and dark under `.dark` or `data-theme`): the editor's frame a rounded card with a hairline ring, the menubar, toolbar, find bar and status bar on the page's background, the side panels on the sidebar surface with their muted tab list, the comment cards beside the pages as cards with a hairline ring and a small shadow, and the pages on the muted surface. The editor's chrome (the document editor, the template workspace and the template editor) takes the compact control scale, the heights and type a `data-ui-scale="compact"` container takes under the base sheet. The pages themselves keep the template's look: dark text on white paper. Every lab but the stress labs shall pass an axe scan with no serious or critical violation under it, in light and in dark.
+
+Implementation: `shadcn.css`, `labs/shadcn/editor-chrome.css`, `labs/shadcn.css`
+Verification: `e2e/a11y.spec.ts`, `e2e/labs.spec.ts`
 
 ## DOCE-LABS-2 - Stress labs
 

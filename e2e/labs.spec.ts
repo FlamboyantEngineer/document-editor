@@ -115,6 +115,32 @@ test.describe('lab chrome', () => {
     expect(await colorOf(page, 'html', 'background-color')).toBe('rgb(246, 248, 250)');
   });
 
+  test('DOCE-LABS-1.3 DOCE-LABS-1.7 loads the shadcn/ui stylesheet, its chrome compact', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    await chrome(page).getByRole('combobox', { name: 'Stylesheet' }).selectOption('shadcn');
+    await expect(page.locator('link#ui-lab-stylesheet')).toHaveAttribute(
+      'href',
+      'build/shadcn.css',
+    );
+    await expect(root(page)).toHaveAttribute('data-lab-stylesheet-state', 'loaded');
+    await expect(page).toHaveURL(/\?stylesheet=shadcn$/);
+    // The editor's chrome takes the compact control height; the lab's own controls keep 32 px.
+    const heightIn = (selector: string) =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((element) =>
+          getComputedStyle(element).getPropertyValue('--ref-control-height-md'),
+        );
+    expect(await heightIn('.de-document-editor')).toBe('1.75rem');
+    expect(await heightIn('#lab-root')).toBe('2rem');
+    // The pages stay paper.
+    expect(await colorOf(page, '.pm-page', 'background-color')).toBe('rgb(255, 255, 255)');
+  });
+
   test('DOCE-LABS-1.3 loads a custom stylesheet from its URL', async ({ lab, page }) => {
     await lab.open('contents');
     await chrome(page).getByRole('combobox', { name: 'Stylesheet' }).selectOption('custom');

@@ -1,5 +1,5 @@
 import { isComposingKey, type Key } from '@flamboyantengineer/ui-components/core';
-import { Modal } from '@flamboyantengineer/ui-components/modal';
+import { Dialog } from '@flamboyantengineer/ui-components/dialog';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';
 import { revisionHooks as hooks } from './revision-hooks.js';
@@ -21,7 +21,7 @@ interface RevisionDialogProps {
   onRestore?: ((key: Key) => unknown) | undefined;
 }
 
-/** Modal owns pending, error feedback and returning focus after the revision operation settles. */
+/** Dialog owns pending, error feedback and returning focus after the revision operation settles. */
 export function RevisionDialog({
   version,
   labels,
@@ -34,7 +34,7 @@ export function RevisionDialog({
   const [name, setName] = useState(version.label ?? '');
   const restoring = action === 'restore';
   return (
-    <Modal
+    <Dialog
       {...hooks.slot('dialog', { action })}
       isOpen
       onOpenChange={(open) => {
@@ -76,6 +76,6 @@ export function RevisionDialog({
               }}
             />
           )}
-    </Modal>
+    </Dialog>
   );
 }

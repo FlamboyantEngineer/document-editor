@@ -11,7 +11,7 @@ import {
   type Key,
   PlusGlyph,
 } from '@flamboyantengineer/ui-components/core';
-import { Modal } from '@flamboyantengineer/ui-components/modal';
+import { Dialog } from '@flamboyantengineer/ui-components/dialog';
 import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
@@ -151,7 +151,7 @@ function DeleteSection({
         isDisabled={isDisabled}
         onPress={() => setOpen(true)}
       />
-      <Modal
+      <Dialog
         role="alertdialog"
         isOpen={isOpen}
         onOpenChange={setOpen}

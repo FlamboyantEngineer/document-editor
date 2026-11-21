@@ -1,0 +1,67 @@
+/*
+ * shadcn/ui stylesheet: the editor's chrome.
+ * Sits in the document-shadcn layer, above the reference partials. The editor's chrome takes the
+ * compact control scale, as a container with data-ui-scale="compact" does under the base sheet;
+ * the pages keep their own sizes, which the template sets.
+ */
+
+:where(.de-document-editor, .de-template-workspace, .de-template-editor) {
+  --ref-font-size-xs: 0.6875rem;
+  --ref-font-size-sm: 0.75rem;
+  --ref-font-size-md: 0.8125rem;
+  --ref-control-height-xs: 1.25rem;
+  --ref-control-height-sm: 1.5rem;
+  --ref-control-height-md: 1.75rem;
+  --ref-control-height-lg: 2rem;
+}
+
+/* The editor's frame: a card, rounded-xl with a hairline ring, on the page's background. */
+.de-document-editor[data-scrollable] {
+  border-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+  border-radius: var(--ref-radius-xl);
+  background: var(--background);
+}
+
+/* The bars around the document (menubar, toolbar, find bar, status bar) sit on the page's
+   background, divided from the document by its border color. */
+:is(
+  .de-document-editor__menubar,
+  .de-document-editor__toolbar,
+  .de-document-editor__find,
+  .de-document-editor__status-bar
+) {
+  border-color: var(--border);
+  background: var(--background);
+}
+
+.de-document-editor__status-bar {
+  color: var(--ref-muted);
+}
+
+/* The side panels are shadcn/ui's sidebar: its own surface, so their muted tab list shows on it,
+   divided from the document by the border color. */
+.de-document-side-panel {
+  border-color: var(--border);
+  background: var(--sidebar, var(--background));
+  color: var(--sidebar-foreground, var(--foreground));
+}
+
+/* The comment cards beside the pages: shadcn/ui cards, on the card color with a hairline ring and
+   a small shadow. */
+.de-document-comments__margin .ui-comment-thread {
+  border-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+  border-radius: var(--ref-radius-xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: var(--ref-shadcn-shadow-sm);
+}
+
+/* The template workspace's band of scope tabs: the muted pill list on the page's background. */
+.de-template-workspace__band {
+  padding-block: 4px;
+}
+
+/* The pages lie on the muted surface, so the paper stands out from the chrome around it. */
+.de-document-editor[data-scrollable] .de-document-editor__viewport {
+  background: var(--muted);
+}

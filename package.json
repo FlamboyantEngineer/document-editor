@@ -54,7 +54,8 @@
       "default": "./dist/import/index.js"
     },
     "./package.json": "./package.json",
-    "./reference.css": "./reference.css"
+    "./reference.css": "./reference.css",
+    "./shadcn.css": "./shadcn.css"
   },
   "files": [
     "dist",
@@ -64,9 +65,12 @@
     "specs",
     "CHANGELOG.md",
     "./reference.css",
+    "./shadcn.css",
     "labs/reference/document.css",
     "labs/reference/editor-chrome.css",
-    "!labs/reference.css"
+    "labs/shadcn/editor-chrome.css",
+    "!labs/reference.css",
+    "!labs/shadcn.css"
   ],
   "scripts": {
     "build": "node scripts/clean.mjs dist && tsc -p tsconfig.build.json",
@@ -116,7 +120,7 @@
     "@chenglou/pretext": "git+https://github.com/FlamboyantEngineer/pretext.git#cf2bc58891fc63748bef8824da90443edf6b9bb0",
     "@eslint/js": "^10.0.1",
     "@flamboyantengineer/collaboration-tools": "git+https://github.com/FlamboyantEngineer/collaboration-tools.git#e712b0cf43105dfe7617b0fbb4da2e5f19bd18b8",
-    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#50a2c274220cd65f0188f20b5c61bc55653eefc2",
+    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#fa30b68e476605b3d79ff0ff8a2ee045b858f727",
     "@handlewithcare/react-prosemirror": "3.3.0",
     "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
