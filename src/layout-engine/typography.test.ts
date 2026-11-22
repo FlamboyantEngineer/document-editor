@@ -75,6 +75,21 @@ describe('typography', () => {
       template: { ...BASE_TEMPLATE, styles: { paragraph: { size: '150%' } } },
     });
     expect(heading.font.size).toBe(36);
+    // A custom style's relative size resolves against the paragraph's.
+    const custom = blockTypography(
+      documentSchema.nodes.paragraph?.create({ className: 'Big' }) ??
+        first('<p>a</p>', 'paragraph'),
+      {
+        template: {
+          ...BASE_TEMPLATE,
+          styles: { paragraph: { size: '150%' }, custom: { Big: { size: '2em' } } },
+        },
+      },
+    );
+    expect(custom.font.size).toBe(36);
+    // An unset heading takes 2em of the default paragraph size.
+    const unset = { ...BASE_TEMPLATE, styles: {} };
+    expect(blockTypography(first('<h1>a</h1>', 'heading'), { template: unset }).font.size).toBe(24);
   });
 
   it('DOCE-PAGINATION-9.2 lays a custom style over a paragraph and only its size and slant over a heading', () => {

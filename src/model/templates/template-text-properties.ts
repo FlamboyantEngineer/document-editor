@@ -40,6 +40,24 @@ const TEXT_STYLES = [
   ['codeBlock', 'code'],
 ] as const;
 
+/** The size a relative paragraph size resolves against, as the text layout engine resolves it. */
+const DEFAULT_PARAGRAPH_SIZE = 12;
+/** The root size `rem` resolves against. */
+const ROOT_SIZE = 16;
+
+/**
+ * The paragraph's size in pixels: a relative size against the default paragraph size, once. The
+ * page content takes this size, so every other style's relative size resolves against it.
+ */
+function paragraphSize(size: unknown): string | null {
+  const length = cssLength(size);
+  const match = length ? /^(\d+(?:\.\d+)?)(em|rem|%)$/.exec(length) : null;
+  if (!match) return length;
+  const amount = Number(match[1]);
+  const base = match[2] === 'rem' ? ROOT_SIZE : DEFAULT_PARAGRAPH_SIZE;
+  return `${String(match[2] === '%' ? (amount / 100) * base : amount * base)}px`;
+}
+
 function set(properties: CustomProperties, name: string, value: string | null | undefined) {
   if (value !== null && value !== undefined && value !== '') properties[name] = value;
 }
@@ -189,6 +207,7 @@ export function textStyleProperties(
   for (const [style, name] of TEXT_STYLES) {
     Object.assign(properties, textProperties(`--doc-${name}`, styles?.[style], fontStacks));
   }
+  set(properties, '--doc-paragraph-font-size', paragraphSize(styles?.paragraph?.size));
   set(properties, '--doc-paragraph-indentation', cssLength(styles?.paragraph?.indentation));
   set(properties, '--doc-code-background', cssColor(styles?.codeBlock?.background));
   listProperties(properties, styles);
