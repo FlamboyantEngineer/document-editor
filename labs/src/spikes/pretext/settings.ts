@@ -1,5 +1,3 @@
-import type { Node } from 'prosemirror-model';
-import { blockTypography } from '../../../../src/layout-engine/typography.js';
 import { BASE_TEMPLATE } from '../../../../src/model/templates/base-template.js';
 import { lengthToCssPx } from '../../../../src/model/templates/template-css-values.js';
 import {
@@ -7,7 +5,6 @@ import {
   templateScopeStyles,
 } from '../../../../src/model/templates/template-properties.js';
 import { textStyleProperties } from '../../../../src/model/templates/template-text-properties.js';
-import { requireValue, schema } from './fixtures.js';
 import { labMeasurer, MONO_FAMILY, SANS_FAMILY, servesFonts } from './fonts.js';
 
 export const px = (value: number) => `${String(value)}px`;
@@ -96,24 +93,4 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--pretext-display-math-width', displayMath.width);
   set('--pretext-display-math-height', displayMath.height);
   Object.entries(margins).forEach(([side, value]) => set(`--doc-page-margin-${side}`, value));
-  // The HTML draws the library's leadings, so its lines are as tall as the engine's.
-  for (const [prefix, node] of leadingNodes()) {
-    set(`--doc-${prefix}-line-height`, blockTypography(node, { template, fontStacks }).leading);
-  }
-}
-
-function leadingNodes(): (readonly [string, Node])[] {
-  const { paragraph, heading, code_block: codeBlock } = schema.nodes;
-  return [
-    ['paragraph', requireValue(paragraph, 'paragraph').create()],
-    ['code', requireValue(codeBlock, 'code block').create()],
-    ...Array.from(
-      { length: 6 },
-      (_, index) =>
-        [
-          `heading-${String(index + 1)}`,
-          requireValue(heading, 'heading').create({ level: index + 1 }),
-        ] as const,
-    ),
-  ];
 }
