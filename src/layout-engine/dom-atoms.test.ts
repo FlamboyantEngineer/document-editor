@@ -69,7 +69,7 @@ describe('DOM atom measurer', () => {
       return DOMRect.fromRect({ x: 0, y: 0, width: 8, height: 10 });
     });
     const measure = createDomAtomMeasurer({ host });
-    measure(schema.node('footnote_reference', { dataId: 'n1' }), 0, '12');
+    measure(schema.node('footnote_reference', { dataId: 'n1' }), 0, { shown: '12' });
     expect(drawn).toEqual(['12']);
   });
 

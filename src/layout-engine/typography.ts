@@ -338,6 +338,11 @@ export function captionLabelFont(
   return fontOf(fontOnly(styles[kind]?.caption?.label), text.font, { fontStacks, base });
 }
 
+/** A font at `font-size: smaller`, as subscript, superscript and a footnote marker's `sup` take. */
+export function smallerFont(font: FontStyle): FontStyle {
+  return { ...font, size: snap(font.size / SMALLER_RATIO) };
+}
+
 /** The font text with these marks takes inside a block. */
 export function markedFont(typography: BlockTypography, marks: readonly Mark[]): FontStyle {
   let font = typography.font;
@@ -354,7 +359,7 @@ export function markedFont(typography: BlockTypography, marks: readonly Mark[]):
         break;
       case 'subscript':
       case 'superscript':
-        font = { ...font, size: snap(font.size / SMALLER_RATIO) };
+        font = smallerFont(font);
         break;
       default:
         break;

@@ -4,6 +4,8 @@
 
 import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inline';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { AtomPlace } from './atoms.js';
+import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
 
 /** An inline atom's box, in CSS pixels. */
@@ -12,10 +14,15 @@ interface InlineAtomSize {
   readonly height: number;
   /** The distance from the box's top to its baseline; the bottom when not given. */
   readonly baseline?: number | undefined;
+  /** Whether it is aligned to its line's top or bottom rather than on the baseline. */
+  readonly align?: 'top' | 'bottom' | undefined;
 }
 
-/** Sizes an inline atom the engine cannot lay out as text; null when it is not known yet. */
-export type MeasureAtom = (node: ProseMirrorNode) => InlineAtomSize | null;
+/**
+ * Sizes an inline atom the engine cannot lay out as text, drawn in its text block and scope; null
+ * when it is not known yet.
+ */
+export type MeasureAtom = (node: ProseMirrorNode, place: AtomPlace) => InlineAtomSize | null;
 
 /** One stretch of a block's content between hard breaks. */
 export interface TextRun {
@@ -46,6 +53,11 @@ interface RunInput {
   /** The width of a box drawn before the content, such as a paragraph's number. */
   readonly lead?: number | undefined;
   readonly measureAtom?: MeasureAtom | undefined;
+  /** The template section the block is in, which its atoms are measured in. */
+  readonly scope?: string | null | undefined;
+  /** The inline atoms laid out as their text (`TEXT_ATOMS` by default), and their numbers. */
+  readonly textAtoms?:
+    (TextAtomSource & { readonly types?: ReadonlySet<string> | undefined }) | undefined;
   /** The box a text item in another font takes on its line; null when it cannot grow the line. */
   readonly boxOf?: ((font: FontStyle) => InlineAtomSize | null) | undefined;
 }
@@ -96,9 +108,37 @@ function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInli
   return { text, font };
 }
 
+// Adds an inline atom to a run: as its text, or as a box of the size measured; the reason when it
+// cannot be laid out.
+function addAtom(
+  run: Builder,
+  { child, offset, input }: { child: ProseMirrorNode; offset: number; input: RunInput },
+): string | null {
+  const name = child.type.name;
+  const refused = input.textAtoms?.refused?.get(name);
+  if (refused !== undefined) return refused;
+  let item: RichInlineItem | RichInlineBox | null;
+  let size: InlineAtomSize | null = null;
+  if ((input.textAtoms?.types ?? TEXT_ATOMS).has(name)) {
+    item = textAtomItem(child, input.typography, input.textAtoms ?? {});
+    if (!item) return `no text for inline ${name}`;
+  } else {
+    size = input.measureAtom?.(child, { parent: input.node, scope: input.scope }) ?? null;
+    if (!size) return `no size for inline ${name}`;
+    item = { width: size.width };
+  }
+  run.items.push(item);
+  run.offsets.push(offset);
+  run.atoms.push(size);
+  return null;
+}
+
+// A fragment after the first of a split block.
+const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
+
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */
 export function buildRuns(input: RunInput): TextRuns {
-  const { node, typography, prefix, lead, measureAtom } = input;
+  const { node, typography, prefix, lead } = input;
   const runs: TextRun[] = [];
   let run = startRun(0);
   if (lead) {
@@ -117,21 +157,21 @@ export function buildRuns(input: RunInput): TextRuns {
   node.forEach((child, offset) => {
     if (failure) return;
     if (child.type.name === 'hard_break') {
+      // A fragment that continues a split paragraph starts with the break the line before it
+      // ended on; the stylesheet hides it, so it starts no line (DOCE-PAGINATION-4.13).
+      if (offset === 0 && !run.items.length && isContinued(node)) {
+        run = startRun(child.nodeSize);
+        return;
+      }
       runs.push(finish(run, offset + child.nodeSize, true));
       run = startRun(offset + child.nodeSize);
     } else if (child.isText) {
       addText(run, { item: textItem(child, typography), offset, box: textBox(child, input) });
     } else if (child.type.name === 'template_variable') {
-      const item = { ...textItem(child, typography), break: 'never' as const };
-      addText(run, { item, offset, box: textBox(child, input) });
+      // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
+      failure = 'template variable';
     } else {
-      const size = measureAtom?.(child) ?? null;
-      if (!size) failure = `no size for inline ${child.type.name}`;
-      else {
-        run.items.push({ width: size.width });
-        run.offsets.push(offset);
-        run.atoms.push(size);
-      }
+      failure = addAtom(run, { child, offset, input });
     }
   });
   if (failure) return { ok: false, reason: failure };

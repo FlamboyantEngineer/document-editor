@@ -13,7 +13,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey, type Selection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { lineMarks } from '../layout-engine/line-marks.js';
+import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
 import { keepForcedCaret } from './forced-caret.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
@@ -72,9 +72,19 @@ function blockSet(
   const { table, key } = drawn;
   const kept = builder.blocks.get(node);
   if (kept?.key === key) return kept.set;
-  const own = lineMarks(node, table).map(({ from, to, ...attrs }) =>
-    Decoration.inline(from, to, attrs.style ? attrs : { class: attrs.class }),
-  );
+  // An inner mark is an element of its own, and the view nests each later level around the one
+  // before: the first other mark on an inner mark's range starts the element around it, which the
+  // marks after it on that range join, as a static drawing nests them.
+  const marks = lineMarks(node, table, { prefixed: key !== '' });
+  const own = marks.map(({ from, to, inner, ...attrs }, index) => {
+    const before = marks[index - 1];
+    const around = !inner && before?.inner && before.from === from && before.to === to;
+    return Decoration.inline(from, to, {
+      ...(inner || around ? { nodeName: 'span' } : {}),
+      class: attrs.class,
+      ...(attrs.style ? { style: attrs.style } : {}),
+    });
+  });
   const set = own.length ? new makeSet(own, []) : DecorationSet.empty;
   builder.blocks.set(node, { key, set });
   return set;
@@ -99,6 +109,9 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       'data-lines': String(table.lines.length),
     };
     if (prefix) attrs['data-number'] = prefix;
+    // A number is drawn before the content, so its line's indent is the block's, before it.
+    const indent = prefix ? firstLineIndent(table) : null;
+    if (indent) attrs.style = indent;
     locals.push(Decoration.node(offset, offset + child.nodeSize, attrs));
     const set = blockSet(builder, child, { table, key: prefix ?? '' });
     if (set !== DecorationSet.empty) children.push(offset, offset + child.nodeSize, set);

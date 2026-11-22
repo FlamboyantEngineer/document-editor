@@ -85,7 +85,8 @@ export function createDomAtomMeasurer({
     return { width: box.width, height: box.height, baseline };
   };
 
-  return (node, width, shown): AtomMeasure | null => {
+  return (node, width, drawing): AtomMeasure | null => {
+    const shown = drawing?.shown;
     const element = render(node);
     if (!element) return null;
     // What a view draws in a leaf atom in place of its own text, such as a footnote number.

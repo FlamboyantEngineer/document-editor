@@ -77,6 +77,19 @@ describe('createTextLayout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-12.4 lists the clusters its reserve option reserves a width for', () => {
+    // Reserves each ☃ and the joined family, in any font, at the font's size.
+    const reserve = (cluster: string, font: string) =>
+      cluster === '☃' || cluster.includes('\u200d') ? Number(/(\d+)px/u.exec(font)?.[1]) : null;
+    const node = block('<p>aa ☃ <strong>b👩\u200d👧</strong></p>');
+    expect(table(node, 200, { reserve }).reserved).toEqual([
+      { from: 3, to: 4, width: 12 },
+      { from: 6, to: 11, width: 12 },
+    ]);
+    expect(table(node, 200).reserved).toBeUndefined();
+    expect(table(block('<p>aa</p>'), 200, { reserve }).reserved).toBeUndefined();
+  });
+
   it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, each text node as its own item', () => {
     const plain = table(block(`<p>${WORDS}</p>`), 60);
     const linked = table(
@@ -164,20 +177,74 @@ describe('createTextLayout', () => {
     expect(small.lines[0]?.height).toBe(18);
   });
 
-  it('DOCE-PAGINATION-9.5 keeps a template variable on one line', () => {
-    const variable = documentSchema.nodes.template_variable?.create(
-      { variableKey: 'title' },
-      documentSchema.text('cccc dddd'),
-    );
+  it('DOCE-PAGINATION-9.5 lays footnote markers, mentions and glossary references out as their text', () => {
+    const { nodes } = documentSchema;
+    const marker = nodes.footnote_reference?.create({ footnoteId: 'f1' });
+    const mention = nodes.mention?.create({ userId: 'u1', label: 'Ann Lee' });
+    const glossary = nodes.abbreviation_reference?.create({
+      entryId: 'g1',
+      display: 'short',
+      abbr: 'ABC',
+      expansion: 'A B C',
+    });
+    if (!marker || !mention || !glossary) throw new Error('schema lacks an inline atom');
+    const paragraph = (atom: ProseMirrorNode) =>
+      nodes.paragraph?.create(null, [documentSchema.text('aaaa '), atom]) ?? atom;
+    const numbered = (number: string | undefined) =>
+      table(paragraph(marker), 400, { textAtoms: { footnoteOf: () => number } });
+    // A 12px block's marker is drawn at `font-size: smaller`, 10px: 5px a character.
+    expect(numbered('7').lines[0]?.width).toBe(27 + 5);
+    expect(numbered('12').lines[0]?.width).toBe(27 + 10);
+    expect(numbered(undefined).lines[0]?.width).toBe(27);
+    // `@Ann Lee` and `ABC` in the block's font, never broken inside.
+    expect(table(paragraph(mention), 400).lines[0]?.width).toBe(27 + 8 * 6 - 3);
+    expect(table(paragraph(glossary), 400).lines[0]?.width).toBe(27 + 18);
+    expect(starts(table(paragraph(mention), 60))).toEqual([
+      [0, 5, 'wrap'],
+      [5, 6, 'end'],
+    ]);
+    // A fragment continuing a split paragraph skips the break it starts with, then lays the
+    // mention out as text on its first line.
+    const brk = nodes.hard_break?.create();
+    const continued = brk
+      ? nodes.paragraph?.create({ splitPartIndex: 1 }, [brk, mention, documentSchema.text(' a')])
+      : undefined;
+    if (!continued) throw new Error('schema lacks a hard break');
+    const lines = table(continued, 400).lines;
+    expect(lines).toHaveLength(1);
+    const whole = nodes.paragraph?.create(null, [mention, documentSchema.text(' a')]);
+    if (!whole) throw new Error('schema lacks a paragraph');
+    expect(lines[0]?.width).toBe(table(whole, 400).lines[0]?.width);
+    // A type the host draws itself is measured as an atom.
+    const drawn = createTextLayout({ template: BASE_TEMPLATE, textAtoms: { types: new Set() } });
+    expect(drawn.layoutText(paragraph(mention), { width: 400 })).toEqual({
+      ok: false,
+      reason: 'no size for inline mention',
+    });
+  });
+
+  it('DOCE-PAGINATION-9.5 tells an inline atom its block and scope', () => {
+    const atom = documentSchema.nodes.math_inline?.create(null, documentSchema.text('x'));
+    const heading = documentSchema.nodes.heading?.create({ level: 2 }, atom ? [atom] : []);
+    if (!atom || !heading) throw new Error('schema lacks math or headings');
+    const measureAtom = vi.fn(() => ({ width: 10, height: 10 }));
+    createTextLayout({ template: BASE_TEMPLATE, measureAtom }).layoutText(heading, {
+      width: 400,
+      scope: 'appendix',
+    });
+    expect(measureAtom).toHaveBeenCalledWith(atom, { parent: heading, scope: 'appendix' });
+  });
+
+  it('DOCE-PAGINATION-9.5 refuses a block that holds a template variable', () => {
+    const variable = documentSchema.nodes.template_variable?.create({ variableKey: 'page.total' });
     const paragraph = documentSchema.nodes.paragraph?.create(null, [
       documentSchema.text('aaaa '),
       ...(variable ? [variable] : []),
     ]);
     if (!paragraph) throw new Error('schema has no paragraph');
-    expect(starts(table(paragraph, 60))).toEqual([
-      [0, 5, 'wrap'],
-      [5, paragraph.content.size, 'end'],
-    ]);
+    expect(
+      createTextLayout({ template: BASE_TEMPLATE }).layoutText(paragraph, { width: 60 }),
+    ).toEqual({ ok: false, reason: 'template variable' });
   });
 
   it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {
@@ -200,6 +267,22 @@ describe('createTextLayout', () => {
     const code = table(block('<pre><code>aaaa</code></pre>', 'code_block'), 100);
     expect(code).toMatchObject({ width: 100, height: 14, overhead: 16 });
     expect(code.lines[0]).toMatchObject({ left: 8, width: 20 });
+  });
+
+  it('DOCE-PAGINATION-9.6 lays code out beside its gutter of line numbers', () => {
+    // 10px code: a zero is 5px wide, so a gutter of three digits is 15 + 14px.
+    const code = block(`<pre><code>${'a'.repeat(12)}</code></pre>`, 'code_block');
+    expect(table(code, 100).lines).toHaveLength(1);
+    const numbered = table(code, 100, { codeLineNumbers: true });
+    expect(numbered.lines.map((line) => [line.left, line.width])).toEqual([
+      [37, 55],
+      [37, 5],
+    ]);
+    const long = `${Array.from({ length: 999 }, () => 'a').join('\n')}\n${'a'.repeat(12)}`;
+    const thousand = table(block(`<pre><code>${long}</code></pre>`, 'code_block'), 100, {
+      codeLineNumbers: true,
+    });
+    expect(thousand.lines.at(-1)?.left).toBe(8 + 34);
   });
 
   it('DOCE-PAGINATION-9.7 refuses a block whose font is not served', () => {

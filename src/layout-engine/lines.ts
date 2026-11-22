@@ -122,17 +122,23 @@ export function createLineCache(language: string | undefined): LineCache {
 }
 
 // A line's height: its strut, grown by each atom on it, which sits on the baseline at its own
-// baseline, or at its bottom when it has none.
+// baseline, or at its bottom when it has none; an atom aligned to the line's top or bottom
+// (`vertical-align: top` or `bottom`) only makes the line at least as tall as itself.
 function lineHeight(run: TextRun, line: RunLine, strut: Strut): number {
   let { ascent, descent } = strut;
+  let aligned = 0;
   for (let index = line.firstItem; index <= line.lastItem; index += 1) {
     const atom = run.atoms[index];
     if (!atom) continue;
+    if (atom.align === 'top' || atom.align === 'bottom') {
+      aligned = Math.max(aligned, atom.height);
+      continue;
+    }
     const baseline = atom.baseline ?? atom.height;
     ascent = Math.max(ascent, baseline);
     descent = Math.max(descent, atom.height - baseline);
   }
-  return ascent + descent;
+  return Math.max(ascent + descent, aligned);
 }
 
 // Where a line starts in its room. A justified line starts at the edge, as its last line does.

@@ -4,9 +4,20 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
-import { countTextWords, documentRegions, type RegionKind } from '../model/index.js';
+import {
+  countTextWords,
+  documentRegions,
+  documentSections,
+  type RegionKind,
+  sectionRegions,
+} from '../model/index.js';
 import { isPositionLocked } from './edit-lock.js';
-import { isLocalEdit, isRemoteTransaction, markDerived } from './transaction-kind.js';
+import {
+  isInlineTextOnly,
+  isLocalEdit,
+  isRemoteTransaction,
+  markDerived,
+} from './transaction-kind.js';
 
 /** How many words and characters a document's body holds. */
 export interface DocumentCounts {
@@ -140,6 +151,51 @@ export function createTrailingParagraph({
       const tr = state.tr;
       for (const end of ends.toReversed()) tr.insert(end, paragraph.create());
       return markDerived(tr);
+    },
+  });
+}
+
+const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
+const sectionFillKey = new PluginKey('section-fill');
+
+// Where an empty paragraph goes in each section the writer may edit whose content holds no block:
+// inside its first content region.
+function emptySections(doc: ProseMirrorNode): number[] {
+  return documentSections(doc).flatMap((section) => {
+    if (section.node.attrs.editable === false) return [];
+    const regions = sectionRegions(section, CONTENT);
+    const first = regions[0];
+    return first && regions.every(({ node }) => node.childCount === 0) ? [first.pos + 1] : [];
+  });
+}
+
+/**
+ * Keeps an empty paragraph in each section the writer may edit, so a writer's own edit that takes
+ * every block out of a section, such as a delete across sections, leaves the section as reading
+ * its stored form back gives it (DOCE-FORMAT-1.1): one empty paragraph, to type in. Not after a
+ * remote, derived or system change, whose writer's own editor adds it, and not where the edit lock
+ * holds the section. The paragraph is part of the edit's undo step.
+ */
+export function createSectionFill({
+  isRemote = isRemoteTransaction,
+}: WritingHelperOptions = {}): Plugin {
+  return new Plugin({
+    key: sectionFillKey,
+    appendTransaction(transactions: readonly Transaction[], _old, state) {
+      // Typing inside a text block takes no block out, so it walks no section.
+      const edited = transactions.some(
+        (tr) =>
+          isLocalEdit(tr, isRemote) &&
+          tr.getMeta('addToHistory') !== false &&
+          !isInlineTextOnly(tr),
+      );
+      if (!edited) return null;
+      const paragraph = state.schema.nodes.paragraph;
+      const at = emptySections(state.doc).filter((pos) => !isPositionLocked(state, pos));
+      if (!paragraph || at.length === 0) return null;
+      const tr = state.tr;
+      for (const pos of at.toReversed()) tr.insert(pos, paragraph.create());
+      return tr;
     },
   });
 }
