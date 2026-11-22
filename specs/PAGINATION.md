@@ -141,6 +141,13 @@ A measured paragraph laid out across pages shall split once per page, and its fr
 Implementation: `src/model/pagination/text-split.ts`, `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/text-split.test.ts`
 
+### DOCE-PAGINATION-3.6 - Splitting after a hard break
+
+A paragraph split at a line that a hard break ended shall move that break to the second fragment's start, so the first fragment ends on its last line's text and draws no line after it. The paged view shall mark such a break, the first node of a later fragment, with `de-split-break`, and the reference stylesheet hide it; the layout engine shall start no line with it, so each fragment reserves the lines it draws and the fragments put together give back the paragraph.
+
+Implementation: `src/model/pagination/text-split.ts`, `src/pagination/split-breaks.ts`, `src/layout-engine/runs.ts`, `labs/reference/document.css`
+Verification: `src/model/pagination/text-split.test.ts`, `src/pagination/split-breaks.test.ts`, `src/pagination/text-engine.test.ts`
+
 ## DOCE-PAGINATION-4 - Container and table splits
 
 ### DOCE-PAGINATION-4.1 - Lists between items
