@@ -411,3 +411,10 @@ With `textLayout=pretext`, after every step of a seeded sequence of edits on a d
 
 Implementation: `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`
 Verification: `e2e/editing-layout.spec.ts`
+
+### DOCE-LABS-9.2 - Seeded edit sequences in a shared room
+
+With `textLayout=pretext`, the shared room lab (DOCE-COLLAB-6.4) shall hold DOCE-LABS-9.1 for two writers editing one document through the room server, each at their own width and zoom, on its short and its long document. Each step is a single-writer step made by one of the writers, another writer's change typed in the other writer's editor, or a step of the room's: a writer going offline and coming back to merge what each changed meanwhile, both writers typing at once, or a service writing the room (`updateRoomDocument`, DOCE-COLLAB-6.5). After each step, once both writers online hold the same stored document, their pages' layouts shall be the same, and each writer's pages shall equal a fresh layout of the document they hold, opened in a third editor, with their own drawn lines equal to their computed ones. With `textLayout=pretext`, the lab shall lay its writers' pages out with the engine, and its probe shall give a writer's stored document, pages' layout, computed lines and text block ranges, select in a writer's document, draw every page on the engine's lines, wait for every editor to settle, write the room as a service, and open a stored document in the third editor.
+
+Implementation: `labs/src/collab-room.lab.tsx`
+Verification: `e2e/editing-layout-room.spec.ts`

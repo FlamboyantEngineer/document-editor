@@ -272,6 +272,32 @@ describe('room updates', () => {
     editor.destroy();
   });
 
+  it('DOCE-COLLAB-6.5 keeps the page headers and footers the writers set, while their settings hold', () => {
+    const doc = seeded(three);
+    const editor = headlessEditor(readFixture(three), { doc, manual: true });
+    editor.runScheduled();
+    // A writer's editor sets its regions read-only, as the template's regions are drawn.
+    const tr = editor.state.tr;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'page_header' || node.type.name === 'page_footer')
+        tr.setNodeAttribute(pos, 'editable', false);
+      return node.type.name !== 'page_content';
+    });
+    editor.dispatch(tr);
+    editor.runScheduled();
+    updateRoomDocument(doc, changed, { schema, origin: 'server' });
+    editor.runScheduled();
+    const regions: unknown[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'page_header' || node.type.name === 'page_footer')
+        regions.push(node.attrs.editable);
+      return node.type.name !== 'page_content';
+    });
+    expect(regions).toEqual([false, false]);
+    expect(readRoomDocument(doc, { schema })).toEqual(changed);
+    editor.destroy();
+  });
+
   it('DOCE-COLLAB-6.5 keeps a writer’s concurrent change in another block', () => {
     const doc = seeded(three);
     const peer = peerOf(doc);

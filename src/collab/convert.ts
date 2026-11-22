@@ -4,7 +4,7 @@
 // pin in `meta`, the threads in `comments`.
 
 import * as Y from '@y/y';
-import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { assignElementIds } from '../engine/element-ids.js';
 import {
@@ -64,6 +64,40 @@ function withElementIds(node: ProseMirrorNode, newId: RoomWriteOptions['newId'])
   return assignElementIds(tr, { newId }) ? tr.doc : node;
 }
 
+const REGIONS = new Set(['page_header', 'page_footer']);
+
+// The document with the page headers and footers the room holds kept where their section's own
+// settings for them are unchanged: the writers' editors set those regions from the template, with
+// attributes such as `editable` that the stored format does not keep, and take a write that is not
+// theirs as a remote change, setting no region again. Without them, a server write would leave
+// every writer's headers and footers as a stored document reads them, editable.
+function withHeldRegions(node: ProseMirrorNode, held: ProseMirrorNode): ProseMirrorNode {
+  const sections: ProseMirrorNode[] = [];
+  node.forEach((section, _offset, index) => {
+    const before = index < held.childCount ? held.child(index) : null;
+    const same =
+      before?.type === section.type &&
+      JSON.stringify(before.attrs.pageHeader) === JSON.stringify(section.attrs.pageHeader) &&
+      JSON.stringify(before.attrs.pageFooter) === JSON.stringify(section.attrs.pageFooter);
+    if (!before || !same) {
+      sections.push(section);
+      return;
+    }
+    const pages: ProseMirrorNode[] = [];
+    section.forEach((page, _at, pageIndex) => {
+      const old = pageIndex < before.childCount ? before.child(pageIndex) : null;
+      const regions: ProseMirrorNode[] = [];
+      page.forEach((region, _place, regionIndex) => {
+        const kept = old && regionIndex < old.childCount ? old.child(regionIndex) : null;
+        regions.push(REGIONS.has(region.type.name) && kept?.type === region.type ? kept : region);
+      });
+      pages.push(page.copy(Fragment.from(regions)));
+    });
+    sections.push(section.copy(Fragment.from(pages)));
+  });
+  return node.copy(Fragment.from(sections));
+}
+
 // Refuses a room of another format version than the library reads and writes.
 function checkFormatVersion(version: unknown): void {
   if (version !== undefined && version !== DOCUMENT_FORMAT_VERSION) {
@@ -112,7 +146,10 @@ export function updateRoomDocument(
   const template = file.template ?? null;
   doc.transact(() => {
     if (!held) writeContent(content, node);
-    else if (!held.eq(node)) content.applyDelta(diffNodes(held, node) as never);
+    else {
+      const kept = withHeldRegions(node, held);
+      if (!held.eq(kept)) content.applyDelta(diffNodes(held, kept) as never);
+    }
     if (meta.getAttr(FORMAT_VERSION_KEY) !== DOCUMENT_FORMAT_VERSION)
       meta.setAttr(FORMAT_VERSION_KEY, DOCUMENT_FORMAT_VERSION);
     if (JSON.stringify(meta.getAttr(TEMPLATE_KEY) ?? null) !== JSON.stringify(template))

@@ -12,7 +12,12 @@ import {
   sectionRegions,
 } from '../model/index.js';
 import { isPositionLocked } from './edit-lock.js';
-import { isLocalEdit, isRemoteTransaction, markDerived } from './transaction-kind.js';
+import {
+  isInlineTextOnly,
+  isLocalEdit,
+  isRemoteTransaction,
+  markDerived,
+} from './transaction-kind.js';
 
 /** How many words and characters a document's body holds. */
 export interface DocumentCounts {
@@ -177,8 +182,12 @@ export function createSectionFill({
   return new Plugin({
     key: sectionFillKey,
     appendTransaction(transactions: readonly Transaction[], _old, state) {
+      // Typing inside a text block takes no block out, so it walks no section.
       const edited = transactions.some(
-        (tr) => isLocalEdit(tr, isRemote) && tr.getMeta('addToHistory') !== false,
+        (tr) =>
+          isLocalEdit(tr, isRemote) &&
+          tr.getMeta('addToHistory') !== false &&
+          !isInlineTextOnly(tr),
       );
       if (!edited) return null;
       const paragraph = state.schema.nodes.paragraph;

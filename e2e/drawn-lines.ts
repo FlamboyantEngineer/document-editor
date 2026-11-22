@@ -22,14 +22,20 @@ export interface DrawnPages {
   readonly forced: readonly (readonly string[])[];
 }
 
-/** Where the pages are read: the editor's (by default) or the read-only viewer's. */
-export type PagesIn = 'editor' | 'viewer';
+/**
+ * Where the pages are read: the editor's (by default), the read-only viewer's, or those inside the
+ * elements a selector names, such as one editor of several on the page.
+ */
+export type PagesIn = 'editor' | 'viewer' | { readonly within: string };
 
 // The pages of the editor's view, or of the viewer, whose content element is its root's child.
-const PAGES: Record<PagesIn, string> = {
+const PAGES = {
   editor: ':not(.de-document-viewer) > .de-document-editor__content .pm-page',
   viewer: '.de-document-viewer > .de-document-editor__content .pm-page',
-};
+} as const;
+
+const pagesSelector = (pagesIn: PagesIn) =>
+  typeof pagesIn === 'string' ? PAGES[pagesIn] : `${pagesIn.within} ${PAGES.editor}`;
 
 /** Draws on the page: the pages and the forced blocks they show, by `forcedSelector`. */
 export function readDrawnPages(
@@ -50,7 +56,7 @@ export function readDrawnPages(
         ),
       };
     },
-    [forcedSelector, PAGES[pagesIn]] as const,
+    [forcedSelector, pagesSelector(pagesIn)] as const,
   );
 }
 
@@ -111,6 +117,6 @@ export function readDrawnLines(
         return lines;
       });
     },
-    [blocks, PAGES[pagesIn]] as const,
+    [blocks, pagesSelector(pagesIn)] as const,
   );
 }
