@@ -50,7 +50,9 @@ export interface RoomUpdateOptions extends RoomWriteOptions {
   /**
    * The template the written document's pin names. Given, a section whose page headers and footers
    * the room cannot keep gets them from it, read-only, as a writer's editor shows them; without
-   * it, such a section's regions are as the stored document reads them.
+   * it, such a section's regions are as the stored document reads them, editable, until a writer's
+   * own change sets them again. A template whose id is not the pin's is not used; a template file
+   * carries no revision, so the host passes the pinned revision.
    */
   pageTemplate?: TemplateFile | undefined;
 }
@@ -119,8 +121,13 @@ function withHeldRegions(
 }
 
 // The document with each page's header and footer as a writer's editor shows them, read-only.
-function withTemplateRegions(node: ProseMirrorNode, template: TemplateFile | undefined) {
-  return template ? setPageRegions(EditorState.create({ doc: node }).tr, template).doc : node;
+function withTemplateRegions(
+  node: ProseMirrorNode,
+  template: TemplateFile | undefined,
+  pin: TemplatePin | null,
+) {
+  if (!template || (pin && pin.id !== template.id)) return node;
+  return setPageRegions(EditorState.create({ doc: node }).tr, template).doc;
 }
 
 // Refuses a room of another format version than the library reads and writes.
@@ -174,7 +181,11 @@ export function updateRoomDocument(
     else {
       const samePin =
         JSON.stringify(meta.getAttr(TEMPLATE_KEY) ?? null) === JSON.stringify(template);
-      const kept = withHeldRegions(withTemplateRegions(node, options.pageTemplate), held, samePin);
+      const kept = withHeldRegions(
+        withTemplateRegions(node, options.pageTemplate, template),
+        held,
+        samePin,
+      );
       if (!held.eq(kept)) content.applyDelta(diffNodes(held, kept) as never);
     }
     if (meta.getAttr(FORMAT_VERSION_KEY) !== DOCUMENT_FORMAT_VERSION)

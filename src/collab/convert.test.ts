@@ -308,6 +308,7 @@ describe('room updates', () => {
     });
     const named: TemplateFile = {
       ...BASE_TEMPLATE,
+      id: 'report',
       header: { content: [plain('Main')] },
       sections: [{ name: 'annex', header: { content: [plain('Annex')] } }],
     };
@@ -390,6 +391,19 @@ describe('room updates', () => {
         ['Other', false],
         ['Annex', false],
       ]);
+      editor.destroy();
+    });
+
+    it('DOCE-COLLAB-6.5 does not use a template its pin does not name', () => {
+      const { doc, editor } = writer(two, () => named);
+      const renamed = file([section('annex', 'b0000001'), section(null, 'b0000002')]);
+      updateRoomDocument(doc, renamed, {
+        schema,
+        origin: 'server',
+        pageTemplate: { ...named, id: 'memo' },
+      });
+      editor.runScheduled();
+      expect(headers(editor.state).map(([value]) => value)).not.toContain('Annex');
       editor.destroy();
     });
 
