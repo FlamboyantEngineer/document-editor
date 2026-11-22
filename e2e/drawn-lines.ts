@@ -64,10 +64,22 @@ export function readDrawnLines(
     ([asked, pagesSelector]) => {
       const pages = [...document.querySelectorAll(pagesSelector)];
       const range = document.createRange();
-      // Text the writer cannot edit is drawn beside the block's own: an atom's node view, a widget.
-      const ownText = (node: Node) => {
-        const parent = node.parentElement;
-        return !parent?.closest('[contenteditable="false"], .ProseMirror-widget');
+      // Text the writer cannot edit is drawn beside the block's own: an atom's node view, a widget
+      // inside the block. A block that is locked as a whole, such as a template's, is still read.
+      const ownText = (node: Node, block: Element) => {
+        const beside = node.parentElement?.closest(
+          '[contenteditable="false"], .ProseMirror-widget',
+        );
+        return !beside || !block.contains(beside) || beside === block;
+      };
+      // Where a node is drawn: a character of a text node, or a hard break, whose box an empty line
+      // between two breaks has though it holds no character.
+      const boxOf = (node: Node, index: number) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          range.setStart(node, index);
+          range.setEnd(node, index + 1);
+        } else range.selectNode(node);
+        return [...range.getClientRects()].find((each) => each.height > 0);
       };
       const find = (at: (typeof asked)[number]) => {
         const candidates = pages[at.page]?.querySelectorAll(
@@ -85,25 +97,36 @@ export function readDrawnLines(
         // The lowest bottom of the line being read, and whether it holds a drawn character yet.
         let bottom = -Infinity;
         let started = false;
-        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+        // A character, or a hard break, drawn wholly below the line so far starts the next one. One
+        // drawn nowhere, such as a collapsed space, stays on the line it follows.
+        const place = (rect: DOMRect | undefined) => {
+          if (rect && started && (rect.top + rect.bottom) / 2 > bottom) {
+            lines.push(line);
+            line = '';
+            bottom = -Infinity;
+          }
+          if (rect) {
+            bottom = Math.max(bottom, rect.bottom);
+            started = true;
+          }
+        };
+        const walker = document.createTreeWalker(
+          block,
+          NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+          (node) =>
+            node.nodeType === Node.TEXT_NODE || node.nodeName === 'BR'
+              ? NodeFilter.FILTER_ACCEPT
+              : NodeFilter.FILTER_SKIP,
+        );
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          if (!ownText(node)) continue;
+          if (!ownText(node, block)) continue;
+          if (node.nodeName === 'BR') {
+            place(boxOf(node, 0));
+            continue;
+          }
           const text = node.nodeValue ?? '';
           for (let index = 0; index < text.length; index += 1) {
-            range.setStart(node, index);
-            range.setEnd(node, index + 1);
-            const rect = [...range.getClientRects()].find((each) => each.height > 0);
-            // A character drawn wholly below the line so far starts the next one. One drawn nowhere,
-            // such as a collapsed space, stays on the line it follows.
-            if (rect && started && (rect.top + rect.bottom) / 2 > bottom) {
-              lines.push(line);
-              line = '';
-              bottom = -Infinity;
-            }
-            if (rect) {
-              bottom = Math.max(bottom, rect.bottom);
-              started = true;
-            }
+            place(boxOf(node, index));
             line += text[index] === ' ' ? ' ' : text[index];
           }
         }
