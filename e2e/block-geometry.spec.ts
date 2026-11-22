@@ -36,7 +36,8 @@ const LINKED = 'Q4 block metrics (V2): linked code blocks drawn further apart th
 const OBJECT_GAP =
   'Q4 block metrics: a script block, or the block after an empty template block, drawn 8 px lower than planned';
 const TABLE_PART = 'Q4 block metrics (V3): a table continuation drawn shorter than planned';
-const RICH_TABLE = 'Q4 block metrics: a table of bold cells drawn one line taller than planned';
+const RICH_TABLE =
+  'Numbering thread (#321): a refused table measured without the engine numbers, so its caption in a narrow cell wraps once more on the page';
 
 /** A known difference, as `type kind` (`page overflow` for a page), and its owner. */
 type Known = Readonly<Record<string, string>>;
