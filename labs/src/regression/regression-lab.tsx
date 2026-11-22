@@ -2,8 +2,7 @@
 // the page's `document` query parameter, in the document editor with its scrolling frame and
 // status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view; with
 // `compare`, the changes since it opened as change bars; with `zoom`, at that zoom in percent; with
-// `debug`, each block's laid-out height and top. Its
-// linked code resolves to sample lines.
+// `debug`, with the layout debugging shown. Its linked code resolves to sample lines.
 // The regression scenarios (`e2e/regression.spec.ts`) read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
@@ -74,10 +73,10 @@ const RENDERING =
 // The document's zoom in percent (`zoom`), 100 when the query names none.
 const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 100) || 100;
 
-// With `debug`, each block of the pages carries the height and top the layout gave it
-// (`data-debug-height`, `data-debug-top`), for a scenario to compare with the drawn block.
+// `debug` shows the layout debugging: each page's room and each block's planned height and top
+// (`data-debug-height`, `data-debug-top`), which the block geometry check reads (DOCE-LABS-8.10).
 const DEBUG = new URLSearchParams(window.location.search).has('debug')
-  ? ({ blocks: true } as const)
+  ? ({ pages: true, blocks: true } as const)
   : undefined;
 
 // Whether the host draws quotes with a React view of its own (`hostViews`).

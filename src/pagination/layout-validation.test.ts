@@ -117,4 +117,26 @@ describe('findWrappedLines', () => {
     root.append(block);
     expect(findWrappedLines(root)).toEqual([]);
   });
+
+  it('DOCE-PAGINATION-11.4 counts a line that holds only a hard break', () => {
+    // Two lines of text with an empty line between them, drawn by the second of two breaks.
+    const tops = [0, 20, 40];
+    Object.assign(Range.prototype, {
+      getClientRects(this: Range) {
+        const at = this.startContainer.textContent === 'after' ? 2 : 0;
+        return [new DOMRect(0, tops[at], 50, 16)];
+      },
+    });
+    const block = forced('breaks', 3);
+    block.textContent = 'before';
+    const lineBreak = (top: number) => {
+      const element = document.createElement('br');
+      element.getClientRects = () => [new DOMRect(50, top, 0, 16)] as unknown as DOMRectList;
+      return element;
+    };
+    block.append(lineBreak(0), lineBreak(20), 'after');
+    const root = document.createElement('div');
+    root.append(block);
+    expect(findWrappedLines(root)).toEqual([]);
+  });
 });
