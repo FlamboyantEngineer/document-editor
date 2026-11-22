@@ -152,6 +152,19 @@ export const STEPS: readonly [number, (next: Next) => Step][] = [
     },
   ],
   [
+    1,
+    (next) => {
+      const key = pick(next, ['page.current', 'page.total', 'date.current']);
+      return {
+        label: `type the variable ${key}`,
+        run: async (target) => {
+          await caretAt(target, next);
+          await target.page.keyboard.type(` {{${key}}} `);
+        },
+      };
+    },
+  ],
+  [
     3,
     (next) => {
       const key = pick(next, ['Enter', 'Shift+Enter']);

@@ -150,20 +150,16 @@ describe('createTextLayout', () => {
     expect(small.lines[0]?.height).toBe(18);
   });
 
-  it('DOCE-PAGINATION-9.5 keeps a template variable on one line', () => {
-    const variable = documentSchema.nodes.template_variable?.create(
-      { variableKey: 'title' },
-      documentSchema.text('cccc dddd'),
-    );
+  it('DOCE-PAGINATION-9.5 refuses a block that holds a template variable', () => {
+    const variable = documentSchema.nodes.template_variable?.create({ variableKey: 'page.total' });
     const paragraph = documentSchema.nodes.paragraph?.create(null, [
       documentSchema.text('aaaa '),
       ...(variable ? [variable] : []),
     ]);
     if (!paragraph) throw new Error('schema has no paragraph');
-    expect(starts(table(paragraph, 60))).toEqual([
-      [0, 5, 'wrap'],
-      [5, paragraph.content.size, 'end'],
-    ]);
+    expect(
+      createTextLayout({ template: BASE_TEMPLATE }).layoutText(paragraph, { width: 60 }),
+    ).toEqual({ ok: false, reason: 'template variable' });
   });
 
   it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {

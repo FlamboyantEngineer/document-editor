@@ -4,7 +4,12 @@
 // DOM measuring, with the reason counted. Results are kept by node, so a keystroke lays out only
 // the block it changed (DOCE-PAGINATION-11). This module is loaded only when the option is on.
 
-import { type MeasureContext, setLayoutScale, setMeasureContext } from '@chenglou/pretext';
+import {
+  clearCache,
+  type MeasureContext,
+  setLayoutScale,
+  setMeasureContext,
+} from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
@@ -113,6 +118,11 @@ function measureIn(options: TextEngineOptions) {
   setMeasureContext(context);
   setMetricsContext(context);
   setLayoutScale(1);
+}
+
+/** Forgets the widths the layout engine measured, as after font faces load. */
+export function forgetFontWidths(): void {
+  clearCache();
 }
 
 /** Creates the pages' text layout engine for a template. */

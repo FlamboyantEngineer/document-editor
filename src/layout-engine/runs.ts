@@ -107,7 +107,8 @@ export function buildRuns({ node, typography, prefix, lead, measureAtom }: RunIn
     } else if (child.isText) {
       addText(run, textItem(child, typography), offset);
     } else if (child.type.name === 'template_variable') {
-      addText(run, { ...textItem(child, typography), break: 'never' }, offset);
+      // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
+      failure = 'template variable';
     } else {
       const size = measureAtom?.(child) ?? null;
       if (!size) failure = `no size for inline ${child.type.name}`;

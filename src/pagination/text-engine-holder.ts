@@ -3,7 +3,7 @@
 // the engine is made again for each template the pages are laid out with.
 
 import type { TemplateFile } from '../model/index.js';
-import type { createPagesTextEngine } from './text-engine.js';
+import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** How a projection lays its text out with the layout engine. */
@@ -25,9 +25,14 @@ export interface TextEngineHolder {
 
 interface EngineModule {
   readonly createPagesTextEngine: typeof createPagesTextEngine;
+  readonly forgetFontWidths: typeof forgetFontWidths;
 }
 
-/** Loads and holds a text layout engine; `changed` is told when its atoms' sizes settle. */
+/**
+ * Loads and holds a text layout engine; `changed` is told when its atoms' sizes settle or font
+ * faces load in the measuring document, which makes the engine again: widths measured before a
+ * face loaded were measured in a fallback font.
+ */
 export function holdTextEngine(options: {
   readonly setting: TextLayoutSetting;
   readonly measureIn: HTMLElement;
@@ -44,6 +49,15 @@ export function holdTextEngine(options: {
     version += 1;
     options.changed();
   };
+  const fonts = options.measureIn.ownerDocument.fonts as FontFaceSet | undefined;
+  const onFonts = () => {
+    if (!made || destroyed || !current) return;
+    current.destroy();
+    current = null;
+    made.forgetFontWidths();
+    settled();
+  };
+  fonts?.addEventListener('loadingdone', onFonts);
   return {
     engine() {
       if (!made || destroyed) return null;
@@ -62,6 +76,7 @@ export function holdTextEngine(options: {
     loaded,
     destroy() {
       destroyed = true;
+      fonts?.removeEventListener('loadingdone', onFonts);
       current?.destroy();
       current = null;
     },
