@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures.js';
 import { countDifferences, type Counts, kinds } from './pretext-fuzz.js';
+import { countScriptDifferences, scriptKinds } from './pretext-scripts.js';
 
 // The font-file widths spike (DOCE-LABS-7): widths shaped from the served font files with
 // HarfBuzz, the same on every machine, beside Canvas. The cross-system run that showed them equal
@@ -71,6 +72,37 @@ for (const [name, kind] of Object.entries(kinds)) {
     });
     expect(counts, 'today’s counts; lower the budget when a fix improves them').toEqual(
       budgets[name],
+    );
+  });
+}
+
+// The script closeness checks: emoji, CJK, Arabic, Hebrew, mixed directions, Devanagari, Thai,
+// combining marks and symbols, each with the Noto subsets of test/fixtures/fonts/ served after
+// Geist, measured from the same files. What is left: Chromium rounds each bidi run's piece of a
+// line up to 1/64 px, which Pretext does not model, so a few right-to-left paragraphs that numbers
+// split into many runs break a word earlier (starts). The budgets are CI's Chromium 156; Chromium 153
+// also lets a full-width punctuation mark that ends a CJK line reach 4 to 5 px past the content
+// edge, on the same lines (cjk overflow 2 there, 0 in 156). A change is a regression or a fix, and
+// changes the budget in the same PR.
+const scriptBudgets: Record<string, { starts: number; lines: number; overflow: number }> = {
+  arabic: { starts: 2, lines: 0, overflow: 0 },
+  hebrew: { starts: 1, lines: 0, overflow: 0 },
+  'mixed directions': { starts: 5, lines: 0, overflow: 0 },
+};
+
+for (const [name, kind] of Object.entries(scriptKinds)) {
+  test(`DOCE-LABS-7.3 counts ${name} paragraphs whose font-file lines differ from Chromium's`, async ({
+    page,
+  }, info) => {
+    test.setTimeout(120_000);
+    await page.goto('/pretext-pagination.html?measure&measurer=font-files&scripts');
+    const { blocks, ...counts } = await countScriptDifferences(page, kind);
+    await info.attach('Differences from Chromium', {
+      body: JSON.stringify({ kind: name, blocks, ...counts }),
+      contentType: 'application/json',
+    });
+    expect(counts, 'today’s counts; lower the budget when a fix improves them').toEqual(
+      scriptBudgets[name] ?? { starts: 0, lines: 0, overflow: 0 },
     );
   });
 }
