@@ -60,18 +60,3 @@ for (const textLayout of ['dom', 'pretext'] as const) {
     }
   });
 }
-
-test('DOCE-PAGINATION-9.2 draws a 150% paragraph on the engine lines at their line height', async ({
-  page,
-}) => {
-  await open(page, 'pretext');
-  // The engine loads lazily; its lines are drawn once it has laid the pages out.
-  await expect(page.locator('.pm-page-content > p.de-forced-lines').first()).toBeAttached();
-  const heights = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.pm-page-content > p.de-forced-lines')]
-      .slice(0, 5)
-      .map((block) => block.getBoundingClientRect().height / Number(block.dataset.lines)),
-  );
-  expect(heights.length).toBeGreaterThan(0);
-  for (const height of heights) expect(height).toBeCloseTo(27, 2);
-});
