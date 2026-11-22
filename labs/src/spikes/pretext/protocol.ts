@@ -31,6 +31,8 @@ export interface LayoutResult {
   readonly misses: number;
   readonly prepareMs: number;
   readonly packMs: number;
+  /** What the widths came from: Canvas, or the served font files (DOCE-LABS-7). */
+  readonly measurer: 'canvas' | 'font-files';
 }
 export interface LayoutRequest {
   readonly width: number;
