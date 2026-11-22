@@ -62,13 +62,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testIgnore: [/\.performance\.spec\.ts$/, /\/performance\.spec\.ts$/],
     },
-    // The one-result invariant's middle zooms at a device pixel ratio of 1, its page checks only, in
-    // a project of their own so CI can share them out between its shards (DOCE-LABS-8.1).
+    // The one-result invariant's page checks at a device pixel ratio of 1, every zoom, and its pages
+    // painted into a canvas (DOCE-LABS-8.1, 8.9): the heaviest tests, in a project of their own so CI
+    // shares them out evenly between its shards.
     {
-      name: 'chromium-zooms',
+      name: 'chromium-invariant',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /\/layout-invariant\.spec\.ts$/,
-      grep: /DOCE-LABS-8\.1 [a-z-]+ at \d+%$/,
+      grep: /DOCE-LABS-8\.(1 [a-z-]+ at \d+%|9 [a-z-]+ at \d+% in a canvas)$/,
     },
     // How close the Pretext prediction is to the browser (DOCE-LABS-5.6), and that the editor draws
     // the lines it computed (DOCE-LABS-8), at real device pixel ratios.

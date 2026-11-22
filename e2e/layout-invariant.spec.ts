@@ -32,17 +32,19 @@ declare global {
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
-// Every zoom a browser or the status bar offers at a device pixel ratio of 1: the status bar's in
-// the `chromium` project, the rest in `chromium-zooms`; the ends and the middle at ratios 1.25 and
-// 2; 100 percent at the ratios of display scaling at 150, 175 and 300 percent (the `chromium-dpr-*`
-// projects).
+// Every zoom a browser or the status bar offers at a device pixel ratio of 1 (the
+// `chromium-invariant` project); the ends and the middle at ratios 1.25 and 2; 100 percent at the
+// ratios of display scaling at 150, 175 and 300 percent (the `chromium-dpr-*` projects).
 const ZOOMS = [50, 67, 75, 90, 100, 110, 125, 133, 150, 175, 200] as const;
-const STATUS_BAR_ZOOMS: readonly number[] = [50, 75, 100, 125, 150];
 const DPR_ZOOMS: readonly number[] = [50, 100, 150];
 const SCALING_ZOOMS: readonly number[] = [100];
 // The pages painted into a canvas, at the status bar's zooms and the first two ratios.
 const CANVAS_ZOOMS = [50, 75, 100, 125, 150] as const;
-const CANVAS_PROJECTS: readonly string[] = ['chromium', 'chromium-dpr-1.25', 'chromium-dpr-2'];
+const CANVAS_PROJECTS: readonly string[] = [
+  'chromium-invariant',
+  'chromium-dpr-1.25',
+  'chromium-dpr-2',
+];
 
 const FORCED = '.de-forced-lines';
 
@@ -106,8 +108,9 @@ async function mismatchesOf(page: Page): Promise<LineMismatch[]> {
 // The zooms this project runs.
 function zoomRuns(testInfo: TestInfo, zoom: number) {
   const { name } = testInfo.project;
-  if (name === 'chromium') return STATUS_BAR_ZOOMS.includes(zoom);
-  if (name === 'chromium-zooms') return !STATUS_BAR_ZOOMS.includes(zoom);
+  // The `chromium` project runs the other tests; `chromium-invariant` runs these at ratio 1.
+  if (name === 'chromium') return false;
+  if (name === 'chromium-invariant') return true;
   return (CANVAS_PROJECTS.includes(name) ? DPR_ZOOMS : SCALING_ZOOMS).includes(zoom);
 }
 
