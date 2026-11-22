@@ -38,7 +38,7 @@ import type { PagedEditor } from './use-paged-projection.js';
 // What lays the pages out: a projection of the state.
 export type LayoutRunner = Pick<
   PagedProjection,
-  'whenSettled' | 'stats' | 'textLines' | 'drawAllLines'
+  'whenSettled' | 'stats' | 'textLines' | 'pagesLayout' | 'drawAllLines'
 >;
 
 // The height inside the page margins of a section's template scope.

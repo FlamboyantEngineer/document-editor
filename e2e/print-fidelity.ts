@@ -138,7 +138,7 @@ function missingWords(page: readonly string[], sheet: string): string[] {
 }
 
 // The text of each page of a PDF, by poppler's `pdftotext`, which the CI runner installs.
-function pdfPageTexts(pdf: Buffer, pages: number): string[] {
+export function pdfPageTexts(pdf: Buffer, pages: number): string[] {
   const dir = mkdtempSync(join(tmpdir(), 'print-fidelity-'));
   const file = join(dir, 'print.pdf');
   writeFileSync(file, pdf);
