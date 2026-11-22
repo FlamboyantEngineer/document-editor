@@ -497,6 +497,12 @@ div.de-host-view {
   text-rendering: geometricPrecision;
 }
 
+/* The hard break a split paragraph's later fragment starts with ends the line before it, on the
+   page before: it starts no line here (DOCE-PAGINATION-3.6). */
+:where(.de-document-editor, .de-document-editor__measure) .de-split-break {
+  display: none;
+}
+
 /* An offered completion takes no room on a forced line: its text overflows from the caret, so the
    line keeps the engine's breaks (DOCE-PAGINATION-11.8). */
 :where(.de-document-editor[data-text-layout='pretext']) .de-forced-lines .de-inline-completion {

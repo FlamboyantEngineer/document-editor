@@ -96,6 +96,9 @@ function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInli
   return { text, font };
 }
 
+// A fragment after the first of a split block.
+const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
+
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */
 export function buildRuns(input: RunInput): TextRuns {
   const { node, typography, prefix, lead, measureAtom } = input;
@@ -117,6 +120,12 @@ export function buildRuns(input: RunInput): TextRuns {
   node.forEach((child, offset) => {
     if (failure) return;
     if (child.type.name === 'hard_break') {
+      // A fragment that continues a split paragraph starts with the break the line before it
+      // ended on; the stylesheet hides it, so it starts no line (DOCE-PAGINATION-4.13).
+      if (offset === 0 && !run.items.length && isContinued(node)) {
+        run = startRun(child.nodeSize);
+        return;
+      }
       runs.push(finish(run, offset + child.nodeSize, true));
       run = startRun(offset + child.nodeSize);
     } else if (child.isText) {
