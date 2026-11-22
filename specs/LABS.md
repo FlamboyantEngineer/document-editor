@@ -338,6 +338,13 @@ The Pretext pagination lab shall serve Geist and Geist Mono to the page and to i
 Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/client.ts`, `labs/src/spikes/pretext/settings.ts`
 Verification: `e2e/font-widths.spec.ts`
 
+### DOCE-LABS-7.3 - Closeness in other scripts
+
+With `&scripts` the Pretext pagination lab shall also serve the Noto subsets of `test/fixtures/fonts/` (Arabic, Hebrew, Devanagari, Thai, Simplified Chinese with kana, Symbols 2 and Color Emoji, each part with its `unicode-range`) after each of its families, to the page and to the worker. Seeded paragraphs of emoji (selectors, keycaps, flags, tag sequences, skin tones and joined sequences, with and without spaces), presentation selectors, CJK, Arabic, Hebrew, mixed directions, Devanagari, Thai, combining marks and symbols, measured with the font files, shall differ from Chromium's lines by a recorded budget per kind: none for emoji, selectors, Devanagari, Thai, combining marks and symbols, and only the known limits of DOCE-PAGINATION-12 for the others.
+
+Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/settings.ts`, `scripts/build-labs.mjs`, `test/fixtures/fonts/`
+Verification: `e2e/font-widths.spec.ts`
+
 ## DOCE-LABS-8 - One layout result
 
 ### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones
@@ -379,8 +386,8 @@ Verification: `e2e/layout-invariant.spec.ts`
 
 Repeated emoji, a joined emoji sequence and letters with combining marks, typed with no space so lines end and start inside them, shall be drawn on the computed lines; no line decoration shall start or end inside a grapheme cluster or hold half a surrogate pair, and Shift+Arrow Right at each line start shall select one whole cluster.
 
-Implementation: `src/pagination/forced-lines.ts`
-Verification: `e2e/layout-invariant.spec.ts`
+Implementation: `src/layout-engine/line-marks.ts`, `src/pagination/forced-lines.ts`
+Verification: `src/layout-engine/line-marks.test.ts`, `e2e/layout-invariant.spec.ts`
 
 ### DOCE-LABS-8.7 - Review and editing on a stress document
 

@@ -16,7 +16,6 @@ import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
-import { setMetricsContext } from '../layout-engine/metrics.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { createTextLayout } from '../layout-engine/text-layout.js';
 import {
@@ -112,12 +111,13 @@ function unhintedContext(): MeasureContext {
 }
 
 // Measures with the host's width source, or unhinted, and fits lines at a scale of 1 whatever the
-// screen or zoom, so every device computes the same lines; the pages are drawn on them.
+// screen or zoom, so every device computes the same lines; the pages are drawn on them. The font
+// metrics come from the same source, rounded at that scale too (the engine's default).
 function measureIn(options: TextEngineOptions) {
   const context = options.measureContext ?? unhintedContext;
   setMeasureContext(context);
-  setMetricsContext(context);
   setLayoutScale(1);
+  return context;
 }
 
 /** Forgets the widths the layout engine measured, as after font faces load. */
@@ -128,8 +128,8 @@ export function forgetFontWidths(): void {
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
-  measureIn(options);
-  const text = createTextLayout({ template });
+  const measureContext = measureIn(options);
+  const text = createTextLayout({ template, measureContext });
   const host = atomHost(options.measureIn);
   const atoms = createAtomCache({ measure: createDomAtomMeasurer({ host }) });
   let numbers = NO_NUMBERS;

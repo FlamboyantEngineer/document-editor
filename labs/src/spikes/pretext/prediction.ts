@@ -1,5 +1,6 @@
 import type { Node } from 'prosemirror-model';
 import type { LineTable } from '../../../../src/layout-engine/line-table.js';
+import type { MetricsContext } from '../../../../src/layout-engine/metrics.js';
 import { createTextLayout } from '../../../../src/layout-engine/text-layout.js';
 import {
   type LayoutBlock,
@@ -65,11 +66,16 @@ export type PreparationCache = ReturnType<typeof createPreparationCache>;
 // the lab's stylesheet draws it.
 const mathBaseline = inlineMath.height - 3;
 
-export function createPreparationCache() {
+export function createPreparationCache({
+  scale = 1,
+  measureContext,
+}: { scale?: number | undefined; measureContext?: MetricsContext | undefined } = {}) {
   return createTextLayout({
     template,
     fontStacks,
     language: 'en',
+    scale,
+    measureContext,
     measureAtom: (node) =>
       node.type.name === 'math_inline' && !node.marks.length
         ? { ...inlineMath, baseline: mathBaseline }

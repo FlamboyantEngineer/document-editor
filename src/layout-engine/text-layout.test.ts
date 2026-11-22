@@ -120,6 +120,20 @@ describe('createTextLayout', () => {
     expect(code.lines[0]?.width).toBeGreaterThan(10);
   });
 
+  it('DOCE-PAGINATION-9.5 grows a line to hold text in a taller font, at its inherited line height', () => {
+    const template = {
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        codeBlock: { ...BASE_TEMPLATE.styles?.codeBlock, size: '32px' },
+      },
+    };
+    // A 12px paragraph at 1.5: an 18px line, 13px above the baseline. 32px code at 1.5 takes a 48px
+    // box, 26 + 8px above its baseline and 6 + 8px below, so its line is 34 + 14px.
+    const lines = table(block('<p>aa<br><code>b</code> a<br><sup>c</sup></p>'), 400, { template });
+    expect(lines.lines.map((line) => line.height)).toEqual([18, 48, 18]);
+  });
+
   it('DOCE-PAGINATION-9.5 draws a prefix before the first line and sizes inline atoms', () => {
     const engine = createTextLayout({ template: BASE_TEMPLATE });
     const heading = block('<h1>aaaa</h1>', 'heading');
