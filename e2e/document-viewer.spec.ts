@@ -30,8 +30,8 @@ const SHEETS = `${VIEWER} .pm-page`;
 // Spaces as the stored text holds them: a no-break space a browser kept at a writer's edge is a space.
 const plain = (text: string) => text.replaceAll(' ', ' ');
 
-async function open(page: Page, name: RegressionDocumentName) {
-  await page.goto(`regression.html?document=${name}&textLayout=pretext`);
+async function open(page: Page, name: RegressionDocumentName, rendering = 'dom') {
+  await page.goto(`regression.html?document=${name}&textLayout=pretext&rendering=${rendering}`);
   await waitForLab(page);
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -82,6 +82,17 @@ test.describe('the read-only viewer', () => {
       expect(mismatches).toEqual([]);
     });
   }
+
+  test('DOCE-PAGINATION-13.6 draws the same pages as HTML beside pages painted into canvases', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'html-canvas');
+    await showViewer(page);
+    const { computed, mismatches } = await linesAgainstComputed(page);
+    expect((await readDrawnPages(page, '.de-forced-lines', 'viewer')).pages).toBe(computed.length);
+    expect(mismatches).toEqual([]);
+    await expect(page.locator(`${VIEWER} canvas`)).toHaveCount(0);
+  });
 
   test('DOCE-PAGINATION-13.6 draws only the pages near the viewport', async ({ page }) => {
     await open(page, 'long-mixed');
