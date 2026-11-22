@@ -164,6 +164,52 @@ describe('createTextLayout', () => {
     expect(small.lines[0]?.height).toBe(18);
   });
 
+  it('DOCE-PAGINATION-9.5 lays footnote markers, mentions and glossary references out as their text', () => {
+    const { nodes } = documentSchema;
+    const marker = nodes.footnote_reference?.create({ footnoteId: 'f1' });
+    const mention = nodes.mention?.create({ userId: 'u1', label: 'Ann Lee' });
+    const glossary = nodes.abbreviation_reference?.create({
+      entryId: 'g1',
+      display: 'short',
+      abbr: 'ABC',
+      expansion: 'A B C',
+    });
+    if (!marker || !mention || !glossary) throw new Error('schema lacks an inline atom');
+    const paragraph = (atom: ProseMirrorNode) =>
+      nodes.paragraph?.create(null, [documentSchema.text('aaaa '), atom]) ?? atom;
+    const numbered = (number: string | undefined) =>
+      table(paragraph(marker), 400, { textAtoms: { footnoteOf: () => number } });
+    // A 12px block's marker is drawn at `font-size: smaller`, 10px: 5px a character.
+    expect(numbered('7').lines[0]?.width).toBe(27 + 5);
+    expect(numbered('12').lines[0]?.width).toBe(27 + 10);
+    expect(numbered(undefined).lines[0]?.width).toBe(27);
+    // `@Ann Lee` and `ABC` in the block's font, never broken inside.
+    expect(table(paragraph(mention), 400).lines[0]?.width).toBe(27 + 8 * 6 - 3);
+    expect(table(paragraph(glossary), 400).lines[0]?.width).toBe(27 + 18);
+    expect(starts(table(paragraph(mention), 60))).toEqual([
+      [0, 5, 'wrap'],
+      [5, 6, 'end'],
+    ]);
+    // A type the host draws itself is measured as an atom.
+    const drawn = createTextLayout({ template: BASE_TEMPLATE, textAtoms: { types: new Set() } });
+    expect(drawn.layoutText(paragraph(mention), { width: 400 })).toEqual({
+      ok: false,
+      reason: 'no size for inline mention',
+    });
+  });
+
+  it('DOCE-PAGINATION-9.5 tells an inline atom its block and scope', () => {
+    const atom = documentSchema.nodes.math_inline?.create(null, documentSchema.text('x'));
+    const heading = documentSchema.nodes.heading?.create({ level: 2 }, atom ? [atom] : []);
+    if (!atom || !heading) throw new Error('schema lacks math or headings');
+    const measureAtom = vi.fn(() => ({ width: 10, height: 10 }));
+    createTextLayout({ template: BASE_TEMPLATE, measureAtom }).layoutText(heading, {
+      width: 400,
+      scope: 'appendix',
+    });
+    expect(measureAtom).toHaveBeenCalledWith(atom, { parent: heading, scope: 'appendix' });
+  });
+
   it('DOCE-PAGINATION-9.5 keeps a template variable on one line', () => {
     const variable = documentSchema.nodes.template_variable?.create(
       { variableKey: 'title' },

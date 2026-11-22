@@ -32,7 +32,11 @@ export function fixedImageBox(
 }
 
 function atomBlock(context: BlockContext, node: ProseMirrorNode, margins = { top: 0, bottom: 0 }) {
-  const size = context.options.atoms.measureBlockAtom(node, context.place.width);
+  const size = context.options.atoms.measureBlockAtom(
+    node,
+    context.place.width,
+    context.place.scope,
+  );
   if (!size) return notLaid(node, `${node.type.name} has no measured size`);
   const flush = context.parent === 'region';
   return laid(
@@ -54,7 +58,9 @@ function captionHeight(context: BlockContext, caption: ProseMirrorNode, width: n
 export function layFigure(context: BlockContext, figure: ProseMirrorNode): Laid {
   const { width } = context.place;
   const fixed = fixedImageBox(figure, width);
-  const measured = fixed ? null : context.options.atoms.measureBlockAtom(figure, width);
+  const measured = fixed
+    ? null
+    : context.options.atoms.measureBlockAtom(figure, width, context.place.scope);
   const image = fixed ?? measured;
   if (!image) return notLaid(figure, 'the figure has no stored or measured size');
   let caption = 0;

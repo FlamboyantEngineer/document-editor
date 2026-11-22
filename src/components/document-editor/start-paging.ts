@@ -157,7 +157,12 @@ export function startPaging(
     trace: () => latest.current.debug?.trace ?? null,
     // The layout engine lays the text out with the template the pages show now.
     textLayout:
-      settings.textLayout === 'pretext' ? { template: () => latest.current.template } : undefined,
+      settings.textLayout === 'pretext'
+        ? {
+            template: () => latest.current.template,
+            hostViews: Object.keys(latest.current.nodeViews ?? {}),
+          }
+        : undefined,
   };
   const start = () => startProjectionOf(setup, latest, { refs, setPaged });
   if (!ghostWith(latest)) return start();

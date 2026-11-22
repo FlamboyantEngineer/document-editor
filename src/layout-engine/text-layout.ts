@@ -12,6 +12,7 @@ import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { buildRuns, type MeasureAtom } from './runs.js';
+import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
   blockTypography,
@@ -32,6 +33,11 @@ export interface TextLayoutOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** Sizes the inline atoms the engine does not lay out as text. */
   readonly measureAtom?: MeasureAtom | undefined;
+  /**
+   * The inline atoms the engine lays out as their text (`TEXT_ATOMS` by default, less those a host
+   * draws itself), and the footnote markers' numbers.
+   */
+  readonly textAtoms?: TextAtoms | undefined;
   /** The context font metrics are read from, such as the font files' measurer; a Canvas if not. */
   readonly measureContext?: MetricsContext | undefined;
   /**
@@ -40,6 +46,9 @@ export interface TextLayoutOptions {
    */
   readonly scale?: number | undefined;
 }
+
+/** The inline atoms laid out as their text, and their numbers. */
+type TextAtoms = TextAtomSource & { readonly types?: ReadonlySet<string> | undefined };
 
 /** Where a text block is laid out. */
 export interface TextBlockPlace {
@@ -144,6 +153,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         prefix: marker?.item ?? place.prefix,
         lead: numbered?.box,
         measureAtom: options.measureAtom,
+        scope: place.scope,
+        textAtoms: options.textAtoms,
         boxOf: boxOf(style),
       });
       if (!runs.ok) return runs;

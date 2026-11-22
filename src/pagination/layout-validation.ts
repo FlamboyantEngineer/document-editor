@@ -157,17 +157,45 @@ export interface WrappedBlock {
   readonly drawn: number;
 }
 
-// The distinct line boxes an element's content is drawn on: boxes whose tops lie within half a
-// box of each other share a line, so an inline atom taller than the text joins its line.
-function drawnLineCount(element: Element): number {
+// The boxes an element's content is drawn in: its text's, and each inline atom's own box, as an
+// atom such as typeset math draws parts of itself above and below its line.
+function contentBoxes(element: Element): DOMRect[] {
+  const boxes: DOMRect[] = [];
   const range = element.ownerDocument.createRange();
-  range.selectNodeContents(element);
-  const tops: number[] = [];
-  for (const rect of range.getClientRects()) {
+  const visit = (node: Node) => {
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) {
+        range.selectNodeContents(child);
+        boxes.push(...range.getClientRects());
+      } else if (child.nodeType === 1) {
+        const inner = child as HTMLElement;
+        if (inner.contentEditable === 'false') boxes.push(...inner.getClientRects());
+        else visit(inner);
+      }
+    }
+  };
+  visit(element);
+  return boxes;
+}
+
+// The distinct line boxes an element's content is drawn on: boxes that overlap by half the
+// shorter one's height share a line, so an inline atom taller than the text joins its line.
+function drawnLineCount(element: Element): number {
+  const lines: { top: number; bottom: number }[] = [];
+  for (const rect of contentBoxes(element)) {
     if (rect.height === 0) continue;
-    if (!tops.some((top) => Math.abs(top - rect.top) < rect.height / 2)) tops.push(rect.top);
+    const line = lines.find(
+      (each) =>
+        Math.min(each.bottom, rect.bottom) - Math.max(each.top, rect.top) >
+        Math.min(each.bottom - each.top, rect.height) / 2,
+    );
+    if (!line) lines.push({ top: rect.top, bottom: rect.bottom });
+    else {
+      line.top = Math.min(line.top, rect.top);
+      line.bottom = Math.max(line.bottom, rect.bottom);
+    }
   }
-  return Math.max(1, tops.length);
+  return Math.max(1, lines.length);
 }
 
 /**
