@@ -198,17 +198,33 @@ function passesMargin(style: CSSStyleDeclaration, side: 'top' | 'bottom'): boole
   return px(padding) === 0 && px(border) === 0;
 }
 
+// Whether a child sits in its parent's flow as a block, so its margins can meet the parent's edge.
+function inFlowBlock(style: CSSStyleDeclaration | undefined): boolean {
+  if (!style || style.display === 'none' || style.display.startsWith('inline')) return false;
+  return !['absolute', 'fixed'].includes(style.position) && ['', 'none'].includes(style.float);
+}
+
+// A block's first or last child in its flow, whose margin may meet that side of the block.
+function edgeChild(element: Element, side: 'top' | 'bottom'): HTMLElement | null {
+  const view = element.ownerDocument.defaultView;
+  const children = [...element.children];
+  if (side === 'bottom') children.reverse();
+  const child = children.find((each) => inFlowBlock(view?.getComputedStyle(each)));
+  return (child as HTMLElement | undefined) ?? null;
+}
+
 // A child's margin that passes through the side of the block holding it, or none.
-function passedMargin(style: CSSStyleDeclaration, child: Element | null, side: 'top' | 'bottom') {
-  if (!child || !passesMargin(style, side)) return 0;
-  const { marginTop, marginBottom } = margins(child as HTMLElement);
+function passedMargin(style: CSSStyleDeclaration, element: Element, side: 'top' | 'bottom') {
+  const child = passesMargin(style, side) ? edgeChild(element, side) : null;
+  if (!child) return 0;
+  const { marginTop, marginBottom } = margins(child);
   return side === 'top' ? marginTop : marginBottom;
 }
 
 /**
- * An element's margins at the start and end of its block axis, in any writing mode. The node that
- * holds a table and its caption (`doc-table-figure`) takes its caption's and its table's margins
- * too when a stylesheet leaves it a plain block, which they pass through.
+ * An element's margins at the start and end of its block axis, in any writing mode, with the
+ * margins of its first and last children that pass through a side with no padding or border, as
+ * a script's output, a template block's markup or a table's caption pass theirs.
  */
 export function margins(element: HTMLElement): { marginTop: number; marginBottom: number } {
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
@@ -216,13 +232,10 @@ export function margins(element: HTMLElement): { marginTop: number; marginBottom
     marginTop: px(blockMargin(style, 'start')),
     marginBottom: px(blockMargin(style, 'end')),
   };
-  if (!style || !element.classList.contains('doc-table-figure')) return own;
+  if (!style) return own;
   return {
-    marginTop: Math.max(own.marginTop, passedMargin(style, element.firstElementChild, 'top')),
-    marginBottom: Math.max(
-      own.marginBottom,
-      passedMargin(style, element.lastElementChild, 'bottom'),
-    ),
+    marginTop: Math.max(own.marginTop, passedMargin(style, element, 'top')),
+    marginBottom: Math.max(own.marginBottom, passedMargin(style, element, 'bottom')),
   };
 }
 

@@ -46,3 +46,35 @@ describe('the margins of a table with its caption', () => {
     expect(margins(holder('padding: 1px'))).toEqual({ marginTop: 0, marginBottom: 0 });
   });
 });
+
+describe('the margins that pass through any block', () => {
+  function block(html: string, style = ''): HTMLElement {
+    const element = document.createElement('section');
+    element.setAttribute('style', style);
+    element.innerHTML = html;
+    document.body.appendChild(element);
+    return element;
+  }
+
+  it('DOCE-PAGINATION-2.2 takes its output’s paragraph margins through a script block and its output', () => {
+    const script = block(
+      '<div><p style="margin: 3px 0 8px">One</p><p style="margin: 0 0 8px">Two</p></div>',
+    );
+    expect(margins(script)).toEqual({ marginTop: 3, marginBottom: 8 });
+    expect(margins(block(script.innerHTML, 'padding-bottom: 1px'))).toEqual({
+      marginTop: 3,
+      marginBottom: 0,
+    });
+  });
+
+  it('DOCE-PAGINATION-2.2 skips children out of its flow, hidden or inline at its edges', () => {
+    const html =
+      '<p style="display: none; margin: 20px"></p><p style="margin: 5px"></p>' +
+      '<span style="position: absolute; display: block; margin: 20px"></span>';
+    expect(margins(block(html))).toEqual({ marginTop: 5, marginBottom: 5 });
+    expect(margins(block('<b style="margin: 9px">x</b>'))).toEqual({
+      marginTop: 0,
+      marginBottom: 0,
+    });
+  });
+});
