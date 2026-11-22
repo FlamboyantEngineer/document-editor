@@ -23,9 +23,17 @@ declare global {
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
-// With the layout debugging, whose page room the overflow check reads (DOCE-LABS-8.10).
-async function open(page: Page, name: RegressionDocumentName, textLayout: 'dom' | 'pretext') {
-  await page.goto(`regression.html?document=${name}&textLayout=${textLayout}&debug`);
+// With the layout debugging, whose page room the overflow check reads (DOCE-LABS-8.10), unless
+// `plain`: its height labels take the place of generated numbers.
+async function open(
+  page: Page,
+  name: RegressionDocumentName,
+  textLayout: 'dom' | 'pretext',
+  plain = false,
+) {
+  await page.goto(
+    `regression.html?document=${name}&textLayout=${textLayout}${plain ? '' : '&debug'}`,
+  );
   await waitForLab(page);
 }
 
@@ -182,10 +190,10 @@ test.describe('the layout engine on the pages', () => {
   test('DOCE-PAGINATION-11.9 draws every heading, caption and equation number as without the option', async ({
     page,
   }) => {
-    await open(page, 'caption-numbering', 'dom');
+    await open(page, 'caption-numbering', 'dom', true);
     const measured = await drawnNumbers(page);
     expect(measured.flat()).toContain('Figure 3.1 -');
-    await open(page, 'caption-numbering', 'pretext');
+    await open(page, 'caption-numbering', 'pretext', true);
     expect(await drawnNumbers(page)).toEqual(measured);
   });
 

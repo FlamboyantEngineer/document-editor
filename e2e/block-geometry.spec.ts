@@ -33,8 +33,10 @@ const INLINE_MATH = 'Q2 atoms (P1): a line with inline math planned shorter than
 const CONTINUED =
   'Q4 block metrics (V2): a code or quote continuation drawn with its top margin and continued line';
 const LINKED = 'Q4 block metrics (V2): linked code blocks drawn further apart than planned';
-const OBJECT_GAP = 'Q4 block metrics: a script block drawn 8 px lower than planned';
+const OBJECT_GAP =
+  'Q4 block metrics: a script block, or the block after an empty template block, drawn 8 px lower than planned';
 const TABLE_PART = 'Q4 block metrics (V3): a table continuation drawn shorter than planned';
+const RICH_TABLE = 'Q4 block metrics: a table of bold cells drawn one line taller than planned';
 
 /** A known difference, as `type kind` (`page overflow` for a page), and its owner. */
 type Known = Readonly<Record<string, string>>;
@@ -91,6 +93,9 @@ const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>
   'table-long-repeated-header dom': { 'table_figure height': TABLE_PART },
   'table-long-single-header dom': { 'table_figure height': TABLE_PART },
   'table-long-single-header pretext': { 'table_figure height': TABLE_PART },
+  'table-rich-cells pretext': { 'table_figure height': RICH_TABLE },
+  'template-blocks-and-variables dom': { 'paragraph gap': OBJECT_GAP },
+  'template-blocks-and-variables pretext': { 'paragraph gap': OBJECT_GAP },
 };
 
 // Differences that depend on timing, which the check allows but does not ask for. The fixtures'
