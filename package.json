@@ -163,7 +163,7 @@
     "webpack": "^5.112.2"
   },
   "dependencies": {
-    "@chenglou/pretext": "github:FlamboyantEngineer/pretext#f20f63ec30d78e99f70036652e6bfb95bcebb79b",
+    "@chenglou/pretext": "github:FlamboyantEngineer/pretext#0ebb1bea26e3f24067ef1ccb6504233af7940716",
     "prosemirror-gapcursor": "^1.4.1",
     "prosemirror-schema-basic": "^1.2.5",
     "prosemirror-schema-list": "^1.6.0"
