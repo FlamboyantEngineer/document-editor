@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { PagesLayout } from '../../document/pages-layout.js';
 import {
   type CompareSuggestions,
   contentsKey,
@@ -272,6 +273,8 @@ export interface LayoutProgress {
   stats(): PaginationStats | null;
   /** The lines the layout engine drew the pages' text on (`textLayout: 'pretext'`); none else. */
   textLines(): PageTextLines[];
+  /** The pages' layout as data (`textLayout: 'pretext'`); null else. */
+  pagesLayout(): PagesLayout | null;
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
@@ -281,6 +284,7 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
       whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
       stats: () => active.current?.stats() ?? null,
       textLines: () => active.current?.textLines() ?? [],
+      pagesLayout: () => active.current?.pagesLayout() ?? null,
     }),
     [active],
   );

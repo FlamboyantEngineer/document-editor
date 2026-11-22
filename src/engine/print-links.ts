@@ -25,6 +25,8 @@ type PrintLinkKind =
 
 /** The link inside each abbreviation, which goes to its row in a list of abbreviations. */
 const ABBREVIATION_LINK = 'span[data-abbreviation-ref] > a[href^="#"]';
+// The hook class of a block drawn on the layout engine's lines (DOCE-PAGINATION-11.2).
+const FORCED_LINES = 'de-forced-lines';
 
 // Wraps an element's content in a link, which a snapshot's print rules leave styled as the text.
 function linkContent(element: Element, href: string, kind: PrintLinkKind) {
@@ -132,7 +134,9 @@ export function addPrintLinks(copy: Element, { numbers, href }: PrintLinkOptions
     if (!id || taken.has(id)) continue;
     anchor(element, id, taken);
     const number = numbers.get(id);
-    if (number) element.setAttribute('data-number', number);
+    // A block drawn on the layout engine's lines keeps the number its lines were laid out with.
+    if (number && !element.classList.contains(FORCED_LINES))
+      element.setAttribute('data-number', number);
   }
   linkReferences(copy, href);
   linkFootnotes(copy, taken);

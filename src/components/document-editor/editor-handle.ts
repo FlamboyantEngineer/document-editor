@@ -6,6 +6,7 @@ import type { Attrs } from 'prosemirror-model';
 import { type Command, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type Ref, type RefObject, useImperativeHandle, useMemo, useRef } from 'react';
+import type { PagesLayout } from '../../document/pages-layout.js';
 import { type FoundElement, textRange } from '../../engine/automation-address.js';
 import {
   applyEdits,
@@ -136,6 +137,12 @@ export interface DocumentEditorHandle {
    * paragraphs and headings, which the pages draw them on (DOCE-PAGINATION-11.3); none otherwise.
    */
   textLines(): PageTextLines[];
+  /**
+   * With `textLayout: 'pretext'`, the pages' layout as data: the pages' document, each forced
+   * block's line marks and the variables as shown, which `renderPrintPage` and a viewer draw
+   * without measuring (DOCE-PAGINATION-13.2); null otherwise.
+   */
+  pagesLayout(): PagesLayout | null;
   /** The elements with an element id on screen now, with their boxes in the window. */
   visibleElements(): readonly VisibleElement[];
   /** The pages on screen now, each with its sheet and its content's box in the window. */
@@ -309,6 +316,7 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       textLines: layout.textLines,
+      pagesLayout: layout.pagesLayout,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
       visiblePages: () => (view ? measureVisiblePages(view) : []),
       revealPane: (paneId, options) => panes.reveal(paneId, options),

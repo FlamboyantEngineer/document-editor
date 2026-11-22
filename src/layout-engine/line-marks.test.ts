@@ -1,0 +1,55 @@
+// @vitest-environment node
+import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
+import { type JustifiedLines, lineMarks } from './line-marks.js';
+import type { TextLine } from './line-table.js';
+
+const paragraph = (text: string) =>
+  documentSchema.node('paragraph', null, text ? [documentSchema.text(text)] : []);
+
+// Lines of `perLine` characters, each 10px wide, starting `left` in from the content edge.
+function table(size: number, perLine: number, options: Partial<JustifiedLines> = {}) {
+  const lines: TextLine[] = [];
+  for (let from = 0; from < size; from += perLine) {
+    const to = Math.min(size, from + perLine);
+    lines.push({
+      from,
+      to,
+      width: 10,
+      left: 0,
+      top: 0,
+      height: 20,
+      end: to < size ? 'wrap' : 'end',
+    });
+  }
+  const drawn: JustifiedLines = { width: 100, lines, height: 0, overhead: 0, justify: false };
+  return { ...drawn, ...options };
+}
+
+describe('lineMarks', () => {
+  it('DOCE-PAGINATION-13.1 ends each wrapped line at its last character, in content order', () => {
+    const node = paragraph('aaaaabbbbbcc');
+    expect(lineMarks(node, table(12, 5))).toEqual([
+      { from: 4, to: 5, class: 'de-forced-lines__end' },
+      { from: 9, to: 10, class: 'de-forced-lines__end' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-13.1 keeps a character whole at a line end', () => {
+    const node = paragraph('aaaa😀bb');
+    const marks = lineMarks(node, table(8, 6));
+    expect(marks).toEqual([{ from: 4, to: 6, class: 'de-forced-lines__end' }]);
+  });
+
+  it('DOCE-PAGINATION-13.1 indents aligned lines and stretches justified spaces', () => {
+    const node = paragraph('aa bb cc dd');
+    const lines = table(11, 6, { justify: true }).lines.map((line) => ({ ...line, left: 20 }));
+    const marks = lineMarks(node, { ...table(11, 6), justify: true, lines });
+    expect(marks).toEqual([
+      { from: 0, to: 1, class: 'de-forced-lines__start', style: '--de-line-indent: 20.000px' },
+      { from: 0, to: 5, class: 'de-forced-lines__justified', style: '--de-word-spacing: 90.000px' },
+      { from: 5, to: 6, class: 'de-forced-lines__end' },
+      { from: 6, to: 7, class: 'de-forced-lines__start', style: '--de-line-indent: 20.000px' },
+    ]);
+  });
+});

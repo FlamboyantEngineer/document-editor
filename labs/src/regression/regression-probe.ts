@@ -8,10 +8,12 @@ import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect } from 'react';
 import type { DocumentEditorHandle } from '../../../src/components/index.js';
+import { type PrintPageOptions, renderLayoutPrintPage } from '../../../src/document/index.js';
 import {
   type DocumentFile,
   joinDocumentPages,
   type StoredNode,
+  type TemplateFile,
   writeDocumentFile,
 } from '../../../src/model/index.js';
 import {
@@ -44,6 +46,11 @@ export interface RegressionProbe {
   textLines(): PageTextLines[];
   /** With `textLayout=pretext`, the forced blocks the browser drew on other lines (the guard). */
   wrappedLines(): WrappedBlock[];
+  /**
+   * With `textLayout=pretext`, the pages drawn from their layout without the editor
+   * (`renderLayoutPrintPage`), as a standalone page; null without the engine.
+   */
+  layoutPrint(options?: PrintPageOptions): string | null;
 }
 
 /** What the probe's snapshot takes: the editor's snapshot options. */
@@ -160,7 +167,10 @@ function caretAtFragment(view: EditorView, type: string, edge: FragmentEdge): Fr
 }
 
 /** Puts the probe on `window.regressionLab` while the lab shows. */
-export function useRegressionProbe(handle: RefObject<DocumentEditorHandle | null>) {
+export function useRegressionProbe(
+  handle: RefObject<DocumentEditorHandle | null>,
+  template: TemplateFile,
+) {
   useEffect(() => {
     const probe: RegressionProbe = {
       stored: () => {
@@ -180,7 +190,11 @@ export function useRegressionProbe(handle: RefObject<DocumentEditorHandle | null
       snapshot: (options) => handle.current?.exportSnapshot(options) ?? null,
       textLines: () => handle.current?.textLines() ?? [],
       wrappedLines: () => findWrappedLines(document),
+      layoutPrint: (options) => {
+        const layout = handle.current?.pagesLayout();
+        return layout ? renderLayoutPrintPage(layout, template, options) : null;
+      },
     };
     Object.assign(window, { regressionLab: probe });
-  }, [handle]);
+  }, [handle, template]);
 }

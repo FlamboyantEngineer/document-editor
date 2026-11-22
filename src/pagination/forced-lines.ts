@@ -13,7 +13,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import type { TextLine } from '../layout-engine/line-table.js';
+import { lineMarks } from '../layout-engine/line-marks.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
@@ -37,50 +37,6 @@ const makeSet = DecorationSet as unknown as DecorationSetConstructor;
 
 /** The block types drawn on forced lines, directly in a page's content. */
 export const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading']);
-
-const px = (value: number) => `${value.toFixed(3)}px`;
-
-const byPosition = (decorations: Decoration[]) =>
-  decorations.sort((a, b) => a.from - b.from || a.to - b.to);
-
-// A UTF-16 low surrogate: the second half of a character the line's last character ends with.
-const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
-
-// Where a line's last character starts, so its decoration never cuts a character in two.
-function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
-  const text = node.textBetween(Math.max(line.from, line.to - 2), line.to, '￼', '￼');
-  const two = text.length === 2 && isLowSurrogate(text.charCodeAt(1));
-  return two ? line.to - 2 : line.to - 1;
-}
-
-const spacesIn = (text: string) => (text.trimEnd().match(/ /gu) ?? []).length;
-
-// The decorations that draw one line, by offset in the block's content.
-function lineDecorations(node: ProseMirrorNode, table: DrawnLines, line: TextLine): Decoration[] {
-  const decorations: Decoration[] = [];
-  const padding = table.overhead / 2;
-  const indent = line.left - padding;
-  if (indent > 0.001 && line.to > line.from) {
-    const style = `--de-line-indent: ${px(indent)}`;
-    decorations.push(
-      Decoration.inline(line.from, line.from + 1, { class: 'de-forced-lines__start', style }),
-    );
-  }
-  if (line.end !== 'wrap' || line.to <= line.from) return decorations;
-  const text = node.textBetween(line.from, line.to, '￼', '￼');
-  const spaces = spacesIn(text);
-  const room = table.width - table.overhead;
-  if (table.justify && spaces > 0 && room > line.width) {
-    const style = `--de-word-spacing: ${px((room - line.width) / spaces)}`;
-    const end = line.from + text.trimEnd().length;
-    decorations.push(
-      Decoration.inline(line.from, end, { class: 'de-forced-lines__justified', style }),
-    );
-  }
-  const last = lastCharacter(node, line);
-  decorations.push(Decoration.inline(last, line.to, { class: 'de-forced-lines__end' }));
-  return decorations;
-}
 
 interface Builder {
   readonly engine: PagesTextEngine;
@@ -110,8 +66,10 @@ function blockSet(
   const { table, key } = drawn;
   const kept = builder.blocks.get(node);
   if (kept?.key === key) return kept.set;
-  const own = table.lines.flatMap((line) => lineDecorations(node, table, line));
-  const set = own.length ? new makeSet(byPosition(own), []) : DecorationSet.empty;
+  const own = lineMarks(node, table).map(({ from, to, ...attrs }) =>
+    Decoration.inline(from, to, attrs.style ? attrs : { class: attrs.class }),
+  );
+  const set = own.length ? new makeSet(own, []) : DecorationSet.empty;
   builder.blocks.set(node, { key, set });
   return set;
 }
