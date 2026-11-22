@@ -113,6 +113,7 @@ async function verify(
             sample.jump(page),
           ),
           sourceUnchanged: JSON.stringify(writeDocumentFile(doc)) === saved,
+          measurer: result.measurer,
         };
       } finally {
         sample.destroy();

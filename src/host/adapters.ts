@@ -8,6 +8,7 @@ import type { EditorCapabilities } from './capabilities.js';
 import type { CommentStoreAdapter, CommentThread } from './comment-adapters.js';
 import type { CompletionAdapter } from './completion-adapters.js';
 import type { ExportsAdapter } from './export-adapters.js';
+import type { FontFiles, FontShaper } from './font-files.js';
 import type { ProoferAdapter } from './proofing-adapters.js';
 import type { CollaborationAdapter, DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
 
@@ -246,6 +247,16 @@ export interface FontsAdapter {
     families: readonly string[],
     options: { timeout: number; signal?: AbortSignal | undefined },
   ): Promise<HostResult<readonly string[]>>;
+  /**
+   * Under Pretext layout: the faces of these families, as files, for the widths and the drawn
+   * pages alike. Asked again for each family a document names later.
+   */
+  files?(
+    families: readonly string[],
+    options: { signal?: AbortSignal | undefined },
+  ): Promise<HostResult<FontFiles>>;
+  /** Under Pretext layout: the shaper the widths come from, asked once per editor. */
+  shaper?(options: { signal?: AbortSignal | undefined }): Promise<HostResult<FontShaper>>;
 }
 
 /** Code a URL names, such as a file of a repository with the lines its fragment names. */

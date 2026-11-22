@@ -111,7 +111,8 @@ function isSize(size: AtomSize | null | undefined): size is AtomSize {
 
 interface Entry {
   size: MeasuredAtom;
-  readonly node: ProseMirrorNode;
+  /** The nodes that asked for it while it was provisional, each told when it settles. */
+  readonly nodes: ProseMirrorNode[];
 }
 
 /** Creates an atom cache over a host's measurer. */
@@ -140,7 +141,7 @@ export function createAtomCache({
         entry.size = isSize(size)
           ? { ...size, provisional: false }
           : { ...entry.size, provisional: false };
-        for (const listener of [...listeners]) listener([entry.node]);
+        for (const listener of [...listeners]) listener([...entry.nodes]);
       },
       () => {
         // A failed load leaves the box the browser drew while it loaded, which is final.
@@ -155,11 +156,15 @@ export function createAtomCache({
     const cached = entries.get(key);
     if (cached) {
       keep(key, cached);
+      if (cached.size.provisional && !cached.nodes.includes(node)) cached.nodes.push(node);
       return cached.size;
     }
     const result = shown === undefined ? measure(node, width) : measure(node, width, shown);
     if (!result || !isSize(result.size)) return null;
-    const entry: Entry = { node, size: { ...result.size, provisional: Boolean(result.settled) } };
+    const entry: Entry = {
+      nodes: [node],
+      size: { ...result.size, provisional: Boolean(result.settled) },
+    };
     keep(key, entry);
     if (result.settled) settle(key, entry, result.settled);
     return entry.size;

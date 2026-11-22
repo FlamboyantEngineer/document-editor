@@ -12,7 +12,6 @@ import {
   type Laid,
   laid,
   layChildren,
-  notLaid,
 } from './context.js';
 import { type ContainerBox, stackContainer, withoutMargins } from './stack.js';
 
@@ -36,6 +35,9 @@ function container(
     measurement: { children: stacked.children, overhead: stacked.overhead },
   };
 }
+
+/** The lines of the text's size an empty script block keeps, as the stylesheet's minimum height. */
+const EMPTY_SCRIPT_LINES = 1.5;
 
 const NO_BOX: ContainerBox = { marginTop: 0, marginBottom: 0, top: 0, bottom: 0 };
 
@@ -110,7 +112,16 @@ export function layQuote(context: BlockContext, node: ProseMirrorNode): Laid {
 
 /** A script block's output or an embed's content: its blocks as they stand. */
 export function layPlainContainer(context: BlockContext, node: ProseMirrorNode): Laid {
-  if (!node.childCount) return notLaid(node, 'an empty script block shows a message instead');
+  // An empty script block keeps a line and a half of the text's size, which the message that it
+  // produced nothing sits in; the message is the editor's, never content, and adds no height.
+  if (!node.childCount) {
+    return laid({
+      node,
+      height: EMPTY_SCRIPT_LINES * context.metrics.em,
+      marginTop: 0,
+      marginBottom: 0,
+    });
+  }
   return stacked(context, node, { width: context.place.width, parent: 'other', box: NO_BOX });
 }
 

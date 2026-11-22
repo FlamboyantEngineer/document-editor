@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Page, TestInfo } from '@playwright/test';
 import {
   REGRESSION_DOCUMENTS,
@@ -275,4 +276,249 @@ test.describe('DOCE-LABS-8.4 inline offers keep the drawn lines', () => {
     const [drawn] = await readDrawnLines(page, [block]);
     expect(drawn?.length, 'lines drawn with the offer showing').toBe(block.computed);
   });
+});
+
+// The lines computed for every forced block, by element and part, as offsets: what a fresh layout
+// of the same document gives.
+async function computedLines(page: Page): Promise<Record<string, string>> {
+  const pages = await computedOf(page);
+  return Object.fromEntries(
+    pages.flatMap(({ blocks }) =>
+      blocks.flatMap((block) =>
+        block.lines
+          ? [
+              [
+                key(block),
+                block.lines.map(({ from, to }) => `${String(from)}-${String(to)}`).join(' '),
+              ],
+            ]
+          : [],
+      ),
+    ),
+  );
+}
+
+test.describe('DOCE-LABS-8.5 formatting-only edits keep the drawn lines', () => {
+  test('DOCE-LABS-8.5 bold, undo and redo draw the computed lines, and undo gives back the first layout', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 100);
+    const first = await computedLines(page);
+    const starts = await lineStartsOf(page, 3);
+    const [line] = starts ?? [];
+    if (!line) throw new Error('No paragraph with three lines.');
+    await page.mouse.dblclick(line.x + 4, line.y);
+    await page.keyboard.press('ControlOrMeta+b');
+    await settle(page);
+    await expect(page.locator('.de-forced-lines strong').first()).toBeAttached();
+    await expectOneResult(page);
+    const bold = await computedLines(page);
+    await page.keyboard.press('ControlOrMeta+z');
+    await settle(page);
+    await expectOneResult(page);
+    expect(await computedLines(page), 'undo gives back the first layout').toEqual(first);
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await settle(page);
+    await expectOneResult(page);
+    expect(await computedLines(page), 'redo gives back the bold layout').toEqual(bold);
+  });
+});
+
+// Runs of text with no space to break at, so lines end and start inside them: repeated emoji, a
+// joined family sequence, and letters with combining accents.
+const CLUSTERS = ['😀'.repeat(90), '👩‍👩‍👧'.repeat(60), 'éä'.repeat(80)].join(' ');
+
+/** Decoration spans of forced lines that cut a grapheme cluster, with their text. */
+function cutClusters(page: Page) {
+  return page.evaluate(() => {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    const cut: string[] = [];
+    for (const span of document.querySelectorAll(
+      '.de-forced-lines__end, .de-forced-lines__start',
+    )) {
+      const block = span.closest('.de-forced-lines');
+      if (!block) continue;
+      const before = document.createRange();
+      before.setStart(block, 0);
+      before.setEndBefore(span);
+      const from = before.toString().length;
+      const to = from + (span.textContent ?? '').length;
+      const text = block.textContent ?? '';
+      const ends = new Set([0]);
+      for (const { index, segment } of segmenter.segment(text)) ends.add(index + segment.length);
+      const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u;
+      if (!ends.has(from) || !ends.has(to) || lone.test(span.textContent ?? ''))
+        cut.push(JSON.stringify(span.textContent));
+    }
+    return cut;
+  });
+}
+
+test.describe('DOCE-LABS-8.6 grapheme clusters at forced line edges', () => {
+  test('DOCE-LABS-8.6 emoji, a joined sequence and combining marks at line ends and starts', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
+    test.fail(true, 'line decorations on whole grapheme clusters: thread I, after #301');
+    await open(page, 'long-mixed', 100);
+    const starts = await lineStartsOf(page, 3);
+    const [line] = starts ?? [];
+    if (!line) throw new Error('No paragraph with three lines.');
+    await page.mouse.click(line.x, line.y);
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(` ${CLUSTERS} `);
+    await settle(page);
+    await expectOneResult(page);
+    expect(await cutClusters(page), 'decorations that cut a grapheme cluster').toEqual([]);
+    // From the start of each line the inserted runs reach, Shift+Arrow Right takes one whole cluster.
+    const taken: string[] = [];
+    for (let row = 0; row < 8; row += 1) {
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Home');
+      await page.keyboard.press('Shift+ArrowRight');
+      taken.push(await page.evaluate(() => getSelection()?.toString() ?? ''));
+      await page.keyboard.press('ArrowLeft');
+    }
+    const clusters = taken.map(
+      (text) =>
+        [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].length,
+    );
+    expect(clusters, 'clusters Shift+Arrow Right takes at each line start').toEqual(
+      taken.map(() => 1),
+    );
+  });
+});
+
+// The forced blocks on the pages in view, each drawing the lines it carries in `data-lines`.
+async function wrappedInView(page: Page) {
+  const blocks = await page.evaluate(() => {
+    const pages = [...document.querySelectorAll('.de-document-editor__content .pm-page')];
+    return pages.flatMap((each, index) => {
+      const box = each.getBoundingClientRect();
+      if (box.bottom < 0 || box.top > innerHeight) return [];
+      return [...each.querySelectorAll('.de-forced-lines')].map((block) => ({
+        page: index,
+        elementId: block.getAttribute('data-id') ?? '',
+        part: Number(block.getAttribute('data-split-part-index') ?? 0),
+        computed: Number(block.getAttribute('data-lines') ?? 0),
+      }));
+    });
+  });
+  const drawn = await readDrawnLines(page, blocks);
+  expect(blocks.length, 'forced blocks in view').toBeGreaterThan(0);
+  return blocks.flatMap((block, index) =>
+    drawn[index]?.length === block.computed
+      ? []
+      : [{ block: key(block), computed: block.computed, drawn: drawn[index]?.length ?? null }],
+  );
+}
+
+test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
+  test('DOCE-LABS-8.7 comments, tracked changes, a context menu and keyboard editing keep the lines', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
+    test.setTimeout(120_000);
+    await page.goto('stress-scale.html?size=7&textLayout=pretext&suggest');
+    // 300 pages and 500 threads take longer to open than a lab's usual wait.
+    await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
+      timeout: 90_000,
+    });
+    await settle(page);
+    expect(await wrappedInView(page), 'blocks wrapped by the browser on opening').toEqual([]);
+    const starts = await lineStartsOf(page, 3);
+    const [first, second] = starts ?? [];
+    if (!first || !second) throw new Error('No paragraph with three lines.');
+
+    // A comment on a word of a forced line.
+    await page.mouse.dblclick(second.x + 4, second.y);
+    await page
+      .getByRole('list', { name: 'Comments' })
+      .getByRole('button', { name: 'Comment' })
+      .click();
+    await page.keyboard.type('A note on this word.');
+    await page
+      .getByRole('list', { name: 'Comments' })
+      .getByRole('button', { name: 'Comment' })
+      .click();
+    await settle(page);
+    expect(await wrappedInView(page), 'after a comment').toEqual([]);
+
+    // Suggested words typed into the line, and a suggested deletion.
+    await page.mouse.click(first.x, first.y);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' suggested words go into this line ');
+    await expect(page.locator('.de-document-editor__content ins').first()).toBeAttached();
+    for (let count = 0; count < 12; count += 1) await page.keyboard.press('Backspace');
+    await settle(page);
+    expect(await wrappedInView(page), 'after tracked changes').toEqual([]);
+
+    // The context menu over a forced line, opened and closed.
+    await page.mouse.click(second.x + 30, second.y, { button: 'right' });
+    await expect(page.getByRole('menu').first()).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+
+    // Keyboard editing: a new paragraph, words, a hard break, deleting and undoing.
+    await page.mouse.click(second.x, second.y);
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('A new paragraph of words that runs long enough to wrap onto lines ');
+    await page.keyboard.press('Shift+Enter');
+    await page.keyboard.type('after a break');
+    await page.keyboard.press('ControlOrMeta+Backspace');
+    await page.keyboard.press('ControlOrMeta+z');
+    await settle(page);
+    expect(await wrappedInView(page), 'after keyboard editing').toEqual([]);
+  });
+});
+
+// The documents whose computed result is pinned, and its fingerprint: the same on every device and
+// at every zoom, as recorded at a device pixel ratio of 1 and 100 percent.
+// Recorded with Chromium's Canvas on Linux; the CI runner's fingerprints are the reference.
+const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
+  'caption-numbering': 'e9805f9ae9393133',
+  'heading-keep-with-next': 'cde9efbfd0216fdd',
+  'long-mixed': 'e83aba0e479e7771',
+  'oversized-blocks': '04f2d26ec8b3697c',
+  'roman-numbering-stress': 'd24934809773ffdb',
+};
+
+/**
+ * A fingerprint of the computed result: pages, each block's type and part, and its line offsets, or
+ * why the engine left it to the browser.
+ */
+async function fingerprintOf(page: Page): Promise<string> {
+  const pages = await computedOf(page);
+  const text = pages
+    .map(({ blocks }) =>
+      blocks
+        .map(
+          (block) =>
+            `${block.type}#${String(block.part)}:${
+              block.lines?.map(({ from, to }) => `${String(from)}-${String(to)}`).join(',') ??
+              block.reason ??
+              ''
+            }`,
+        )
+        .join('|'),
+    )
+    .join('\n');
+  return createHash('sha256').update(text).digest('hex').slice(0, 16);
+}
+
+test.describe('DOCE-LABS-8.8 the computed result is the same on every device', () => {
+  for (const [name, pinned] of Object.entries(PINNED) as [RegressionDocumentName, string][]) {
+    for (const zoom of [50, 100, 150]) {
+      test(`DOCE-LABS-8.8 ${name} at ${String(zoom)}%`, async ({ page }, testInfo) => {
+        await open(page, name, zoom);
+        const print = await fingerprintOf(page);
+        testInfo.annotations.push({
+          type: 'fingerprint',
+          description: `${testInfo.project.name} ${print}`,
+        });
+        expect(print, 'the computed result, as recorded').toBe(pinned);
+      });
+    }
+  }
 });

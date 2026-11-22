@@ -29,6 +29,14 @@ interface RunLine {
 interface LineCache {
   /** Lays a run out at its first line's width and the other lines' width. */
   readonly lines: (run: TextRun, widths: LineWidths) => readonly RunLine[];
+  /** How many runs were found prepared, and how many had to be prepared. */
+  readonly stats: () => CacheStats;
+}
+
+/** A cache's prepared-run counts since it was made. */
+export interface CacheStats {
+  readonly hits: number;
+  readonly misses: number;
 }
 
 /** The width of a run's first line and of its other lines. */
@@ -82,17 +90,24 @@ function walk(prepared: PreparedRichInline, widths: LineWidths): RunLine[] {
 /** A cache of prepared runs for one language, laid out in Pretext's pre-wrap white space. */
 export function createLineCache(language: string | undefined): LineCache {
   const prepared = new Map<string, { run: PreparedRichInline; widths: Map<string, RunLine[]> }>();
+  let hits = 0;
+  let misses = 0;
   return {
+    stats: () => ({ hits, misses }),
     lines(run, widths) {
       setLocale(language);
       const key = JSON.stringify(run.items);
       let entry = prepared.get(key);
-      if (entry) prepared.delete(key);
-      else
+      if (entry) {
+        hits += 1;
+        prepared.delete(key);
+      } else {
+        misses += 1;
         entry = {
           run: prepareRichInline([...run.items], { whiteSpace: 'pre-wrap' }),
           widths: new Map(),
         };
+      }
       prepared.set(key, entry);
       if (prepared.size > CACHE_LIMIT) prepared.delete(prepared.keys().next().value ?? key);
       const widthKey = `${String(widths.first)} ${String(widths.rest)}`;
