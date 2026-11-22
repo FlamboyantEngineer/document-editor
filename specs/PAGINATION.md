@@ -765,6 +765,13 @@ An offered completion (DOCE-AUTOMATION-3) drawn in a forced block shall take no 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/layout-invariant.spec.ts`
 
+### DOCE-PAGINATION-11.9 - Numbers from the engine
+
+With the option on, the pages shall draw the numbers the engine laid them out with, not the stylesheet's counters, which each page's style containment (DOCE-PAGINATION-11.6) would start again: every heading on every page, drawn on forced lines or not, shall carry its number with its space as `data-number` (empty for one without, as a later part of a split heading), and each shown caption, linked code and display equation its label or number as `--de-number` (a caption's label with its separator, found by the id of the object it captions, so a later part of a split table shows the first part's; an equation's in document order), which the reference stylesheet's generated content reads. The labels come from the canonical document under the engine's template (`blockNumbers`, `catalogDocument`), so every page draws the numbers a page without containment would.
+
+Implementation: `src/pagination/engine-numbers.ts`, `src/pagination/projection.ts`, `labs/reference/document.css`
+Verification: `src/pagination/engine-numbers.test.ts`, `e2e/text-layout.spec.ts`
+
 ## DOCE-PAGINATION-12 - Widths from the font files
 
 Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.

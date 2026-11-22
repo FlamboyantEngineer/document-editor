@@ -961,6 +961,31 @@ div.de-host-view {
   content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
 }
 
+/* With the layout engine, each page contains its style while off screen, which scopes counters to
+   it: the pages draw the numbers the engine laid them out with (DOCE-PAGINATION-11.9). */
+.de-document-editor[data-text-layout='pretext']
+  .pm-page-content
+  :is(
+    .doc-table-caption-line,
+    .doc-figure-caption-line,
+    .doc-code-caption-line,
+    .doc-linked-code-caption-line
+  )::before {
+  content: var(--de-number, none);
+}
+
+.de-document-editor[data-text-layout='pretext']
+  .pm-page-content
+  :is(h1, h2, h3, h4, h5, h6)::before {
+  content: attr(data-number);
+}
+
+.de-document-editor[data-text-layout='pretext']
+  .pm-page-content
+  .de-math[data-display='display']::after {
+  content: var(--de-number, none);
+}
+
 /* A table caption's label and number in the label style, unset values the text's; its text in
    the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
