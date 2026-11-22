@@ -8,6 +8,11 @@ import type { BlockReport, LayoutRequest, LayoutResult } from './protocol.js';
 
 if (typeof document !== 'undefined') throw new Error('Prediction must run without a DOM');
 
+// The engine rounds font metrics at the page's device pixel ratio, so a new ratio takes a new one.
+let scale: number | undefined;
+let measureContext: (() => OffscreenCanvasRenderingContext2D) | undefined;
+let cache = createPreparationCache();
+
 // The served fonts, given once by the page: added to the worker's own font set for Canvas, or
 // read into HarfBuzz for font-file widths, which then replace Canvas as Pretext's measure.
 async function useFonts({ faces, wasm }: FontSetup) {
@@ -17,10 +22,11 @@ async function useFonts({ faces, wasm }: FontSetup) {
   }
   if (!wasm) throw new Error('Font-file widths require HarfBuzz');
   const measurer = await createFontFileMeasurer({ wasm, faces });
-  setMeasureContext(() => measurer.createContext() as unknown as OffscreenCanvasRenderingContext2D);
+  measureContext = () => measurer.createContext() as unknown as OffscreenCanvasRenderingContext2D;
+  setMeasureContext(measureContext);
+  cache = createPreparationCache({ scale, measureContext });
 }
 
-const cache = createPreparationCache();
 let doc: Node | undefined;
 
 function report({ path, width, height, lines, children }: Block): BlockReport {
@@ -29,7 +35,11 @@ function report({ path, width, height, lines, children }: Block): BlockReport {
 
 function predict(request: LayoutRequest): LayoutResult {
   const start = performance.now();
-  if (request.scale !== undefined) setLayoutScale(request.scale);
+  if (request.scale !== undefined && request.scale !== scale) {
+    scale = request.scale;
+    setLayoutScale(scale);
+    cache = createPreparationCache({ scale, measureContext });
+  }
   if (request.file) doc = readFixture(request.file);
   if (!doc) throw new Error('Prediction requires a document first');
   const { blocks, issues } = measureDocument(doc, request.width, cache);

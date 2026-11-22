@@ -16,7 +16,7 @@ import { findTemplateSection } from '../model/templates/template-sections.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 
 /** A font as the engine measures it, sizes in CSS pixels. */
-interface FontStyle {
+export interface FontStyle {
   readonly family: string;
   readonly size: number;
   readonly weight: number;
@@ -31,6 +31,8 @@ export interface BlockTypography {
   readonly font: FontStyle;
   /** The height of each line box. */
   readonly leading: number;
+  /** The line height its inline text inherits, as a multiple of each text's own size. */
+  readonly lineHeight: number;
   readonly align: TextAlign;
   readonly marginTop: number;
   readonly marginBottom: number;
@@ -73,7 +75,7 @@ const ALIGNMENTS: readonly TextAlign[] = ['left', 'center', 'right', 'justify'];
 export const snap = (value: number) => Math.round(value / LAYOUT_UNIT) * LAYOUT_UNIT;
 
 /** A line height in layout units: Chromium truncates the size times the line height to the unit. */
-const snapLeading = (value: number) => Math.floor(value / LAYOUT_UNIT + 1e-9) * LAYOUT_UNIT;
+export const snapLeading = (value: number) => Math.floor(value / LAYOUT_UNIT + 1e-9) * LAYOUT_UNIT;
 
 /** A length in CSS pixels; `em` and `%` against a base size, `rem` against the root's. */
 export function resolveLength(value: unknown, base: number): number | null {
@@ -157,9 +159,11 @@ function blockOf(
     italic: false,
   };
   const font = fontOf(text, fallback, { fontStacks: context.fontStacks, base });
+  const lineHeight = text?.lineHeight ?? defaults.lineHeight ?? 1;
   return {
     font,
-    leading: snapLeading(font.size * (text?.lineHeight ?? defaults.lineHeight ?? 1)),
+    leading: snapLeading(font.size * lineHeight),
+    lineHeight,
     align: alignOf(text, 'left'),
     marginTop: spacing(text, 'spaceBefore', font.size),
     marginBottom: spacing(text, 'spaceAfter', font.size),

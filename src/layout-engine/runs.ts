@@ -4,7 +4,7 @@
 
 import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inline';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type BlockTypography, fontString, markedFont } from './typography.js';
+import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
 
 /** An inline atom's box, in CSS pixels. */
 interface InlineAtomSize {
@@ -28,7 +28,7 @@ export interface TextRun {
   readonly items: readonly (RichInlineItem | RichInlineBox)[];
   /** Each item's content offset; text before the content, such as a heading's number, has -1. */
   readonly offsets: readonly number[];
-  /** Each item's atom size; null for text. */
+  /** Each item's box on the line: an atom's size, or text's in another font; null otherwise. */
   readonly atoms: readonly (InlineAtomSize | null)[];
 }
 
@@ -46,6 +46,8 @@ interface RunInput {
   /** The width of a box drawn before the content, such as a paragraph's number. */
   readonly lead?: number | undefined;
   readonly measureAtom?: MeasureAtom | undefined;
+  /** The box a text item in another font takes on its line; null when it cannot grow the line. */
+  readonly boxOf?: ((font: FontStyle) => InlineAtomSize | null) | undefined;
 }
 
 /** The padding inline code takes on each side of each of its lines. */
@@ -60,10 +62,22 @@ interface Builder {
 
 const startRun = (start: number): Builder => ({ items: [], offsets: [], atoms: [], start });
 
-function addText(run: Builder, item: RichInlineItem, offset: number) {
+function addText(
+  run: Builder,
+  { item, offset, box }: { item: RichInlineItem; offset: number; box: InlineAtomSize | null },
+) {
   run.items.push(item);
   run.offsets.push(offset);
-  run.atoms.push(null);
+  run.atoms.push(box);
+}
+
+// The box text in its marks' font takes on the line: its own font's, at the inherited line height.
+// Subscript and superscript are drawn without growing the line.
+function textBox(child: ProseMirrorNode, input: RunInput): InlineAtomSize | null {
+  const shifted = child.marks.some((mark) => /^(sub|super)script$/.test(mark.type.name));
+  if (shifted || !input.boxOf) return null;
+  const font = markedFont(input.typography, child.marks);
+  return fontString(font) === fontString(input.typography.font) ? null : input.boxOf(font);
 }
 
 function finish(run: Builder, end: number, endsWithBreak: boolean): TextRun {
@@ -83,7 +97,8 @@ function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInli
 }
 
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */
-export function buildRuns({ node, typography, prefix, lead, measureAtom }: RunInput): TextRuns {
+export function buildRuns(input: RunInput): TextRuns {
+  const { node, typography, prefix, lead, measureAtom } = input;
   const runs: TextRun[] = [];
   let run = startRun(0);
   if (lead) {
@@ -105,9 +120,10 @@ export function buildRuns({ node, typography, prefix, lead, measureAtom }: RunIn
       runs.push(finish(run, offset + child.nodeSize, true));
       run = startRun(offset + child.nodeSize);
     } else if (child.isText) {
-      addText(run, textItem(child, typography), offset);
+      addText(run, { item: textItem(child, typography), offset, box: textBox(child, input) });
     } else if (child.type.name === 'template_variable') {
-      addText(run, { ...textItem(child, typography), break: 'never' }, offset);
+      const item = { ...textItem(child, typography), break: 'never' as const };
+      addText(run, { item, offset, box: textBox(child, input) });
     } else {
       const size = measureAtom?.(child) ?? null;
       if (!size) failure = `no size for inline ${child.type.name}`;
