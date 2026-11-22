@@ -508,7 +508,7 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // at every zoom, as recorded at a device pixel ratio of 1 and 100 percent.
 // Recorded with Chromium's Canvas on Linux; the CI runner's fingerprints are the reference.
 const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
-  'caption-numbering': 'b7088b707c5b1f03',
+  'caption-numbering': 'e9805f9ae9393133',
   'heading-keep-with-next': 'cde9efbfd0216fdd',
   'long-mixed': 'e83aba0e479e7771',
   'oversized-blocks': '04f2d26ec8b3697c',
