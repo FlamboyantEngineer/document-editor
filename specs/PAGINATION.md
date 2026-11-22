@@ -591,7 +591,7 @@ The text layout engine (`src/layout-engine/`) lays a text block's lines out from
 
 ### DOCE-PAGINATION-9.1 - The line table
 
-`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block or a footnote entry out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1. The engine shall count the text runs it found prepared and those it prepared (`stats()`).
+`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block, a footnote entry or a caption out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1. The engine shall count the text runs it found prepared and those it prepared (`stats()`).
 
 Implementation: `src/layout-engine/line-table.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
@@ -658,6 +658,13 @@ A footnote entry's typography shall be its scope's footnote text style (`resolve
 
 Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/footnote-marker.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/runs.ts`
 Verification: `src/layout-engine/footnote-marker.test.ts`
+
+### DOCE-PAGINATION-9.11 - Captions
+
+A figure, table or code caption's typography shall be its object's caption text font in its scope (`figure`, `table` or `codeBlock` caption settings), unset values the paragraph's, at the paragraph's line height and with no margins of its own (its place in the object is the block layout's); a table caption shall be aligned as its caption settings say, others left. A place's `label`, the caption's label, number and separator, shall be laid out before the text on the first line, in the caption label font, unset values the caption text's (`captionLabelFont`); a label family that is not served refuses the block. The renderer draws a caption's label and text in these fonts and at this line height, not in the page's inherited font.
+
+Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/text-layout.ts`
+Verification: `src/layout-engine/caption-typography.test.ts`
 
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
 

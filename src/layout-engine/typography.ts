@@ -5,6 +5,7 @@
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import type {
+  FontSettings,
   TemplateFile,
   TemplateStyles,
   TextSettings,
@@ -241,6 +242,35 @@ export function blockTypography(
   const context = scopeFonts(styles, fontStacks);
   const name = String(node.attrs.className ?? '');
   const custom = name ? styles.custom?.[name] : undefined;
+  const own = ownTypography(node, { template, scope, styles, context });
+  if (own) return own;
+  if (node.type.name === 'heading') {
+    if (node.attrs.docTitle === true)
+      return blockOf(styles.title, { size: '24px', lineHeight: 1.2, weight: 700 }, context);
+    const level = Number(node.attrs.level) || 1;
+    const heading = headingStyle(styles, level);
+    const defaults = { size: HEADING_SIZES[level - 1], lineHeight: 1.2, weight: 700 };
+    return blockOf(custom ? customHeading(heading, custom) : heading, defaults, context);
+  }
+  return paragraphTypography(styles.paragraph, custom, context);
+}
+
+// The block types whose typography is their own style's alone: a footnote entry, a caption and a
+// code block; null for the others, which take the paragraph's or a heading's.
+function ownTypography(
+  node: ProseMirrorNode,
+  {
+    template,
+    scope,
+    styles,
+    context,
+  }: {
+    template: TemplateFile;
+    scope: string | null | undefined;
+    styles: TemplateStyles;
+    context: ScopeFonts;
+  },
+): BlockTypography | null {
   if (node.type.name === 'footnote_entry') {
     const section = scope ? findTemplateSection(template, scope) : null;
     const { text } = resolveFootnoteSettings(template, section);
@@ -253,15 +283,59 @@ export function blockTypography(
     const font = { ...code.font, family: context.codeFamily };
     return { ...code, font, padding: CODE_BLOCK_PADDING };
   }
-  if (node.type.name === 'heading') {
-    if (node.attrs.docTitle === true)
-      return blockOf(styles.title, { size: '24px', lineHeight: 1.2, weight: 700 }, context);
-    const level = Number(node.attrs.level) || 1;
-    const heading = headingStyle(styles, level);
-    const defaults = { size: HEADING_SIZES[level - 1], lineHeight: 1.2, weight: 700 };
-    return blockOf(custom ? customHeading(heading, custom) : heading, defaults, context);
-  }
-  return paragraphTypography(styles.paragraph, custom, context);
+  const kind = CAPTION_KINDS[node.type.name];
+  return kind ? captionBlock(styles[kind]?.caption, styles, context) : null;
+}
+
+/** The object settings each caption reads its fonts and alignment from. */
+const CAPTION_KINDS: Readonly<Record<string, 'figure' | 'table' | 'codeBlock'>> = {
+  figure_caption: 'figure',
+  table_caption: 'table',
+  code_caption: 'codeBlock',
+};
+
+type CaptionSettingsOf = NonNullable<NonNullable<TemplateStyles['table']>['caption']>;
+
+const fontOnly = (font: FontSettings | null | undefined): TextSettings => ({
+  font: font?.font ?? null,
+  size: font?.size ?? null,
+  weight: font?.weight ?? null,
+  italic: font?.italic ?? null,
+});
+
+// A caption's text: its caption text font, unset values the paragraph's, at the paragraph's line
+// height, aligned as the caption is set, without margins; its place in the object is the block
+// layout's.
+function captionBlock(
+  caption: CaptionSettingsOf | null | undefined,
+  styles: TemplateStyles,
+  context: ScopeFonts,
+): BlockTypography {
+  const lineHeight = styles.paragraph?.lineHeight ?? 1.5;
+  const defaults = { lineHeight, weight: context.paragraph.weight };
+  const block = blockOf({ ...fontOnly(caption?.text), lineHeight }, defaults, context);
+  const align = alignOf({ alignment: caption?.alignment ?? null }, 'left');
+  return { ...block, align, marginTop: 0, marginBottom: 0 };
+}
+
+/**
+ * A caption's label font: the caption label font, unset values the caption text's, as the
+ * stylesheet draws the label and its number before the text; null for a block that is no caption.
+ */
+export function captionLabelFont(
+  node: ProseMirrorNode,
+  text: BlockTypography,
+  {
+    template,
+    fontStacks,
+    scope,
+  }: TypographySource & { readonly scope?: string | null | undefined },
+): FontStyle | null {
+  const kind = CAPTION_KINDS[node.type.name];
+  if (!kind) return null;
+  const styles = scopeStyles(template, scope);
+  const base = scopeFonts(styles, fontStacks).paragraph.size;
+  return fontOf(fontOnly(styles[kind]?.caption?.label), text.font, { fontStacks, base });
 }
 
 /** The font text with these marks takes inside a block. */

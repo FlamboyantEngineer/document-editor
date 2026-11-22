@@ -15,6 +15,7 @@ import { buildRuns, type MeasureAtom } from './runs.js';
 import {
   type BlockTypography,
   blockTypography,
+  captionLabelFont,
   firstFamily,
   fontString,
   type FontStyle,
@@ -53,6 +54,8 @@ export interface TextBlockPlace {
   readonly number?: ParagraphNumber | undefined;
   /** A footnote entry's number, drawn before its content in the template's marker style. */
   readonly footnoteNumber?: string | undefined;
+  /** A caption's label, number and separator, drawn before its text in the caption label font. */
+  readonly label?: string | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
@@ -70,7 +73,15 @@ interface TextLayout {
   readonly stats: () => CacheStats;
 }
 
-const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block', 'footnote_entry']);
+const TEXT_BLOCKS = new Set([
+  'paragraph',
+  'heading',
+  'code_block',
+  'footnote_entry',
+  'figure_caption',
+  'table_caption',
+  'code_caption',
+]);
 
 function hasCode(node: ProseMirrorNode): boolean {
   let found = false;
@@ -111,6 +122,17 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   };
   const typography = (node: ProseMirrorNode, scope?: string | null) =>
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
+  // What a block draws before its content in a font of its own: a footnote entry's number, or a
+  // caption's label.
+  const leadingItem = (node: ProseMirrorNode, style: BlockTypography, place: TextBlockPlace) => {
+    const source = { ...options, scope: place.scope };
+    if (place.footnoteNumber !== undefined)
+      return footnoteMarkerItem(place.footnoteNumber, style, source);
+    const font = place.label ? captionLabelFont(node, style, source) : null;
+    return font && place.label
+      ? { item: { text: place.label, font: fontString(font) }, family: font.family }
+      : null;
+  };
   return {
     typography,
     stats: cache.stats,
@@ -118,10 +140,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       if (!TEXT_BLOCKS.has(node.type.name))
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
-      const marker =
-        place.footnoteNumber === undefined
-          ? null
-          : footnoteMarkerItem(place.footnoteNumber, style, { ...options, scope: place.scope });
+      const marker = leadingItem(node, style, place);
       const unserved = options.isFontServed
         ? unservedFamily(node, style, {
             isFontServed: options.isFontServed,
