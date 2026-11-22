@@ -9,9 +9,15 @@ import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect } from 'react';
 import type { DocumentEditorHandle } from '../../../src/components/index.js';
 import {
+  type PagesLayout,
+  type PrintPageOptions,
+  renderLayoutPrintPage,
+} from '../../../src/document/index.js';
+import {
   type DocumentFile,
   joinDocumentPages,
   type StoredNode,
+  type TemplateFile,
   writeDocumentFile,
 } from '../../../src/model/index.js';
 import {
@@ -44,7 +50,23 @@ export interface RegressionProbe {
   textLines(): PageTextLines[];
   /** With `textLayout=pretext`, the forced blocks the browser drew on other lines (the guard). */
   wrappedLines(): WrappedBlock[];
+  /**
+   * With `textLayout=pretext`, the pages drawn from their layout without the editor
+   * (`renderLayoutPrintPage`), as a standalone page; null without the engine.
+   */
+  layoutPrint(options?: PrintPageOptions): string | null;
+  /** With `textLayout=pretext`, draws every page on the engine's lines, or only those near again. */
+  drawAllLines(all: boolean): void;
+  /**
+   * With `textLayout=pretext`, shows the pages' layout in the read-only viewer (`DocumentViewer`)
+   * under the editor, drawing as many pages beyond the ones in view (all by default); false
+   * without the engine.
+   */
+  showViewer(overscan?: number): boolean;
 }
+
+/** Shows a layout in the lab's viewer. */
+export type ShowViewer = (layout: PagesLayout, overscan: number) => void;
 
 /** What the probe's snapshot takes: the editor's snapshot options. */
 export type SnapshotProbeOptions = Parameters<DocumentEditorHandle['exportSnapshot']>[0];
@@ -160,7 +182,11 @@ function caretAtFragment(view: EditorView, type: string, edge: FragmentEdge): Fr
 }
 
 /** Puts the probe on `window.regressionLab` while the lab shows. */
-export function useRegressionProbe(handle: RefObject<DocumentEditorHandle | null>) {
+export function useRegressionProbe(
+  handle: RefObject<DocumentEditorHandle | null>,
+  template: TemplateFile,
+  showViewer: ShowViewer,
+) {
   useEffect(() => {
     const probe: RegressionProbe = {
       stored: () => {
@@ -180,7 +206,17 @@ export function useRegressionProbe(handle: RefObject<DocumentEditorHandle | null
       snapshot: (options) => handle.current?.exportSnapshot(options) ?? null,
       textLines: () => handle.current?.textLines() ?? [],
       wrappedLines: () => findWrappedLines(document),
+      layoutPrint: (options) => {
+        const layout = handle.current?.pagesLayout();
+        return layout ? renderLayoutPrintPage(layout, template, options) : null;
+      },
+      drawAllLines: (all) => handle.current?.drawAllLines(all),
+      showViewer: (overscan = Infinity) => {
+        const layout = handle.current?.pagesLayout();
+        if (layout) showViewer(layout, overscan);
+        return Boolean(layout);
+      },
     };
     Object.assign(window, { regressionLab: probe });
-  }, [handle]);
+  }, [handle, template, showViewer]);
 }

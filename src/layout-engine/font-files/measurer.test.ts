@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { fingerprintLines } from '../../../test/font-files-lines.js';
 import { harfBuzzWasm, referenceFaces } from '../../../test/font-files-node.js';
 import { fingerprintWidths, measureReference } from '../../../test/font-files-reference.js';
-import { createFontFileMeasurer } from './measurer.js';
+import { createFontFileMeasurer, createHostMeasurer } from './measurer.js';
 
 // The fingerprints the browser test DOCE-LABS-7.1 pins on Linux, Windows and macOS, in a page and
 // a worker; Node gives the same.
@@ -40,7 +40,7 @@ describe('DOCE-PAGINATION-12.2 Canvas words', () => {
     expect(width('zerowidth')).not.toBe(apart);
   });
 
-  it('gives a character no served face has the .notdef advance and reports it', async () => {
+  it('gives a character no served face has the .notdef advance and reports it (DOCE-HOST-1.14.3)', async () => {
     const { createContext, problems } = await measurer();
     const context = createContext();
     context.font = '16px "Lab Geist"';
@@ -67,5 +67,35 @@ describe('DOCE-PAGINATION-12.3 line metrics from the font files', () => {
       ascent,
       descent,
     ]);
+  });
+});
+
+describe('DOCE-HOST-1.14.1 the measurer from what the host serves', () => {
+  const asFile = ({ italic, ...face }: ReturnType<typeof referenceFaces>[number]) => ({
+    ...face,
+    style: italic ? ('italic' as const) : ('normal' as const),
+  });
+
+  it('measures with the host files as with the faces read directly', async () => {
+    const { measurer: host, problems } = await createHostMeasurer(harfBuzzWasm(), {
+      faces: referenceFaces().map(asFile),
+    });
+    expect(problems).toEqual([]);
+    expect(fingerprintWidths(measureReference(host.createContext()))).toBe(WIDTHS_FINGERPRINT);
+  });
+
+  it('measures a family served later from the next measure on', async () => {
+    const [regular, ...others] = referenceFaces();
+    if (!regular) throw new Error('No reference face');
+    const { measurer: host } = await createHostMeasurer(harfBuzzWasm(), {
+      faces: [asFile(regular)],
+    });
+    const context = host.createContext();
+    context.font = '16px "Lab Geist Mono"';
+    const before = context.measureText('code').width;
+    expect([...host.problems.unservedFonts]).toEqual(['16px "Lab Geist Mono"']);
+    const problems = await host.addFiles({ faces: others.map(asFile) });
+    expect(problems).toEqual([]);
+    expect(context.measureText('code').width).not.toBe(before);
   });
 });

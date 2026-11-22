@@ -17,7 +17,10 @@ import { findTemplateSection } from '../../model/templates/template-sections.js'
 
 /** The numbers of one document, by node. */
 interface BlockNumbers {
-  /** A caption's label and the ` - ` after it, as the label line draws it; none when it shows none. */
+  /**
+   * A caption's label and the ` - ` after it, as the label line draws it, or linked code's own;
+   * none when it shows none.
+   */
   labelOf(caption: ProseMirrorNode): string | undefined;
   /** An ordered list item's marker, its space after included; none for any other node. */
   markerOf(item: ProseMirrorNode): string | undefined;
@@ -38,7 +41,7 @@ const LABEL_SEPARATOR = ' - ';
 const CAPTIONED: Readonly<Record<string, ContentsKind>> = {
   figures: { nodes: ['figure'] },
   tables: { nodes: ['table'] },
-  code: { nodes: ['code_block'] },
+  code: { nodes: ['code_block', 'linked_code_block'] },
 };
 
 function captionLabels(doc: ProseMirrorNode, template: TemplateFile) {
@@ -48,7 +51,9 @@ function captionLabels(doc: ProseMirrorNode, template: TemplateFile) {
     const $pos = doc.resolve(entry.pos);
     const object = $pos.nodeAfter;
     if (!object || object.attrs.captionEnabled === false || !entry.number) continue;
-    const caption = captionNodeOf(object, $pos.parent);
+    // Linked code draws its caption from its address: its label goes with the node itself.
+    const caption =
+      object.type.name === 'linked_code_block' ? object : captionNodeOf(object, $pos.parent);
     if (caption) labels.set(caption, entry.number + LABEL_SEPARATOR);
   }
   return labels;

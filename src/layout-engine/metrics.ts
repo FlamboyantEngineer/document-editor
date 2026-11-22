@@ -2,7 +2,7 @@
 // such as a paragraph's number, and the strut a line box grows from when an inline atom is taller
 // than the text, as Chromium's line box does.
 
-import { measureNaturalWidth, prepare } from '@chenglou/pretext';
+import { type MeasureContext, measureNaturalWidth, prepare } from '@chenglou/pretext';
 
 /** The part of a line box above and below its baseline. */
 export interface Strut {
@@ -18,8 +18,24 @@ export function textWidth(text: string, font: string): number {
   return measureNaturalWidth(prepare(text, font, { whiteSpace: 'pre-wrap' }));
 }
 
+type MetricsContext = Pick<MeasureContext, 'font' | 'measureText'>;
+
+// Where font metrics come from: the width source's context once one is set, else a Canvas.
+let metricsContext: () => MetricsContext | null = () => new OffscreenCanvas(1, 1).getContext('2d');
+
+/**
+ * Reads font metrics from the same source as the widths (`setMeasureContext`'s factory), such as
+ * the served font files; without one, from a Canvas.
+ */
+export function setMetricsContext(create?: () => MetricsContext): void {
+  let context: MetricsContext | null = null;
+  metricsContext = create
+    ? () => (context ??= create())
+    : () => new OffscreenCanvas(1, 1).getContext('2d');
+}
+
 function fontMetrics(font: string, size: number): Strut {
-  const context = new OffscreenCanvas(1, 1).getContext('2d');
+  const context = metricsContext();
   if (context) context.font = font;
   const metrics = context?.measureText('x');
   const ascent = metrics?.fontBoundingBoxAscent;

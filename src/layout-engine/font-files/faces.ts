@@ -31,9 +31,16 @@ export interface MatchedFace {
 }
 
 export interface FaceSet {
-  /** The faces a font shorthand draws from, first choice first. */
+  /**
+   * The faces a font shorthand draws from, first choice first; the first served family's when
+   * none of its families is served.
+   */
   facesFor(request: FontRequest): readonly MatchedFace[];
   hasFamily(family: string): boolean;
+  /** Reads more faces, such as a family the document named later, and their generics. */
+  add(faces: readonly ServedFace[], generics?: Readonly<Record<string, string>>): void;
+  /** Counts the additions, so a context knows when its matched faces are stale. */
+  readonly version: number;
 }
 
 interface Entry {
@@ -124,30 +131,50 @@ export function createFaceSet(
   generics: Readonly<Record<string, string>> = {},
 ): FaceSet {
   const families = new Map<string, Entry[]>();
-  for (const { family, weight, italic, bytes, unicodeRange } of faces) {
-    const key = normalize(family);
-    const list = families.get(key) ?? [];
-    list.push({
-      weight,
-      italic,
-      face: harfBuzz.createFace(bytes),
-      covers: parseUnicodeRange(unicodeRange),
-    });
-    families.set(key, list);
-  }
+  const named: Record<string, string> = {};
+  let version = 0;
   const resolve = (family: string) => {
     const key = normalize(family);
-    return generic.has(key) && generics[key] ? normalize(generics[key]) : key;
+    const served = named[key];
+    return generic.has(key) && served ? normalize(served) : key;
   };
-  return {
+  const set: FaceSet = {
     facesFor(request) {
       const matched: MatchedFace[] = [];
       for (const family of request.families) {
         for (const { face, covers } of nearest(families.get(resolve(family)) ?? [], request))
           matched.push({ family: resolve(family), face, covers });
       }
-      return matched;
+      // A font none of whose families is served yet draws from the first family served.
+      const [first] = families.entries();
+      if (matched.length || !first) return matched;
+      return nearest(first[1], request).map(({ face, covers }) => ({
+        family: first[0],
+        face,
+        covers,
+      }));
     },
     hasFamily: (family) => families.has(resolve(family)),
+    add(more, moreGenerics = {}) {
+      for (const [keyword, family] of Object.entries(moreGenerics))
+        named[normalize(keyword)] = family;
+      for (const { family, weight, italic, bytes, unicodeRange } of more) {
+        const key = normalize(family);
+        const list = families.get(key) ?? [];
+        list.push({
+          weight,
+          italic,
+          face: harfBuzz.createFace(bytes),
+          covers: parseUnicodeRange(unicodeRange),
+        });
+        families.set(key, list);
+      }
+      version += 1;
+    },
+    get version() {
+      return version;
+    },
   };
+  set.add(faces, generics);
+  return set;
 }

@@ -54,11 +54,13 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     canonicalView: projection.canonicalView,
     layout: projection.layout,
     redraw: projection.redraw,
+    drawAllLines: projection.drawAllLines,
     refresh: projection.refresh,
     layoutState: projection.layoutState,
     whenSettled: projection.whenSettled,
     stats: projection.stats,
     textLines: projection.textLines,
+    pagesLayout: projection.pagesLayout,
     destroy() {
       detach();
       shown.destroy();

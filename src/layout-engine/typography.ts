@@ -50,7 +50,11 @@ interface TypographySource {
   readonly fontStacks?: FontStacks | undefined;
 }
 
-type Defaults = Pick<TextSettings, 'lineHeight' | 'size'> & { readonly weight: number };
+type Defaults = Pick<TextSettings, 'lineHeight' | 'size'> & {
+  readonly weight: number;
+  /** The size the style's relative size resolves against; the paragraph's when not given. */
+  readonly base?: number;
+};
 
 /** The size relative lengths resolve against when the paragraph style sets none. */
 const DEFAULT_PARAGRAPH_SIZE = 12;
@@ -145,10 +149,10 @@ function blockOf(
   defaults: Defaults,
   context: ScopeFonts,
 ): BlockTypography {
-  const base = context.paragraph.size;
+  const base = defaults.base ?? context.paragraph.size;
   const fallback: FontStyle = {
     ...context.paragraph,
-    size: resolveLength(defaults.size, base) ?? base,
+    size: resolveLength(defaults.size, context.paragraph.size) ?? context.paragraph.size,
     weight: defaults.weight,
     italic: false,
   };
@@ -164,6 +168,21 @@ function blockOf(
     codeFamily: context.codeFamily,
     codeSize: context.codeSize,
   };
+}
+
+// A paragraph's typography, a custom style over it setting what it sets, its weight and slant
+// else normal. The paragraph's own size is relative to the default, as the scope's paragraph font
+// is, not to itself; a custom style's size is relative to the paragraph's, as the page content's is.
+function paragraphTypography(
+  paragraph: TextSettings | null | undefined,
+  custom: TextSettings | undefined,
+  context: ScopeFonts,
+): BlockTypography {
+  const text = custom
+    ? over(paragraph, { ...custom, weight: custom.weight ?? 400, italic: custom.italic ?? false })
+    : paragraph;
+  const base = custom?.size ? context.paragraph.size : DEFAULT_PARAGRAPH_SIZE;
+  return blockOf(text, { lineHeight: 1.5, weight: 400, base }, context);
 }
 
 /** The styles of a template scope: a section's over the template's, or the template's. */
@@ -238,14 +257,7 @@ export function blockTypography(
     const defaults = { size: HEADING_SIZES[level - 1], lineHeight: 1.2, weight: 700 };
     return blockOf(custom ? customHeading(heading, custom) : heading, defaults, context);
   }
-  const paragraph = custom
-    ? over(styles.paragraph, {
-        ...custom,
-        weight: custom.weight ?? 400,
-        italic: custom.italic ?? false,
-      })
-    : styles.paragraph;
-  return blockOf(paragraph, { lineHeight: 1.5, weight: 400 }, context);
+  return paragraphTypography(styles.paragraph, custom, context);
 }
 
 /** The font text with these marks takes inside a block. */

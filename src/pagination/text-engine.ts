@@ -11,6 +11,7 @@ import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
+import { setMetricsContext } from '../layout-engine/metrics.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { createTextLayout } from '../layout-engine/text-layout.js';
 import {
@@ -105,11 +106,13 @@ function unhintedContext(): MeasureContext {
   return context;
 }
 
-// Measures with the host's width source, or unhinted, and fits lines in the device pixels of the
-// window the pages show in, as Chromium fits them.
+// Measures with the host's width source, or unhinted, and fits lines at a scale of 1 whatever the
+// screen or zoom, so every device computes the same lines; the pages are drawn on them.
 function measureIn(options: TextEngineOptions) {
-  setMeasureContext(options.measureContext ?? unhintedContext);
-  setLayoutScale(options.measureIn.ownerDocument.defaultView?.devicePixelRatio || 1);
+  const context = options.measureContext ?? unhintedContext;
+  setMeasureContext(context);
+  setMetricsContext(context);
+  setLayoutScale(1);
 }
 
 /** Creates the pages' text layout engine for a template. */

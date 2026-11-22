@@ -4,6 +4,7 @@
 // (DOCE-PAGINATION-10.2, 10.4).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { deriveLinkedCodeBlockCaption } from '../../model/schema/caption-text.js';
 import { parseObjectLayout } from '../../model/schema/object-layout.js';
 import { type BlockContext, type Laid, laid, notLaid } from './context.js';
 import { layTextBlock } from './text-blocks.js';
@@ -98,6 +99,36 @@ export function layCodeFigure(context: BlockContext, figure: ProseMirrorNode): L
     node: figure,
     height: above + body.block.height,
   });
+}
+
+// A node of a type with the text given, or none when the text is empty.
+const withText = (node: ProseMirrorNode, text: string) =>
+  text ? [node.type.schema.text(text)] : [];
+
+/**
+ * Linked code: the host's code under the caption its address names, in the box a captioned code
+ * block draws (`pre` with its caption line), so it is laid out as that code figure would be. Its
+ * lines count from the start of its code, as its split reads them.
+ */
+export function layLinkedCode(context: BlockContext, node: ProseMirrorNode): Laid {
+  const { schema } = node.type;
+  const { code_figure: figureType, code_caption: captionType, code_block: codeType } = schema.nodes;
+  if (!figureType || !captionType || !codeType)
+    return notLaid(node, 'no code figure in the schema');
+  const caption = captionType.create(
+    null,
+    withText(node, deriveLinkedCodeBlockCaption(node.attrs.url)),
+  );
+  const code = codeType.create(
+    { language: node.attrs.language },
+    withText(node, String(node.attrs.code ?? '')),
+  );
+  const label = context.options.labelOf?.(node);
+  const labelOf = (line: ProseMirrorNode) =>
+    line === caption ? label : context.options.labelOf?.(line);
+  const options = { ...context.options, labelOf };
+  const result = layCodeFigure({ ...context, options }, figureType.create(null, [caption, code]));
+  return result.ok ? laid({ ...result.block, node }) : notLaid(node, result.reason);
 }
 
 /** A display equation, measured as an atom, with the stylesheet's margins. */

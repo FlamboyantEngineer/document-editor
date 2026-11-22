@@ -6,13 +6,15 @@
 // The regression scenarios (`e2e/regression.spec.ts`) read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
   type DocumentEditorHandle,
   type DocumentLayout,
+  DocumentViewer,
 } from '../../../src/components/index.js';
+import type { PagesLayout } from '../../../src/document/index.js';
 import {
   assignElementIds,
   createContents,
@@ -32,7 +34,8 @@ import {
   regressionDocument,
   type RegressionDocumentName,
 } from './regression-documents.js';
-import { useRegressionProbe } from './regression-probe.js';
+import { type ShowViewer, useRegressionProbe } from './regression-probe.js';
+import { RELATIVE_SIZES, withRelativeSizes } from './relative-sizes.js';
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
@@ -60,6 +63,13 @@ const COMPARE = new URLSearchParams(window.location.search).has('compare')
 const TEXT_LAYOUT =
   new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
 
+// How the pages are painted: as HTML, or each into a canvas (`rendering=html-canvas`,
+// DOCE-EDITOR-1.9) where the browser has the HTML-in-Canvas API.
+const RENDERING =
+  new URLSearchParams(window.location.search).get('rendering') === 'html-canvas'
+    ? 'html-canvas'
+    : 'dom';
+
 // The document's zoom in percent (`zoom`), 100 when the query names none.
 const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 100) || 100;
 
@@ -67,7 +77,9 @@ const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 1
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
 
 function opened(name: RegressionDocumentName): { state: EditorState; template: TemplateFile } {
-  const { file, template } = regressionDocument(name);
+  const document = regressionDocument(name);
+  const { file } = document;
+  const template = RELATIVE_SIZES ? withRelativeSizes(document.template) : document.template;
   const schema = createDocumentSchema();
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
@@ -89,13 +101,19 @@ function RegressionLab() {
   const [state, setState] = useState(first.state);
   const handle = useRef<DocumentEditorHandle>(null);
   useStressProbe(handle, null);
-  useRegressionProbe(handle);
+  const [viewer, setViewer] = useState<{ layout: PagesLayout; overscan: number } | null>(null);
+  const showViewer = useCallback<ShowViewer>(
+    (layout, overscan) => setViewer({ layout, overscan }),
+    [],
+  );
+  useRegressionProbe(handle, template, showViewer);
   const pick = (next: string) => {
     if (!isName(next)) return;
     setName(next);
     const picked = opened(next);
     setTemplate(picked.template);
     setState(picked.state);
+    setViewer(null);
     const url = new URL(window.location.href);
     url.searchParams.set('document', next);
     window.history.replaceState(null, '', url);
@@ -118,6 +136,17 @@ function RegressionLab() {
             ))}
           </select>
         </label>
+        {TEXT_LAYOUT === 'pretext' ? (
+          <button
+            type="button"
+            onClick={() => {
+              const layout = handle.current?.pagesLayout();
+              if (layout) showViewer(layout, 1);
+            }}
+          >
+            Show in the viewer
+          </button>
+        ) : null}
       </fieldset>
       <DocumentEditor
         key={name}
@@ -127,6 +156,7 @@ function RegressionLab() {
         layout={LAYOUT}
         zoom={ZOOM}
         textLayout={TEXT_LAYOUT}
+        rendering={RENDERING}
         compare={COMPARE}
         nodeViews={HOST ? HOST_VIEWS : undefined}
         codeSource={REGRESSION_CODE}
@@ -136,6 +166,16 @@ function RegressionLab() {
         aria-label="Regression document"
         handleRef={handle}
       />
+      {viewer ? (
+        <section className="lab-document-viewer" aria-label="Viewer">
+          <DocumentViewer
+            layout={viewer.layout}
+            template={template}
+            overscan={viewer.overscan}
+            label="Viewed document"
+          />
+        </section>
+      ) : null}
     </>
   );
 }

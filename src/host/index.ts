@@ -89,6 +89,7 @@ export type {
   ExportsAdapter,
   ExportSnapshotOptions,
 } from './export-adapters.js';
+export type { FontFaceFile, FontFiles, FontShaper } from './font-files.js';
 export type {
   LinkedSpreadsheetCapture,
   LinkedSpreadsheetCell,

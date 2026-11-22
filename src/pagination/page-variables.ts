@@ -68,7 +68,8 @@ function widget(pos: number, text: string, key: string) {
       span.textContent = text;
       return span;
     },
-    { key: `${key}=${text}`, ignoreSelection: true },
+    // The text, for a layout handed to a viewer or a print (`pagesLayout`).
+    { key: `${key}=${text}`, ignoreSelection: true, text },
   );
 }
 

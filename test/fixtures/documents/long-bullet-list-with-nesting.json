@@ -20,6 +20,18 @@
           ]
         },
         {
+          "type": "paragraph",
+          "attrs": {
+            "id": "7a1e4c20"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Each shelf lists what it holds, and every fifth shelf lists the boxes stored behind it. The shelves run from the door to the window, and each box is labelled on the side that faces the aisle. Shelves are counted from the door."
+            }
+          ]
+        },
+        {
           "type": "bulletList",
           "attrs": {
             "id": "e2dd8e1a"

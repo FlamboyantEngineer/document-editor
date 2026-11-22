@@ -247,6 +247,26 @@ export function numberingCountersAt(
   return { headings: counting.headings, objects: counting.objects };
 }
 
+// The stylesheet's counters, for each numbered object kind.
+const OBJECT_COUNTERS = {
+  figure: 'figure',
+  table: 'table',
+  codeBlock: 'codeblock',
+  equation: 'equation',
+} as const;
+
+/**
+ * The counters as a `counter-reset` or `counter-set` value naming each heading level's and
+ * numbered object kind's counter, so what is drawn on its own numbers on from them.
+ */
+export function numberingCounterValues({ headings, objects }: NumberingCounters): string {
+  const levels = headings.map((count, index) => `h${String(index + 1)} ${String(count)}`);
+  const kinds = Object.entries(OBJECT_COUNTERS).map(
+    ([kind, counter]) => `${counter} ${String(objects[kind as keyof typeof OBJECT_COUNTERS])}`,
+  );
+  return [...levels, ...kinds, 'ordered-list 0'].join(' ');
+}
+
 // Counts the document's sections, each by its own scope, restarting where the section does, up to
 // where counting ends.
 function countSections(template: TemplateFile, counting: Counting) {

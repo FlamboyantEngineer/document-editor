@@ -179,11 +179,38 @@ div.de-host-view {
   /* Pages are paper in every theme: dark text on white, whatever the page around them. */
   background: var(--doc-page-background, #fff);
   color: #111827;
+}
+
+/* A page painted into a canvas (DOCE-EDITOR-1.9) draws only its box, so the canvas casts its shadow. */
+.de-document-editor .pm-page,
+.de-document-editor__canvas {
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
+/* The canvas is the page's CSS size; its bitmap is the device pixels of that box. */
+.de-document-editor__canvas-page {
+  flex: none;
+}
+
+.de-document-editor__canvas {
+  display: block;
+  width: var(--de-canvas-width, var(--doc-page-width));
+  height: var(--de-canvas-height, var(--doc-page-height));
+}
+
+/*
+ * The page content takes the paragraph style's font, size and line height, so other styles' `em`
+ * and `%` sizes, and the captions' unset fonts, resolve against the paragraph's, as the text
+ * layout engine resolves them (DOCE-TEMPLATES-5.2), not against the interface font around it.
+ */
 .de-document-editor .pm-page-content {
   flex: 1;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content {
+  font-family: var(--doc-paragraph-font-family, serif);
+  font-size: var(--doc-paragraph-font-size, 12px);
+  line-height: var(--doc-paragraph-line-height, 1.5);
 }
 
 /*
@@ -193,6 +220,22 @@ div.de-host-view {
  */
 .de-document-editor__content .pm-page {
   contain: layout paint;
+}
+
+/*
+ * A viewer's page, drawn on its own once it nears the viewport, numbers its headings and objects on
+ * from the pages before it, which it cannot count (DOCE-PAGINATION-13.6).
+ */
+.de-document-viewer .pm-page[data-drawn] {
+  counter-set: var(--de-page-counters);
+}
+
+/*
+ * A viewer draws only the pages near the viewport itself. Its pages skip no layout, which would
+ * contain their style and start every counter again on each page.
+ */
+.de-document-viewer > .de-document-editor__content .pm-page {
+  content-visibility: visible;
 }
 
 .de-document-editor__measure {
@@ -452,6 +495,26 @@ div.de-host-view {
 /* The layout engine measures text unhinted, so the pages draw it so (DOCE-PAGINATION-11.1). */
 :where(.de-document-editor[data-text-layout='pretext']) :is(.pm-page, .de-atom-measure) {
   text-rendering: geometricPrecision;
+}
+
+/* An offered completion takes no room on a forced line: its text overflows from the caret, so the
+   line keeps the engine's breaks (DOCE-PAGINATION-11.8). */
+:where(.de-document-editor[data-text-layout='pretext']) .de-forced-lines .de-inline-completion {
+  display: inline-block;
+  width: 0;
+  white-space: pre;
+}
+
+/* Inline code on a forced line keeps its padding on each line piece, as the engine lays it out
+   (DOCE-PAGINATION-11.2), so a continuation line's text starts where the engine put it. */
+:where(.de-document-editor) .de-forced-lines :not(pre) > code {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Pages far from the screen skip their layout: their size is the page's own (DOCE-PAGINATION-11.6). */
+:where(.de-document-editor[data-text-layout='pretext']) .de-document-editor__content .pm-page {
+  content-visibility: auto;
 }
 
 :where(.de-document-editor[data-text-layout='pretext']) .pm-page-content :is(ol, ul) {
@@ -870,7 +933,24 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
   order: var(--doc-code-caption-order, -1);
-  font-family: var(--doc-paragraph-font-family, inherit);
+}
+
+/*
+ * A caption's unset font is the paragraph's, at the paragraph's line height and upright, wherever
+ * the caption sits, such as inside code drawn in the code font.
+ */
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(
+    .doc-table-caption-line,
+    .doc-figure-caption-line,
+    .doc-code-caption-line,
+    .doc-linked-code-caption-line
+  ) {
+  font-family: var(--doc-paragraph-font-family, serif);
+  font-size: var(--doc-paragraph-font-size, 12px);
+  font-weight: var(--doc-paragraph-font-weight, normal);
+  font-style: normal;
+  line-height: var(--doc-paragraph-line-height, 1.5);
 }
 
 /* A rule parts a code caption from its code: under the caption above it, over one below it. */
@@ -913,8 +993,8 @@ div.de-host-view {
   content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
 }
 
-/* A table caption's label and number in the label style, its text in the text style, each
-   falling back to the other and then to the paragraph's. */
+/* A table caption's label and number in the label style, unset values the text's; its text in
+   the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
   font-family: var(
     --doc-table-caption-label-font-family,
@@ -937,26 +1017,14 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   .doc-table-caption-line
   > .doc-caption-text {
-  font-family: var(
-    --doc-table-caption-text-font-family,
-    var(--doc-table-caption-label-font-family, inherit)
-  );
-  font-size: var(
-    --doc-table-caption-text-font-size,
-    var(--doc-table-caption-label-font-size, inherit)
-  );
-  font-weight: var(
-    --doc-table-caption-text-font-weight,
-    var(--doc-table-caption-label-font-weight, inherit)
-  );
-  font-style: var(
-    --doc-table-caption-text-font-style,
-    var(--doc-table-caption-label-font-style, inherit)
-  );
+  font-family: var(--doc-table-caption-text-font-family, inherit);
+  font-size: var(--doc-table-caption-text-font-size, inherit);
+  font-weight: var(--doc-table-caption-text-font-weight, inherit);
+  font-style: var(--doc-table-caption-text-font-style, inherit);
 }
 
-/* A figure caption's label and number in the label style, its text in the text style, each
-   falling back to the other and then to the paragraph's. */
+/* A figure caption's label and number in the label style, unset values the text's; its text in
+   the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before {
   font-family: var(
     --doc-figure-caption-label-font-family,
@@ -979,26 +1047,14 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   .doc-figure-caption-line
   > .doc-caption-text {
-  font-family: var(
-    --doc-figure-caption-text-font-family,
-    var(--doc-figure-caption-label-font-family, inherit)
-  );
-  font-size: var(
-    --doc-figure-caption-text-font-size,
-    var(--doc-figure-caption-label-font-size, inherit)
-  );
-  font-weight: var(
-    --doc-figure-caption-text-font-weight,
-    var(--doc-figure-caption-label-font-weight, inherit)
-  );
-  font-style: var(
-    --doc-figure-caption-text-font-style,
-    var(--doc-figure-caption-label-font-style, inherit)
-  );
+  font-family: var(--doc-figure-caption-text-font-family, inherit);
+  font-size: var(--doc-figure-caption-text-font-size, inherit);
+  font-weight: var(--doc-figure-caption-text-font-weight, inherit);
+  font-style: var(--doc-figure-caption-text-font-style, inherit);
 }
 
-/* A code caption's label and number in the label style, its text in the text style, each
-   falling back to the other and then to the paragraph's. */
+/* A code caption's label and number in the label style, unset values the text's; its text in
+   the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
   font-family: var(
@@ -1022,22 +1078,10 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line)
   > .doc-caption-text {
-  font-family: var(
-    --doc-code-caption-text-font-family,
-    var(--doc-code-caption-label-font-family, inherit)
-  );
-  font-size: var(
-    --doc-code-caption-text-font-size,
-    var(--doc-code-caption-label-font-size, inherit)
-  );
-  font-weight: var(
-    --doc-code-caption-text-font-weight,
-    var(--doc-code-caption-label-font-weight, inherit)
-  );
-  font-style: var(
-    --doc-code-caption-text-font-style,
-    var(--doc-code-caption-label-font-style, inherit)
-  );
+  font-family: var(--doc-code-caption-text-font-family, inherit);
+  font-size: var(--doc-code-caption-text-font-size, inherit);
+  font-weight: var(--doc-code-caption-text-font-weight, inherit);
+  font-style: var(--doc-code-caption-text-font-style, inherit);
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
@@ -1822,8 +1866,15 @@ a.de-contents__entry {
   outline-color: #b91c1c;
 }
 
+/* An empty block keeps a line and a half of the document's text size, as the layout engine lays it out. */
 .script-block[data-script-state='empty'] {
-  min-height: 1.5em;
+  min-height: calc(1.5 * var(--doc-paragraph-font-size, 12px));
+}
+
+/* Its message sits over that box and never grows it. */
+.script-block[data-script-state='empty'] > .de-script-message {
+  position: absolute;
+  inset: 0 0 auto;
 }
 
 /* What a failed block's runner said, or that its script produced nothing; never printed. */

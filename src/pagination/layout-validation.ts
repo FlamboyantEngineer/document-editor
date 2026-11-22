@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { keepCaretInPlace } from './caret.js';
+import { forcedLinesKey } from './forced-lines.js';
 import { isPaginationTransaction, pageMetrics } from './layout-marks.js';
 import type { MeasureCache } from './measure-cache.js';
 import { pageElements } from './page-geometry.js';
@@ -53,16 +54,29 @@ function reach(page: HTMLElement): { readonly by: number; readonly blocks: numbe
  */
 export function findPageOverflow(
   view: EditorView,
-  { scale = 1 }: { scale?: number | undefined } = {},
+  { scale = 1, pages }: { scale?: number | undefined; pages?: PageFilter | undefined } = {},
 ): PageOverflow[] {
   const ratio = scale > 0 ? scale : 1;
   const found: PageOverflow[] = [];
   pageElements(view).forEach((page, index) => {
-    if (!page) return;
+    if (!page || (pages && !pages(index))) return;
     const { by, blocks } = reach(page);
     if (blocks > 1 && by / ratio > 1) found.push({ index, by: by / ratio });
   });
   return found;
+}
+
+/** Which pages to read, by index; every page without one. */
+type PageFilter = (index: number) => boolean;
+
+// The pages drawn on the layout engine's lines when only those near the screen are
+// (DOCE-PAGINATION-11.6): a page farther away keeps the browser's lines, which are not the ones it
+// was laid out with, and reading it would lay it out.
+function drawnOnly(view: EditorView): PageFilter | undefined {
+  const forced = forcedLinesKey.getState(view.state);
+  const drawn = forced?.drawn;
+  if (!forced || !drawn) return undefined;
+  return (index) => drawn.has(index) || index === forced.caret;
 }
 
 /** What a projection does once its view draws a layout. */
@@ -88,7 +102,7 @@ export function checkDraws(options: {
   return {
     drawn(view, caret) {
       keepCaretInPlace(view, caret);
-      const overflow = findPageOverflow(view, { scale: options.scale?.() });
+      const overflow = findPageOverflow(view, { scale: options.scale?.(), pages: drawnOnly(view) });
       options.count(overflow.length);
       if (!overflow.length || corrected) return;
       corrected = true;
