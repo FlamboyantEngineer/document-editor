@@ -10,8 +10,9 @@ import {
   walkRichInlineLineRanges,
 } from '@chenglou/pretext/rich-inline';
 import type { Node } from 'prosemirror-model';
-import { inlineCodeFamily } from '../pretext/prediction.js';
 import { font, headings, paragraph, type Typography } from '../pretext/settings.js';
+
+const inlineCodeFamily = '"Courier New", monospace';
 
 /** One computed line: its start as an offset into the block's content, and what it holds. */
 export interface ForcedLine {
