@@ -10,9 +10,6 @@ export interface Strut {
   readonly descent: number;
 }
 
-/** Layout units per CSS pixel. */
-const LAYOUT_UNITS = 64;
-
 /** The share of a font's size above the baseline when Canvas gives no font metrics. */
 const FALLBACK_ASCENT = 0.8;
 
@@ -45,7 +42,8 @@ function canvasContext() {
 
 /**
  * Measures struts: a font's ascent and descent, rounded to whole device pixels as Chromium rounds
- * them, with half the rest of the leading above, truncated to the layout unit, and the rest below.
+ * them, with half the rest of the leading above, truncated to whole device pixels as Chromium places the
+ * baseline, and the rest below.
  */
 export function createStruts({ context = canvasContext, scale = 1 }: StrutSource = {}): StrutOf {
   const perPixel = new Map<string, Strut | null>();
@@ -66,8 +64,7 @@ export function createStruts({ context = canvasContext, scale = 1 }: StrutSource
   };
   return (font, size, leading) => {
     const { ascent, descent } = fontMetrics(unitsOf(font), size, scale);
-    const units = LAYOUT_UNITS * scale;
-    const half = Math.floor(((leading - ascent - descent) / 2) * units) / units;
+    const half = Math.floor(((leading - ascent - descent) / 2) * scale) / scale;
     return { ascent: ascent + half, descent: leading - ascent - half };
   };
 }
