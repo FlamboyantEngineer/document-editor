@@ -7,9 +7,11 @@ import type { EditorState } from 'prosemirror-state';
 import type {
   PagesLayout,
   PagesLayoutBlock,
+  PagesLayoutNumber,
   PagesLayoutVariable,
 } from '../document/pages-layout.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
+import { engineNumbersKey } from './engine-numbers.js';
 import { FORCED_TYPES, forcedLinesKey, isContinued, sectionScope } from './forced-lines.js';
 import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -57,6 +59,18 @@ function drawnVariables(state: EditorState): PagesLayoutVariable[] {
   });
 }
 
+// Each number the pages draw from the engine, as its decorations say it.
+function drawnNumbers(state: EditorState): PagesLayoutNumber[] {
+  const set = engineNumbersKey.getState(state);
+  if (!set) return [];
+  return set.find().flatMap((decoration) => {
+    const { number, heading } = decoration.spec as { number?: unknown; heading?: unknown };
+    return typeof number === 'string'
+      ? [{ pos: decoration.from, number, heading: heading === true }]
+      : [];
+  });
+}
+
 /**
  * The layout of a pages' state drawn on the text layout engine's lines, as data a viewer or a print
  * draws without measuring; null when the pages are not laid out with the engine.
@@ -73,5 +87,6 @@ export function pagesLayout(
     footnoteNumbering: options.footnoteNumbering ?? 'document',
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
+    numbers: drawnNumbers(state),
   };
 }

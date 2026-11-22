@@ -3,6 +3,7 @@
 // the engine is made again for each template the pages are laid out with, and when code's line
 // numbers are turned on or off.
 
+import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
 import type { createPagesTextEngine } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -13,6 +14,8 @@ export interface TextLayoutSetting {
   readonly template: () => TemplateFile;
   /** Whether code blocks are drawn with a gutter of line numbers now; none when not given. */
   readonly codeLineNumbers?: (() => boolean) | undefined;
+  /** The node types the host draws with node views of its own. */
+  readonly hostViews?: readonly string[] | undefined;
 }
 
 /** A projection's text layout engine, once loaded. */
@@ -35,6 +38,8 @@ export function holdTextEngine(options: {
   readonly setting: TextLayoutSetting;
   readonly measureIn: HTMLElement;
   readonly changed: () => void;
+  /** The view that measures the pages, which atoms are measured as drawn in. */
+  readonly view?: (() => EditorView | null) | undefined;
 }): TextEngineHolder {
   let made: EngineModule | null = null;
   let current: PagesTextEngine | null = null;
@@ -62,6 +67,8 @@ export function holdTextEngine(options: {
         codeLineNumbers,
         measureIn: options.measureIn,
         onAtomsSettled: settled,
+        view: options.view,
+        hostViews: options.setting.hostViews,
       });
       return current;
     },

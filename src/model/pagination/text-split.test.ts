@@ -71,6 +71,36 @@ describe('text splits', () => {
     expect(split?.tail[0]?.node.attrs.splitPartIndex).toBe(1);
   });
 
+  it('DOCE-PAGINATION-3.6 moves a hard break ending the first fragment to the second', () => {
+    const schema = documentSchema;
+    const br = () => schema.node('hard_break');
+    // Each text and break is a line of its own: a, b, c and d.
+    const node = schema.node('paragraph', { dataId: 'p1' }, [
+      schema.text('aaaaaaaa'),
+      br(),
+      schema.text('bbbbbbbb'),
+      br(),
+      schema.text('cccccccc'),
+      br(),
+      schema.text('dddddddd'),
+    ]);
+    const lines = [0, 9, 18, 27].map((from) => ({ from, height: LINE }));
+    const block: LayoutBlock = {
+      node,
+      height: 4 * LINE,
+      marginTop: 0,
+      marginBottom: 0,
+      measurement: { ...lineMeasurement(''), lines: { lines } },
+    };
+    const split = splitParagraph(block, 25);
+    const head = split?.head.node;
+    const tail = split?.tail[0]?.node;
+    expect(head?.lastChild?.type.name).toBe('text');
+    expect(tail?.firstChild?.type.name).toBe('hard_break');
+    expect(head && tail && head.content.append(tail.content).eq(node.content)).toBe(true);
+    expect(split?.tail[0]?.measurement).toMatchObject({ offset: 17 });
+  });
+
   it('DOCE-PAGINATION-3.2 keeps at least two lines in each paragraph fragment', () => {
     const plan = (fitting: number, minimumTrailingLines?: number) =>
       planParagraphSplit({

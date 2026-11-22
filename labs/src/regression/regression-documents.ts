@@ -19,16 +19,19 @@ import footnoteHeavy from '../../../test/fixtures/documents/footnote-heavy.json'
 import footnotesInStructures from '../../../test/fixtures/documents/footnotes-in-structures.json' with { type: 'json' };
 import headingKeepWithNext from '../../../test/fixtures/documents/heading-keep-with-next.json' with { type: 'json' };
 import inlineGeometry from '../../../test/fixtures/documents/inline-geometry.json' with { type: 'json' };
+import inlineImages from '../../../test/fixtures/documents/inline-images.json' with { type: 'json' };
 import linkedCode from '../../../test/fixtures/documents/linked-code.json' with { type: 'json' };
 import listSplitStress from '../../../test/fixtures/documents/list-split-stress.json' with { type: 'json' };
 import longBulletList from '../../../test/fixtures/documents/long-bullet-list-with-nesting.json' with { type: 'json' };
 import longMixed from '../../../test/fixtures/documents/long-mixed.json' with { type: 'json' };
 import longOrderedList from '../../../test/fixtures/documents/long-ordered-list.json' with { type: 'json' };
+import math from '../../../test/fixtures/documents/math.json' with { type: 'json' };
 import mixedGeometry from '../../../test/fixtures/documents/mixed-geometry.json' with { type: 'json' };
 import mixedGeometryRepeated from '../../../test/fixtures/documents/mixed-geometry-repeated-sections.json' with { type: 'json' };
 import nestedLists from '../../../test/fixtures/documents/nested-lists.json' with { type: 'json' };
 import oversizedBlocks from '../../../test/fixtures/documents/oversized-blocks.json' with { type: 'json' };
 import pageBreaksAndRules from '../../../test/fixtures/documents/page-breaks-and-rules.json' with { type: 'json' };
+import peopleAndAbbreviations from '../../../test/fixtures/documents/people-and-abbreviations.json' with { type: 'json' };
 import romanAndAlpha from '../../../test/fixtures/documents/roman-and-alpha-numbering.json' with { type: 'json' };
 import romanCoverage from '../../../test/fixtures/documents/roman-numbering-coverage.json' with { type: 'json' };
 import romanStress from '../../../test/fixtures/documents/roman-numbering-stress.json' with { type: 'json' };
@@ -60,16 +63,19 @@ export const REGRESSION_DOCUMENTS = {
   'footnotes-in-structures': footnotesInStructures,
   'heading-keep-with-next': headingKeepWithNext,
   'inline-geometry': inlineGeometry,
+  'inline-images': inlineImages,
   'linked-code': linkedCode,
   'long-bullet-list-with-nesting': longBulletList,
   'long-mixed': longMixed,
   'list-split-stress': listSplitStress,
   'long-ordered-list': longOrderedList,
+  math,
   'mixed-geometry': mixedGeometry,
   'mixed-geometry-repeated-sections': mixedGeometryRepeated,
   'nested-lists': nestedLists,
   'oversized-blocks': oversizedBlocks,
   'page-breaks-and-rules': pageBreaksAndRules,
+  'people-and-abbreviations': peopleAndAbbreviations,
   'roman-and-alpha-numbering': romanAndAlpha,
   'roman-numbering-coverage': romanCoverage,
   'roman-numbering-stress': romanStress,

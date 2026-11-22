@@ -292,6 +292,18 @@ function splitBlock(
   };
 }
 
+// A split after a hard break moves the break to the second fragment's start, where the stylesheet
+// hides it: at the first fragment's end it would start a line no fragment holds
+// (DOCE-PAGINATION-3.6).
+function breakToTail(node: ProseMirrorNode, plan: TextSplitPlan): TextSplitPlan {
+  if (plan.end !== plan.next) return plan;
+  const before = node.childBefore(plan.end);
+  const ends =
+    before.node?.type.name === 'hard_break' && before.offset + before.node.nodeSize === plan.end;
+  if (!ends || before.offset === 0) return plan;
+  return { ...plan, end: before.offset, next: before.offset };
+}
+
 /** A paragraph split whose second fragment keeps at least the given rendered lines. */
 export function splitParagraphWith(minimumTrailingLines: number) {
   return (block: LayoutBlock, fitting: number): SplitBlock | null => {
@@ -303,7 +315,8 @@ export function splitParagraphWith(minimumTrailingLines: number) {
       measurement: block.measurement,
       minimumTrailingLines,
     });
-    return plan ? splitBlock(block, plan, splitTextNode(block.node, plan)) : null;
+    const at = plan && breakToTail(block.node, plan);
+    return at ? splitBlock(block, at, splitTextNode(block.node, at)) : null;
   };
 }
 

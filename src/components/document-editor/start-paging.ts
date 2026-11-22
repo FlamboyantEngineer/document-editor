@@ -163,6 +163,7 @@ export function startPaging(
         ? {
             template: () => latest.current.template,
             codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
+            hostViews: Object.keys(latest.current.nodeViews ?? {}),
           }
         : undefined,
   };

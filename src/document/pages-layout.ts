@@ -30,6 +30,17 @@ export interface PagesLayoutVariable {
   readonly text: string;
 }
 
+/**
+ * A number the pages draw from the engine (DOCE-PAGINATION-11.9) on the node at a position: a
+ * heading's, or a caption's label or a display equation's number.
+ */
+export interface PagesLayoutNumber {
+  readonly pos: number;
+  readonly number: string;
+  /** A heading's number, drawn in `data-number`; else drawn in `--de-number`. */
+  readonly heading: boolean;
+}
+
 /** A document's pages as the editor laid them out on the text layout engine's lines. */
 export interface PagesLayout {
   readonly formatVersion: 1;
@@ -39,6 +50,8 @@ export interface PagesLayout {
   readonly footnoteNumbering: 'document' | 'page';
   readonly blocks: readonly PagesLayoutBlock[];
   readonly variables: readonly PagesLayoutVariable[];
+  /** The heading, caption and equation numbers the pages draw, by position. */
+  readonly numbers: readonly PagesLayoutNumber[];
 }
 
 /** The pages' document of a layout, in a schema of the editor's. */
