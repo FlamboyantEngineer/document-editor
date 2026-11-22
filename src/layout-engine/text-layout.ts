@@ -9,15 +9,15 @@ import type { FontStacks } from '../model/templates/template-text-properties.js'
 import { footnoteMarkerItem } from './footnote-marker.js';
 import type { LineTable } from './line-table.js';
 import { type CacheStats, createLineCache, layoutLines } from './lines.js';
-import { strutOf, textWidth } from './metrics.js';
+import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { buildRuns, type MeasureAtom } from './runs.js';
 import {
   type BlockTypography,
   blockTypography,
   firstFamily,
-  type FontStyle,
   fontString,
+  type FontStyle,
   snapLeading,
 } from './typography.js';
 
@@ -32,7 +32,12 @@ export interface TextLayoutOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** Sizes the inline atoms the engine does not lay out as text. */
   readonly measureAtom?: MeasureAtom | undefined;
-  /** The device pixel ratio Chromium lays the document out at, which rounds font metrics. */
+  /** The context font metrics are read from, such as the font files' measurer; a Canvas if not. */
+  readonly measureContext?: MetricsContext | undefined;
+  /**
+   * The device pixel ratio font metrics are rounded at. The canonical layout is at 1, the default;
+   * other ratios are for comparing with Chromium's own layout on a screen.
+   */
   readonly scale?: number | undefined;
 }
 
@@ -89,6 +94,7 @@ function unservedFamily(
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
 export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const cache = createLineCache(options.language);
+  const strutOf = createStruts({ context: options.measureContext, scale: options.scale });
   const boxes = new Map<string, { width: number; height: number; baseline: number }>();
   // Text in another font takes its own font's box at the line height it inherits, as an inline
   // box in Chromium's line does; the line grows to hold the tallest.
@@ -97,7 +103,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     const key = `${fontString(font)} ${String(leading)}`;
     let box = boxes.get(key);
     if (!box) {
-      const strut = strutOf(fontString(font), font.size, leading, options.scale);
+      const strut = strutOf(fontString(font), font.size, leading);
       box = { width: 0, height: strut.ascent + strut.descent, baseline: strut.ascent };
       boxes.set(key, box);
     }
@@ -145,7 +151,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         runs: runs.runs,
         width: Math.max(1, place.width - 2 * style.padding),
         leading: style.leading,
-        strut: strutOf(font, style.font.size, style.leading, options.scale),
+        strut: strutOf(font, style.font.size, style.leading),
         align: style.align,
         padding: style.padding,
         firstStart: numbered?.firstStart ?? 0,

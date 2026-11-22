@@ -4,7 +4,7 @@
 
 import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inline';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type BlockTypography, type FontStyle, fontString, markedFont } from './typography.js';
+import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
 
 /** An inline atom's box, in CSS pixels. */
 interface InlineAtomSize {
@@ -62,7 +62,10 @@ interface Builder {
 
 const startRun = (start: number): Builder => ({ items: [], offsets: [], atoms: [], start });
 
-function addText(run: Builder, item: RichInlineItem, offset: number, box: InlineAtomSize | null) {
+function addText(
+  run: Builder,
+  { item, offset, box }: { item: RichInlineItem; offset: number; box: InlineAtomSize | null },
+) {
   run.items.push(item);
   run.offsets.push(offset);
   run.atoms.push(box);
@@ -117,10 +120,10 @@ export function buildRuns(input: RunInput): TextRuns {
       runs.push(finish(run, offset + child.nodeSize, true));
       run = startRun(offset + child.nodeSize);
     } else if (child.isText) {
-      addText(run, textItem(child, typography), offset, textBox(child, input));
+      addText(run, { item: textItem(child, typography), offset, box: textBox(child, input) });
     } else if (child.type.name === 'template_variable') {
       const item = { ...textItem(child, typography), break: 'never' as const };
-      addText(run, item, offset, textBox(child, input));
+      addText(run, { item, offset, box: textBox(child, input) });
     } else {
       const size = measureAtom?.(child) ?? null;
       if (!size) failure = `no size for inline ${child.type.name}`;
