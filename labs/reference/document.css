@@ -203,6 +203,14 @@ div.de-host-view {
   counter-set: var(--de-page-counters);
 }
 
+/*
+ * A viewer draws only the pages near the viewport itself. Its pages skip no layout, which would
+ * contain their style and start every counter again on each page.
+ */
+.de-document-viewer > .de-document-editor__content .pm-page {
+  content-visibility: visible;
+}
+
 .de-document-editor__measure {
   position: absolute;
   top: 0;
