@@ -10,6 +10,7 @@
 
 import { type FaceSet, type FontRequest, type MatchedFace, parseFont } from './faces.js';
 import type { HarfBuzzFace, ShapedRun } from './harfbuzz.js';
+import { type ScriptRun, scriptRuns } from './script-runs.js';
 
 /** What a font-file context could not measure from the served files. */
 export interface MeasureProblems {
@@ -40,6 +41,7 @@ export interface FontFileContext {
 interface Piece {
   readonly face: HarfBuzzFace;
   readonly text: string;
+  readonly run: ScriptRun | undefined;
 }
 
 const FIXED = 65_536;
@@ -121,37 +123,82 @@ function trimmedPunctuation(text: string): number[] {
   return trimmed;
 }
 
+// Characters a face need not have to draw a cluster: the default ignorables above, variation
+// selectors and tags, which Blink hides when the face has no glyph for them.
+const selectorsAndTags = /^(?:[\ufe00-\ufe0f]|[\u{e0020}-\u{e007f}]|[\u{e0100}-\u{e01ef}])$/u;
+const ignorable = {
+  test: (character: string) => zeroWidth.test(character) || selectorsAndTags.test(character),
+};
+
 function codePointsOf(cluster: string) {
-  return [...cluster].map((character) => character.codePointAt(0) ?? 0);
+  return [...cluster].flatMap((character) =>
+    ignorable.test(character) ? [] : [character.codePointAt(0) ?? 0],
+  );
 }
 
-// The face a cluster is drawn with: the first that has all its characters, else the first that
-// has its first one, else the first face's missing glyph.
+// A face draws a character its unicode-range holds and its file has a glyph for.
+function hasGlyph({ face, covers }: MatchedFace, code: number) {
+  const drawn = code === 0x2028 || code === 0x2029 ? 0x20 : code;
+  return covers(drawn) && face.glyphOf(drawn) !== null;
+}
+
+// Whether a face draws a whole cluster, as Blink asks: no .notdef once shaped. A face without
+// one of the characters can still draw a letter and its accent as one precomposed glyph.
+function drawsCluster(matched: MatchedFace, cluster: string, codes: readonly number[]) {
+  if (codes.every((code) => hasGlyph(matched, code))) return true;
+  if (!codes.every((code) => matched.covers(code))) return false;
+  const visible = [...cluster].filter((character) => !ignorable.test(character)).join('');
+  const run = matched.face.shape(visible, { features: [], language: null });
+  return run.glyphs.length > 0 && run.glyphs.every((glyph) => glyph !== 0);
+}
+
+// The faces a cluster may be drawn with, in order: an emoji presentation selector (U+FE0F) puts
+// the color faces first, a text presentation selector (U+FE0E) leaves them out (measured in
+// Chromium 153: without a selector the family list decides, whatever the emoji's default).
+function candidatesFor(cluster: string, faces: readonly MatchedFace[]) {
+  if (cluster.includes('\ufe0f'))
+    return [...faces.filter(({ face }) => face.color), ...faces.filter(({ face }) => !face.color)];
+  if (cluster.includes('\ufe0e')) return faces.filter(({ face }) => !face.color);
+  return faces;
+}
+
+// The face a cluster is drawn with: the first that draws it whole, else the first that has its
+// first character, else the first face's missing glyph. A cluster no face draws whole is drawn by
+// the browser from a system font, so its characters the face lacks are recorded as missing.
 function faceFor(cluster: string, faces: readonly MatchedFace[], problems: MeasureProblems) {
-  const codes = codePointsOf(cluster).filter((code) => !zeroWidth.test(String.fromCodePoint(code)));
-  // A face draws a character its unicode-range holds and its file has a glyph for.
-  const has = ({ face, covers }: MatchedFace, code: number) => {
-    const drawn = code === 0x2028 || code === 0x2029 ? 0x20 : code;
-    return covers(drawn) && face.glyphOf(drawn) !== null;
-  };
-  const whole = faces.find((matched) => codes.every((code) => has(matched, code)));
+  const codes = codePointsOf(cluster);
+  const candidates = candidatesFor(cluster, faces);
+  const whole = candidates.find((matched) => drawsCluster(matched, cluster, codes));
   if (whole) return whole.face;
   const first = codes[0] ?? 0x20;
-  const partial = faces.find((matched) => has(matched, first));
-  if (!partial) problems.missingGlyphs.add(first);
+  const partial =
+    candidates.find((matched) => hasGlyph(matched, first)) ??
+    faces.find((matched) => hasGlyph(matched, first));
+  const drawn = partial && candidates.includes(partial) ? partial : null;
+  for (const code of codes) if (!drawn || !hasGlyph(drawn, code)) problems.missingGlyphs.add(code);
   return (partial ?? faces[0])?.face;
 }
 
-function piecesOf(word: string, faces: readonly MatchedFace[], problems: MeasureProblems) {
+// A word's pieces: its graphemes put together while they take the same face and script run.
+function piecesOf({ word, offset, runs, faces }: WordInput, problems: MeasureProblems) {
   const pieces: Piece[] = [];
-  for (const { segment } of graphemes.segment(word)) {
+  for (const { segment, index } of graphemes.segment(word)) {
     const face = faceFor(segment, faces, problems);
     if (!face) continue;
+    const at = offset + index;
+    const run = runs.find(({ start, end }) => at >= start && at < end);
     const last = pieces.at(-1);
-    if (last?.face === face) pieces[pieces.length - 1] = { face, text: last.text + segment };
-    else pieces.push({ face, text: segment });
+    if (last?.face === face && last.run === run)
+      pieces[pieces.length - 1] = { face, run, text: last.text + segment };
+    else pieces.push({ face, run, text: segment });
   }
   return pieces;
+}
+
+// The script and direction a piece is shaped in; a script HarfBuzz is left to guess.
+function runOptions(run: ScriptRun | undefined) {
+  if (!run?.script || run.script === 'Zzzz') return {};
+  return { script: run.script, rtl: run.rtl };
 }
 
 interface Scale {
@@ -192,6 +239,9 @@ function letterSpacingOf(value: string) {
 
 interface WordInput {
   readonly word: string;
+  /** Where the word starts in the measured text, whose script runs `runs` are. */
+  readonly offset: number;
+  readonly runs: readonly ScriptRun[];
   readonly request: FontRequest;
   readonly faces: readonly MatchedFace[];
 }
@@ -204,20 +254,25 @@ interface Shaping {
 }
 
 // One Canvas word: its width as a float32, and its ink's left and right ends.
-function measureWord({ word, request, faces }: WordInput, shaping: Shaping) {
+function measureWord(input: WordInput, shaping: Shaping) {
+  const { word, request } = input;
   let pen = 0;
   let left = Infinity;
   let right = -Infinity;
   // Punctuation is trimmed by its neighbours in the word, whichever font file draws them.
   const trimmed = trimmedPunctuation(word);
   let start = 0;
-  for (const { face, text } of piecesOf(word, faces, shaping.problems)) {
+  for (const { face, text, run: scriptRun } of piecesOf(input, shaping.problems)) {
     const halves = trimmed
       .filter((index) => index >= start && index < start + text.length)
       .map((index) => `halt[${String(index - start)}]`);
     start += text.length;
     const features = halves.length ? [...shaping.features, ...halves] : shaping.features;
-    const run = face.shape(text.replace(drawnAsSpace, ' '), { ...shaping, features });
+    const run = face.shape(text.replace(drawnAsSpace, ' '), {
+      ...shaping,
+      ...runOptions(scriptRun),
+      features,
+    });
     const advances = advancesOf(face, run, request.size);
     // Ink extents in 1/65536 px, as the advances are.
     const unit = scaleOf(request.size, face.unitsPerEm).harfBuzz / face.unitsPerEm;
@@ -300,8 +355,12 @@ export function createFontFileContext(
       let left = Infinity;
       let right = -Infinity;
       const matched = current();
-      for (const word of splitCanvasWords(text.replace(asciiWhitespace, ' '))) {
-        const measured = measureWord({ word, request, faces: matched }, shaping);
+      const spaced = text.replace(asciiWhitespace, ' ');
+      const runs = scriptRuns(spaced);
+      let offset = 0;
+      for (const word of splitCanvasWords(spaced)) {
+        const measured = measureWord({ word, offset, runs, request, faces: matched }, shaping);
+        offset += word.length;
         left = Math.min(left, width + measured.left);
         right = Math.max(right, width + measured.right);
         width = Math.fround(width + measured.width);
