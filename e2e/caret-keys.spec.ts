@@ -277,6 +277,11 @@ test.describe('caret keys across pages', () => {
   test('DOCE-PAGINATION-7.21 moves with the same keys in the web layout', async ({ lab, page }) => {
     await openEditor(lab, page);
     await page.getByLabel('Web layout').check();
+    // The web layout draws one page in place of the paged ones: wait for it before finding blocks.
+    const root = page.locator('.de-document-editor');
+    await expect(root).toHaveAttribute('data-layout', 'web');
+    await expect(pages(page)).toHaveCount(1);
+    await expect(root).toHaveAttribute('data-layout-state', 'settled');
     const paragraph = content(page).locator('p', { hasText: 'Each requirement' }).last();
     await paragraph.scrollIntoViewIfNeeded();
     await paragraph.click();
