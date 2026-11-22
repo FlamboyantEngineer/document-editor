@@ -6,6 +6,7 @@ import {
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
 import { overflowingPages } from './block-geometry.js';
+import { drawnNumbers } from './drawn-numbers.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // The pages laid out and drawn with the text layout engine (specs/PAGINATION.md
@@ -176,6 +177,16 @@ test.describe('the layout engine on the pages', () => {
     });
     expect(counts.printed).toBe(counts.computed);
     expect(counts.shown).toBeLessThan(counts.computed);
+  });
+
+  test('DOCE-PAGINATION-11.9 draws every heading, caption and equation number as without the option', async ({
+    page,
+  }) => {
+    await open(page, 'caption-numbering', 'dom');
+    const measured = await drawnNumbers(page);
+    expect(measured.flat()).toContain('Figure 3.1 -');
+    await open(page, 'caption-numbering', 'pretext');
+    expect(await drawnNumbers(page)).toEqual(measured);
   });
 
   test('DOCE-PAGINATION-11.3 gives no computed lines without the option', async ({ page }) => {
