@@ -163,6 +163,10 @@ test.describe('performance', () => {
     expectMeets(BUDGETS.latency300, await typingWork(lab, page, SIZE.pages300, options));
   });
 
+  // Known to be close: the p95 here is about 15.8 ms at the median on a cloud runner, since the
+  // pages within half a screen below the frame are drawn on forced lines too (DOCE-PAGINATION-11.6),
+  // so a local run can miss by a millisecond. Drawing those pages' lines off the keystroke is owed
+  // (item T1 of the layout engine plan); the engine is not the default until this meets 16 ms.
   test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 answers each keystroke on 40 pages within its budget with the layout engine', async ({
     lab,
     page,
