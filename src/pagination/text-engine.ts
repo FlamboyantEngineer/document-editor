@@ -195,14 +195,13 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
     : createDomAtomMeasurer({ host });
 }
 
-/** Creates the pages' text layout engine for a template. */
-export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+// The text layout and block geometry the engine lays out with, reading the document's numbers.
+function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
   const { template } = options;
   const host = atomHost(options.measureIn, Boolean(options.view));
   const atoms = createAtomCache({ measure: atomMeasurer(options, host) });
   // The stylesheet's own block numbers, read where the pages' content is drawn.
   const sheet = readSheetNumbers(host);
-  let numbers = NO_NUMBERS;
   const text = createTextLayout({
     template,
     measureContext: measureIn(options),
@@ -210,17 +209,25 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
       types: textAtomTypes(options),
-      footnoteOf: (marker) => numbers.footnoteOf(marker),
+      footnoteOf: (marker) => numbers().footnoteOf(marker),
       refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
     },
   });
   const geometry = createBlockLayout({
-    text: numberedText(text, () => numbers),
+    text: numberedText(text, numbers),
     atoms,
     metrics: (scope) => blockMetrics(template, scope, sheet),
-    labelOf: (caption) => numbers.labelOf(caption),
-    footnoteOf: (entry) => numbers.footnoteOf(entry),
+    labelOf: (caption) => numbers().labelOf(caption),
+    footnoteOf: (entry) => numbers().footnoteOf(entry),
   });
+  return { host, atoms, text, geometry };
+}
+
+/** Creates the pages' text layout engine for a template. */
+export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+  const { template } = options;
+  let numbers = NO_NUMBERS;
+  const { host, atoms, text, geometry } = engineLayouts(options, () => numbers);
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
   let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
