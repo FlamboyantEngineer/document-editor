@@ -4,6 +4,7 @@
 import type { Fragment, Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
 import { type EditorProps, EditorView } from 'prosemirror-view';
+import { markRemote } from '../engine/transaction-kind.js';
 
 // A node of the view's document and where its content starts.
 interface Placed {
@@ -101,11 +102,13 @@ export function followDocument(
 ): void {
   const { state } = view;
   if (state.doc.eq(whole)) return;
-  // Out of the history, so a plugin such as an edit lock never refuses the ghost's own update.
-  const tr = state.tr.setMeta('addToHistory', false);
+  // A remote change, out of the history: no plugin such as an edit lock refuses it, and none that
+  // derives writes from the writer's edits, such as the page regions' reset, writes into it.
+  const tr = markRemote(state.tr);
   patchContent(tr, { node: state.doc, pos: 0 }, whole);
-  const next = tr.doc.eq(whole)
-    ? state.apply(tr)
-    : EditorState.create({ doc: whole, plugins: state.plugins });
-  show(next);
+  const applied = tr.doc.eq(whole) ? state.apply(tr) : null;
+  // The ghost measures exactly the document it follows: a state a plugin changed is not used.
+  show(
+    applied?.doc.eq(whole) ? applied : EditorState.create({ doc: whole, plugins: state.plugins }),
+  );
 }

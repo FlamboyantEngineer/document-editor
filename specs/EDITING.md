@@ -344,3 +344,10 @@ Verification: `src/engine/writing-helpers.test.ts`
 
 Implementation: `src/engine/writing-helpers.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/writing-helpers.test.ts`
+
+### DOCE-EDITING-10.4 - A paragraph in an emptied section
+
+After each of the writer's own edits that leaves a section the writer may edit with no block in its content, such as a delete across sections, the editing (`createSectionFill`) shall put one empty paragraph in it, so the section holds what reading its stored form back gives (DOCE-FORMAT-1.1) and has a place to type. It adds none after a remote, derived or system change, whose writer's own editor adds it, in a section the template or the edit lock holds, and the paragraph is part of the edit's undo step.
+
+Implementation: `src/engine/writing-helpers.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/writing-helpers.test.ts`

@@ -4,7 +4,12 @@
 // DOM measuring, with the reason counted. Results are kept by node, so a keystroke lays out only
 // the block it changed (DOCE-PAGINATION-11). This module is loaded only when the option is on.
 
-import { type MeasureContext, setLayoutScale, setMeasureContext } from '@chenglou/pretext';
+import {
+  clearCache,
+  type MeasureContext,
+  setLayoutScale,
+  setMeasureContext,
+} from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
@@ -181,6 +186,11 @@ function measureIn(options: TextEngineOptions) {
   setMeasureContext(context);
   setLayoutScale(1);
   return context;
+}
+
+/** Forgets the widths the layout engine measured, as after font faces load. */
+export function forgetFontWidths(): void {
+  clearCache();
 }
 
 // The inline atoms laid out as their text: those the pages draw as the schema does, not a host's.
