@@ -65,6 +65,8 @@ test('DOCE-PAGINATION-9.2 draws a 150% paragraph on the engine lines at their li
   page,
 }) => {
   await open(page, 'pretext');
+  // The engine loads lazily; its lines are drawn once it has laid the pages out.
+  await expect(page.locator('.pm-page-content > p.de-forced-lines').first()).toBeAttached();
   const heights = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>('.pm-page-content > p.de-forced-lines')]
       .slice(0, 5)
