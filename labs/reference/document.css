@@ -462,6 +462,13 @@ div.de-host-view {
   white-space: pre;
 }
 
+/* Inline code on a forced line keeps its padding on each line piece, as the engine lays it out
+   (DOCE-PAGINATION-11.2), so a continuation line's text starts where the engine put it. */
+:where(.de-document-editor) .de-forced-lines :not(pre) > code {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 /* Pages far from the screen skip their layout: their size is the page's own (DOCE-PAGINATION-11.6). */
 :where(.de-document-editor[data-text-layout='pretext']) .de-document-editor__content .pm-page {
   content-visibility: auto;
