@@ -5,6 +5,7 @@ import type { LayoutMemory } from './layout-document.js';
 import type { createLayoutReadiness } from './layout-readiness.js';
 import type { DrawChecks } from './layout-validation.js';
 import type { createPaginationCounter } from './pagination-stats.js';
+import type { TextEngineHolder } from './text-engine-holder.js';
 
 /** How the layouts are going: what they did, whether the pages settled, and what is due. */
 export interface LayoutPace {
@@ -22,4 +23,6 @@ export interface LayoutPace {
   readonly ready: { waiting(): boolean };
   /** What is checked once a layout is drawn: pages drawn taller than they are (`checkDraws`). */
   readonly draws: DrawChecks;
+  /** The text layout engine, with the `textLayout` option. */
+  readonly text: TextEngineHolder | null;
 }

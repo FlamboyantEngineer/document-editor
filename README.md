@@ -39,6 +39,8 @@ The library has no release yet, so a host installs it, the base component librar
 | `@y/y`                                    | 14.0.0-rc.23                        |
 | `lib0`                                    | 1.0.0-rc.22                         |
 
+The text layout engine behind `textLayout: 'pretext'` uses a fork of the Pretext layout library, `@chenglou/pretext`, a dependency pinned in `package.json` to a commit of FlamboyantEngineer/pretext, so it installs with the package at that commit, from that git repository, which a host needs read access to as for the other git pins; its module loads only when the option is on, but a host's bundler resolves it either way, and the check imports it from the consumer.
+
 `scripts/tested-set.json` holds the same set for the check. Peers follow one rule: a release candidate and `prosemirror-view` are exact, since the React binding and the base component library accept only `prosemirror-view` 1.42.3; the base component library is a peer within its `0.x` minor (`~0.1.0`), since before `1.0.0` every minor may break; other peers are caret ranges. `prosemirror-view` stays at 1.42.3 until the binding publishes a release that accepts a newer one.
 
 The git pins move by hand, in the pull request that needs a newer sibling library: change the commit in `package.json`, run `npm install --strict-peer-deps`, then `npm run check:consumer`.

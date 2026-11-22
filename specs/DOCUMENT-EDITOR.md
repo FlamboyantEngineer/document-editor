@@ -6,7 +6,7 @@
 
 ### DOCE-EDITOR-1.1 - Showing a document
 
-The editor shall render the state's document as a multi-line text box named by its `aria-label` or `aria-labelledby`, mark its root with its `layout` and its mode (`authoring` while editable, `reading` otherwise), and set its template's values (`templateProperties`) on the root as `--doc-*` custom properties for the stylesheet.
+The editor shall render the state's document as a multi-line text box named by its `aria-label` or `aria-labelledby`, mark its root with its `layout`, how its pages lay text out (`data-text-layout`: `pretext` on pages with the `textLayout: 'pretext'` option, DOCE-PAGINATION-11, `dom` otherwise) and its mode (`authoring` while editable, `reading` otherwise), and set its template's values (`templateProperties`) on the root as `--doc-*` custom properties for the stylesheet.
 
 Implementation: `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`
@@ -806,8 +806,17 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                                   | How suggestions show.                                                                     |
 | `--de-zoom`                             | property  |                                                                        | The document's zoom, as a factor.                                                         |
 | `--de-list-start`                       | property  |                                                                        | On an ordered list starting past 1: the items before it (DOCE-PAGINATION-4.1).            |
+| `de-forced-lines`                       | root      |                                                                        | A block drawn on the layout engine's lines (DOCE-PAGINATION-11.2).                        |
+| `de-forced-lines__end`                  | slot      |                                                                        | A wrapped line's last character, drawn followed by a line feed.                           |
+| `de-forced-lines__start`                | slot      |                                                                        | A line's first character, where the line starts in from the content edge.                 |
+| `de-forced-lines__justified`            | slot      |                                                                        | A wrapped justified line's text.                                                          |
+| `data-lines`                            | attribute | a number                                                               | On `de-forced-lines`: how many lines the engine computed.                                 |
+| `data-number`                           | attribute |                                                                        | On `de-forced-lines`: the heading's number the engine laid out, with its space.           |
+| `--de-line-indent`                      | property  |                                                                        | On `de-forced-lines__start`: how far in the line starts.                                  |
+| `--de-word-spacing`                     | property  |                                                                        | On `de-forced-lines__justified`: the spacing added to each space.                         |
 | `--de-script-editor-counters`           | property  |                                                                        | On the script preview once run: the counters its block is under (DOCE-OBJECTS-4.8).       |
 | `data-layout`                           | attribute | `page`, `web`                                                          | How the document is laid out.                                                             |
+| `data-text-layout`                      | attribute | `dom`, `pretext`                                                       | How the pages lay text out (DOCE-PAGINATION-11).                                          |
 | `data-mode`                             | state     | `authoring`, `reading`                                                 | Whether the writer can edit.                                                              |
 | `data-scrollable`                       | state     | `true`                                                                 | The editor scrolls the document itself.                                                   |
 | `data-formatting-marks`                 | state     | `true`                                                                 | Formatting marks show (DOCE-EDITOR-4.25).                                                 |

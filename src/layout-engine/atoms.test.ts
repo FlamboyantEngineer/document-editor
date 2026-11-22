@@ -28,6 +28,27 @@ describe('atom cache', () => {
     expect(measure).toHaveBeenCalledTimes(2);
   });
 
+  it('DOCE-PAGINATION-10.7 keeps a footnote marker by the number a view draws in it', () => {
+    const measure = vi.fn<AtomMeasurer>((_node, _width, shown) => ({
+      size: { width: 6 * (shown ?? '').length, height: 10 },
+    }));
+    const numbers = new Map<string, string>([
+      ['n1', '9'],
+      ['n2', '10'],
+    ]);
+    const cache = createAtomCache({
+      measure,
+      shownOf: (node) => numbers.get(String(node.attrs.dataId)),
+    });
+    const marker = (dataId: string) => schema.node('footnote_reference', { dataId });
+    expect(cache.measureAtom(marker('n1'))?.width).toBe(6);
+    expect(cache.measureAtom(marker('n2'))?.width).toBe(12);
+    expect(measure).toHaveBeenLastCalledWith(marker('n2'), 0, '10');
+    numbers.set('n2', '9');
+    cache.measureAtom(marker('n2'));
+    expect(measure).toHaveBeenCalledTimes(2);
+  });
+
   it('DOCE-PAGINATION-10.1 keys block atoms by their width to the layout unit', () => {
     const node = equation('a + b');
     expect(atomKey(node, 300)).toBe(atomKey(node, 300.001));

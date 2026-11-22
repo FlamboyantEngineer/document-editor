@@ -231,9 +231,13 @@ export async function openScale(
   lab: LabFixture,
   page: Page,
   size: number,
-  { compare = false }: { compare?: boolean } = {},
+  {
+    compare = false,
+    textLayout = 'dom',
+  }: { compare?: boolean; textLayout?: 'dom' | 'pretext' } = {},
 ) {
-  await page.goto(`stress-scale.html?size=${String(size)}${compare ? '&compare' : ''}`);
+  const query = `${compare ? '&compare' : ''}${textLayout === 'pretext' ? '&textLayout=pretext' : ''}`;
+  await page.goto(`stress-scale.html?size=${String(size)}${query}`);
   // The largest documents take longer than the usual wait to settle.
   await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
     timeout: 120_000,

@@ -73,7 +73,7 @@ Verification: `e2e/stress.spec.ts`
 
 ### DOCE-LABS-2.3 - Budgets
 
-`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target and whether it meets it, as a table and in `test-results/performance.json`. The typing budgets on 40 and 300 pages, the remote typing budget and the remote typing budget while changes show (`?compare` on the scale lab) are enforced: each is measured on every key's own work (`keystrokeWork`), from the key's press until its input is handled and from the start of the frame that draws it until that frame is drawn, without the wait for that frame, and a test fails on a missed one; remote typing is measured from a remote writer's keystroke reaching the editor, one every 100 ms into the middle of the document, to the frame after it is drawn, since remote changes repaint at once with no fixed tick. The other budgets are targets until the pagination phase ends: the harness records and does not fail on a missed one. Time budgets are measured on the development machine; counter budgets do not depend on it.
+`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target and whether it meets it, as a table and in `test-results/performance.json`. The typing budgets on 40 and 300 pages, the remote typing budget and the remote typing budget while changes show (`?compare` on the scale lab) are enforced: each is measured on every key's own work (`keystrokeWork`), from the key's press until its input is handled and from the start of the frame that draws it until that frame is drawn, without the wait for that frame, and a test fails on a missed one; remote typing is measured from a remote writer's keystroke reaching the editor, one every 100 ms into the middle of the document, to the frame after it is drawn, since remote changes repaint at once with no fixed tick. The typing on 40 and 300 pages is also recorded with `textLayout=pretext` (DOCE-PAGINATION-11.5), not yet enforced. The other budgets are targets until the pagination phase ends: the harness records and does not fail on a missed one. Time budgets are measured on the development machine; counter budgets do not depend on it.
 
 | Budget                                              | Metric                                                                                                                                                                                           | Target                                   |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
@@ -97,7 +97,7 @@ Verification: `e2e/performance.spec.ts`, `src/engine/text-change-locality.test.t
 
 ### DOCE-LABS-2.4 - Scale lab
 
-The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks, 1600 blocks in eight sections, about 300 pages beside 500 open comment threads, and about 100 pages of short lists (a paragraph and a list of eight items or fewer each, ordered and bulleted in turn, some nested), to profile list pagination apart from long lists, each the same on every load; and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer, a character at a time or up to the end of a line (`window.stressLab`).
+The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks, 1600 blocks in eight sections, about 300 pages beside 500 open comment threads, and about 100 pages of short lists (a paragraph and a list of eight items or fewer each, ordered and bulleted in turn, some nested), to profile list pagination apart from long lists, each the same on every load; on the layout engine's lines when the `textLayout` query parameter is `pretext` (DOCE-PAGINATION-11); and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer, a character at a time or up to the end of a line (`window.stressLab`).
 
 Implementation: `labs/src/stress-scale.lab.tsx`, `labs/stress-scale.html`, `labs/src/stress/scale-documents.ts`, `labs/src/stress/stress-probe.ts`, `labs/src/stress/stress-lab.tsx`
 Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`, `e2e/regression.spec.ts`
@@ -166,10 +166,10 @@ The pagination regression scenarios lay out the regression set's documents (`tes
 
 ### DOCE-LABS-4.1 - The regression lab
 
-The `regression` lab shall show a document of the regression set on its template's pages, the template resolved through the set's templates on the base template, in the document editor with its scrolling frame and status bar, picked by its Document picker or the page's `document` query parameter, and in the web layout when the `layout` query parameter is `web`, on a projection of the document (DOCE-PAGINATION-7.17), with quotes drawn by a host's React view, taller than the schema draws them, when it has a `hostViews` one. It shows the scenarios the document as it would be stored, puts a caret at a split block's fragment boundary, by the position the caret has once the pages are joined whole, and gives the pages as a snapshot for printing (`snapshot`, DOCE-EDITOR-6.19) (`window.regressionLab`). Every document lays out on pages that hold their content, as many as the status bar counts.
+The `regression` lab shall show a document of the regression set on its template's pages, the template resolved through the set's templates on the base template, in the document editor with its scrolling frame and status bar, picked by its Document picker or the page's `document` query parameter, in the web layout when the `layout` query parameter is `web`, and on the layout engine's lines when the `textLayout` query parameter is `pretext` (DOCE-PAGINATION-11), on a projection of the document (DOCE-PAGINATION-7.17), with quotes drawn by a host's React view, taller than the schema draws them, when it has a `hostViews` one. It shows the scenarios the document as it would be stored, puts a caret at a split block's fragment boundary, by the position the caret has once the pages are joined whole, gives the pages as a snapshot for printing (`snapshot`, DOCE-EDITOR-6.19), and gives the lines the engine computed for each page (`textLines`) and the forced blocks the browser drew on other lines (`wrappedLines`) (`window.regressionLab`). Every document lays out on pages that hold their content, as many as the status bar counts.
 
 Implementation: `labs/src/regression.lab.tsx`, `labs/regression.html`, `labs/src/regression/regression-lab.tsx`, `labs/src/regression/host-quote-view.tsx`, `labs/src/regression/regression-documents.ts`, `labs/src/regression/regression-probe.ts`
-Verification: `e2e/regression.spec.ts`, `e2e/print.spec.ts`
+Verification: `e2e/regression.spec.ts`, `e2e/print.spec.ts`, `e2e/text-layout.spec.ts`
 
 ### DOCE-LABS-4.2 - Edits at fragment boundaries
 
@@ -310,14 +310,44 @@ Verification: `e2e/pretext-pagination-fuzz.spec.ts`
 
 ### DOCE-LABS-6.1 - Pretext lines in the live editor
 
-The forced-lines lab shall show the document editor on pages with every top-level paragraph and heading drawn on the lines Pretext computes for it: each line except a block's last ends in a forced break, centred and right-aligned lines start after the room Pretext left them, and justified lines stretch their spaces to the column, so the browser neither wraps nor aligns a line itself. The lines shall follow each keystroke at once. Arrow Up and Down shall move one drawn line and keep the column, Home and End shall stay on the line, double and triple clicks shall select a word and the paragraph, and composition, copy and paste, find, proofing, suggestions, bidirectional text and paragraphs split across pages shall keep the drawn lines. The lab shall draw the lines either as canonical decorations or on the pages' own view, and its guard (`window.forcedLines.check()`) shall report any block whose drawn lines differ from the breaks placed. The experiment shall leave the library unchanged.
+The forced-lines lab shall show the document editor on pages with every top-level paragraph and heading drawn on the lines Pretext computes for it: each line except a block's last ends in a forced break, centred and right-aligned lines start after the room Pretext left them, and justified lines stretch their spaces to the column, so the browser neither wraps nor aligns a line itself. The lines shall follow each keystroke at once. Arrow Up and Down shall move one drawn line and keep the column, Home and End shall stay on the line, a caret at a line's start shall stay drawn there when the editor writes the selection itself (as after an edit), unless the browser last drew it at the line above's end, double and triple clicks shall select a word and the paragraph, and composition, copy and paste, find, proofing, suggestions, bidirectional text and paragraphs split across pages shall keep the drawn lines. The lab shall draw the lines either as canonical decorations or on the pages' own view, and its guard (`window.forcedLines.check()`) shall report any block whose drawn lines differ from the breaks placed. The lab shall offer no inline completion, whose offer Pretext does not lay out. The experiment shall leave the library unchanged.
 
 Implementation: `labs/forced-lines.html`, `labs/src/forced-lines.lab.tsx`, `labs/src/spikes/forced-lines/`
 Verification: `e2e/forced-lines.spec.ts`
 
 ### DOCE-LABS-6.2 - Typing with forced lines
 
-With the lines drawn on the pages' own view and pages off screen skipping their layout, each keystroke on 40 and 300 pages shall meet the typing budgets of DOCE-LABS-2.3, measured beside the same documents with the browser's own lines.
+With the lines drawn on the pages' own view and pages off screen skipping their layout, each keystroke on 40 and 300 pages shall meet the typing budgets of DOCE-LABS-2.3, measured beside the same documents with the browser's own lines, as the middle of three rounds of each, taken in turn.
 
 Implementation: `labs/src/spikes/forced-lines/direct.ts`, `labs/forced-lines.html`
 Verification: `e2e/forced-lines.performance.spec.ts`
+
+## DOCE-LABS-8 - One layout result
+
+### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones
+
+With `textLayout: 'pretext'`, the regression lab shall show (`window.regressionLab.textLines()`) the layout engine's result: page by page, each text block fragment it laid out with the lines it draws on that page, and each block it left to the DOM with the reason. For every document of the regression set, at zooms of 50, 75, 100, 125 and 150 percent at a device pixel ratio of 1, and of 50, 100 and 150 percent in Chromium launched at device pixel ratios 1.25 and 2, the editor shall draw as many pages as computed, each page shall draw exactly the forced blocks the engine put on it, and each block's drawn lines, read from the line boxes its own characters sit on, shall equal the computed lines in count and text. A block drawn in a narrower column than its lines were fitted to shall fail the check. The regression lab shall take a `zoom` query in percent.
+
+Implementation: `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`, `playwright.config.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.2 - The invariant through editing
+
+Typing and deleting at a paragraph split between pages, a hard break and a new paragraph shall keep DOCE-LABS-8.1: after the edit settles, the drawn lines and pages shall equal those computed again.
+
+Implementation: `labs/src/regression/regression-probe.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.3 - The caret at forced line starts
+
+After an edit at a forced line's start, the caret shall be drawn at the start of that line, not at the end of the line above, and Arrow Down and Arrow Up shall move one drawn line each and keep the caret's column. A caret the browser drew at a line's end, after End, shall stay there.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.4 - Inline offers keep the drawn lines
+
+With an inline completion offer showing inside a full forced line, the block shall draw exactly its computed lines: the browser shall wrap no line around the offer.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`

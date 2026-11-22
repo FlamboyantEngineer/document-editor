@@ -72,6 +72,8 @@ export interface StressLabOptions {
   readonly plugins?: (() => readonly Plugin[]) | undefined;
   /** More of the editor's own options, such as `find` or `suggesting`. */
   readonly editor?: Partial<DocumentEditorProps> | undefined;
+  /** Offers inline completion after each pause; on unless a lab turns it off. */
+  readonly completion?: boolean | undefined;
 }
 
 // An in-memory host keeping a size's comment threads, or none.
@@ -93,20 +95,29 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
   return sizes?.find(({ value }) => value === asked)?.value ?? sizes?.[0]?.value ?? 1;
 }
 
+// `?textLayout=pretext` lays the text out with the layout engine and draws its lines (DOCE-PAGINATION-11),
+// so the budgets can be measured with it.
+const TEXT_LAYOUT =
+  new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+
 // `?compare` shows the document's changes since it was opened as change bars, as a reader reviewing
 // changes sees it, so the budgets can be measured with a comparison running.
 const COMPARE = new URLSearchParams(window.location.search).has('compare')
   ? ({ previous: 'opened', display: 'bars' } as const)
   : undefined;
 
-function stateOf(file: DocumentFile, more: StressLabOptions['plugins']): EditorState {
+function stateOf(
+  file: DocumentFile,
+  more: StressLabOptions['plugins'],
+  completion: boolean,
+): EditorState {
   const schema = createDocumentSchema();
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
     plugins: [
       ...(more?.() ?? []),
       createContents({ template: () => TEMPLATE }),
-      createInlineCompletion({ provider: COMPLETER }),
+      ...(completion ? [createInlineCompletion({ provider: COMPLETER })] : []),
       createProofing({ proofer: PROOFER }),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
     ],
@@ -156,9 +167,17 @@ function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
 const milliseconds = (value: number | null) =>
   value === null ? '…' : `${String(Math.round(value))} ms`;
 
-function StressLab({ build, sizes, remote, threads, plugins, editor }: StressLabOptions) {
+function StressLab({
+  build,
+  sizes,
+  remote,
+  threads,
+  plugins,
+  editor,
+  completion = true,
+}: StressLabOptions) {
   const [size, setSize] = useState(() => initialSize(sizes));
-  const [state, setState] = useState(() => stateOf(build(size), plugins));
+  const [state, setState] = useState(() => stateOf(build(size), plugins, completion));
   const [layout, setLayout] = useState<DocumentLayout>('page');
   const review = useReviewHost(threads, size);
   const handle = useRef<DocumentEditorHandle>(null);
@@ -177,7 +196,7 @@ function StressLab({ build, sizes, remote, threads, plugins, editor }: StressLab
   const pick = (value: number) => {
     setSize(value);
     layoutTimes.restart();
-    setState(stateOf(build(value), plugins));
+    setState(stateOf(build(value), plugins, completion));
   };
   return (
     <>
@@ -232,7 +251,8 @@ function StressLab({ build, sizes, remote, threads, plugins, editor }: StressLab
         onStateChange={setState}
         template={TEMPLATE}
         layout={layout}
-        toolbar={TOOLBAR}
+        textLayout={TEXT_LAYOUT}
+        toolbar={completion ? TOOLBAR : undefined}
         scrollable
         statusBar
         className="lab-document-editor"

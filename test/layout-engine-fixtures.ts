@@ -6,7 +6,8 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type AtomMeasurer, createAtomCache } from '../src/layout-engine/atoms.js';
 import { createBlockLayout } from '../src/layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../src/layout-engine/blocks/metrics.js';
-import type { BlockTextLayout, TextLines } from '../src/layout-engine/blocks/types.js';
+import type { BlockTextLayout } from '../src/layout-engine/blocks/types.js';
+import type { LineTable } from '../src/layout-engine/line-table.js';
 import type { TemplateFile } from '../src/model/index.js';
 import { BASE_TEMPLATE } from '../src/model/templates/base-template.js';
 
@@ -33,17 +34,28 @@ function styleOf(node: ProseMirrorNode) {
 }
 
 /** The stand-in's lines: as many characters as fit the width on each, at least one line. */
-export function standInLines(node: ProseMirrorNode, width: number, prefix = ''): TextLines {
+export function standInLines(node: ProseMirrorNode, width: number, prefix = ''): LineTable {
   const style = styleOf(node);
   const padding = style.padding ?? 0;
-  const perLine = Math.max(1, Math.floor((width - 2 * padding) / CHARACTER_WIDTH));
-  const length = prefix.length + node.content.size;
-  const count = Math.max(1, Math.ceil(length / perLine));
-  const lines = Array.from({ length: count }, (_, index) => ({
-    from: Math.max(0, index * perLine - prefix.length),
-    height: style.line,
-  }));
-  return { lines, height: count * style.line, overhead: 2 * padding };
+  const content = Math.max(1, width - 2 * padding);
+  const perLine = Math.max(1, Math.floor(content / CHARACTER_WIDTH));
+  const size = node.content.size;
+  const count = Math.max(1, Math.ceil((prefix.length + size) / perLine));
+  const start = (index: number) => Math.min(size, Math.max(0, index * perLine - prefix.length));
+  const lines = Array.from({ length: count }, (_, index) => {
+    const from = start(index);
+    const to = index === count - 1 ? size : start(index + 1);
+    return {
+      from,
+      to,
+      width: Math.min(content, (to - from) * CHARACTER_WIDTH),
+      left: 0,
+      top: index * style.line,
+      height: style.line,
+      end: index === count - 1 ? ('end' as const) : ('wrap' as const),
+    };
+  });
+  return { width: content, lines, height: count * style.line, overhead: 2 * padding };
 }
 
 /** The stand-in text layout; `refuse` names block types it cannot lay out. */
@@ -56,7 +68,15 @@ export function standInTextLayout(refuse: readonly string[] = []): BlockTextLayo
     layoutText: (node, place) =>
       refuse.includes(node.type.name)
         ? { ok: false, reason: `${node.type.name} is not supported by the stand-in` }
-        : { ok: true, table: standInLines(node, place.width, place.prefix) },
+        : {
+            ok: true,
+            // A footnote number stands before the text with a space, as characters of the line.
+            table: standInLines(
+              node,
+              place.width,
+              (place.prefix ?? '') + (place.footnoteNumber ? `${place.footnoteNumber} ` : ''),
+            ),
+          },
   };
 }
 
@@ -66,11 +86,13 @@ export function standInBlockLayout({
   measure = () => ({ size: { width: 120, height: 40 } }),
   refuse = [],
   labelOf,
+  footnoteOf,
 }: {
   template?: TemplateFile;
   measure?: AtomMeasurer;
   refuse?: readonly string[];
   labelOf?: (caption: ProseMirrorNode) => string | undefined;
+  footnoteOf?: (entry: ProseMirrorNode) => string | undefined;
 } = {}) {
   const atoms = createAtomCache({ measure });
   const layout = createBlockLayout({
@@ -78,6 +100,7 @@ export function standInBlockLayout({
     atoms,
     metrics: (scope) => blockMetrics(template, scope),
     labelOf,
+    footnoteOf,
   });
   return { layout, atoms };
 }
