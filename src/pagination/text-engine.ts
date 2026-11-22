@@ -43,6 +43,19 @@ function contentWidth(template: TemplateFile, scope: string | null): number {
   return width - margins.left - margins.right;
 }
 
+// Each section's content width, computed once per scope.
+function contentWidths(template: TemplateFile): (scope: string | null) => number {
+  const widths = new Map<string | null, number>();
+  return (scope) => {
+    let width = widths.get(scope);
+    if (width === undefined) {
+      width = contentWidth(template, scope);
+      widths.set(scope, width);
+    }
+    return width;
+  };
+}
+
 // Where the engine measures its atoms: out of sight, beside the view that measures the pages, whose
 // ancestors' copies the atoms are drawn in; in a page's content of its own without that view, so
 // the stylesheet draws them as on the pages.
@@ -194,6 +207,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     template,
     measureContext: measureIn(options),
     codeLineNumbers: options.codeLineNumbers,
+    reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
       types: textAtomTypes(options),
@@ -211,15 +225,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
   const counts = { laid: 0, refused: 0, reasons: new Map<string, number>() };
-  const widths = new Map<string | null, number>();
-  const widthOf = (scope: string | null) => {
-    let width = widths.get(scope);
-    if (width === undefined) {
-      width = contentWidth(template, scope);
-      widths.set(scope, width);
-    }
-    return width;
-  };
+  const widthOf = contentWidths(template);
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();

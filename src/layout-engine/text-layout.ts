@@ -11,7 +11,8 @@ import type { LineTable } from './line-table.js';
 import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
-import { buildRuns, type MeasureAtom } from './runs.js';
+import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
+import { buildRuns, type MeasureAtom, type TextRun } from './runs.js';
 import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
@@ -45,6 +46,11 @@ export interface TextLayoutOptions {
    * other ratios are for comparing with Chromium's own layout on a screen.
    */
   readonly scale?: number | undefined;
+  /**
+   * The width a cluster the measurer cannot measure reliably takes, such as the font-file
+   * measurer's `reserve`; the line table lists those clusters for the renderers.
+   */
+  readonly reserve?: ReserveCluster | undefined;
   /**
    * Whether code blocks show a gutter of line numbers, as the object views draw them by default;
    * the gutter takes the code's width in from its left.
@@ -103,6 +109,29 @@ function unservedFamily(
   if (hasCode(node)) families.push(typography.codeFamily);
   if (marker) families.push(marker);
   return families.map(firstFamily).find((family) => !isFontServed(family)) ?? null;
+}
+
+// The clusters of a block's text items that take a reserved width; a template variable's text is
+// not the block's content, so it is left out.
+function reservedOf(runs: readonly TextRun[], reserve: ReserveCluster): ReservedBox[] {
+  const boxes: ReservedBox[] = [];
+  for (const run of runs)
+    run.items.forEach((item, index) => {
+      const offset = run.offsets[index] ?? -1;
+      if (offset < 0 || !('font' in item) || item.break === 'never') return;
+      boxes.push(...reservedBoxes(item.text, { offset, font: item.font, reserve }));
+    });
+  return boxes;
+}
+
+// A line table with the reserved clusters of its runs, when the measurer reserves any.
+function withReserved(
+  table: LineTable,
+  runs: readonly TextRun[],
+  reserve: ReserveCluster | undefined,
+): LineTable {
+  const reserved = reserve ? reservedOf(runs, reserve) : [];
+  return reserved.length ? { ...table, reserved } : table;
 }
 
 /** The fewest digits a code gutter is wide for, and the room beside them (`document.css`). */
@@ -205,7 +234,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         firstStart: starts.firstStart,
         restStart: starts.restStart,
       });
-      return { ok: true, table };
+      return { ok: true, table: withReserved(table, runs.runs, options.reserve) };
     },
   };
 }

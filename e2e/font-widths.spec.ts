@@ -8,7 +8,7 @@ import { countScriptDifferences, scriptKinds } from './pretext-scripts.js';
 
 // The reference widths and Pretext's line breaks through them, on every machine and in Node, the
 // page and a worker alike (scripts/font-widths.mjs).
-const WIDTHS_FINGERPRINT = 'c2be3986';
+const WIDTHS_FINGERPRINT = 'f43b1311';
 const LINES_FINGERPRINT = '0811af10';
 // Linux Chromium's Canvas arithmetic, which the measurer follows, keeps a word's width as a float32;
 // sums can differ in the last bit.
@@ -106,3 +106,36 @@ for (const [name, kind] of Object.entries(scriptKinds)) {
     );
   });
 }
+
+// Text no served face draws (DOCE-PAGINATION-12.4): the browser draws it from a system font whose
+// width nothing predicts, so each such cluster takes a reserved box of one em, which the page draws
+// as wide as the measurer counted it, whatever font the system has.
+const reservedTexts = [
+  'Ethiopic ሰላም ለዓለም and Cherokee ᏣᎳᎩ ᎦᏬᏂᎯᏍᏗ words between Latin ones.',
+  'Han 漢字 and kana かなカナ, Hangul 한국어, Thai ภาษาไทย and Devanagari हिन्दी.',
+  'Emoji 👍🏽 🇨🇦 👩‍👩‍👧 ❤️ and symbols ☺︎ ⌘ ♞ ⏏ beside text; Tifinagh ⵜⴰⵎⴰⵣⵉⵖⵜ.',
+  'Arabic مرحبا بالعالم and Hebrew שלום עולם in a Latin sentence, then q̣̇ and ẋ̌.',
+];
+
+test('DOCE-LABS-7.4 draws every cluster no served face has in its reserved box, as wide as measured', async ({
+  page,
+  lab,
+}) => {
+  await lab.open('font-widths');
+  const lines = await page.evaluate(async (texts) => {
+    const result = await window.fontWidths;
+    return texts.flatMap((text) =>
+      [180, 260, 340].flatMap((width) => result.reservedLines(text, '400 16px "Lab Geist"', width)),
+    );
+  }, reservedTexts);
+  expect(lines.reduce((sum, line) => sum + line.boxes, 0)).toBeGreaterThan(100);
+  expect(
+    lines.reduce((sum, line) => sum + line.boxesOff, 0),
+    'boxes drawn at their width',
+  ).toBe(0);
+  // The page lays each piece of text between boxes out in 1/64 px, which the measurer does not.
+  const off = lines.filter(
+    ({ predicted, drawn, boxes }) => Math.abs(predicted - drawn) > (boxes + 1) / 64,
+  );
+  expect(off, 'lines drawn wider or narrower than measured').toEqual([]);
+});
