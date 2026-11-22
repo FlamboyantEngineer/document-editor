@@ -57,8 +57,10 @@ export type {
   HeadlessPrintResult,
 } from './headless-print.js';
 export { printSnapshot } from './headless-print.js';
+export type { PagesLayout, PagesLayoutBlock, PagesLayoutVariable } from './pages-layout.js';
 export type { PrintPageOptions } from './print.js';
 export { renderPrintPage } from './print.js';
+export { renderLayoutPrintPage } from './print-pages.js';
 export type {
   ScriptCaption,
   ScriptCell,

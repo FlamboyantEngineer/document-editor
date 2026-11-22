@@ -18,6 +18,7 @@ import {
 } from 'prosemirror-state';
 import { columnResizing } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
+import type { PagesLayout } from '../document/pages-layout.js';
 import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
 import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
@@ -28,7 +29,7 @@ import {
 } from './canonical-plugins.js';
 import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
-import { forcedLines } from './forced-lines.js';
+import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
@@ -41,6 +42,7 @@ import { awaitReady, followMeasuring, frameIn, settleEdits } from './layout-trig
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-cache.js';
 import { pageChromeDecorations } from './page-chrome.js';
+import { pagesLayout } from './pages-layout.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { inputPlugin } from './projection-input-plugin.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
@@ -187,6 +189,11 @@ export interface PagedProjection {
    */
   redraw(...keys: readonly PluginKey[]): void;
   /**
+   * With the layout engine, draws every page on its lines, as for a snapshot of the pages, or puts
+   * back only the pages near the screen (DOCE-PAGINATION-11.6).
+   */
+  drawAllLines(all: boolean): void;
+  /**
    * Lays the pages out again soon. `remeasure` forgets every measurement and starts the ghost's
    * plugins over, as after a width change or a change to a value a plugin shows.
    */
@@ -198,6 +205,8 @@ export interface PagedProjection {
   stats(): ProjectionStats;
   /** With `textLayout`, the lines the pages draw their top-level text blocks on, page by page. */
   textLines(): PageTextLines[];
+  /** With `textLayout`, the pages' layout as data a viewer or a print draws (`pagesLayout`). */
+  pagesLayout(): PagesLayout | null;
   destroy(): void;
 }
 
@@ -233,7 +242,16 @@ function projectionState(
       canonicalDecorations(source),
       pageChromeDecorations(),
       ...(text
-        ? [forcedLines({ engine: () => text.engine(), version: () => text.version() })]
+        ? [
+            forcedLines({
+              engine: () => text.engine(),
+              version: () => text.version(),
+              redraw: () => {
+                const live = session();
+                take(live, live.projection.tr.setMeta(forcedLinesKey, true));
+              },
+            }),
+          ]
         : []),
       checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
@@ -363,6 +381,9 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       for (const key of keys) tr.setMeta(key, true);
       take(live, tr);
     },
+    drawAllLines(all) {
+      if (live.pace.text) take(live, live.projection.tr.setMeta(forcedLinesKey, { drawAll: all }));
+    },
     refresh: ({ remeasure = false } = {}) => refreshLayout(live, remeasure),
     layoutState: live.pace.readiness.state,
     whenSettled: live.pace.readiness.whenSettled,
@@ -372,6 +393,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       ...(live.pace.text ? { textLayout: live.pace.text.engine()?.stats() } : {}),
     }),
     textLines: () => pageTextLines(live.projection),
+    pagesLayout: () => pagesLayout(live.projection, options),
     destroy() {
       unlisten();
       live.cells.release();

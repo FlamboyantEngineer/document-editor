@@ -153,18 +153,26 @@ test.describe('performance', () => {
     expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40));
   });
 
-  // With the layout engine (DOCE-PAGINATION-11.5) the typing budgets are recorded, not enforced
-  // yet: pages off screen still lay out, so each key's selection and React's commit read every
-  // page's forced lines. They are enforced once off-screen pages skip layout.
-  test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 records each keystroke on 40 and 300 pages with the layout engine', async ({
+  // With the layout engine (DOCE-PAGINATION-11.5), only the pages near the screen are drawn on its
+  // lines and the others skip their layout, so the same budgets hold.
+  test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 answers each keystroke on 300 pages within its budget with the layout engine', async ({
     lab,
     page,
   }) => {
     const options = { textLayout: 'pretext' } as const;
-    report(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40, options));
-    const work = await typingWork(lab, page, SIZE.pages300, options);
-    report(BUDGETS.latency300, work);
-    expect(work).toBeGreaterThan(0);
+    expectMeets(BUDGETS.latency300, await typingWork(lab, page, SIZE.pages300, options));
+  });
+
+  // Known to be close: the p95 here is about 15.8 ms at the median on a cloud runner, since the
+  // pages within half a screen below the frame are drawn on forced lines too (DOCE-PAGINATION-11.6),
+  // so a local run can miss by a millisecond. Drawing those pages' lines off the keystroke is owed
+  // (item T1 of the layout engine plan); the engine is not the default until this meets 16 ms.
+  test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 answers each keystroke on 40 pages within its budget with the layout engine', async ({
+    lab,
+    page,
+  }) => {
+    const options = { textLayout: 'pretext' } as const;
+    expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40, options));
   });
 
   test('DOCE-LABS-2.3 draws each remote keystroke on 300 pages within its budget', async ({
