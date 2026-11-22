@@ -30,7 +30,11 @@ const offPlan = (page: Page) =>
 // Where each heading's text starts, by its element id, from the left of its page's content.
 const headingStarts = (page: Page) =>
   page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.pm-page-content > :is(h1, h2)')].map((heading) => {
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        '.de-document-editor__content .pm-page-content > :is(h1, h2)',
+      ),
+    ].map((heading) => {
       const text = [...heading.childNodes].find((node) => node.nodeType === Node.TEXT_NODE) ?? null;
       const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
       const first = text ?? walker.nextNode();
@@ -43,6 +47,7 @@ const headingStarts = (page: Page) =>
       const tops = new Set([...whole.getClientRects()].map((rect) => Math.round(rect.top)));
       return {
         id: heading.dataset.id,
+        tag: heading.tagName,
         left: Math.round(range.getBoundingClientRect().left - content),
         oneLine: tops.size === 1,
       };
@@ -83,7 +88,8 @@ test.describe('inline geometry on the engine’s lines', () => {
     const compared = laid.filter(
       (heading) => heading.oneLine && measured.find((each) => each.id === heading.id)?.oneLine,
     );
-    expect(compared.length).toBeGreaterThan(3);
+    // A centred first level and a right-aligned second level.
+    expect(new Set(compared.map((heading) => heading.tag))).toEqual(new Set(['H1', 'H2']));
     for (const heading of compared) {
       const left = measured.find((each) => each.id === heading.id)?.left ?? 0;
       expect(Math.abs(heading.left - left), heading.id).toBeLessThanOrEqual(1);
