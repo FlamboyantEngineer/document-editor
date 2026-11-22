@@ -1,10 +1,13 @@
 // Holds a projection's text layout engine behind the `textLayout: 'pretext'` option: the engine
 // module loads on first use, so an editor without the option never loads the layout engine, and
 // the engine is made again for each template the pages are laid out with, and when code's line
-// numbers are turned on or off.
+// numbers are turned on or off. It measures with the fonts the host serves (DOCE-HOST-1.14.1), and
+// asks for a family a new template names.
 
 import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
+import { templateFontFamilies } from './fonts.js';
+import type { PagesFonts } from './served-fonts.js';
 import type { createPagesTextEngine } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
@@ -16,6 +19,8 @@ export interface TextLayoutSetting {
   readonly codeLineNumbers?: (() => boolean) | undefined;
   /** The node types the host draws with node views of its own. */
   readonly hostViews?: readonly string[] | undefined;
+  /** The served fonts the text is measured with; no engine is made without them. */
+  readonly fonts: PromiseLike<PagesFonts>;
 }
 
 /** A projection's text layout engine, once loaded. */
@@ -42,26 +47,41 @@ export function holdTextEngine(options: {
   readonly view?: (() => EditorView | null) | undefined;
 }): TextEngineHolder {
   let made: EngineModule | null = null;
+  let fonts: PagesFonts | null = null;
   let current: PagesTextEngine | null = null;
   let numbered = false;
   let version = 0;
   let destroyed = false;
-  const loaded = import('./text-engine.js').then((module) => {
-    made = module;
-  });
+  const loaded = Promise.all([import('./text-engine.js'), options.setting.fonts]).then(
+    ([module, served]) => {
+      made = module;
+      fonts = served;
+    },
+  );
   const settled = () => {
     version += 1;
     options.changed();
   };
+  // The engine measures again once the faces of a family the template names newly arrive.
+  const askFor = (template: TemplateFile) => {
+    if (fonts?.phase !== 'pretext') return;
+    void fonts.add(templateFontFamilies(template)).then((added) => {
+      if (!added || destroyed) return;
+      current?.destroy();
+      current = null;
+      settled();
+    });
+  };
   return {
     engine() {
-      if (!made || destroyed) return null;
+      if (!made || destroyed || fonts?.phase !== 'pretext') return null;
       const template = options.setting.template();
       const codeLineNumbers = options.setting.codeLineNumbers?.() ?? false;
       if (current?.template === template && numbered === codeLineNumbers) return current;
       numbered = codeLineNumbers;
       current?.destroy();
       version += 1;
+      askFor(template);
       current = made.createPagesTextEngine({
         template,
         codeLineNumbers,
@@ -69,6 +89,9 @@ export function holdTextEngine(options: {
         onAtomsSettled: settled,
         view: options.view,
         hostViews: options.setting.hostViews,
+        measureContext: fonts.measureContext,
+        isFontServed: (family) => fonts?.phase === 'pretext' && fonts.isFontServed(family),
+        reserve: fonts.reserve,
       });
       return current;
     },

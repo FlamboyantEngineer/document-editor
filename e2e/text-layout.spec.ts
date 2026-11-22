@@ -202,3 +202,50 @@ test.describe('the layout engine on the pages', () => {
     expect(await page.evaluate(() => window.regressionLab.textLines())).toEqual([]);
   });
 });
+
+test.describe('served fonts', () => {
+  test('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.5 keeps the browser layout and says why when the host serves no shaper', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=long-mixed&textLayout=pretext&fonts=none');
+    await waitForLab(page);
+    const root = page.locator('.de-document-editor').first();
+    await expect(root).toHaveAttribute('data-text-layout', 'dom');
+    await expect(root).toHaveAttribute('data-text-layout-reason', 'no-shaper');
+    await expect(page.locator('.de-forced-lines')).toHaveCount(0);
+  });
+
+  test('DOCE-HOST-1.14.2 DOCE-PAGINATION-12.5 draws the pages from the served faces only, never synthesised', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const root = page.locator('.de-document-editor').first();
+    await expect(root).toHaveAttribute('data-text-layout', 'pretext');
+    await expect(root).not.toHaveAttribute('data-text-layout-reason');
+    const drawn = await page.evaluate(() => ({
+      faces: [...document.fonts]
+        .filter((face) => face.family === 'Arial' && face.status === 'loaded')
+        .map((face) => `${face.weight} ${face.style}`)
+        .sort(),
+      synthesis: getComputedStyle(
+        document.querySelector('.de-document-editor__content .pm-page-content') ?? document.body,
+      ).fontSynthesis,
+    }));
+    expect(drawn.faces).toEqual(['400 italic', '400 normal', '700 italic', '700 normal']);
+    expect(drawn.synthesis).toBe('none');
+  });
+
+  test('DOCE-PAGINATION-12.5 draws a generic family the template names as the served family it is measured in', async ({
+    page,
+  }) => {
+    // The regression base template's paragraphs are in `Serif`, its code in the default monospace.
+    await open(page, 'long-mixed', 'pretext');
+    const family = (selector: string) =>
+      page
+        .locator(`.de-document-editor__content .pm-page-content ${selector}`)
+        .first()
+        .evaluate((element) => getComputedStyle(element).fontFamily);
+    expect(await family('p')).toBe('"Times New Roman"');
+    expect(await family('pre')).toBe('"Courier New"');
+  });
+});

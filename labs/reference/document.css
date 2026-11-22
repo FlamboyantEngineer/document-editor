@@ -508,6 +508,13 @@ div.de-host-view {
   box-decoration-break: clone;
 }
 
+/* With the layout engine, the pages draw only the served faces they were measured with: a weight or
+   style the host does not serve is matched to the nearest served face, never synthesised
+   (DOCE-HOST-1.14.2). */
+:where(.de-document-editor[data-text-layout='pretext']) .de-document-editor__content {
+  font-synthesis: none;
+}
+
 /* Pages far from the screen skip their layout: their size is the page's own (DOCE-PAGINATION-11.6). */
 :where(.de-document-editor[data-text-layout='pretext']) .de-document-editor__content .pm-page {
   content-visibility: auto;

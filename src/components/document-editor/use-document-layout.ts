@@ -68,6 +68,7 @@ import {
   startPaging,
 } from './start-paging.js';
 import type { PagedEditor } from './use-paged-projection.js';
+import type { PagesFontsState } from './use-pages-fonts.js';
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
 export type DocumentLayout = 'page' | 'web';
@@ -116,6 +117,8 @@ const repeatHeaderKey = (template: TemplateFile) =>
 export interface DocumentLayoutOptions {
   readonly layout: DocumentLayout;
   readonly template: TemplateFile;
+  /** The pages' text layout and served fonts (`usePagesFonts`). */
+  readonly text: PagesFontsState;
   readonly state: EditorState;
   readonly onStateChange: (update: RichTextStateUpdate) => void;
   /** The older version the document is compared with, and how its changes show. */
@@ -302,13 +305,15 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
 export function useDocumentLayout(
   measureIn: RefObject<HTMLDivElement | null>,
   options: DocumentLayoutOptions,
-): LayoutProgress & { readonly paged: PagedEditor | null } {
+): LayoutProgress & { readonly paged: PagedEditor | null; readonly text: PagesFontsState } {
   const { layout, template } = options;
   // The template's settings that change how the pages are laid out: the pagination starts over
   // when they do.
   const repeatHeaders = repeatHeaderKey(template);
   const footnoteNumbering = resolveFootnoteSettings(template, null).numbering ?? 'document';
-  const textLayout = options.textLayout ?? 'dom';
+  // The layout engine lays the pages' text out only with the fonts the host serves.
+  const { text } = options;
+  const { textLayout, fonts: servedFonts } = text;
   const latest = useRef(options);
   useEffect(() => {
     latest.current = options;
@@ -347,11 +352,11 @@ export function useDocumentLayout(
       return undefined;
     }
     return startPaging(element, latest, {
-      settings: { footnoteNumbering, textLayout },
+      settings: { footnoteNumbering, textLayout, fonts: servedFonts },
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, measureIn, repeatHeaders, footnoteNumbering, textLayout, schema]);
+  }, [layout, measureIn, repeatHeaders, footnoteNumbering, textLayout, servedFonts, schema]);
 
   useLayoutPlugins(options, ownPlugins);
 
@@ -374,5 +379,5 @@ export function useDocumentLayout(
     options.onStateChange,
   );
   const progress = useLayoutProgress(active);
-  return useMemo(() => ({ ...progress, paged }), [progress, paged]);
+  return useMemo(() => ({ ...progress, paged, text }), [progress, paged, text]);
 }

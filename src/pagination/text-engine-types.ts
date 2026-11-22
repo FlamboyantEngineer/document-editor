@@ -21,6 +21,8 @@ export interface TextEngineOptions {
   readonly onAtomsSettled: () => void;
   /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
   readonly measureContext?: (() => MeasureContext) | undefined;
+  /** Whether a family has served faces; a block in another family is left to the DOM. */
+  readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
   readonly reserve?: ReserveCluster | undefined;
   /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
