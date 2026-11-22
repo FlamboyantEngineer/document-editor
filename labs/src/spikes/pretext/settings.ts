@@ -1,3 +1,5 @@
+import type { Node } from 'prosemirror-model';
+import { blockTypography } from '../../../../src/layout-engine/typography.js';
 import { BASE_TEMPLATE } from '../../../../src/model/templates/base-template.js';
 import { lengthToCssPx } from '../../../../src/model/templates/template-css-values.js';
 import {
@@ -5,6 +7,7 @@ import {
   templateScopeStyles,
 } from '../../../../src/model/templates/template-properties.js';
 import { textStyleProperties } from '../../../../src/model/templates/template-text-properties.js';
+import { requireValue, schema } from './fixtures.js';
 import { labMeasurer, MONO_FAMILY, SANS_FAMILY, servesFonts } from './fonts.js';
 
 export const px = (value: number) => `${String(value)}px`;
@@ -24,24 +27,17 @@ export function font(style: Typography): string {
   return `${style.italic ? 'italic ' : ''}${String(style.weight)} ${px(style.size)} ${style.family}`;
 }
 
+/** The one template scope this spike lays out, in the library's text layout engine too. */
+export const template = BASE_TEMPLATE;
+
+/** With served fonts, the template's families resolve to the served ones (`fontStacks`). */
+export const fontStacks = servesFonts
+  ? { Arial: `"${SANS_FAMILY}"`, 'Courier New': `"${MONO_FAMILY}"` }
+  : undefined;
+
 // This spike resolves one template scope. Both HTML paths receive the same explicit geometry.
 const styles = templateScopeStyles(BASE_TEMPLATE, null);
-// With served fonts, every text style takes the served families in place of the template's.
-const properties = servedFamilies(textStyleProperties(styles));
-
-function servedFamilies<T extends Record<string, string>>(source: T): T {
-  if (!servesFonts) return source;
-  return Object.fromEntries(
-    Object.entries(source).map(([key, value]) =>
-      key.endsWith('-font-family')
-        ? [key, key.startsWith('--doc-code-') ? `"${MONO_FAMILY}"` : `"${SANS_FAMILY}"`]
-        : [key, value],
-    ),
-  ) as T;
-}
-
-/** The family of inline code, which the reference stylesheet takes from `--pretext-inline-code-family`. */
-export const inlineCodeFamily = servesFonts ? `"${MONO_FAMILY}"` : '"Courier New", monospace';
+const properties = textStyleProperties(styles, fontStacks);
 function type(prefix: string, defaultLeading: number): Typography {
   const property = (key: string) => properties[`--doc-${prefix}-${key}`];
   const size = length(property('font-size'));
@@ -88,7 +84,6 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--doc-page-height', pageHeight);
   set('--pretext-content-width', contentWidth);
   set('--pretext-content-height', contentHeight);
-  root.style.setProperty('--pretext-inline-code-family', inlineCodeFamily);
   // Font-file widths are unhinted, so the page lays its text out unhinted too, as pages under
   // Pretext layout do (DOCE-PAGINATION-11.1); the headless shell hints DOM text otherwise.
   if (labMeasurer === 'font-files') {
@@ -101,11 +96,24 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--pretext-display-math-width', displayMath.width);
   set('--pretext-display-math-height', displayMath.height);
   Object.entries(margins).forEach(([side, value]) => set(`--doc-page-margin-${side}`, value));
-  for (const [prefix, style] of [
-    ['paragraph', paragraph],
-    ['code', code],
-    ...headings.map((style, index) => [`heading-${String(index + 1)}`, style] as const),
-  ] as const) {
-    set(`--doc-${prefix}-line-height`, style.leading);
+  // The HTML draws the library's leadings, so its lines are as tall as the engine's.
+  for (const [prefix, node] of leadingNodes()) {
+    set(`--doc-${prefix}-line-height`, blockTypography(node, { template, fontStacks }).leading);
   }
+}
+
+function leadingNodes(): (readonly [string, Node])[] {
+  const { paragraph, heading, code_block: codeBlock } = schema.nodes;
+  return [
+    ['paragraph', requireValue(paragraph, 'paragraph').create()],
+    ['code', requireValue(codeBlock, 'code block').create()],
+    ...Array.from(
+      { length: 6 },
+      (_, index) =>
+        [
+          `heading-${String(index + 1)}`,
+          requireValue(heading, 'heading').create({ level: index + 1 }),
+        ] as const,
+    ),
+  ];
 }

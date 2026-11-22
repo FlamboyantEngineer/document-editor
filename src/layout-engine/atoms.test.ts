@@ -110,6 +110,29 @@ describe('atom cache', () => {
     stop();
   });
 
+  it('DOCE-PAGINATION-10.2 tells every node that shares a loading atom when it settles', async () => {
+    let finish: (size: { width: number; height: number }) => void = () => undefined;
+    const settled = new Promise<{ width: number; height: number }>((resolve) => {
+      finish = resolve;
+    });
+    const measure = vi.fn(() => ({ size: { width: 0, height: 0 }, settled }));
+    const cache = createAtomCache({ measure });
+    const listener = vi.fn();
+    cache.subscribe(listener);
+    const image = (dataId: string) =>
+      schema.node('figure', { dataId, src: 'https://example.org/a.png' }, [
+        schema.node('figure_caption'),
+      ]);
+    const [first, second] = [image('aaaaaaaa'), image('bbbbbbbb')];
+    cache.measureBlockAtom(first, 400);
+    cache.measureBlockAtom(second, 400);
+    expect(measure).toHaveBeenCalledTimes(1);
+    finish({ width: 80, height: 40 });
+    await settled;
+    await Promise.resolve();
+    expect(listener).toHaveBeenCalledWith([first, second]);
+  });
+
   it('DOCE-PAGINATION-10.2 keeps the size drawn while loading when the load fails', async () => {
     const settled = Promise.reject(new Error('not found'));
     const cache = createAtomCache({

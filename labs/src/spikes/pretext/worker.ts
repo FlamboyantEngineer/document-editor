@@ -1,13 +1,12 @@
-import { setLayoutScale, setLocale, setMeasureContext } from '@chenglou/pretext';
+import { setLayoutScale, setMeasureContext } from '@chenglou/pretext';
 import type { Node } from 'prosemirror-model';
 import { createFontFileMeasurer } from '../../../../src/layout-engine/font-files/measurer.js';
 import { readFixture } from './fixtures.js';
 import { addServedFaces, type FontSetup, labMeasurer } from './fonts.js';
-import { type Block, indexPages, measureDocument, PreparationCache } from './prediction.js';
+import { type Block, createPreparationCache, indexPages, measureDocument } from './prediction.js';
 import type { BlockReport, LayoutRequest, LayoutResult } from './protocol.js';
 
 if (typeof document !== 'undefined') throw new Error('Prediction must run without a DOM');
-setLocale('en');
 
 // The served fonts, given once by the page: added to the worker's own font set for Canvas, or
 // read into HarfBuzz for font-file widths, which then replace Canvas as Pretext's measure.
@@ -21,7 +20,7 @@ async function useFonts({ faces, wasm }: FontSetup) {
   setMeasureContext(() => measurer.createContext() as unknown as OffscreenCanvasRenderingContext2D);
 }
 
-const cache = new PreparationCache();
+const cache = createPreparationCache();
 let doc: Node | undefined;
 
 function report({ path, width, height, lines, children }: Block): BlockReport {
@@ -58,8 +57,7 @@ function predict(request: LayoutRequest): LayoutResult {
     index: portable,
     issues,
     measurements: request.verify ? blocks.map(report) : undefined,
-    hits: cache.hits,
-    misses: cache.misses,
+    ...cache.stats(),
     prepareMs: prepared - start,
     packMs: performance.now() - prepared,
     measurer: labMeasurer,

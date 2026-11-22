@@ -52,6 +52,17 @@ describe('typography', () => {
     });
   });
 
+  it('DOCE-PAGINATION-9.2 truncates a leading to the layout unit, as Chromium does', () => {
+    const at = (size: string, lineHeight: number) =>
+      blockTypography(first('<p>a</p>', 'paragraph'), {
+        template: { ...BASE_TEMPLATE, styles: { paragraph: { size, lineHeight } } },
+      }).leading;
+    // 11pt snaps to 14.671875px; times 1.4 is 20.540625, which Chromium draws as 20.53125.
+    expect(at('11pt', 1.4)).toBe(20.53125);
+    expect(at('13.7px', 1.5)).toBe(20.546875);
+    expect(at('8pt', 1.5)).toBe(16);
+  });
+
   it('DOCE-PAGINATION-9.2 lays a custom style over a paragraph and only its size and slant over a heading', () => {
     const paragraph = documentSchema.nodes.paragraph?.create({ className: 'Quote' });
     const heading = documentSchema.nodes.heading?.create({ level: 1, className: 'Quote' });

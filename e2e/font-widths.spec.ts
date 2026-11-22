@@ -8,7 +8,7 @@ import { countDifferences, type Counts, kinds } from './pretext-fuzz.js';
 // The reference widths and Pretext's line breaks through them, on every machine and in Node, the
 // page and a worker alike (scripts/font-widths.mjs).
 const WIDTHS_FINGERPRINT = 'c2be3986';
-const LINES_FINGERPRINT = 'b95b5806';
+const LINES_FINGERPRINT = '0811af10';
 // Linux Chromium's Canvas arithmetic, which the measurer follows, keeps a word's width as a float32;
 // sums can differ in the last bit.
 const FLOAT32_SLACK = 4 / 65_536;
@@ -42,16 +42,19 @@ test('DOCE-LABS-7.1 agrees with Linux Chromium Canvas wherever the served faces 
 });
 
 // The closeness counts of DOCE-LABS-5.6 with Geist served to the page and the worker, Pretext
-// measuring with the font files. They equal the counts with Canvas widths of the same served fonts
-// (the spike's report); a change is a regression or a fix, and changes the budget in the same PR.
+// measuring with the font files and the library's text layout engine laying the lab out. Every line
+// matches Chromium's. What is left is G3, as with Canvas widths (pretext-pagination-fuzz.spec.ts):
+// a padded code piece ending a line keeps its hanging pre-wrap space, and Chrome paints the end
+// padding after it, past the content edge. A change is a regression or a fix, and changes the
+// budget in the same PR.
 const budgets: Record<string, Counts> = {
   plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
   kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-  bold: { starts: 15, lines: 1, boundaries: 0, overflow: 0 },
-  italic: { starts: 15, lines: 2, boundaries: 8, overflow: 1 },
-  code: { starts: 15, lines: 0, boundaries: 2, overflow: 1 },
-  link: { starts: 17, lines: 1, boundaries: 0, overflow: 0 },
-  mixed: { starts: 50, lines: 5, boundaries: 14, overflow: 4 },
+  bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+  italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+  code: { starts: 0, lines: 0, boundaries: 0, overflow: 78 },
+  link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
+  mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 32 },
 };
 
 for (const [name, kind] of Object.entries(kinds)) {

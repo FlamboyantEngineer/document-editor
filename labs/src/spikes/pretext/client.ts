@@ -1,21 +1,39 @@
+import {
+  blockTypography,
+  fontString,
+  markedFont,
+} from '../../../../src/layout-engine/typography.js';
+import { requireValue, schema } from './fixtures.js';
 import { addServedFaces, loadFontSetup, servesFonts, workerName } from './fonts.js';
 import type { LayoutRequest, LayoutResult } from './protocol.js';
-import { code, font, headings, inlineCodeFamily, paragraph } from './settings.js';
+import { fontStacks, template } from './settings.js';
 
-const fonts = [
-  paragraph,
-  ...headings,
-  code,
-  { ...paragraph, weight: 700 },
-  { ...paragraph, italic: true },
-  { ...paragraph, italic: true, weight: 700 },
-  { ...paragraph, family: inlineCodeFamily },
-];
+// Every font the library lays the lab's blocks out in: each block type's, and the marks'.
+function fonts() {
+  const { paragraph, heading, code_block: codeBlock } = schema.nodes;
+  const body = requireValue(paragraph, 'paragraph').create();
+  const blocks = [
+    body,
+    requireValue(codeBlock, 'code block').create(),
+    ...Array.from({ length: 6 }, (_, index) =>
+      requireValue(heading, 'heading').create({ level: index + 1 }),
+    ),
+  ];
+  const marks = [['strong'], ['em'], ['strong', 'em'], ['code']].map((names) =>
+    names.map((name) => requireValue(schema.marks[name], name).create()),
+  );
+  const typography = blockTypography(body, { template, fontStacks });
+  return [
+    ...blocks.map((node) => fontString(blockTypography(node, { template, fontStacks }).font)),
+    ...marks.map((set) => fontString(markedFont(typography, set))),
+  ];
+}
+
 let served: Promise<void> | undefined;
 export const fontsReady = async () => {
   if (servesFonts)
     await (served ??= loadFontSetup().then(({ faces }) => addServedFaces(document.fonts, faces)));
-  await Promise.all(fonts.map((style) => document.fonts.load(font(style))));
+  await Promise.all(fonts().map((font) => document.fonts.load(font)));
   await document.fonts.ready;
 };
 

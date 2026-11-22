@@ -1,12 +1,6 @@
-import {
-  materializeRichInlineLineRange,
-  type PreparedRichInline,
-  prepareRichInline,
-  type RichInlineBox,
-  type RichInlineItem,
-  walkRichInlineLineRanges,
-} from '@chenglou/pretext/rich-inline';
 import type { Node } from 'prosemirror-model';
+import type { LineTable } from '../../../../src/layout-engine/line-table.js';
+import { createTextLayout } from '../../../../src/layout-engine/text-layout.js';
 import {
   type LayoutBlock,
   layoutPages,
@@ -17,13 +11,9 @@ import { contentBlocks, requireValue } from './fixtures.js';
 import {
   cellBorder,
   cellPadding,
-  code,
-  codePadding,
   contentHeight,
   displayMath,
-  font,
-  headings,
-  inlineCodeFamily,
+  fontStacks,
   inlineMath,
   listAfter,
   listBefore,
@@ -31,7 +21,7 @@ import {
   pageHeight,
   pageWidth,
   paragraph,
-  type Typography,
+  template,
 } from './settings.js';
 
 export interface Line {
@@ -46,6 +36,9 @@ export interface Block {
   readonly before: number;
   readonly after: number;
   readonly lines?: readonly Line[];
+  /** A text block's line table from the library's text layout engine. */
+  readonly table?: LineTable;
+  /** The line height of a block measured in the HTML, whose lines are all as tall. */
   readonly leading?: number;
   readonly children?: readonly Block[];
 }
@@ -65,61 +58,24 @@ export interface PageIndex {
   readonly pages: readonly (readonly Fragment[])[];
 }
 
-type Inline = RichInlineItem | RichInlineBox;
-interface Run {
-  endsWithBreak: boolean;
-  readonly start: number;
-  readonly items: Inline[];
-  readonly offsets: number[];
+/** The library's text layout engine, keeping prepared text between layouts. */
+export type PreparationCache = ReturnType<typeof createPreparationCache>;
+
+// Inline math is a fixed box that sits 3px below the baseline, inside the paragraph's strut, as
+// the lab's stylesheet draws it.
+const mathBaseline = inlineMath.height - 3;
+
+export function createPreparationCache() {
+  return createTextLayout({
+    template,
+    fontStacks,
+    language: 'en',
+    measureAtom: (node) =>
+      node.type.name === 'math_inline' && !node.marks.length
+        ? { ...inlineMath, baseline: mathBaseline }
+        : null,
+  });
 }
-
-interface RunLine {
-  readonly item: number;
-  readonly from: number;
-  readonly width: number;
-}
-interface PreparedRun {
-  readonly prepared: PreparedRichInline;
-  layout?: { readonly width: number; readonly lines: readonly RunLine[] };
-}
-
-export class PreparationCache {
-  private readonly runs = new Map<string, PreparedRun>();
-  hits = 0;
-  misses = 0;
-
-  lines(items: Inline[], preserve: boolean, width: number) {
-    const key = JSON.stringify([preserve, items]);
-    let run = this.runs.get(key);
-    if (run) {
-      this.hits += 1;
-      if (run.layout?.width === width) return run.layout.lines;
-    } else {
-      this.misses += 1;
-      run = {
-        prepared: prepareRichInline(items, { whiteSpace: preserve ? 'pre-wrap' : 'normal' }),
-      };
-      this.runs.set(key, run);
-    }
-
-    const { prepared } = run;
-    const lines: RunLine[] = [];
-    walkRichInlineLineRanges(prepared, width, (range) => {
-      const first = materializeRichInlineLineRange(prepared, range).fragments[0];
-      lines.push({
-        item: first?.itemIndex ?? 0,
-        from: first?.sourceStart ?? 0,
-        width: range.width,
-      });
-    });
-    // Keep one width per prepared run. Its item-local offsets can be reused even when
-    // the same inline items start elsewhere in another source paragraph.
-    run.layout = { width, lines };
-    return lines;
-  }
-}
-
-export { inlineCodeFamily };
 
 export function blockId(node: Node): string | null {
   const id: unknown = node.attrs.dataId;
@@ -148,88 +104,20 @@ class Predictor {
     this.issues.push(`${path} (${blockId(node) ?? node.type.name}): ${reason}`);
   }
 
-  runs(node: Node, path: string, style: Typography) {
-    let run: Run = { endsWithBreak: false, start: 0, items: [], offsets: [] };
-    const runs = [run];
-    node.forEach((child, offset) => {
-      if (child.type.name === 'hard_break') {
-        run.endsWithBreak = true;
-        run = { endsWithBreak: false, start: offset + child.nodeSize, items: [], offsets: [] };
-        runs.push(run);
-      } else if (child.type.name === 'math_inline') {
-        if (child.marks.length || style.leading < inlineMath.height + 2)
-          this.issue(
-            child,
-            path,
-            'inline math needs an unmarked box within the explicit line height',
-          );
-        run.items.push({ width: inlineMath.width });
-        run.offsets.push(offset);
-      } else if (child.isText) {
-        let marked = style;
-        for (const { type } of child.marks) {
-          switch (type.name) {
-            case 'strong':
-              marked = { ...marked, weight: 700 };
-              break;
-            case 'em':
-              marked = { ...marked, italic: true };
-              break;
-            case 'code':
-              marked = { ...marked, family: inlineCodeFamily };
-              break;
-            // In all-markup HTML these annotations change only decoration.
-            case 'comment_highlight':
-            case 'contributor':
-            case 'insertion':
-            case 'deletion':
-            case 'link':
-            case 'strike':
-            case 'underline':
-              break;
-            default:
-              this.issue(child, path, `unsupported mark ${type.name}`);
-          }
-        }
-        run.items.push({ text: child.text ?? '', font: font(marked) });
-        run.offsets.push(offset);
-      } else this.issue(child, path, `unsupported inline node ${child.type.name}`);
-    });
-    if (node.lastChild?.type.name === 'hard_break') runs.pop();
-    return runs;
-  }
-
-  text(node: Node, path: string, width: number, style: Typography, preserve = false): Block {
-    const padding = preserve ? codePadding : 0;
-    // Pretext's Blink profile fits a line as Chrome does, in layout units of the page's
-    // device pixel ratio (setLayoutScale in the worker).
-    const fitWidth = Math.max(1, width - 2 * padding);
-    const lines: Line[] = [];
-    for (const run of this.runs(node, path, style)) {
-      const wrapped = this.cache.lines(run.items, preserve, fitWidth);
-      for (const line of wrapped) {
-        lines.push({ from: (run.offsets[line.item] ?? run.start) + line.from, width: line.width });
-      }
-      // A hard break creates a line even when the text before it collapses. After the
-      // final break, trailing collapsible whitespace does not create another line.
-      if (!wrapped.length && (preserve || !node.childCount || run.endsWithBreak))
-        lines.push({ from: run.start, width: 0 });
-    }
-    if (!lines.length && node.textContent)
-      this.issue(
-        node,
-        path,
-        'blocks with only collapsed text and adjoining margins are unsupported',
-      );
+  text(node: Node, path: string, width: number, nested: boolean): Block {
+    const laid = this.cache.layoutText(node, { width });
+    if (!laid.ok) this.issue(node, path, laid.reason);
+    const table = laid.ok ? laid.table : undefined;
+    const style = this.cache.typography(node);
     return {
       node,
       path,
       width,
-      lines,
-      leading: style.leading,
-      height: lines.length * style.leading + 2 * padding,
-      before: style.before,
-      after: style.after,
+      lines: table?.lines.map((line) => ({ from: line.from, width: line.width })) ?? [],
+      ...(table ? { table } : {}),
+      height: table ? table.height + table.overhead : 0,
+      before: nested ? 0 : style.marginTop,
+      after: nested ? 0 : style.marginBottom,
     };
   }
 
@@ -324,8 +212,6 @@ class Predictor {
     switch (node.type.name) {
       case 'paragraph':
       case 'heading': {
-        const isHeading = node.type.name === 'heading';
-        const style = isHeading ? (headings[Number(node.attrs.level) - 1] ?? paragraph) : paragraph;
         if (
           node.attrs.customStyle ||
           node.attrs.styleId ||
@@ -336,7 +222,7 @@ class Predictor {
           node.attrs.indent
         )
           this.issue(node, path, 'per-block typography overrides are unsupported');
-        return this.text(node, path, width, nested ? { ...style, before: 0, after: 0 } : style);
+        return this.text(node, path, width, nested);
       }
       case 'bullet_list':
       case 'ordered_list': {
@@ -358,12 +244,13 @@ class Predictor {
         if (node.firstChild?.content.size || node.lastChild?.attrs.captionEnabled !== false)
           this.issue(node, path, 'code captions are unsupported');
         const child = requireValue(node.lastChild, 'code block body');
-        const body = this.text(child, `${path}.1`, width, { ...code, before: 0, after: 0 }, true);
+        const body = this.text(child, `${path}.1`, width, true);
+        const style = this.cache.typography(child);
         return {
           ...plain,
           height: body.height,
-          before: code.before,
-          after: code.after,
+          before: style.marginTop,
+          after: style.marginBottom,
           children: [body],
         };
       }
@@ -441,6 +328,15 @@ type MeasuredFragment = LayoutBlock & {
   };
 };
 
+// The height of a block's lines from `first` up to `end`: from its line table, or at its leading.
+function linesHeight(block: Block, first: number, end: number): number {
+  const lines = block.table?.lines;
+  if (!lines) return (end - first) * (block.leading ?? 0);
+  const top = lines[first];
+  const bottom = lines[end - 1];
+  return top && bottom ? bottom.top + bottom.height - top.top : 0;
+}
+
 function piece(
   block: Block,
   from: number,
@@ -451,7 +347,7 @@ function piece(
   const whole = from === 0 && to === block.node.content.size;
   return {
     node: block.node,
-    height: whole || !block.leading ? block.height : (lastLine - firstLine) * block.leading,
+    height: whole ? block.height : linesHeight(block, firstLine, lastLine),
     marginTop: from === 0 ? block.before : 0,
     marginBottom: to === block.node.content.size ? block.after : 0,
     measurement: { block, from, to, firstLine, lastLine },
@@ -464,8 +360,13 @@ const rules: LayoutRules = {
     keepsWithHeading: true,
     split(item, available) {
       const { block, from, to, firstLine, lastLine } = (item as MeasuredFragment).measurement;
-      if (!block.lines || !block.leading) return null;
-      const count = Math.min(lastLine - firstLine - 2, Math.floor(available / block.leading));
+      if (!block.lines) return null;
+      let count = 0;
+      while (
+        count < lastLine - firstLine - 2 &&
+        linesHeight(block, firstLine, firstLine + count + 1) <= available
+      )
+        count += 1;
       const splitLine = firstLine + count;
       const split = block.lines[splitLine]?.from ?? 0;
       if (count < 2 || split <= from || split >= to) return null;

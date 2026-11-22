@@ -8,7 +8,7 @@ import { createFontFileMeasurer } from './measurer.js';
 // The fingerprints the browser test DOCE-LABS-7.1 pins on Linux, Windows and macOS, in a page and
 // a worker; Node gives the same.
 const WIDTHS_FINGERPRINT = 'c2be3986';
-const LINES_FINGERPRINT = 'b95b5806';
+const LINES_FINGERPRINT = '0811af10';
 
 const measurer = () => createFontFileMeasurer({ wasm: harfBuzzWasm(), faces: referenceFaces() });
 
@@ -24,7 +24,7 @@ describe('DOCE-PAGINATION-12.1 widths from the font files', () => {
     const lines = fingerprintLines(
       () => createContext() as unknown as OffscreenCanvasRenderingContext2D,
     );
-    expect(lines).toMatchObject({ fingerprint: LINES_FINGERPRINT, lines: 7400 });
+    expect(lines).toMatchObject({ fingerprint: LINES_FINGERPRINT, lines: 7403 });
   });
 });
 

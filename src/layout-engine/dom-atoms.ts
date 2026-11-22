@@ -28,7 +28,10 @@ function hasFixedBox(image: HTMLImageElement): boolean {
 }
 
 function loading(element: HTMLElement): HTMLImageElement[] {
-  return [...element.querySelectorAll('img')].filter((image) => {
+  // The atom may be an image itself, as well as hold some.
+  const images = [...element.querySelectorAll('img')];
+  if (element.tagName === 'IMG') images.unshift(element as HTMLImageElement);
+  return images.filter((image) => {
     // The host sits out of sight, where a lazy image never loads.
     if (image.getAttribute('loading') === 'lazy') image.setAttribute('loading', 'eager');
     return !image.complete && !hasFixedBox(image);
