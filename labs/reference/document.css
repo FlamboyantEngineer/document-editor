@@ -182,8 +182,19 @@ div.de-host-view {
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
+/*
+ * The page content takes the paragraph style's font, size and line height, so other styles' `em`
+ * and `%` sizes, and the captions' unset fonts, resolve against the paragraph's, as the text
+ * layout engine resolves them (DOCE-TEMPLATES-5.2), not against the interface font around it.
+ */
 .de-document-editor .pm-page-content {
   flex: 1;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content {
+  font-family: var(--doc-paragraph-font-family, serif);
+  font-size: var(--doc-paragraph-font-size, 12px);
+  line-height: var(--doc-paragraph-line-height, 1.5);
 }
 
 /*
@@ -890,7 +901,24 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
   order: var(--doc-code-caption-order, -1);
-  font-family: var(--doc-paragraph-font-family, inherit);
+}
+
+/*
+ * A caption's unset font is the paragraph's, at the paragraph's line height and upright, wherever
+ * the caption sits, such as inside code drawn in the code font.
+ */
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(
+    .doc-table-caption-line,
+    .doc-figure-caption-line,
+    .doc-code-caption-line,
+    .doc-linked-code-caption-line
+  ) {
+  font-family: var(--doc-paragraph-font-family, serif);
+  font-size: var(--doc-paragraph-font-size, 12px);
+  font-weight: var(--doc-paragraph-font-weight, normal);
+  font-style: normal;
+  line-height: var(--doc-paragraph-line-height, 1.5);
 }
 
 /* A rule parts a code caption from its code: under the caption above it, over one below it. */
@@ -933,8 +961,8 @@ div.de-host-view {
   content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
 }
 
-/* A table caption's label and number in the label style, its text in the text style, each
-   falling back to the other and then to the paragraph's. */
+/* A table caption's label and number in the label style, unset values the text's; its text in
+   the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
   font-family: var(
     --doc-table-caption-label-font-family,
@@ -957,26 +985,14 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   .doc-table-caption-line
   > .doc-caption-text {
-  font-family: var(
-    --doc-table-caption-text-font-family,
-    var(--doc-table-caption-label-font-family, inherit)
-  );
-  font-size: var(
-    --doc-table-caption-text-font-size,
-    var(--doc-table-caption-label-font-size, inherit)
-  );
-  font-weight: var(
-    --doc-table-caption-text-font-weight,
-    var(--doc-table-caption-label-font-weight, inherit)
-  );
-  font-style: var(
-    --doc-table-caption-text-font-style,
-    var(--doc-table-caption-label-font-style, inherit)
-  );
+  font-family: var(--doc-table-caption-text-font-family, inherit);
+  font-size: var(--doc-table-caption-text-font-size, inherit);
+  font-weight: var(--doc-table-caption-text-font-weight, inherit);
+  font-style: var(--doc-table-caption-text-font-style, inherit);
 }
 
-/* A figure caption's label and number in the label style, its text in the text style, each
-   falling back to the other and then to the paragraph's. */
+/* A figure caption's label and number in the label style, unset values the text's; its text in
+   the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before {
   font-family: var(
     --doc-figure-caption-label-font-family,
@@ -999,26 +1015,14 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   .doc-figure-caption-line
   > .doc-caption-text {
-  font-family: var(
-    --doc-figure-caption-text-font-family,
-    var(--doc-figure-caption-label-font-family, inherit)
-  );
-  font-size: var(
-    --doc-figure-caption-text-font-size,
-    var(--doc-figure-caption-label-font-size, inherit)
-  );
-  font-weight: var(
-    --doc-figure-caption-text-font-weight,
-    var(--doc-figure-caption-label-font-weight, inherit)
-  );
-  font-style: var(
-    --doc-figure-caption-text-font-style,
-    var(--doc-figure-caption-label-font-style, inherit)
-  );
+  font-family: var(--doc-figure-caption-text-font-family, inherit);
+  font-size: var(--doc-figure-caption-text-font-size, inherit);
+  font-weight: var(--doc-figure-caption-text-font-weight, inherit);
+  font-style: var(--doc-figure-caption-text-font-style, inherit);
 }
 
-/* A code caption's label and number in the label style, its text in the text style, each
-   falling back to the other and then to the paragraph's. */
+/* A code caption's label and number in the label style, unset values the text's; its text in
+   the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
   font-family: var(
@@ -1042,22 +1046,10 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line)
   > .doc-caption-text {
-  font-family: var(
-    --doc-code-caption-text-font-family,
-    var(--doc-code-caption-label-font-family, inherit)
-  );
-  font-size: var(
-    --doc-code-caption-text-font-size,
-    var(--doc-code-caption-label-font-size, inherit)
-  );
-  font-weight: var(
-    --doc-code-caption-text-font-weight,
-    var(--doc-code-caption-label-font-weight, inherit)
-  );
-  font-style: var(
-    --doc-code-caption-text-font-style,
-    var(--doc-code-caption-label-font-style, inherit)
-  );
+  font-family: var(--doc-code-caption-text-font-family, inherit);
+  font-size: var(--doc-code-caption-text-font-size, inherit);
+  font-weight: var(--doc-code-caption-text-font-weight, inherit);
+  font-style: var(--doc-code-caption-text-font-style, inherit);
 }
 
 :where(.de-document-editor, .de-document-editor__measure)

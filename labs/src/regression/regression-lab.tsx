@@ -33,6 +33,7 @@ import {
   type RegressionDocumentName,
 } from './regression-documents.js';
 import { useRegressionProbe } from './regression-probe.js';
+import { RELATIVE_SIZES, withRelativeSizes } from './relative-sizes.js';
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
@@ -67,7 +68,9 @@ const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 1
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
 
 function opened(name: RegressionDocumentName): { state: EditorState; template: TemplateFile } {
-  const { file, template } = regressionDocument(name);
+  const document = regressionDocument(name);
+  const { file } = document;
+  const template = RELATIVE_SIZES ? withRelativeSizes(document.template) : document.template;
   const schema = createDocumentSchema();
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
