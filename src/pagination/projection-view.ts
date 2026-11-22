@@ -60,6 +60,7 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     whenSettled: projection.whenSettled,
     stats: projection.stats,
     textLines: projection.textLines,
+    pagesLayout: projection.pagesLayout,
     destroy() {
       detach();
       shown.destroy();

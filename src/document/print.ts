@@ -7,16 +7,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
-import { idOf } from '../engine/footnote-model.js';
-import { numberFootnoteParts } from '../engine/footnote-numbers.js';
-import {
-  isAllowedAttribute,
-  SNAPSHOT_DROPPED,
-  SNAPSHOT_ELEMENTS,
-} from '../engine/print-allow-list.js';
-import type { ResolveImage } from '../engine/print-images.js';
 import { elementNumbers } from '../engine/print-links.js';
-import { PRINT_MARKER_RULES } from '../engine/print-view.js';
 import {
   createDocumentSchema,
   type DocumentFile,
@@ -24,25 +15,22 @@ import {
   findTemplateSection,
   readDocumentFile,
   setPageRegions,
-  signatureSvgMarkup,
   type TemplateFile,
   templatePageMetrics,
-  templateProperties,
 } from '../model/index.js';
-import { footnoteEntryAnchor, footnoteMarkerAnchor } from '../model/schema/footnote-nodes.js';
-import { type CitationHref, referencePrintHref } from '../model/schema/reference-mark.js';
 import {
-  isPrintElement,
-  nodeTree,
-  type PrintElement,
-  printElement,
-  printElements,
-  printHtml,
-  type PrintTree,
-} from './print-tree.js';
+  addLinks,
+  allow,
+  drawNode,
+  numberFootnotes,
+  type PrintLinkOptions,
+  type PrintMarkup,
+  standalonePage,
+} from './print-content.js';
+import { nodeTree, printElement, type PrintTree } from './print-tree.js';
 
 /** What a static render holds beside the document. */
-export interface PrintPageOptions {
+export interface PrintPageOptions extends PrintLinkOptions {
   /** The page's title. */
   readonly title?: string | undefined;
   /** The stylesheets that style the document, as CSS text, inlined in order. */
@@ -50,156 +38,13 @@ export interface PrintPageOptions {
   /** The stylesheets that style the document, by address, linked in order. */
   readonly stylesheets?: readonly string[] | undefined;
   /** How suggestions show: all their markup (the default), as if accepted, or as if rejected. */
-  readonly markup?: 'all' | 'final' | 'original' | undefined;
-  /** Where a citation of another document links; unlinked without it. */
-  readonly citationHref?: CitationHref | undefined;
-  /** The address each image loads from, given the one the document names; null keeps it. */
-  readonly resolveImage?: ResolveImage | undefined;
+  readonly markup?: PrintMarkup | undefined;
   /** The host's schema choices and extensions, such as where file assets are previewed. */
   readonly kit?: DocumentKitOptions | undefined;
 }
 
-const ROOT_CLASS = 'de-document-editor';
-
-const escapeHtml = (value: string) =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-// A signature draws from its stored vector, as the editor's view draws it.
-function drawNode(node: ProseMirrorNode, drawn: PrintTree[]): PrintTree[] {
-  if (node.type.name !== 'signature') return drawn;
-  const [element] = drawn;
-  const svg = signatureSvgMarkup(node.attrs.vector, String(node.attrs.displayName ?? ''));
-  if (!element || !isPrintElement(element)) return drawn;
-  element.attrs.delete('data-signature-vector');
-  const name = printElement('span', { class: 'de-signature__name' }, [
-    { text: String(node.attrs.displayName ?? '') },
-  ]);
-  element.children = [...(svg ? [{ markup: svg }] : []), name];
-  return drawn;
-}
-
-// Puts a link around an element's content.
-function link(element: PrintElement, href: string, kind: string) {
-  element.children = [printElement('a', { href, 'data-print-link': kind }, element.children)];
-}
-
-// Each footnote marker's and entry's number, through the document, as the editor draws it: its text
-// and its hooks (`createFootnoteNumbers`).
-function numberFootnotes(trees: PrintTree[], doc: ProseMirrorNode) {
-  const numbers = new Map<string, string>();
-  for (const { node, number } of numberFootnoteParts(doc))
-    numbers.set(idOf(node) ?? '', String(number));
-  const tooltip = doc.type.schema.nodes.footnote_reference?.spec.tooltipAttribute;
-  for (const element of printElements(trees)) {
-    const number = numbers.get(element.attrs.get('data-footnote-id') ?? '');
-    if (number === undefined) continue;
-    const marker = element.attrs.has('data-footnote-reference');
-    const shows = marker ? element : element.children.find(isPrintElement);
-    if (!marker && !element.attrs.has('data-footnote-entry')) continue;
-    element.attrs.set('data-footnote-number', number);
-    element.attrs.set(typeof tooltip === 'string' ? tooltip : 'title', `Footnote ${number}`);
-    if (shows) shows.children = [{ text: number }];
-  }
-}
-
-// Anchors, numbers, links and images, as a print snapshot has them (DOCE-EDITOR-6.21, 6.22, 6.25).
-function addLinks(
-  trees: PrintTree[],
-  numbers: ReadonlyMap<string, string>,
-  options: PrintPageOptions,
-) {
-  const taken = new Set<string>();
-  const anchor = (element: PrintElement, id: string) => {
-    if (taken.has(id)) return false;
-    taken.add(id);
-    element.attrs.set('id', id);
-    return true;
-  };
-  for (const element of printElements(trees)) {
-    const { attrs } = element;
-    const id = attrs.get('data-id');
-    if (id && anchor(element, id) && numbers.has(id))
-      attrs.set('data-number', numbers.get(id) ?? '');
-    if (attrs.get('data-reference') === 'true') referenceLink(element, options.citationHref);
-    const footnote = attrs.get('data-footnote-id');
-    if (footnote && attrs.has('data-footnote-reference')) {
-      anchor(element, footnoteMarkerAnchor(footnote));
-      link(element, `#${footnoteEntryAnchor(footnote)}`, 'footnote');
-    } else if (footnote && anchor(element, footnoteEntryAnchor(footnote))) {
-      const number = element.children.find(isPrintElement);
-      if (number) link(number, `#${footnoteMarkerAnchor(footnote)}`, 'footnote-back');
-    }
-    if (element.tag === 'img') image(element, options.resolveImage);
-  }
-  linkAbbreviations(trees);
-}
-
-// Each abbreviation's link to a row the page holds, marked as a printed link; one whose list is
-// not on the page gives way to its text (DOCE-EDITOR-6.21).
-function linkAbbreviations(trees: PrintTree[]) {
-  const ids = new Set<string>();
-  for (const element of printElements(trees)) {
-    const id = element.attrs.get('id');
-    if (id) ids.add(id);
-  }
-  for (const element of printElements(trees)) {
-    if (!element.attrs.has('data-abbreviation-ref')) continue;
-    element.children = element.children.flatMap((child) => {
-      if (!isPrintElement(child) || child.tag !== 'a') return [child];
-      const target = (child.attrs.get('href') ?? '').replace(/^#/, '');
-      if (!ids.has(target)) return child.children;
-      child.attrs.set('data-print-link', 'abbreviation');
-      return [child];
-    });
-  }
-}
-
-function referenceLink(element: PrintElement, href: CitationHref | undefined) {
-  const refType = element.attrs.get('data-ref-type') ?? 'internal-heading';
-  const target = referencePrintHref(
-    {
-      refType,
-      targetId: element.attrs.get('data-target-id'),
-      broken: element.attrs.get('data-broken') === 'true',
-      referenceBaseline: element.attrs.get('data-reference-baseline'),
-    },
-    href,
-  );
-  if (target) link(element, target, refType.startsWith('internal-') ? 'reference' : 'citation');
-}
-
-function image(element: PrintElement, resolveImage: ResolveImage | undefined) {
-  element.attrs.set('loading', 'eager');
-  element.attrs.set('decoding', 'sync');
-  const src = element.attrs.get('src');
-  const resolved = src && resolveImage ? resolveImage(src) : null;
-  if (resolved !== null) element.attrs.set('src', resolved);
-}
-
-// The suggestions a markup leaves out, and those it shows as plain text.
-function suggestionTags(markup: PrintPageOptions['markup']) {
-  if (markup === 'final') return { dropped: 'del', kept: 'ins' };
-  if (markup === 'original') return { dropped: 'ins', kept: 'del' };
-  return null;
-}
-
-// The tree held to the snapshot's allow-list (DOCE-EDITOR-6.23), its suggestions as the markup
-// shows them.
-function allow(trees: readonly PrintTree[], markup: PrintPageOptions['markup']): PrintTree[] {
-  const tags = suggestionTags(markup);
-  return trees.flatMap((tree): PrintTree[] => {
-    if (!isPrintElement(tree)) return [tree];
-    const suggestion = tree.attrs.has('data-id') ? tree.tag : '';
-    if (SNAPSHOT_DROPPED.has(tree.tag) || suggestion === tags?.dropped) return [];
-    const children = allow(tree.children, markup);
-    if (!SNAPSHOT_ELEMENTS.has(tree.tag) || suggestion === tags?.kept) return children;
-    for (const [name, value] of [...tree.attrs]) {
-      if (!isAllowedAttribute(name, value)) tree.attrs.delete(name);
-    }
-    tree.children = children;
-    return [tree];
-  });
-}
+/** The editor root's hook class, which a static render's root carries too. */
+export const ROOT_CLASS = 'de-document-editor';
 
 // Each section's sheet, with the template's margins, since no page box holds them here.
 function sheetRules(doc: ProseMirrorNode, template: TemplateFile): string {
@@ -239,7 +84,7 @@ export function renderPrintPage(
     template,
   );
   const trees: PrintTree[] = [];
-  doc.forEach((node) => trees.push(...nodeTree(node, drawNode)));
+  doc.forEach((node, offset) => trees.push(...nodeTree(node, { draw: drawNode }, { at: offset })));
   numberFootnotes(trees, doc);
   addLinks(trees, elementNumbers(doc, template), options);
   const markup = options.markup ?? 'all';
@@ -248,26 +93,17 @@ export function renderPrintPage(
     { class: ROOT_CLASS, 'data-mode': 'reading', 'data-markup': markup, 'data-print': 'true' },
     allow(trees, markup),
   );
-  const properties = Object.entries(templateProperties(template))
-    .map(([name, value]) => `${name}: ${value};`)
-    .join(' ');
-  const links = (options.stylesheets ?? [])
-    .map((href) => `<link rel="stylesheet" href="${escapeHtml(href)}">`)
-    .join('');
-  const styles = (options.styles ?? []).map((css) => `<style>${css}</style>`).join('');
-  return [
-    '<!doctype html><html><head><meta charset="utf-8">',
-    `<title>${escapeHtml(options.title ?? '')}</title>`,
-    `<style>${sheetRules(doc, template)} :root { color-scheme: light; ${properties} } `,
-    '.de-static a[data-print-link] { color: inherit; text-decoration: inherit; }',
-    // Unlaid, a section's content flows over as many sheets as it takes, inside the @page margins.
-    '.de-static .pm-page { width: auto !important; height: auto !important; min-height: 0 !important;',
-    ' padding: 0 !important; margin: 0 !important; overflow: visible !important; }',
-    '.de-static .pm-section { break-before: page; } .de-static .pm-section:first-child { break-before: auto; }',
-    PRINT_MARKER_RULES,
-    '</style>',
-    links,
-    styles,
-    `</head><body class="de-static">${printHtml([root])}</body></html>`,
-  ].join('');
+  return standalonePage(root, {
+    ...options,
+    template,
+    bodyClass: 'de-static',
+    rules: [
+      sheetRules(doc, template),
+      '.de-static a[data-print-link] { color: inherit; text-decoration: inherit; }',
+      // Unlaid, a section's content flows over as many sheets as it takes, inside the @page margins.
+      '.de-static .pm-page { width: auto !important; height: auto !important; min-height: 0 !important;',
+      ' padding: 0 !important; margin: 0 !important; overflow: visible !important; }',
+      '.de-static .pm-section { break-before: page; } .de-static .pm-section:first-child { break-before: auto; }',
+    ],
+  });
 }

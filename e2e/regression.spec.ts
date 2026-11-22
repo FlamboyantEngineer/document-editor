@@ -329,7 +329,7 @@ const ALL_DOCUMENTS: readonly { name: RegressionDocumentName; pages: number }[] 
   { name: 'list-split-stress', pages: 12 },
   { name: 'long-bullet-list-with-nesting', pages: 2 },
   { name: 'long-mixed', pages: 20 },
-  { name: 'long-ordered-list', pages: 3 },
+  { name: 'long-ordered-list', pages: 2 },
   { name: 'mixed-geometry', pages: 6 },
   { name: 'mixed-geometry-repeated-sections', pages: 5 },
   { name: 'nested-lists', pages: 1 },

@@ -79,6 +79,18 @@ describe('template properties', () => {
     expect(properties['--doc-figure-caption-order']).toBe('1');
   });
 
+  it('DOCE-TEMPLATES-5.2 writes a relative paragraph size in pixels, against the default size', () => {
+    const at = (size: string) =>
+      templateProperties({
+        ...BASE_TEMPLATE,
+        styles: { ...BASE_TEMPLATE.styles, paragraph: { size } },
+      })['--doc-paragraph-font-size'];
+    expect(at('150%')).toBe('18px');
+    expect(at('1.25em')).toBe('15px');
+    expect(at('1rem')).toBe('16px');
+    expect(at('11pt')).toBe('11pt');
+  });
+
   it('DOCE-TEMPLATES-5.2 DOCE-TEMPLATES-5.8 leaves out a value that is not of its setting kind', () => {
     // A stored template as a host parses it, never validated: each value carries text of its own.
     const stored = JSON.parse(`{
