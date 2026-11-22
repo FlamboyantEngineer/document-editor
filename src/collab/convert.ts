@@ -17,7 +17,8 @@ import {
   type DocumentWriteOptions,
   writeDocumentFile,
 } from '../model/format/document-format-write.js';
-import type { TemplatePin } from '../model/format/template-format.js';
+import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
+import { setPageRegions } from '../model/templates/page-regions.js';
 import { readContent, writeContent } from './delta.js';
 import { diffNodes } from './diff.js';
 import { resolveRoomScope, type RoomScope } from './room-scope.js';
@@ -46,6 +47,12 @@ export interface RoomWriteOptions {
 export interface RoomUpdateOptions extends RoomWriteOptions {
   /** The Yjs transaction's origin, such as the host's own server origin; `null` by default. */
   origin?: unknown;
+  /**
+   * The template the written document's pin names. Given, a section whose page headers and footers
+   * the room cannot keep gets them from it, read-only, as a writer's editor shows them; without
+   * it, such a section's regions are as the stored document reads them.
+   */
+  pageTemplate?: TemplateFile | undefined;
 }
 
 /** How a room's document is read back as a stored one. */
@@ -66,20 +73,33 @@ function withElementIds(node: ProseMirrorNode, newId: RoomWriteOptions['newId'])
 
 const REGIONS = new Set(['page_header', 'page_footer']);
 
-// The document with the page headers and footers the room holds kept where their section's own
-// settings for them are unchanged: the writers' editors set those regions from the template, with
+// The document with the page headers and footers the room holds kept where they still apply: the
+// same template, the same sections in the same order, each with its name and its own header and
+// footer settings unchanged. The writers' editors set those regions from the template, with
 // attributes such as `editable` that the stored format does not keep, and take a write that is not
 // theirs as a remote change, setting no region again. Without them, a server write would leave
 // every writer's headers and footers as a stored document reads them, editable.
-function withHeldRegions(node: ProseMirrorNode, held: ProseMirrorNode): ProseMirrorNode {
+function withHeldRegions(
+  node: ProseMirrorNode,
+  held: ProseMirrorNode,
+  samePin: boolean,
+): ProseMirrorNode {
+  // What a section's regions show comes from its name, its own settings and the template; a write
+  // that adds, takes out or moves sections, or changes the template, keeps none.
+  const keeps = (section: ProseMirrorNode, index: number) => {
+    const before = held.child(index);
+    return (
+      before.type === section.type &&
+      before.attrs.sectionName === section.attrs.sectionName &&
+      JSON.stringify(before.attrs.pageHeader) === JSON.stringify(section.attrs.pageHeader) &&
+      JSON.stringify(before.attrs.pageFooter) === JSON.stringify(section.attrs.pageFooter)
+    );
+  };
+  if (!samePin || node.childCount !== held.childCount) return node;
   const sections: ProseMirrorNode[] = [];
   node.forEach((section, _offset, index) => {
-    const before = index < held.childCount ? held.child(index) : null;
-    const same =
-      before?.type === section.type &&
-      JSON.stringify(before.attrs.pageHeader) === JSON.stringify(section.attrs.pageHeader) &&
-      JSON.stringify(before.attrs.pageFooter) === JSON.stringify(section.attrs.pageFooter);
-    if (!before || !same) {
+    const before = held.child(index);
+    if (!keeps(section, index)) {
       sections.push(section);
       return;
     }
@@ -96,6 +116,11 @@ function withHeldRegions(node: ProseMirrorNode, held: ProseMirrorNode): ProseMir
     sections.push(section.copy(Fragment.from(pages)));
   });
   return node.copy(Fragment.from(sections));
+}
+
+// The document with each page's header and footer as a writer's editor shows them, read-only.
+function withTemplateRegions(node: ProseMirrorNode, template: TemplateFile | undefined) {
+  return template ? setPageRegions(EditorState.create({ doc: node }).tr, template).doc : node;
 }
 
 // Refuses a room of another format version than the library reads and writes.
@@ -147,7 +172,9 @@ export function updateRoomDocument(
   doc.transact(() => {
     if (!held) writeContent(content, node);
     else {
-      const kept = withHeldRegions(node, held);
+      const samePin =
+        JSON.stringify(meta.getAttr(TEMPLATE_KEY) ?? null) === JSON.stringify(template);
+      const kept = withHeldRegions(withTemplateRegions(node, options.pageTemplate), held, samePin);
       if (!held.eq(kept)) content.applyDelta(diffNodes(held, kept) as never);
     }
     if (meta.getAttr(FORMAT_VERSION_KEY) !== DOCUMENT_FORMAT_VERSION)

@@ -197,7 +197,10 @@ const probe: CollabRoomProbe = {
     const handle = await ROOMS.server.openRoom(DOCUMENT_ID);
     try {
       return handle.transact({ actor: { id: 'room-service' }, capabilities: [] }, (doc) =>
-        updateRoomDocument(doc, file, { schema: documentSchema }),
+        updateRoomDocument(doc, file, {
+          schema: documentSchema,
+          pageTemplate: TEMPLATES.get('Ada'),
+        }),
       );
     } finally {
       handle.release();

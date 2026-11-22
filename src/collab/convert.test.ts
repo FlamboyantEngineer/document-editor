@@ -7,10 +7,13 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { headlessEditor, readFixture } from '../../test/collab-fixtures.js';
 import { documentSchema as schema } from '../../test/document-markup.js';
+import { createDocumentSections, documentSectionsKey } from '../engine/document-sections.js';
 import { repairElementIds } from '../engine/element-ids.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
+import type { TemplateFile } from '../model/format/template-format.js';
+import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import {
   COMMENTS_TYPE,
   documentToYjs,
@@ -296,6 +299,108 @@ describe('room updates', () => {
     expect(regions).toEqual([false, false]);
     expect(readRoomDocument(doc, { schema })).toEqual(changed);
     editor.destroy();
+  });
+
+  describe('page headers after a server write', () => {
+    const plain = (value: string) => ({
+      type: 'paragraph',
+      content: [{ type: 'text', text: value }],
+    });
+    const named: TemplateFile = {
+      ...BASE_TEMPLATE,
+      header: { content: [plain('Main')] },
+      sections: [{ name: 'annex', header: { content: [plain('Annex')] } }],
+    };
+    const other: TemplateFile = { ...named, header: { content: [plain('Other')] } };
+    const section = (name: string | null, id: string) => ({
+      name,
+      content: [paragraph(id, `Text ${id}`)],
+    });
+    const file = (sections: unknown[], revision = '3'): DocumentFile =>
+      ({ formatVersion: 1, template: { id: 'report', revision }, sections }) as DocumentFile;
+    const two = file([section(null, 'b0000001'), section('annex', 'b0000002')]);
+
+    // A writer in the room whose editor sets its headers and footers from the template.
+    function writer(start: DocumentFile, template: () => TemplateFile) {
+      const doc = seeded(start);
+      const editor = headlessEditor(readFixture(start), {
+        doc,
+        manual: true,
+        plugins: [createDocumentSections({ template })],
+      });
+      editor.runScheduled();
+      editor.dispatch(editor.state.tr.setMeta(documentSectionsKey, true));
+      editor.runScheduled();
+      return { doc, editor };
+    }
+    const headers = (state: EditorState) => {
+      const found: [string, unknown][] = [];
+      state.doc.descendants((node) => {
+        if (node.type.name === 'page_header') found.push([node.textContent, node.attrs.editable]);
+        return node.type.name !== 'page_content';
+      });
+      return found;
+    };
+
+    it('DOCE-COLLAB-6.5 takes a renamed section’s header from the template', () => {
+      const { doc, editor } = writer(two, () => named);
+      expect(headers(editor.state)).toEqual([
+        ['Main', false],
+        ['Annex', false],
+      ]);
+      const renamed = file([section('annex', 'b0000001'), section(null, 'b0000002')]);
+      updateRoomDocument(doc, renamed, { schema, origin: 'server', pageTemplate: named });
+      editor.runScheduled();
+      expect(headers(editor.state)).toEqual([
+        ['Annex', false],
+        ['Main', false],
+      ]);
+      expect(readRoomDocument(doc, { schema })).toEqual(renamed);
+      editor.destroy();
+    });
+
+    it('DOCE-COLLAB-6.5 takes the headers from the template when sections are added or moved', () => {
+      const { doc, editor } = writer(two, () => named);
+      const added = file([
+        section('annex', 'b0000003'),
+        section(null, 'b0000001'),
+        section('annex', 'b0000002'),
+      ]);
+      updateRoomDocument(doc, added, { schema, origin: 'server', pageTemplate: named });
+      editor.runScheduled();
+      expect(headers(editor.state)).toEqual([
+        ['Annex', false],
+        ['Main', false],
+        ['Annex', false],
+      ]);
+      editor.destroy();
+    });
+
+    it('DOCE-COLLAB-6.5 takes the headers from a template the write changes to', () => {
+      let template = named;
+      const { doc, editor } = writer(two, () => template);
+      template = other;
+      updateRoomDocument(doc, file(two.sections, '4'), {
+        schema,
+        origin: 'server',
+        pageTemplate: other,
+      });
+      editor.runScheduled();
+      expect(headers(editor.state)).toEqual([
+        ['Other', false],
+        ['Annex', false],
+      ]);
+      editor.destroy();
+    });
+
+    it('DOCE-COLLAB-6.5 without the template, leaves a changed section’s regions as stored', () => {
+      const { doc, editor } = writer(two, () => named);
+      const renamed = file([section('annex', 'b0000001'), section(null, 'b0000002')]);
+      updateRoomDocument(doc, renamed, { schema, origin: 'server' });
+      editor.runScheduled();
+      expect(headers(editor.state).map(([value]) => value)).not.toContain('Main');
+      editor.destroy();
+    });
   });
 
   it('DOCE-COLLAB-6.5 keeps a writer’s concurrent change in another block', () => {
