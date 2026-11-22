@@ -39,8 +39,15 @@ const key = (block: { elementId: string; part: number }) =>
 // Spaces as the stored text holds them: a no-break space a browser kept at a writer's edge is a space.
 const plain = (text: string) => text.replaceAll(' ', ' ');
 
-async function open(page: Page, name: RegressionDocumentName, zoom: number) {
-  await page.goto(`regression.html?document=${name}&textLayout=pretext&zoom=${String(zoom)}`);
+async function open(
+  page: Page,
+  name: RegressionDocumentName,
+  zoom: number,
+  rendering: 'dom' | 'html-canvas' = 'dom',
+) {
+  await page.goto(
+    `regression.html?document=${name}&textLayout=pretext&zoom=${String(zoom)}&rendering=${rendering}`,
+  );
   await waitForLab(page);
   // Every page on forced lines, not only those near the screen (DOCE-PAGINATION-11.6).
   await page.evaluate(() => window.regressionLab.drawAllLines(true));
@@ -137,6 +144,30 @@ test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () =>
     const [first] = mismatches;
     expect(first?.drawn?.length ?? 0).toBeGreaterThan(first?.computed.length ?? 0);
   });
+});
+
+// The pages of the editor, and those of them painted into a canvas (DOCE-EDITOR-1.9).
+const paintedPages = (page: Page) =>
+  page.evaluate(() => {
+    const content = document.querySelector('.de-document-editor__content');
+    return {
+      pages: content?.querySelectorAll('.pm-page').length ?? 0,
+      painted: content?.querySelectorAll('.de-document-editor__canvas > .pm-page').length ?? 0,
+    };
+  });
+
+test.describe('DOCE-LABS-8.9 the same lines and pages painted into a canvas', () => {
+  for (const name of NAMES) {
+    for (const zoom of ZOOMS) {
+      test(`DOCE-LABS-8.9 ${name} at ${String(zoom)}% in a canvas`, async ({ page }, testInfo) => {
+        test.skip(!zoomRuns(testInfo, zoom), 'the middle zooms run at a device pixel ratio of 1');
+        await open(page, name, zoom, 'html-canvas');
+        const { pages, painted } = await paintedPages(page);
+        expect(painted, 'pages painted into a canvas').toBe(pages);
+        await expectOneResult(page);
+      });
+    }
+  }
 });
 
 test.describe('DOCE-LABS-8.2 the invariant holds through editing', () => {

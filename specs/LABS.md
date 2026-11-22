@@ -395,3 +395,10 @@ For five documents of the regression set, a fingerprint of the computed result (
 
 Implementation: `src/pagination/text-engine.ts`
 Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.9 - The same result painted into a canvas
+
+With `rendering=html-canvas` (DOCE-EDITOR-1.9), DOCE-LABS-8.1 shall hold for every document of the regression set at the same zooms and device pixel ratios, with every page painted into a canvas: the lines and pages drawn are the computed ones under both renderers. The regression lab shall take a `rendering` query.
+
+Implementation: `labs/src/regression/regression-lab.tsx`, `playwright.config.ts`
+Verification: `e2e/layout-invariant.spec.ts`

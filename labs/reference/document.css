@@ -179,7 +179,23 @@ div.de-host-view {
   /* Pages are paper in every theme: dark text on white, whatever the page around them. */
   background: var(--doc-page-background, #fff);
   color: #111827;
+}
+
+/* A page painted into a canvas (DOCE-EDITOR-1.9) draws only its box, so the canvas casts its shadow. */
+.de-document-editor .pm-page,
+.de-document-editor__canvas {
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+}
+
+/* The canvas is the page's CSS size; its bitmap is the device pixels of that box. */
+.de-document-editor__canvas-page {
+  flex: none;
+}
+
+.de-document-editor__canvas {
+  display: block;
+  width: var(--de-canvas-width, var(--doc-page-width));
+  height: var(--de-canvas-height, var(--doc-page-height));
 }
 
 .de-document-editor .pm-page-content {

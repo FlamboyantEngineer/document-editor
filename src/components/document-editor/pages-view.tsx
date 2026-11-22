@@ -7,14 +7,23 @@
 import type { RichTextEngineEvents } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { type DirectEditorProps, EditorView } from 'prosemirror-view';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { drawKeepingSelection, readDomSelection } from '../../utils/dom-selection.js';
+import { canvasPageView, type DocumentRendering } from './canvas-page-view.js';
 import { type HostNodeViews, useHostNodeViews } from './host-node-views.js';
 import { insertTypedText } from './typed-text.js';
 import type { PagedEditor } from './use-paged-projection.js';
 
 type EngineEvents = Omit<RichTextEngineEvents, 'props' | 'dispatchTransaction'>;
 type ViewProps = NonNullable<RichTextEngineEvents['props']>;
+
+/** How the pages view draws its pages. */
+interface PagesDrawing {
+  /** The host's React node views. */
+  readonly nodeViews?: HostNodeViews | undefined;
+  /** How the pages are painted; `html-canvas` paints each page into a canvas (DOCE-EDITOR-1.9). */
+  readonly rendering?: DocumentRendering | undefined;
+}
 
 /** What the pages view draws and tells. */
 interface PagesViewProps {
@@ -26,8 +35,8 @@ interface PagesViewProps {
   readonly viewProps: ViewProps;
   /** The attributes of the document element: its hook classes, role and labels. */
   readonly attributes: Readonly<Record<string, string>>;
-  /** The host's React node views. */
-  readonly nodeViews?: HostNodeViews | undefined;
+  /** How the pages are drawn: the host's React node views, and how they are painted. */
+  readonly drawing: PagesDrawing;
 }
 
 // How the view's own props reach the pages: the dispatch that sends every transaction to the
@@ -70,7 +79,13 @@ export function PagesView(props: PagesViewProps) {
   const mount = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const latest = useRef(props);
-  const host = useHostNodeViews(props.nodeViews);
+  const host = useHostNodeViews(props.drawing.nodeViews);
+  const canvas = props.drawing.rendering === 'html-canvas';
+  // The host's node views over the page's, so a host that draws pages itself keeps them.
+  const shownViews = useMemo(
+    () => (canvas ? { page: canvasPageView, ...host.nodeViews } : host.nodeViews),
+    [canvas, host.nodeViews],
+  );
   useLayoutEffect(() => {
     latest.current = props;
   });
@@ -102,9 +117,9 @@ export function PagesView(props: PagesViewProps) {
       if (view.state.doc !== current.doc) show(view, current, false);
     },
   }).current;
-  const nodeViews = useRef(host.nodeViews);
+  const nodeViews = useRef(shownViews);
   useLayoutEffect(() => {
-    nodeViews.current = host.nodeViews;
+    nodeViews.current = shownViews;
   });
   useLayoutEffect(() => {
     const element = mount.current;
@@ -131,8 +146,8 @@ export function PagesView(props: PagesViewProps) {
   }, [projection]);
   const { viewProps, attributes } = props;
   useLayoutEffect(() => {
-    viewRef.current?.setProps(directProps({ viewProps, attributes }, host.nodeViews, ties));
-  }, [viewProps, attributes, host.nodeViews, ties]);
+    viewRef.current?.setProps(directProps({ viewProps, attributes }, shownViews, ties));
+  }, [viewProps, attributes, shownViews, ties]);
   useLayoutEffect(() => {
     const view = viewRef.current;
     if (view) show(view, paged.state, false);

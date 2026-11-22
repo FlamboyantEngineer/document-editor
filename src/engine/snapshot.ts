@@ -112,6 +112,11 @@ function pagesMarkup(
   const { sections, markup } = options;
   const copy = view.dom.cloneNode(true) as HTMLElement;
   copyCodeHighlights(view, copy);
+  // A page painted into a canvas (DOCE-EDITOR-1.9) is copied as its HTML, without the canvas.
+  for (const wrapper of copy.querySelectorAll('.de-document-editor__canvas-page')) {
+    const page = wrapper.querySelector('.pm-page');
+    if (page) wrapper.replaceWith(page);
+  }
   for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
   removeViewOnlyDecorations(copy, view);
   applySuggestionMarkup(copy, markup);

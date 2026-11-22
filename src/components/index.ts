@@ -28,6 +28,7 @@ export type {
   DocumentMarkup,
   DocumentMenu,
   DocumentMenubarOptions,
+  DocumentRendering,
   DocumentToolbarOptions,
   EditorContentsOptions,
   EditorContext,

@@ -60,6 +60,13 @@ In page layout, the editor shall draw the projection's pages in a plain ProseMir
 Implementation: `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/typed-text.ts`, `src/components/document-editor/host-node-views.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/start-paging.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
 
+### DOCE-EDITOR-1.9 - Pages painted into a canvas
+
+With `rendering: 'html-canvas'`, in page layout and where the browser has the HTML-in-Canvas API (Chromium 157, or 156 and earlier with `--enable-blink-features=CanvasDrawElement`), each page shall be painted into a canvas of its own (`de-document-editor__canvas`, inside `de-document-editor__canvas-page`) that holds the page's HTML as its content: the browser lays the page out, edits it, hit-tests it and exposes it to assistive technology as in the DOM, so its lines and its pages are the same in both renderings (DOCE-LABS-8.9), and the canvas paints it again whenever it changes. The canvas shall take the page's CSS size (`--de-canvas-width`, `--de-canvas-height`) and a bitmap of exactly its device pixels, its edges rounded as the browser snaps them, at every zoom and device pixel ratio, so the page is never resampled; a canvas far from the screen gives its bitmap back. A browser without the API, a page holding media the canvas would leave out (cross-origin images, embedded documents), a page larger than a canvas can be, or a failed paint shall keep the page in the DOM, editable as before. A snapshot (print, export) copies the page's HTML without its canvas. `dom`, the default, paints the pages as HTML; the web layout always does.
+
+Implementation: `src/components/document-editor/canvas-page-view.ts`, `src/components/document-editor/canvas-page-size.ts`, `src/components/document-editor/pages-view.tsx`, `src/engine/snapshot.ts`, `labs/reference/document.css`, `playwright.config.ts`
+Verification: `src/components/document-editor/canvas-page-view.test.ts`, `e2e/canvas-pages.spec.ts`
+
 ## DOCE-EDITOR-2 - Layouts in the browser
 
 ### DOCE-EDITOR-2.1 - Editing on pages
@@ -746,6 +753,10 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-script-editor__entry`               | slot      |                                                                        | One name in the reference, with `data-kind`.                                              |
 | `de-document-editor`                    | root      |                                                                        | The editor, carrying the template's `--doc-*` values.                                     |
 | `de-document-editor__measure`           | slot      |                                                                        | The hidden slot the pages are measured in.                                                |
+| `de-document-editor__canvas-page`       | slot      |                                                                        | With `rendering: 'html-canvas'`: the box around a page painted into a canvas.             |
+| `de-document-editor__canvas`            | slot      |                                                                        | The canvas a page is painted into, holding the page as its content.                       |
+| `--de-canvas-width`                     | property  |                                                                        | On a page's canvas: the page's measured CSS width.                                        |
+| `--de-canvas-height`                    | property  |                                                                        | On a page's canvas: the page's measured CSS height.                                       |
 | `de-linked-code-preview`                | root      |                                                                        | The linked code dialog's preview.                                                         |
 | `de-linked-code-preview__empty`         | slot      |                                                                        | The preview's placeholder before the code is found.                                       |
 | `de-math-help`                          | root      |                                                                        | The math dialog's sheet of common math and its reference link.                            |
