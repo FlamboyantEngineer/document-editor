@@ -284,6 +284,18 @@ test.describe('DOCE-LABS-8.4 inline offers keep the drawn lines', () => {
     await page.goto('stress-long.html?textLayout=pretext');
     await waitForLab(page);
     await settle(page);
+    // Lines are forced on the pages near the screen: bring the body text after the contents there.
+    await page
+      .locator('.de-document-editor__content .pm-page')
+      .nth(2)
+      .evaluate((element) => element.scrollIntoView());
+    await expect
+      .poll(() =>
+        page
+          .locator('.pm-page p.de-forced-lines')
+          .evaluateAll((all) => all.some((each) => Number(each.getAttribute('data-lines')) >= 3)),
+      )
+      .toBe(true);
     const starts = await lineStartsOf(page, 3);
     const [first] = starts ?? [];
     if (!first) throw new Error('No paragraph with three lines.');
@@ -509,7 +521,8 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
   'caption-numbering': 'b7088b707c5b1f03',
   'heading-keep-with-next': 'cde9efbfd0216fdd',
-  'long-mixed': 'e83aba0e479e7771',
+  // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10): pages hold more.
+  'long-mixed': 'cbcb5ded8301df3e',
   'oversized-blocks': '04f2d26ec8b3697c',
   'roman-numbering-stress': 'd24934809773ffdb',
 };

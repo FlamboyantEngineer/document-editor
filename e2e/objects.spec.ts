@@ -25,7 +25,10 @@ async function insertWidePanel(page: Page, caption: string) {
   await dialog(page).getByRole('button', { name: 'Choose an image…' }).click();
   const picker = page.getByRole('group', { name: 'Choose an image…' });
   await picker.getByRole('searchbox').fill('wide');
-  await picker.getByRole('row', { name: 'Wide panel' }).click();
+  const row = picker.getByRole('row', { name: 'Wide panel' });
+  await row.click();
+  // The picker draws its list again for the choice; Insert is pressed once that settles.
+  await expect(row).toHaveAttribute('aria-selected', 'true');
   await picker.getByRole('button', { name: 'Insert' }).click();
   // The picker closes on its own Insert; under load its fade can outlast the next few steps.
   await expect(picker).toHaveCount(0);
