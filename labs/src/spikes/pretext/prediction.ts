@@ -13,6 +13,7 @@ import {
   cellPadding,
   contentHeight,
   displayMath,
+  fontStacks,
   inlineMath,
   listAfter,
   listBefore,
@@ -67,6 +68,7 @@ const mathBaseline = inlineMath.height - 3;
 export function createPreparationCache() {
   return createTextLayout({
     template,
+    fontStacks,
     language: 'en',
     measureAtom: (node) =>
       node.type.name === 'math_inline' && !node.marks.length

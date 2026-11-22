@@ -8,6 +8,7 @@ import {
 } from '../../../../src/model/templates/template-properties.js';
 import { textStyleProperties } from '../../../../src/model/templates/template-text-properties.js';
 import { requireValue, schema } from './fixtures.js';
+import { labMeasurer, MONO_FAMILY, SANS_FAMILY, servesFonts } from './fonts.js';
 
 export const px = (value: number) => `${String(value)}px`;
 const length = (value: unknown) => Number.parseFloat(lengthToCssPx(value) ?? '0');
@@ -29,9 +30,14 @@ export function font(style: Typography): string {
 /** The one template scope this spike lays out, in the library's text layout engine too. */
 export const template = BASE_TEMPLATE;
 
+/** With served fonts, the template's families resolve to the served ones (`fontStacks`). */
+export const fontStacks = servesFonts
+  ? { Arial: `"${SANS_FAMILY}"`, 'Courier New': `"${MONO_FAMILY}"` }
+  : undefined;
+
 // This spike resolves one template scope. Both HTML paths receive the same explicit geometry.
 const styles = templateScopeStyles(BASE_TEMPLATE, null);
-const properties = textStyleProperties(styles);
+const properties = textStyleProperties(styles, fontStacks);
 function type(prefix: string, defaultLeading: number): Typography {
   const property = (key: string) => properties[`--doc-${prefix}-${key}`];
   const size = length(property('font-size'));
@@ -78,6 +84,12 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--doc-page-height', pageHeight);
   set('--pretext-content-width', contentWidth);
   set('--pretext-content-height', contentHeight);
+  // Font-file widths are unhinted, so the page lays its text out unhinted too, as pages under
+  // Pretext layout do (DOCE-PAGINATION-11.1); the headless shell hints DOM text otherwise.
+  if (labMeasurer === 'font-files') {
+    root.style.textRendering = 'geometricPrecision';
+    root.style.setProperty('font-synthesis', 'none');
+  }
   set('--pretext-code-padding', codePadding);
   set('--pretext-inline-math-width', inlineMath.width);
   set('--pretext-inline-math-height', inlineMath.height);
@@ -86,7 +98,7 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   Object.entries(margins).forEach(([side, value]) => set(`--doc-page-margin-${side}`, value));
   // The HTML draws the library's leadings, so its lines are as tall as the engine's.
   for (const [prefix, node] of leadingNodes()) {
-    set(`--doc-${prefix}-line-height`, blockTypography(node, { template }).leading);
+    set(`--doc-${prefix}-line-height`, blockTypography(node, { template, fontStacks }).leading);
   }
 }
 

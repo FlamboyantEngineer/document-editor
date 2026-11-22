@@ -322,6 +322,22 @@ With the lines drawn on the pages' own view and pages off screen skipping their 
 Implementation: `labs/src/spikes/forced-lines/direct.ts`, `labs/forced-lines.html`
 Verification: `e2e/forced-lines.performance.spec.ts`
 
+## DOCE-LABS-7 - Font-file widths spike
+
+### DOCE-LABS-7.1 - Widths from the font files
+
+The font-widths lab shall measure a fixed reference text (55 strings at five sizes in each served face: Geist regular, bold, italic and bold italic, Geist Mono, and the KaTeX main and sans faces) from the served font files, shaped with HarfBuzz in WebAssembly, and with the browser's Canvas, and show both fingerprints, the fingerprint of Pretext's line breaks for seeded paragraphs through each, and every string whose widths differ. The font-file widths and line breaks shall equal recorded fingerprints on every machine, in a page and in a worker alike, and the characters no served face has shall be reported. On Linux Chromium the font-file widths shall equal Canvas's, within the last bit of a float32 sum, wherever a served face has the glyphs. The measurer is the library's (DOCE-PAGINATION-11).
+
+Implementation: `labs/font-widths.html`, `labs/src/font-widths.lab.ts`, `src/layout-engine/font-files/`, `test/font-files-reference.ts`, `test/font-files-lines.ts`, `scripts/build-labs.mjs`, `scripts/font-widths.mjs`, `scripts/font-widths-coverage.mjs`
+Verification: `e2e/font-widths.spec.ts`
+
+### DOCE-LABS-7.2 - Closeness with font-file widths
+
+The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, mapping the template's families to them through `fontStacks` for both the HTML and the text layout engine, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used, and lay the natural HTML out under `text-rendering: geometricPrecision` with `font-synthesis: none`, as pages under Pretext layout are drawn. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind.
+
+Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/client.ts`, `labs/src/spikes/pretext/settings.ts`
+Verification: `e2e/font-widths.spec.ts`
+
 ## DOCE-LABS-8 - One layout result
 
 ### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones
@@ -350,4 +366,32 @@ Verification: `e2e/layout-invariant.spec.ts`
 With an inline completion offer showing inside a full forced line, the block shall draw exactly its computed lines: the browser shall wrap no line around the offer.
 
 Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.5 - Formatting-only edits
+
+Making a word bold, undoing and redoing it shall each leave the drawn lines equal to the computed ones, and the lines computed after the undo and after the redo shall equal those computed before the bold and after it.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.6 - Grapheme clusters at forced line edges
+
+Repeated emoji, a joined emoji sequence and letters with combining marks, typed with no space so lines end and start inside them, shall be drawn on the computed lines; no line decoration shall start or end inside a grapheme cluster or hold half a surrogate pair, and Shift+Arrow Right at each line start shall select one whole cluster.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.7 - Review and editing on a stress document
+
+On the scale lab's 300 pages with 500 comment threads and the text layout engine on, starting a comment on a forced line, typing and deleting suggested text, opening and closing the context menu and keyboard editing (a new paragraph, a hard break, deleting a word and undoing) shall leave every forced block on the pages in view drawing its computed number of lines. The stress labs shall type as suggestions with a `suggest` query.
+
+Implementation: `labs/src/stress/stress-lab.tsx`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.8 - The same result on every device
+
+For five documents of the regression set, a fingerprint of the computed result (the pages, each text block's type and part, and its line offsets or why the browser draws it) shall equal the recorded one at zooms of 50, 100 and 150 percent in Chromium at device pixel ratios 1, 1.25 and 2.
+
+Implementation: `src/pagination/text-engine.ts`
 Verification: `e2e/layout-invariant.spec.ts`

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { blockBuilders, standInBlockLayout } from '../../../test/layout-engine-fixtures.js';
-import type { LayoutBlock } from '../../model/index.js';
+import { isTextMeasurement, type LayoutBlock } from '../../model/index.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
 import { fixedImageBox } from './objects.js';
 import type { BlockGeometry } from './types.js';
@@ -74,6 +74,25 @@ describe('code', () => {
     // The 17-character label and 90 characters of caption need two lines of 97.
     const held = node('code_figure', null, [caption('code_caption', 90), code(10)]);
     expect(blockOf(layout.layoutBlock(held, place)).height).toBe(32 + 9 + 15 + 16);
+  });
+});
+
+describe('linked code', () => {
+  it('DOCE-PAGINATION-10.4 lays linked code out as a captioned code block, its lines from its code', () => {
+    const { layout } = standInBlockLayout({
+      labelOf: (line) => (line.type.name === 'linked_code_block' ? 'Code Block 2 - ' : undefined),
+    });
+    // The caption reads "main.py" after its 15-character label: one line of 16px. The code's 200
+    // characters take three 15px lines of 97, padded by 16.
+    const linked = node('linked_code_block', {
+      url: 'https://example.org/src/main.py',
+      code: 'x'.repeat(200),
+    });
+    const block = blockOf(layout.layoutBlock(linked, place));
+    expect(block).toMatchObject({ node: linked, height: 16 + 9 + 45 + 16, marginTop: 10 });
+    expect(isTextMeasurement(block.measurement)).toBe(true);
+    if (!isTextMeasurement(block.measurement)) return;
+    expect(block.measurement.measure(0, 97)).toEqual({ height: 15, lines: 1 });
   });
 });
 

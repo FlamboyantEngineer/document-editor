@@ -113,13 +113,18 @@ describe('quotes and plain containers', () => {
     ]);
   });
 
-  it('DOCE-PAGINATION-10.3 lays out an embed’s content and refuses an empty script block', () => {
+  it('DOCE-PAGINATION-10.3 lays out an embed’s content and keeps an empty script block’s line and a half', () => {
     const embed = node('embed', { kind: 'note' }, [paragraph(10), paragraph(10)]);
     expect(blockOf(layout.layoutBlock(embed, place))).toMatchObject({
       height: 44,
       marginBottom: 8,
     });
-    expect(layout.layoutBlock(node('script_block', null), place)).toMatchObject({ ok: false });
+    // The base template's 12px text: 18px.
+    expect(blockOf(layout.layoutBlock(node('script_block', null), place))).toMatchObject({
+      height: 18,
+      marginTop: 0,
+      marginBottom: 0,
+    });
   });
 });
 

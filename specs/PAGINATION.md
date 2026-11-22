@@ -672,14 +672,14 @@ Verification: `src/layout-engine/atoms.test.ts`, `src/layout-engine/dom-atoms.te
 
 ### DOCE-PAGINATION-10.3 - Text blocks and containers
 
-`createBlockLayout({ text, atoms, metrics, labelOf })` shall give each block its height, margins and the measurement its split reads (`layoutBlock(node, { width, scope, region })`), or name the node it cannot lay out yet and why, the same each time. A text block shall take its lines and margins from the text layout, a caption its label (`labelOf`) before its text; a paragraph in a list item or a table cell, and any block in a header or footer, no margins. Children shall stack with adjoining margins collapsed to the larger, a container without padding or border at an edge letting its first or last child's margin through as its own, as the stylesheet's block flow does. A list shall indent its items by the template's indentation with the template's spacing, the last block of its last item without a bottom margin, and a checklist item keep its blocks' margins inside it; a quote shall stand 40px in on each side with 16px margins, the browser's own; an embed's content and a script block's output shall stack as they stand; a layout section shall set its columns side by side at their preset's tracks less the 4px gaps, each column padded 5px inside a 1px border, its edge blocks without their outer margins, and as tall as the tallest. Containers shall carry where each child sits and their `overhead` (`ContainerMeasurement`).
+`createBlockLayout({ text, atoms, metrics, labelOf })` shall give each block its height, margins and the measurement its split reads (`layoutBlock(node, { width, scope, region })`), or name the node it cannot lay out yet and why, the same each time. A text block shall take its lines and margins from the text layout, a caption its label (`labelOf`) before its text; a paragraph in a list item or a table cell, and any block in a header or footer, no margins. Children shall stack with adjoining margins collapsed to the larger, a container without padding or border at an edge letting its first or last child's margin through as its own, as the stylesheet's block flow does. A list shall indent its items by the template's indentation with the template's spacing, the last block of its last item without a bottom margin, and a checklist item keep its blocks' margins inside it; a quote shall stand 40px in on each side with 16px margins, the browser's own; an embed's content and a script block's output shall stack as they stand, an empty script block keeping a line and a half of the document's text size and no margins, with its message laid over it; a layout section shall set its columns side by side at their preset's tracks less the 4px gaps, each column padded 5px inside a 1px border, its edge blocks without their outer margins, and as tall as the tallest. Containers shall carry where each child sits and their `overhead` (`ContainerMeasurement`).
 
 Implementation: `src/layout-engine/blocks/block-layout.ts`, `src/layout-engine/blocks/context.ts`, `src/layout-engine/blocks/stack.ts`, `src/layout-engine/blocks/text-blocks.ts`, `src/layout-engine/blocks/containers.ts`, `src/layout-engine/blocks/metrics.ts`, `src/layout-engine/blocks/types.ts`
 Verification: `src/layout-engine/blocks/containers.test.ts`, `src/layout-engine/blocks/block-layout.test.ts`
 
 ### DOCE-PAGINATION-10.4 - Figures, code, equations and rules
 
-A figure shall take the image box its stored size fixes (narrowed to the width at its own height, or scaled to the width when set to the page's width) or else its measured atom, and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with 4px of space either side of a 1px rule, measured by its code's lines. A display equation shall be a measured atom with 6px margins; a horizontal rule 2px tall with 8px margins; a page break no height; a kept block or a dynamic template a measured atom.
+A figure shall take the image box its stored size fixes (narrowed to the width at its own height, or scaled to the width when set to the page's width) or else its measured atom, and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with 4px of space either side of a 1px rule, measured by its code's lines. Linked code shall be laid out as code with its caption, the caption derived from its address and the code its stored lines, and labelled as code. A display equation shall be a measured atom with 6px margins; a horizontal rule 2px tall with 8px margins; a page break no height; a kept block or a dynamic template a measured atom.
 
 Implementation: `src/layout-engine/blocks/objects.ts`
 Verification: `src/layout-engine/blocks/objects.test.ts`
@@ -743,3 +743,28 @@ The stress lab's typing measurement shall also run with the option on at 40 and 
 
 Implementation: `labs/src/stress/stress-lab.tsx`, `e2e/budgets.ts`
 Verification: `e2e/performance.spec.ts`
+
+## DOCE-PAGINATION-12 - Widths from the font files
+
+Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.
+
+### DOCE-PAGINATION-12.1 - The font-file measurer
+
+`createFontFileMeasurer({ wasm, faces, generics })` shall take harfbuzzjs's `harfbuzz.wasm` and the served faces (family, weight, style, optional `unicode-range`, and the bytes of a WOFF 1.0 or OpenType file) as bytes, fetch nothing, and give `createContext()`, a Canvas-shaped measuring context for Pretext's `setMeasureContext`. The reference text (55 strings at five sizes in nine Geist and KaTeX faces) shall measure to fingerprint `c2be3986`, and Pretext shall break 120 seeded paragraphs at nine widths into 7,403 lines with fingerprint `0811af10` (fork release 1.0.0-fe.5), in Node, a page and a worker, on Linux, Windows and macOS (DOCE-LABS-7.1). The widths shall follow Linux Chromium's Canvas: glyph advances at the size floored to 1/64 px, kerning at the size floored to 1/100 px, each word's width a float32 and the words summed in float32. The module shall not be exported or reached from an entry until the editor's Pretext layout uses it.
+
+Implementation: `src/layout-engine/font-files/measurer.ts`, `src/layout-engine/font-files/harfbuzz.ts`, `src/layout-engine/font-files/woff.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`
+
+### DOCE-PAGINATION-12.2 - Canvas words, fallback and missing glyphs
+
+The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A character no served face has shall take the first face's .notdef advance and be recorded in `problems.missingGlyphs`; there is no system fallback.
+
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`
+
+### DOCE-PAGINATION-12.3 - Line metrics from the font files
+
+The measurer's `measureText` shall also give `fontBoundingBoxAscent` and `fontBoundingBoxDescent`: the primary face's ascender and descender, as HarfBuzz reads them from the font's tables, at the font's size and rounded to whole pixels, as Linux Chromium's Canvas gives them, so a line's strut needs no Canvas either. The primary face is the first matched face whose `unicode-range` holds the space.
+
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/harfbuzz.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`
