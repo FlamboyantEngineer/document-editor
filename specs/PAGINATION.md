@@ -739,7 +739,7 @@ Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
 
 ### DOCE-PAGINATION-11.3 - The computed lines
 
-The editor handle's `textLines()` shall give, page by page, each top-level paragraph and heading with its element id, its part, its position, where its content starts in the whole block, and the lines the engine computed for it on that page, as offsets in the whole block with their text; or no lines and the reason when the browser draws it. Without the option it shall give no pages.
+The editor handle's `textLines()` shall give, page by page, each top-level paragraph and heading with its element id, its part, its position, where its content starts in the whole block, and the lines the engine computed for it on that page, as offsets in the whole block with their text, inline atoms' left out as the writer did not type it; or no lines and the reason when the browser draws it. Without the option it shall give no pages.
 
 Implementation: `src/pagination/text-lines.ts`, `src/components/document-editor/editor-handle.ts`
 Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
