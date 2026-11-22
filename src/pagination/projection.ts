@@ -64,6 +64,7 @@ import {
   take,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
+import { splitBreaksPlugin } from './split-breaks.js';
 import {
   holdTextEngine,
   type TextEngineHolder,
@@ -242,6 +243,7 @@ function projectionState(
       }),
       canonicalDecorations(source),
       pageChromeDecorations(),
+      splitBreaksPlugin(),
       ...(text
         ? textLayoutPlugins(text, {
             canonical: () => session().canonical.doc,

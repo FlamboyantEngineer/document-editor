@@ -190,6 +190,18 @@ describe('createTextLayout', () => {
       [0, 5, 'wrap'],
       [5, 6, 'end'],
     ]);
+    // A fragment continuing a split paragraph skips the break it starts with, then lays the
+    // mention out as text on its first line.
+    const brk = nodes.hard_break?.create();
+    const continued = brk
+      ? nodes.paragraph?.create({ splitPartIndex: 1 }, [brk, mention, documentSchema.text(' a')])
+      : undefined;
+    if (!continued) throw new Error('schema lacks a hard break');
+    const lines = table(continued, 400).lines;
+    expect(lines).toHaveLength(1);
+    const whole = nodes.paragraph?.create(null, [mention, documentSchema.text(' a')]);
+    if (!whole) throw new Error('schema lacks a paragraph');
+    expect(lines[0]?.width).toBe(table(whole, 400).lines[0]?.width);
     // A type the host draws itself is measured as an atom.
     const drawn = createTextLayout({ template: BASE_TEMPLATE, textAtoms: { types: new Set() } });
     expect(drawn.layoutText(paragraph(mention), { width: 400 })).toEqual({

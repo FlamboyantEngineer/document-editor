@@ -14,7 +14,12 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
-import { type PagesLayout, type PagesLayoutBlock, readPagesDocument } from './pages-layout.js';
+import {
+  type PagesLayout,
+  type PagesLayoutBlock,
+  type PagesLayoutNumber,
+  readPagesDocument,
+} from './pages-layout.js';
 import { type PrintPageOptions, ROOT_CLASS } from './print.js';
 import { addLinks, allow, drawNode, numberFootnotes, standalonePage } from './print-content.js';
 import { linesContent } from './print-lines.js';
@@ -53,6 +58,22 @@ function forcedHooks(element: PrintElement, block: PagesLayoutBlock) {
   if (block.number) element.attrs.set('data-number', block.number);
 }
 
+// A value as a CSS string.
+const cssString = (value: string) => `"${value.replace(/["\\]/gu, (char) => `\\${char}`)}"`;
+
+// A style declaration added to an element's own.
+function addStyle(element: PrintElement, declaration: string) {
+  const style = element.attrs.get('style');
+  element.attrs.set('style', style ? `${style}; ${declaration}` : declaration);
+}
+
+// The number the engine laid a node out with: a heading's in `data-number`, a caption's or an
+// equation's in `--de-number`, as the pages draw them (DOCE-PAGINATION-11.9).
+function numberHooks(element: PrintElement, number: PagesLayoutNumber) {
+  if (number.heading) element.attrs.set('data-number', number.number);
+  else addStyle(element, `--de-number: ${cssString(number.number)}`);
+}
+
 // The first element a node draws, which carries its hooks.
 const rootOf = (drawn: PrintTree[]) => drawn.find(isPrintElement);
 
@@ -60,6 +81,7 @@ const rootOf = (drawn: PrintTree[]) => drawn.find(isPrintElement);
 function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing {
   const blocks = new Map(layout.blocks.map((block) => [block.pos, block]));
   const values = new Map(layout.variables.map((variable) => [variable.pos, variable.text]));
+  const numbers = new Map(layout.numbers.map((number) => [number.pos, number]));
   const drawing: NodeDrawing = {
     draw(node, drawn, pos) {
       const own = options.draw(node, drawn, pos);
@@ -69,13 +91,12 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
       if (name === 'page_section') sectionHooks(element, node, options.template);
       const block = blocks.get(pos);
       if (block) forcedHooks(element, block);
+      const number = numbers.get(pos);
+      if (number) numberHooks(element, number);
       const order = Number(node.attrs.order ?? 1);
       // A list's continuation numbers on from the items before it, as the list starts draw it.
-      if (name === 'ordered_list' && order > 1) {
-        const style = element.attrs.get('style');
-        const start = `--de-list-start: ${String(order - 1)}`;
-        element.attrs.set('style', style ? `${style}; ${start}` : start);
-      }
+      if (name === 'ordered_list' && order > 1)
+        addStyle(element, `--de-list-start: ${String(order - 1)}`);
       return own;
     },
     content(node, pos) {

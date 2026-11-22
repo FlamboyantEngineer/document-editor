@@ -141,6 +141,13 @@ A measured paragraph laid out across pages shall split once per page, and its fr
 Implementation: `src/model/pagination/text-split.ts`, `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/text-split.test.ts`
 
+### DOCE-PAGINATION-3.6 - Splitting after a hard break
+
+A paragraph split at a line that a hard break ended shall move that break to the second fragment's start, so the first fragment ends on its last line's text and draws no line after it. The paged view shall mark such a break, the first node of a later fragment, with `de-split-break`, and the reference stylesheet hide it; the layout engine shall start no line with it, so each fragment reserves the lines it draws and the fragments put together give back the paragraph.
+
+Implementation: `src/model/pagination/text-split.ts`, `src/pagination/split-breaks.ts`, `src/layout-engine/runs.ts`, `labs/reference/document.css`
+Verification: `src/model/pagination/text-split.test.ts`, `src/pagination/split-breaks.test.ts`, `src/pagination/text-engine.test.ts`
+
 ## DOCE-PAGINATION-4 - Container and table splits
 
 ### DOCE-PAGINATION-4.1 - Lists between items
@@ -794,6 +801,10 @@ Known limits, open until a case needs them (the spike's report has the measureme
 
 - **Direction overrides.** U+202D and U+202E change the shaping direction in Canvas (about 0.24 px in one case). The measurer shapes their text left to right.
 - **Kana kerning.** The DOM shapes a whole run, so Japanese text gets kana kerning there. Canvas shapes word by word and does not, and the measurer follows Canvas.
+- **Bidi runs.** Chromium rounds each bidi run's piece of a line up to 1/64 px. Pretext does not, so a right-to-left paragraph that numbers split into many runs can break a word later than Chromium (about 1 in 50 such paragraphs in DOCE-LABS-7.3).
+- **Script runs across items.** A rich item takes no script from the item before it, so a number in its own bold run after Hebrew letters is measured as Common text.
+- **Characters no served face draws.** The browser draws them from a system font, whose width the measurer cannot know; it measures them with the first face's .notdef and reports them.
+- **Probe characters.** Pretext measures a few characters besides the text, such as the kana and full-width punctuation it reads a CJK font's kerning from. A face set without them reports them as missing.
 - **Fractional sizes.** The measurer copies Linux Chromium's arithmetic. On macOS and Windows the browser's own layout is about 0.06 px narrower per 30 characters at sizes such as 14.666667 px, and within 0.001 px at whole and half pixel sizes.
 
 ### DOCE-PAGINATION-12.1 - The font-file measurer
@@ -805,10 +816,10 @@ Verification: `src/layout-engine/font-files/measurer.test.ts`
 
 ### DOCE-PAGINATION-12.2 - Canvas words, fallback and missing glyphs
 
-The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A character no served face has shall take the first face's .notdef advance and be recorded in `problems.missingGlyphs`; there is no system fallback.
+The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A cluster shall be drawn by the first face that draws it whole, as Blink asks (no .notdef once shaped, so a letter with an accent may come from one precomposed glyph), with variation selectors, tags and the default ignorables needing no glyph; an emoji presentation selector (U+FE0F) shall put the faces with color glyphs first, a text presentation selector (U+FE0E) shall leave them out, and without a selector the family list decides, whatever the character's default presentation. Each text shall be shaped in Blink's script runs (ScriptRunIterator): characters of no script join the run before them, or at the text's start the run after them, a closing bracket goes back to its opening bracket's run, and a number in a right-to-left run is shaped left to right; so the digits of `שלום 123` take the Hebrew run, in which HarfBuzz applies no kerning from a font without Hebrew positioning, as Chromium draws them. With fork release 1.0.0-fe.7, Pretext measures a word of digits or punctuation in right-to-left text after the letter whose run it is in. The widths of 21 such texts in Geist and the Noto subsets of `test/fixtures/fonts/` shall be within 2/64 px of Chromium 153's. Every character of a cluster no served face draws whole shall be recorded in `problems.missingGlyphs`, and the cluster measured with the face that has its first character, or the first face's .notdef; there is no system fallback.
 
-Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/faces.ts`
-Verification: `src/layout-engine/font-files/measurer.test.ts`
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/script-runs.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`, `src/layout-engine/font-files/script-runs.test.ts`
 
 ### DOCE-PAGINATION-12.3 - Line metrics from the font files
 
@@ -858,7 +869,14 @@ Verification: `e2e/print-lines.spec.ts`
 
 ### DOCE-PAGINATION-13.6 - The read-only viewer
 
-`DocumentViewer` shall show a `PagesLayout` read-only, without an editor, a measuring view or a layout of its own: `de-document-viewer` beside the editor's root class, `data-mode="reading"`, `data-layout="page"` and `data-text-layout="pretext"`, in the template's properties, around an element with the classes of the editor's view that holds every section and every page as an empty sheet of its section's size. A page in view and `overscan` pages on each side of it (1 by default, all with `Infinity`) shall be drawn as the print drawn from the layout draws them (DOCE-PAGINATION-13.4), marked `data-drawn`, and a page that leaves that range is emptied again, so the viewer scrolls the whole document with few pages drawn. A drawn page shall carry `--de-page-counters`, the heading and numbered object counters the pages before it leave (`numberingCountersAt`), for a stylesheet to start its counters from, so its numbers are the editor's whichever pages are drawn. Each forced block shall show its computed lines and each page its computed blocks.
+`DocumentViewer` shall show a `PagesLayout` read-only, without an editor, a measuring view or a layout of its own: `de-document-viewer` beside the editor's root class, `data-mode="reading"`, `data-layout="page"` and `data-text-layout="pretext"`, in the template's properties, around an element with the classes of the editor's view that holds every section and every page as an empty sheet of its section's size. A page in view and `overscan` pages on each side of it (1 by default, all with `Infinity`) shall be drawn as the print drawn from the layout draws them (DOCE-PAGINATION-13.4), marked `data-drawn`, and a page that leaves that range is emptied again, so the viewer scrolls the whole document with few pages drawn. Its heading, caption and equation numbers shall be the ones the engine laid the pages out with (DOCE-PAGINATION-13.7), so they are the editor's whichever pages are drawn. Each forced block shall show its computed lines and each page its computed blocks.
 
 Implementation: `src/components/document-viewer/document-viewer.tsx`, `src/document/print-pages.ts`, `labs/src/regression/regression-lab.tsx`, `labs/reference/document.css`
 Verification: `src/components/document-viewer/document-viewer.test.tsx`, `src/document/print-pages.test.ts`, `e2e/document-viewer.spec.ts`
+
+### DOCE-PAGINATION-13.7 - The engine's numbers in static pages
+
+The pages' layout (DOCE-PAGINATION-13.2) shall hold each number the pages draw from the engine (DOCE-PAGINATION-11.9), by position: a heading's, and a caption's label or a display equation's number. A static drawing of the layout (the print, the viewer) shall draw them as the pages do, a heading's in `data-number` and the others in `--de-number`, and a print shall keep a number the engine drew rather than take the static number print gives other numbered elements (DOCE-EDITOR-6.22). Drawn from the layout, a page's numbers shall be the editor's whatever pages are drawn with it.
+
+Implementation: `src/pagination/pages-layout.ts`, `src/pagination/engine-numbers.ts`, `src/document/print-pages.ts`, `src/document/print-content.ts`, `src/engine/print-links.ts`, `labs/reference/document.css`
+Verification: `src/document/print-pages.test.ts`, `e2e/document-viewer.spec.ts`
