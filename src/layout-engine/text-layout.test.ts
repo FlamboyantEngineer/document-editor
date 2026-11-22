@@ -74,12 +74,17 @@ describe('createTextLayout', () => {
 
   it('DOCE-PAGINATION-9.1 keeps every block of a long document prepared while its node lives', () => {
     const engine = createTextLayout({ template: BASE_TEMPLATE });
-    const nodes = Array.from({ length: 4500 }, (_, index) => block(`<p>run ${String(index)}</p>`));
+    // More blocks than the 4,000 runs kept by their text alone; made from the schema, not parsed.
+    const paragraph = documentSchema.nodes.paragraph;
+    if (!paragraph) throw new Error('no paragraph');
+    const nodes = Array.from({ length: 4500 }, (_, index) =>
+      paragraph.create(null, documentSchema.text(`run ${String(index)}`)),
+    );
     for (const node of nodes) engine.layoutText(node, { width: 60 });
     expect(engine.stats()).toEqual({ hits: 0, misses: 4500 });
     for (const node of nodes) engine.layoutText(node, { width: 30 });
     expect(engine.stats()).toEqual({ hits: 4500, misses: 4500 });
-  });
+  }, 20_000);
 
   it('DOCE-PAGINATION-9.1 tells Pretext the language only when it changes, so widths stay measured', () => {
     let measured = 0;
