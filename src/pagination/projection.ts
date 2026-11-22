@@ -28,7 +28,7 @@ import {
 } from './canonical-plugins.js';
 import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
-import { forcedLines } from './forced-lines.js';
+import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
@@ -187,6 +187,11 @@ export interface PagedProjection {
    */
   redraw(...keys: readonly PluginKey[]): void;
   /**
+   * With the layout engine, draws every page on its lines, as for a snapshot of the pages, or puts
+   * back only the pages near the screen (DOCE-PAGINATION-11.6).
+   */
+  drawAllLines(all: boolean): void;
+  /**
    * Lays the pages out again soon. `remeasure` forgets every measurement and starts the ghost's
    * plugins over, as after a width change or a change to a value a plugin shows.
    */
@@ -233,7 +238,16 @@ function projectionState(
       canonicalDecorations(source),
       pageChromeDecorations(),
       ...(text
-        ? [forcedLines({ engine: () => text.engine(), version: () => text.version() })]
+        ? [
+            forcedLines({
+              engine: () => text.engine(),
+              version: () => text.version(),
+              redraw: () => {
+                const live = session();
+                take(live, live.projection.tr.setMeta(forcedLinesKey, true));
+              },
+            }),
+          ]
         : []),
       checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
@@ -362,6 +376,9 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       const tr = live.projection.tr.setMeta('addToHistory', false);
       for (const key of keys) tr.setMeta(key, true);
       take(live, tr);
+    },
+    drawAllLines(all) {
+      if (live.pace.text) take(live, live.projection.tr.setMeta(forcedLinesKey, { drawAll: all }));
     },
     refresh: ({ remeasure = false } = {}) => refreshLayout(live, remeasure),
     layoutState: live.pace.readiness.state,

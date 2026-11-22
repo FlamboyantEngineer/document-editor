@@ -272,6 +272,8 @@ export interface LayoutProgress {
   stats(): PaginationStats | null;
   /** The lines the layout engine drew the pages' text on (`textLayout: 'pretext'`); none else. */
   textLines(): PageTextLines[];
+  /** With the layout engine, draws every page on its lines, or only those near the screen again. */
+  drawAllLines(all: boolean): void;
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
@@ -281,6 +283,7 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
       whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
       stats: () => active.current?.stats() ?? null,
       textLines: () => active.current?.textLines() ?? [],
+      drawAllLines: (all) => active.current?.drawAllLines(all),
     }),
     [active],
   );

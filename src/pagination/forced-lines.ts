@@ -11,9 +11,11 @@
 // part out alone gives the whole block's lines from there.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey, type Selection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { TextLine } from '../layout-engine/line-table.js';
+import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
+import { keepForcedCaret } from './forced-caret.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
@@ -21,6 +23,10 @@ export interface ForcedLinesState {
   readonly engine: PagesTextEngine | null;
   readonly version: number;
   readonly decorations: DecorationSet;
+  /** The pages drawn on forced lines, by index; null for every page. */
+  readonly drawn: ReadonlySet<number> | null;
+  /** The page the caret is on, which is always drawn. */
+  readonly caret: number;
 }
 
 /** The forced lines' plugin key. */
@@ -142,31 +148,66 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
   return locals.length || children.length ? new makeSet(locals, children) : DecorationSet.empty;
 }
 
-// A node's set, kept by node: page content holds the forced blocks; sections and pages hold the
-// sets of their page content.
-function setOf(
+// A page's set, kept by node: its page content holds the forced blocks.
+function pageSet(
   builder: Builder,
-  node: ProseMirrorNode,
+  page: ProseMirrorNode,
   at: { pos: number } & Scope,
 ): DecorationSet {
-  const kept = builder.containers.get(node);
+  const kept = builder.containers.get(page);
   if (kept) return kept;
-  const name = node.type.name;
-  let set = DecorationSet.empty;
-  if (name === 'page_content') set = contentSet(builder, node, at);
-  else if (name === 'doc' || name === 'page_section' || name === 'page') {
-    const scope = name === 'page_section' ? sectionScope(node) : at.name;
-    const children: (number | DecorationSet)[] = [];
-    const start = name === 'doc' ? 0 : at.pos + 1;
-    node.forEach((child, offset) => {
-      const childSet = setOf(builder, child, { pos: start + offset, name: scope });
-      if (childSet !== DecorationSet.empty)
-        children.push(offset, offset + child.nodeSize, childSet);
-    });
-    if (children.length) set = new makeSet([], children);
-  }
-  builder.containers.set(node, set);
+  const children: (number | DecorationSet)[] = [];
+  page.forEach((child, offset) => {
+    if (child.type.name !== 'page_content') return;
+    const set = contentSet(builder, child, { pos: at.pos + 1 + offset, name: at.name });
+    if (set !== DecorationSet.empty) children.push(offset, offset + child.nodeSize, set);
+  });
+  const set = children.length ? new makeSet([], children) : DecorationSet.empty;
+  builder.containers.set(page, set);
   return set;
+}
+
+// The document's set: the kept sets of the pages drawn, in their sections (DOCE-PAGINATION-11.6).
+function documentSet(builder: Builder, doc: ProseMirrorNode, drawn: Drawn): DecorationSet {
+  let index = 0;
+  const sections: (number | DecorationSet)[] = [];
+  doc.forEach((section, sectionOffset) => {
+    const pages: (number | DecorationSet)[] = [];
+    const name = sectionScope(section);
+    section.forEach((page, offset) => {
+      if (page.type.name !== 'page') return;
+      const shown = drawn.drawn === null || drawn.drawn.has(index) || drawn.caret === index;
+      index += 1;
+      if (!shown) return;
+      const set = pageSet(builder, page, { pos: sectionOffset + 1 + offset, name });
+      if (set !== DecorationSet.empty) pages.push(offset, offset + page.nodeSize, set);
+    });
+    if (pages.length)
+      sections.push(sectionOffset, sectionOffset + section.nodeSize, new makeSet([], pages));
+  });
+  return sections.length ? new makeSet([], sections) : DecorationSet.empty;
+}
+
+// Which pages are drawn on forced lines: those near the screen, or all until they are known, and
+// the one the caret is on.
+interface Drawn {
+  readonly drawn: ReadonlySet<number> | null;
+  readonly caret: number;
+}
+
+// The index of the page that holds a position, or -1.
+function pageAt(doc: ProseMirrorNode, pos: number): number {
+  let index = 0;
+  let found = -1;
+  doc.forEach((section, sectionOffset) => {
+    section.forEach((page, offset) => {
+      if (page.type.name !== 'page') return;
+      const from = sectionOffset + 1 + offset;
+      if (found < 0 && pos > from && pos < from + page.nodeSize) found = index;
+      index += 1;
+    });
+  });
+  return found;
 }
 
 /** The template section a page section is laid out in. */
@@ -177,11 +218,18 @@ export const sectionScope = (section: ProseMirrorNode) =>
 interface ForcedLinesSource {
   readonly engine: () => PagesTextEngine | null;
   readonly version: () => number;
+  /** Draws the pages again with the forced lines' plugin, once other pages are near the screen. */
+  readonly redraw?: (() => void) | undefined;
 }
 
 // The decorations of a document, with the builder's kept sets when the engine and the numbers are
 // those it was made with.
-function decorate(source: ForcedLinesSource, doc: ProseMirrorNode, previous: Builder | null) {
+function decorate(
+  source: ForcedLinesSource,
+  state: { doc: ProseMirrorNode; drawn: Drawn },
+  previous: Builder | null,
+) {
+  const { doc } = state;
   const engine = source.engine();
   if (!engine) return { builder: null, decorations: DecorationSet.empty };
   const numbering = engine.numbering(doc);
@@ -199,7 +247,7 @@ function decorate(source: ForcedLinesSource, doc: ProseMirrorNode, previous: Bui
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same ? previous.containers : new WeakMap(),
   };
-  return { builder, decorations: setOf(builder, doc, { pos: 0, name: null }) };
+  return { builder, decorations: documentSet(builder, doc, state.drawn) };
 }
 
 // Whether two numberings show the same numbers in the same order.
@@ -210,27 +258,76 @@ function sameValues(a: ReadonlyMap<number, string>, b: ReadonlyMap<number, strin
 }
 
 /**
+ * What a transaction's `forcedLinesKey` meta can ask: `{ drawAll: true }` draws every page on
+ * forced lines, as for a snapshot of the pages, until `{ drawAll: false }` puts back the pages near
+ * the screen. Any other value draws the pages again.
+ */
+interface DrawAllPages {
+  readonly drawAll: boolean;
+}
+
+// The view's reader of the DOM, which ProseMirror runs before it handles an event.
+interface FlushedView {
+  readonly domObserver?: { flush(): void };
+}
+
+const isDrawAll = (meta: unknown): meta is DrawAllPages =>
+  typeof meta === 'object' && meta !== null && 'drawAll' in meta;
+
+/**
  * The plugin that draws the forced lines on the pages. It lays out only what changed: a block keeps
  * its decorations while its node and number do.
  */
 export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState> {
   let builder: Builder | null = null;
-  const build = (doc: ProseMirrorNode): ForcedLinesState => {
-    const made = decorate(source, doc, builder);
+  let pages: DrawnPages | null = null;
+  // Whether every page is drawn on forced lines for now, as while a snapshot is taken.
+  let all = false;
+  const build = (state: { doc: ProseMirrorNode; selection: Selection }): ForcedLinesState => {
+    const near = all ? null : (pages?.drawn() ?? null);
+    const drawn = { drawn: near, caret: pageAt(state.doc, state.selection.head) };
+    const made = decorate(source, { doc: state.doc, drawn }, builder);
     builder = made.builder;
-    return { engine: source.engine(), version: source.version(), decorations: made.decorations };
+    const { engine, version } = source;
+    return { engine: engine(), version: version(), decorations: made.decorations, ...drawn };
   };
   return new Plugin<ForcedLinesState>({
     key: forcedLinesKey,
     state: {
-      init: (_config, state) => build(state.doc),
+      init: (_config, state) => build(state),
       apply(tr, value) {
         const fresh = value.engine !== source.engine() || value.version !== source.version();
-        return tr.docChanged || fresh ? build(tr.doc) : value;
+        const meta: unknown = tr.getMeta(forcedLinesKey);
+        const redrawn = meta !== undefined;
+        if (isDrawAll(meta)) all = meta.drawAll;
+        const moved = tr.selectionSet && pageAt(tr.doc, tr.selection.head) !== value.caret;
+        return tr.docChanged || fresh || redrawn || moved ? build(tr) : value;
       },
     },
     props: {
       decorations: (state) => forcedLinesKey.getState(state)?.decorations,
+    },
+    view(view) {
+      // Draws the pages near the screen again, unless every page is drawn already. The view first
+      // reads the selection the browser holds, as between a double click's two clicks, so the
+      // redraw writes back that selection and not the one before it.
+      pages = watchDrawnPages(view, () => {
+        if (all) return;
+        (view as unknown as FlushedView).domObserver?.flush();
+        source.redraw?.();
+      });
+      const caret = keepForcedCaret(view);
+      return {
+        update(updated) {
+          pages?.update(updated);
+          caret.update(updated);
+        },
+        destroy() {
+          pages?.destroy();
+          pages = null;
+          caret.destroy();
+        },
+      };
     },
   });
 }

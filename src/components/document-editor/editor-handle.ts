@@ -136,6 +136,12 @@ export interface DocumentEditorHandle {
    * paragraphs and headings, which the pages draw them on (DOCE-PAGINATION-11.3); none otherwise.
    */
   textLines(): PageTextLines[];
+  /**
+   * With `textLayout: 'pretext'`, draws every page on the layout engine's lines, as for printing or
+   * checking every page, or, given false, only the pages near the screen again
+   * (DOCE-PAGINATION-11.6).
+   */
+  drawAllLines(all: boolean): void;
   /** The elements with an element id on screen now, with their boxes in the window. */
   visibleElements(): readonly VisibleElement[];
   /** The pages on screen now, each with its sheet and its content's box in the window. */
@@ -233,19 +239,41 @@ function snapshotMethods(
 ): Pick<DocumentEditorHandle, 'exportSnapshot' | 'exportSnapshotAsync' | 'snapshotOutline'> {
   const citationHref = hrefOf(references);
   return {
+    // Every page is drawn on the layout engine's lines while the snapshot is taken.
     exportSnapshot: (options) =>
-      view ? documentSnapshot(view, { citationHref, ...options, template }) : null,
+      view
+        ? allLines(layout, () => documentSnapshot(view, { citationHref, ...options, template }))
+        : null,
     exportSnapshotAsync: async (options) =>
       view
-        ? documentSnapshotWhenReady(view, {
-            citationHref,
-            ...options,
-            template,
-            whenSettled: layout.whenSettled,
-          })
+        ? allLines(layout, () =>
+            documentSnapshotWhenReady(view, {
+              citationHref,
+              ...options,
+              template,
+              whenSettled: layout.whenSettled,
+            }),
+          )
         : null,
     snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
   };
+}
+
+// Runs `take` with every page drawn on the layout engine's lines (DOCE-PAGINATION-11.6), and puts
+// back only the pages near the screen once it is done.
+function allLines<T>(layout: LayoutProgress, take: () => T): T {
+  layout.drawAllLines(true);
+  let async = false;
+  try {
+    const result = take();
+    if (result instanceof Promise) {
+      async = true;
+      return result.finally(() => layout.drawAllLines(false)) as T;
+    }
+    return result;
+  } finally {
+    if (!async) layout.drawAllLines(false);
+  }
 }
 
 /** Gives the host a handle on the editor through its `handleRef`. */
@@ -309,6 +337,7 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       textLines: layout.textLines,
+      drawAllLines: layout.drawAllLines,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
       visiblePages: () => (view ? measureVisiblePages(view) : []),
       revealPane: (paneId, options) => panes.reveal(paneId, options),

@@ -1,7 +1,7 @@
 import type { Node } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
-import type { Decoration, DecorationSet } from 'prosemirror-view';
-import { describe, expect, it } from 'vitest';
+import { EditorState, TextSelection } from 'prosemirror-state';
+import { type Decoration, type DecorationSet, EditorView } from 'prosemirror-view';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import type { TextLine } from '../layout-engine/line-table.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
@@ -254,5 +254,84 @@ describe('pageTextLines', () => {
 
   it('DOCE-PAGINATION-11.3 gives no pages without the layout engine', () => {
     expect(pageTextLines(stateWith(pagesDoc([[paragraph('text')]]), null))).toEqual([]);
+  });
+});
+
+describe('forced lines on the pages near the screen', () => {
+  // An IntersectionObserver the test drives: `show` reports which observed elements are near.
+  function stubObserver() {
+    const observers: FakeObserver[] = [];
+    class FakeObserver {
+      readonly observed = new Set<Element>();
+      constructor(
+        readonly report: (entries: { target: Element; isIntersecting: boolean }[]) => void,
+      ) {
+        observers.push(this);
+      }
+      observe(element: Element) {
+        this.observed.add(element);
+      }
+      unobserve(element: Element) {
+        this.observed.delete(element);
+      }
+      disconnect() {
+        this.observed.clear();
+      }
+    }
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    return (near: (element: Element) => boolean) => {
+      for (const observer of observers)
+        observer.report(
+          [...observer.observed].map((target) => ({ target, isIntersecting: near(target) })),
+        );
+    };
+  }
+
+  function mounted(doc: Node, engine: PagesTextEngine) {
+    let view: EditorView | null = null;
+    const redraw = () => view?.dispatch(view.state.tr.setMeta(forcedLinesKey, true));
+    const state = EditorState.create({
+      doc,
+      plugins: [forcedLines({ engine: () => engine, version: () => 0, redraw })],
+    });
+    view = new EditorView(document.createElement('div'), { state });
+    return view;
+  }
+
+  const forcedTexts = (view: EditorView) =>
+    [...view.dom.querySelectorAll('.de-forced-lines')].map((element) => element.textContent);
+
+  it('DOCE-PAGINATION-11.6 draws forced lines on the pages near the screen and the caret page only', () => {
+    const show = stubObserver();
+    const doc = pagesDoc([[paragraph('first')], [paragraph('second')], [paragraph('third')]]);
+    const view = mounted(doc, stubEngine().engine);
+    expect(forcedTexts(view)).toEqual(['first', 'second', 'third']);
+    const third = view.dom.querySelectorAll('.pm-page')[2];
+    show((element) => element === third);
+    // The caret is on the first page, so it stays drawn.
+    expect(forcedTexts(view)).toEqual(['first', 'third']);
+    expect(forcedLinesKey.getState(view.state)?.drawn).toEqual(new Set([2]));
+    view.destroy();
+  });
+});
+
+describe('the caret at a forced line start', () => {
+  it('DOCE-PAGINATION-11.7 draws a caret the view wrote at a line end at the next line start', () => {
+    const doc = pagesDoc([[paragraph('aaaaaaaaaabbbbbbbbbb')]]);
+    const state = EditorState.create({
+      doc,
+      plugins: [forcedLines({ engine: () => stubEngine().engine, version: () => 0 })],
+    });
+    const mount = document.body.appendChild(document.createElement('div'));
+    const view = new EditorView(mount, { state });
+    view.focus();
+    // The position between the two lines, which ProseMirror writes after the first line's text.
+    const at = positionOf(doc, 'aaaaaaaaaabbbbbbbbbb') + 11;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    const selection = document.getSelection();
+    expect(selection?.anchorNode?.textContent).toBe('bbbbbbbbbb');
+    expect(selection?.anchorOffset).toBe(0);
+    view.destroy();
+    mount.remove();
   });
 });

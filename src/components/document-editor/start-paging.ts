@@ -36,7 +36,10 @@ import type { DocumentLayoutOptions } from './use-document-layout.js';
 import type { PagedEditor } from './use-paged-projection.js';
 
 // What lays the pages out: a projection of the state.
-export type LayoutRunner = Pick<PagedProjection, 'whenSettled' | 'stats' | 'textLines'>;
+export type LayoutRunner = Pick<
+  PagedProjection,
+  'whenSettled' | 'stats' | 'textLines' | 'drawAllLines'
+>;
 
 // The height inside the page margins of a section's template scope.
 function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {

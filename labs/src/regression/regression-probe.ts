@@ -44,6 +44,8 @@ export interface RegressionProbe {
   textLines(): PageTextLines[];
   /** With `textLayout=pretext`, the forced blocks the browser drew on other lines (the guard). */
   wrappedLines(): WrappedBlock[];
+  /** With `textLayout=pretext`, draws every page on the engine's lines, or only those near again. */
+  drawAllLines(all: boolean): void;
 }
 
 /** What the probe's snapshot takes: the editor's snapshot options. */
@@ -180,6 +182,7 @@ export function useRegressionProbe(handle: RefObject<DocumentEditorHandle | null
       snapshot: (options) => handle.current?.exportSnapshot(options) ?? null,
       textLines: () => handle.current?.textLines() ?? [],
       wrappedLines: () => findWrappedLines(document),
+      drawAllLines: (all) => handle.current?.drawAllLines(all),
     };
     Object.assign(window, { regressionLab: probe });
   }, [handle]);
