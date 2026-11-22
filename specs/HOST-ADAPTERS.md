@@ -118,7 +118,7 @@ Verification: `src/layout-engine/font-files/host-faces.test.ts`, `src/layout-eng
 
 #### DOCE-HOST-1.14.3 - Characters no served face has
 
-No character falls back to a system font. A character none of a font's served faces has shall be measured with its first face's missing glyph (.notdef) and reported once through the editor's problems, so the host can serve a face for it, such as an emoji or symbol face limited by its `unicode-range`. The drawn page uses the same faces, so it draws the same missing glyph.
+The measurer falls back to no system font. A character none of a font's served faces has shall be measured with its first face's missing glyph (.notdef) and reported once through the editor's problems, so the host can serve a face for it, such as an emoji or symbol face limited by its `unicode-range`. So shall every character of a grapheme cluster that no served face draws whole, such as a letter with a mark no face has together with it, or an emoji with a text presentation selector that only a color face has. The browser draws such a character from a system font, so a line that holds one can break elsewhere than the engine's.
 
 Implementation: `src/layout-engine/font-files/measure-context.ts`
 Verification: `src/layout-engine/font-files/measurer.test.ts`

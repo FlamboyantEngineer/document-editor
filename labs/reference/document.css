@@ -222,18 +222,8 @@ div.de-host-view {
   contain: layout paint;
 }
 
-/*
- * A viewer's page, drawn on its own once it nears the viewport, numbers its headings and objects on
- * from the pages before it, which it cannot count (DOCE-PAGINATION-13.6).
- */
-.de-document-viewer .pm-page[data-drawn] {
-  counter-set: var(--de-page-counters);
-}
-
-/*
- * A viewer draws only the pages near the viewport itself. Its pages skip no layout, which would
- * contain their style and start every counter again on each page.
- */
+/* A viewer draws only the pages near the viewport itself, so its pages need not skip their layout
+   while off screen (DOCE-PAGINATION-13.6). */
 .de-document-viewer > .de-document-editor__content .pm-page {
   content-visibility: visible;
 }
@@ -991,6 +981,32 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
   content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
+}
+
+/* With the layout engine, each page contains its style while off screen, which scopes counters to
+   it: the pages, and the viewer and prints drawn from their layout, draw the numbers the engine
+   laid them out with (DOCE-PAGINATION-11.9, DOCE-PAGINATION-13.6). */
+.de-document-editor[data-text-layout='pretext']
+  .pm-page-content
+  :is(
+    .doc-table-caption-line,
+    .doc-figure-caption-line,
+    .doc-code-caption-line,
+    .doc-linked-code-caption-line
+  )::before {
+  content: var(--de-number, none);
+}
+
+.de-document-editor[data-text-layout='pretext']
+  .pm-page-content
+  :is(h1, h2, h3, h4, h5, h6)::before {
+  content: attr(data-number);
+}
+
+.de-document-editor[data-text-layout='pretext']
+  .pm-page-content
+  .de-math[data-display='display']::after {
+  content: var(--de-number, none);
 }
 
 /* A table caption's label and number in the label style, unset values the text's; its text in
