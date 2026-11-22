@@ -372,3 +372,10 @@ On the scale lab's 300 pages with 500 comment threads and the text layout engine
 
 Implementation: `labs/src/stress/stress-lab.tsx`
 Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.8 - The same result on every device
+
+For five documents of the regression set, a fingerprint of the computed result (the pages, each text block's type and part, and its line offsets or why the browser draws it) shall equal the recorded one at zooms of 50, 100 and 150 percent in Chromium at device pixel ratios 1, 1.25 and 2.
+
+Implementation: `src/pagination/text-engine.ts`
+Verification: `e2e/layout-invariant.spec.ts`

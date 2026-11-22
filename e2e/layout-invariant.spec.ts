@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Page, TestInfo } from '@playwright/test';
 import {
   REGRESSION_DOCUMENTS,
@@ -470,4 +471,54 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
     await settle(page);
     expect(await wrappedInView(page), 'after keyboard editing').toEqual([]);
   });
+});
+
+// The documents whose computed result is pinned, and its fingerprint: the same on every device and
+// at every zoom, as recorded at a device pixel ratio of 1 and 100 percent.
+// Recorded with Chromium's Canvas on Linux; the CI runner's fingerprints are the reference.
+const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
+  'caption-numbering': 'e9805f9ae9393133',
+  'heading-keep-with-next': 'cde9efbfd0216fdd',
+  'long-mixed': 'e83aba0e479e7771',
+  'oversized-blocks': '04f2d26ec8b3697c',
+  'roman-numbering-stress': 'd24934809773ffdb',
+};
+
+/**
+ * A fingerprint of the computed result: pages, each block's type and part, and its line offsets, or
+ * why the engine left it to the browser.
+ */
+async function fingerprintOf(page: Page): Promise<string> {
+  const pages = await computedOf(page);
+  const text = pages
+    .map(({ blocks }) =>
+      blocks
+        .map(
+          (block) =>
+            `${block.type}#${String(block.part)}:${
+              block.lines?.map(({ from, to }) => `${String(from)}-${String(to)}`).join(',') ??
+              block.reason ??
+              ''
+            }`,
+        )
+        .join('|'),
+    )
+    .join('\n');
+  return createHash('sha256').update(text).digest('hex').slice(0, 16);
+}
+
+test.describe('DOCE-LABS-8.8 the computed result is the same on every device', () => {
+  for (const [name, pinned] of Object.entries(PINNED) as [RegressionDocumentName, string][]) {
+    for (const zoom of [50, 100, 150]) {
+      test(`DOCE-LABS-8.8 ${name} at ${String(zoom)}%`, async ({ page }, testInfo) => {
+        await open(page, name, zoom);
+        const print = await fingerprintOf(page);
+        testInfo.annotations.push({
+          type: 'fingerprint',
+          description: `${testInfo.project.name} ${print}`,
+        });
+        expect(print, 'the computed result, as recorded').toBe(pinned);
+      });
+    }
+  }
 });
