@@ -18,6 +18,7 @@ import figures from '../../../test/fixtures/documents/figures.json' with { type:
 import footnoteHeavy from '../../../test/fixtures/documents/footnote-heavy.json' with { type: 'json' };
 import footnotesInStructures from '../../../test/fixtures/documents/footnotes-in-structures.json' with { type: 'json' };
 import headingKeepWithNext from '../../../test/fixtures/documents/heading-keep-with-next.json' with { type: 'json' };
+import inlineGeometry from '../../../test/fixtures/documents/inline-geometry.json' with { type: 'json' };
 import inlineImages from '../../../test/fixtures/documents/inline-images.json' with { type: 'json' };
 import linkedCode from '../../../test/fixtures/documents/linked-code.json' with { type: 'json' };
 import listSplitStress from '../../../test/fixtures/documents/list-split-stress.json' with { type: 'json' };
@@ -43,6 +44,7 @@ import tableRichCells from '../../../test/fixtures/documents/table-rich-cells.js
 import regressionBase from '../../../test/fixtures/documents/templates/regression-base.json' with { type: 'json' };
 import regressionCaptions from '../../../test/fixtures/documents/templates/regression-captions.json' with { type: 'json' };
 import regressionFootnotes from '../../../test/fixtures/documents/templates/regression-footnotes.json' with { type: 'json' };
+import regressionInline from '../../../test/fixtures/documents/templates/regression-inline.json' with { type: 'json' };
 import regressionLocked from '../../../test/fixtures/documents/templates/regression-locked.json' with { type: 'json' };
 import regressionMixedGeometry from '../../../test/fixtures/documents/templates/regression-mixed-geometry.json' with { type: 'json' };
 import regressionNumbering from '../../../test/fixtures/documents/templates/regression-numbering.json' with { type: 'json' };
@@ -60,6 +62,7 @@ export const REGRESSION_DOCUMENTS = {
   'footnote-heavy': footnoteHeavy,
   'footnotes-in-structures': footnotesInStructures,
   'heading-keep-with-next': headingKeepWithNext,
+  'inline-geometry': inlineGeometry,
   'inline-images': inlineImages,
   'linked-code': linkedCode,
   'long-bullet-list-with-nesting': longBulletList,
@@ -93,6 +96,7 @@ const TEMPLATES = new Map<string, unknown>([
     regressionBase,
     regressionCaptions,
     regressionFootnotes,
+    regressionInline,
     regressionLocked,
     regressionMixedGeometry,
     regressionNumbering,
