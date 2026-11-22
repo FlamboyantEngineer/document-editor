@@ -264,12 +264,9 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
   const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
   const mount = options.mountGhost ?? mountMeasuringView;
+  const holding = { changed: () => requestLayout(session()), view: () => session().ghost.view };
   const text = options.textLayout
-    ? holdTextEngine({
-        setting: options.textLayout,
-        measureIn: options.measureIn,
-        changed: () => requestLayout(session()),
-      })
+    ? holdTextEngine({ setting: options.textLayout, measureIn: options.measureIn, ...holding })
     : null;
   const ready = text ? Promise.all([options.ready, text.loaded]) : options.ready;
   const ghost = mount(options.measureIn, {

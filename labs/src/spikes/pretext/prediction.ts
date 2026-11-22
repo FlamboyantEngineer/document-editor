@@ -76,6 +76,8 @@ export function createPreparationCache({
     language: 'en',
     scale,
     measureContext,
+    // Every inline atom is a box here; the spike sizes only inline math.
+    textAtoms: { types: new Set() },
     measureAtom: (node) =>
       node.type.name === 'math_inline' && !node.marks.length
         ? { ...inlineMath, baseline: mathBaseline }

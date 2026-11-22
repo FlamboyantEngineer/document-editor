@@ -2,6 +2,7 @@
 // module loads on first use, so an editor without the option never loads the layout engine, and
 // the engine is made again for each template the pages are laid out with.
 
+import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
 import type { createPagesTextEngine } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -10,6 +11,8 @@ import type { PagesTextEngine } from './text-engine-types.js';
 export interface TextLayoutSetting {
   /** The template the pages are laid out with now. */
   readonly template: () => TemplateFile;
+  /** The node types the host draws with node views of its own. */
+  readonly hostViews?: readonly string[] | undefined;
 }
 
 /** A projection's text layout engine, once loaded. */
@@ -32,6 +35,8 @@ export function holdTextEngine(options: {
   readonly setting: TextLayoutSetting;
   readonly measureIn: HTMLElement;
   readonly changed: () => void;
+  /** The view that measures the pages, which atoms are measured as drawn in. */
+  readonly view?: (() => EditorView | null) | undefined;
 }): TextEngineHolder {
   let made: EngineModule | null = null;
   let current: PagesTextEngine | null = null;
@@ -55,6 +60,8 @@ export function holdTextEngine(options: {
         template,
         measureIn: options.measureIn,
         onAtomsSettled: settled,
+        view: options.view,
+        hostViews: options.setting.hostViews,
       });
       return current;
     },
