@@ -80,11 +80,11 @@ for (const [name, kind] of Object.entries(kinds)) {
 // combining marks and symbols, each with the Noto subsets of test/fixtures/fonts/ served after
 // Geist, measured from the same files. What is left: Chromium rounds each bidi run's piece of a
 // line up to 1/64 px, which Pretext does not model, so a few right-to-left paragraphs that numbers
-// split into many runs break a word earlier (starts); and a full-width punctuation mark that ends a
-// CJK line reaches 4 to 5 px past the content edge in Chromium, on the same lines (overflow). A
-// change is a regression or a fix, and changes the budget in the same PR.
+// split into many runs break a word earlier (starts). The budgets are CI's Chromium 156; Chromium 153
+// also lets a full-width punctuation mark that ends a CJK line reach 4 to 5 px past the content
+// edge, on the same lines (cjk overflow 2 there, 0 in 156). A change is a regression or a fix, and
+// changes the budget in the same PR.
 const scriptBudgets: Record<string, { starts: number; lines: number; overflow: number }> = {
-  cjk: { starts: 0, lines: 0, overflow: 2 },
   arabic: { starts: 2, lines: 0, overflow: 0 },
   hebrew: { starts: 1, lines: 0, overflow: 0 },
   'mixed directions': { starts: 5, lines: 0, overflow: 0 },
