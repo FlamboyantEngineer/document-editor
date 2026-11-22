@@ -351,3 +351,24 @@ With an inline completion offer showing inside a full forced line, the block sha
 
 Implementation: `src/pagination/forced-lines.ts`
 Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.5 - Formatting-only edits
+
+Making a word bold, undoing and redoing it shall each leave the drawn lines equal to the computed ones, and the lines computed after the undo and after the redo shall equal those computed before the bold and after it.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.6 - Grapheme clusters at forced line edges
+
+Repeated emoji, a joined emoji sequence and letters with combining marks, typed with no space so lines end and start inside them, shall be drawn on the computed lines; no line decoration shall start or end inside a grapheme cluster or hold half a surrogate pair, and Shift+Arrow Right at each line start shall select one whole cluster.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.7 - Review and editing on a stress document
+
+On the scale lab's 300 pages with 500 comment threads and the text layout engine on, starting a comment on a forced line, typing and deleting suggested text, opening and closing the context menu and keyboard editing (a new paragraph, a hard break, deleting a word and undoing) shall leave every forced block on the pages in view drawing its computed number of lines. The stress labs shall type as suggestions with a `suggest` query.
+
+Implementation: `labs/src/stress/stress-lab.tsx`
+Verification: `e2e/layout-invariant.spec.ts`
