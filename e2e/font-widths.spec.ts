@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures.js';
-import { countDifferences, type Counts, kinds } from './pretext-fuzz.js';
+import { countDifferences, type Counts, kinds, seeds } from './pretext-fuzz.js';
 import { countScriptDifferences, scriptKinds } from './pretext-scripts.js';
 
 // The font-file widths spike (DOCE-LABS-7): widths shaped from the served font files with
@@ -48,31 +48,44 @@ test('DOCE-LABS-7.1 agrees with Linux Chromium Canvas wherever the served faces 
 // a padded code piece ending a line keeps its hanging pre-wrap space, and Chrome paints the end
 // padding after it, past the content edge. A change is a regression or a fix, and changes the
 // budget in the same PR.
-const budgets: Record<string, Counts> = {
-  plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-  kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-  bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-  italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-  code: { starts: 0, lines: 0, boundaries: 0, overflow: 78 },
-  link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-  mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 32 },
+const none: Counts = { starts: 0, lines: 0, boundaries: 0, overflow: 0 };
+const budgets: Record<string, readonly [Counts, Counts]> = {
+  plain: [none, none],
+  kerning: [none, none],
+  bold: [none, none],
+  italic: [none, none],
+  code: [
+    { ...none, overflow: 41 },
+    { ...none, overflow: 37 },
+  ],
+  link: [none, none],
+  mixed: [
+    { ...none, overflow: 18 },
+    { ...none, overflow: 14 },
+  ],
 };
 
+// Each kind is checked in two halves of the seeds, so each test stays well under its timeout on CI:
+// the whole of the mixed kind took close to 120 s there and timed out twice.
+const halves = [seeds.slice(0, seeds.length / 2), seeds.slice(seeds.length / 2)];
+
 for (const [name, kind] of Object.entries(kinds)) {
-  test(`DOCE-LABS-7.2 counts ${name} paragraphs whose font-file lines differ from Chromium's`, async ({
-    page,
-  }, info) => {
-    test.setTimeout(120_000);
-    await page.goto('/pretext-pagination.html?measure&measurer=font-files');
-    const { blocks, counts, measurers } = await countDifferences(page, kind);
-    expect(measurers).toEqual(['font-files']);
-    await info.attach('Differences from Chromium', {
-      body: JSON.stringify({ kind: name, blocks, ...counts }),
-      contentType: 'application/json',
+  halves.forEach((over, half) => {
+    test(`DOCE-LABS-7.2 counts ${name} paragraphs whose font-file lines differ from Chromium's, seeds ${over.join(' and ')}`, async ({
+      page,
+    }, info) => {
+      test.setTimeout(120_000);
+      await page.goto('/pretext-pagination.html?measure&measurer=font-files');
+      const { blocks, counts, measurers } = await countDifferences(page, kind, over);
+      expect(measurers).toEqual(['font-files']);
+      await info.attach('Differences from Chromium', {
+        body: JSON.stringify({ kind: name, seeds: over, blocks, ...counts }),
+        contentType: 'application/json',
+      });
+      expect(counts, 'today’s counts; lower the budget when a fix improves them').toEqual(
+        budgets[name]?.[half],
+      );
     });
-    expect(counts, 'today’s counts; lower the budget when a fix improves them').toEqual(
-      budgets[name],
-    );
   });
 }
 
