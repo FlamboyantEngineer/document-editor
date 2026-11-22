@@ -50,16 +50,11 @@ function captionHeight(context: BlockContext, caption: ProseMirrorNode, width: n
   return layTextBlock({ ...context, place: { ...context.place, width }, parent: 'other' }, caption);
 }
 
-// The figure as an atom holding only its image: its attributes without its caption, so a measurer
-// that draws the figure does not count the caption the engine adds.
-const imageOnly = (figure: ProseMirrorNode) => figure.type.create(figure.attrs, null, figure.marks);
-
 /** A figure: its image box and, unless switched off, its caption across the content width. */
 export function layFigure(context: BlockContext, figure: ProseMirrorNode): Laid {
   const { width } = context.place;
   const fixed = fixedImageBox(figure, width);
-  // The image is measured without the caption, which the engine lays out itself below.
-  const measured = fixed ? null : context.options.atoms.measureBlockAtom(imageOnly(figure), width);
+  const measured = fixed ? null : context.options.atoms.measureBlockAtom(figure, width);
   const image = fixed ?? measured;
   if (!image) return notLaid(figure, 'the figure has no stored or measured size');
   let caption = 0;

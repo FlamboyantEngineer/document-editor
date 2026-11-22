@@ -44,6 +44,13 @@ const loaded = (image: HTMLImageElement) =>
     image.addEventListener('error', () => resolve(), { once: true });
   });
 
+// A figure's caption as drawn in it, which the engine lays out as text: not part of the atom.
+function captionHeight(element: HTMLElement): number {
+  if (element.tagName !== 'FIGURE') return 0;
+  const slot = element.querySelector(':scope > .doc-figure-caption-slot');
+  return slot?.getBoundingClientRect().height ?? 0;
+}
+
 /** Creates a measurer that draws each atom in a host element and reads its box. */
 export function createDomAtomMeasurer({
   host,
@@ -72,7 +79,8 @@ export function createDomAtomMeasurer({
 
   const read = (element: HTMLElement, probe: HTMLElement | null): AtomSize => {
     const box = element.getBoundingClientRect();
-    if (!probe) return { width: box.width, height: box.height };
+    if (!probe)
+      return { width: box.width, height: Math.max(0, box.height - captionHeight(element)) };
     const baseline = probe.getBoundingClientRect().bottom - box.top;
     return { width: box.width, height: box.height, baseline };
   };

@@ -34,6 +34,20 @@ describe('DOM atom measurer', () => {
     expect(host.childElementCount).toBe(0);
   });
 
+  it('DOCE-PAGINATION-10.4 reads a figure without its caption, which the engine lays out', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    stubBoxes({
+      figure: { top: 0, width: 320, height: 200 },
+      div: { top: 180, width: 320, height: 20 },
+    });
+    const measure = createDomAtomMeasurer({ host });
+    const figure = schema.node('figure', { src: 'https://example.org/a.png' }, [
+      schema.node('figure_caption', null, [schema.text('A caption')]),
+    ]);
+    expect(measure(figure, 400)?.size).toEqual({ width: 320, height: 180 });
+  });
+
   it('DOCE-PAGINATION-10.2 reads an inline atom’s baseline from a probe beside it', () => {
     const host = document.createElement('div');
     document.body.append(host);

@@ -44,19 +44,6 @@ describe('figures', () => {
     expect(blind.layoutBlock(figure({}), place)).toMatchObject({ ok: false });
   });
 
-  it('DOCE-PAGINATION-10.4 measures an unsized image without its caption, then adds the caption', () => {
-    const measured: number[] = [];
-    const { layout } = standInBlockLayout({
-      measure: (atom) => {
-        measured.push(atom.childCount);
-        return { size: { width: 90, height: 40 } };
-      },
-    });
-    const block = blockOf(layout.layoutBlock(figure({}, 10), place));
-    expect(block.height).toBe(40 + 16);
-    expect(measured).toEqual([0]);
-  });
-
   it('DOCE-PAGINATION-10.2 marks a figure whose image still loads as provisional', () => {
     const settled = new Promise<{ width: number; height: number }>(() => undefined);
     const { layout } = standInBlockLayout({
