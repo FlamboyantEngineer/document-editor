@@ -22,7 +22,8 @@ const labs = listLabSources();
 
 rmSync(outdir, { recursive: true, force: true });
 
-// Geist and Geist Mono (Latin, WOFF), four KaTeX faces and HarfBuzz, as files the labs fetch.
+// Geist and Geist Mono (Latin, WOFF), four KaTeX faces, the script fonts and HarfBuzz, as files the
+// labs fetch.
 const require = createRequire(import.meta.url);
 const fontsDir = join(outdir, 'fonts');
 mkdirSync(fontsDir, { recursive: true });
@@ -35,6 +36,11 @@ for (const name of ['@fontsource/geist', '@fontsource/geist-mono']) {
 const katexFonts = join(dirname(require.resolve('katex/package.json')), 'dist', 'fonts');
 for (const face of ['Main-Regular', 'Main-Bold', 'Main-Italic', 'SansSerif-Regular'])
   copyFileSync(join(katexFonts, `KaTeX_${face}.woff`), join(fontsDir, `KaTeX_${face}.woff`));
+// The script fonts of the closeness checks (DOCE-LABS-7.3), Noto subsets kept with the tests.
+const scriptFonts = join(labsDir, '..', 'test', 'fixtures', 'fonts');
+mkdirSync(join(fontsDir, 'scripts'));
+for (const file of readdirSync(scriptFonts).filter((name) => /\.(woff|json)$/u.test(name)))
+  copyFileSync(join(scriptFonts, file), join(fontsDir, 'scripts', file));
 const harfBuzz = join(dirname(require.resolve('harfbuzzjs')), 'harfbuzz.wasm');
 copyFileSync(harfBuzz, join(fontsDir, 'harfbuzz.wasm'));
 

@@ -779,6 +779,13 @@ An offered completion (DOCE-AUTOMATION-3) drawn in a forced block shall take no 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/layout-invariant.spec.ts`
 
+### DOCE-PAGINATION-11.9 - Numbers from the engine
+
+With the option on, the pages shall draw the numbers the engine laid them out with, not the stylesheet's counters, which each page's style containment (DOCE-PAGINATION-11.6) would start again: every heading on every page, drawn on forced lines or not, shall carry its number with its space as `data-number` (empty for one without, as a later part of a split heading), and each shown caption, linked code and display equation its label or number as `--de-number` (a caption's label with its separator, found by the id of the object it captions, so a later part of a split table shows the first part's; an equation's in document order), which the reference stylesheet's generated content reads. The labels come from the canonical document under the engine's template (`blockNumbers`, `catalogDocument`), so every page draws the numbers a page without containment would.
+
+Implementation: `src/pagination/engine-numbers.ts`, `src/pagination/projection.ts`, `labs/reference/document.css`
+Verification: `src/pagination/engine-numbers.test.ts`, `e2e/text-layout.spec.ts`
+
 ## DOCE-PAGINATION-12 - Widths from the font files
 
 Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.
@@ -787,6 +794,10 @@ Known limits, open until a case needs them (the spike's report has the measureme
 
 - **Direction overrides.** U+202D and U+202E change the shaping direction in Canvas (about 0.24 px in one case). The measurer shapes their text left to right.
 - **Kana kerning.** The DOM shapes a whole run, so Japanese text gets kana kerning there. Canvas shapes word by word and does not, and the measurer follows Canvas.
+- **Bidi runs.** Chromium rounds each bidi run's piece of a line up to 1/64 px. Pretext does not, so a right-to-left paragraph that numbers split into many runs can break a word later than Chromium (about 1 in 50 such paragraphs in DOCE-LABS-7.3).
+- **Script runs across items.** A rich item takes no script from the item before it, so a number in its own bold run after Hebrew letters is measured as Common text.
+- **Characters no served face draws.** The browser draws them from a system font, whose width the measurer cannot know; it measures them with the first face's .notdef and reports them.
+- **Probe characters.** Pretext measures a few characters besides the text, such as the kana and full-width punctuation it reads a CJK font's kerning from. A face set without them reports them as missing.
 - **Fractional sizes.** The measurer copies Linux Chromium's arithmetic. On macOS and Windows the browser's own layout is about 0.06 px narrower per 30 characters at sizes such as 14.666667 px, and within 0.001 px at whole and half pixel sizes.
 
 ### DOCE-PAGINATION-12.1 - The font-file measurer
@@ -798,10 +809,10 @@ Verification: `src/layout-engine/font-files/measurer.test.ts`
 
 ### DOCE-PAGINATION-12.2 - Canvas words, fallback and missing glyphs
 
-The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A character no served face has shall take the first face's .notdef advance and be recorded in `problems.missingGlyphs`; there is no system fallback.
+The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A cluster shall be drawn by the first face that draws it whole, as Blink asks (no .notdef once shaped, so a letter with an accent may come from one precomposed glyph), with variation selectors, tags and the default ignorables needing no glyph; an emoji presentation selector (U+FE0F) shall put the faces with color glyphs first, a text presentation selector (U+FE0E) shall leave them out, and without a selector the family list decides, whatever the character's default presentation. Each text shall be shaped in Blink's script runs (ScriptRunIterator): characters of no script join the run before them, or at the text's start the run after them, a closing bracket goes back to its opening bracket's run, and a number in a right-to-left run is shaped left to right; so the digits of `שלום 123` take the Hebrew run, in which HarfBuzz applies no kerning from a font without Hebrew positioning, as Chromium draws them. With fork release 1.0.0-fe.7, Pretext measures a word of digits or punctuation in right-to-left text after the letter whose run it is in. The widths of 21 such texts in Geist and the Noto subsets of `test/fixtures/fonts/` shall be within 2/64 px of Chromium 153's. Every character of a cluster no served face draws whole shall be recorded in `problems.missingGlyphs`, and the cluster measured with the face that has its first character, or the first face's .notdef; there is no system fallback.
 
-Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/faces.ts`
-Verification: `src/layout-engine/font-files/measurer.test.ts`
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/script-runs.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`, `src/layout-engine/font-files/script-runs.test.ts`
 
 ### DOCE-PAGINATION-12.3 - Line metrics from the font files
 

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { fingerprintLines } from '../../../test/font-files-lines.js';
-import { harfBuzzWasm, referenceFaces } from '../../../test/font-files-node.js';
+import { harfBuzzWasm, referenceFaces, scriptFaces } from '../../../test/font-files-node.js';
 import { fingerprintWidths, measureReference } from '../../../test/font-files-reference.js';
 import { createFontFileMeasurer, createHostMeasurer } from './measurer.js';
 
@@ -46,6 +46,71 @@ describe('DOCE-PAGINATION-12.2 Canvas words', () => {
     context.font = '16px "Lab Geist"';
     expect(context.measureText('a☃b').width).toBeGreaterThan(context.measureText('ab').width);
     expect([...problems.missingGlyphs]).toEqual([0x2603]);
+  });
+});
+
+// Geist and the Noto subsets of test/fixtures/fonts/, in the Pretext lab's order under `&scripts`.
+const SCRIPT_FONT =
+  '16px "Lab Geist", "Lab Noto Arabic", "Lab Noto Hebrew", "Lab Noto Devanagari", "Lab Noto Thai", "Lab Noto SC", "Lab Noto Symbols 2", "Lab Noto Color Emoji"';
+const scriptMeasurer = () =>
+  createFontFileMeasurer({ wasm: harfBuzzWasm(), faces: [...referenceFaces(), ...scriptFaces()] });
+
+// Widths of DOM spans in Chromium 153 on Linux under geometricPrecision, with the same faces served
+// with their unicode-range. The DOM rounds each bidi run up to 1/64 px, so the measurer is within
+// two of those units.
+const CHROMIUM_WIDTHS: readonly [string, number][] = [
+  ['😀', 19.922],
+  ['❤️', 19.922],
+  ['1️⃣', 19.922],
+  ['🏳️‍🌈', 19.922],
+  ['🏴󠁧󠁢󠁳󠁣󠁴󠁿', 19.922],
+  ['👩‍👩‍👧', 19.922],
+  ['⌚', 12.813],
+  ['⌚️', 19.922],
+  ['⌚︎', 12.813],
+  ['✔️', 19.922],
+  ['©️', 19.922],
+  ['שלום 123', 65.5],
+  ['שלום,123', 64.719],
+  ['ש 11', 27.984],
+  ['שלום (11)', 60.719],
+  ['مرحبا 11', 49.328],
+  ['(test)', 37.719],
+  ['e\u0301te\u0301', 23.5],
+  ['中文，测试。', 96.016],
+  ['नमस्ते', 33.797],
+  ['สวัสดี', 36.047],
+];
+
+describe('DOCE-PAGINATION-12.2 scripts, emoji and fallback', () => {
+  it.each(CHROMIUM_WIDTHS)('measures %s as Chromium draws it', async (text, chromium) => {
+    const { createContext, problems } = await scriptMeasurer();
+    const context = createContext();
+    context.font = SCRIPT_FONT;
+    expect(Math.abs(context.measureText(text).width - chromium)).toBeLessThan(2 / 64);
+    expect([...problems.missingGlyphs]).toEqual([]);
+  });
+
+  it('draws an emoji presentation sequence from the color face whatever the family order', async () => {
+    const context = (await scriptMeasurer()).createContext();
+    context.font = '16px "Lab Geist", "Lab Noto Symbols 2", "Lab Noto Color Emoji"';
+    const emoji = context.measureText('😀').width;
+    // Without a selector the family list decides; with U+FE0E the color face is left out.
+    expect(context.measureText('⌚').width).not.toBe(emoji);
+    expect(context.measureText('⌚️').width).toBe(emoji);
+    context.font = '16px "Lab Geist", "Lab Noto Color Emoji", "Lab Noto Symbols 2"';
+    expect(context.measureText('⌚').width).toBe(emoji);
+    expect(context.measureText('⌚︎').width).not.toBe(emoji);
+  });
+
+  it('reports every character of a cluster no served face draws whole (DOCE-HOST-1.14.3)', async () => {
+    const { createContext, problems } = await scriptMeasurer();
+    const context = createContext();
+    context.font = SCRIPT_FONT;
+    // A text presentation of an emoji only the color face has, and a letter with two marks that
+    // no face has together: the browser draws both from a system font.
+    context.measureText('☺︎ q\u0323\u0307');
+    expect([...problems.missingGlyphs].sort((a, b) => a - b)).toEqual([0x307, 0x263a]);
   });
 });
 
