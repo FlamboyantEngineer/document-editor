@@ -195,6 +195,14 @@ div.de-host-view {
   contain: layout paint;
 }
 
+/*
+ * A viewer's page, drawn on its own once it nears the viewport, numbers its headings and objects on
+ * from the pages before it, which it cannot count (DOCE-PAGINATION-13.6).
+ */
+.de-document-viewer .pm-page[data-drawn] {
+  counter-set: var(--de-page-counters);
+}
+
 .de-document-editor__measure {
   position: absolute;
   top: 0;

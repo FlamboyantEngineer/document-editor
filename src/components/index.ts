@@ -156,6 +156,8 @@ export {
   useSessionTelemetry,
   useSessionValue,
 } from './document-session/index.js';
+export type { DocumentViewerProps } from './document-viewer/index.js';
+export { DocumentViewer } from './document-viewer/index.js';
 export type {
   SettingKind,
   StylePart,
