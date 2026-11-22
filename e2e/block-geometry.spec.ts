@@ -72,7 +72,7 @@ const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>
     'page overflow': CONTINUED,
   },
   'long-mixed pretext': { 'code_figure height': CONTINUED, 'code_figure gap': CONTINUED },
-  'math dom': { 'math_display height': MATH, 'paragraph height': INLINE_MATH },
+  'math dom': { 'math_display height': MATH },
   'math pretext': { 'math_display height': MATH },
   'oversized-blocks dom': {
     'blockquote height': CONTINUED,
@@ -124,6 +124,8 @@ const SOMETIMES: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Kn
     ),
   ),
   'caption-numbering pretext': { 'figure height': NO_IMAGE, 'math_display height': TIMING },
+  // Drawn taller in Chromium 153, as planned in CI's build: the math font's line metrics differ.
+  'math dom': { 'paragraph height': INLINE_MATH },
 };
 
 async function open(page: Page, name: RegressionDocumentName, textLayout: Mode) {
