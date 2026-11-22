@@ -35,6 +35,7 @@ describe('PagesView', () => {
       events: { afterCommit: (view: EditorView) => views.push(view) },
       viewProps: {},
       attributes: {},
+      drawing: {},
     };
     const { rerender, unmount } = render(
       <PagesView paged={{ projection, state: opened }} {...props} />,
