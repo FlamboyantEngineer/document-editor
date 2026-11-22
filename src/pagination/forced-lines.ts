@@ -266,6 +266,11 @@ interface DrawAllPages {
   readonly drawAll: boolean;
 }
 
+// The view's reader of the DOM, which ProseMirror runs before it handles an event.
+interface FlushedView {
+  readonly domObserver?: { flush(): void };
+}
+
 const isDrawAll = (meta: unknown): meta is DrawAllPages =>
   typeof meta === 'object' && meta !== null && 'drawAll' in meta;
 
@@ -303,7 +308,14 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
       decorations: (state) => forcedLinesKey.getState(state)?.decorations,
     },
     view(view) {
-      pages = watchDrawnPages(view, () => source.redraw?.());
+      // Draws the pages near the screen again, unless every page is drawn already. The view first
+      // reads the selection the browser holds, as between a double click's two clicks, so the
+      // redraw writes back that selection and not the one before it.
+      pages = watchDrawnPages(view, () => {
+        if (all) return;
+        (view as unknown as FlushedView).domObserver?.flush();
+        source.redraw?.();
+      });
       const caret = keepForcedCaret(view);
       return {
         update(updated) {
