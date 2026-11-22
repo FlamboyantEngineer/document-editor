@@ -4,6 +4,8 @@
 // harfbuzzjs's wasm build needs five imports from its Emscripten runtime; they are given here, so
 // its JavaScript glue (which fetches the wasm from its own URL) is not loaded.
 
+import type { FontShaper } from '../../host/font-files.js';
+
 /** A shaped run: per glyph, its id, its cluster (offset into the text) and its advance in font units. */
 export interface ShapedRun {
   readonly glyphs: Uint32Array;
@@ -93,9 +95,7 @@ const MAX_FEATURES = 16;
 const WASM_PAGE = 65_536;
 
 /** Instantiates HarfBuzz from the bytes of harfbuzzjs's `harfbuzz.wasm`. */
-export async function createHarfBuzz(
-  wasm: ArrayBuffer | Uint8Array<ArrayBuffer>,
-): Promise<HarfBuzz> {
+export async function createHarfBuzz(wasm: FontShaper): Promise<HarfBuzz> {
   // Filled once the module exists; the module asks to grow its heap only while it runs.
   const heap: { memory?: WebAssembly.Memory } = {};
   const env = {
@@ -116,11 +116,16 @@ export async function createHarfBuzz(
       throw new Error(`HarfBuzz exited with ${String(code)}`);
     },
   };
-  const source = wasm instanceof Uint8Array ? wasm : new Uint8Array(wasm);
-  const { instance } = await WebAssembly.instantiate(source, {
-    env,
-    wasi_snapshot_preview1: wasi,
-  });
+  const imports = { env, wasi_snapshot_preview1: wasi };
+  const instance =
+    wasm instanceof WebAssembly.Module
+      ? await WebAssembly.instantiate(wasm, imports)
+      : (
+          await WebAssembly.instantiate(
+            wasm instanceof Uint8Array ? wasm : new Uint8Array(wasm),
+            imports,
+          )
+        ).instance;
   const native = instance.exports as unknown as Exports;
   heap.memory = native.memory;
   native.__wasm_call_ctors?.();

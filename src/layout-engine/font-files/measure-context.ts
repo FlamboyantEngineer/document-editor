@@ -15,7 +15,7 @@ import type { HarfBuzzFace, ShapedRun } from './harfbuzz.js';
 export interface MeasureProblems {
   /** Code points no served face in the family list has; drawn with the first face's missing glyph. */
   readonly missingGlyphs: Set<number>;
-  /** Font shorthands whose families have no served face at all; measured as zero wide. */
+  /** Font shorthands none of whose families is served; measured with the first served family. */
   readonly unservedFonts: Set<string>;
 }
 
@@ -258,6 +258,15 @@ export function createFontFileContext(
   let font = '10px sans-serif';
   let request: FontRequest = { italic: false, weight: 400, size: 10, families: ['sans-serif'] };
   let faces: readonly MatchedFace[] = faceSet.facesFor(request);
+  let version = faceSet.version;
+  // Faces added since the font was set, such as a family served later, join its matched faces.
+  const current = () => {
+    if (version !== faceSet.version) {
+      version = faceSet.version;
+      faces = faceSet.facesFor(request);
+    }
+    return faces;
+  };
   const context: FontFileContext = {
     get font() {
       return font;
@@ -268,7 +277,9 @@ export function createFontFileContext(
       font = value;
       request = parsed;
       faces = faceSet.facesFor(parsed);
-      if (!faces.length) problems.unservedFonts.add(value);
+      version = faceSet.version;
+      if (!parsed.families.some((family) => faceSet.hasFamily(family)))
+        problems.unservedFonts.add(value);
     },
     letterSpacing: '0px',
     fontKerning: 'auto',
@@ -288,8 +299,9 @@ export function createFontFileContext(
       let width = 0;
       let left = Infinity;
       let right = -Infinity;
+      const matched = current();
       for (const word of splitCanvasWords(text.replace(asciiWhitespace, ' '))) {
-        const measured = measureWord({ word, request, faces }, shaping);
+        const measured = measureWord({ word, request, faces: matched }, shaping);
         left = Math.min(left, width + measured.left);
         right = Math.max(right, width + measured.right);
         width = Math.fround(width + measured.width);
@@ -298,7 +310,7 @@ export function createFontFileContext(
         width,
         actualBoundingBoxLeft: Number.isFinite(left) ? -left : 0,
         actualBoundingBoxRight: Number.isFinite(right) ? right : 0,
-        ...lineBox(primaryFace(faces), request.size),
+        ...lineBox(primaryFace(matched), request.size),
       };
     },
   };
