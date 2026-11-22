@@ -57,6 +57,9 @@ export function readBlockGeometry(page: Page): Promise<GeometryMismatch[]> {
         const top = Number(element.dataset.debugTop);
         const drawnHeight = rect.height / scale;
         const drawnTop = (rect.top - box.top) / scale;
+        // A block with no height, such as an empty template block whose margins collapse through
+        // it, has no top of its own to check: the next block's gap is read from the block before.
+        if (height < 0.5 && drawnHeight < 0.5) continue;
         if (Math.abs(drawnHeight - height) > allowed(height))
           found.push({
             page: index,
