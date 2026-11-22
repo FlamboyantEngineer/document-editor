@@ -102,11 +102,12 @@ describe('lists', () => {
 });
 
 describe('quotes and plain containers', () => {
-  it('DOCE-PAGINATION-10.3 indents a quote 40px on each side, with 16px margins', () => {
+  it('DOCE-PAGINATION-10.3 indents a quote 40px on each side, with margins of 1em in the paragraph size', () => {
     // 520px holds 86 characters a line.
     const quote = node('blockquote', null, [paragraph(50), paragraph(100)]);
     const block = blockOf(layout.layoutBlock(quote, place));
-    expect(block).toMatchObject({ height: 18 + 8 + 36, marginTop: 16, marginBottom: 16 });
+    // The base template's 12px paragraphs: 12px margins, as the browser's `1em`.
+    expect(block).toMatchObject({ height: 18 + 8 + 36, marginTop: 12, marginBottom: 12 });
     expect(childrenOf(block)).toEqual([
       [0, 18],
       [26, 62],

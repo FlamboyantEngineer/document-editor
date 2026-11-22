@@ -76,11 +76,12 @@ const REFERENCE_BLOCK_NUMBERS = Object.freeze({
   layoutAfter: 4,
   layoutColumnPadding: 5,
   layoutColumnBorder: 1,
+  // A quote's indent is the browser's own, in pixels; its margins and a rule's are the browser's
+  // `1em` and `0.5em`, in the paragraph size the page content is drawn in.
   quoteIndent: 40,
-  // A quote's and a rule's margins are the browser's own, in its 16px default font size.
-  quoteMargin: 16,
+  quoteMargin: 1,
   ruleHeight: 2,
-  ruleMargin: 8,
+  ruleMargin: 0.5,
 });
 
 const DEFAULT_FONT_SIZE = 12;
@@ -150,13 +151,13 @@ export function blockMetrics(template: TemplateFile, scope: string | null = null
     },
     quote: {
       indent: numbers.quoteIndent,
-      before: numbers.quoteMargin,
-      after: numbers.quoteMargin,
+      before: numbers.quoteMargin * em,
+      after: numbers.quoteMargin * em,
     },
     rule: {
       height: numbers.ruleHeight,
-      before: numbers.ruleMargin,
-      after: numbers.ruleMargin,
+      before: numbers.ruleMargin * em,
+      after: numbers.ruleMargin * em,
     },
     ...objectNumbers(styles),
     ...regionNumbers(template, section),

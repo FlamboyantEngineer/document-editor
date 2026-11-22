@@ -114,8 +114,9 @@ describe('equations, rules and markup', () => {
     const { layout } = standInBlockLayout();
     expect(blockOf(layout.layoutBlock(node('horizontal_rule', null), place))).toMatchObject({
       height: 2,
-      marginTop: 8,
-      marginBottom: 8,
+      // The browser's `0.5em` in the base template's 12px paragraphs.
+      marginTop: 6,
+      marginBottom: 6,
     });
     expect(blockOf(layout.layoutBlock(node('page_break', null), place))).toMatchObject({
       height: 0,
