@@ -24,6 +24,7 @@ import {
   nodeTree,
   type PrintElement,
   printElement,
+  printHtml,
   type PrintTree,
 } from './print-tree.js';
 
@@ -104,7 +105,7 @@ function pagesTrees(doc: ProseMirrorNode, layout: PagesLayout, options: PagesDra
 // The class of the element that holds the pages, as the editor's view draws it, and all of its
 // classes: the view's own, the rich text engine's content class and the editor's slot class.
 const CONTENT_CLASS = 'de-document-editor__content';
-const VIEW_CLASSES = `ProseMirror ui-rich-text-engine-content ${CONTENT_CLASS}`;
+export const VIEW_CLASSES = `ProseMirror ui-rich-text-engine-content ${CONTENT_CLASS}`;
 
 // Each page printed on its section's sheet, edge to edge, a sheet break after every page but the
 // last, as a snapshot of the pages prints them.
@@ -129,6 +130,69 @@ function pageSheetRules(doc: ProseMirrorNode, template: TemplateFile): string {
   return rules.join(' ');
 }
 
+// A layout's document and its sections drawn with their pages, linked, numbered and allowed, as
+// every static drawing of the layout draws them.
+function drawnLayout(layout: PagesLayout, template: TemplateFile, options: PrintPageOptions) {
+  const doc = readPagesDocument(layout, createDocumentSchema(options.kit));
+  const trees = pagesTrees(doc, layout, { template, draw: drawNode });
+  numberFootnotes(trees, doc, layout.footnoteNumbering);
+  addLinks(trees, elementNumbers(joinDocumentPages(doc).doc, template), options);
+  return { doc, trees: allow(trees, options.markup ?? 'all') };
+}
+
+/** One page of a layout drawn on its own: where it is, its element's attributes, its content. */
+interface LayoutPageDrawing {
+  /** Where the page is in the pages' document. */
+  readonly pos: number;
+  readonly attrs: Readonly<Record<string, string>>;
+  /** Its regions as HTML, allowed and escaped as a print's. */
+  readonly html: string;
+}
+
+/** One section of a layout: its element's attributes and its pages. */
+interface LayoutSectionDrawing {
+  readonly attrs: Readonly<Record<string, string>>;
+  readonly pages: readonly LayoutPageDrawing[];
+}
+
+/** A layout's pages drawn page by page, for a view that draws only some of them at a time. */
+interface LayoutDrawing {
+  /** The pages' document. */
+  readonly doc: ProseMirrorNode;
+  readonly sections: readonly LayoutSectionDrawing[];
+}
+
+const attrsOf = (tree: PrintTree | undefined) =>
+  tree && isPrintElement(tree) ? Object.fromEntries(tree.attrs) : {};
+
+/**
+ * A layout's pages as `renderLayoutPrintPage` draws them, section by section and page by page,
+ * each page's content as HTML on its own.
+ */
+export function drawLayoutPages(
+  layout: PagesLayout,
+  template: TemplateFile,
+  options: PrintPageOptions = {},
+): LayoutDrawing {
+  const { doc, trees } = drawnLayout(layout, template, options);
+  const sections: LayoutSectionDrawing[] = [];
+  doc.forEach((section, offset, index) => {
+    const tree = trees[index];
+    const drawn = tree && isPrintElement(tree) ? tree.children.filter(isPrintElement) : [];
+    const pages: LayoutPageDrawing[] = [];
+    section.forEach((_page, at, number) => {
+      const page = drawn[number];
+      pages.push({
+        pos: offset + 1 + at,
+        attrs: attrsOf(page),
+        html: printHtml(page?.children ?? []),
+      });
+    });
+    sections.push({ attrs: attrsOf(tree), pages });
+  });
+  return { doc, sections };
+}
+
 /**
  * A document's pages as the editor laid them out on the text layout engine's lines, as a
  * standalone HTML page drawn without an editor or a DOM: every page on its section's sheet with
@@ -140,10 +204,7 @@ export function renderLayoutPrintPage(
   template: TemplateFile,
   options: PrintPageOptions = {},
 ): string {
-  const doc = readPagesDocument(layout, createDocumentSchema(options.kit));
-  const trees = pagesTrees(doc, layout, { template, draw: drawNode });
-  numberFootnotes(trees, doc, layout.footnoteNumbering);
-  addLinks(trees, elementNumbers(joinDocumentPages(doc).doc, template), options);
+  const { doc, trees } = drawnLayout(layout, template, options);
   const markup = options.markup ?? 'all';
   const root = printElement(
     'div',
@@ -157,7 +218,7 @@ export function renderLayoutPrintPage(
     },
     // The pages' own element, with the classes the editor's view has, which the stylesheets style
     // and where their counters start.
-    [printElement('div', { class: VIEW_CLASSES }, allow(trees, markup))],
+    [printElement('div', { class: VIEW_CLASSES }, trees)],
   );
   return standalonePage(root, {
     ...options,

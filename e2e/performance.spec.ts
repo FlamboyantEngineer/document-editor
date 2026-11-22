@@ -114,10 +114,17 @@ test.describe('performance', () => {
     lab,
     page,
   }) => {
-    const { keys, enter } = await measureStyleScope(lab, page);
+    const { keys, enter, perKey, perEnter } = await measureStyleScope(lab, page);
     report(BUDGETS.styleScope, keys);
     report(BUDGETS.styleScopeEnter, enter);
-    expect(keys).toBeGreaterThan(0);
+    test.info().annotations.push({
+      type: 'restyles',
+      description: `per key ${JSON.stringify(perKey)}, per Enter ${JSON.stringify(perEnter)} (5, 40 pages)`,
+    });
+    // A typed key restyles nothing: the keys put back text deleted first, so the block keeps its
+    // height and no page changes. Enter moves blocks from page to page, so its count proves the
+    // trace counts restyles at all.
+    for (const count of perEnter) expect(count).toBeGreaterThan(0);
   });
 
   // The typing budgets are enforced, on each key's own work (`keystrokeWork`).

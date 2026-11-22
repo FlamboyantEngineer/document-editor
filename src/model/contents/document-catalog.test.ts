@@ -4,6 +4,7 @@ import {
   BASE_TEMPLATE,
   catalogDocument,
   numberingCountersAt,
+  numberingCounterValues,
   readDocumentFile,
   type StoredNode,
   type TemplateFile,
@@ -363,6 +364,9 @@ describe('document catalog', () => {
       headings: [2, 0, 0, 0, 0, 0],
       objects: { table: 1 },
     });
+    expect(numberingCounterValues(numberingCountersAt(doc, appendix, at('Detail')))).toBe(
+      'h1 2 h2 0 h3 0 h4 0 h5 0 h6 0 figure 0 table 1 codeblock 0 equation 0 ordered-list 0',
+    );
   });
 
   it('DOCE-CONTENTS-1.8 leaves out the front matter before the first table of contents', () => {

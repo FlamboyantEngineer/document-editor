@@ -203,7 +203,7 @@ Verification: `src/engine/script-staleness.test.ts`, `src/document/scripts.test.
 
 ### DOCE-OBJECTS-4.8 - The preview numbered in context
 
-The script editor's preview (DOCE-EDITOR-4.9) shall number what a script produced on from where its block is: the runner runs it with purpose `preview`, and the counters in effect just before the block edited, where it is now, or before the selection for a new block (`numberingCountersAt`, DOCE-CONTENTS-1.7), are published on the preview as `--de-script-editor-counters`, a `counter-reset` value naming each heading level's and numbered object kind's counter and its count (`previewCounters`), from which a stylesheet's counters number on. The preview publishes none until it has run.
+The script editor's preview (DOCE-EDITOR-4.9) shall number what a script produced on from where its block is: the runner runs it with purpose `preview`, and the counters in effect just before the block edited, where it is now, or before the selection for a new block (`numberingCountersAt`, DOCE-CONTENTS-1.7), are published on the preview as `--de-script-editor-counters`, a `counter-reset` value naming each heading level's and numbered object kind's counter and its count (`numberingCounterValues`), from which a stylesheet's counters number on. The preview publishes none until it has run.
 
 Implementation: `src/components/document-editor/script-panes.tsx`, `src/components/document-editor/script-dialog.tsx`, `labs/reference/editor-chrome.css`
 Verification: `src/components/document-editor/script-panes.test.tsx`

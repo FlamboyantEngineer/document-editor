@@ -5,6 +5,9 @@ import { LABS_HOST, LABS_PORT } from './scripts/lib/labs.mjs';
 const origin = `http://${String(LABS_HOST)}:${String(LABS_PORT)}`;
 // A browser of the machine's own, when Playwright's is not installed.
 const executablePath = process.env.CHROMIUM_PATH;
+// The HTML-in-Canvas API, which pages painted into a canvas use (DOCE-EDITOR-1.9), is behind this
+// switch before Chromium 157 (Playwright's Chromium is 156); it changes nothing else.
+const HTML_IN_CANVAS = '--enable-blink-features=CanvasDrawElement';
 
 // Chromium at a real device pixel ratio, which changes its layout unit. Playwright's emulated
 // `deviceScaleFactor` does not, so the browser is launched with the ratio and no emulated viewport.
@@ -15,11 +18,19 @@ function devicePixelRatio(ratio: number) {
       browserName: 'chromium' as const,
       viewport: null,
       launchOptions: {
-        args: [`--force-device-scale-factor=${String(ratio)}`, '--window-size=1280,720'],
+        args: [
+          `--force-device-scale-factor=${String(ratio)}`,
+          '--window-size=1280,720',
+          HTML_IN_CANVAS,
+        ],
         ...(executablePath ? { executablePath } : {}),
       },
     },
-    testMatch: [/\/pretext-pagination-fuzz\.spec\.ts$/, /\/layout-invariant\.spec\.ts$/],
+    testMatch: [
+      /\/pretext-pagination-fuzz\.spec\.ts$/,
+      /\/layout-invariant\.spec\.ts$/,
+      /\/canvas-pages\.spec\.ts$/,
+    ],
   };
 }
 
@@ -35,7 +46,7 @@ export default defineConfig({
     baseURL: `${origin}/`,
     // Rerun a failing test with `--trace=on` to record one.
     trace: 'off',
-    ...(executablePath ? { launchOptions: { executablePath } } : {}),
+    launchOptions: { args: [HTML_IN_CANVAS], ...(executablePath ? { executablePath } : {}) },
   },
   webServer: {
     command: 'node scripts/serve-labs.mjs --strict-port',

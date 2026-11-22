@@ -10,7 +10,7 @@ import type {
   RichTextEngineCommit,
   RichTextEngineEvents,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
-import type { EditorState, Transaction } from 'prosemirror-state';
+import { type EditorState, Selection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
 import type { CanonicalChange, PagedProjection } from '../../pagination/index.js';
@@ -42,6 +42,52 @@ interface CanonicalCommit {
   readonly events: EngineEvents;
 }
 
+/**
+ * The host states the pages' own commits made, each with its place in the order the pages sent
+ * them; how many they have sent, and the last one the host has taken. React may commit a render
+ * of an older host state after the pages sent a newer selection, as a key's caret after a click's:
+ * showing it as it is would put the older caret back (DOCE-PAGINATION-7.25).
+ */
+interface OwnHostStates {
+  readonly order: WeakMap<EditorState, number>;
+  sent: number;
+  taken: number;
+}
+
+// Sends the host an update of the pages' own, noting the state it makes as theirs.
+function commitOwn(
+  own: OwnHostStates,
+  onStateChange: CanonicalCommit['onStateChange'],
+  update: (state: EditorState) => EditorState,
+): void {
+  own.sent += 1;
+  const place = own.sent;
+  onStateChange((state) => {
+    own.taken = Math.max(own.taken, place);
+    const next = update(state);
+    if (next !== state) own.order.set(next, place);
+    return next;
+  });
+}
+
+/**
+ * The host state to show on the pages: none for one the pages made and have since sent a later
+ * one after; while the host has not taken all the pages sent, its state with the pages' selection
+ * when it holds the same document, so a caret on its way to the host is not drawn back.
+ */
+function hostStateToShow(
+  own: OwnHostStates,
+  state: EditorState,
+  shown: EditorState,
+): EditorState | null {
+  const place = own.order.get(state);
+  if (place !== undefined && place < own.sent) return null;
+  if (own.taken >= own.sent || state.selection.eq(shown.selection)) return state;
+  if (state.doc !== shown.doc && !state.doc.eq(shown.doc)) return state;
+  const selection = Selection.fromJSON(state.doc, shown.selection.toJSON());
+  return state.apply(state.tr.setSelection(selection).setMeta('addToHistory', false));
+}
+
 // A commit that applies to the host's latest state; a transaction made on a state the host no
 // longer holds, as after a suggestion rewrote one before it, is dropped and the pages drawn again.
 // Taken as the projection applied it to the state the host still holds, it is that state the
@@ -53,15 +99,17 @@ function hostCommit(
     onStateChange,
     resync,
     made,
+    own,
   }: {
     onStateChange: CanonicalCommit['onStateChange'];
     resync(made?: CanonicalChange | null): void;
     made: CanonicalChange | null;
+    own: OwnHostStates;
   },
 ): RichTextEngineCommit & { readonly committed: () => boolean } {
   let committed = false;
   const apply = (next: Transaction) =>
-    onStateChange((state) => {
+    commitOwn(own, onStateChange, (state) => {
       if (made && next === tr && state === made.from) return made.to;
       if (next.before.eq(state.doc)) return state.apply(next);
       queueMicrotask(() => resync());
@@ -74,7 +122,7 @@ function hostCommit(
     },
     applyState(next) {
       committed = true;
-      onStateChange(() => next);
+      commitOwn(own, onStateChange, () => next);
     },
     committed: () => committed,
   };
@@ -152,6 +200,7 @@ export function usePagedEditor(options: PagedEditorOptions) {
     latestRef.current = options;
   });
   return useMemo(() => {
+    const own: OwnHostStates = { order: new WeakMap(), sent: 0, taken: 0 };
     // Shows the host's state again on the pages. After a transaction the host did not commit, as
     // proofing results it takes as an update of its own, that is the state before the transaction,
     // not the state React last drew, which may predate a selection the pages have since sent, as
@@ -162,12 +211,13 @@ export function usePagedEditor(options: PagedEditorOptions) {
     };
     return {
       targetRef,
+      own,
       onCanonical(tr: Transaction, made: CanonicalChange | null = null) {
         const { view, host: held } = targetRef.current;
         if (!view) return;
         const { body, onStateChange, events } = latestRef.current;
         events.onTransaction?.(tr, view);
-        const host = hostCommit(tr, { onStateChange, resync, made });
+        const host = hostCommit(tr, { onStateChange, resync, made, own });
         body(tr, held.doc === tr.before ? onHostState(view, held) : view, host);
         if (!host.committed()) resync(made);
       },
@@ -187,7 +237,11 @@ export function usePagedEditor(options: PagedEditorOptions) {
 export function usePagedView(
   paged: PagedEditor | null,
   view: EditorView | null,
-  { state, targetRef }: { state: EditorState; targetRef: RefObject<PagedTarget> },
+  {
+    state,
+    targetRef,
+    own,
+  }: { state: EditorState; targetRef: RefObject<PagedTarget>; own: OwnHostStates },
 ): EditorView | null {
   const projection = paged?.projection ?? null;
   const chrome = useMemo(
@@ -198,8 +252,10 @@ export function usePagedView(
     targetRef.current = { projection, host: state, view: projection ? chrome : null };
   });
   useEffect(() => {
-    projection?.update(state);
-  }, [projection, state]);
+    if (!projection) return;
+    const shown = hostStateToShow(own, state, projection.state);
+    if (shown) projection.update(shown);
+  }, [projection, state, own]);
   return chrome;
 }
 

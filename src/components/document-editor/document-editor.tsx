@@ -240,6 +240,8 @@ export interface DocumentEditorProps
    * layout engine and drawn on its lines (`pretext`, DOCE-PAGINATION-11). Read when the pages mount.
    */
   textLayout?: 'dom' | 'pretext' | undefined;
+  /** How the pages are painted: as HTML (`dom`), or each into a canvas (`html-canvas`, DOCE-EDITOR-1.9). */
+  rendering?: 'dom' | 'html-canvas' | undefined;
   /**
    * The host's layout rules by node type, over the library's: how its blocks split and keep
    * together on pages. Other rules lay the pages out again; rules passed inline with the same
@@ -404,14 +406,13 @@ function useEditorLayout(
       <DocumentEditorContext value={context.current}>{shown}</DocumentEditorContext>
     ),
   });
-  const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
+  const view = usePagedView(progress.paged, engine.view, { state, ...paging });
   useMountTelemetry(props.telemetry, engine.view, progress.paged?.projection ?? null);
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
   // Pages that wait for template fonts are not shown without them: their first layout fails.
-  const fontsFailed = reported.missing.length > 0;
   const firstLayout = useFirstLayout(
     (props.layout ?? 'page') === 'page',
-    fontsFailed ? 'failed' : layoutState,
+    reported.missing.length > 0 ? 'failed' : layoutState,
     props,
   );
   // What the surface shows around the document: the fonts that did not load, and the cover.

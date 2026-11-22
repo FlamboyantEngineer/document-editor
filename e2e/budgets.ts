@@ -625,5 +625,7 @@ export async function measureStyleScope(lab: LabFixture, page: Page) {
   }
   const growth = ([five = 0, forty = 0]: readonly number[]) =>
     Math.round((forty / Math.max(five, 1)) * 100) / 100;
-  return { keys: growth(perKey), enter: perEnter[1] ?? 0, heights };
+  // `perKey` and `perEnter` are the raw counts, 5 pages then 40: a typed key restyles nothing at
+  // either size today, so `keys` is 0 and only Enter's count shows the trace counts at all.
+  return { keys: growth(perKey), enter: perEnter[1] ?? 0, perKey, perEnter, heights };
 }
