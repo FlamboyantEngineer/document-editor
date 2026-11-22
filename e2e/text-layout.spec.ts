@@ -5,6 +5,7 @@ import {
 } from '../labs/src/regression/regression-documents.js';
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
+import { overflowingPages } from './block-geometry.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // The pages laid out and drawn with the text layout engine (specs/PAGINATION.md
@@ -21,14 +22,20 @@ declare global {
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
+// With the layout debugging, whose page room the overflow check reads (DOCE-LABS-8.10).
 async function open(page: Page, name: RegressionDocumentName, textLayout: 'dom' | 'pretext') {
-  await page.goto(`regression.html?document=${name}&textLayout=${textLayout}`);
+  await page.goto(`regression.html?document=${name}&textLayout=${textLayout}&debug`);
   await waitForLab(page);
 }
 
 // What the pages drew: the forced blocks' computed lines, the guard's faults, the engine's lines
-// and the pages overflowing.
-const readPages = (page: Page) =>
+// and the pages whose content the browser drew past their room.
+const readPages = async (page: Page) => ({
+  ...(await readLines(page)),
+  overflow: await overflowingPages(page),
+});
+
+const readLines = (page: Page) =>
   page.evaluate(() => {
     const key = (id: string, part: number) => `${id}#${String(part)}`;
     const computed = new Map(
@@ -46,9 +53,6 @@ const readPages = (page: Page) =>
       forced,
       mismatched: forced.filter((block) => block.drawn !== block.computed),
       wrapped: window.regressionLab.wrappedLines(),
-      overflow: [...document.querySelectorAll<HTMLElement>('.pm-page-content')].filter(
-        (body) => body.scrollHeight > body.clientHeight + 1,
-      ).length,
     };
   });
 
@@ -64,7 +68,9 @@ test.describe('the layout engine on the pages', () => {
       const laid = await readPages(page);
       expect(laid.wrapped).toEqual([]);
       expect(laid.mismatched).toEqual([]);
-      expect(laid.overflow).toBeLessThanOrEqual(measured.overflow);
+      // Content drawn past its page's room, not the page content's own box, which grows with it
+      // (DOCE-LABS-8.10 names each overflow by its fault).
+      expect(laid.overflow.length).toBeLessThanOrEqual(measured.overflow.length);
     });
   }
 

@@ -9,34 +9,54 @@ import {
   resolveTemplateFile,
   type TemplateFile,
 } from '../../../src/model/index.js';
+import authorship from '../../../test/fixtures/documents/authorship.json' with { type: 'json' };
 import blockquotes from '../../../test/fixtures/documents/blockquotes.json' with { type: 'json' };
 import captionNumbering from '../../../test/fixtures/documents/caption-numbering.json' with { type: 'json' };
 import codeBlockStress from '../../../test/fixtures/documents/code-block-stress.json' with { type: 'json' };
 import codeBlocks from '../../../test/fixtures/documents/code-blocks.json' with { type: 'json' };
+import columns from '../../../test/fixtures/documents/columns.json' with { type: 'json' };
+import commentsAndSuggestions from '../../../test/fixtures/documents/comments-and-suggestions.json' with { type: 'json' };
+import contentsLists from '../../../test/fixtures/documents/contents-lists.json' with { type: 'json' };
+import crossReferences from '../../../test/fixtures/documents/cross-references.json' with { type: 'json' };
 import emptySections from '../../../test/fixtures/documents/empty-sections.json' with { type: 'json' };
 import figures from '../../../test/fixtures/documents/figures.json' with { type: 'json' };
 import footnoteHeavy from '../../../test/fixtures/documents/footnote-heavy.json' with { type: 'json' };
 import footnotesInStructures from '../../../test/fixtures/documents/footnotes-in-structures.json' with { type: 'json' };
 import headingKeepWithNext from '../../../test/fixtures/documents/heading-keep-with-next.json' with { type: 'json' };
+import headingsAllLevels from '../../../test/fixtures/documents/headings-all-levels.json' with { type: 'json' };
+import inlineImages from '../../../test/fixtures/documents/inline-images.json' with { type: 'json' };
+import inlineMarks from '../../../test/fixtures/documents/inline-marks.json' with { type: 'json' };
+import lineBreaksAndWritingSystems from '../../../test/fixtures/documents/line-breaks-and-writing-systems.json' with { type: 'json' };
 import linkedCode from '../../../test/fixtures/documents/linked-code.json' with { type: 'json' };
 import listSplitStress from '../../../test/fixtures/documents/list-split-stress.json' with { type: 'json' };
+import lockedSections from '../../../test/fixtures/documents/locked-sections.json' with { type: 'json' };
+import lockedSectionsOptionalLeftOut from '../../../test/fixtures/documents/locked-sections-optional-left-out.json' with { type: 'json' };
 import longBulletList from '../../../test/fixtures/documents/long-bullet-list-with-nesting.json' with { type: 'json' };
 import longMixed from '../../../test/fixtures/documents/long-mixed.json' with { type: 'json' };
 import longOrderedList from '../../../test/fixtures/documents/long-ordered-list.json' with { type: 'json' };
+import math from '../../../test/fixtures/documents/math.json' with { type: 'json' };
+import minimalParagraph from '../../../test/fixtures/documents/minimal-paragraph.json' with { type: 'json' };
 import mixedGeometry from '../../../test/fixtures/documents/mixed-geometry.json' with { type: 'json' };
 import mixedGeometryRepeated from '../../../test/fixtures/documents/mixed-geometry-repeated-sections.json' with { type: 'json' };
 import nestedLists from '../../../test/fixtures/documents/nested-lists.json' with { type: 'json' };
 import oversizedBlocks from '../../../test/fixtures/documents/oversized-blocks.json' with { type: 'json' };
 import pageBreaksAndRules from '../../../test/fixtures/documents/page-breaks-and-rules.json' with { type: 'json' };
+import paragraphLevelsAndStyles from '../../../test/fixtures/documents/paragraph-levels-and-styles.json' with { type: 'json' };
+import peopleAndAbbreviations from '../../../test/fixtures/documents/people-and-abbreviations.json' with { type: 'json' };
 import romanAndAlpha from '../../../test/fixtures/documents/roman-and-alpha-numbering.json' with { type: 'json' };
 import romanCoverage from '../../../test/fixtures/documents/roman-numbering-coverage.json' with { type: 'json' };
 import romanStress from '../../../test/fixtures/documents/roman-numbering-stress.json' with { type: 'json' };
+import scripts from '../../../test/fixtures/documents/scripts.json' with { type: 'json' };
+import sectionSettings from '../../../test/fixtures/documents/section-settings.json' with { type: 'json' };
 import tableBothHeaderModes from '../../../test/fixtures/documents/table-both-header-modes.json' with { type: 'json' };
 import tableLongHeaderless from '../../../test/fixtures/documents/table-long-headerless.json' with { type: 'json' };
 import tableLongRepeated from '../../../test/fixtures/documents/table-long-repeated-header.json' with { type: 'json' };
 import tableLongSingle from '../../../test/fixtures/documents/table-long-single-header.json' with { type: 'json' };
 import tableMergedCells from '../../../test/fixtures/documents/table-merged-cells.json' with { type: 'json' };
 import tableRichCells from '../../../test/fixtures/documents/table-rich-cells.json' with { type: 'json' };
+import tableSimple from '../../../test/fixtures/documents/table-simple.json' with { type: 'json' };
+import tableWide from '../../../test/fixtures/documents/table-wide.json' with { type: 'json' };
+import templateBlocksAndVariables from '../../../test/fixtures/documents/template-blocks-and-variables.json' with { type: 'json' };
 import regressionBase from '../../../test/fixtures/documents/templates/regression-base.json' with { type: 'json' };
 import regressionCaptions from '../../../test/fixtures/documents/templates/regression-captions.json' with { type: 'json' };
 import regressionFootnotes from '../../../test/fixtures/documents/templates/regression-footnotes.json' with { type: 'json' };
@@ -45,37 +65,59 @@ import regressionMixedGeometry from '../../../test/fixtures/documents/templates/
 import regressionNumbering from '../../../test/fixtures/documents/templates/regression-numbering.json' with { type: 'json' };
 import regressionRoman from '../../../test/fixtures/documents/templates/regression-roman.json' with { type: 'json' };
 import regressionTables from '../../../test/fixtures/documents/templates/regression-tables.json' with { type: 'json' };
+import unnamedSections from '../../../test/fixtures/documents/unnamed-sections.json' with { type: 'json' };
 
 /** The regression documents the labs show, by their name in the set. */
 export const REGRESSION_DOCUMENTS = {
+  authorship,
   blockquotes,
   'caption-numbering': captionNumbering,
   'code-block-stress': codeBlockStress,
   'code-blocks': codeBlocks,
+  columns,
+  'comments-and-suggestions': commentsAndSuggestions,
+  'contents-lists': contentsLists,
+  'cross-references': crossReferences,
   'empty-sections': emptySections,
   figures,
   'footnote-heavy': footnoteHeavy,
   'footnotes-in-structures': footnotesInStructures,
   'heading-keep-with-next': headingKeepWithNext,
+  'headings-all-levels': headingsAllLevels,
+  'inline-images': inlineImages,
+  'inline-marks': inlineMarks,
+  'line-breaks-and-writing-systems': lineBreaksAndWritingSystems,
   'linked-code': linkedCode,
+  'list-split-stress': listSplitStress,
+  'locked-sections-optional-left-out': lockedSectionsOptionalLeftOut,
+  'locked-sections': lockedSections,
   'long-bullet-list-with-nesting': longBulletList,
   'long-mixed': longMixed,
-  'list-split-stress': listSplitStress,
   'long-ordered-list': longOrderedList,
-  'mixed-geometry': mixedGeometry,
+  math,
+  'minimal-paragraph': minimalParagraph,
   'mixed-geometry-repeated-sections': mixedGeometryRepeated,
+  'mixed-geometry': mixedGeometry,
   'nested-lists': nestedLists,
   'oversized-blocks': oversizedBlocks,
   'page-breaks-and-rules': pageBreaksAndRules,
+  'paragraph-levels-and-styles': paragraphLevelsAndStyles,
+  'people-and-abbreviations': peopleAndAbbreviations,
   'roman-and-alpha-numbering': romanAndAlpha,
   'roman-numbering-coverage': romanCoverage,
   'roman-numbering-stress': romanStress,
+  scripts,
+  'section-settings': sectionSettings,
   'table-both-header-modes': tableBothHeaderModes,
   'table-long-headerless': tableLongHeaderless,
   'table-long-repeated-header': tableLongRepeated,
   'table-long-single-header': tableLongSingle,
   'table-merged-cells': tableMergedCells,
   'table-rich-cells': tableRichCells,
+  'table-simple': tableSimple,
+  'table-wide': tableWide,
+  'template-blocks-and-variables': templateBlocksAndVariables,
+  'unnamed-sections': unnamedSections,
 } as const satisfies Record<string, unknown>;
 
 /** A regression document's name in the set. */

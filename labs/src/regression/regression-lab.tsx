@@ -1,8 +1,8 @@
 // The regression lab's page: a document of the regression set, picked by the Document picker or
 // the page's `document` query parameter, in the document editor with its scrolling frame and
 // status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view; with
-// `compare`, the changes since it opened as change bars; with `zoom`, at that zoom in percent. Its
-// linked code resolves to sample lines.
+// `compare`, the changes since it opened as change bars; with `zoom`, at that zoom in percent; with
+// `debug`, with the layout debugging shown. Its linked code resolves to sample lines.
 // The regression scenarios (`e2e/regression.spec.ts`) read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
@@ -72,6 +72,12 @@ const RENDERING =
 
 // The document's zoom in percent (`zoom`), 100 when the query names none.
 const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 100) || 100;
+
+// `debug` shows the layout debugging: each page's room and each block's planned height and top
+// (`data-debug-height`, `data-debug-top`), which the block geometry check reads (DOCE-LABS-8.10).
+const DEBUG = new URLSearchParams(window.location.search).has('debug')
+  ? ({ pages: true, blocks: true } as const)
+  : undefined;
 
 // Whether the host draws quotes with a React view of its own (`hostViews`).
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
@@ -158,6 +164,7 @@ function RegressionLab() {
         textLayout={TEXT_LAYOUT}
         rendering={RENDERING}
         compare={COMPARE}
+        debug={DEBUG}
         nodeViews={HOST ? HOST_VIEWS : undefined}
         codeSource={REGRESSION_CODE}
         scrollable
