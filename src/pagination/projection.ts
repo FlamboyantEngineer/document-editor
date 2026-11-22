@@ -393,8 +393,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       ...(live.pace.text ? { textLayout: live.pace.text.engine()?.stats() } : {}),
     }),
     textLines: () => pageTextLines(live.projection),
-    pagesLayout: () =>
-      pagesLayout(live.projection, { footnoteNumbering: options.footnoteNumbering }),
+    pagesLayout: () => pagesLayout(live.projection, options),
     destroy() {
       unlisten();
       live.cells.release();
