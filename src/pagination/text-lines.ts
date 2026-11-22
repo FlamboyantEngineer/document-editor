@@ -16,7 +16,7 @@ import type { PagesTextEngine } from './text-engine-types.js';
 export interface ComputedLine {
   readonly from: number;
   readonly to: number;
-  /** The line's text, leaf atoms and hard breaks as nothing. */
+  /** The line's text, inline atoms and hard breaks as nothing, as their text is not the writer's. */
   readonly text: string;
 }
 
@@ -81,10 +81,20 @@ function blockOf(
       lines?.map(({ from, to }) => ({
         from: from + start,
         to: to + start,
-        text: node.textBetween(from, to, '', ''),
+        text: ownText(node, from, to),
       })) ?? null,
     ...(reason ? { reason } : {}),
   };
+}
+
+// A block's own text between two content offsets: its text nodes', none of its inline atoms'.
+function ownText(node: ProseMirrorNode, from: number, to: number): string {
+  let text = '';
+  node.nodesBetween(from, to, (child, pos) => {
+    if (child.isText) text += (child.text ?? '').slice(Math.max(0, from - pos), to - pos);
+    return !child.isAtom;
+  });
+  return text;
 }
 
 /** The lines a pages' state draws its top-level paragraphs and headings on; none without forced lines. */

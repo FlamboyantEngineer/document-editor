@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LineTable, TextLine } from './line-table.js';
+import type { ReservedBox } from './reserved-boxes.js';
 
 /** A range of a block's content, by offset, and the hooks drawing it on its line. */
 export interface LineMark {
@@ -14,6 +15,11 @@ export interface LineMark {
   readonly class: string;
   /** The measured property the hook class reads, as a declaration. */
   readonly style?: string | undefined;
+  /**
+   * Whether the mark is drawn as an element of its own inside the other marks covering its range,
+   * as a reserved box is, so a line's end or indent stays outside the box.
+   */
+  readonly inner?: boolean | undefined;
 }
 
 /** A block's lines as drawn, and whether its alignment justifies them. */
@@ -47,13 +53,33 @@ function firstCharacterEnd(node: ProseMirrorNode, line: TextLine): number {
   return line.from + clusterLength(node.textBetween(line.from, to, '￼', '￼'), false);
 }
 
-const spacesIn = (text: string) => (text.trimEnd().match(/ /gu) ?? []).length;
+// The characters Chromium stretches by `word-spacing`: spaces and no-break spaces, not tabs.
+const spacesIn = (text: string) => (text.trimEnd().match(/[ \u00a0]/gu) ?? []).length;
+
+// A soft hyphen, which the browser draws as a hyphen only at a break it chose itself.
+const SOFT_HYPHEN = '\u00ad';
+
+// How far a line starts in from the content edge.
+const indentOf = (table: JustifiedLines, line: TextLine) => line.left - table.overhead / 2;
+
+/** How a block's lines are drawn besides their table. */
+interface LineMarksOptions {
+  /**
+   * Whether generated content, such as a heading's number, is drawn before the block's content:
+   * its first line's indent is then the block's (`firstLineIndent`), before that content.
+   */
+  readonly prefixed?: boolean | undefined;
+}
 
 // The marks that draw one line.
-function marksOfLine(node: ProseMirrorNode, table: JustifiedLines, line: TextLine): LineMark[] {
+function marksOfLine(
+  node: ProseMirrorNode,
+  table: JustifiedLines,
+  { line, prefixed }: { line: TextLine; prefixed: boolean },
+): LineMark[] {
   const marks: LineMark[] = [];
-  const indent = line.left - table.overhead / 2;
-  if (indent > 0.001 && line.to > line.from) {
+  const indent = indentOf(table, line);
+  if (indent > 0.001 && line.to > line.from && !prefixed) {
     const style = `--de-line-indent: ${px(indent)}`;
     marks.push({
       from: line.from,
@@ -71,18 +97,66 @@ function marksOfLine(node: ProseMirrorNode, table: JustifiedLines, line: TextLin
     const end = line.from + text.trimEnd().length;
     marks.push({ from: line.from, to: end, class: 'de-forced-lines__justified', style });
   }
-  marks.push({ from: lastCharacter(node, line), to: line.to, class: 'de-forced-lines__end' });
+  // A line that ends at a soft hyphen draws its hyphen, as the engine counted it.
+  const end = text.endsWith(SOFT_HYPHEN)
+    ? 'de-forced-lines__end de-forced-lines__hyphen'
+    : 'de-forced-lines__end';
+  marks.push({ from: lastCharacter(node, line), to: line.to, class: end });
   return marks;
 }
 
+// A cluster drawn in a box of its reserved width (DOCE-PAGINATION-12.4).
+const reservedMark = ({ from, to, width }: ReservedBox): LineMark => ({
+  from,
+  to,
+  class: 'de-forced-lines__reserved',
+  style: `--de-reserved-width: ${px(width)}`,
+  inner: true,
+});
+
+// A mark cut at a reserved box's edges, so the box's range is a range of its own that a mark either
+// covers whole or not at all: each element drawn on the box then holds it whole.
+function cutAt(mark: LineMark, box: ReservedBox): LineMark[] {
+  if (mark.to <= box.from || mark.from >= box.to) return [mark];
+  if (mark.from >= box.from && mark.to <= box.to) return [mark];
+  const edges = [mark.from, Math.max(mark.from, box.from), Math.min(mark.to, box.to), mark.to];
+  return edges
+    .slice(1)
+    .map((to, index) => ({ ...mark, from: edges[index] ?? mark.from, to }))
+    .filter(({ from, to }) => to > from);
+}
+
 /**
- * The marks that draw a block on its lines, in content order: each wrapped line ends at its last
- * character (`de-forced-lines__end`), a line that starts in from the content edge starts with its
- * indent (`de-forced-lines__start`), and a wrapped justified line stretches its spaces
- * (`de-forced-lines__justified`).
+ * The indent of a block's first line as the block's measured property (`--de-first-indent`), for
+ * a block drawn with generated content before its content (`prefixed`), which the indent must
+ * come before; null when the line starts at the content edge.
  */
-export function lineMarks(node: ProseMirrorNode, table: JustifiedLines): LineMark[] {
-  return table.lines
-    .flatMap((line) => marksOfLine(node, table, line))
-    .sort((a, b) => a.from - b.from || a.to - b.to);
+export function firstLineIndent(table: JustifiedLines): string | null {
+  const first = table.lines[0];
+  const indent = first ? indentOf(table, first) : 0;
+  return indent > 0.001 ? `--de-first-indent: ${px(indent)}` : null;
+}
+
+/**
+ * The marks that draw a block on its lines, in content order, an inner mark before the others on
+ * the same range, and every other mark cut at an inner mark's edges: each wrapped line ends at its
+ * last character (`de-forced-lines__end`), with `de-forced-lines__hyphen` too where that is a soft
+ * hyphen, a line that starts in from the content edge starts with its indent
+ * (`de-forced-lines__start`), except a prefixed block's first line, a wrapped justified line
+ * stretches its spaces and no-break spaces (`de-forced-lines__justified`), and a cluster the
+ * engine reserved a width for is drawn in a box of that width (`de-forced-lines__reserved`).
+ */
+export function lineMarks(
+  node: ProseMirrorNode,
+  table: JustifiedLines,
+  { prefixed = false }: LineMarksOptions = {},
+): LineMark[] {
+  const boxes = table.reserved ?? [];
+  let marks = table.lines.flatMap((line, index) =>
+    marksOfLine(node, table, { line, prefixed: prefixed && index === 0 }),
+  );
+  for (const box of boxes) marks = marks.flatMap((mark) => cutAt(mark, box));
+  return [...marks, ...boxes.map(reservedMark)].sort(
+    (a, b) => a.from - b.from || a.to - b.to || Number(!!b.inner) - Number(!!a.inner),
+  );
 }

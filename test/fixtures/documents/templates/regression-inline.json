@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "id": "regression-inline",
+  "name": "Aligned headings and justified text",
+  "parent": "regression-base",
+  "styles": {
+    "heading1": {
+      "alignment": "center"
+    },
+    "heading2": {
+      "alignment": "right"
+    },
+    "custom": {
+      "justified": {
+        "alignment": "justify"
+      }
+    }
+  },
+  "sections": [
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true
+    }
+  ]
+}

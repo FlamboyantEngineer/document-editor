@@ -57,7 +57,8 @@ export function objectNumbers(doc: ProseMirrorNode, template: TemplateFile): Obj
 const css = (value: string) => `"${value.replace(/["\\]/gu, (char) => `\\${char}`)}"`;
 
 // The decorations drawing a page document's numbers: a heading's as `data-number`, a caption's and
-// an equation's as `--de-number`, which the stylesheet's generated content reads.
+// an equation's as `--de-number`, which the stylesheet's generated content reads. Each says its
+// number in its spec, for what draws the pages without a view (`pagesLayout`).
 function numberDecorations(
   doc: ProseMirrorNode,
   headings: ReadonlyMap<number, string>,
@@ -66,11 +67,25 @@ function numberDecorations(
   const found: Decoration[] = [];
   let equation = 0;
   const number = (pos: number, node: ProseMirrorNode, value: string) =>
-    found.push(Decoration.node(pos, pos + node.nodeSize, { style: `--de-number: ${css(value)}` }));
+    found.push(
+      Decoration.node(
+        pos,
+        pos + node.nodeSize,
+        { style: `--de-number: ${css(value)}` },
+        { number: value, heading: false },
+      ),
+    );
   doc.descendants((node, pos, parent) => {
     if (node.type.name === 'heading') {
       const value = isContinued(node) ? '' : (headings.get(pos) ?? '');
-      found.push(Decoration.node(pos, pos + node.nodeSize, { 'data-number': value }));
+      found.push(
+        Decoration.node(
+          pos,
+          pos + node.nodeSize,
+          { 'data-number': value },
+          { number: value, heading: true },
+        ),
+      );
       return false;
     }
     if (node.type.name === 'math_display') {
@@ -109,7 +124,8 @@ function keepsNumbers(tr: Transaction, index: number): boolean {
 export const keepsAllNumbers = (tr: Transaction) =>
   tr.steps.every((_step, index) => keepsNumbers(tr, index));
 
-const engineNumbersKey = new PluginKey<DecorationSet>('engine-numbers');
+/** The engine numbers' key: its state is the decorations drawing them. */
+export const engineNumbersKey = new PluginKey<DecorationSet>('engine-numbers');
 
 /** What the numbers are read from: the engine, once loaded, and the canonical document. */
 interface EngineNumbersSource {
