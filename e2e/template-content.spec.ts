@@ -212,12 +212,12 @@ test.describe('template content lab', () => {
             };
           }),
         );
-    // The document's table captions: a bold label, an italic text, each taking what the other
-    // sets and it does not.
+    // The document's table captions: a bold label, an italic text; the label takes what the text
+    // sets and it does not, the text what the paragraph sets (the format's fallbacks).
     const tables = await look('.doc-table-caption-line');
     const sample = tables.find((line) => line.section === '');
     expect(sample?.label).toEqual(['700', 'italic']);
-    expect(sample?.text.slice(0, 2)).toEqual(['700', 'italic']);
+    expect(sample?.text.slice(0, 2)).toEqual(['400', 'italic']);
     // The appendix sets its own caption text, which its label falls back to in turn.
     const appendix = tables.find((line) => line.section === 'appendix');
     expect(appendix?.label).toEqual(['700', 'normal']);

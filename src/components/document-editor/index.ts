@@ -1,6 +1,7 @@
 export type { AbbreviationLabels } from './abbreviation-labels.js';
 export type { DocumentBanner } from './banners.js';
 export { EDITOR_BANNERS } from './banners.js';
+export type { DocumentRendering } from './canvas-page-view.js';
 export { inlineCompletionItem } from './completion-item.js';
 export {
   CONNECTION_STATUS_LABELS,

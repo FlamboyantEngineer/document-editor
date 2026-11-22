@@ -1,5 +1,7 @@
 # Inventory
 
+Each shelf lists what it holds, and every fifth shelf lists the boxes stored behind it. The shelves run from the door to the window, and each box is labelled on the side that faces the aisle. Shelves are counted from the door.
+
 - Shelf 0
 
   - Each season ends with a shared meal and a swap of saved seeds.

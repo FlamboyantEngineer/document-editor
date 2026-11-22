@@ -35,6 +35,7 @@ import {
   type RegressionDocumentName,
 } from './regression-documents.js';
 import { type ShowViewer, useRegressionProbe } from './regression-probe.js';
+import { RELATIVE_SIZES, withRelativeSizes } from './relative-sizes.js';
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
@@ -62,6 +63,13 @@ const COMPARE = new URLSearchParams(window.location.search).has('compare')
 const TEXT_LAYOUT =
   new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
 
+// How the pages are painted: as HTML, or each into a canvas (`rendering=html-canvas`,
+// DOCE-EDITOR-1.9) where the browser has the HTML-in-Canvas API.
+const RENDERING =
+  new URLSearchParams(window.location.search).get('rendering') === 'html-canvas'
+    ? 'html-canvas'
+    : 'dom';
+
 // The document's zoom in percent (`zoom`), 100 when the query names none.
 const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 100) || 100;
 
@@ -69,7 +77,9 @@ const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 1
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
 
 function opened(name: RegressionDocumentName): { state: EditorState; template: TemplateFile } {
-  const { file, template } = regressionDocument(name);
+  const document = regressionDocument(name);
+  const { file } = document;
+  const template = RELATIVE_SIZES ? withRelativeSizes(document.template) : document.template;
   const schema = createDocumentSchema();
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
@@ -146,6 +156,7 @@ function RegressionLab() {
         layout={LAYOUT}
         zoom={ZOOM}
         textLayout={TEXT_LAYOUT}
+        rendering={RENDERING}
         compare={COMPARE}
         nodeViews={HOST ? HOST_VIEWS : undefined}
         codeSource={REGRESSION_CODE}
