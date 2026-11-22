@@ -63,8 +63,14 @@ describe('renderLayoutPrintPage', () => {
     const static_ = printed.querySelector('h1');
     expect(static_?.getAttribute('data-number')).toBe('1 ');
     expect(static_?.innerHTML).toBe(view.querySelector('h1')?.innerHTML);
+    // The first line's indent is the heading's, before its number; later lines start indented.
+    expect(static_?.getAttribute('style')).toBe('--de-first-indent: 12.000px');
+    expect(view.querySelector('h1')?.getAttribute('style')).toBe('--de-first-indent: 12.000px;');
     expect(static_?.querySelector('.de-forced-lines__start')?.getAttribute('style')).toBe(
-      '--de-line-indent: 12.000px; --de-word-spacing: 45.000px;',
+      '--de-line-indent: 12.000px;',
+    );
+    expect(static_?.querySelector('.de-forced-lines__justified')?.getAttribute('style')).toBe(
+      '--de-word-spacing: 45.000px;',
     );
   });
 

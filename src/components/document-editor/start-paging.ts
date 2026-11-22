@@ -9,6 +9,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin, PluginKey } from 'prosemirror-state';
 import type { RefObject } from 'react';
 import { proofingKey, searchKey, searchPaneKey } from '../../engine/index.js';
+import { codeLineNumbers } from '../../engine/object-views.js';
 import {
   createLayoutRules,
   findTemplateSection,
@@ -155,9 +156,15 @@ export function startPaging(
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,
-    // The layout engine lays the text out with the template the pages show now.
+    // The layout engine lays the text out with the template the pages show now, and code beside
+    // the gutter of line numbers the state's object views draw.
     textLayout:
-      settings.textLayout === 'pretext' ? { template: () => latest.current.template } : undefined,
+      settings.textLayout === 'pretext'
+        ? {
+            template: () => latest.current.template,
+            codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
+          }
+        : undefined,
   };
   const start = () => startProjectionOf(setup, latest, { refs, setPaged });
   if (!ghostWith(latest)) return start();

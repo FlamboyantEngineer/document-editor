@@ -18,6 +18,8 @@ export interface TextEngineOptions {
   readonly onAtomsSettled: () => void;
   /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
   readonly measureContext?: (() => MeasureContext) | undefined;
+  /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
+  readonly codeLineNumbers?: boolean | undefined;
 }
 
 /** A text block's place on the pages. */

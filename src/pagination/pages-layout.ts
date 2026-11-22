@@ -9,7 +9,7 @@ import type {
   PagesLayoutBlock,
   PagesLayoutVariable,
 } from '../document/pages-layout.js';
-import { lineMarks } from '../layout-engine/line-marks.js';
+import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
 import { FORCED_TYPES, forcedLinesKey, isContinued, sectionScope } from './forced-lines.js';
 import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -34,11 +34,13 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
     const prefix = isContinued(node) ? undefined : headings.get(pos);
     const table = engine.lines(node, { scope, prefix });
     if (!table) return false;
+    const indent = prefix ? firstLineIndent(table) : null;
     blocks.push({
       pos,
       lines: table.lines.length,
       ...(prefix ? { number: prefix } : {}),
-      marks: lineMarks(node, table),
+      ...(indent ? { style: indent } : {}),
+      marks: lineMarks(node, table, { prefixed: Boolean(prefix) }),
     });
     return false;
   });

@@ -1,0 +1,96 @@
+import type { Page } from '@playwright/test';
+import { expect, test, waitForLab } from './fixtures.js';
+
+// Inline geometry on the engine's lines (specs/PAGINATION.md DOCE-PAGINATION-9.3, 9.6, 11.2,
+// 13.1): the regression lab's `inline-geometry` document, whose superscripts, subscripts,
+// no-break spaces in justified text, soft hyphens, aligned numbered headings and code beside line
+// numbers the pages must draw exactly as the layout engine laid them out.
+
+async function open(page: Page, textLayout: 'dom' | 'pretext') {
+  await page.goto(`regression.html?document=inline-geometry&textLayout=${textLayout}&debug`);
+  await waitForLab(page);
+  if (textLayout === 'pretext') await page.evaluate(() => window.regressionLab.drawAllLines(true));
+}
+
+// Each block of the pages whose drawn height is not the one the layout gave it. Code figures are
+// left out: their caption line is drawn below the height packed in both modes (Q4, finding V2).
+const offPlan = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.pm-page-content > [data-debug-height]')]
+      .filter((block) => block.dataset.debugType !== 'code_figure')
+      .map((block) => ({
+        type: block.dataset.debugType,
+        id: block.dataset.id,
+        planned: Number(block.dataset.debugHeight),
+        drawn: Math.round(block.getBoundingClientRect().height * 1000) / 1000,
+      }))
+      .filter((block) => Math.abs(block.drawn - block.planned) > 0.5),
+  );
+
+// Where each heading's text starts, by its element id, from the left of its page's content.
+const headingStarts = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.pm-page-content > :is(h1, h2)')].map((heading) => {
+      const text = [...heading.childNodes].find((node) => node.nodeType === Node.TEXT_NODE) ?? null;
+      const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+      const first = text ?? walker.nextNode();
+      const range = document.createRange();
+      range.setStart(first ?? heading, 0);
+      range.setEnd(first ?? heading, first ? 1 : 0);
+      const content = heading.closest('.pm-page-content')?.getBoundingClientRect().left ?? 0;
+      return {
+        id: heading.dataset.id,
+        left: Math.round(range.getBoundingClientRect().left - content),
+      };
+    }),
+  );
+
+test.describe('inline geometry on the engine’s lines', () => {
+  test('DOCE-PAGINATION-9.3 DOCE-PAGINATION-9.6 DOCE-PAGINATION-13.1 draws each block at the height the engine gave it', async ({
+    page,
+  }) => {
+    await open(page, 'pretext');
+    expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
+  });
+
+  test('DOCE-PAGINATION-9.3 draws subscripts and superscripts without growing a line, in both modes', async ({
+    page,
+  }) => {
+    await open(page, 'dom');
+    expect(await offPlan(page)).toEqual([]);
+    const heights = await page.evaluate(() =>
+      [...document.querySelectorAll('.pm-page-content sup')]
+        .slice(0, 3)
+        .map((sup) => getComputedStyle(sup).lineHeight),
+    );
+    expect(heights).toEqual(['0px', '0px', '0px']);
+  });
+
+  test('DOCE-PAGINATION-13.1 starts an aligned numbered heading’s first line before its number', async ({
+    page,
+  }) => {
+    await open(page, 'dom');
+    const measured = await headingStarts(page);
+    await open(page, 'pretext');
+    const laid = await headingStarts(page);
+    expect(laid.length).toBeGreaterThan(3);
+    for (const [index, heading] of laid.entries())
+      expect(Math.abs(heading.left - (measured[index]?.left ?? 0)), heading.id).toBeLessThanOrEqual(
+        1,
+      );
+  });
+
+  test('DOCE-PAGINATION-13.1 shows the hyphen at a line that ends at a soft hyphen', async ({
+    page,
+  }) => {
+    await open(page, 'pretext');
+    const ends = await page.evaluate(() =>
+      [...document.querySelectorAll('.de-forced-lines__hyphen')].map(
+        (end) => getComputedStyle(end, '::after').content,
+      ),
+    );
+    expect(ends.length).toBeGreaterThan(3);
+    expect(new Set(ends)).toEqual(new Set(['"‐\\a "']));
+  });
+});

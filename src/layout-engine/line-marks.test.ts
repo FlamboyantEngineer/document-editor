@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { type JustifiedLines, lineMarks } from './line-marks.js';
+import { firstLineIndent, type JustifiedLines, lineMarks } from './line-marks.js';
 import type { TextLine } from './line-table.js';
 
 const paragraph = (text: string) =>
@@ -51,5 +51,36 @@ describe('lineMarks', () => {
       { from: 5, to: 6, class: 'de-forced-lines__end' },
       { from: 6, to: 7, class: 'de-forced-lines__start', style: '--de-line-indent: 20.000px' },
     ]);
+  });
+
+  it('DOCE-PAGINATION-13.1 stretches no-break spaces with the spaces, as Chromium does', () => {
+    // Two spaces and two no-break spaces share the 90px a 10px line leaves of 100px.
+    const node = paragraph('a b\u00a0c d\u00a0e f');
+    const marks = lineMarks(node, table(11, 9, { justify: true }));
+    expect(marks[0]).toEqual({
+      from: 0,
+      to: 9,
+      class: 'de-forced-lines__justified',
+      style: '--de-word-spacing: 22.500px',
+    });
+  });
+
+  it('DOCE-PAGINATION-13.1 draws the hyphen of a line that ends at a soft hyphen', () => {
+    const node = paragraph('aaaa\u00adbbbb');
+    expect(lineMarks(node, table(9, 5))).toEqual([
+      { from: 4, to: 5, class: 'de-forced-lines__end de-forced-lines__hyphen' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-13.1 indents a prefixed block’s first line as the block, before its number', () => {
+    const node = paragraph('aaaaabbbbb');
+    const lines = table(10, 5).lines.map((line) => ({ ...line, left: 30 }));
+    const centred = { ...table(10, 5), lines };
+    expect(lineMarks(node, centred, { prefixed: true })).toEqual([
+      { from: 4, to: 5, class: 'de-forced-lines__end' },
+      { from: 5, to: 6, class: 'de-forced-lines__start', style: '--de-line-indent: 30.000px' },
+    ]);
+    expect(firstLineIndent(centred)).toBe('--de-first-indent: 30.000px');
+    expect(firstLineIndent(table(10, 5))).toBeNull();
   });
 });

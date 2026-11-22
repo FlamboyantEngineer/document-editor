@@ -1,6 +1,7 @@
 // Holds a projection's text layout engine behind the `textLayout: 'pretext'` option: the engine
 // module loads on first use, so an editor without the option never loads the layout engine, and
-// the engine is made again for each template the pages are laid out with.
+// the engine is made again for each template the pages are laid out with, and when code's line
+// numbers are turned on or off.
 
 import type { TemplateFile } from '../model/index.js';
 import type { createPagesTextEngine } from './text-engine.js';
@@ -10,6 +11,8 @@ import type { PagesTextEngine } from './text-engine-types.js';
 export interface TextLayoutSetting {
   /** The template the pages are laid out with now. */
   readonly template: () => TemplateFile;
+  /** Whether code blocks are drawn with a gutter of line numbers now; none when not given. */
+  readonly codeLineNumbers?: (() => boolean) | undefined;
 }
 
 /** A projection's text layout engine, once loaded. */
@@ -35,6 +38,7 @@ export function holdTextEngine(options: {
 }): TextEngineHolder {
   let made: EngineModule | null = null;
   let current: PagesTextEngine | null = null;
+  let numbered = false;
   let version = 0;
   let destroyed = false;
   const loaded = import('./text-engine.js').then((module) => {
@@ -48,11 +52,14 @@ export function holdTextEngine(options: {
     engine() {
       if (!made || destroyed) return null;
       const template = options.setting.template();
-      if (current?.template === template) return current;
+      const codeLineNumbers = options.setting.codeLineNumbers?.() ?? false;
+      if (current?.template === template && numbered === codeLineNumbers) return current;
+      numbered = codeLineNumbers;
       current?.destroy();
       version += 1;
       current = made.createPagesTextEngine({
         template,
+        codeLineNumbers,
         measureIn: options.measureIn,
         onAtomsSettled: settled,
       });

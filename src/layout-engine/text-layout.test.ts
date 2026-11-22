@@ -202,6 +202,22 @@ describe('createTextLayout', () => {
     expect(code.lines[0]).toMatchObject({ left: 8, width: 20 });
   });
 
+  it('DOCE-PAGINATION-9.6 lays code out beside its gutter of line numbers', () => {
+    // 10px code: a zero is 5px wide, so a gutter of three digits is 15 + 14px.
+    const code = block(`<pre><code>${'a'.repeat(12)}</code></pre>`, 'code_block');
+    expect(table(code, 100).lines).toHaveLength(1);
+    const numbered = table(code, 100, { codeLineNumbers: true });
+    expect(numbered.lines.map((line) => [line.left, line.width])).toEqual([
+      [37, 55],
+      [37, 5],
+    ]);
+    const long = `${Array.from({ length: 999 }, () => 'a').join('\n')}\n${'a'.repeat(12)}`;
+    const thousand = table(block(`<pre><code>${long}</code></pre>`, 'code_block'), 100, {
+      codeLineNumbers: true,
+    });
+    expect(thousand.lines.at(-1)?.left).toBe(8 + 34);
+  });
+
   it('DOCE-PAGINATION-9.7 refuses a block whose font is not served', () => {
     const engine = createTextLayout({
       template: BASE_TEMPLATE,
