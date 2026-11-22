@@ -7,3 +7,5 @@ Edited pages stay equal to a fresh layout of the stored document. The measuring 
 `updateRoomDocument` keeps the page headers and footers the room holds while the section's own header and footer settings are unchanged, so a service's write no longer leaves every writer's headers and footers editable. They are kept only while they still apply (the same template pin, sections and section names); given the template (`pageTemplate`), the other sections' headers and footers are set from it as a writer's editor shows them.
 
 With `textLayout: 'pretext'`, a block holding a template variable is left to the browser, as its value is drawn inside it and may be its page's number; and font faces that load make the text layout engine again, so widths measured in a fallback font are forgotten.
+
+A composition the pages refuse an edit of, as one typed with an input method into a page header, no longer leaves the pages waiting for good: the browser drops it without ending it, so once it stays silent for a second the editor ends it and lays the pages out.
