@@ -9,6 +9,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
+import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
 import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
@@ -122,11 +123,13 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const text = createTextLayout({ template, measureContext });
   const host = atomHost(options.measureIn);
   const atoms = createAtomCache({ measure: createDomAtomMeasurer({ host }) });
+  // The stylesheet's own block numbers, read where the pages' content is drawn.
+  const sheet = readSheetNumbers(host);
   let numbers = NO_NUMBERS;
   const geometry = createBlockLayout({
     text: numberedText(text, () => numbers),
     atoms,
-    metrics: (scope) => blockMetrics(template, scope),
+    metrics: (scope) => blockMetrics(template, scope, sheet),
   });
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();

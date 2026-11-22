@@ -56,6 +56,22 @@ describe('createPagesTextEngine', () => {
     expect(engine.lines(node, { scope: null })).toBe(table);
     engine.destroy();
   });
+
+  it('DOCE-PAGINATION-10.8 lays blocks out with the numbers the stylesheet states where it measures', () => {
+    const measureIn = document.createElement('div');
+    measureIn.style.setProperty('--de-quote-spacing', '30px');
+    document.body.append(measureIn);
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn,
+      onAtomsSettled: () => undefined,
+    });
+    const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
+    if (!quote) throw new Error('no quote');
+    expect(engine.measureBlock(quote, null)).toMatchObject({ marginTop: 30, marginBottom: 30 });
+    engine.destroy();
+    measureIn.remove();
+  });
 });
 
 describe('holdTextEngine', () => {

@@ -110,12 +110,12 @@ describe('equations, rules and markup', () => {
     expect(measure).toHaveBeenCalledTimes(1);
   });
 
-  it('DOCE-PAGINATION-10.4 gives a rule its border and a page break no height', () => {
+  it('DOCE-PAGINATION-10.4 gives a rule its border, half its text size (12px) above and below, and a page break no height', () => {
     const { layout } = standInBlockLayout();
     expect(blockOf(layout.layoutBlock(node('horizontal_rule', null), place))).toMatchObject({
       height: 2,
-      marginTop: 8,
-      marginBottom: 8,
+      marginTop: 6,
+      marginBottom: 6,
     });
     expect(blockOf(layout.layoutBlock(node('page_break', null), place))).toMatchObject({
       height: 0,
