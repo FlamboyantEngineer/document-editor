@@ -32,10 +32,12 @@ declare global {
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
-// Every zoom a browser or the status bar offers at a device pixel ratio of 1; the ends and the
-// middle at ratios 1.25 and 2; 100 percent at the ratios of display scaling at 150, 175 and 300
-// percent (the `chromium-dpr-*` projects).
+// Every zoom a browser or the status bar offers at a device pixel ratio of 1: the status bar's in
+// the `chromium` project, the rest in `chromium-zooms`; the ends and the middle at ratios 1.25 and
+// 2; 100 percent at the ratios of display scaling at 150, 175 and 300 percent (the `chromium-dpr-*`
+// projects).
 const ZOOMS = [50, 67, 75, 90, 100, 110, 125, 133, 150, 175, 200] as const;
+const STATUS_BAR_ZOOMS: readonly number[] = [50, 75, 100, 125, 150];
 const DPR_ZOOMS: readonly number[] = [50, 100, 150];
 const SCALING_ZOOMS: readonly number[] = [100];
 // The pages painted into a canvas, at the status bar's zooms and the first two ratios.
@@ -104,7 +106,8 @@ async function mismatchesOf(page: Page): Promise<LineMismatch[]> {
 // The zooms this project runs.
 function zoomRuns(testInfo: TestInfo, zoom: number) {
   const { name } = testInfo.project;
-  if (name === 'chromium') return true;
+  if (name === 'chromium') return STATUS_BAR_ZOOMS.includes(zoom);
+  if (name === 'chromium-zooms') return !STATUS_BAR_ZOOMS.includes(zoom);
   return (CANVAS_PROJECTS.includes(name) ? DPR_ZOOMS : SCALING_ZOOMS).includes(zoom);
 }
 
@@ -112,7 +115,7 @@ test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () =>
   for (const name of NAMES) {
     for (const zoom of ZOOMS) {
       test(`DOCE-LABS-8.1 ${name} at ${String(zoom)}%`, async ({ page }, testInfo) => {
-        test.skip(!zoomRuns(testInfo, zoom), 'the middle zooms run at a device pixel ratio of 1');
+        test.skip(!zoomRuns(testInfo, zoom), 'another project runs this zoom');
         await open(page, name, zoom);
         await expectOneResult(page);
       });

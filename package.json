@@ -91,7 +91,7 @@
     "build:labs": "node scripts/build-labs.mjs",
     "serve:labs": "node scripts/serve-labs.mjs",
     "labs": "node scripts/start-labs.mjs",
-    "test:labs": "playwright test --project=chromium --project=chromium-dpr-1.25 --project=chromium-dpr-2 --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3 --project=performance",
+    "test:labs": "playwright test --project=chromium --project=chromium-zooms --project=chromium-dpr-1.25 --project=chromium-dpr-2 --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3 --project=performance",
     "test:perf": "playwright test --project=budgets --workers=1",
     "check": "node scripts/check.mjs",
     "test:guard-budgets": "vitest run --config vitest.guard.config.ts"
