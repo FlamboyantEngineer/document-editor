@@ -5,7 +5,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
 import { BASE_TEMPLATE, type TemplateFile } from '../model/index.js';
 import { pagesLayout } from '../pagination/pages-layout.js';
-import { renderLayoutPrintPage } from './print-pages.js';
+import { drawLayoutPages, renderLayoutPrintPage } from './print-pages.js';
 
 const text = (value: string, marks: string[] = []) =>
   documentSchema.text(
@@ -124,5 +124,33 @@ describe('renderLayoutPrintPage', () => {
     expect(printed.querySelector('ol')?.getAttribute('style')).toBe('--de-list-start: 3');
     expect(rules).toContain('de-sheet-1');
     expect(rules).toContain(':nth-child(2) { page: de-sheet-1; }');
+  });
+});
+
+describe('drawLayoutPages', () => {
+  it('DOCE-PAGINATION-13.6 draws each page on its own as the print draws it', () => {
+    const doc = pagesDocument([
+      page([paragraph([text('first page text')], { dataId: 'p1' })], { totalPages: 2 }),
+      page([paragraph([text('second page')], { dataId: 'p2' })], {
+        pageNumber: 2,
+        totalPages: 2,
+      }),
+    ]);
+    const layout = pagesLayout(pagesState(doc, stubEngine({ perLine: 6 })));
+    if (!layout) throw new Error('no layout');
+    const drawing = drawLayoutPages(layout, BASE_TEMPLATE);
+    const printed = new DOMParser().parseFromString(
+      renderLayoutPrintPage(layout, BASE_TEMPLATE),
+      'text/html',
+    );
+    const [section] = drawing.sections;
+    expect(section?.attrs.class).toBe('pm-section');
+    expect(section?.pages.map((each) => [each.pos, each.attrs.class])).toEqual([
+      [1, 'pm-page'],
+      [doc.child(0).child(0).nodeSize + 1, 'pm-page'],
+    ]);
+    expect(section?.pages.map((each) => each.html)).toEqual(
+      [...printed.querySelectorAll('.pm-page')].map((each) => each.innerHTML),
+    );
   });
 });

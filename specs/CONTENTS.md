@@ -48,7 +48,7 @@ Verification: `src/model/contents/document-catalog.test.ts`
 
 ### DOCE-CONTENTS-1.7 - Counters at a position
 
-`numberingCountersAt(doc, template, pos)` shall give the counters in effect just before a position, as the catalog and the stylesheet count them: each heading level's count and each numbered object kind's, with the restarts of the sections and headings before it, so content shown elsewhere can number on from them.
+`numberingCountersAt(doc, template, pos)` shall give the counters in effect just before a position, as the catalog and the stylesheet count them: each heading level's count and each numbered object kind's, with the restarts of the sections and headings before it, so content shown elsewhere can number on from them. `numberingCounterValues(counters)` shall write them as a `counter-reset` or `counter-set` value naming the stylesheet's counters (`h1` to `h6`, `figure`, `table`, `codeblock`, `equation`, and `ordered-list` at 0).
 
 Implementation: `src/model/contents/document-catalog.ts`
 Verification: `src/model/contents/document-catalog.test.ts`

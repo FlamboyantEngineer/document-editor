@@ -6,9 +6,14 @@ import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { contentsKey, createDocumentEditing, dynamicTemplatesKey } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
-import { readDocumentFile, type StoredContent, type TemplateFile } from '../../model/index.js';
+import {
+  numberingCounterValues,
+  readDocumentFile,
+  type StoredContent,
+  type TemplateFile,
+} from '../../model/index.js';
 import { DEFAULT_EDITOR_LABELS as labels } from './editor-labels.js';
-import { drawingPlugins, previewCounters, previewScript, ScriptPreview } from './script-panes.js';
+import { drawingPlugins, previewScript, ScriptPreview } from './script-panes.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
 
@@ -180,7 +185,7 @@ describe('previewScript', () => {
     const slot = document.querySelector<HTMLElement>('.de-script-editor__preview');
     expect(slot?.style.getPropertyValue('--de-script-editor-counters')).toBe('');
     expect(
-      previewCounters({
+      numberingCounterValues({
         headings: [3, 0, 0, 0, 0, 0],
         objects: { figure: 2, table: 1, codeBlock: 0, equation: 4 },
       }),
