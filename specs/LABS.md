@@ -402,3 +402,12 @@ With `rendering=html-canvas` (DOCE-EDITOR-1.9), DOCE-LABS-8.1 shall hold for eve
 
 Implementation: `labs/src/regression/regression-lab.tsx`, `playwright.config.ts`
 Verification: `e2e/layout-invariant.spec.ts`
+
+## DOCE-LABS-9 - Edited pages equal a fresh layout
+
+### DOCE-LABS-9.1 - Seeded edit sequences in the regression lab
+
+With `textLayout=pretext`, after every step of a seeded sequence of edits on a document of the regression set (typing; Enter and Shift+Enter; Backspace and Delete runs; deletes across blocks, pages and sections; typing, Enter, Backspace and Delete at the edges of split blocks and at line starts and ends; bold, italic, code, superscript and heading and paragraph styles over a range; undo and redo; pasted text and HTML; an input method's composition committed or cancelled; another writer's inserts and deletes; zoom changes), the editor shall draw what a new page draws when it opens the document as stored (`stored()`) afresh: the same pages' layout (`pagesLayout()`: pages, page breaks, split parts, every forced block's lines, numbers and variables), the same text on every page, and its own drawn lines equal to its computed ones (DOCE-LABS-8.1). A failure names the steps so far. The regression lab's probe shall open a stored document afresh (`load`), set the zoom (`setZoom`), give the text blocks' ranges (`textRanges`), select between two positions (`selectJoined`), make another writer's change (`remote`) and give the pages' layout (`layout`). `EDIT_LAYOUT_SEEDS`, `EDIT_LAYOUT_STEPS` and `EDIT_LAYOUT_FIRST_SEED` set how many sequences, how long, and from which seed.
+
+Implementation: `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`
+Verification: `e2e/editing-layout.spec.ts`

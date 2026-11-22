@@ -280,7 +280,7 @@ Verification: `src/pagination/layout-triggers.test.ts`
 
 ### DOCE-PAGINATION-5.13 - The measuring view follows the document
 
-The hidden view that measures a whole document shall follow each new one by the smallest replacements (`followDocument`), node by node where the two pair up: a node whose attributes alone changed, such as a header numbered anew when a section gains a page, takes the new attributes and keeps its content, and within a node whose children no longer pair up, only the range that differs is replaced. Every block a change does not reach keeps its node, and with it its rendering and its cached measurement, even when a fresh join of the pages builds it anew.
+The hidden view that measures a whole document shall follow each new one by the smallest replacements (`followDocument`), node by node where the two pair up: a node whose attributes alone changed, such as a header numbered anew when a section gains a page, takes the new attributes and keeps its content, and within a node whose children no longer pair up, only the range that differs is replaced. Every block a change does not reach keeps its node, and with it its rendering and its cached measurement, even when a fresh join of the pages builds it anew. The view shall then hold exactly the document it follows: the change goes in as a remote one, out of the history, so no plugin that derives writes from the writer's own edits (such as the page regions' reset) writes into it, and a state some plugin still changed is replaced by a new state of the document, so the layout and its map never describe another document than the canonical one.
 
 Implementation: `src/pagination/ghost-view.ts`
 Verification: `src/pagination/ghost-view.test.ts`
