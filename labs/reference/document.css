@@ -1822,8 +1822,15 @@ a.de-contents__entry {
   outline-color: #b91c1c;
 }
 
+/* An empty block keeps a line and a half of the document's text size, as the layout engine lays it out. */
 .script-block[data-script-state='empty'] {
-  min-height: 1.5em;
+  min-height: calc(1.5 * var(--doc-paragraph-font-size, 12px));
+}
+
+/* Its message sits over that box and never grows it. */
+.script-block[data-script-state='empty'] > .de-script-message {
+  position: absolute;
+  inset: 0 0 auto;
 }
 
 /* What a failed block's runner said, or that its script produced nothing; never printed. */

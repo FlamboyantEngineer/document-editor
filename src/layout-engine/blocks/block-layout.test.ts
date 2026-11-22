@@ -24,7 +24,7 @@ const names = readdirSync(documents)
   .map((name) => name.slice(0, -'.json'.length));
 
 // What the engine leaves to the DOM for now, by node type.
-const LEFT_TO_THE_DOM = new Set(['toc_block', 'linked_code_block', 'script_block']);
+const LEFT_TO_THE_DOM = new Set(['toc_block']);
 
 function expectChildrenInside(children: readonly ChildLayout[], height: number) {
   let previous = 0;
