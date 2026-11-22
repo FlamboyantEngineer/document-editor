@@ -262,7 +262,7 @@ function sameValues(a: ReadonlyMap<number, string>, b: ReadonlyMap<number, strin
  * forced lines, as for a snapshot of the pages, until `{ drawAll: false }` puts back the pages near
  * the screen. Any other value draws the pages again.
  */
-export interface DrawAllPages {
+interface DrawAllPages {
   readonly drawAll: boolean;
 }
 

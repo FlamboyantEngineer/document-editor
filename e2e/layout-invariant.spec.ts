@@ -41,6 +41,8 @@ const plain = (text: string) => text.replaceAll(' ', ' ');
 async function open(page: Page, name: RegressionDocumentName, zoom: number) {
   await page.goto(`regression.html?document=${name}&textLayout=pretext&zoom=${String(zoom)}`);
   await waitForLab(page);
+  // Every page on forced lines, not only those near the screen (DOCE-PAGINATION-11.6).
+  await page.evaluate(() => window.regressionLab.drawAllLines(true));
   await settle(page);
 }
 
@@ -209,11 +211,10 @@ const caretAt = (page: Page) =>
 // Lands in thread I's second pull request after #301: until then these fail, and Playwright
 // reports them passing unexpectedly once they hold.
 test.describe('DOCE-LABS-8.3 the caret at forced line starts', () => {
-  test('DOCE-LABS-8.3 after an edit at a line start the caret is drawn on that line, and keeps its column', async ({
+  test('DOCE-LABS-8.3 DOCE-PAGINATION-11.7 after an edit at a line start the caret is drawn on that line, and keeps its column', async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
-    test.fail(true, 'caret side at forced line starts: thread I, second pull request after #301');
     await open(page, 'long-mixed', 100);
     const starts = await lineStartsOf(page, 3);
     const [first, second, third] = starts ?? [];
@@ -244,11 +245,10 @@ test.describe('DOCE-LABS-8.3 the caret at forced line starts', () => {
 });
 
 test.describe('DOCE-LABS-8.4 inline offers keep the drawn lines', () => {
-  test('DOCE-LABS-8.4 an inline completion offer inside a full line wraps nothing', async ({
+  test('DOCE-LABS-8.4 DOCE-PAGINATION-11.8 an inline completion offer inside a full line wraps nothing', async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
-    test.fail(true, 'inline offers on forced lines: thread I, second pull request after #301');
     await page.goto('stress-long.html?textLayout=pretext');
     await waitForLab(page);
     await settle(page);

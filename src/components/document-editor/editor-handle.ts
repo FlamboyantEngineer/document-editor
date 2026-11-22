@@ -136,6 +136,12 @@ export interface DocumentEditorHandle {
    * paragraphs and headings, which the pages draw them on (DOCE-PAGINATION-11.3); none otherwise.
    */
   textLines(): PageTextLines[];
+  /**
+   * With `textLayout: 'pretext'`, draws every page on the layout engine's lines, as for printing or
+   * checking every page, or, given false, only the pages near the screen again
+   * (DOCE-PAGINATION-11.6).
+   */
+  drawAllLines(all: boolean): void;
   /** The elements with an element id on screen now, with their boxes in the window. */
   visibleElements(): readonly VisibleElement[];
   /** The pages on screen now, each with its sheet and its content's box in the window. */
@@ -331,6 +337,7 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       textLines: layout.textLines,
+      drawAllLines: layout.drawAllLines,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
       visiblePages: () => (view ? measureVisiblePages(view) : []),
       revealPane: (paneId, options) => panes.reveal(paneId, options),
