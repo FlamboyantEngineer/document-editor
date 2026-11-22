@@ -75,7 +75,8 @@ jobs:
           # for the pages painted into canvases (DOCE-EDITOR-1.9, DOCE-LABS-8.9), which the
           # performance job runs after its timing tests.
           - name: device pixel ratios
-            args: --project=chromium-dpr-1.25 --project=chromium-dpr-2 --grep-invert=DOCE-EDITOR-1.9|DOCE-LABS-8.9
+            # Quoted: the arguments are written into the step's script, where a bare `|` is a pipe.
+            args: "--project=chromium-dpr-1.25 --project=chromium-dpr-2 --grep-invert='DOCE-EDITOR-1.9|DOCE-LABS-8.9'"
           # Without their dependency on the lab tests, which the shards run; the heaviest timing test
           # still runs alone before the others.
           - name: performance
