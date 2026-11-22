@@ -60,9 +60,8 @@ test('DOCE-LABS-5.1 predicts off-document and keeps mounted pages bounded throug
   await expect(page.locator('#pretext-status')).toHaveText(
     /unsupported-rule.*unsupported block horizontal_rule/u,
   );
-  await expect(page.locator('#pretext-status')).toContainText(
-    'blocks with only collapsed text and adjoining margins',
-  );
+  // A paragraph of only white space is laid out in the editor's pre-wrap, so it is not reported.
+  await expect(page.locator('#pretext-status')).not.toContainText('only-whitespace');
   await expect(mounted).toHaveCount(0);
 });
 

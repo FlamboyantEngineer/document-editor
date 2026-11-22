@@ -1,3 +1,5 @@
+import type { Node } from 'prosemirror-model';
+import { blockTypography } from '../../../../src/layout-engine/typography.js';
 import { BASE_TEMPLATE } from '../../../../src/model/templates/base-template.js';
 import { lengthToCssPx } from '../../../../src/model/templates/template-css-values.js';
 import {
@@ -5,6 +7,7 @@ import {
   templateScopeStyles,
 } from '../../../../src/model/templates/template-properties.js';
 import { textStyleProperties } from '../../../../src/model/templates/template-text-properties.js';
+import { requireValue, schema } from './fixtures.js';
 
 export const px = (value: number) => `${String(value)}px`;
 const length = (value: unknown) => Number.parseFloat(lengthToCssPx(value) ?? '0');
@@ -22,6 +25,9 @@ export interface Typography {
 export function font(style: Typography): string {
   return `${style.italic ? 'italic ' : ''}${String(style.weight)} ${px(style.size)} ${style.family}`;
 }
+
+/** The one template scope this spike lays out, in the library's text layout engine too. */
+export const template = BASE_TEMPLATE;
 
 // This spike resolves one template scope. Both HTML paths receive the same explicit geometry.
 const styles = templateScopeStyles(BASE_TEMPLATE, null);
@@ -78,11 +84,24 @@ export function applySettings(root: HTMLElement, contentWidth: number) {
   set('--pretext-display-math-width', displayMath.width);
   set('--pretext-display-math-height', displayMath.height);
   Object.entries(margins).forEach(([side, value]) => set(`--doc-page-margin-${side}`, value));
-  for (const [prefix, style] of [
-    ['paragraph', paragraph],
-    ['code', code],
-    ...headings.map((style, index) => [`heading-${String(index + 1)}`, style] as const),
-  ] as const) {
-    set(`--doc-${prefix}-line-height`, style.leading);
+  // The HTML draws the library's leadings, so its lines are as tall as the engine's.
+  for (const [prefix, node] of leadingNodes()) {
+    set(`--doc-${prefix}-line-height`, blockTypography(node, { template }).leading);
   }
+}
+
+function leadingNodes(): (readonly [string, Node])[] {
+  const { paragraph, heading, code_block: codeBlock } = schema.nodes;
+  return [
+    ['paragraph', requireValue(paragraph, 'paragraph').create()],
+    ['code', requireValue(codeBlock, 'code block').create()],
+    ...Array.from(
+      { length: 6 },
+      (_, index) =>
+        [
+          `heading-${String(index + 1)}`,
+          requireValue(heading, 'heading').create({ level: index + 1 }),
+        ] as const,
+    ),
+  ];
 }
