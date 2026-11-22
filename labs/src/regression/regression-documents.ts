@@ -24,6 +24,7 @@ import footnoteHeavy from '../../../test/fixtures/documents/footnote-heavy.json'
 import footnotesInStructures from '../../../test/fixtures/documents/footnotes-in-structures.json' with { type: 'json' };
 import headingKeepWithNext from '../../../test/fixtures/documents/heading-keep-with-next.json' with { type: 'json' };
 import headingsAllLevels from '../../../test/fixtures/documents/headings-all-levels.json' with { type: 'json' };
+import inlineGeometry from '../../../test/fixtures/documents/inline-geometry.json' with { type: 'json' };
 import inlineImages from '../../../test/fixtures/documents/inline-images.json' with { type: 'json' };
 import inlineMarks from '../../../test/fixtures/documents/inline-marks.json' with { type: 'json' };
 import lineBreaksAndWritingSystems from '../../../test/fixtures/documents/line-breaks-and-writing-systems.json' with { type: 'json' };
@@ -60,6 +61,7 @@ import templateBlocksAndVariables from '../../../test/fixtures/documents/templat
 import regressionBase from '../../../test/fixtures/documents/templates/regression-base.json' with { type: 'json' };
 import regressionCaptions from '../../../test/fixtures/documents/templates/regression-captions.json' with { type: 'json' };
 import regressionFootnotes from '../../../test/fixtures/documents/templates/regression-footnotes.json' with { type: 'json' };
+import regressionInline from '../../../test/fixtures/documents/templates/regression-inline.json' with { type: 'json' };
 import regressionLocked from '../../../test/fixtures/documents/templates/regression-locked.json' with { type: 'json' };
 import regressionMixedGeometry from '../../../test/fixtures/documents/templates/regression-mixed-geometry.json' with { type: 'json' };
 import regressionNumbering from '../../../test/fixtures/documents/templates/regression-numbering.json' with { type: 'json' };
@@ -84,6 +86,7 @@ export const REGRESSION_DOCUMENTS = {
   'footnotes-in-structures': footnotesInStructures,
   'heading-keep-with-next': headingKeepWithNext,
   'headings-all-levels': headingsAllLevels,
+  'inline-geometry': inlineGeometry,
   'inline-images': inlineImages,
   'inline-marks': inlineMarks,
   'line-breaks-and-writing-systems': lineBreaksAndWritingSystems,
@@ -96,8 +99,8 @@ export const REGRESSION_DOCUMENTS = {
   'long-ordered-list': longOrderedList,
   math,
   'minimal-paragraph': minimalParagraph,
-  'mixed-geometry-repeated-sections': mixedGeometryRepeated,
   'mixed-geometry': mixedGeometry,
+  'mixed-geometry-repeated-sections': mixedGeometryRepeated,
   'nested-lists': nestedLists,
   'oversized-blocks': oversizedBlocks,
   'page-breaks-and-rules': pageBreaksAndRules,
@@ -129,6 +132,7 @@ const TEMPLATES = new Map<string, unknown>([
     regressionBase,
     regressionCaptions,
     regressionFootnotes,
+    regressionInline,
     regressionLocked,
     regressionMixedGeometry,
     regressionNumbering,

@@ -8,6 +8,8 @@
 // gives the same widths on every machine: the font size in 1/64 px, each glyph's advance in
 // 1/65536 px from FreeType's 16.16 scale, and each word's width kept as a float32.
 
+import { UNSERVED_CLUSTER_EMS } from '../reserved-boxes.js';
+import { faceFor, zeroWidth } from './cluster-faces.js';
 import { type FaceSet, type FontRequest, type MatchedFace, parseFont } from './faces.js';
 import type { HarfBuzzFace, ShapedRun } from './harfbuzz.js';
 import { type ScriptRun, scriptRuns } from './script-runs.js';
@@ -42,15 +44,15 @@ interface Piece {
   readonly face: HarfBuzzFace;
   readonly text: string;
   readonly run: ScriptRun | undefined;
+  /** A cluster no face draws whole, which takes its reserved width (DOCE-PAGINATION-12.4). */
+  readonly reserved: boolean;
 }
 
 const FIXED = 65_536;
 const SUBPIXELS = 64;
 const asciiWhitespace = /[\t\n\f\r]/gu;
-// Blink draws U+2028 and U+2029 with the space glyph and gives these default ignorables no width
-// (HarfBuzzGetGlyph, harfbuzz_face.cc; Character::TreatAsZeroWidthSpace).
+// Blink draws U+2028 and U+2029 with the space glyph (HarfBuzzGetGlyph, harfbuzz_face.cc).
 const drawnAsSpace = /[\u2028\u2029]/gu;
-const zeroWidth = /^(?:\u034f|[\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff])$/u;
 // Invisible characters that also end the shaping run in Canvas, so no kerning reaches across them
 // (measured: zero\u200bwidth is zero plus width). Joiners, the word joiner and the isolates do not.
 const runBreaking = /^[\u00ad\u061c\u180e\u200b\u200e\u200f\u202a-\u202e\ufeff]$/u;
@@ -123,74 +125,19 @@ function trimmedPunctuation(text: string): number[] {
   return trimmed;
 }
 
-// Characters a face need not have to draw a cluster: the default ignorables above, variation
-// selectors and tags, which Blink hides when the face has no glyph for them.
-const selectorsAndTags = /^(?:[\ufe00-\ufe0f]|[\u{e0020}-\u{e007f}]|[\u{e0100}-\u{e01ef}])$/u;
-const ignorable = {
-  test: (character: string) => zeroWidth.test(character) || selectorsAndTags.test(character),
-};
-
-function codePointsOf(cluster: string) {
-  return [...cluster].flatMap((character) =>
-    ignorable.test(character) ? [] : [character.codePointAt(0) ?? 0],
-  );
-}
-
-// A face draws a character its unicode-range holds and its file has a glyph for.
-function hasGlyph({ face, covers }: MatchedFace, code: number) {
-  const drawn = code === 0x2028 || code === 0x2029 ? 0x20 : code;
-  return covers(drawn) && face.glyphOf(drawn) !== null;
-}
-
-// Whether a face draws a whole cluster, as Blink asks: no .notdef once shaped. A face without
-// one of the characters can still draw a letter and its accent as one precomposed glyph.
-function drawsCluster(matched: MatchedFace, cluster: string, codes: readonly number[]) {
-  if (codes.every((code) => hasGlyph(matched, code))) return true;
-  if (!codes.every((code) => matched.covers(code))) return false;
-  const visible = [...cluster].filter((character) => !ignorable.test(character)).join('');
-  const run = matched.face.shape(visible, { features: [], language: null });
-  return run.glyphs.length > 0 && run.glyphs.every((glyph) => glyph !== 0);
-}
-
-// The faces a cluster may be drawn with, in order: an emoji presentation selector (U+FE0F) puts
-// the color faces first, a text presentation selector (U+FE0E) leaves them out (measured in
-// Chromium 153: without a selector the family list decides, whatever the emoji's default).
-function candidatesFor(cluster: string, faces: readonly MatchedFace[]) {
-  if (cluster.includes('\ufe0f'))
-    return [...faces.filter(({ face }) => face.color), ...faces.filter(({ face }) => !face.color)];
-  if (cluster.includes('\ufe0e')) return faces.filter(({ face }) => !face.color);
-  return faces;
-}
-
-// The face a cluster is drawn with: the first that draws it whole, else the first that has its
-// first character, else the first face's missing glyph. A cluster no face draws whole is drawn by
-// the browser from a system font, so its characters the face lacks are recorded as missing.
-function faceFor(cluster: string, faces: readonly MatchedFace[], problems: MeasureProblems) {
-  const codes = codePointsOf(cluster);
-  const candidates = candidatesFor(cluster, faces);
-  const whole = candidates.find((matched) => drawsCluster(matched, cluster, codes));
-  if (whole) return whole.face;
-  const first = codes[0] ?? 0x20;
-  const partial =
-    candidates.find((matched) => hasGlyph(matched, first)) ??
-    faces.find((matched) => hasGlyph(matched, first));
-  const drawn = partial && candidates.includes(partial) ? partial : null;
-  for (const code of codes) if (!drawn || !hasGlyph(drawn, code)) problems.missingGlyphs.add(code);
-  return (partial ?? faces[0])?.face;
-}
-
 // A word's pieces: its graphemes put together while they take the same face and script run.
 function piecesOf({ word, offset, runs, faces }: WordInput, problems: MeasureProblems) {
   const pieces: Piece[] = [];
   for (const { segment, index } of graphemes.segment(word)) {
-    const face = faceFor(segment, faces, problems);
-    if (!face) continue;
+    const drawn = faceFor(segment, faces, problems.missingGlyphs);
+    if (!drawn) continue;
+    const { face, reserved } = drawn;
     const at = offset + index;
     const run = runs.find(({ start, end }) => at >= start && at < end);
     const last = pieces.at(-1);
-    if (last?.face === face && last.run === run)
-      pieces[pieces.length - 1] = { face, run, text: last.text + segment };
-    else pieces.push({ face, run, text: segment });
+    if (!reserved && last && !last.reserved && last.face === face && last.run === run)
+      pieces[pieces.length - 1] = { ...last, text: last.text + segment };
+    else pieces.push({ face, run, text: segment, reserved });
   }
   return pieces;
 }
@@ -262,7 +209,16 @@ function measureWord(input: WordInput, shaping: Shaping) {
   // Punctuation is trimmed by its neighbours in the word, whichever font file draws them.
   const trimmed = trimmedPunctuation(word);
   let start = 0;
-  for (const { face, text, run: scriptRun } of piecesOf(input, shaping.problems)) {
+  for (const { face, text, run: scriptRun, reserved } of piecesOf(input, shaping.problems)) {
+    if (reserved) {
+      // The box the renderer draws the cluster's real glyph in, centred.
+      const box = Math.round(request.size * UNSERVED_CLUSTER_EMS * FIXED);
+      left = Math.min(left, pen);
+      right = Math.max(right, pen + box);
+      pen += box + Math.round(shaping.spacing * FIXED);
+      start += text.length;
+      continue;
+    }
     const halves = trimmed
       .filter((index) => index >= start && index < start + text.length)
       .map((index) => `halt[${String(index - start)}]`);

@@ -89,4 +89,32 @@ describe('findWrappedLines', () => {
     root.append(forced('kept', 2), forced('wrapped', 1));
     expect(findWrappedLines(root)).toEqual([{ elementId: 'wrapped', computed: 1, drawn: 2 }]);
   });
+
+  it('DOCE-PAGINATION-11.4 counts an inline atom taller than its text on the text line', () => {
+    // The text's box, then a signature drawn from above the text's top to the line's bottom, and
+    // typeset math whose parts lie above and below the text, read only by the atom's own box.
+    const text = new DOMRect(0, 47, 50, 16);
+    Object.assign(Range.prototype, {
+      getClientRects(this: Range) {
+        // The whole block's range holds every box inside it, the atoms' parts too.
+        if (this.startContainer.nodeType === 3) return [text];
+        return [text, new DOMRect(60, 0, 10, 8), new DOMRect(60, 0, 120, 65)];
+      },
+    });
+    const block = forced('signed', 1);
+    block.textContent = 'Signed: ';
+    const atom = (top: number, height: number) => {
+      const element = document.createElement('span');
+      element.contentEditable = 'false';
+      element.getClientRects = () => [new DOMRect(60, top, 120, height)] as unknown as DOMRectList;
+      const part = document.createElement('span');
+      part.getClientRects = () => [new DOMRect(60, 0, 10, 8)] as unknown as DOMRectList;
+      element.append(part);
+      return element;
+    };
+    block.append(atom(0, 65), atom(44, 22));
+    const root = document.createElement('div');
+    root.append(block);
+    expect(findWrappedLines(root)).toEqual([]);
+  });
 });

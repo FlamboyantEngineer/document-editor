@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { type JustifiedLines, lineMarks } from './line-marks.js';
+import { firstLineIndent, type JustifiedLines, lineMarks } from './line-marks.js';
 import type { TextLine } from './line-table.js';
 
 const paragraph = (text: string) =>
@@ -63,6 +63,43 @@ describe('lineMarks', () => {
     }
   });
 
+  it('DOCE-PAGINATION-12.4 draws a reserved cluster as an inner mark inside a line end', () => {
+    const node = paragraph('aaaa☃bb');
+    const marks = lineMarks(node, { ...table(7, 5), reserved: [{ from: 4, to: 5, width: 16 }] });
+    expect(marks).toEqual([
+      {
+        from: 4,
+        to: 5,
+        class: 'de-forced-lines__reserved',
+        style: '--de-reserved-width: 16.000px',
+        inner: true,
+      },
+      { from: 4, to: 5, class: 'de-forced-lines__end' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-12.4 cuts a justified line at a reserved box inside it', () => {
+    const node = paragraph('aa ☃ bb cc');
+    const marks = lineMarks(node, {
+      ...table(10, 8),
+      justify: true,
+      reserved: [{ from: 3, to: 4, width: 16 }],
+    });
+    const word = '--de-word-spacing: 45.000px';
+    expect(marks.map(({ from, to, class: name }) => [from, to, name])).toEqual([
+      [0, 3, 'de-forced-lines__justified'],
+      [3, 4, 'de-forced-lines__reserved'],
+      [3, 4, 'de-forced-lines__justified'],
+      [4, 7, 'de-forced-lines__justified'],
+      [7, 8, 'de-forced-lines__end'],
+    ]);
+    expect(marks.filter((mark) => mark.class.endsWith('justified')).map((m) => m.style)).toEqual([
+      word,
+      word,
+      word,
+    ]);
+  });
+
   it('DOCE-PAGINATION-13.1 indents aligned lines and stretches justified spaces', () => {
     const node = paragraph('aa bb cc dd');
     const lines = table(11, 6, { justify: true }).lines.map((line) => ({ ...line, left: 20 }));
@@ -73,5 +110,36 @@ describe('lineMarks', () => {
       { from: 5, to: 6, class: 'de-forced-lines__end' },
       { from: 6, to: 7, class: 'de-forced-lines__start', style: '--de-line-indent: 20.000px' },
     ]);
+  });
+
+  it('DOCE-PAGINATION-13.1 stretches no-break spaces with the spaces, as Chromium does', () => {
+    // Two spaces and two no-break spaces share the 90px a 10px line leaves of 100px.
+    const node = paragraph('a b\u00a0c d\u00a0e f');
+    const marks = lineMarks(node, table(11, 9, { justify: true }));
+    expect(marks[0]).toEqual({
+      from: 0,
+      to: 9,
+      class: 'de-forced-lines__justified',
+      style: '--de-word-spacing: 22.500px',
+    });
+  });
+
+  it('DOCE-PAGINATION-13.1 draws the hyphen of a line that ends at a soft hyphen', () => {
+    const node = paragraph('aaaa\u00adbbbb');
+    expect(lineMarks(node, table(9, 5))).toEqual([
+      { from: 4, to: 5, class: 'de-forced-lines__end de-forced-lines__hyphen' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-13.1 indents a prefixed block’s first line as the block, before its number', () => {
+    const node = paragraph('aaaaabbbbb');
+    const lines = table(10, 5).lines.map((line) => ({ ...line, left: 30 }));
+    const centred = { ...table(10, 5), lines };
+    expect(lineMarks(node, centred, { prefixed: true })).toEqual([
+      { from: 4, to: 5, class: 'de-forced-lines__end' },
+      { from: 5, to: 6, class: 'de-forced-lines__start', style: '--de-line-indent: 30.000px' },
+    ]);
+    expect(firstLineIndent(centred)).toBe('--de-first-indent: 30.000px');
+    expect(firstLineIndent(table(10, 5))).toBeNull();
   });
 });

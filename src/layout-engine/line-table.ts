@@ -3,6 +3,8 @@
 // stacks its heights, and the renderer draws exactly these lines, breaking at each line's start, so
 // calculation, editing, the viewer and print agree by construction.
 
+import type { ReservedBox } from './reserved-boxes.js';
+
 /** How a line ends. */
 type TextLineEnd = 'wrap' | 'break' | 'end';
 
@@ -34,4 +36,6 @@ export interface LineTable {
   readonly height: number;
   /** The height the block takes beyond its lines, such as a code block's padding. */
   readonly overhead: number;
+  /** The clusters drawn in a box of a fixed width (`reserved-boxes.ts`); absent when none are. */
+  readonly reserved?: readonly ReservedBox[] | undefined;
 }

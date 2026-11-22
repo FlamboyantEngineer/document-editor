@@ -29,8 +29,8 @@ describe('atom cache', () => {
   });
 
   it('DOCE-PAGINATION-10.7 keeps a footnote marker by the number a view draws in it', () => {
-    const measure = vi.fn<AtomMeasurer>((_node, _width, shown) => ({
-      size: { width: 6 * (shown ?? '').length, height: 10 },
+    const measure = vi.fn<AtomMeasurer>((_node, _width, drawing) => ({
+      size: { width: 6 * (drawing?.shown ?? '').length, height: 10 },
     }));
     const numbers = new Map<string, string>([
       ['n1', '9'],
@@ -43,9 +43,45 @@ describe('atom cache', () => {
     const marker = (dataId: string) => schema.node('footnote_reference', { dataId });
     expect(cache.measureAtom(marker('n1'))?.width).toBe(6);
     expect(cache.measureAtom(marker('n2'))?.width).toBe(12);
-    expect(measure).toHaveBeenLastCalledWith(marker('n2'), 0, '10');
+    expect(measure).toHaveBeenLastCalledWith(marker('n2'), 0, { shown: '10' });
     numbers.set('n2', '9');
     cache.measureAtom(marker('n2'));
+    expect(measure).toHaveBeenCalledTimes(2);
+  });
+
+  it('DOCE-PAGINATION-10.1 keeps an inline atom by its scope and the block it is drawn in', () => {
+    const atom = math('x');
+    const heading = schema.node('heading', { level: 2 });
+    const other = schema.node('heading', { level: 3 });
+    expect(atomKey(atom, 0, { parent: heading })).not.toBe(atomKey(atom, 0, { parent: other }));
+    expect(atomKey(atom, 0, { scope: 'a' })).not.toBe(atomKey(atom, 0, { scope: 'b' }));
+    // The block's own id is not what it shows.
+    const named = schema.node('heading', { level: 2, dataId: 'cccccccc' });
+    expect(atomKey(atom, 0, { parent: named })).toBe(atomKey(atom, 0, { parent: heading }));
+    const measure = sized(10, 10);
+    const cache = createAtomCache({ measure });
+    cache.measureAtom(atom, { parent: heading });
+    cache.measureAtom(atom, { parent: heading, scope: null });
+    cache.measureAtom(atom, { parent: other });
+    expect(measure).toHaveBeenCalledTimes(2);
+  });
+
+  it('DOCE-PAGINATION-10.2 measures an atom again whose final size its measurer cannot tell', async () => {
+    let settle: (size: null) => void = () => undefined;
+    const measure = vi.fn<AtomMeasurer>(() => ({
+      size: { width: 10, height: 10 },
+      settled: new Promise<null>((resolve) => {
+        settle = resolve;
+      }),
+    }));
+    const cache = createAtomCache({ measure });
+    const listener = vi.fn();
+    cache.subscribe(listener);
+    const atom = math('x');
+    cache.measureAtom(atom);
+    settle(null);
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledWith([atom]));
+    cache.measureAtom(atom);
     expect(measure).toHaveBeenCalledTimes(2);
   });
 
