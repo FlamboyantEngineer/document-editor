@@ -20,6 +20,8 @@ export interface TextEngineOptions {
   readonly onAtomsSettled: () => void;
   /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
   readonly measureContext?: (() => MeasureContext) | undefined;
+  /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
+  readonly codeLineNumbers?: boolean | undefined;
   /**
    * The view that measures the pages, which draws each atom as the pages do; atoms are measured as
    * it draws them (DOCE-PAGINATION-10.2). Without it, an atom is drawn in a host of its own.

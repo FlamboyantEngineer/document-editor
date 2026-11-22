@@ -519,6 +519,14 @@ div.de-host-view {
   line-height: var(--doc-paragraph-line-height, 1.5);
 }
 
+/* Subscripts and superscripts, footnote markers included, are drawn without growing their line, as
+   the layout engine lays them out (DOCE-PAGINATION-9.3). */
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(.pm-page, .pm-page-content)
+  :is(sup, sub) {
+  line-height: 0;
+}
+
 /* A table's columns take the widths the engine gives them: stored ones kept, the rest shared. */
 :where(.de-document-editor[data-text-layout='pretext']) .pm-page-content table {
   table-layout: fixed;
@@ -529,9 +537,10 @@ div.de-host-view {
  * drawn on the lines the layout engine computed. Each line ends after its last character, drawn as
  * a line feed; the engine's alignment is drawn from the room it left each line, so the block itself
  * aligns left. Its end overhangs by 8px, so a width the browser finds a little wider than the
- * engine's never wraps a line on its own. A heading shows the engine's number, not a counter.
+ * engine's never wraps a line on its own. A heading shows the engine's number, not a counter. The
+ * block's `data-lines` makes these rules win over a custom style's alignment and margins.
  */
-:where(.de-document-editor) .pm-page-content > .de-forced-lines {
+:where(.de-document-editor) .pm-page-content > .de-forced-lines[data-lines] {
   text-align: left;
   margin-inline-end: -8px;
 }
@@ -543,6 +552,22 @@ div.de-host-view {
 
 :where(.de-document-editor) .de-forced-lines__start {
   padding-inline-start: var(--de-line-indent, 0);
+}
+
+/* A line that ends at a soft hyphen shows the hyphen the engine counted, which the browser draws
+   only at a break of its own. */
+:where(.de-document-editor) .de-forced-lines__hyphen::after {
+  content: '\2010\A';
+}
+
+/* A numbered heading's first line starts in before its number, which is drawn before the content;
+   inline boxes inside it start their own lines at their edge. */
+:where(.de-document-editor) .pm-page-content > .de-forced-lines {
+  text-indent: var(--de-first-indent, 0);
+}
+
+:where(.de-document-editor) .pm-page-content > .de-forced-lines * {
+  text-indent: 0;
 }
 
 :where(.de-document-editor) .de-forced-lines__justified {

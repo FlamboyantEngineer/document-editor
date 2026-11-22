@@ -24,6 +24,7 @@ const documents = join(dirname(fileURLToPath(import.meta.url)), '../../../test/f
 const LOSSY: Readonly<Record<string, string>> = {
   'inline-images.json': 'the writer leaves inline images out, leaving the spaces around them',
   'table-rich-cells.json': "the writer puts a cell's code block and nested table on one line",
+  'inline-geometry.json': "the writer puts a cell's code block on one line",
 };
 
 // Spaces at line ends, where the writer leaves the ones around content it does not write.

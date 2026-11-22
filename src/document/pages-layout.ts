@@ -15,6 +15,11 @@ export interface PagesLayoutBlock {
   readonly lines: number;
   /** A numbered heading's number, with its space, on its first part. */
   readonly number?: string | undefined;
+  /**
+   * Its measured property as a declaration: a numbered heading's first line's indent
+   * (`--de-first-indent`), drawn before its number.
+   */
+  readonly style?: string | undefined;
   /** The marks that draw its lines, by offset in its content. */
   readonly marks: readonly LineMark[];
 }

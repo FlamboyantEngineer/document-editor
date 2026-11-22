@@ -612,10 +612,10 @@ Verification: `src/layout-engine/typography.test.ts`
 
 ### DOCE-PAGINATION-9.3 - Marks
 
-Text shall be measured in its marks' fonts, applied outermost first in the schema's mark order: strong text a bolder weight (CSS `bolder`), emphasis italic, inline code the code style's family and size (the size around it when the style sets none) with 3px of padding on each side of each line it reaches, a line that ends inside it fitting without its end padding as Chromium fits a cloned box, and subscript and superscript at the size around them divided by 1.2. Each text node shall be measured as its own item, as Chromium rounds each element's piece of a line to its layout unit, kerning still counting across neighbours in the same font; a line ending in a link or underlined text shall fit its last letter's full width, as Chromium places a decorated line's end exactly. Marks that change only decoration change nothing. The renderer draws sub- and superscripts without growing the line and inline code with its padding on every line (`box-decoration-break: clone`).
+Text shall be measured in its marks' fonts, applied outermost first in the schema's mark order: strong text a bolder weight (CSS `bolder`), emphasis italic, inline code the code style's family and size (the size around it when the style sets none) with 3px of padding on each side of each line it reaches, a line that ends inside it fitting without its end padding as Chromium fits a cloned box, and subscript and superscript at the size around them divided by 1.2. Each text node shall be measured as its own item, as Chromium rounds each element's piece of a line to its layout unit, kerning still counting across neighbours in the same font; a line ending in a link or underlined text shall fit its last letter's full width, as Chromium places a decorated line's end exactly. Marks that change only decoration change nothing. The renderer draws sub- and superscripts, footnote markers included, without growing the line (`line-height: 0` in the reference stylesheet, in both layout modes) and inline code with its padding on every line (`box-decoration-break: clone`).
 
-Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/runs.ts`
-Verification: `src/layout-engine/typography.test.ts`, `src/layout-engine/text-layout.test.ts`
+Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/runs.ts`, `labs/reference/document.css`
+Verification: `src/layout-engine/typography.test.ts`, `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ### DOCE-PAGINATION-9.4 - White space and hard breaks
 
@@ -633,10 +633,10 @@ Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.6 - Alignment and padding
 
-A line shall start at the block's left padding plus, when the block is centred, half the room its line leaves, and when right-aligned, all of it; a justified line starts at the edge. A code block's lines shall be laid out inside its 8px padding.
+A line shall start at the block's left padding plus, when the block is centred, half the room its line leaves, and when right-aligned, all of it; a justified line starts at the edge. A code block's lines shall be laid out inside its 8px padding and, with the `codeLineNumbers` option, beside its gutter of line numbers, as the reference stylesheet draws it: as many widths of the code font's zero as its highest line number (from its `codeLineStart`) has digits, at least three, and 14px more, truncated to the layout unit, in from the left of each line, in a table cell too. The pages' engine takes the option from the state's object views, on when they number all code (`lineNumbers: 'all'`, the default), and is made again when that changes.
 
-Implementation: `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`
-Verification: `src/layout-engine/text-layout.test.ts`
+Implementation: `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`, `src/engine/object-views.ts`, `src/pagination/text-engine-holder.ts`
+Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ### DOCE-PAGINATION-9.7 - Served fonts and language
 
@@ -739,10 +739,10 @@ Verification: `src/pagination/text-engine.test.ts`, `src/pagination/text-engine-
 
 ### DOCE-PAGINATION-11.2 - Forced lines
 
-With the option on, the pages shall draw each top-level paragraph and heading the engine lays out on the engine's lines, so the browser chooses no line break in them. The block shall carry `de-forced-lines`, `data-lines` with its number of lines and, for a numbered heading's first part, `data-number` with the engine's number; each line that wraps shall end at its last character, marked `de-forced-lines__end`, which the stylesheet draws followed by a line feed, never cutting a character in two; a line that starts in from the content edge, as a centred or right-aligned one, shall start with `de-forced-lines__start` and `--de-line-indent`; a wrapped justified line shall carry `de-forced-lines__justified` and the `--de-word-spacing` that fills it. Inline code on a forced line shall be drawn with its padding on each of its line pieces (`box-decoration-break: clone` in the reference stylesheet), as the engine lays it out. Numbered paragraphs are still drawn on the browser's lines. The decorations shall be drawn on the pages' own view and kept by node, so a keystroke lays out only the block it changed again and every other block keeps its decorations.
+With the option on, the pages shall draw each top-level paragraph and heading the engine lays out on the engine's lines, so the browser chooses no line break in them. The block shall carry `de-forced-lines`, `data-lines` with its number of lines and, for a numbered heading's first part, `data-number` with the engine's number; each line that wraps shall end at its last character, marked `de-forced-lines__end`, which the stylesheet draws followed by a line feed, never cutting a character in two; a line that ends at a soft hyphen shall carry `de-forced-lines__hyphen` too, which the stylesheet draws as a hyphen before the line feed, as the engine counted it; a line that starts in from the content edge, as a centred or right-aligned one, shall start with `de-forced-lines__start` and `--de-line-indent`, except a numbered heading's first line, whose indent is the block's `--de-first-indent`, drawn as its `text-indent` before the number; a wrapped justified line shall carry `de-forced-lines__justified` and the `--de-word-spacing` that fills it, spread over its spaces and no-break spaces, which Chromium's `word-spacing` both stretches. The block itself is drawn aligned left with its 8px overhang whatever its custom style sets. Inline code on a forced line shall be drawn with its padding on each of its line pieces (`box-decoration-break: clone` in the reference stylesheet), as the engine lays it out. Numbered paragraphs are still drawn on the browser's lines. The decorations shall be drawn on the pages' own view and kept by node, so a keystroke lays out only the block it changed again and every other block keeps its decorations.
 
 Implementation: `src/pagination/forced-lines.ts`, `src/layout-engine/line-marks.ts`, `labs/reference/document.css`
-Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
+Verification: `src/pagination/forced-lines.test.ts`, `src/layout-engine/line-marks.test.ts`, `e2e/text-layout.spec.ts`, `e2e/inline-geometry.spec.ts`
 
 ### DOCE-PAGINATION-11.3 - The computed lines
 
@@ -834,14 +834,14 @@ What the pages draw with the text layout engine (DOCE-PAGINATION-11) reaches eve
 
 ### DOCE-PAGINATION-13.1 - Line marks
 
-The hooks each line of a forced block takes (DOCE-PAGINATION-11.2) shall come from one function without a DOM, `lineMarks(block, lines)`, as ranges of the block's content with their hook class and measured property, in content order. The pages' decorations and every static drawing of the pages shall draw these marks, so all of them draw the same lines.
+The hooks each line of a forced block takes (DOCE-PAGINATION-11.2) shall come from one function without a DOM, `lineMarks(block, lines, { prefixed })`, as ranges of the block's content with their hook class and measured property, in content order, a `prefixed` block's first line without its start mark, whose indent `firstLineIndent(lines)` gives as the block's measured property. The pages' decorations and every static drawing of the pages shall draw these marks, so all of them draw the same lines.
 
 Implementation: `src/layout-engine/line-marks.ts`, `src/pagination/forced-lines.ts`
-Verification: `src/layout-engine/line-marks.test.ts`, `src/pagination/forced-lines.test.ts`
+Verification: `src/layout-engine/line-marks.test.ts`, `src/pagination/forced-lines.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ### DOCE-PAGINATION-13.2 - The pages' layout as data
 
-With the option on, the editor handle's `pagesLayout()` shall give the pages' layout as plain data (`PagesLayout`, version 1): the pages' document as ProseMirror JSON, how the pages number their footnotes, each forced block's position, number of lines, a numbered heading's number and its line marks, for every page whether or not the view draws it now, and the value each variable shows, at its position, and whether the layout is provisional (`provisional`): true while the pages are not settled, an atom the engine measured (an image, math) still waits for its final size, or the window loads a font, so its page breaks may still move; a host prints or keeps it once false, as after `whenSettled()`. Without the option it shall give null. The layout is a hand-over to what draws the pages with the same library version, not a stored format.
+With the option on, the editor handle's `pagesLayout()` shall give the pages' layout as plain data (`PagesLayout`, version 1): the pages' document as ProseMirror JSON, how the pages number their footnotes, each forced block's position, number of lines, a numbered heading's number and its first line's indent (`style`), its line marks, for every page whether or not the view draws it now, and the value each variable shows, at its position, and whether the layout is provisional (`provisional`): true while the pages are not settled, an atom the engine measured (an image, math) still waits for its final size, or the window loads a font, so its page breaks may still move; a host prints or keeps it once false, as after `whenSettled()`. Without the option it shall give null. The layout is a hand-over to what draws the pages with the same library version, not a stored format.
 
 Implementation: `src/pagination/pages-layout.ts`, `src/document/pages-layout.ts`, `src/pagination/page-variables.ts`, `src/pagination/projection.ts`, `src/layout-engine/atoms.ts`, `src/components/document-editor/editor-handle.ts`
 Verification: `src/pagination/pages-layout.test.ts`, `src/pagination/text-engine-inputs.test.ts`

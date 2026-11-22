@@ -200,13 +200,13 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
-  const measureContext = measureIn(options);
   const host = atomHost(options.measureIn, Boolean(options.view));
   const atoms = createAtomCache({ measure: atomMeasurer(options, host) });
   let numbers = NO_NUMBERS;
   const text = createTextLayout({
     template,
-    measureContext,
+    measureContext: measureIn(options),
+    codeLineNumbers: options.codeLineNumbers,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
       types: textAtomTypes(options),
