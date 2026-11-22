@@ -203,19 +203,16 @@ const TEXT_BLOCKS =
   '<h1>Title 😀</h1><p>Emoji 😀😀😀 👩‍👩‍👧 café <strong>bold</strong> <em>leaning</em> <code>code</code> and words that wrap the line, again and again and again and again.</p>';
 
 describe('prediction reads no DOM', () => {
-  // Thread F's fork release 1.0.0-fe.6 measures emoji from the width source alone; until dev pins
-  // it, the fork reads a span's box to correct emoji widths (outside review, row 11).
-  it.fails(
-    'DOCE-PAGINATION-11.1 lays text out, emoji included, without reading any DOM geometry',
-    () => {
-      const engine = engineOf(wideEmojiContext);
-      const reads = countGeometryReads();
-      parseMarkup(TEXT_BLOCKS).forEach((node: ProseMirrorNode) => {
-        engine.lines(node, { scope: null });
-        engine.measureBlock(node, null);
-      });
-      engine.destroy();
-      expect(reads).toEqual([]);
-    },
-  );
+  // Since fork release 1.0.0-fe.6, Pretext measures emoji from the width source alone once a
+  // measure context is set, and reads no span's box (outside review, row 11).
+  it('DOCE-PAGINATION-11.1 lays text out, emoji included, without reading any DOM geometry', () => {
+    const engine = engineOf(wideEmojiContext);
+    const reads = countGeometryReads();
+    parseMarkup(TEXT_BLOCKS).forEach((node: ProseMirrorNode) => {
+      engine.lines(node, { scope: null });
+      engine.measureBlock(node, null);
+    });
+    engine.destroy();
+    expect(reads).toEqual([]);
+  });
 });
