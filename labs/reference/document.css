@@ -995,8 +995,10 @@ div.de-host-view {
 
 /* With the layout engine, each page contains its style while off screen, which scopes counters to
    it: the editor's pages draw the numbers the engine laid them out with (DOCE-PAGINATION-11.9). The
-   viewer starts its counters from the pages before instead (DOCE-PAGINATION-13.6). */
+   viewer starts its counters from the pages before instead (DOCE-PAGINATION-13.6), and the
+   measuring view, not contained, counts them as the pages draw them. */
 .de-document-editor[data-text-layout='pretext']:not(.de-document-viewer)
+  .de-document-editor__content
   .pm-page-content
   :is(
     .doc-table-caption-line,
@@ -1008,12 +1010,14 @@ div.de-host-view {
 }
 
 .de-document-editor[data-text-layout='pretext']:not(.de-document-viewer)
+  .de-document-editor__content
   .pm-page-content
   :is(h1, h2, h3, h4, h5, h6)::before {
   content: attr(data-number);
 }
 
 .de-document-editor[data-text-layout='pretext']:not(.de-document-viewer)
+  .de-document-editor__content
   .pm-page-content
   .de-math[data-display='display']::after {
   content: var(--de-number, none);
