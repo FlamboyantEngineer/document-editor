@@ -406,7 +406,7 @@ function useEditorLayout(
       <DocumentEditorContext value={context.current}>{shown}</DocumentEditorContext>
     ),
   });
-  const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
+  const view = usePagedView(progress.paged, engine.view, { state, ...paging });
   useMountTelemetry(props.telemetry, engine.view, progress.paged?.projection ?? null);
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
   // Pages that wait for template fonts are not shown without them: their first layout fails.

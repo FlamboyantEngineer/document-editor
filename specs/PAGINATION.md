@@ -527,6 +527,13 @@ The first key or character the writer types right after a click, on the pages or
 Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/pages-view.tsx`
 Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`
 
+### DOCE-PAGINATION-7.25 - No older caret drawn back
+
+A selection the pages have sent, such as the caret a key moved, shall stay when React commits a render of an older state after it, as a render under way when the key came: the pages draw the projection's latest state, not the one the render holds, and a host state the pages' own commits made is not shown on them again once they have sent a later one, so the next key acts where the last one left the caret.
+
+Implementation: `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/use-paged-projection.ts`
+Verification: `src/components/document-editor/pages-view.test.tsx`, `src/components/document-editor/use-paged-projection.test.ts`, `e2e/caret-keys.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers
@@ -612,7 +619,7 @@ Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.5 - Prefixes and inline atoms
 
-A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, drawn on one line, and sit on the baseline at its own baseline, or at its bottom when it gives none. A line shall be as tall as the block's strut (the font's ascent and descent rounded to whole pixels, with half the rest of the leading above and half below), grown by the atoms that reach above or below it. Without a size the block shall not be laid out, and the reason is given.
+A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, drawn on one line, and sit on the baseline at its own baseline, or at its bottom when it gives none. A line shall be as tall as the block's strut, grown by the atoms and the text in another font that reach above or below it. A font's box is its ascent and descent, rounded to whole device pixels at the `scale` option's device pixel ratio as Chromium rounds them (at a ratio other than 1, a pixel moves from the ascent to a descent that rounding shortened), with half the rest of its leading above, truncated to the layout unit, and the rest below; the block's strut takes the block's leading, and text in another font the leading of its own size at the block's line height, which it inherits. Subscript and superscript do not grow the line. Without a size the block shall not be laid out, and the reason is given.
 
 Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/metrics.ts`, `src/layout-engine/text-layout.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
@@ -764,6 +771,13 @@ An offered completion (DOCE-AUTOMATION-3) drawn in a forced block shall take no 
 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-PAGINATION-11.9 - Numbers from the engine
+
+With the option on, the pages shall draw the numbers the engine laid them out with, not the stylesheet's counters, which each page's style containment (DOCE-PAGINATION-11.6) would start again: every heading on every page, drawn on forced lines or not, shall carry its number with its space as `data-number` (empty for one without, as a later part of a split heading), and each shown caption, linked code and display equation its label or number as `--de-number` (a caption's label with its separator, found by the id of the object it captions, so a later part of a split table shows the first part's; an equation's in document order), which the reference stylesheet's generated content reads. The labels come from the canonical document under the engine's template (`blockNumbers`, `catalogDocument`), so every page draws the numbers a page without containment would.
+
+Implementation: `src/pagination/engine-numbers.ts`, `src/pagination/projection.ts`, `labs/reference/document.css`
+Verification: `src/pagination/engine-numbers.test.ts`, `e2e/text-layout.spec.ts`
 
 ## DOCE-PAGINATION-12 - Widths from the font files
 

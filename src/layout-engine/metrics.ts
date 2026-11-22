@@ -1,14 +1,17 @@
 // The font measures the engine needs beside line breaking: a text's width, for generated content
-// such as a paragraph's number, and the strut a line box grows from when an inline atom is taller
-// than the text, as Chromium's line box does.
+// such as a paragraph's number, and the struts a line box is built from, the block's and those of
+// text in other fonts on the line, as Chromium's line box is.
 
-import { type MeasureContext, measureNaturalWidth, prepare } from '@chenglou/pretext';
+import { measureNaturalWidth, prepare } from '@chenglou/pretext';
 
 /** The part of a line box above and below its baseline. */
 export interface Strut {
   readonly ascent: number;
   readonly descent: number;
 }
+
+/** Layout units per CSS pixel. */
+const LAYOUT_UNITS = 64;
 
 /** The share of a font's size above the baseline when Canvas gives no font metrics. */
 const FALLBACK_ASCENT = 0.8;
@@ -18,42 +21,68 @@ export function textWidth(text: string, font: string): number {
   return measureNaturalWidth(prepare(text, font, { whiteSpace: 'pre-wrap' }));
 }
 
-type MetricsContext = Pick<MeasureContext, 'font' | 'measureText'>;
+/** A size whose Canvas metrics are a font's own units, so they are exact before rounding. */
+const DESIGN_SIZE = 2048;
 
-// Where font metrics come from: the width source's context once one is set, else a Canvas.
-let metricsContext: () => MetricsContext | null = () => new OffscreenCanvas(1, 1).getContext('2d');
+/** Where font metrics come from: a Canvas-shaped context, the font files' measurer included. */
+export type MetricsContext = () => Pick<OffscreenCanvasRenderingContext2D, 'font' | 'measureText'>;
 
-/**
- * Reads font metrics from the same source as the widths (`setMeasureContext`'s factory), such as
- * the served font files; without one, from a Canvas.
- */
-export function setMetricsContext(create?: () => MetricsContext): void {
-  let context: MetricsContext | null = null;
-  metricsContext = create
-    ? () => (context ??= create())
-    : () => new OffscreenCanvas(1, 1).getContext('2d');
+/** Where a line's struts are measured, and at which device pixel ratio they are rounded. */
+interface StrutSource {
+  /** The context the metrics are read from; a Canvas when not given. */
+  readonly context?: MetricsContext | undefined;
+  /** The device pixel ratio; 1, the canonical layout's, when not given. */
+  readonly scale?: number | undefined;
 }
 
-function fontMetrics(font: string, size: number): Strut {
-  const context = metricsContext();
-  if (context) context.font = font;
-  const metrics = context?.measureText('x');
-  const ascent = metrics?.fontBoundingBoxAscent;
-  const descent = metrics?.fontBoundingBoxDescent;
-  if (typeof ascent === 'number' && typeof descent === 'number')
-    return { ascent: Math.round(ascent), descent: Math.round(descent) };
-  return {
-    ascent: Math.round(size * FALLBACK_ASCENT),
-    descent: Math.round(size * (1 - FALLBACK_ASCENT)),
+/** Gives a font's strut at a leading; the fonts' metrics are kept. */
+type StrutOf = (font: string, size: number, leading: number) => Strut;
+
+function canvasContext() {
+  const context = new OffscreenCanvas(1, 1).getContext('2d');
+  return context ?? { font: '', measureText: () => ({}) as TextMetrics };
+}
+
+/**
+ * Measures struts: a font's ascent and descent, rounded to whole device pixels as Chromium rounds
+ * them, with half the rest of the leading above, truncated to the layout unit, and the rest below.
+ */
+export function createStruts({ context = canvasContext, scale = 1 }: StrutSource = {}): StrutOf {
+  const perPixel = new Map<string, Strut | null>();
+  // A font's ascent and descent per pixel of size, from its metrics at the design size.
+  const unitsOf = (font: string): Strut | null => {
+    const key = font.replace(/\d+(?:\.\d+)?px/, `${String(DESIGN_SIZE)}px`);
+    if (perPixel.has(key)) return perPixel.get(key) ?? null;
+    const measuring = context();
+    measuring.font = key;
+    const { fontBoundingBoxAscent: ascent, fontBoundingBoxDescent: descent } =
+      measuring.measureText('x') as Partial<TextMetrics>;
+    const units =
+      typeof ascent === 'number' && typeof descent === 'number'
+        ? { ascent: ascent / DESIGN_SIZE, descent: descent / DESIGN_SIZE }
+        : null;
+    perPixel.set(key, units);
+    return units;
+  };
+  return (font, size, leading) => {
+    const { ascent, descent } = fontMetrics(unitsOf(font), size, scale);
+    const units = LAYOUT_UNITS * scale;
+    const half = Math.floor(((leading - ascent - descent) / 2) * units) / units;
+    return { ascent: ascent + half, descent: leading - ascent - half };
   };
 }
 
-/**
- * A block's strut: its font's ascent and descent, rounded to whole pixels as Chromium rounds them,
- * with half the rest of the leading above and half below.
- */
-export function strutOf(font: string, size: number, leading: number): Strut {
-  const { ascent, descent } = fontMetrics(font, size);
-  const half = (leading - ascent - descent) / 2;
-  return { ascent: ascent + half, descent: leading - ascent - half };
+// A font's ascent and descent as Chromium's layout takes them: in whole device pixels at the
+// ratio `scale`, and, where Chromium positions glyphs at subpixels (at ratios other than 1), with a
+// pixel moved from the ascent to a descent that rounding shortened.
+function fontMetrics(perPixel: Strut | null, size: number, scale: number): Strut {
+  const unit = perPixel ?? { ascent: FALLBACK_ASCENT, descent: 1 - FALLBACK_ASCENT };
+  const exactDescent = unit.descent * size * scale;
+  let ascent = Math.round(unit.ascent * size * scale);
+  let descent = Math.round(exactDescent);
+  if (scale !== 1 && descent < exactDescent && ascent >= 1) {
+    ascent -= 1;
+    descent += 1;
+  }
+  return { ascent: ascent / scale, descent: descent / scale };
 }
