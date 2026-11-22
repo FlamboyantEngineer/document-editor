@@ -118,7 +118,7 @@ test.describe('the read-only viewer', () => {
   // A late page's first caption, drawn alone and with every page before it drawn: the same number.
   for (const [name, index] of [
     ['caption-numbering', 4],
-    ['long-mixed', 26],
+    ['long-mixed', 25],
   ] as const) {
     test(`DOCE-PAGINATION-13.6 numbers page ${String(index + 1)} of ${name} drawn alone on from the pages before`, async ({
       page,
