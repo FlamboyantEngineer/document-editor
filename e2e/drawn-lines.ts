@@ -65,8 +65,10 @@ export function readDrawnLines(
       const pages = [...document.querySelectorAll(pagesSelector)];
       const range = document.createRange();
       // Text the writer cannot edit is drawn beside the block's own: an atom's node view, a widget.
+      // A footnote marker's number is laid out on the line, as the computed lines read it.
       const ownText = (node: Node) => {
         const parent = node.parentElement;
+        if (parent?.closest('.footnote-reference, [data-footnote-reference]')) return true;
         return !parent?.closest('[contenteditable="false"], .ProseMirror-widget');
       };
       const find = (at: (typeof asked)[number]) => {
