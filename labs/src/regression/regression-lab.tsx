@@ -89,7 +89,7 @@ function RegressionLab() {
   const [state, setState] = useState(first.state);
   const handle = useRef<DocumentEditorHandle>(null);
   useStressProbe(handle, null);
-  useRegressionProbe(handle);
+  useRegressionProbe(handle, template);
   const pick = (next: string) => {
     if (!isName(next)) return;
     setName(next);
