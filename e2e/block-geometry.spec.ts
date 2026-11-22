@@ -23,13 +23,13 @@ declare global {
 }
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
-const MODES = ['dom', 'pretext'] as const;
+// Under the text layout engine only: it becomes the only mode.
+const MODES = ['pretext'] as const;
 type Mode = (typeof MODES)[number];
 
 // The known faults, each with the thread that owns its fix and the review finding it is
 // (/mnt/project-files/pretext-review/requirements-review/findings.md).
 const MATH = 'Q2 atoms (P1): display math planned as one line of its source, not the KaTeX drawn';
-const INLINE_MATH = 'Q2 atoms (P1): a line with inline math planned shorter than drawn';
 const CONTINUED =
   'Q4 block metrics (V2): a code or quote continuation drawn with its top margin and continued line';
 const LINKED = 'Q4 block metrics (V2): linked code blocks drawn further apart than planned';
@@ -43,14 +43,6 @@ type Known = Readonly<Record<string, string>>;
 // What differs today, by document and text layout. An entry stands for every block of its type
 // with that difference; the check fails when none has it any more.
 const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>>> = {
-  'caption-numbering dom': { 'math_display height': MATH },
-  'code-block-stress dom': {
-    'code_figure height': CONTINUED,
-    'code_figure gap': CONTINUED,
-    'linked_code_block gap': LINKED,
-    'paragraph gap': LINKED,
-    'page overflow': CONTINUED,
-  },
   'code-block-stress pretext': {
     'code_figure height': CONTINUED,
     'code_figure gap': CONTINUED,
@@ -58,41 +50,20 @@ const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>
     'paragraph gap': LINKED,
     'page overflow': CONTINUED,
   },
-  'code-blocks dom': { 'code_figure height': CONTINUED, 'code_figure gap': CONTINUED },
   'code-blocks pretext': { 'code_figure height': CONTINUED, 'code_figure gap': CONTINUED },
-  'cross-references dom': { 'math_display height': MATH },
   'cross-references pretext': { 'math_display height': MATH },
-  'linked-code dom': { 'linked_code_block gap': LINKED },
   'linked-code pretext': { 'linked_code_block gap': LINKED },
-  'long-mixed dom': {
-    'code_figure height': CONTINUED,
-    'code_figure gap': CONTINUED,
-    'page overflow': CONTINUED,
-  },
   'long-mixed pretext': { 'code_figure height': CONTINUED, 'code_figure gap': CONTINUED },
-  'math dom': { 'math_display height': MATH },
   'math pretext': { 'math_display height': MATH },
-  'oversized-blocks dom': {
-    'blockquote height': CONTINUED,
-    'blockquote gap': CONTINUED,
-    'page overflow': CONTINUED,
-  },
   'oversized-blocks pretext': {
     'blockquote height': CONTINUED,
     'blockquote gap': CONTINUED,
     'page overflow': CONTINUED,
   },
-  'roman-numbering-coverage dom': { 'math_display height': MATH },
   'roman-numbering-coverage pretext': { 'math_display height': MATH },
-  'scripts dom': { 'script_block gap': OBJECT_GAP },
   'scripts pretext': { 'script_block gap': OBJECT_GAP },
-  'table-both-header-modes dom': { 'table_figure height': TABLE_PART },
   'table-both-header-modes pretext': { 'table_figure height': TABLE_PART },
-  'table-long-headerless dom': { 'table_figure height': TABLE_PART },
-  'table-long-repeated-header dom': { 'table_figure height': TABLE_PART },
-  'table-long-single-header dom': { 'table_figure height': TABLE_PART },
   'table-long-single-header pretext': { 'table_figure height': TABLE_PART },
-  'template-blocks-and-variables dom': { 'paragraph gap': OBJECT_GAP },
   'template-blocks-and-variables pretext': { 'paragraph gap': OBJECT_GAP },
 };
 
@@ -121,8 +92,6 @@ const SOMETIMES: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Kn
     ),
   ),
   'caption-numbering pretext': { 'figure height': NO_IMAGE, 'math_display height': TIMING },
-  // Drawn taller in Chromium 153, as planned in CI's build: the math font's line metrics differ.
-  'math dom': { 'paragraph height': INLINE_MATH },
 };
 
 async function open(page: Page, name: RegressionDocumentName, textLayout: Mode) {
