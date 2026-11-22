@@ -139,4 +139,23 @@ describe('findWrappedLines', () => {
     root.append(block);
     expect(findWrappedLines(root)).toEqual([]);
   });
+
+  it('DOCE-PAGINATION-11.4 counts a subscript, a superscript and inline code on their line at 90 percent', () => {
+    // The boxes Chromium draws a one-line paragraph with H<sub>2</sub>O, m<sup>2</sup> and
+    // <code>npm test</code> in at a zoom of 90 percent, then the next line's text.
+    const boxes = [
+      new DOMRect(350.9, 339.27, 56.1, 15),
+      new DOMRect(406.9, 345.91, 5.5, 12),
+      new DOMRect(412.4, 339.27, 112.1, 15),
+      new DOMRect(524.5, 336.88, 5.5, 12),
+      new DOMRect(557.8, 344.27, 48.6, 10),
+      new DOMRect(606.4, 339.27, 50.9, 15),
+    ];
+    Object.assign(Range.prototype, { getClientRects: () => boxes });
+    const root = document.createElement('div');
+    root.append(forced('marks', 1));
+    expect(findWrappedLines(root)).toEqual([]);
+    boxes.push(new DOMRect(350.9, 357.7, 80, 15));
+    expect(findWrappedLines(root)).toEqual([{ elementId: 'marks', computed: 1, drawn: 2 }]);
+  });
 });

@@ -11,7 +11,14 @@ const HTML_IN_CANVAS = '--enable-blink-features=CanvasDrawElement';
 
 // Chromium at a real device pixel ratio, which changes its layout unit. Playwright's emulated
 // `deviceScaleFactor` does not, so the browser is launched with the ratio and no emulated viewport.
-function devicePixelRatio(ratio: number) {
+function devicePixelRatio(
+  ratio: number,
+  testMatch: readonly RegExp[] = [
+    /\/pretext-pagination-fuzz\.spec\.ts$/,
+    /\/layout-invariant\.spec\.ts$/,
+    /\/canvas-pages\.spec\.ts$/,
+  ],
+) {
   return {
     name: `chromium-dpr-${String(ratio)}`,
     use: {
@@ -26,11 +33,7 @@ function devicePixelRatio(ratio: number) {
         ...(executablePath ? { executablePath } : {}),
       },
     },
-    testMatch: [
-      /\/pretext-pagination-fuzz\.spec\.ts$/,
-      /\/layout-invariant\.spec\.ts$/,
-      /\/canvas-pages\.spec\.ts$/,
-    ],
+    testMatch: [...testMatch],
   };
 }
 
@@ -63,6 +66,10 @@ export default defineConfig({
     // the lines it computed (DOCE-LABS-8), at real device pixel ratios.
     devicePixelRatio(1.25),
     devicePixelRatio(2),
+    // The one-result invariant at the ratios of display scaling at 150, 175 and 300 percent.
+    devicePixelRatio(1.5, [/\/layout-invariant\.spec\.ts$/]),
+    devicePixelRatio(1.75, [/\/layout-invariant\.spec\.ts$/]),
+    devicePixelRatio(3, [/\/layout-invariant\.spec\.ts$/]),
     // The heaviest timing test, 300 pages beside 500 comment threads, alone after the lab tests, so
     // it slows no other timing test.
     {

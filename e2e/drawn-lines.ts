@@ -22,13 +22,15 @@ export interface DrawnPages {
   readonly forced: readonly (readonly string[])[];
 }
 
-/** Where the pages are read: the editor's (by default) or the read-only viewer's. */
-export type PagesIn = 'editor' | 'viewer';
+/** Where the pages are read: the editor's (by default), the read-only viewer's or a print's. */
+export type PagesIn = 'editor' | 'viewer' | 'print';
 
-// The pages of the editor's view, or of the viewer, whose content element is its root's child.
+// The pages of the editor's view, or of the viewer, whose content element is its root's child, or
+// of a print document, which holds nothing else.
 const PAGES: Record<PagesIn, string> = {
   editor: ':not(.de-document-viewer) > .de-document-editor__content .pm-page',
   viewer: '.de-document-viewer > .de-document-editor__content .pm-page',
+  print: '.pm-page',
 };
 
 /** Draws on the page: the pages and the forced blocks they show, by `forcedSelector`. */
@@ -136,4 +138,71 @@ export function readDrawnLines(
     },
     [blocks, PAGES[pagesIn]] as const,
   );
+}
+
+/** A text block fragment with the lines computed for it, to compare with the lines drawn. */
+export interface ComputedBlock extends BlockAt {
+  readonly lines: readonly string[];
+}
+
+/** A block whose drawn lines differ from the computed ones, or that is not drawn. */
+export interface LineMismatch {
+  readonly page: number;
+  /** The block, as `elementId#part`. */
+  readonly block: string;
+  readonly computed: readonly string[];
+  readonly drawn: readonly string[] | null;
+}
+
+// Spaces as the stored text holds them: a no-break space a browser kept at a writer's edge is a space.
+const plain = (text: string) => text.replaceAll('\u00a0', ' ');
+
+/**
+ * The computed blocks of the engine's result (`textLines()`), with their lines' text, and those
+ * the pages draw otherwise: each block whose drawn lines differ in count or text.
+ */
+export async function mismatchedLines(
+  page: Page,
+  computed: readonly { readonly blocks: readonly TextBlockLines[] }[],
+  pagesIn: PagesIn = 'editor',
+): Promise<LineMismatch[]> {
+  const asked: ComputedBlock[] = computed.flatMap(({ blocks }, index) =>
+    blocks.flatMap((block) =>
+      block.lines
+        ? [
+            {
+              page: index,
+              elementId: block.elementId,
+              part: block.part,
+              lines: block.lines.map((line) => plain(line.text)),
+            },
+          ]
+        : [],
+    ),
+  );
+  const drawn = await readDrawnLines(page, asked, pagesIn);
+  return asked.flatMap((block, index) => {
+    const own = drawn[index]?.map(plain) ?? null;
+    const same =
+      own !== null &&
+      own.length === block.lines.length &&
+      own.every((text, at) => text === block.lines[at]);
+    return same
+      ? []
+      : [
+          {
+            page: block.page,
+            block: `${block.elementId}#${String(block.part)}`,
+            computed: block.lines,
+            drawn: own,
+          },
+        ];
+  });
+}
+
+/** What `mismatchedLines` reads of a computed block. */
+interface TextBlockLines {
+  readonly elementId: string;
+  readonly part: number;
+  readonly lines: readonly { readonly text: string }[] | null;
 }

@@ -753,7 +753,7 @@ Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
 
 ### DOCE-PAGINATION-11.4 - The guard on forced lines
 
-`findWrappedLines(root)` shall give each forced block whose drawn lines differ in number from its computed ones, as when the browser wrapped a line by itself, with its element id and both counts. It reads the boxes of the block's text, of each hard break, so a line that holds only a break counts, and of each inline atom (`contenteditable="false"`) as a whole, never the parts an atom draws inside itself, and boxes that overlap by half the shorter one's height are on one line, so an atom taller than its text stays on its line. It reads every forced block's boxes, so tests and development call it, not each layout.
+`findWrappedLines(root)` shall give each forced block whose drawn lines differ in number from its computed ones, as when the browser wrapped a line by itself, with its element id and both counts. It reads the boxes of the block's text, of each hard break, so a line that holds only a break counts, and of each inline atom (`contenteditable="false"`) as a whole, never the parts an atom draws inside itself, and boxes that overlap by half the shorter one's height are on one line, so an atom taller than its text, a subscript, a superscript or inline code is counted on its line at every zoom. It reads every forced block's boxes, so tests and development call it, not each layout.
 
 Implementation: `src/pagination/layout-validation.ts`
 Verification: `src/pagination/layout-validation.test.ts`, `e2e/text-layout.spec.ts`
@@ -868,7 +868,7 @@ Verification: `src/document/print-pages.test.ts`, `e2e/print-lines.spec.ts`
 
 ### DOCE-PAGINATION-13.5 - Snapshots on the computed lines
 
-With the option on, a print snapshot (DOCE-EDITOR-6.9) shall keep each forced block's hooks and the root's `data-text-layout`, so each sheet of its PDF holds its page's computed lines, and a forced block shall keep the number its lines were laid out with rather than take the static number print gives other numbered elements (DOCE-EDITOR-6.22).
+With the option on, a print snapshot (DOCE-EDITOR-6.9) shall keep each forced block's hooks and the root's `data-text-layout`, so each sheet of its PDF holds its page's computed lines, and the print document, laid out for print, draws each forced block on exactly those lines, read from its characters' line boxes, so a line the browser wrapped by itself fails though its text is all there (as for the static render of DOCE-PAGINATION-13.4); a forced block shall keep the number its lines were laid out with rather than take the static number print gives other numbered elements (DOCE-EDITOR-6.22).
 
 Implementation: `src/engine/snapshot.ts`, `src/engine/print-links.ts`, `src/document/print-content.ts`
 Verification: `e2e/print-lines.spec.ts`
