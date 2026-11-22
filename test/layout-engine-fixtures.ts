@@ -68,7 +68,15 @@ export function standInTextLayout(refuse: readonly string[] = []): BlockTextLayo
     layoutText: (node, place) =>
       refuse.includes(node.type.name)
         ? { ok: false, reason: `${node.type.name} is not supported by the stand-in` }
-        : { ok: true, table: standInLines(node, place.width, place.prefix) },
+        : {
+            ok: true,
+            // A footnote number stands before the text with a space, as characters of the line.
+            table: standInLines(
+              node,
+              place.width,
+              (place.prefix ?? '') + (place.footnoteNumber ? `${place.footnoteNumber} ` : ''),
+            ),
+          },
   };
 }
 
@@ -78,11 +86,13 @@ export function standInBlockLayout({
   measure = () => ({ size: { width: 120, height: 40 } }),
   refuse = [],
   labelOf,
+  footnoteOf,
 }: {
   template?: TemplateFile;
   measure?: AtomMeasurer;
   refuse?: readonly string[];
   labelOf?: (caption: ProseMirrorNode) => string | undefined;
+  footnoteOf?: (entry: ProseMirrorNode) => string | undefined;
 } = {}) {
   const atoms = createAtomCache({ measure });
   const layout = createBlockLayout({
@@ -90,6 +100,7 @@ export function standInBlockLayout({
     atoms,
     metrics: (scope) => blockMetrics(template, scope),
     labelOf,
+    footnoteOf,
   });
   return { layout, atoms };
 }

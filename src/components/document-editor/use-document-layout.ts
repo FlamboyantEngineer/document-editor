@@ -275,6 +275,8 @@ export interface LayoutProgress {
   textLines(): PageTextLines[];
   /** The pages' layout as data (`textLayout: 'pretext'`); null else. */
   pagesLayout(): PagesLayout | null;
+  /** With the layout engine, draws every page on its lines, or only those near the screen again. */
+  drawAllLines(all: boolean): void;
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
@@ -285,6 +287,7 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
       stats: () => active.current?.stats() ?? null,
       textLines: () => active.current?.textLines() ?? [],
       pagesLayout: () => active.current?.pagesLayout() ?? null,
+      drawAllLines: (all) => active.current?.drawAllLines(all),
     }),
     [active],
   );

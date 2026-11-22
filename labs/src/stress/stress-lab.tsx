@@ -100,6 +100,9 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
 const TEXT_LAYOUT =
   new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
 
+// `?suggest` types as suggestions, so tracked changes can be tried on the stress documents.
+const SUGGEST = new URLSearchParams(window.location.search).has('suggest');
+
 // `?compare` shows the document's changes since it was opened as change bars, as a reader reviewing
 // changes sees it, so the budgets can be measured with a comparison running.
 const COMPARE = new URLSearchParams(window.location.search).has('compare')
@@ -258,6 +261,7 @@ function StressLab({
         className="lab-document-editor"
         aria-label="Stress document"
         {...editor}
+        {...(SUGGEST ? { suggesting: true } : {})}
         handleRef={handle}
         events={events}
         compare={COMPARE}

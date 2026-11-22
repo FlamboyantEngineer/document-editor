@@ -51,6 +51,8 @@ export interface RegressionProbe {
    * (`renderLayoutPrintPage`), as a standalone page; null without the engine.
    */
   layoutPrint(options?: PrintPageOptions): string | null;
+  /** With `textLayout=pretext`, draws every page on the engine's lines, or only those near again. */
+  drawAllLines(all: boolean): void;
 }
 
 /** What the probe's snapshot takes: the editor's snapshot options. */
@@ -194,6 +196,7 @@ export function useRegressionProbe(
         const layout = handle.current?.pagesLayout();
         return layout ? renderLayoutPrintPage(layout, template, options) : null;
       },
+      drawAllLines: (all) => handle.current?.drawAllLines(all),
     };
     Object.assign(window, { regressionLab: probe });
   }, [handle, template]);

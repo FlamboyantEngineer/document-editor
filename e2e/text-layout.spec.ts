@@ -30,14 +30,21 @@ async function open(page: Page, name: RegressionDocumentName, textLayout: 'dom' 
 // and the pages overflowing.
 const readPages = (page: Page) =>
   page.evaluate(() => {
-    const forced = [...document.querySelectorAll<HTMLElement>('.de-forced-lines')];
-    const computed = window.regressionLab
-      .textLines()
-      .flatMap((each) => each.blocks)
-      .filter((block) => block.lines !== null);
+    const key = (id: string, part: number) => `${id}#${String(part)}`;
+    const computed = new Map(
+      window.regressionLab
+        .textLines()
+        .flatMap((each) => each.blocks)
+        .map((block) => [key(block.elementId, block.part), block.lines?.length ?? null]),
+    );
+    // Only the pages near the screen are drawn on forced lines (DOCE-PAGINATION-11.6).
+    const forced = [...document.querySelectorAll<HTMLElement>('.de-forced-lines')].map((block) => {
+      const id = key(block.dataset.id ?? '', Number(block.dataset.splitPartIndex ?? 0));
+      return { id, drawn: Number(block.dataset.lines), computed: computed.get(id) };
+    });
     return {
-      forced: forced.map((block) => Number(block.dataset.lines)),
-      computed: computed.map((block) => block.lines?.length ?? 0),
+      forced,
+      mismatched: forced.filter((block) => block.drawn !== block.computed),
       wrapped: window.regressionLab.wrappedLines(),
       overflow: [...document.querySelectorAll<HTMLElement>('.pm-page-content')].filter(
         (body) => body.scrollHeight > body.clientHeight + 1,
@@ -56,7 +63,7 @@ test.describe('the layout engine on the pages', () => {
       await open(page, name, 'pretext');
       const laid = await readPages(page);
       expect(laid.wrapped).toEqual([]);
-      expect(laid.forced).toEqual(laid.computed);
+      expect(laid.mismatched).toEqual([]);
       expect(laid.overflow).toBeLessThanOrEqual(measured.overflow);
     });
   }
@@ -80,8 +87,89 @@ test.describe('the layout engine on the pages', () => {
     });
     const after = await readPages(page);
     expect(after.wrapped).toEqual([]);
-    expect(after.forced).toEqual(after.computed);
+    expect(after.mismatched).toEqual([]);
     await expect(paragraph).toContainText('lines of this paragraph');
+  });
+
+  test('DOCE-PAGINATION-11.6 draws on forced lines only the pages near the screen', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const pages = page.locator('.de-document-editor__content .pm-page');
+    // The pages holding forced blocks, by index.
+    const forcedPages = () =>
+      pages.evaluateAll((all) =>
+        all.flatMap((each, index) => (each.querySelector('.de-forced-lines') ? [index] : [])),
+      );
+    // The last page with a block the engine draws.
+    const last = await page.evaluate(() =>
+      window.regressionLab
+        .textLines()
+        .findLastIndex((each) => each.blocks.some((block) => block.lines !== null)),
+    );
+    expect(last).toBeGreaterThan(10);
+    expect(await forcedPages()).not.toContain(last);
+    await pages.nth(last).scrollIntoViewIfNeeded();
+    await expect.poll(forcedPages).toContain(last);
+    // Beside the pages near the end, only the first stays drawn: it holds the caret.
+    const far = (await forcedPages()).filter((index) => index > 0 && index < last - 4);
+    expect(far).toEqual([]);
+    const after = await readPages(page);
+    expect(after.wrapped).toEqual([]);
+    expect(after.mismatched).toEqual([]);
+  });
+
+  test('DOCE-PAGINATION-11.6 draws a page on forced lines before it scrolls into view', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    // Scrolls the document so a page starts a quarter of a screen below the visible area, and
+    // tells whether that page is drawn on forced lines.
+    const justBelow = (index: number) =>
+      page.evaluate((at) => {
+        const scroller = document.querySelector('.ui-scroll-region__viewport');
+        const target = document.querySelectorAll('.de-document-editor__content .pm-page')[at];
+        if (!scroller || !target) throw new Error('no scroll region or page');
+        const below = target.getBoundingClientRect().top - scroller.getBoundingClientRect().bottom;
+        scroller.scrollTop += below - scroller.clientHeight / 4;
+      }, index);
+    const forced = (index: number) =>
+      page
+        .locator('.de-document-editor__content .pm-page')
+        .nth(index)
+        .evaluate((each) => Boolean(each.querySelector('.de-forced-lines')));
+    // The pages with a block the engine draws, one far down and one back up.
+    const engine = await page.evaluate(() =>
+      window.regressionLab
+        .textLines()
+        .flatMap((each, index) => (each.blocks.some((block) => block.lines) ? [index] : [])),
+    );
+    const far = engine[Math.floor(engine.length * 0.6)] ?? 0;
+    const back = engine[Math.floor(engine.length * 0.3)] ?? 0;
+    expect(back).toBeGreaterThan(1);
+    for (const index of [far, back]) {
+      await justBelow(index);
+      await expect.poll(() => forced(index), { message: `page ${String(index)}` }).toBe(true);
+    }
+  });
+
+  test('DOCE-PAGINATION-11.6 snapshots every page on the engine lines', async ({ page }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const counts = await page.evaluate(() => {
+      const html = window.regressionLab.snapshot() ?? '';
+      const snapshot = new DOMParser().parseFromString(html, 'text/html');
+      const computed = window.regressionLab
+        .textLines()
+        .flatMap((each) => each.blocks)
+        .filter((block) => block.lines !== null).length;
+      return {
+        computed,
+        printed: snapshot.querySelectorAll('.de-forced-lines').length,
+        shown: document.querySelectorAll('.de-forced-lines').length,
+      };
+    });
+    expect(counts.printed).toBe(counts.computed);
+    expect(counts.shown).toBeLessThan(counts.computed);
   });
 
   test('DOCE-PAGINATION-11.3 gives no computed lines without the option', async ({ page }) => {

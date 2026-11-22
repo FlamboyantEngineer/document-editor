@@ -166,7 +166,7 @@ The pagination regression scenarios lay out the regression set's documents (`tes
 
 ### DOCE-LABS-4.1 - The regression lab
 
-The `regression` lab shall show a document of the regression set on its template's pages, the template resolved through the set's templates on the base template, in the document editor with its scrolling frame and status bar, picked by its Document picker or the page's `document` query parameter, in the web layout when the `layout` query parameter is `web`, and on the layout engine's lines when the `textLayout` query parameter is `pretext` (DOCE-PAGINATION-11), on a projection of the document (DOCE-PAGINATION-7.17), with quotes drawn by a host's React view, taller than the schema draws them, when it has a `hostViews` one. It shows the scenarios the document as it would be stored, puts a caret at a split block's fragment boundary, by the position the caret has once the pages are joined whole, gives the pages as a snapshot for printing (`snapshot`, DOCE-EDITOR-6.19), and gives the lines the engine computed for each page (`textLines`) and the forced blocks the browser drew on other lines (`wrappedLines`) (`window.regressionLab`). Every document lays out on pages that hold their content, as many as the status bar counts.
+The `regression` lab shall show a document of the regression set on its template's pages, the template resolved through the set's templates on the base template, in the document editor with its scrolling frame and status bar, picked by its Document picker or the page's `document` query parameter, in the web layout when the `layout` query parameter is `web`, and on the layout engine's lines when the `textLayout` query parameter is `pretext` (DOCE-PAGINATION-11), on a projection of the document (DOCE-PAGINATION-7.17), with quotes drawn by a host's React view, taller than the schema draws them, when it has a `hostViews` one. It shows the scenarios the document as it would be stored, puts a caret at a split block's fragment boundary, by the position the caret has once the pages are joined whole, gives the pages as a snapshot for printing (`snapshot`, DOCE-EDITOR-6.19), and gives the lines the engine computed for each page (`textLines`) and the forced blocks the browser drew on other lines (`wrappedLines`), and draws every page on the engine's lines (`drawAllLines`) (`window.regressionLab`). Every document lays out on pages that hold their content, as many as the status bar counts.
 
 Implementation: `labs/src/regression.lab.tsx`, `labs/regression.html`, `labs/src/regression/regression-lab.tsx`, `labs/src/regression/host-quote-view.tsx`, `labs/src/regression/regression-documents.ts`, `labs/src/regression/regression-probe.ts`
 Verification: `e2e/regression.spec.ts`, `e2e/print.spec.ts`, `e2e/text-layout.spec.ts`
@@ -266,9 +266,9 @@ Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-LABS-5.1 - DOM-free prediction and virtual pages
 
-The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker. It shall reuse prepared inline data on width changes, reuse item-local line offsets at the same width, and discard both when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
+The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker, laying text blocks out with the library's text layout engine (DOCE-PAGINATION-9). Its HTML shall draw what the engine computes: the editor's pre-wrap white space, the engine's leadings, and inline code in the code font and size with 3px of padding on each side of each line. It shall reuse prepared inline data on width changes, reuse item-local line offsets at the same width, and discard both when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
 
-Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/html.ts`
+Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/settings.ts`, `labs/src/spikes/pretext/html.ts`, `labs/reference/pretext-pagination.css`, `src/layout-engine/text-layout.ts`
 Verification: `e2e/pretext-pagination.spec.ts`
 
 ### DOCE-LABS-5.2 - Independent HTML parity
@@ -321,3 +321,77 @@ With the lines drawn on the pages' own view and pages off screen skipping their 
 
 Implementation: `labs/src/spikes/forced-lines/direct.ts`, `labs/forced-lines.html`
 Verification: `e2e/forced-lines.performance.spec.ts`
+
+## DOCE-LABS-7 - Font-file widths spike
+
+### DOCE-LABS-7.1 - Widths from the font files
+
+The font-widths lab shall measure a fixed reference text (55 strings at five sizes in each served face: Geist regular, bold, italic and bold italic, Geist Mono, and the KaTeX main and sans faces) from the served font files, shaped with HarfBuzz in WebAssembly, and with the browser's Canvas, and show both fingerprints, the fingerprint of Pretext's line breaks for seeded paragraphs through each, and every string whose widths differ. The font-file widths and line breaks shall equal recorded fingerprints on every machine, in a page and in a worker alike, and the characters no served face has shall be reported. On Linux Chromium the font-file widths shall equal Canvas's, within the last bit of a float32 sum, wherever a served face has the glyphs. The measurer is the library's (DOCE-PAGINATION-11).
+
+Implementation: `labs/font-widths.html`, `labs/src/font-widths.lab.ts`, `src/layout-engine/font-files/`, `test/font-files-reference.ts`, `test/font-files-lines.ts`, `scripts/build-labs.mjs`, `scripts/font-widths.mjs`, `scripts/font-widths-coverage.mjs`
+Verification: `e2e/font-widths.spec.ts`
+
+### DOCE-LABS-7.2 - Closeness with font-file widths
+
+The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, mapping the template's families to them through `fontStacks` for both the HTML and the text layout engine, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used, and lay the natural HTML out under `text-rendering: geometricPrecision` with `font-synthesis: none`, as pages under Pretext layout are drawn. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind.
+
+Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/client.ts`, `labs/src/spikes/pretext/settings.ts`
+Verification: `e2e/font-widths.spec.ts`
+
+## DOCE-LABS-8 - One layout result
+
+### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones
+
+With `textLayout: 'pretext'`, the regression lab shall show (`window.regressionLab.textLines()`) the layout engine's result: page by page, each text block fragment it laid out with the lines it draws on that page, and each block it left to the DOM with the reason. For every document of the regression set, at zooms of 50, 75, 100, 125 and 150 percent at a device pixel ratio of 1, and of 50, 100 and 150 percent in Chromium launched at device pixel ratios 1.25 and 2, the editor shall draw as many pages as computed, each page shall draw exactly the forced blocks the engine put on it, and each block's drawn lines, read from the line boxes its own characters sit on, shall equal the computed lines in count and text. A block drawn in a narrower column than its lines were fitted to shall fail the check. The regression lab shall take a `zoom` query in percent.
+
+Implementation: `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`, `playwright.config.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.2 - The invariant through editing
+
+Typing and deleting at a paragraph split between pages, a hard break and a new paragraph shall keep DOCE-LABS-8.1: after the edit settles, the drawn lines and pages shall equal those computed again.
+
+Implementation: `labs/src/regression/regression-probe.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.3 - The caret at forced line starts
+
+After an edit at a forced line's start, the caret shall be drawn at the start of that line, not at the end of the line above, and Arrow Down and Arrow Up shall move one drawn line each and keep the caret's column. A caret the browser drew at a line's end, after End, shall stay there.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.4 - Inline offers keep the drawn lines
+
+With an inline completion offer showing inside a full forced line, the block shall draw exactly its computed lines: the browser shall wrap no line around the offer.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.5 - Formatting-only edits
+
+Making a word bold, undoing and redoing it shall each leave the drawn lines equal to the computed ones, and the lines computed after the undo and after the redo shall equal those computed before the bold and after it.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.6 - Grapheme clusters at forced line edges
+
+Repeated emoji, a joined emoji sequence and letters with combining marks, typed with no space so lines end and start inside them, shall be drawn on the computed lines; no line decoration shall start or end inside a grapheme cluster or hold half a surrogate pair, and Shift+Arrow Right at each line start shall select one whole cluster.
+
+Implementation: `src/pagination/forced-lines.ts`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.7 - Review and editing on a stress document
+
+On the scale lab's 300 pages with 500 comment threads and the text layout engine on, starting a comment on a forced line, typing and deleting suggested text, opening and closing the context menu and keyboard editing (a new paragraph, a hard break, deleting a word and undoing) shall leave every forced block on the pages in view drawing its computed number of lines. The stress labs shall type as suggestions with a `suggest` query.
+
+Implementation: `labs/src/stress/stress-lab.tsx`
+Verification: `e2e/layout-invariant.spec.ts`
+
+### DOCE-LABS-8.8 - The same result on every device
+
+For five documents of the regression set, a fingerprint of the computed result (the pages, each text block's type and part, and its line offsets or why the browser draws it) shall equal the recorded one at zooms of 50, 100 and 150 percent in Chromium at device pixel ratios 1, 1.25 and 2.
+
+Implementation: `src/pagination/text-engine.ts`
+Verification: `e2e/layout-invariant.spec.ts`

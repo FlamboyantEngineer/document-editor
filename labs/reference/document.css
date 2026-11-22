@@ -454,6 +454,26 @@ div.de-host-view {
   text-rendering: geometricPrecision;
 }
 
+/* An offered completion takes no room on a forced line: its text overflows from the caret, so the
+   line keeps the engine's breaks (DOCE-PAGINATION-11.8). */
+:where(.de-document-editor[data-text-layout='pretext']) .de-forced-lines .de-inline-completion {
+  display: inline-block;
+  width: 0;
+  white-space: pre;
+}
+
+/* Inline code on a forced line keeps its padding on each line piece, as the engine lays it out
+   (DOCE-PAGINATION-11.2), so a continuation line's text starts where the engine put it. */
+:where(.de-document-editor) .de-forced-lines :not(pre) > code {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Pages far from the screen skip their layout: their size is the page's own (DOCE-PAGINATION-11.6). */
+:where(.de-document-editor[data-text-layout='pretext']) .de-document-editor__content .pm-page {
+  content-visibility: auto;
+}
+
 :where(.de-document-editor[data-text-layout='pretext']) .pm-page-content :is(ol, ul) {
   line-height: var(--doc-paragraph-line-height, 1.5);
 }
@@ -1822,8 +1842,15 @@ a.de-contents__entry {
   outline-color: #b91c1c;
 }
 
+/* An empty block keeps a line and a half of the document's text size, as the layout engine lays it out. */
 .script-block[data-script-state='empty'] {
-  min-height: 1.5em;
+  min-height: calc(1.5 * var(--doc-paragraph-font-size, 12px));
+}
+
+/* Its message sits over that box and never grows it. */
+.script-block[data-script-state='empty'] > .de-script-message {
+  position: absolute;
+  inset: 0 0 auto;
 }
 
 /* What a failed block's runner said, or that its script produced nothing; never printed. */

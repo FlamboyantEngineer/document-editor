@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+      .fw-table {
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+      .fw-table :is(th, td) {
+        padding: 4px 10px;
+        text-align: start;
+        border-block-end: 1px solid color-mix(in srgb, currentcolor 15%, transparent);
+      }
+      .fw-table td:not(:first-child) {
+        text-align: end;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Spike: text widths from the served font files, shaped with HarfBuzz, beside Canvas."
+    />
+    <title>Spike: font-file widths · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/font-widths.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Spike: font-file widths</h1>
+      <p>
+        The reference text (275 strings per face) measured from the served font files with HarfBuzz,
+        and with Canvas <code>measureText</code> in this browser. Font-file widths are the same on
+        every machine; Canvas widths are this machine's. The Pretext lab measures with font files
+        under <a href="pretext-pagination.html?measurer=font-files">?measurer=font-files</a>.
+      </p>
+      <p id="fw-status" role="status">Measuring…</p>
+      <h2>Fingerprints</h2>
+      <table class="fw-table" id="fw-fingerprints"></table>
+      <h2>Font-file widths against Canvas</h2>
+      <table class="fw-table" id="fw-faces"></table>
+      <h2>Strings that differ</h2>
+      <table class="fw-table" id="fw-differences"></table>
+    </main>
+  </body>
+</html>

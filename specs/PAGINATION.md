@@ -584,21 +584,21 @@ The text layout engine (`src/layout-engine/`) lays a text block's lines out from
 
 ### DOCE-PAGINATION-9.1 - The line table
 
-`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block or a footnote entry out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1.
+`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block or a footnote entry out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1. The engine shall count the text runs it found prepared and those it prepared (`stats()`).
 
 Implementation: `src/layout-engine/line-table.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.2 - Typography from the template
 
-A text block's typography (`typography(node, scope)`) shall be its template scope's (a section's styles over the template's): a paragraph the paragraph style, a heading its level's, the document's title the title style, a code block the code style; a custom style (`className`) over a paragraph shall set what it sets, its weight and slant else normal, and over a heading only its size and slant. Unset values shall take the reference stylesheet's fallbacks: a serif 12px paragraph at a line height of 1.5, headings from 2em down to 0.9em at 1.2, a 24px title, monospace code at 1.4 with 8px of padding. Relative lengths shall resolve against the paragraph's size (`rem` against 16px), and lengths and leadings snap to 1/64 px. A family the host serves (`fontStacks`) shall be measured in the stack it names.
+A text block's typography (`typography(node, scope)`) shall be its template scope's (a section's styles over the template's): a paragraph the paragraph style, a heading its level's, the document's title the title style, a code block the code style; a custom style (`className`) over a paragraph shall set what it sets, its weight and slant else normal, and over a heading only its size and slant. Unset values shall take the reference stylesheet's fallbacks: a serif 12px paragraph at a line height of 1.5, headings from 2em down to 0.9em at 1.2, a 24px title, monospace code at 1.4 with 8px of padding. Relative lengths shall resolve against the paragraph's size (`rem` against 16px), lengths snap to the nearest 1/64 px, and a leading, the size times the line height, is truncated to 1/64 px, as Chromium's line box is. A family the host serves (`fontStacks`) shall be measured in the stack it names.
 
 Implementation: `src/layout-engine/typography.ts`
 Verification: `src/layout-engine/typography.test.ts`
 
 ### DOCE-PAGINATION-9.3 - Marks
 
-Text shall be measured in its marks' fonts, applied outermost first in the schema's mark order: strong text a bolder weight (CSS `bolder`), emphasis italic, inline code the code style's family and size (the size around it when the style sets none) with 3px of padding on each side of each line it reaches, and subscript and superscript at the size around them divided by 1.2. Neighbouring text in the same font, such as a link or a highlight beside plain text, shall be measured as one run, as Chromium shapes it. Marks that change only decoration change nothing. The renderer draws sub- and superscripts without growing the line and inline code with its padding on every line (`box-decoration-break: clone`).
+Text shall be measured in its marks' fonts, applied outermost first in the schema's mark order: strong text a bolder weight (CSS `bolder`), emphasis italic, inline code the code style's family and size (the size around it when the style sets none) with 3px of padding on each side of each line it reaches, a line that ends inside it fitting without its end padding as Chromium fits a cloned box, and subscript and superscript at the size around them divided by 1.2. Each text node shall be measured as its own item, as Chromium rounds each element's piece of a line to its layout unit, kerning still counting across neighbours in the same font; a line ending in a link or underlined text shall fit its last letter's full width, as Chromium places a decorated line's end exactly. Marks that change only decoration change nothing. The renderer draws sub- and superscripts without growing the line and inline code with its padding on every line (`box-decoration-break: clone`).
 
 Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/runs.ts`
 Verification: `src/layout-engine/typography.test.ts`, `src/layout-engine/text-layout.test.ts`
@@ -665,28 +665,28 @@ Verification: `src/layout-engine/atoms.test.ts`
 
 ### DOCE-PAGINATION-10.2 - Measuring atoms in the DOM, and sizes that may change
 
-`createDomAtomMeasurer({ host })` shall draw an atom in the host element, as the schema's markup or the host's `render`, at the width it is laid out in, read its box, and remove it; an inline atom shall stand on a line, its baseline read from an empty image beside it. An atom with an image that still loads without a fixed box shall have a provisional size: the block holding it shall be laid out as provisional, and when the images have loaded the cache shall keep the final size and tell its listeners (`subscribe`). A failed load shall keep the size drawn while loading, as final.
+`createDomAtomMeasurer({ host })` shall draw an atom in the host element, as the schema's markup or the host's `render`, at the width it is laid out in, read its box, and remove it; an inline atom shall stand on a line, its baseline read from an empty image beside it. An atom that is, or holds, an image that still loads without a fixed box shall have a provisional size: the block holding it shall be laid out as provisional, and when the images have loaded the cache shall keep the final size and tell its listeners (`subscribe`) of every node that asked for it meanwhile, so two elements showing one image are both laid out again. A failed load shall keep the size drawn while loading, as final.
 
 Implementation: `src/layout-engine/atoms.ts`, `src/layout-engine/dom-atoms.ts`
 Verification: `src/layout-engine/atoms.test.ts`, `src/layout-engine/dom-atoms.test.ts`, `src/layout-engine/blocks/objects.test.ts`
 
 ### DOCE-PAGINATION-10.3 - Text blocks and containers
 
-`createBlockLayout({ text, atoms, metrics, labelOf })` shall give each block its height, margins and the measurement its split reads (`layoutBlock(node, { width, scope, region })`), or name the node it cannot lay out yet and why, the same each time. A text block shall take its lines and margins from the text layout, a caption its label (`labelOf`) before its text; a paragraph in a list item or a table cell, and any block in a header or footer, no margins. Children shall stack with adjoining margins collapsed to the larger, a container without padding or border at an edge letting its first or last child's margin through as its own, as the stylesheet's block flow does. A list shall indent its items by the template's indentation with the template's spacing, the last block of its last item without a bottom margin, and a checklist item keep its blocks' margins inside it; a quote shall stand 40px in on each side with 16px margins, the browser's own; an embed's content and a script block's output shall stack as they stand; a layout section shall set its columns side by side at their preset's tracks less the 4px gaps, each column padded 5px inside a 1px border, its edge blocks without their outer margins, and as tall as the tallest. Containers shall carry where each child sits and their `overhead` (`ContainerMeasurement`).
+`createBlockLayout({ text, atoms, metrics, labelOf })` shall give each block its height, margins and the measurement its split reads (`layoutBlock(node, { width, scope, region })`), or name the node it cannot lay out yet and why, the same each time. A text block shall take its lines and margins from the text layout, a caption its label (`labelOf`) before its text; a paragraph in a list item or a table cell, and any block in a header or footer, no margins. Children shall stack with adjoining margins collapsed to the larger, a container without padding or border at an edge letting its first or last child's margin through as its own, as the stylesheet's block flow does. A list shall indent its items by the template's indentation with the template's spacing, the last block of its last item without a bottom margin, and a checklist item keep its blocks' margins inside it; a quote shall stand 40px in on each side with 16px margins, the browser's own; an embed's content and a script block's output shall stack as they stand, an empty script block keeping a line and a half of the document's text size and no margins, with its message laid over it; a layout section shall set its columns side by side at their preset's tracks less the 4px gaps, each column padded 5px inside a 1px border, its edge blocks without their outer margins, and as tall as the tallest. Containers shall carry where each child sits and their `overhead` (`ContainerMeasurement`).
 
 Implementation: `src/layout-engine/blocks/block-layout.ts`, `src/layout-engine/blocks/context.ts`, `src/layout-engine/blocks/stack.ts`, `src/layout-engine/blocks/text-blocks.ts`, `src/layout-engine/blocks/containers.ts`, `src/layout-engine/blocks/metrics.ts`, `src/layout-engine/blocks/types.ts`
 Verification: `src/layout-engine/blocks/containers.test.ts`, `src/layout-engine/blocks/block-layout.test.ts`
 
 ### DOCE-PAGINATION-10.4 - Figures, code, equations and rules
 
-A figure shall take the image box its stored size fixes (narrowed to the width at its own height, or scaled to the width when set to the page's width) or else its measured atom, and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with 4px of space either side of a 1px rule, measured by its code's lines. A display equation shall be a measured atom with 6px margins; a horizontal rule 2px tall with 8px margins; a page break no height; a kept block or a dynamic template a measured atom.
+A figure shall take the image box its stored size fixes (narrowed to the width at its own height, or scaled to the width when set to the page's width) or else its measured atom, and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with 4px of space either side of a 1px rule, measured by its code's lines. Linked code shall be laid out as code with its caption, the caption derived from its address and the code its stored lines, and labelled as code. A display equation shall be a measured atom with 6px margins; a horizontal rule 2px tall with 8px margins; a page break no height; a kept block or a dynamic template a measured atom.
 
 Implementation: `src/layout-engine/blocks/objects.ts`
 Verification: `src/layout-engine/blocks/objects.test.ts`
 
 ### DOCE-PAGINATION-10.5 - Tables
 
-A table's columns shall keep their stored widths, columns without one sharing what is left equally, with one outer border added to the sum; a table without a width for every column shall span its place; an aligned table's columns without a width shall take 100px, and one set to the page's width shall be scaled to it; a table too wide shall be scaled to fit. The rendered table takes these widths. Each cell shall be laid out in its columns' width less its padding and the halves of its side borders (none in a header or footer), each row shall be as tall as its tallest single-row cell or a cell's row height, a cell spanning rows adding what it lacks to the last row it spans, with half a border above the first row and below the last; the border class shall set which lines are drawn. A table's caption shall stand above or below it within the table's width, 2px padded, unless switched off. The table shall be measured by its rows, for the table split.
+A table's columns shall keep their stored widths, columns without one sharing what is left equally, with one outer border added to the sum; a table without a width for every column shall span its place, a column without one never taking less than an equal share of it, the stored columns being scaled into the rest; an aligned table's columns without a width shall take 100px, and one set to the page's width shall be scaled to it; a table too wide shall be scaled to fit. The rendered table takes these widths. Each cell shall be laid out in its columns' width less its padding and the halves of its side borders (none in a header or footer), each row shall be as tall as its tallest single-row cell or a cell's row height, a cell spanning rows adding what it lacks to the last row it spans, with half a border above the first row and below the last; the border class shall set which lines are drawn. A table's caption shall stand above or below it within the table's width, 2px padded, unless switched off. The table shall be measured by its rows, for the table split.
 
 Implementation: `src/layout-engine/blocks/tables.ts`, `src/layout-engine/blocks/table-columns.ts`
 Verification: `src/layout-engine/blocks/tables.test.ts`
@@ -700,10 +700,10 @@ Verification: `src/layout-engine/blocks/regions.test.ts`
 
 ### DOCE-PAGINATION-10.7 - Numbers counted by the engine
 
-A page out of view is not drawn, so a CSS counter there counts nothing. `blockNumbers(doc, template)` shall give, by node, each shown caption's label with the `-` after it (numbered by kind as the lists of contents number it, each section by its scope, restarting where a section restarts numbering; a caption switched off gets none and counts out), each ordered list item's marker (from the list's start, each list on its own, in the template's list format, prefix and suffix, else `1. `), and each footnote marker's and entry's number. The atom cache shall keep an atom by the text a view draws in it (`shownOf`), and the DOM measurer shall draw that text in a leaf atom, so a footnote marker is measured with its number. Heading and paragraph numbers come from the text layout engine (DOCE-PAGINATION-9).
+A page out of view is not drawn, so a CSS counter there counts nothing. `blockNumbers(doc, template)` shall give, by node, each shown caption's label with the `-` after it (numbered by kind as the lists of contents number it, each section by its scope, restarting where a section restarts numbering; a caption switched off gets none and counts out), each ordered list item's marker (from the list's start, each list on its own, in the template's list format, prefix and suffix, else `1. `), and each footnote marker's and entry's number. The atom cache shall keep an atom by the text a view draws in it (`shownOf`), and the DOM measurer shall draw that text in a leaf atom, so a footnote marker is measured with its number; block geometry shall lay each footnote entry out with its number (`footnoteOf`), which the text layout engine draws before it (DOCE-PAGINATION-9.10). Heading and paragraph numbers come from the text layout engine (DOCE-PAGINATION-9).
 
-Implementation: `src/layout-engine/blocks/numbers.ts`, `src/layout-engine/atoms.ts`, `src/layout-engine/dom-atoms.ts`
-Verification: `src/layout-engine/blocks/numbers.test.ts`, `src/layout-engine/atoms.test.ts`, `src/layout-engine/dom-atoms.test.ts`
+Implementation: `src/layout-engine/blocks/numbers.ts`, `src/layout-engine/atoms.ts`, `src/layout-engine/dom-atoms.ts`, `src/layout-engine/blocks/text-blocks.ts`
+Verification: `src/layout-engine/blocks/numbers.test.ts`, `src/layout-engine/atoms.test.ts`, `src/layout-engine/dom-atoms.test.ts`, `src/layout-engine/blocks/regions.test.ts`
 
 ## DOCE-PAGINATION-11 - The layout engine on the pages
 
@@ -711,14 +711,14 @@ Behind the editor's `textLayout: 'pretext'` option, off by default, the pages ar
 
 ### DOCE-PAGINATION-11.1 - Measuring with the engine
 
-With the option on, the paged projection shall load the engine with its first layout and make it again for each template the pages are laid out with. Each top-level block of a section's page content shall take its height, margins and split measurement from the engine, in the section's content width, kept by node, its heading or paragraph number and its section; a block with a layout rule of its own, or one the engine cannot lay out yet, shall be measured in the DOM as before, with the reason counted in the projection's `stats().textLayout`. When atoms that were still loading settle, the engine shall forget what it kept and the pages be laid out again. The engine shall take text widths from one injectable source (`measureContext`), by default a Canvas measuring unhinted (`geometricPrecision`), and fit lines in the device pixels of the window the pages show in; the pages shall then draw their text unhinted too (`text-rendering: geometricPrecision` in the reference stylesheet), since hinted widths differ by script.
+With the option on, the paged projection shall load the engine with its first layout and make it again for each template the pages are laid out with. Each top-level block of a section's page content shall take its height, margins and split measurement from the engine, in the section's content width, kept by node, its heading or paragraph number and its section; a block with a layout rule of its own, or one the engine cannot lay out yet, shall be measured in the DOM as before, with the reason counted in the projection's `stats().textLayout`. When atoms that were still loading settle, the engine shall forget what it kept and the pages be laid out again. The engine shall take text widths from one injectable source (`measureContext`), by default a Canvas measuring unhinted (`geometricPrecision`), and its font metrics from the same source, and fit lines at a layout scale of 1 on every screen and zoom, never reading the device pixel ratio, so every device computes the same lines and the pages are drawn on them; the pages shall then draw their text unhinted too (`text-rendering: geometricPrecision` in the reference stylesheet), since hinted widths differ by script.
 
 Implementation: `src/pagination/text-engine.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`, `src/pagination/projection.ts`
 Verification: `src/pagination/text-engine.test.ts`, `src/pagination/measure-blocks.test.ts`, `e2e/text-layout.spec.ts`
 
 ### DOCE-PAGINATION-11.2 - Forced lines
 
-With the option on, the pages shall draw each top-level paragraph and heading the engine lays out on the engine's lines, so the browser chooses no line break in them. The block shall carry `de-forced-lines`, `data-lines` with its number of lines and, for a numbered heading's first part, `data-number` with the engine's number; each line that wraps shall end at its last character, marked `de-forced-lines__end`, which the stylesheet draws followed by a line feed, never cutting a character in two; a line that starts in from the content edge, as a centred or right-aligned one, shall start with `de-forced-lines__start` and `--de-line-indent`; a wrapped justified line shall carry `de-forced-lines__justified` and the `--de-word-spacing` that fills it. Numbered paragraphs are still drawn on the browser's lines. The decorations shall be drawn on the pages' own view and kept by node, so a keystroke lays out only the block it changed again and every other block keeps its decorations.
+With the option on, the pages shall draw each top-level paragraph and heading the engine lays out on the engine's lines, so the browser chooses no line break in them. The block shall carry `de-forced-lines`, `data-lines` with its number of lines and, for a numbered heading's first part, `data-number` with the engine's number; each line that wraps shall end at its last character, marked `de-forced-lines__end`, which the stylesheet draws followed by a line feed, never cutting a character in two; a line that starts in from the content edge, as a centred or right-aligned one, shall start with `de-forced-lines__start` and `--de-line-indent`; a wrapped justified line shall carry `de-forced-lines__justified` and the `--de-word-spacing` that fills it. Inline code on a forced line shall be drawn with its padding on each of its line pieces (`box-decoration-break: clone` in the reference stylesheet), as the engine lays it out. Numbered paragraphs are still drawn on the browser's lines. The decorations shall be drawn on the pages' own view and kept by node, so a keystroke lays out only the block it changed again and every other block keeps its decorations.
 
 Implementation: `src/pagination/forced-lines.ts`, `src/layout-engine/line-marks.ts`, `labs/reference/document.css`
 Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
@@ -739,10 +739,62 @@ Verification: `src/pagination/layout-validation.test.ts`, `e2e/text-layout.spec.
 
 ### DOCE-PAGINATION-11.5 - Typing with the engine
 
-The stress lab's typing measurement shall also run with the option on at 40 and 300 pages and record each keystroke's time. Until the pages' DOM walk per key is reduced, these times are recorded and not yet held to the typing budgets.
+The stress lab's typing measurement shall also run with the option on at 40 and 300 pages, and each keystroke shall meet the typing budgets of DOCE-LABS-2.3 there too.
 
-Implementation: `labs/src/stress/stress-lab.tsx`, `e2e/budgets.ts`
+Implementation: `labs/src/stress/stress-lab.tsx`, `e2e/budgets.ts`, `src/pagination/drawn-pages.ts`
 Verification: `e2e/performance.spec.ts`
+
+### DOCE-PAGINATION-11.6 - Pages near the screen
+
+With the option on, only the pages near the screen, within half a screen above and below the editor's scrolling frame, measured against that frame and not the window so a page is drawn on forced lines before it scrolls into view, and the page holding the caret shall be drawn on forced lines; a page farther away keeps the browser's lines, which its size does not depend on, and gets its forced lines once it comes near. The pages shall be watched as they are drawn, without reading their boxes, and a page coming near or going away shall draw the pages again with no layout. The check of the pages a layout draws (DOCE-PAGINATION-5.9) shall read only the pages drawn on forced lines. The reference stylesheet shall have the pages skip their layout while off screen (`content-visibility: auto`), so each keystroke walks no farther than the pages near it. A snapshot of the pages (`exportSnapshot`, `exportSnapshotAsync`) shall draw every page on forced lines while it is taken, then only those near the screen again; the editor handle's `drawAllLines(all)` does the same for a host or a test that reads every page (a `{ drawAll }` meta of the forced lines' key).
+
+Implementation: `src/pagination/drawn-pages.ts`, `src/pagination/forced-lines.ts`, `src/pagination/layout-validation.ts`, `src/pagination/projection.ts`, `src/components/document-editor/editor-handle.ts`, `labs/reference/document.css`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-PAGINATION-11.7 - The caret at a forced line's start
+
+A caret at the position where a forced line ends and the next starts shall be drawn at the next line's start, as the browser draws one at its own wraps, unless the browser last drew it at the line's end, as after End or a click past the line's end: when the editor writes the selection there itself, after an edit or once the DOM under it is drawn again, it shall move the caret to the next line's start, so a vertical move keeps its line and column.
+
+Implementation: `src/pagination/forced-caret.ts`
+Verification: `src/pagination/forced-lines.test.ts`, `e2e/layout-invariant.spec.ts`
+
+### DOCE-PAGINATION-11.8 - Offers on forced lines
+
+An offered completion (DOCE-AUTOMATION-3) drawn in a forced block shall take no room on its line, its text overflowing from the caret, so the line keeps the engine's breaks; the reference stylesheet draws it so.
+
+Implementation: `labs/reference/document.css`
+Verification: `e2e/layout-invariant.spec.ts`
+
+## DOCE-PAGINATION-12 - Widths from the font files
+
+Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.
+
+Known limits, open until a case needs them (the spike's report has the measurements):
+
+- **Direction overrides.** U+202D and U+202E change the shaping direction in Canvas (about 0.24 px in one case). The measurer shapes their text left to right.
+- **Kana kerning.** The DOM shapes a whole run, so Japanese text gets kana kerning there. Canvas shapes word by word and does not, and the measurer follows Canvas.
+- **Fractional sizes.** The measurer copies Linux Chromium's arithmetic. On macOS and Windows the browser's own layout is about 0.06 px narrower per 30 characters at sizes such as 14.666667 px, and within 0.001 px at whole and half pixel sizes.
+
+### DOCE-PAGINATION-12.1 - The font-file measurer
+
+`createFontFileMeasurer({ wasm, faces, generics })` shall take harfbuzzjs's `harfbuzz.wasm` and the served faces (family, weight, style, optional `unicode-range`, and the bytes of a WOFF 1.0 or OpenType file) as bytes, fetch nothing, and give `createContext()`, a Canvas-shaped measuring context for Pretext's `setMeasureContext`. The reference text (55 strings at five sizes in nine Geist and KaTeX faces) shall measure to fingerprint `c2be3986`, and Pretext shall break 120 seeded paragraphs at nine widths into 7,403 lines with fingerprint `0811af10` (fork release 1.0.0-fe.5), in Node, a page and a worker, on Linux, Windows and macOS (DOCE-LABS-7.1). The widths shall follow Linux Chromium's Canvas: glyph advances at the size floored to 1/64 px, kerning at the size floored to 1/100 px, each word's width a float32 and the words summed in float32. The module shall not be exported or reached from an entry until the editor's Pretext layout uses it.
+
+Implementation: `src/layout-engine/font-files/measurer.ts`, `src/layout-engine/font-files/harfbuzz.ts`, `src/layout-engine/font-files/woff.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`
+
+### DOCE-PAGINATION-12.2 - Canvas words, fallback and missing glyphs
+
+The measurer shall shape as Chromium's Canvas does: each space, and each zero-width space, soft hyphen, direction mark, embedding or override, Arabic letter mark, Mongolian vowel separator and byte order mark a word of its own, so no kerning reaches across them (joiners, the word joiner and the isolates do not end a word); a cut before a kana or ideograph after another character; ASCII whitespace as a space; line and paragraph separators drawn with the space glyph; default ignorables of no width; fallback grapheme by grapheme through the font's family list and each face's `unicode-range`; adjacent CJK punctuation trimmed with the font's `halt` feature; `fontKerning = 'none'` without kerning; and a letter spacing that turns ligatures off and follows each cluster. A character no served face has shall take the first face's .notdef advance and be recorded in `problems.missingGlyphs`; there is no system fallback.
+
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/faces.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`
+
+### DOCE-PAGINATION-12.3 - Line metrics from the font files
+
+The measurer's `measureText` shall also give `fontBoundingBoxAscent` and `fontBoundingBoxDescent`: the primary face's ascender and descender, as HarfBuzz reads them from the font's tables, at the font's size and rounded to whole pixels, as Linux Chromium's Canvas gives them, so a line's strut needs no Canvas either. The primary face is the first matched face whose `unicode-range` holds the space.
+
+Implementation: `src/layout-engine/font-files/measure-context.ts`, `src/layout-engine/font-files/harfbuzz.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`
 
 ## DOCE-PAGINATION-13 - Print and static pages on the engine's lines
 

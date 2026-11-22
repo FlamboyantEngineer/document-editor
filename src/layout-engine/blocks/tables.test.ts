@@ -50,6 +50,21 @@ describe('table columns', () => {
     });
   });
 
+  it('DOCE-PAGINATION-10.5 leaves a column without a width a share when stored widths fill the table', () => {
+    // A 400px column in a 200px table would take it all; the column without a width keeps an
+    // equal share of the room and the stored one is scaled into the rest.
+    const crowded = table(null, row(cell(1, { colwidth: [400] }), cell(1)));
+    expect(tableColumns(crowded, { available: 201, borders, count: 2 })).toEqual({
+      widths: [100, 100],
+      width: 201,
+    });
+    const two = table(
+      null,
+      row(cell(1, { colwidth: [300] }), cell(1, { colwidth: [100] }), cell(1)),
+    );
+    expect(tableColumns(two, { available: 301, borders, count: 3 }).widths).toEqual([150, 50, 100]);
+  });
+
   it('DOCE-PAGINATION-10.5 gives an aligned table’s columns a default and fits one to the page', () => {
     const centred = table({ objectLayout: 'center' }, row(cell(1, { colwidth: [150] }), cell(1)));
     expect(tableColumns(centred, { available: 601, borders, count: 2 })).toEqual({
