@@ -148,10 +148,14 @@ export function PagesView(props: PagesViewProps) {
   useLayoutEffect(() => {
     viewRef.current?.setProps(directProps({ viewProps, attributes }, shownViews, ties));
   }, [viewProps, attributes, shownViews, ties]);
+  // React may commit a render of a projection state the pages have since moved past, as when the
+  // view read a key's caret while the render was under way: drawing that state would put the
+  // older caret back, and the next key would act there (DOCE-PAGINATION-7.25). The pages show
+  // the projection's latest state, which holds every selection the view has sent it.
   useLayoutEffect(() => {
     const view = viewRef.current;
-    if (view) show(view, paged.state, false);
-  }, [paged.state, show]);
+    if (view) show(view, paged.projection.projection, false);
+  }, [paged, show]);
   return (
     <>
       <div ref={mount} />

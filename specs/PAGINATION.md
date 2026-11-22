@@ -527,6 +527,13 @@ The first key or character the writer types right after a click, on the pages or
 Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/pages-view.tsx`
 Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`
 
+### DOCE-PAGINATION-7.25 - No older caret drawn back
+
+A selection the pages have sent, such as the caret a key moved, shall stay when React commits a render of an older state after it, as a render under way when the key came: the pages draw the projection's latest state, not the one the render holds, and a host state the pages' own commits made is not shown on them again once they have sent a later one, so the next key acts where the last one left the caret.
+
+Implementation: `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/use-paged-projection.ts`
+Verification: `src/components/document-editor/pages-view.test.tsx`, `src/components/document-editor/use-paged-projection.test.ts`, `e2e/caret-keys.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers
