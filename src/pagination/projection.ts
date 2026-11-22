@@ -29,7 +29,7 @@ import {
 } from './canonical-plugins.js';
 import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
-import { forcedLines, forcedLinesKey } from './forced-lines.js';
+import { forcedLinesKey } from './forced-lines.js';
 import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
@@ -70,6 +70,7 @@ import {
   type TextLayoutSetting,
 } from './text-engine-holder.js';
 import type { TextEngineStats } from './text-engine-types.js';
+import { textLayoutPlugins } from './text-layout-plugins.js';
 import { type PageTextLines, pageTextLines } from './text-lines.js';
 import { createTypingProbe } from './typing-probe.js';
 
@@ -242,16 +243,10 @@ function projectionState(
       canonicalDecorations(source),
       pageChromeDecorations(),
       ...(text
-        ? [
-            forcedLines({
-              engine: () => text.engine(),
-              version: () => text.version(),
-              redraw: () => {
-                const live = session();
-                take(live, live.projection.tr.setMeta(forcedLinesKey, true));
-              },
-            }),
-          ]
+        ? textLayoutPlugins(text, {
+            canonical: () => session().canonical.doc,
+            redraw: () => take(session(), session().projection.tr.setMeta(forcedLinesKey, true)),
+          })
         : []),
       checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
