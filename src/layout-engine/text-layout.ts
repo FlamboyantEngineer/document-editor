@@ -13,6 +13,7 @@ import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
 import { buildRuns, type MeasureAtom, type TextRun } from './runs.js';
+import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
   blockTypography,
@@ -33,6 +34,11 @@ export interface TextLayoutOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** Sizes the inline atoms the engine does not lay out as text. */
   readonly measureAtom?: MeasureAtom | undefined;
+  /**
+   * The inline atoms the engine lays out as their text (`TEXT_ATOMS` by default, less those a host
+   * draws itself), and the footnote markers' numbers.
+   */
+  readonly textAtoms?: TextAtoms | undefined;
   /** The context font metrics are read from, such as the font files' measurer; a Canvas if not. */
   readonly measureContext?: MetricsContext | undefined;
   /**
@@ -45,7 +51,15 @@ export interface TextLayoutOptions {
    * measurer's `reserve`; the line table lists those clusters for the renderers.
    */
   readonly reserve?: ReserveCluster | undefined;
+  /**
+   * Whether code blocks show a gutter of line numbers, as the object views draw them by default;
+   * the gutter takes the code's width in from its left.
+   */
+  readonly codeLineNumbers?: boolean | undefined;
 }
+
+/** The inline atoms laid out as their text, and their numbers. */
+type TextAtoms = TextAtomSource & { readonly types?: ReadonlySet<string> | undefined };
 
 /** Where a text block is laid out. */
 export interface TextBlockPlace {
@@ -120,6 +134,45 @@ function withReserved(
   return reserved.length ? { ...table, reserved } : table;
 }
 
+/** The fewest digits a code gutter is wide for, and the room beside them (`document.css`). */
+const GUTTER_DIGITS = 3;
+const GUTTER_ROOM = 6 + 8;
+
+/**
+ * The width a code block's gutter of line numbers takes from its text: as many widths of the code
+ * font's zero as its highest number has digits, at least three, and 14px more, truncated to the
+ * layout unit as Chromium's padding is.
+ */
+function codeGutterWidth(node: ProseMirrorNode, font: string): number {
+  const start = Number(node.attrs.codeLineStart);
+  const first = Number.isInteger(start) && start > 0 ? start : 1;
+  const last = first + node.textContent.split('\n').length - 1;
+  const digits = Math.max(GUTTER_DIGITS, String(last).length);
+  return Math.floor((digits * textWidth('0', font) + GUTTER_ROOM) * 64) / 64;
+}
+
+// Where a block's lines start from its left content edge: a numbered paragraph's first line at its
+// number's box and the others at its text position, a code block's beside its gutter.
+function lineStarts(
+  node: ProseMirrorNode,
+  input: { style: BlockTypography; place: TextBlockPlace; codeLineNumbers: boolean | undefined },
+): { firstStart: number; restStart: number; lead?: number | undefined } {
+  const { style, place } = input;
+  const font = fontString(style.font);
+  if (place.number) {
+    const numbered = placeNumber({
+      number: place.number,
+      size: style.font.size,
+      indentation: style.indentation,
+      measure: (text) => textWidth(text, font),
+    });
+    return { firstStart: numbered.firstStart, restStart: numbered.restStart, lead: numbered.box };
+  }
+  const gutter =
+    input.codeLineNumbers && node.type.name === 'code_block' ? codeGutterWidth(node, font) : 0;
+  return { firstStart: gutter, restStart: gutter };
+}
+
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
 export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const cache = createLineCache(options.language);
@@ -159,20 +212,15 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         : null;
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
       const font = fontString(style.font);
-      const numbered = place.number
-        ? placeNumber({
-            number: place.number,
-            size: style.font.size,
-            indentation: style.indentation,
-            measure: (text) => textWidth(text, font),
-          })
-        : null;
+      const starts = lineStarts(node, { style, place, codeLineNumbers: options.codeLineNumbers });
       const runs = buildRuns({
         node,
         typography: style,
         prefix: marker?.item ?? place.prefix,
-        lead: numbered?.box,
+        lead: starts.lead,
         measureAtom: options.measureAtom,
+        scope: place.scope,
+        textAtoms: options.textAtoms,
         boxOf: boxOf(style),
       });
       if (!runs.ok) return runs;
@@ -183,8 +231,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         strut: strutOf(font, style.font.size, style.leading),
         align: style.align,
         padding: style.padding,
-        firstStart: numbered?.firstStart ?? 0,
-        restStart: numbered?.restStart ?? 0,
+        firstStart: starts.firstStart,
+        restStart: starts.restStart,
       });
       return { ok: true, table: withReserved(table, runs.runs, options.reserve) };
     },

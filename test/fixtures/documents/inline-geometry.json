@@ -1,0 +1,560 @@
+{
+  "formatVersion": 1,
+  "template": {
+    "id": "regression-inline"
+  },
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "52e6b438"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Readings from the weather station on the hill above the walled garden and the pond"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "f2a74de4"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The keepers note each reading with its units, and the counts of the beds and the rows with their superscripts and subscripts."
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "269e0d37"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Tools kept in the shed beside the north gate of the garden"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "6513270e"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Bed 1 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "1",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. Bed 2 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. Bed 3 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "3",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. Bed 4 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "4",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. Bed 5 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "5",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. Bed 6 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "6",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. "
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "a6a3a450"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Bed 1 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "1",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. Bed 2 takes 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " of soil and the pond holds CO"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " readings, noted as station"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " in the log. "
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "style": "justified",
+            "id": "0c5c7fd0"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "style": "justified",
+            "id": "128b2f33"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall 10 km of paths, 3 benches and 12 rows of beans by the north wall"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "d23f0824"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness in­com­pre­hen­si­bil­i­ty un­com­fort­able­ness"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "captionEnabled": false,
+            "id": "892f902b"
+          },
+          "content": [
+            {
+              "type": "caption"
+            },
+            {
+              "type": "text",
+              "text": "const reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "id": "1818e811"
+          },
+          "content": [
+            {
+              "type": "caption"
+            },
+            {
+              "type": "text",
+              "text": "const reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "captionEnabled": false,
+            "id": "5d9dc9f8"
+          },
+          "content": [
+            {
+              "type": "caption"
+            },
+            {
+              "type": "text",
+              "text": "row 1: xxxxxxxxxxxxxxxxxxxx\nrow 2: xxxxxxxxxxxxxxxxxxxx\nrow 3: xxxxxxxxxxxxxxxxxxxx\nrow 4: xxxxxxxxxxxxxxxxxxxx\nrow 5: xxxxxxxxxxxxxxxxxxxx\nrow 6: xxxxxxxxxxxxxxxxxxxx\nrow 7: xxxxxxxxxxxxxxxxxxxx\nrow 8: xxxxxxxxxxxxxxxxxxxx\nrow 9: xxxxxxxxxxxxxxxxxxxx\nrow 10: xxxxxxxxxxxxxxxxxxxx\nrow 11: xxxxxxxxxxxxxxxxxxxx\nrow 12: xxxxxxxxxxxxxxxxxxxx\nrow 13: xxxxxxxxxxxxxxxxxxxx\nrow 14: xxxxxxxxxxxxxxxxxxxx\nrow 15: xxxxxxxxxxxxxxxxxxxx\nrow 16: xxxxxxxxxxxxxxxxxxxx\nrow 17: xxxxxxxxxxxxxxxxxxxx\nrow 18: xxxxxxxxxxxxxxxxxxxx\nrow 19: xxxxxxxxxxxxxxxxxxxx\nrow 20: xxxxxxxxxxxxxxxxxxxx\nrow 21: xxxxxxxxxxxxxxxxxxxx\nrow 22: xxxxxxxxxxxxxxxxxxxx\nrow 23: xxxxxxxxxxxxxxxxxxxx\nrow 24: xxxxxxxxxxxxxxxxxxxx\nrow 25: xxxxxxxxxxxxxxxxxxxx\nrow 26: xxxxxxxxxxxxxxxxxxxx\nrow 27: xxxxxxxxxxxxxxxxxxxx\nrow 28: xxxxxxxxxxxxxxxxxxxx\nrow 29: xxxxxxxxxxxxxxxxxxxx\nrow 30: xxxxxxxxxxxxxxxxxxxx\nrow 31: xxxxxxxxxxxxxxxxxxxx\nrow 32: xxxxxxxxxxxxxxxxxxxx\nrow 33: xxxxxxxxxxxxxxxxxxxx\nrow 34: xxxxxxxxxxxxxxxxxxxx\nrow 35: xxxxxxxxxxxxxxxxxxxx\nrow 36: xxxxxxxxxxxxxxxxxxxx\nrow 37: xxxxxxxxxxxxxxxxxxxx\nrow 38: xxxxxxxxxxxxxxxxxxxx\nrow 39: xxxxxxxxxxxxxxxxxxxx\nrow 40: xxxxxxxxxxxxxxxxxxxx\nrow 41: xxxxxxxxxxxxxxxxxxxx\nrow 42: xxxxxxxxxxxxxxxxxxxx\nrow 43: xxxxxxxxxxxxxxxxxxxx\nrow 44: xxxxxxxxxxxxxxxxxxxx\nrow 45: xxxxxxxxxxxxxxxxxxxx\nrow 46: xxxxxxxxxxxxxxxxxxxx\nrow 47: xxxxxxxxxxxxxxxxxxxx\nrow 48: xxxxxxxxxxxxxxxxxxxx\nrow 49: xxxxxxxxxxxxxxxxxxxx\nrow 50: xxxxxxxxxxxxxxxxxxxx\nrow 51: xxxxxxxxxxxxxxxxxxxx\nrow 52: xxxxxxxxxxxxxxxxxxxx\nrow 53: xxxxxxxxxxxxxxxxxxxx\nrow 54: xxxxxxxxxxxxxxxxxxxx\nrow 55: xxxxxxxxxxxxxxxxxxxx\nrow 56: xxxxxxxxxxxxxxxxxxxx\nrow 57: xxxxxxxxxxxxxxxxxxxx\nrow 58: xxxxxxxxxxxxxxxxxxxx\nrow 59: xxxxxxxxxxxxxxxxxxxx\nrow 60: xxxxxxxxxxxxxxxxxxxx\nrow 61: xxxxxxxxxxxxxxxxxxxx\nrow 62: xxxxxxxxxxxxxxxxxxxx\nrow 63: xxxxxxxxxxxxxxxxxxxx\nrow 64: xxxxxxxxxxxxxxxxxxxx\nrow 65: xxxxxxxxxxxxxxxxxxxx\nrow 66: xxxxxxxxxxxxxxxxxxxx\nrow 67: xxxxxxxxxxxxxxxxxxxx\nrow 68: xxxxxxxxxxxxxxxxxxxx\nrow 69: xxxxxxxxxxxxxxxxxxxx\nrow 70: xxxxxxxxxxxxxxxxxxxx\nrow 71: xxxxxxxxxxxxxxxxxxxx\nrow 72: xxxxxxxxxxxxxxxxxxxx\nrow 73: xxxxxxxxxxxxxxxxxxxx\nrow 74: xxxxxxxxxxxxxxxxxxxx\nrow 75: xxxxxxxxxxxxxxxxxxxx\nrow 76: xxxxxxxxxxxxxxxxxxxx\nrow 77: xxxxxxxxxxxxxxxxxxxx\nrow 78: xxxxxxxxxxxxxxxxxxxx\nrow 79: xxxxxxxxxxxxxxxxxxxx\nrow 80: xxxxxxxxxxxxxxxxxxxx\nrow 81: xxxxxxxxxxxxxxxxxxxx\nrow 82: xxxxxxxxxxxxxxxxxxxx\nrow 83: xxxxxxxxxxxxxxxxxxxx\nrow 84: xxxxxxxxxxxxxxxxxxxx\nrow 85: xxxxxxxxxxxxxxxxxxxx\nrow 86: xxxxxxxxxxxxxxxxxxxx\nrow 87: xxxxxxxxxxxxxxxxxxxx\nrow 88: xxxxxxxxxxxxxxxxxxxx\nrow 89: xxxxxxxxxxxxxxxxxxxx\nrow 90: xxxxxxxxxxxxxxxxxxxx\nrow 91: xxxxxxxxxxxxxxxxxxxx\nrow 92: xxxxxxxxxxxxxxxxxxxx\nrow 93: xxxxxxxxxxxxxxxxxxxx\nrow 94: xxxxxxxxxxxxxxxxxxxx\nrow 95: xxxxxxxxxxxxxxxxxxxx\nrow 96: xxxxxxxxxxxxxxxxxxxx\nrow 97: xxxxxxxxxxxxxxxxxxxx\nrow 98: xxxxxxxxxxxxxxxxxxxx\nrow 99: xxxxxxxxxxxxxxxxxxxx\nrow 100: xxxxxxxxxxxxxxxxxxxx\nrow 101: xxxxxxxxxxxxxxxxxxxx\nrow 102: xxxxxxxxxxxxxxxxxxxx\nrow 103: xxxxxxxxxxxxxxxxxxxx\nrow 104: xxxxxxxxxxxxxxxxxxxx\nrow 105: xxxxxxxxxxxxxxxxxxxx\nrow 106: xxxxxxxxxxxxxxxxxxxx\nrow 107: xxxxxxxxxxxxxxxxxxxx\nrow 108: xxxxxxxxxxxxxxxxxxxx\nrow 109: xxxxxxxxxxxxxxxxxxxx\nrow 110: xxxxxxxxxxxxxxxxxxxx\nrow 111: xxxxxxxxxxxxxxxxxxxx\nrow 112: xxxxxxxxxxxxxxxxxxxx\nrow 113: xxxxxxxxxxxxxxxxxxxx\nrow 114: xxxxxxxxxxxxxxxxxxxx\nrow 115: xxxxxxxxxxxxxxxxxxxx\nrow 116: xxxxxxxxxxxxxxxxxxxx\nrow 117: xxxxxxxxxxxxxxxxxxxx\nrow 118: xxxxxxxxxxxxxxxxxxxx\nrow 119: xxxxxxxxxxxxxxxxxxxx\nrow 120: xxxxxxxxxxxxxxxxxxxx\nrow 121: xxxxxxxxxxxxxxxxxxxx\nrow 122: xxxxxxxxxxxxxxxxxxxx\nrow 123: xxxxxxxxxxxxxxxxxxxx\nrow 124: xxxxxxxxxxxxxxxxxxxx\nrow 125: xxxxxxxxxxxxxxxxxxxx\nrow 126: xxxxxxxxxxxxxxxxxxxx\nrow 127: xxxxxxxxxxxxxxxxxxxx\nrow 128: xxxxxxxxxxxxxxxxxxxx\nrow 129: xxxxxxxxxxxxxxxxxxxx\nrow 130: xxxxxxxxxxxxxxxxxxxx\nrow 131: xxxxxxxxxxxxxxxxxxxx\nrow 132: xxxxxxxxxxxxxxxxxxxx\nrow 133: xxxxxxxxxxxxxxxxxxxx\nrow 134: xxxxxxxxxxxxxxxxxxxx\nrow 135: xxxxxxxxxxxxxxxxxxxx\nrow 136: xxxxxxxxxxxxxxxxxxxx\nrow 137: xxxxxxxxxxxxxxxxxxxx\nrow 138: xxxxxxxxxxxxxxxxxxxx\nrow 139: xxxxxxxxxxxxxxxxxxxx\nconst reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', round: 2, keep: true }); // one hourly reading"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "9531985d"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A short heading"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "0ed90475"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Seeds sorted by the bench by the pond, each packet with its date and its bed"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "captionEnabled": false,
+            "id": "e8e25d94"
+          },
+          "content": [
+            {
+              "type": "caption"
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "81e74ef5"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "099950d8"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "36f675cc"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Gauge"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "6f03675a"
+                  },
+                  "content": [
+                    {
+                      "type": "codeBlock",
+                      "attrs": {
+                        "captionEnabled": false,
+                        "id": "1600a35a"
+                      },
+                      "content": [
+                        {
+                          "type": "caption"
+                        },
+                        {
+                          "type": "text",
+                          "text": "ls -la /var/log/station/rain-gauge-readings"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

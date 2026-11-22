@@ -80,6 +80,11 @@ export function numberFootnotes(
   }
 }
 
+// Whether an element keeps the number it was laid out with: a block drawn on the layout engine's
+// lines, or a heading the engine numbered.
+const keepsNumber = ({ attrs }: PrintElement) =>
+  (attrs.get('class') ?? '').split(' ').includes('de-forced-lines') || attrs.has('data-number');
+
 // Anchors, numbers, links and images, as a print snapshot has them (DOCE-EDITOR-6.21, 6.22, 6.25).
 export function addLinks(
   trees: PrintTree[],
@@ -96,9 +101,7 @@ export function addLinks(
   for (const element of printElements(trees)) {
     const { attrs } = element;
     const id = attrs.get('data-id');
-    // A block drawn on the layout engine's lines keeps the number its lines were laid out with.
-    const forced = (attrs.get('class') ?? '').split(' ').includes('de-forced-lines');
-    if (id && anchor(element, id) && numbers.has(id) && !forced)
+    if (id && anchor(element, id) && numbers.has(id) && !keepsNumber(element))
       attrs.set('data-number', numbers.get(id) ?? '');
     if (attrs.get('data-reference') === 'true') referenceLink(element, options.citationHref);
     const footnote = attrs.get('data-footnote-id');

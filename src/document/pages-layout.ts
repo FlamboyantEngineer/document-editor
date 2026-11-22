@@ -15,6 +15,11 @@ export interface PagesLayoutBlock {
   readonly lines: number;
   /** A numbered heading's number, with its space, on its first part. */
   readonly number?: string | undefined;
+  /**
+   * Its measured property as a declaration: a numbered heading's first line's indent
+   * (`--de-first-indent`), drawn before its number.
+   */
+  readonly style?: string | undefined;
   /** The marks that draw its lines, by offset in its content. */
   readonly marks: readonly LineMark[];
 }
@@ -23,6 +28,17 @@ export interface PagesLayoutBlock {
 export interface PagesLayoutVariable {
   readonly pos: number;
   readonly text: string;
+}
+
+/**
+ * A number the pages draw from the engine (DOCE-PAGINATION-11.9) on the node at a position: a
+ * heading's, or a caption's label or a display equation's number.
+ */
+export interface PagesLayoutNumber {
+  readonly pos: number;
+  readonly number: string;
+  /** A heading's number, drawn in `data-number`; else drawn in `--de-number`. */
+  readonly heading: boolean;
 }
 
 /** A document's pages as the editor laid them out on the text layout engine's lines. */
@@ -34,6 +50,8 @@ export interface PagesLayout {
   readonly footnoteNumbering: 'document' | 'page';
   readonly blocks: readonly PagesLayoutBlock[];
   readonly variables: readonly PagesLayoutVariable[];
+  /** The heading, caption and equation numbers the pages draw, by position. */
+  readonly numbers: readonly PagesLayoutNumber[];
 }
 
 /** The pages' document of a layout, in a schema of the editor's. */

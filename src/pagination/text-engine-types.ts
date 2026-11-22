@@ -3,7 +3,9 @@
 
 import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { EditorView } from 'prosemirror-view';
 import type { LineTable } from '../layout-engine/line-table.js';
+import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
 
@@ -21,6 +23,19 @@ export interface TextEngineOptions {
   readonly measureContext?: (() => MeasureContext) | undefined;
   /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
   readonly reserve?: ReserveCluster | undefined;
+  /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
+  readonly codeLineNumbers?: boolean | undefined;
+  /**
+   * The view that measures the pages, which draws each atom as the pages do; atoms are measured as
+   * it draws them (DOCE-PAGINATION-10.2). Without it, an atom is drawn in a host of its own.
+   */
+  readonly view?: (() => EditorView | null) | undefined;
+  /** How much that view is scaled on screen, such as by a zoom. */
+  readonly scale?: (() => number) | undefined;
+  /** The node types a host draws with node views of its own, measured as drawn, never as text. */
+  readonly hostViews?: readonly string[] | undefined;
+  /** The text atoms left to the DOM, with why; `REFUSED_TEXT_ATOMS` by default. */
+  readonly refusedTextAtoms?: ReadonlyMap<string, string> | undefined;
 }
 
 /** A text block's place on the pages. */
@@ -29,6 +44,8 @@ interface LinesPlace {
   readonly scope: string | null;
   /** Text before its content on its first line, such as a heading's number. */
   readonly prefix?: string | undefined;
+  /** A numbered paragraph's number, drawn in a box before its first line. */
+  readonly number?: ParagraphNumber | undefined;
 }
 
 /** A text block's lines as the pages draw them, and whether it justifies them. */

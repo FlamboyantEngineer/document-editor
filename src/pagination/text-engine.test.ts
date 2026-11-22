@@ -121,16 +121,11 @@ describe('split paragraphs on the engine', () => {
     expect(split.drawn).toEqual(split.reserved);
   });
 
-  // Thread I's next pull request: a head fragment ending on a hard break draws the line the break
-  // starts, which its reserved height leaves out (outside review, row 5).
-  it.fails(
-    'DOCE-PAGINATION-11.1 a paragraph of hard breaks split after two lines reserves what each fragment draws',
-    () => {
-      const split = splitAtTwoLines('a<br>b<br>c<br>d');
-      expect(split.joined.eq(split.node.content)).toBe(true);
-      expect(split.drawn).toEqual(split.reserved);
-    },
-  );
+  it('DOCE-PAGINATION-3.6 DOCE-PAGINATION-11.1 a paragraph of hard breaks split after two lines reserves what each fragment draws', () => {
+    const split = splitAtTwoLines('a<br>b<br>c<br>d');
+    expect(split.joined.eq(split.node.content)).toBe(true);
+    expect(split.drawn).toEqual(split.reserved);
+  });
 });
 
 // The DOM geometry a layout may read, counted while the engine lays text out.

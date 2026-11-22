@@ -47,7 +47,12 @@ export function debugLength(value: number): string {
 
 const size = (width: number, height: number) => `${debugLength(width)} × ${debugLength(height)}`;
 
-const drawn = new WeakMap<ProseMirrorNode, Map<string, DecorationSet>>();
+// The decorations drawn for a document, by what they show and the layout they show: a layout
+// again that keeps the same pages, as after an atom's final size, records new metrics for them.
+const drawn = new WeakMap<
+  ProseMirrorNode,
+  Map<string, { readonly metrics: readonly PageMetric[]; readonly set: DecorationSet }>
+>();
 
 interface PagePlace {
   readonly node: ProseMirrorNode;
@@ -130,10 +135,10 @@ function decorate(
   { sheetOf, ratio }: { sheetOf: PageDebugOptions['sheet']; ratio: number },
 ) {
   const key = `${String(Boolean(parts.pages))} ${String(Boolean(parts.blocks))} ${String(ratio)}`;
-  const cached = drawn.get(state.doc)?.get(key);
-  if (cached) return cached;
   const metrics = pageMetrics(state);
   if (!metrics) return DecorationSet.empty;
+  const cached = drawn.get(state.doc)?.get(key);
+  if (cached?.metrics === metrics) return cached.set;
   const decorations: Decoration[] = [];
   let index = 0;
   let sheet: PageDebugSheet | null = null;
@@ -149,8 +154,8 @@ function decorate(
     return false;
   });
   const set = DecorationSet.create(state.doc, decorations);
-  const sets = drawn.get(state.doc) ?? new Map<string, DecorationSet>();
-  sets.set(key, set);
+  const sets = drawn.get(state.doc) ?? new Map();
+  sets.set(key, { metrics, set });
   drawn.set(state.doc, sets);
   return set;
 }
