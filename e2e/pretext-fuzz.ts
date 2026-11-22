@@ -100,13 +100,13 @@ export interface Counts {
   readonly overflow: number;
 }
 
-/** The differences over every seed and width, on a Pretext lab page that is already open, and what
- * measured the widths. */
-export async function countDifferences(page: Page, kind: Kind) {
+/** The differences over the seeds (every seed by default) and every width, on a Pretext lab page
+ * that is already open, and what measured the widths. */
+export async function countDifferences(page: Page, kind: Kind, over: readonly number[] = seeds) {
   const counts = { starts: 0, lines: 0, boundaries: 0, overflow: 0 };
   const measurers = new Set<string>();
   let blocks = 0;
-  for (const seed of seeds) {
+  for (const seed of over) {
     const file = document(seed, kind, paragraphs);
     for (const width of widths) {
       const result = await page.evaluate(

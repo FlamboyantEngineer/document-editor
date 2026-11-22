@@ -333,7 +333,7 @@ Verification: `e2e/font-widths.spec.ts`
 
 ### DOCE-LABS-7.2 - Closeness with font-file widths
 
-The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, mapping the template's families to them through `fontStacks` for both the HTML and the text layout engine, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used, and lay the natural HTML out under `text-rendering: geometricPrecision` with `font-synthesis: none`, as pages under Pretext layout are drawn. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind.
+The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, mapping the template's families to them through `fontStacks` for both the HTML and the text layout engine, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used, and lay the natural HTML out under `text-rendering: geometricPrecision` with `font-synthesis: none`, as pages under Pretext layout are drawn. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind and half of the seeds, each half checked on its own so it runs well inside its time limit.
 
 Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/client.ts`, `labs/src/spikes/pretext/settings.ts`
 Verification: `e2e/font-widths.spec.ts`
