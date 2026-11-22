@@ -4,6 +4,7 @@
 // each keystroke walks stays as small as without the option.
 
 import type { EditorView } from 'prosemirror-view';
+import { scrollerOf } from '../utils/scroll-frame.js';
 import { pageElements } from './page-geometry.js';
 
 /** Which pages are near the screen, by index among the document's pages. */
@@ -18,9 +19,18 @@ export interface DrawnPages {
 /** How far beyond the screen a page still counts as near it: one screen above and below. */
 const NEAR = '100% 0px';
 
+// The area the margin applies to: the editor's scrolling ancestor, whose clip would otherwise cut
+// the margin off; the window when the document scrolls.
+function rootOf(view: EditorView): Element | null {
+  const scroller = scrollerOf(view.dom);
+  return scroller === view.dom.ownerDocument.scrollingElement ? null : scroller;
+}
+
 /**
  * Watches the pages of a view, calling `changed` when the set of pages near the screen changes.
- * Without `IntersectionObserver`, as in a test DOM, every page is near.
+ * Without `IntersectionObserver`, as in a test DOM, every page is near. The margin is measured
+ * against the view's scrolling frame, found again at each update, since the view may be put in
+ * its frame after it is made.
  */
 export function watchDrawnPages(view: EditorView, changed: () => void): DrawnPages {
   const Observer = view.dom.ownerDocument.defaultView?.IntersectionObserver;
@@ -29,23 +39,37 @@ export function watchDrawnPages(view: EditorView, changed: () => void): DrawnPag
   const near = new Set<Element>();
   let known = false;
   let drawn: Set<number> | null = null;
-  const observer = new Observer(
-    (entries) => {
-      let moved = !known;
-      known = true;
-      for (const { target, isIntersecting } of entries) {
-        moved ||= near.has(target) !== isIntersecting;
-        if (isIntersecting) near.add(target);
-        else near.delete(target);
-      }
-      if (!moved) return;
-      drawn = null;
-      changed();
-    },
-    { rootMargin: NEAR },
-  );
+  const watch = (root: Element | null) =>
+    new Observer(
+      (entries) => {
+        let moved = !known;
+        known = true;
+        for (const { target, isIntersecting } of entries) {
+          moved ||= near.has(target) !== isIntersecting;
+          if (isIntersecting) near.add(target);
+          else near.delete(target);
+        }
+        if (!moved) return;
+        drawn = null;
+        changed();
+      },
+      { root, rootMargin: NEAR },
+    );
+  let root = rootOf(view);
+  let observer = watch(root);
+  // Watches every page again in a new frame.
+  const reframe = (next: Element | null) => {
+    observer.disconnect();
+    root = next;
+    observer = watch(root);
+    near.clear();
+    known = false;
+    for (const page of pages) if (page) observer.observe(page);
+  };
   // Observes the pages a layout added and forgets those it took away; a page kept keeps its place.
   const update = (current: EditorView) => {
+    const frame = rootOf(current);
+    if (frame !== root) reframe(frame);
     const next = pageElements(current);
     if (next.length === pages.length && next.every((page, index) => page === pages[index])) return;
     const kept = new Set(next);

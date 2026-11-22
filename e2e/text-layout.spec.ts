@@ -119,6 +119,40 @@ test.describe('the layout engine on the pages', () => {
     expect(after.mismatched).toEqual([]);
   });
 
+  test('DOCE-PAGINATION-11.6 draws a page on forced lines before it scrolls into view', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    // Scrolls the document so a page starts a quarter of a screen below the visible area, and
+    // tells whether that page is drawn on forced lines.
+    const justBelow = (index: number) =>
+      page.evaluate((at) => {
+        const scroller = document.querySelector('.ui-scroll-region__viewport');
+        const target = document.querySelectorAll('.de-document-editor__content .pm-page')[at];
+        if (!scroller || !target) throw new Error('no scroll region or page');
+        const below = target.getBoundingClientRect().top - scroller.getBoundingClientRect().bottom;
+        scroller.scrollTop += below - scroller.clientHeight / 4;
+      }, index);
+    const forced = (index: number) =>
+      page
+        .locator('.de-document-editor__content .pm-page')
+        .nth(index)
+        .evaluate((each) => Boolean(each.querySelector('.de-forced-lines')));
+    // The pages with a block the engine draws, one far down and one back up.
+    const engine = await page.evaluate(() =>
+      window.regressionLab
+        .textLines()
+        .flatMap((each, index) => (each.blocks.some((block) => block.lines) ? [index] : [])),
+    );
+    const far = engine[Math.floor(engine.length * 0.6)] ?? 0;
+    const back = engine[Math.floor(engine.length * 0.3)] ?? 0;
+    expect(back).toBeGreaterThan(1);
+    for (const index of [far, back]) {
+      await justBelow(index);
+      await expect.poll(() => forced(index), { message: `page ${String(index)}` }).toBe(true);
+    }
+  });
+
   test('DOCE-PAGINATION-11.6 snapshots every page on the engine lines', async ({ page }) => {
     await open(page, 'long-mixed', 'pretext');
     const counts = await page.evaluate(() => {
