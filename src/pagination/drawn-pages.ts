@@ -16,8 +16,8 @@ export interface DrawnPages {
   destroy(): void;
 }
 
-/** How far beyond the screen a page still counts as near it: one screen above and below. */
-const NEAR = '100% 0px';
+/** How far beyond the screen a page still counts as near it: half a screen above and below. */
+const NEAR = '50% 0px';
 
 // The area the margin applies to: the editor's scrolling ancestor, whose clip would otherwise cut
 // the margin off; the window when the document scrolls.
