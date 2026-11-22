@@ -23,6 +23,9 @@ interface ShapeOptions {
   readonly features: readonly string[];
   /** BCP 47 language of the text, or null for none. */
   readonly language: string | null;
+  /** The run's ISO 15924 script and direction; HarfBuzz guesses what is not given. */
+  readonly script?: string | null;
+  readonly rtl?: boolean;
 }
 
 /** One font file, unscaled: every number is in font units. */
@@ -36,6 +39,8 @@ interface LineExtents {
 
 export interface HarfBuzzFace {
   readonly unitsPerEm: number;
+  /** Whether the face draws color glyphs (COLR layers or paint, or bitmaps), as an emoji face does. */
+  readonly color: boolean;
   glyphOf(codePoint: number): number | null;
   advanceOf(glyph: number): number;
   extentsOf(glyph: number): GlyphExtents;
@@ -65,6 +70,9 @@ interface Exports {
   ): Pointer;
   hb_face_create(blob: Pointer, index: number): Pointer;
   hb_face_get_upem(face: Pointer): number;
+  hb_ot_color_has_layers(face: Pointer): number;
+  hb_ot_color_has_paint(face: Pointer): number;
+  hb_ot_color_has_png(face: Pointer): number;
   hb_font_create(face: Pointer): Pointer;
   hb_font_get_nominal_glyph(font: Pointer, codePoint: number, glyph: Pointer): number;
   hb_font_get_glyph_h_advance(font: Pointer, glyph: number): number;
@@ -82,6 +90,9 @@ interface Exports {
   hb_buffer_set_language(buffer: Pointer, language: Pointer): void;
   hb_language_from_string(text: Pointer, length: number): Pointer;
   hb_buffer_guess_segment_properties(buffer: Pointer): void;
+  hb_buffer_set_script(buffer: Pointer, script: number): void;
+  hb_buffer_set_direction(buffer: Pointer, direction: number): void;
+  hb_script_from_string(text: Pointer, length: number): number;
   hb_buffer_get_length(buffer: Pointer): number;
   hb_buffer_get_glyph_infos(buffer: Pointer, length: Pointer): Pointer;
   hb_buffer_get_glyph_positions(buffer: Pointer, length: Pointer): Pointer;
@@ -90,6 +101,8 @@ interface Exports {
 }
 
 const READ_ONLY = 1;
+const LEFT_TO_RIGHT = 4;
+const RIGHT_TO_LEFT = 5;
 const FEATURE_BYTES = 16;
 const MAX_FEATURES = 16;
 const WASM_PAGE = 65_536;
@@ -157,6 +170,7 @@ function createShaper(native: Exports, views: HeapViews) {
   const buffer = native.hb_buffer_create();
   const features = native.malloc(FEATURE_BYTES * MAX_FEATURES);
   const languages = new Map<string, Pointer>();
+  const scripts = new Map<string, number>();
   // The features are written into one shared array, rewritten when the list changes.
   let written = '';
   let count = 0;
@@ -171,6 +185,16 @@ function createShaper(native: Exports, views: HeapViews) {
     }
     return language;
   }
+  function scriptOf(tag: string): number {
+    let script = scripts.get(tag);
+    if (script === undefined) {
+      const text = cString(native, views, tag);
+      script = native.hb_script_from_string(text, -1);
+      native.free(text);
+      scripts.set(tag, script);
+    }
+    return script;
+  }
   function writeFeatures(list: readonly string[]): number {
     const key = list.join(',');
     if (key === written) return count;
@@ -183,7 +207,7 @@ function createShaper(native: Exports, views: HeapViews) {
     count = Math.min(list.length, MAX_FEATURES);
     return count;
   }
-  function fill(text: string, language: string | null) {
+  function fill(text: string, { language, script, rtl }: ShapeOptions) {
     native.hb_buffer_clear_contents(buffer);
     const pointer = native.malloc(text.length * 2 + 2);
     const units = views.u16();
@@ -192,6 +216,9 @@ function createShaper(native: Exports, views: HeapViews) {
     native.hb_buffer_add_utf16(buffer, pointer, text.length, 0, text.length);
     native.free(pointer);
     if (language) native.hb_buffer_set_language(buffer, languageOf(language));
+    if (script) native.hb_buffer_set_script(buffer, scriptOf(script));
+    if (rtl !== undefined)
+      native.hb_buffer_set_direction(buffer, rtl ? RIGHT_TO_LEFT : LEFT_TO_RIGHT);
     native.hb_buffer_guess_segment_properties(buffer);
   }
   function readRun(): ShapedRun {
@@ -210,9 +237,9 @@ function createShaper(native: Exports, views: HeapViews) {
     }
     return { glyphs, clusters, advances };
   }
-  return (font: Pointer, text: string, { features: list, language }: ShapeOptions) => {
-    fill(text, language);
-    native.hb_shape(font, buffer, features, writeFeatures(list));
+  return (font: Pointer, text: string, options: ShapeOptions) => {
+    fill(text, options);
+    native.hb_shape(font, buffer, features, writeFeatures(options.features));
     return readRun();
   };
 }
@@ -231,6 +258,11 @@ function bindHarfBuzz(native: Exports): HarfBuzz {
     const font = native.hb_font_create(face);
     return {
       unitsPerEm: native.hb_face_get_upem(face),
+      color: Boolean(
+        native.hb_ot_color_has_layers(face) ||
+        native.hb_ot_color_has_paint(face) ||
+        native.hb_ot_color_has_png(face),
+      ),
       glyphOf: (codePoint) =>
         native.hb_font_get_nominal_glyph(font, codePoint, scratch)
           ? (views.u32()[scratch / 4] ?? 0)

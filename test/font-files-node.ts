@@ -27,3 +27,20 @@ export function harfBuzzWasm(): Uint8Array<ArrayBuffer> {
 export function referenceFaces(): ServedFace[] {
   return REFERENCE_FACES.map(({ file, ...face }) => ({ ...face, bytes: bytesOf(fontPath(file)) }));
 }
+
+const scriptFontsDir = join(dirname(new URL(import.meta.url).pathname), 'fixtures', 'fonts');
+
+/** The script fonts of test/fixtures/fonts/, each with its unicode-range. */
+export function scriptFaces(): ServedFace[] {
+  const listed = JSON.parse(readFileSync(join(scriptFontsDir, 'faces.json'), 'utf8')) as {
+    family: string;
+    weight: number;
+    italic: boolean;
+    file: string;
+    unicodeRange?: string;
+  }[];
+  return listed.map(({ file, ...face }) => ({
+    ...face,
+    bytes: bytesOf(join(scriptFontsDir, file)),
+  }));
+}
