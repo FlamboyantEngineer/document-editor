@@ -23,14 +23,28 @@ export interface JustifiedLines extends LineTable {
 
 const px = (value: number) => `${value.toFixed(3)}px`;
 
-// A UTF-16 low surrogate: the second half of a character the line's last character ends with.
-const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
+// How far a line's first or last grapheme cluster is looked for, in UTF-16 units: a family emoji
+// of four people with skin tones is 19, a flag of a subdivision 14.
+const CLUSTER_WINDOW = 32;
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
-// Where a line's last character starts, so its mark never cuts a character in two.
+// The UTF-16 length of the first or last grapheme cluster of a text.
+function clusterLength(text: string, last: boolean): number {
+  const clusters = [...graphemes.segment(text)];
+  return (last ? clusters.at(-1) : clusters[0])?.segment.length ?? 1;
+}
+
+// Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
+// pair, a joined emoji sequence, a flag or a letter with its combining marks.
 function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
-  const text = node.textBetween(Math.max(line.from, line.to - 2), line.to, '￼', '￼');
-  const two = text.length === 2 && isLowSurrogate(text.charCodeAt(1));
-  return two ? line.to - 2 : line.to - 1;
+  const from = Math.max(line.from, line.to - CLUSTER_WINDOW);
+  return line.to - clusterLength(node.textBetween(from, line.to, '￼', '￼'), true);
+}
+
+// Where a line's first grapheme cluster ends.
+function firstCharacterEnd(node: ProseMirrorNode, line: TextLine): number {
+  const to = Math.min(line.to, line.from + CLUSTER_WINDOW);
+  return line.from + clusterLength(node.textBetween(line.from, to, '￼', '￼'), false);
 }
 
 // The characters Chromium stretches by `word-spacing`: spaces and no-break spaces, not tabs.
@@ -61,7 +75,12 @@ function marksOfLine(
   const indent = indentOf(table, line);
   if (indent > 0.001 && line.to > line.from && !prefixed) {
     const style = `--de-line-indent: ${px(indent)}`;
-    marks.push({ from: line.from, to: line.from + 1, class: 'de-forced-lines__start', style });
+    marks.push({
+      from: line.from,
+      to: firstCharacterEnd(node, line),
+      class: 'de-forced-lines__start',
+      style,
+    });
   }
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
   const text = node.textBetween(line.from, line.to, '￼', '￼');

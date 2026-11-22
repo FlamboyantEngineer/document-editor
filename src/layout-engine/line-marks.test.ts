@@ -41,6 +41,28 @@ describe('lineMarks', () => {
     expect(marks).toEqual([{ from: 4, to: 6, class: 'de-forced-lines__end' }]);
   });
 
+  it('DOCE-LABS-8.6 keeps a joined emoji, a flag and a letter with its marks whole at line edges', () => {
+    // A family emoji (8 units), a flag (4) and e with two marks (3), each ending a line and the
+    // next one starting with it.
+    for (const cluster of ['👩‍👩‍👧', '🇨🇦', 'e\u0301\u0323']) {
+      const node = paragraph(`aaa${cluster}${cluster}b`);
+      const size = 3 + 2 * cluster.length + 1;
+      const lines = table(size, 3 + cluster.length).lines.map((line) => ({ ...line, left: 5 }));
+      const marks = lineMarks(node, { ...table(size, 3 + cluster.length), lines });
+      const end = 3 + cluster.length;
+      expect(marks).toEqual([
+        { from: 0, to: 1, class: 'de-forced-lines__start', style: '--de-line-indent: 5.000px' },
+        { from: 3, to: end, class: 'de-forced-lines__end' },
+        {
+          from: end,
+          to: end + cluster.length,
+          class: 'de-forced-lines__start',
+          style: '--de-line-indent: 5.000px',
+        },
+      ]);
+    }
+  });
+
   it('DOCE-PAGINATION-13.1 indents aligned lines and stretches justified spaces', () => {
     const node = paragraph('aa bb cc dd');
     const lines = table(11, 6, { justify: true }).lines.map((line) => ({ ...line, left: 20 }));
