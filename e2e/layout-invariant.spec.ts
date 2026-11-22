@@ -390,7 +390,6 @@ test.describe('DOCE-LABS-8.6 grapheme clusters at forced line edges', () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
-    test.fail(true, 'line decorations on whole grapheme clusters: thread I, after #301');
     await open(page, 'long-mixed', 100);
     const starts = await lineStartsOf(page, 3);
     const [line] = starts ?? [];

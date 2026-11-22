@@ -8,7 +8,14 @@ import {
 } from '../../../../src/model/templates/template-properties.js';
 import { textStyleProperties } from '../../../../src/model/templates/template-text-properties.js';
 import { requireValue, schema } from './fixtures.js';
-import { labMeasurer, MONO_FAMILY, SANS_FAMILY, servesFonts } from './fonts.js';
+import {
+  labMeasurer,
+  MONO_FAMILY,
+  SANS_FAMILY,
+  SCRIPT_FAMILIES,
+  servesFonts,
+  servesScripts,
+} from './fonts.js';
 
 export const px = (value: number) => `${String(value)}px`;
 const length = (value: unknown) => Number.parseFloat(lengthToCssPx(value) ?? '0');
@@ -30,9 +37,13 @@ export function font(style: Typography): string {
 /** The one template scope this spike lays out, in the library's text layout engine too. */
 export const template = BASE_TEMPLATE;
 
+// The family list of a served family, with the script families after it under `&scripts`.
+const stack = (family: string) =>
+  [family, ...(servesScripts ? SCRIPT_FAMILIES : [])].map((name) => `"${name}"`).join(', ');
+
 /** With served fonts, the template's families resolve to the served ones (`fontStacks`). */
 export const fontStacks = servesFonts
-  ? { Arial: `"${SANS_FAMILY}"`, 'Courier New': `"${MONO_FAMILY}"` }
+  ? { Arial: stack(SANS_FAMILY), 'Courier New': stack(MONO_FAMILY) }
   : undefined;
 
 // This spike resolves one template scope. Both HTML paths receive the same explicit geometry.
