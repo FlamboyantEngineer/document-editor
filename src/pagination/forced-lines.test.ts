@@ -253,6 +253,18 @@ describe('pageTextLines', () => {
     ]);
   });
 
+  it("DOCE-PAGINATION-11.3 leaves inline atoms out of a line's text, as the writer did not type it", () => {
+    const math = create('math_inline', null, [documentSchema.text('x^2')]);
+    const block = create('paragraph', { dataId: 'p1' }, [
+      documentSchema.text('aa '),
+      math,
+      documentSchema.text(' bb'),
+    ]);
+    const { engine } = stubEngine({ perLine: 100 });
+    const lines = pageTextLines(stateWith(pagesDoc([[block]]), engine))[0]?.blocks[0]?.lines;
+    expect(lines?.map((line) => line.text)).toEqual(['aa  bb']);
+  });
+
   it('DOCE-PAGINATION-11.3 gives no pages without the layout engine', () => {
     expect(pageTextLines(stateWith(pagesDoc([[paragraph('text')]]), null))).toEqual([]);
   });

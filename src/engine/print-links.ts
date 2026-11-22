@@ -134,9 +134,10 @@ export function addPrintLinks(copy: Element, { numbers, href }: PrintLinkOptions
     if (!id || taken.has(id)) continue;
     anchor(element, id, taken);
     const number = numbers.get(id);
-    // A block drawn on the layout engine's lines keeps the number its lines were laid out with.
-    if (number && !element.classList.contains(FORCED_LINES))
-      element.setAttribute('data-number', number);
+    // A block drawn on the layout engine's lines, or a heading the engine numbered, keeps the
+    // number it was laid out with.
+    const kept = element.classList.contains(FORCED_LINES) || element.hasAttribute('data-number');
+    if (number && !kept) element.setAttribute('data-number', number);
   }
   linkReferences(copy, href);
   linkFootnotes(copy, taken);

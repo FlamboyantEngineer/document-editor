@@ -7,9 +7,11 @@ import type { EditorState } from 'prosemirror-state';
 import type {
   PagesLayout,
   PagesLayoutBlock,
+  PagesLayoutNumber,
   PagesLayoutVariable,
 } from '../document/pages-layout.js';
-import { lineMarks } from '../layout-engine/line-marks.js';
+import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
+import { engineNumbersKey } from './engine-numbers.js';
 import { FORCED_TYPES, forcedLinesKey, isContinued, sectionScope } from './forced-lines.js';
 import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -34,11 +36,13 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
     const prefix = isContinued(node) ? undefined : headings.get(pos);
     const table = engine.lines(node, { scope, prefix });
     if (!table) return false;
+    const indent = prefix ? firstLineIndent(table) : null;
     blocks.push({
       pos,
       lines: table.lines.length,
       ...(prefix ? { number: prefix } : {}),
-      marks: lineMarks(node, table),
+      ...(indent ? { style: indent } : {}),
+      marks: lineMarks(node, table, { prefixed: Boolean(prefix) }),
     });
     return false;
   });
@@ -52,6 +56,18 @@ function drawnVariables(state: EditorState): PagesLayoutVariable[] {
   return set.find().flatMap((decoration) => {
     const text: unknown = (decoration.spec as { text?: unknown }).text;
     return typeof text === 'string' ? [{ pos: decoration.from, text }] : [];
+  });
+}
+
+// Each number the pages draw from the engine, as its decorations say it.
+function drawnNumbers(state: EditorState): PagesLayoutNumber[] {
+  const set = engineNumbersKey.getState(state);
+  if (!set) return [];
+  return set.find().flatMap((decoration) => {
+    const { number, heading } = decoration.spec as { number?: unknown; heading?: unknown };
+    return typeof number === 'string'
+      ? [{ pos: decoration.from, number, heading: heading === true }]
+      : [];
   });
 }
 
@@ -71,5 +87,6 @@ export function pagesLayout(
     footnoteNumbering: options.footnoteNumbering ?? 'document',
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
+    numbers: drawnNumbers(state),
   };
 }

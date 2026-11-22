@@ -2,7 +2,7 @@
 // spacing, a rule's, a code box's padding, a layout section's gaps. The stylesheet states each as a
 // custom property on the page content and draws its blocks with it, and the engine reads the same
 // properties where it measures, so a host stylesheet that draws blocks otherwise changes both
-// (DOCE-PAGINATION-10.8).
+// (DOCE-PAGINATION-10.9).
 
 /** A length the stylesheet states: in CSS pixels, or in the block's font size. */
 type SheetLength = { readonly px: number } | { readonly em: number };

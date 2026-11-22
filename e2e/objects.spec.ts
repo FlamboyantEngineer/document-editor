@@ -173,6 +173,13 @@ test.describe('objects', () => {
     await last.scrollIntoViewIfNeeded();
     await last.click();
     await page.keyboard.press('End');
+    // The page is filled: its last block grows by a line, still on it, so an entry no longer fits
+    // beside it.
+    const lines = (await last.evaluate((element) => element.getBoundingClientRect().height)) + 1;
+    for (let word = 0; word < 40; word += 1) {
+      if ((await last.evaluate((element) => element.getBoundingClientRect().height)) > lines) break;
+      await page.keyboard.type(' and more');
+    }
     const area = first.locator('.pm-page-footnotes');
     const height = (region: typeof area) =>
       region.evaluate((element) => element.getBoundingClientRect().height);

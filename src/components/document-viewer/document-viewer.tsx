@@ -2,19 +2,15 @@
 // handed over (`PagesLayout`) drawn as the print drawn from it draws it, every forced block on its
 // computed lines, without an editor, a measuring view or a layout of its own. Every page is an
 // empty sheet of its section's size until it nears the viewport, so a long document keeps few
-// elements, and a page drawn starts its numbering counters where the pages before it leave them.
+// elements, and every number is the one the engine laid the pages out with, whichever pages are
+// drawn.
 
 import { type CSSProperties, useEffect, useMemo, useRef } from 'react';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import type { PrintPageOptions } from '../../document/print.js';
 import { drawLayoutPages, VIEW_CLASSES } from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
-import {
-  numberingCountersAt,
-  numberingCounterValues,
-  type TemplateFile,
-  templateProperties,
-} from '../../model/index.js';
+import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 
 const hooks = createHooks('document-viewer');
@@ -65,8 +61,7 @@ function wantedPages(visible: ReadonlySet<number>, overscan: number, total: numb
  * A document's laid-out pages, read-only (DOCE-PAGINATION-13.6): `de-document-viewer` beside the
  * editor's root class, in the template's properties, around an element with the classes of the
  * editor's view, holding every section and page sheet; a page near the viewport is drawn
- * (`data-drawn`) with its counters, `--de-page-counters`, from where the pages before it leave
- * them.
+ * (`data-drawn`) with the numbers the engine laid it out with.
  */
 export function DocumentViewer(props: DocumentViewerProps) {
   const { layout, template, options, overscan = 1, label, className } = props;
@@ -91,11 +86,8 @@ export function DocumentViewer(props: DocumentViewerProps) {
         if (!wanted.has(index)) {
           sheet.replaceChildren();
           sheet.removeAttribute('data-drawn');
-          sheet.style.removeProperty('--de-page-counters');
           return;
         }
-        const counters = numberingCountersAt(drawing.doc, template, page.pos);
-        sheet.style.setProperty('--de-page-counters', numberingCounterValues(counters));
         sheet.innerHTML = page.html;
         sheet.setAttribute('data-drawn', 'true');
       });
@@ -114,7 +106,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
       observer.disconnect();
       element.replaceChildren();
     };
-  }, [drawing, template, overscan]);
+  }, [drawing, overscan]);
   return (
     <div
       {...hooks.root({

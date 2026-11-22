@@ -23,19 +23,19 @@ function statedNumbers(): ReadonlyMap<string, string> {
 }
 
 describe('the stylesheet’s block numbers', () => {
-  it('DOCE-PAGINATION-10.8 states every number in the reference stylesheet as the engine reads it by default', () => {
+  it('DOCE-PAGINATION-10.9 states every number in the reference stylesheet as the engine reads it by default', () => {
     expect(Object.fromEntries(statedNumbers())).toEqual(
       Object.fromEntries(sheetProperties().map(({ property, value }) => [property, value])),
     );
   });
 
-  it('DOCE-PAGINATION-10.8 draws each block with its number', () => {
+  it('DOCE-PAGINATION-10.9 draws each block with its number', () => {
     for (const { property } of sheetProperties()) {
       expect(stylesheet).toContain(`var(${property}`);
     }
   });
 
-  it('DOCE-PAGINATION-10.8 reads lengths in absolute units or em, and nothing else', () => {
+  it('DOCE-PAGINATION-10.9 reads lengths in absolute units or em, and nothing else', () => {
     expect(parseSheetLength(' 12px')).toEqual({ px: 12 });
     expect(parseSheetLength('9pt')).toEqual({ px: 12 });
     expect(parseSheetLength('0.75em')).toEqual({ em: 0.75 });
@@ -45,7 +45,7 @@ describe('the stylesheet’s block numbers', () => {
     }
   });
 
-  it('DOCE-PAGINATION-10.8 reads the numbers stated where an element stands, the reference ones for the rest', () => {
+  it('DOCE-PAGINATION-10.9 reads the numbers stated where an element stands, the reference ones for the rest', () => {
     const outer = document.createElement('div');
     outer.style.setProperty('--de-quote-spacing', '8px');
     outer.style.setProperty('--de-rule-spacing', 'calc(1em + 1px)');
@@ -59,7 +59,7 @@ describe('the stylesheet’s block numbers', () => {
     expect(numbers.codePadding).toEqual({ px: 8 });
   });
 
-  it('DOCE-PAGINATION-10.8 counts em in the scope’s paragraph size', () => {
+  it('DOCE-PAGINATION-10.9 counts em in the scope’s paragraph size', () => {
     const metrics = blockMetrics(BASE_TEMPLATE, null, {
       ...referenceSheetNumbers,
       quoteSpacing: { em: 2 },
@@ -70,7 +70,7 @@ describe('the stylesheet’s block numbers', () => {
     expect(metrics.code.padding).toBe(3);
   });
 
-  it('DOCE-PAGINATION-10.8 lays blocks out with a host stylesheet’s numbers', () => {
+  it('DOCE-PAGINATION-10.9 lays blocks out with a host stylesheet’s numbers', () => {
     const { layout } = standInBlockLayout({
       sheet: { ...referenceSheetNumbers, quoteIndent: { px: 10 }, quoteSpacing: { px: 20 } },
     });

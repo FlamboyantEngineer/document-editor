@@ -1,7 +1,7 @@
 // The numbers block geometry lays blocks out with: the template scope's own (list indentation and
 // spacing, cell padding and borders, caption placement, the paragraph spacing objects take) and
 // the stylesheet's own (a quote's spacing, a code box's padding, a layout section's gap), which the
-// stylesheet states as custom properties (`sheet-numbers.ts`, DOCE-PAGINATION-10.8).
+// stylesheet states as custom properties (`sheet-numbers.ts`, DOCE-PAGINATION-10.9).
 
 import type {
   TemplateFile,

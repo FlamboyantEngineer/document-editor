@@ -210,7 +210,7 @@ div.de-host-view {
 /*
  * The stylesheet's own block numbers, which no template setting changes. The rules below draw
  * blocks with them and the layout engine reads them where it measures, so a host stylesheet that
- * sets other values changes both (DOCE-PAGINATION-10.8). Each is a length in an absolute unit or em; em is
+ * sets other values changes both (DOCE-PAGINATION-10.9). Each is a length in an absolute unit or em; em is
  * the page content's text size. They are stated on the editor, so a host's values reach its
  * measuring view too, and on a measuring view standing alone.
  */
@@ -255,18 +255,8 @@ div.de-host-view {
   contain: layout paint;
 }
 
-/*
- * A viewer's page, drawn on its own once it nears the viewport, numbers its headings and objects on
- * from the pages before it, which it cannot count (DOCE-PAGINATION-13.6).
- */
-.de-document-viewer .pm-page[data-drawn] {
-  counter-set: var(--de-page-counters);
-}
-
-/*
- * A viewer draws only the pages near the viewport itself. Its pages skip no layout, which would
- * contain their style and start every counter again on each page.
- */
+/* A viewer draws only the pages near the viewport itself, so its pages need not skip their layout
+   while off screen (DOCE-PAGINATION-13.6). */
 .de-document-viewer > .de-document-editor__content .pm-page {
   content-visibility: visible;
 }
@@ -520,6 +510,12 @@ div.de-host-view {
   text-rendering: geometricPrecision;
 }
 
+/* The hard break a split paragraph's later fragment starts with ends the line before it, on the
+   page before: it starts no line here (DOCE-PAGINATION-3.6). */
+:where(.de-document-editor, .de-document-editor__measure) .de-split-break {
+  display: none;
+}
+
 /* An offered completion takes no room on a forced line: its text overflows from the caret, so the
    line keeps the engine's breaks (DOCE-PAGINATION-11.8). */
 :where(.de-document-editor[data-text-layout='pretext']) .de-forced-lines .de-inline-completion {
@@ -544,6 +540,14 @@ div.de-host-view {
   line-height: var(--doc-paragraph-line-height, 1.5);
 }
 
+/* Subscripts and superscripts, footnote markers included, are drawn without growing their line, as
+   the layout engine lays them out (DOCE-PAGINATION-9.3). */
+:where(.de-document-editor, .de-document-editor__measure)
+  :is(.pm-page, .pm-page-content)
+  :is(sup, sub) {
+  line-height: 0;
+}
+
 /* A table's columns take the widths the engine gives them: stored ones kept, the rest shared. */
 :where(.de-document-editor[data-text-layout='pretext']) .pm-page-content table {
   table-layout: fixed;
@@ -554,9 +558,10 @@ div.de-host-view {
  * drawn on the lines the layout engine computed. Each line ends after its last character, drawn as
  * a line feed; the engine's alignment is drawn from the room it left each line, so the block itself
  * aligns left. Its end overhangs by 8px, so a width the browser finds a little wider than the
- * engine's never wraps a line on its own. A heading shows the engine's number, not a counter.
+ * engine's never wraps a line on its own. A heading shows the engine's number, not a counter. The
+ * block's `data-lines` makes these rules win over a custom style's alignment and margins.
  */
-:where(.de-document-editor) .pm-page-content > .de-forced-lines {
+:where(.de-document-editor) .pm-page-content > .de-forced-lines[data-lines] {
   text-align: left;
   margin-inline-end: -8px;
 }
@@ -568,6 +573,22 @@ div.de-host-view {
 
 :where(.de-document-editor) .de-forced-lines__start {
   padding-inline-start: var(--de-line-indent, 0);
+}
+
+/* A line that ends at a soft hyphen shows the hyphen the engine counted, which the browser draws
+   only at a break of its own. */
+:where(.de-document-editor) .de-forced-lines__hyphen::after {
+  content: '\2010\A';
+}
+
+/* A numbered heading's first line starts in before its number, which is drawn before the content;
+   inline boxes inside it start their own lines at their edge. */
+:where(.de-document-editor) .pm-page-content > .de-forced-lines {
+  text-indent: var(--de-first-indent, 0);
+}
+
+:where(.de-document-editor) .pm-page-content > .de-forced-lines * {
+  text-indent: 0;
 }
 
 :where(.de-document-editor) .de-forced-lines__justified {
@@ -1029,9 +1050,9 @@ div.de-host-view {
 }
 
 /* With the layout engine, each page contains its style while off screen, which scopes counters to
-   it: the editor's pages draw the numbers the engine laid them out with (DOCE-PAGINATION-11.9). The
-   viewer starts its counters from the pages before instead (DOCE-PAGINATION-13.6). */
-.de-document-editor[data-text-layout='pretext']:not(.de-document-viewer)
+   it: the pages, and the viewer and prints drawn from their layout, draw the numbers the engine
+   laid them out with (DOCE-PAGINATION-11.9, DOCE-PAGINATION-13.6). */
+.de-document-editor[data-text-layout='pretext']
   .pm-page-content
   :is(
     .doc-table-caption-line,
@@ -1042,13 +1063,13 @@ div.de-host-view {
   content: var(--de-number, none);
 }
 
-.de-document-editor[data-text-layout='pretext']:not(.de-document-viewer)
+.de-document-editor[data-text-layout='pretext']
   .pm-page-content
   :is(h1, h2, h3, h4, h5, h6)::before {
   content: attr(data-number);
 }
 
-.de-document-editor[data-text-layout='pretext']:not(.de-document-viewer)
+.de-document-editor[data-text-layout='pretext']
   .pm-page-content
   .de-math[data-display='display']::after {
   content: var(--de-number, none);

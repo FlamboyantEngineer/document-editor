@@ -5,7 +5,14 @@
 // block object is kept from typing.
 
 import { DOMSerializer, type Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, NodeSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import {
+  type Command,
+  type EditorState,
+  NodeSelection,
+  Plugin,
+  PluginKey,
+  TextSelection,
+} from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
 import { isElement } from '../utils/is-element.js';
@@ -256,6 +263,19 @@ export interface ObjectViewsOptions {
   readonly lineNumbers?: LineNumbers | undefined;
 }
 
+const objectViewsKey = new PluginKey('object-views');
+
+/**
+ * Which code an editor state's object views draw with line numbers (`createObjectViews`); none
+ * when the state has no object views. A layout that sizes code without the DOM reads it, since the
+ * gutter takes the code's width.
+ */
+export function codeLineNumbers(state: EditorState): LineNumbers {
+  const plugin = state.plugins.find((each) => each.spec.key === objectViewsKey);
+  const numbered = (plugin?.spec as { lineNumbers?: LineNumbers } | undefined)?.lineNumbers;
+  return numbered ?? 'none';
+}
+
 /**
  * Edits the caption of the table, figure or code block at the selection in place, as text, its
  * text selected.
@@ -275,7 +295,8 @@ export function createObjectViews({
   const linked = (node: ProseMirrorNode, view: EditorView) =>
     codeView(node, view, numbered !== 'none');
   return new Plugin({
-    key: new PluginKey('object-views'),
+    key: objectViewsKey,
+    lineNumbers: numbered,
     view: paintCodeHighlights,
     props: {
       handleDOMEvents: { mousedown: codePress },

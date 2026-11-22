@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { mount } from '../../test/projection-fixtures.js';
+import { markLayout, pageMetrics } from './layout-marks.js';
 import { createPageDebug, debugLength, type PageDebugParts } from './page-debug.js';
 
 afterEach(() => {
@@ -64,6 +65,21 @@ describe('page debug', () => {
       '400.000',
     ]);
     expect(blocks.some((block) => block.hasAttribute('data-debug-overflow'))).toBe(false);
+  });
+
+  it('DOCE-PAGINATION-7.4 shows a layout that kept the same pages, as after an atom settled', () => {
+    const { projection } = mountDebugged({ blocks: true });
+    const { view } = projection;
+    const metrics = pageMetrics(view.state) ?? [];
+    const taller = metrics.map((metric) => ({
+      ...metric,
+      blocks: metric.blocks.map((height) => height + 25),
+    }));
+    view.dispatch(markLayout(view.state.tr, { metrics: taller, stats: projection.stats() }));
+    const heights = [...(pages()[0]?.querySelectorAll('.pm-page-content > p') ?? [])].map((block) =>
+      block.getAttribute('data-debug-height'),
+    );
+    expect(heights).toEqual(['425.000', '425.000']);
   });
 
   it('DOCE-PAGINATION-7.4 takes everything off once nothing is shown', () => {

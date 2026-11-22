@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
 import { BASE_TEMPLATE, type TemplateFile } from '../model/index.js';
+import { engineNumbers } from '../pagination/engine-numbers.js';
 import { pagesLayout } from '../pagination/pages-layout.js';
 import { drawLayoutPages, renderLayoutPrintPage } from './print-pages.js';
 
@@ -63,8 +64,14 @@ describe('renderLayoutPrintPage', () => {
     const static_ = printed.querySelector('h1');
     expect(static_?.getAttribute('data-number')).toBe('1 ');
     expect(static_?.innerHTML).toBe(view.querySelector('h1')?.innerHTML);
+    // The first line's indent is the heading's, before its number; later lines start indented.
+    expect(static_?.getAttribute('style')).toBe('--de-first-indent: 12.000px');
+    expect(view.querySelector('h1')?.getAttribute('style')).toBe('--de-first-indent: 12.000px;');
     expect(static_?.querySelector('.de-forced-lines__start')?.getAttribute('style')).toBe(
-      '--de-line-indent: 12.000px; --de-word-spacing: 45.000px;',
+      '--de-line-indent: 12.000px;',
+    );
+    expect(static_?.querySelector('.de-forced-lines__justified')?.getAttribute('style')).toBe(
+      '--de-word-spacing: 45.000px;',
     );
   });
 
@@ -152,5 +159,35 @@ describe('drawLayoutPages', () => {
     expect(section?.pages.map((each) => each.html)).toEqual(
       [...printed.querySelectorAll('.pm-page')].map((each) => each.innerHTML),
     );
+  });
+});
+
+describe("the engine's numbers in static pages", () => {
+  it('DOCE-PAGINATION-13.7 draws the numbers the engine laid the pages out with', () => {
+    const heading = node('heading', { level: 1, dataId: 'h1' }, [text('Scope')]);
+    const equation = node('math_display', { dataId: 'eq1' }, [documentSchema.text('a^2')]);
+    const doc = pagesDocument([page([heading, equation])]);
+    let at = -1;
+    doc.descendants((each, pos) => {
+      if (each.type.name === 'heading') at = pos;
+    });
+    const engine = {
+      ...stubEngine({ headings: new Map([[at, '4']]) }),
+      template: BASE_TEMPLATE,
+    };
+    const numbers = engineNumbers({ engine: () => engine, canonical: () => doc });
+    const layout = pagesLayout(pagesState(doc, engine, [numbers]));
+    if (!layout) throw new Error('no layout');
+    expect(layout.numbers.map((each) => [each.pos, each.number, each.heading])).toEqual([
+      [at, '4', true],
+      [at + heading.nodeSize, '(Eq. 1.1.)', false],
+    ]);
+    const printed = new DOMParser().parseFromString(
+      renderLayoutPrintPage(layout, BASE_TEMPLATE),
+      'text/html',
+    );
+    expect(printed.querySelector('h1')?.getAttribute('data-number')).toBe('4');
+    const drawn = printed.querySelector<HTMLElement>('[data-id="eq1"]');
+    expect(drawn?.style.getPropertyValue('--de-number')).toBe('"(Eq. 1.1.)"');
   });
 });

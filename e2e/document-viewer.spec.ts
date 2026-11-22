@@ -115,12 +115,12 @@ test.describe('the read-only viewer', () => {
     expect(drawn).toBeLessThanOrEqual(4);
   });
 
-  // A late page's first caption, drawn alone and with every page before it drawn: the same number.
+  // A late page's first caption, drawn alone and with every page before it drawn: the engine's number.
   for (const [name, index] of [
     ['caption-numbering', 4],
     ['long-mixed', 25],
   ] as const) {
-    test(`DOCE-PAGINATION-13.6 numbers page ${String(index + 1)} of ${name} drawn alone on from the pages before`, async ({
+    test(`DOCE-PAGINATION-13.7 numbers page ${String(index + 1)} of ${name} drawn alone as the engine laid it out`, async ({
       page,
     }) => {
       await open(page, name);
@@ -135,17 +135,11 @@ test.describe('the read-only viewer', () => {
       await expect(page.locator(`${SHEETS}[data-drawn]`)).not.toHaveCount(
         await page.locator(SHEETS).count(),
       );
-      // Without the counters it starts from, the page numbers its caption from the start.
-      const unset = await page
-        .locator(SHEETS)
-        .nth(index)
-        .evaluate((sheet: HTMLElement) => {
-          const counters = sheet.style.getPropertyValue('--de-page-counters');
-          sheet.style.removeProperty('--de-page-counters');
-          return counters;
-        });
-      expect(unset).toContain('figure');
-      expect((await caption.screenshot()).equals(alone)).toBe(false);
+      // The page carries the caption's number the engine laid the pages out with.
+      const number = await caption.evaluate((element: HTMLElement) =>
+        element.style.getPropertyValue('--de-number'),
+      );
+      expect(number).toMatch(/\d/u);
       await showViewer(page);
       expect((await shoot()).equals(alone)).toBe(true);
     });
