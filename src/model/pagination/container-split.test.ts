@@ -206,6 +206,34 @@ describe('container splits', () => {
     expect(createLayoutRules().table_figure?.split).toBeTypeOf('function');
   });
 
+  it('DOCE-PAGINATION-4.5 takes no caption height in a later part that opens with a body row', () => {
+    const row = (cell: string, text: string) =>
+      node('table_row', null, [node(cell, null, [paragraph(text)])]);
+    const caption = node('table_caption', { dataId: 'c1' }, [documentSchema.text('Totals')]);
+    const table = node('table', { dataId: 't1' }, [
+      row('table_header', 'Name'),
+      row('table_cell', 'One'),
+      row('table_cell', 'Two'),
+      row('table_cell', 'Three'),
+    ]);
+    const figure = node('table_figure', null, [caption, table]);
+    // A 12px caption above 70px of rows, with 5px of borders.
+    const layouts = [{ top: 0, bottom: 10 }, ...rows(3, 20, 10)];
+    const block = {
+      ...measured(figure, 87, layouts),
+      measurement: { children: layouts, caption: 12 },
+    };
+    // The part repeating its header rows shows the caption; one opening with a body row does not.
+    expect(splitTableFigureWith(true)(block, 52)?.tail[0]?.height).toBe(17 + 10 + 40);
+    const plain = splitTableFigureWith(false)(block, 52);
+    expect(plain?.head.height).toBe(17 + 30);
+    expect(plain?.tail[0]?.height).toBe(5 + 40);
+    // Split again, the part keeps no caption height.
+    const again = plain?.tail[0] ? splitTableFigureWith(false)(plain.tail[0], 30) : null;
+    expect(again?.head.height).toBe(5 + 20);
+    expect(again?.tail[0]?.height).toBe(5 + 20);
+  });
+
   it('DOCE-PAGINATION-4.5 splits a table only between rows no cell spans', () => {
     const cell = (text: string, rowspan = 1) => node('table_cell', { rowspan }, [paragraph(text)]);
     const table = node('table', { dataId: 't1' }, [

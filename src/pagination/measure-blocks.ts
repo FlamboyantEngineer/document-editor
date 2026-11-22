@@ -6,13 +6,14 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
-import type {
-  ChildLayout,
-  LayoutBlock,
-  LayoutRules,
-  RowsMeasurement,
-  TextMeasure,
-  TextMeasurement,
+import {
+  type ChildLayout,
+  isContainerMeasurement,
+  type LayoutBlock,
+  type LayoutRules,
+  type RowsMeasurement,
+  type TextMeasure,
+  type TextMeasurement,
 } from '../model/index.js';
 import { CAPTION_HOLDER_TYPES } from '../model/schema/caption-content.js';
 import { childElement, elementOf } from './block-elements.js';
@@ -212,6 +213,14 @@ function overheadOf(measuring: Measuring, relative: number): number {
   return Math.max(0, above) + px(style.paddingBottom) + px(style.borderBottomWidth);
 }
 
+// A held table's rows with its caption's box, which a later part opening with a body row hides.
+function withCaption(measuring: Measuring, relative: number, measured: unknown): unknown {
+  if (!isContainerMeasurement(measured)) return measured;
+  const caption = elementOf(measuring.view, measuring.placement.pos + relative + 1);
+  const height = caption ? caption.getBoundingClientRect().height / measuring.scale : 0;
+  return height > 0 ? { ...measured, caption: height } : measured;
+}
+
 function measureContent(measuring: Measuring, placed: Placed): unknown {
   const { node, relative } = placed;
   const name = node.type.name;
@@ -224,7 +233,7 @@ function measureContent(measuring: Measuring, placed: Placed): unknown {
   // the caption above or below them.
   if (CAPTION_HOLDER_TYPES.has(name) && node.lastChild && node.firstChild) {
     const object = { node: node.lastChild, relative: relative + 1 + node.firstChild.nodeSize };
-    return measureContent(measuring, object);
+    return withCaption(measuring, relative, measureContent(measuring, object));
   }
   if (!CONTAINER_TYPES.has(name)) return undefined;
   const children = childLayouts(measuring, node, relative);
