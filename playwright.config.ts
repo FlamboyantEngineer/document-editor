@@ -19,7 +19,7 @@ function devicePixelRatio(ratio: number) {
         ...(executablePath ? { executablePath } : {}),
       },
     },
-    testMatch: /\/pretext-pagination-fuzz\.spec\.ts$/,
+    testMatch: [/\/pretext-pagination-fuzz\.spec\.ts$/, /\/layout-invariant\.spec\.ts$/],
   };
 }
 
@@ -48,7 +48,8 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testIgnore: [/\.performance\.spec\.ts$/, /\/performance\.spec\.ts$/],
     },
-    // How close the Pretext prediction is to the browser at real device pixel ratios (DOCE-LABS-5.6).
+    // How close the Pretext prediction is to the browser (DOCE-LABS-5.6), and that the editor draws
+    // the lines it computed (DOCE-LABS-8), at real device pixel ratios.
     devicePixelRatio(1.25),
     devicePixelRatio(2),
     // The heaviest timing test, 300 pages beside 500 comment threads, alone after the lab tests, so
