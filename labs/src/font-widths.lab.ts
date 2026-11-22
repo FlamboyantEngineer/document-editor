@@ -36,6 +36,8 @@ export interface ReservedLine {
   readonly predicted: number;
   readonly drawn: number;
   readonly boxes: number;
+  /** The boxes the page draws at another width than reserved, such as without the stylesheet. */
+  readonly boxesOff: number;
 }
 
 declare global {
@@ -61,7 +63,8 @@ function reservedLines(measurer: FontFileMeasurer) {
     const { lines } = layoutWithLines(prepareWithSegments(text, font), width, 24);
     const host = document.createElement('div');
     host.className = 'de-document-editor';
-    host.style.cssText = `position: absolute; inset-inline-start: -10000px; font: ${font}; white-space: pre;`;
+    // Drawn as the pages under Pretext layout draw text: unhinted, with no synthesized faces.
+    host.style.cssText = `position: absolute; inset-inline-start: -10000px; font: ${font}; white-space: pre; text-rendering: geometricPrecision; font-synthesis: none;`;
     document.body.append(host);
     const drawn = lines.map((line) => {
       const content = line.text.trimEnd();
@@ -81,11 +84,16 @@ function reservedLines(measurer: FontFileMeasurer) {
       const row = document.createElement('div');
       row.append(span);
       host.append(row);
-      return { text: content, predicted: line.width, span, boxes: boxes.length };
+      return { text: content, predicted: line.width, span, boxes };
     });
-    const result = drawn.map(({ span, ...line }) => ({
+    const result = drawn.map(({ span, boxes, ...line }) => ({
       ...line,
       drawn: span.getBoundingClientRect().width,
+      boxes: boxes.length,
+      boxesOff: [...span.querySelectorAll('.de-forced-lines__reserved')].filter(
+        (element, index) =>
+          Math.abs(element.getBoundingClientRect().width - (boxes[index]?.width ?? 0)) > 0.01,
+      ).length,
     }));
     host.remove();
     return result;

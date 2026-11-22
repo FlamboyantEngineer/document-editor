@@ -129,6 +129,10 @@ test('DOCE-LABS-7.4 draws every cluster no served face has in its reserved box, 
     );
   }, reservedTexts);
   expect(lines.reduce((sum, line) => sum + line.boxes, 0)).toBeGreaterThan(100);
+  expect(
+    lines.reduce((sum, line) => sum + line.boxesOff, 0),
+    'boxes drawn at their width',
+  ).toBe(0);
   // The page lays each piece of text between boxes out in 1/64 px, which the measurer does not.
   const off = lines.filter(
     ({ predicted, drawn, boxes }) => Math.abs(predicted - drawn) > (boxes + 1) / 64,
