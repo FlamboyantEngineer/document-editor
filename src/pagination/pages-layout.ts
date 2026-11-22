@@ -13,6 +13,7 @@ import type {
 import { lineMarks } from '../layout-engine/line-marks.js';
 import { engineNumbersKey } from './engine-numbers.js';
 import { FORCED_TYPES, forcedLinesKey, isContinued, sectionScope } from './forced-lines.js';
+import type { LayoutState } from './layout-readiness.js';
 import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
@@ -20,6 +21,8 @@ import type { PagesTextEngine } from './text-engine-types.js';
 interface PagesLayoutOptions {
   /** How the pages number their footnotes. */
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
+  /** Whether the pages are settled, with no font loading; the layout is provisional if not. */
+  readonly settled?: boolean | undefined;
 }
 
 // Each forced block of the pages, with the marks that draw its lines, whether the view draws them
@@ -70,6 +73,15 @@ function drawnNumbers(state: EditorState): PagesLayoutNumber[] {
 }
 
 /**
+ * Whether pages in a layout state are settled for good: laid out, and with no font loading in the
+ * window they measure in, which may move their lines.
+ */
+export function layoutSettled(state: LayoutState, measureIn: HTMLElement): boolean {
+  const fonts = measureIn.ownerDocument.fonts as FontFaceSet | undefined;
+  return state === 'settled' && fonts?.status !== 'loading';
+}
+
+/**
  * The layout of a pages' state drawn on the text layout engine's lines, as data a viewer or a print
  * draws without measuring; null when the pages are not laid out with the engine.
  */
@@ -86,5 +98,6 @@ export function pagesLayout(
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
     numbers: drawnNumbers(state),
+    provisional: options.settled === false || engine.provisional(),
   };
 }

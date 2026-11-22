@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { note, paragraph, text } from '../../test/footnote-fixtures.js';
@@ -158,5 +158,28 @@ describe('the pages engine and its inputs', () => {
         reason !== 'footnote marker raises its line',
     );
     expect(left).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-11.1 tells that an atom it measured still loads until it settles', async () => {
+    const settled = vi.fn();
+    const measureIn = document.createElement('div');
+    document.body.append(measureIn);
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn,
+      onAtomsSettled: settled,
+    });
+    const image = { type: 'image', attrs: { src: 'https://example.org/a.png' } };
+    const doc = read([paragraph(text('aaaa '), image as StoredNode)]);
+    engine.number(doc);
+    const [block] = blocksOf(doc);
+    if (!block) throw new Error('no paragraph');
+    expect(engine.measureBlock(block, null)).not.toBeNull();
+    expect(engine.provisional()).toBe(true);
+    measureIn.querySelector('img')?.dispatchEvent(new Event('load'));
+    await vi.waitFor(() => expect(settled).toHaveBeenCalled());
+    expect(engine.provisional()).toBe(false);
+    engine.destroy();
+    measureIn.remove();
   });
 });

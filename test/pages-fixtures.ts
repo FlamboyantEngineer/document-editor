@@ -73,6 +73,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
       };
       return table;
     },
+    provisional: () => false,
     stats: () => ({ laid: 0, refused: 0, reasons: new Map() }),
     destroy: () => undefined,
   };

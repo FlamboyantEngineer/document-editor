@@ -75,6 +75,11 @@ export interface PagesTextEngine {
   measureBlock(node: ProseMirrorNode, scope: string | null): LayoutBlock | null;
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */
   lines(node: ProseMirrorNode, place: LinesPlace): DrawnLines | null;
+  /**
+   * Whether an atom the engine measured, such as an image or math, still waits for its final size,
+   * so the blocks holding it, and the page breaks after them, may move.
+   */
+  provisional(): boolean;
   stats(): TextEngineStats;
   destroy(): void;
 }

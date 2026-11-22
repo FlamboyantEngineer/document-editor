@@ -173,6 +173,38 @@ test.describe('the layout engine on the pages', () => {
     expect(counts.shown).toBeLessThan(counts.computed);
   });
 
+  test('DOCE-HOST-1.14.2 draws the pages without a synthesised bold or italic', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const synthesis = await page.evaluate(() => {
+      const sheet = document.querySelector<HTMLElement>('.de-document-editor__content .pm-page');
+      return sheet ? getComputedStyle(sheet).fontSynthesis : null;
+    });
+    expect(synthesis).toBe('none');
+  });
+
+  test('DOCE-PAGINATION-11.6 keeps every page on the engine lines through a snapshot when the host asked', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const forced = () => page.evaluate(() => document.querySelectorAll('.de-forced-lines').length);
+    const computed = await page.evaluate(
+      () =>
+        window.regressionLab
+          .textLines()
+          .flatMap((each) => each.blocks)
+          .filter((block) => block.lines !== null).length,
+    );
+    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    await expect.poll(forced).toBe(computed);
+    await page.evaluate(() => window.regressionLab.snapshot());
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    expect(await forced()).toBe(computed);
+    await page.evaluate(() => window.regressionLab.drawAllLines(false));
+    await expect.poll(forced).toBeLessThan(computed);
+  });
+
   test('DOCE-PAGINATION-11.9 draws every heading, caption and equation number as without the option', async ({
     page,
   }) => {

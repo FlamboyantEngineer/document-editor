@@ -167,6 +167,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         padding: style.padding,
         firstStart: numbered?.firstStart ?? 0,
         restStart: numbered?.restStart ?? 0,
+        block: node,
       });
       return { ok: true, table };
     },
