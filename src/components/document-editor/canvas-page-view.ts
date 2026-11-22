@@ -23,6 +23,9 @@ interface DrawableContext extends CanvasRenderingContext2D {
   drawElementImage(element: Element, x: number, y: number, width: number, height: number): void;
 }
 
+/** Why a page stays in the DOM under `rendering: 'html-canvas'` (`data-canvas-fallback`). */
+type CanvasFallback = 'unsupported' | 'media' | 'size' | 'paint' | 'context-lost';
+
 interface Drawing {
   readonly canvas: DrawableCanvas;
   readonly context: DrawableContext;
@@ -132,17 +135,19 @@ function paintPage(page: HTMLElement, drawing: Drawing) {
     watcher.disconnect();
     canvas.width = canvas.height = 0;
   };
-  const fallback = () => {
+  const fallback = (reason: CanvasFallback) => {
     if (stopped) return;
     stop();
+    page.setAttribute('data-canvas-fallback', reason);
     canvas.replaceWith(page);
   };
+  const lost = () => fallback('context-lost');
   const paint = () => {
     if (stopped || !visible) return;
     const { width, height } = watcher.size();
     if (!width || !height) return;
-    if (hasForeignMedia(page) || Math.max(width, height) >= MAX_SIDE || width * height >= MAX_AREA)
-      return fallback();
+    if (hasForeignMedia(page)) return fallback('media');
+    if (Math.max(width, height) >= MAX_SIDE || width * height >= MAX_AREA) return fallback('size');
     try {
       if (canvas.width !== width) canvas.width = width;
       if (canvas.height !== height) canvas.height = height;
@@ -151,16 +156,16 @@ function paintPage(page: HTMLElement, drawing: Drawing) {
       context.drawElementImage(page, 0, 0, width, height);
       canvas.updateElementGeometry?.(page);
     } catch {
-      fallback();
+      fallback('paint');
     }
   };
   canvas.addEventListener('paint', paint);
-  canvas.addEventListener('contextlost', fallback);
+  canvas.addEventListener('contextlost', lost);
   return {
     dom: wrapper,
     destroy() {
       canvas.removeEventListener('paint', paint);
-      canvas.removeEventListener('contextlost', fallback);
+      canvas.removeEventListener('contextlost', lost);
       stop();
     },
   };
@@ -176,6 +181,7 @@ export const canvasPageView: NodeViewConstructor = (node, view) => {
   const page = dom as HTMLElement;
   const drawing = drawingIn(owner);
   const painted = drawing ? paintPage(page, drawing) : null;
+  if (!painted) page.setAttribute('data-canvas-fallback', 'unsupported' satisfies CanvasFallback);
   return {
     dom: painted?.dom ?? page,
     contentDOM,

@@ -69,6 +69,7 @@ describe('canvasPageView', () => {
   it('DOCE-EDITOR-1.9 keeps the page in the DOM where the browser has no HTML-in-Canvas API', () => {
     const shown = mountPage();
     expect(shown.dom).toHaveClass('pm-page');
+    expect(shown.dom).toHaveAttribute('data-canvas-fallback', 'unsupported');
     expect(shown.contentDOM).toBe(shown.dom);
     expect(document.querySelector('canvas')).toBeNull();
   });
@@ -111,6 +112,7 @@ describe('canvasPageView', () => {
     expect(api.drawn).toEqual([]);
     expect(shown.dom.querySelector('canvas')).toBeNull();
     expect(shown.dom.firstElementChild).toHaveClass('pm-page');
+    expect(shown.dom.firstElementChild).toHaveAttribute('data-canvas-fallback', 'media');
   });
 
   it('DOCE-EDITOR-1.9 puts the page back in the DOM when a canvas that large cannot be made', () => {
@@ -120,6 +122,7 @@ describe('canvasPageView', () => {
     paint(canvas, 800, 20_000);
     expect(api.drawn).toEqual([]);
     expect(shown.dom.firstElementChild).toHaveClass('pm-page');
+    expect(shown.dom.firstElementChild).toHaveAttribute('data-canvas-fallback', 'size');
   });
 
   it('DOCE-EDITOR-1.9 puts the page back in the DOM when a paint fails', () => {
@@ -135,6 +138,7 @@ describe('canvasPageView', () => {
     const shown = mountPage();
     paint(shown.dom.firstElementChild as HTMLCanvasElement, 794, 1123);
     expect(shown.dom.firstElementChild).toHaveClass('pm-page');
+    expect(shown.dom.firstElementChild).toHaveAttribute('data-canvas-fallback', 'paint');
   });
 
   it('DOCE-EDITOR-1.9 leaves painting to itself and edits in the page to the view', () => {

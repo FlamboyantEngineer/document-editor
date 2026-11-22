@@ -45,7 +45,13 @@ export interface SnapshotOptions {
 // The editing state a snapshot leaves out: attributes and the elements only an editor draws.
 // Widgets are content, such as a variable's value or a comparison's deleted text, unless they
 // are view-only.
-const EDITING_ATTRIBUTES = ['contenteditable', 'spellcheck', 'draggable', 'tabindex'];
+const EDITING_ATTRIBUTES = [
+  'contenteditable',
+  'spellcheck',
+  'draggable',
+  'tabindex',
+  'data-canvas-fallback',
+];
 const EDITING_ELEMENTS = '.ProseMirror-gapcursor, .ProseMirror-separator';
 const ROOT_CLASS = 'de-document-editor';
 const SHEET_ATTRIBUTE = 'data-print-sheet';

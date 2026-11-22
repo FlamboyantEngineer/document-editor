@@ -101,6 +101,7 @@ test('DOCE-EDITOR-1.9 without the API the pages stay editable HTML with the same
   });
   await open(page, 'document=long-mixed');
   await expect(page.locator(CANVAS)).toHaveCount(0);
+  await expect(pages.first()).toHaveAttribute('data-canvas-fallback', 'unsupported');
   expect(await pages.allTextContents()).toEqual(text);
   const paragraph = pages.first().locator('.pm-page-content p').first();
   await paragraph.click();
@@ -115,4 +116,5 @@ test('DOCE-EDITOR-1.9 a snapshot copies the pages without their canvases', async
   expect(markup).not.toBeNull();
   expect(markup).toContain('pm-page');
   expect(markup).not.toContain('<canvas');
+  expect(markup).not.toContain('data-canvas-fallback');
 });
