@@ -30,12 +30,11 @@
 }
 
 /* Inline code as the library's text layout engine lays it out (DOCE-PAGINATION-9.3): the code
-   font and size, 3px of padding on each side of each of its lines. */
+   font and size, 3px of padding on each side of each of its lines, and the paragraph's line height,
+   which grows a line where the code's box is taller (DOCE-PAGINATION-9.5). */
 [data-pretext-lab] .pm-page-content :not(pre) > code {
   font-family: var(--doc-code-font-family, monospace);
   font-size: var(--doc-code-font-size, inherit);
-  /* Keep the paragraph's line box when a monospace run has different font metrics. */
-  line-height: 0;
   font-weight: inherit;
   font-style: inherit;
   padding: 0 3px;

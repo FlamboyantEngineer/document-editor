@@ -100,6 +100,13 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
 const TEXT_LAYOUT =
   new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
 
+// `?rendering=html-canvas` paints each page into a canvas (DOCE-EDITOR-1.9), so the budgets can be
+// measured with it.
+const RENDERING =
+  new URLSearchParams(window.location.search).get('rendering') === 'html-canvas'
+    ? 'html-canvas'
+    : 'dom';
+
 // `?suggest` types as suggestions, so tracked changes can be tried on the stress documents.
 const SUGGEST = new URLSearchParams(window.location.search).has('suggest');
 
@@ -255,6 +262,7 @@ function StressLab({
         template={TEMPLATE}
         layout={layout}
         textLayout={TEXT_LAYOUT}
+        rendering={RENDERING}
         toolbar={completion ? TOOLBAR : undefined}
         scrollable
         statusBar

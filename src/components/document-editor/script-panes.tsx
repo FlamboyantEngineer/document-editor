@@ -17,6 +17,7 @@ import {
   isDocumentFormatError,
   type NumberingCounters,
   numberingCountersAt,
+  numberingCounterValues,
   readDocumentFile,
   sectionAt,
   type StoredContent,
@@ -43,26 +44,6 @@ export type ScriptPreviewState =
       readonly document: ProseMirrorNode | null;
       readonly counters: NumberingCounters;
     };
-
-// The stylesheet's counters, for each numbered object kind.
-const OBJECT_COUNTERS = {
-  figure: 'figure',
-  table: 'table',
-  codeBlock: 'codeblock',
-  equation: 'equation',
-} as const;
-
-/**
- * The counters as a `counter-reset` value, `--de-script-editor-counters`, so the preview's headings
- * and objects number on from the ones before its block.
- */
-export function previewCounters({ headings, objects }: NumberingCounters): string {
-  const levels = headings.map((count, index) => `h${String(index + 1)} ${String(count)}`);
-  const kinds = Object.entries(OBJECT_COUNTERS).map(
-    ([kind, counter]) => `${counter} ${String(objects[kind as keyof typeof OBJECT_COUNTERS])}`,
-  );
-  return [...levels, ...kinds, 'ordered-list 0'].join(' ');
-}
 
 // The document a script's output makes, in the section its block is in, so the section's own
 // template settings, such as its width and styles, apply; an output the schema refuses throws.
@@ -207,7 +188,9 @@ export function ScriptPreview({
   const message = previewMessage(preview, labels, blocked);
   const counters =
     preview.status === 'ready'
-      ? ({ '--de-script-editor-counters': previewCounters(preview.counters) } as CSSProperties)
+      ? ({
+          '--de-script-editor-counters': numberingCounterValues(preview.counters),
+        } as CSSProperties)
       : undefined;
   return (
     <div {...hooks.slot('preview', { status: preview.status })} style={counters}>

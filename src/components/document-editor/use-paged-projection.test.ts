@@ -1,10 +1,10 @@
 import { renderHook } from '@testing-library/react';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import type { PagedProjection } from '../../pagination/index.js';
-import { usePagedEditor } from './use-paged-projection.js';
+import { type PagedEditor, usePagedEditor, usePagedView } from './use-paged-projection.js';
 
 const { doc, paragraph } = {
   doc: documentSchema.nodes.doc,
@@ -16,6 +16,10 @@ function stateOf(text: string) {
   if (!content) throw new Error('The schema has no paragraph.');
   return EditorState.create({ doc: content });
 }
+
+// A dispatch body that commits every transaction as it is.
+const commitAll = (_tr: Transaction, _view: EditorView, commit: { applyDefault(): void }) =>
+  commit.applyDefault();
 
 describe('usePagedEditor', () => {
   it('DOCE-PAGINATION-7.17 takes a transaction the host did not commit back to the state before it, not the state React last drew', () => {
@@ -46,5 +50,71 @@ describe('usePagedEditor', () => {
     result.current.onCanonical(tr, { from: selected, to: after });
     expect(update).toHaveBeenCalledWith(selected);
     expect(update).not.toHaveBeenCalledWith(drawn);
+  });
+});
+
+describe('usePagedView', () => {
+  it('DOCE-PAGINATION-7.25 does not show the pages a host state of their own that a later commit of theirs has passed', () => {
+    const opened = stateOf('alpha beta gamma');
+    const update = vi.fn();
+    const projection = { state: opened, update, canonicalView: (view: EditorView) => view };
+    const paged = { projection, state: opened } as unknown as PagedEditor;
+    let host = opened;
+    const onStateChange = (next: (state: EditorState) => EditorState) => {
+      host = next(host);
+    };
+    const editor = renderHook(() =>
+      usePagedEditor({ state: opened, onStateChange, body: commitAll, events: {} }),
+    ).result.current;
+    editor.targetRef.current = { projection: paged.projection, host, view: {} as EditorView };
+    // A caret the pages sent after a key, then Mod-Home's caret, both committed by the host.
+    editor.onCanonical(opened.tr.setSelection(TextSelection.create(opened.doc, 12)));
+    const keyed = host;
+    editor.onCanonical(keyed.tr.setSelection(TextSelection.create(keyed.doc, 1)));
+    const homed = host;
+    const view = { state: opened } as unknown as EditorView;
+    const { rerender } = renderHook(
+      ({ state }) =>
+        usePagedView(paged, view, { state, targetRef: editor.targetRef, own: editor.own }),
+      { initialProps: { state: keyed } },
+    );
+    // React committed the render of the first caret after the second reached the projection.
+    expect(update).not.toHaveBeenCalledWith(keyed);
+    rerender({ state: homed });
+    expect(update).toHaveBeenCalledWith(homed);
+  });
+});
+
+describe('usePagedView while the host has not taken a commit', () => {
+  it('DOCE-PAGINATION-7.25 shows a host state of its own on the pages with the caret the pages have sent', () => {
+    const opened = stateOf('alpha beta gamma');
+    const moved = opened.apply(opened.tr.setSelection(TextSelection.create(opened.doc, 7)));
+    const update = vi.fn();
+    const projection = { state: moved, update, canonicalView: (view: EditorView) => view };
+    const paged = { projection, state: moved } as unknown as PagedEditor;
+    // The host queues the pages' commit and renders a state of its own made before it runs.
+    const queued: ((state: EditorState) => EditorState)[] = [];
+    const editor = renderHook(() =>
+      usePagedEditor({
+        state: opened,
+        onStateChange: (next) => queued.push(next),
+        body: commitAll,
+        events: {},
+      }),
+    ).result.current;
+    editor.targetRef.current = {
+      projection: paged.projection,
+      host: opened,
+      view: {} as EditorView,
+    };
+    editor.onCanonical(opened.tr.setSelection(TextSelection.create(opened.doc, 7)));
+    const own = opened.apply(opened.tr.setMeta('addToHistory', false));
+    const view = { state: moved } as unknown as EditorView;
+    renderHook(() =>
+      usePagedView(paged, view, { state: own, targetRef: editor.targetRef, own: editor.own }),
+    );
+    const shown = update.mock.calls.at(-1)?.[0] as EditorState | undefined;
+    expect(shown?.doc).toBe(own.doc);
+    expect(shown?.selection.head).toBe(7);
   });
 });

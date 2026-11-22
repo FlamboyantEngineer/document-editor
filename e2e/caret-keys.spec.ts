@@ -74,7 +74,7 @@ test.describe('caret keys across pages', () => {
     expect(all.focus.page).toBe(0);
   });
 
-  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.24 selects across a page boundary with Shift+ArrowUp and Shift+click', async ({
+  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.24 DOCE-PAGINATION-7.25 selects across a page boundary with Shift+ArrowUp and Shift+click', async ({
     lab,
     page,
   }) => {
@@ -105,7 +105,7 @@ test.describe('caret keys across pages', () => {
     expect(clicked.selected.length).toBeGreaterThan(20);
   });
 
-  test('DOCE-PAGINATION-7.21 moves with Home, End and Page Down, and deletes words with Mod-Backspace and Mod-Delete', async ({
+  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.25 moves with Home, End and Page Down, and deletes words with Mod-Backspace and Mod-Delete', async ({
     lab,
     page,
   }) => {

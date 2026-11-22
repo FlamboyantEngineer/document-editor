@@ -527,6 +527,13 @@ The first key or character the writer types right after a click, on the pages or
 Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/pages-view.tsx`
 Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`
 
+### DOCE-PAGINATION-7.25 - No older caret drawn back
+
+A selection the pages have sent, such as the caret a key moved, shall stay when React commits a render of an older state after it, as a render under way when the key came: the pages draw the projection's latest state, not the one the render holds, and a host state the pages' own commits made is not shown on them again once they have sent a later one, so the next key acts where the last one left the caret.
+
+Implementation: `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/use-paged-projection.ts`
+Verification: `src/components/document-editor/pages-view.test.tsx`, `src/components/document-editor/use-paged-projection.test.ts`, `e2e/caret-keys.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers
@@ -612,7 +619,7 @@ Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.5 - Prefixes and inline atoms
 
-A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, drawn on one line, and sit on the baseline at its own baseline, or at its bottom when it gives none. A line shall be as tall as the block's strut (the font's ascent and descent rounded to whole pixels, with half the rest of the leading above and half below), grown by the atoms that reach above or below it. Without a size the block shall not be laid out, and the reason is given.
+A place's `prefix`, such as a heading's number with its space, shall be laid out in the block's font before the content on its first line, taking no content offset. A template variable shall be laid out as its text on one line. Any other inline node shall take the box its `measureAtom` option gives it, drawn on one line, and sit on the baseline at its own baseline, or at its bottom when it gives none. A line shall be as tall as the block's strut, grown by the atoms and the text in another font that reach above or below it. A font's box is its ascent and descent, rounded to whole device pixels at the `scale` option's device pixel ratio as Chromium rounds them (at a ratio other than 1, a pixel moves from the ascent to a descent that rounding shortened), with half the rest of its leading above, truncated to the layout unit, and the rest below; the block's strut takes the block's leading, and text in another font the leading of its own size at the block's line height, which it inherits. Subscript and superscript do not grow the line. Without a size the block shall not be laid out, and the reason is given.
 
 Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/metrics.ts`, `src/layout-engine/text-layout.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
@@ -841,3 +848,10 @@ With the option on, a print snapshot (DOCE-EDITOR-6.9) shall keep each forced bl
 
 Implementation: `src/engine/snapshot.ts`, `src/engine/print-links.ts`, `src/document/print-content.ts`
 Verification: `e2e/print-lines.spec.ts`
+
+### DOCE-PAGINATION-13.6 - The read-only viewer
+
+`DocumentViewer` shall show a `PagesLayout` read-only, without an editor, a measuring view or a layout of its own: `de-document-viewer` beside the editor's root class, `data-mode="reading"`, `data-layout="page"` and `data-text-layout="pretext"`, in the template's properties, around an element with the classes of the editor's view that holds every section and every page as an empty sheet of its section's size. A page in view and `overscan` pages on each side of it (1 by default, all with `Infinity`) shall be drawn as the print drawn from the layout draws them (DOCE-PAGINATION-13.4), marked `data-drawn`, and a page that leaves that range is emptied again, so the viewer scrolls the whole document with few pages drawn. A drawn page shall carry `--de-page-counters`, the heading and numbered object counters the pages before it leave (`numberingCountersAt`), for a stylesheet to start its counters from, so its numbers are the editor's whichever pages are drawn. Each forced block shall show its computed lines and each page its computed blocks.
+
+Implementation: `src/components/document-viewer/document-viewer.tsx`, `src/document/print-pages.ts`, `labs/src/regression/regression-lab.tsx`, `labs/reference/document.css`
+Verification: `src/components/document-viewer/document-viewer.test.tsx`, `src/document/print-pages.test.ts`, `e2e/document-viewer.spec.ts`

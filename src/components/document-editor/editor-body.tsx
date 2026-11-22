@@ -287,7 +287,7 @@ export function EditorBody({
       events={engineProps}
       viewProps={engineProps.props}
       attributes={attributes}
-      nodeViews={props.nodeViews}
+      drawing={props}
     />
   ) : (
     <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>

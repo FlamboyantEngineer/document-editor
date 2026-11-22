@@ -153,6 +153,16 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
   min-height: 0;
 }
 
+/* The regression lab's viewer, under the editor, shares the height with it and scrolls on its own. */
+.lab-fill .lab-document-viewer {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 0;
+  border-top: 1px solid var(--ref-border);
+  background: var(--ref-surface);
+}
+
 /* The template editor lab: the settings beside the document, each scrolling on its own. */
 .lab-split {
   display: grid;
