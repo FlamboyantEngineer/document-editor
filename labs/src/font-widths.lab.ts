@@ -3,7 +3,12 @@
 // fingerprints of both and of Pretext's line breaks through each. `window.fontWidths` holds the
 // result for the browser tests.
 
-import { createFontFileMeasurer } from '../../src/layout-engine/font-files/measurer.js';
+import { layoutWithLines, prepareWithSegments, setMeasureContext } from '@chenglou/pretext';
+import {
+  createFontFileMeasurer,
+  type FontFileMeasurer,
+} from '../../src/layout-engine/font-files/measurer.js';
+import { reservedBoxes } from '../../src/layout-engine/reserved-boxes.js';
 import { fingerprintLines, type LineFingerprint } from '../../test/font-files-lines.js';
 import {
   fingerprintWidths,
@@ -21,6 +26,16 @@ export interface FontWidthsResult {
   /** Characters of the reference text no served face has. */
   readonly missingGlyphs: readonly string[];
   readonly loadMs: number;
+  /** Lays a text out with the font files and draws its lines with reserved boxes (DOCE-LABS-7.4). */
+  readonly reservedLines: (text: string, font: string, width: number) => ReservedLine[];
+}
+
+/** A line Pretext computed, and how wide the page draws it with its reserved boxes. */
+export interface ReservedLine {
+  readonly text: string;
+  readonly predicted: number;
+  readonly drawn: number;
+  readonly boxes: number;
 }
 
 declare global {
@@ -35,6 +50,46 @@ async function bytesOf(path: string) {
   const response = await fetch(new URL(path, document.baseURI));
   if (!response.ok) throw new Error(`Cannot load ${path}`);
   return response.arrayBuffer();
+}
+
+// Draws each computed line on its own, its reserved clusters in reserved boxes, and reads its width.
+function reservedLines(measurer: FontFileMeasurer) {
+  return (text: string, font: string, width: number): ReservedLine[] => {
+    setMeasureContext(
+      () => measurer.createContext() as unknown as OffscreenCanvasRenderingContext2D,
+    );
+    const { lines } = layoutWithLines(prepareWithSegments(text, font), width, 24);
+    const host = document.createElement('div');
+    host.className = 'de-document-editor';
+    host.style.cssText = `position: absolute; inset-inline-start: -10000px; font: ${font}; white-space: pre;`;
+    document.body.append(host);
+    const drawn = lines.map((line) => {
+      const content = line.text.trimEnd();
+      const boxes = reservedBoxes(content, { offset: 0, font, reserve: measurer.reserve });
+      const span = document.createElement('span');
+      let at = 0;
+      for (const box of boxes) {
+        span.append(content.slice(at, box.from));
+        const reserved = document.createElement('span');
+        reserved.className = 'de-forced-lines__reserved';
+        reserved.style.setProperty('--de-reserved-width', `${box.width.toFixed(3)}px`);
+        reserved.textContent = content.slice(box.from, box.to);
+        span.append(reserved);
+        at = box.to;
+      }
+      span.append(content.slice(at));
+      const row = document.createElement('div');
+      row.append(span);
+      host.append(row);
+      return { text: content, predicted: line.width, span, boxes: boxes.length };
+    });
+    const result = drawn.map(({ span, ...line }) => ({
+      ...line,
+      drawn: span.getBoundingClientRect().width,
+    }));
+    host.remove();
+    return result;
+  };
 }
 
 function geometricContext() {
@@ -94,6 +149,7 @@ async function measure(): Promise<FontWidthsResult> {
     strings: Object.keys(fontFiles).length,
     missingGlyphs: missing.map((code) => `U+${code.toString(16).toUpperCase().padStart(4, '0')}`),
     loadMs,
+    reservedLines: reservedLines(measurer),
   };
 }
 

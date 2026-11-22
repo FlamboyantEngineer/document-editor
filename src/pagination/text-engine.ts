@@ -119,7 +119,7 @@ function measureIn(options: TextEngineOptions) {
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
   const measureContext = measureIn(options);
-  const text = createTextLayout({ template, measureContext });
+  const text = createTextLayout({ template, measureContext, reserve: options.reserve });
   const host = atomHost(options.measureIn);
   const atoms = createAtomCache({ measure: createDomAtomMeasurer({ host }) });
   let numbers = NO_NUMBERS;

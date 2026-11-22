@@ -4,6 +4,7 @@
 import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LineTable } from '../layout-engine/line-table.js';
+import type { ReserveCluster } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
 
 /** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
@@ -18,6 +19,8 @@ export interface TextEngineOptions {
   readonly onAtomsSettled: () => void;
   /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
   readonly measureContext?: (() => MeasureContext) | undefined;
+  /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
+  readonly reserve?: ReserveCluster | undefined;
 }
 
 /** A text block's place on the pages. */

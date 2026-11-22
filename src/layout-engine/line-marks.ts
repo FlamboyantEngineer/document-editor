@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LineTable, TextLine } from './line-table.js';
+import type { ReservedBox } from './reserved-boxes.js';
 
 /** A range of a block's content, by offset, and the hooks drawing it on its line. */
 export interface LineMark {
@@ -14,6 +15,11 @@ export interface LineMark {
   readonly class: string;
   /** The measured property the hook class reads, as a declaration. */
   readonly style?: string | undefined;
+  /**
+   * Whether the mark is drawn as an element of its own inside the other marks covering its range,
+   * as a reserved box is, so a line's end or indent stays outside the box.
+   */
+  readonly inner?: boolean | undefined;
 }
 
 /** A block's lines as drawn, and whether its alignment justifies them. */
@@ -75,14 +81,39 @@ function marksOfLine(node: ProseMirrorNode, table: JustifiedLines, line: TextLin
   return marks;
 }
 
+// A cluster drawn in a box of its reserved width (DOCE-PAGINATION-12.4).
+const reservedMark = ({ from, to, width }: ReservedBox): LineMark => ({
+  from,
+  to,
+  class: 'de-forced-lines__reserved',
+  style: `--de-reserved-width: ${px(width)}`,
+  inner: true,
+});
+
+// A mark cut at a reserved box's edges, so the box's range is a range of its own that a mark either
+// covers whole or not at all: each element drawn on the box then holds it whole.
+function cutAt(mark: LineMark, box: ReservedBox): LineMark[] {
+  if (mark.to <= box.from || mark.from >= box.to) return [mark];
+  if (mark.from >= box.from && mark.to <= box.to) return [mark];
+  const edges = [mark.from, Math.max(mark.from, box.from), Math.min(mark.to, box.to), mark.to];
+  return edges
+    .slice(1)
+    .map((to, index) => ({ ...mark, from: edges[index] ?? mark.from, to }))
+    .filter(({ from, to }) => to > from);
+}
+
 /**
- * The marks that draw a block on its lines, in content order: each wrapped line ends at its last
- * character (`de-forced-lines__end`), a line that starts in from the content edge starts with its
- * indent (`de-forced-lines__start`), and a wrapped justified line stretches its spaces
- * (`de-forced-lines__justified`).
+ * The marks that draw a block on its lines, in content order, an inner mark before the others on
+ * the same range, and every other mark cut at an inner mark's edges: each wrapped line ends at its last character (`de-forced-lines__end`), a line
+ * that starts in from the content edge starts with its indent (`de-forced-lines__start`), a
+ * wrapped justified line stretches its spaces (`de-forced-lines__justified`), and a cluster the
+ * engine reserved a width for is drawn in a box of that width (`de-forced-lines__reserved`).
  */
 export function lineMarks(node: ProseMirrorNode, table: JustifiedLines): LineMark[] {
-  return table.lines
-    .flatMap((line) => marksOfLine(node, table, line))
-    .sort((a, b) => a.from - b.from || a.to - b.to);
+  const boxes = table.reserved ?? [];
+  let marks = table.lines.flatMap((line) => marksOfLine(node, table, line));
+  for (const box of boxes) marks = marks.flatMap((mark) => cutAt(mark, box));
+  return [...marks, ...boxes.map(reservedMark)].sort(
+    (a, b) => a.from - b.from || a.to - b.to || Number(!!b.inner) - Number(!!a.inner),
+  );
 }

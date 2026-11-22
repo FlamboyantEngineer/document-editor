@@ -345,6 +345,13 @@ With `&scripts` the Pretext pagination lab shall also serve the Noto subsets of 
 Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/settings.ts`, `scripts/build-labs.mjs`, `test/fixtures/fonts/`
 Verification: `e2e/font-widths.spec.ts`
 
+### DOCE-LABS-7.4 - Reserved boxes drawn as measured
+
+The font-widths lab shall lay out texts of characters no served face has (Ethiopic, Cherokee, Tifinagh, Han, kana, Hangul, Thai, Devanagari, Arabic, Hebrew, emoji, symbols and letters with marks no face has together) among Latin words in Geist, with the font files, and draw each computed line on its own with each reserved cluster in a `de-forced-lines__reserved` of its reserved width, under the reference stylesheet. Every line shall be drawn as wide as the measurer counted it, within 1/64 px for each piece of text between boxes, whatever font the system draws the reserved clusters with (DOCE-PAGINATION-12.4).
+
+Implementation: `labs/src/font-widths.lab.ts`, `labs/reference/document.css`
+Verification: `e2e/font-widths.spec.ts`
+
 ## DOCE-LABS-8 - One layout result
 
 ### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones

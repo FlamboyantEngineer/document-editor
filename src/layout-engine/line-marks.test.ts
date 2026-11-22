@@ -63,6 +63,43 @@ describe('lineMarks', () => {
     }
   });
 
+  it('DOCE-PAGINATION-12.4 draws a reserved cluster as an inner mark inside a line end', () => {
+    const node = paragraph('aaaa☃bb');
+    const marks = lineMarks(node, { ...table(7, 5), reserved: [{ from: 4, to: 5, width: 16 }] });
+    expect(marks).toEqual([
+      {
+        from: 4,
+        to: 5,
+        class: 'de-forced-lines__reserved',
+        style: '--de-reserved-width: 16.000px',
+        inner: true,
+      },
+      { from: 4, to: 5, class: 'de-forced-lines__end' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-12.4 cuts a justified line at a reserved box inside it', () => {
+    const node = paragraph('aa ☃ bb cc');
+    const marks = lineMarks(node, {
+      ...table(10, 8),
+      justify: true,
+      reserved: [{ from: 3, to: 4, width: 16 }],
+    });
+    const word = '--de-word-spacing: 45.000px';
+    expect(marks.map(({ from, to, class: name }) => [from, to, name])).toEqual([
+      [0, 3, 'de-forced-lines__justified'],
+      [3, 4, 'de-forced-lines__reserved'],
+      [3, 4, 'de-forced-lines__justified'],
+      [4, 7, 'de-forced-lines__justified'],
+      [7, 8, 'de-forced-lines__end'],
+    ]);
+    expect(marks.filter((mark) => mark.class.endsWith('justified')).map((m) => m.style)).toEqual([
+      word,
+      word,
+      word,
+    ]);
+  });
+
   it('DOCE-PAGINATION-13.1 indents aligned lines and stretches justified spaces', () => {
     const node = paragraph('aa bb cc dd');
     const lines = table(11, 6, { justify: true }).lines.map((line) => ({ ...line, left: 20 }));

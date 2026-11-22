@@ -77,6 +77,19 @@ describe('createTextLayout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-12.4 lists the clusters its reserve option reserves a width for', () => {
+    // Reserves each ☃ and the joined family, in any font, at the font's size.
+    const reserve = (cluster: string, font: string) =>
+      cluster === '☃' || cluster.includes('\u200d') ? Number(/(\d+)px/u.exec(font)?.[1]) : null;
+    const node = block('<p>aa ☃ <strong>b👩\u200d👧</strong></p>');
+    expect(table(node, 200, { reserve }).reserved).toEqual([
+      { from: 3, to: 4, width: 12 },
+      { from: 6, to: 11, width: 12 },
+    ]);
+    expect(table(node, 200).reserved).toBeUndefined();
+    expect(table(block('<p>aa</p>'), 200, { reserve }).reserved).toBeUndefined();
+  });
+
   it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, each text node as its own item', () => {
     const plain = table(block(`<p>${WORDS}</p>`), 60);
     const linked = table(
