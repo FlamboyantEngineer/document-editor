@@ -1203,9 +1203,21 @@ div.de-host-view {
   content: var(--doc-code-caption-continued, '');
 }
 
+/*
+ * The separator is painted in the area's padding, not drawn as a border, so it takes exactly the
+ * template's thickness on every screen, as the layout engine lays it out: a browser rounds a
+ * border's width to whole device pixels.
+ */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes {
-  border-top: var(--doc-footnote-separator-border, 1px solid);
-  padding-top: var(--doc-footnote-spacing-to-content, 6px);
+  padding-top: calc(
+    var(--doc-footnote-separator-thickness, 1px) + var(--doc-footnote-spacing-to-content, 6px)
+  );
+  background: linear-gradient(
+      var(--doc-footnote-separator-color, currentcolor),
+      var(--doc-footnote-separator-color, currentcolor)
+    )
+    top / 100% var(--doc-footnote-separator-thickness, 1px) no-repeat;
+  print-color-adjust: exact;
   color: var(--doc-footnote-text-color, inherit);
   font-family: var(--doc-footnote-text-font-family, inherit);
   font-size: var(--doc-footnote-text-font-size, 10px);
@@ -1215,7 +1227,12 @@ div.de-host-view {
   text-align: var(--doc-footnote-text-align, left);
 }
 
-/* Entries stand the template's spacing apart; each number in the marker style, with its suffix. */
+/* Entries stand the template's spacing apart and no further; each number in the marker style, with
+   its suffix. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry {
+  margin: 0;
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry + .pm-footnote-entry {
   margin-top: var(--doc-footnote-entry-spacing, 0);
 }

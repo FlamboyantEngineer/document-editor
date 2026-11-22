@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { findNode, parseMarkup } from '../../test/document-markup.js';
 import { type LayoutBlock, splitParagraph } from '../model/index.js';
+import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
 import { createPagesTextEngine } from './text-engine.js';
 import { holdTextEngine } from './text-engine-holder.js';
 
@@ -71,6 +73,55 @@ describe('createPagesTextEngine', () => {
     expect(engine.measureBlock(quote, null)).toMatchObject({ marginTop: 30, marginBottom: 30 });
     engine.destroy();
     measureIn.remove();
+  });
+});
+
+describe('the engine on page regions', () => {
+  const schema = createDocumentSchema();
+  const type = (name: string) => {
+    const found = schema.nodes[name];
+    if (!found) throw new Error(`no ${name}`);
+    return found;
+  };
+  const text = (value: string) => schema.text(value);
+  const engine = () =>
+    createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+    });
+
+  it('DOCE-PAGINATION-11.10 lays a header out with its gap, keeps it by node, and refuses a block', () => {
+    const pages = engine();
+    const header = type('page_header').create(null, [
+      type('paragraph').create(null, text('Header')),
+    ]);
+    const room = pages.measureRegion(header, null);
+    expect(room?.height).toBeGreaterThan(0);
+    expect(room?.children).toHaveLength(1);
+    expect(pages.measureRegion(header, null)).toBe(room);
+    expect(pages.measureRegion(type('page_header').create(), null)).toMatchObject({
+      height: 0,
+    });
+    expect(pages.measureRegion(paragraph(WORDS), null)).toBeNull();
+    pages.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.10 gives a footnote area the shape measured footnotes take', () => {
+    const pages = engine();
+    const entry = (id: string) =>
+      type('footnote_entry').create({ footnoteId: id }, text(`Note ${id}`));
+    const area = type('page_footnotes').create(null, [entry('a'), entry('b')]);
+    const room = pages.measureRegion(area, null);
+    if (!room) throw new Error('no room');
+    const [first, second] = room.children;
+    if (!first || !second) throw new Error('no entries');
+    const measured = footnoteAreaOf(area, room);
+    expect(measured.entries.get('a')).toBeCloseTo(second.top - first.top);
+    expect(measured.last?.get('b')).toBeCloseTo(second.bottom - second.top);
+    expect(measured.overhead).toBeCloseTo(room.height - (second.bottom - first.top));
+    expect(footnoteAreaHeight(measured, ['a', 'b'])).toBeCloseTo(room.height);
+    pages.destroy();
   });
 });
 

@@ -56,6 +56,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     number: () => undefined,
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
     measureBlock: () => null,
+    measureRegion: () => null,
     lines(block) {
       const size = block.content.size;
       const lines: TextLine[] = [];

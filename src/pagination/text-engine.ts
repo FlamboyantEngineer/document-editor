@@ -10,7 +10,7 @@ import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
-import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
+import type { BlockTextLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { createTextLayout } from '../layout-engine/text-layout.js';
@@ -20,7 +20,12 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../model/index.js';
-import type { DrawnLines, PagesTextEngine, TextEngineOptions } from './text-engine-types.js';
+import type {
+  DrawnLines,
+  PagesTextEngine,
+  RegionRoom,
+  TextEngineOptions,
+} from './text-engine-types.js';
 
 interface KeptBlock {
   readonly key: string;
@@ -116,6 +121,11 @@ function measureIn(options: TextEngineOptions) {
   return context;
 }
 
+// A region's room as the pages read it; null when the engine cannot lay the region out.
+function roomOf(result: RegionGeometry): RegionRoom | null {
+  return result.ok ? { height: result.height, gap: result.gap, children: result.children } : null;
+}
+
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
@@ -133,6 +143,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   });
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
+  let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
   const counts = { laid: 0, refused: 0, reasons: new Map<string, number>() };
   const widths = new Map<string | null, number>();
   const widthOf = (scope: string | null) => {
@@ -146,6 +157,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();
+    regions = new WeakMap();
     options.onAtomsSettled();
   });
 
@@ -169,6 +181,15 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       counts.laid += 1;
       if (!result.provisional) blocks.set(node, { key, block: result.block });
       return result.block;
+    },
+    measureRegion(node, scope) {
+      const key = scope ?? '';
+      const kept = regions.get(node);
+      if (kept?.key === key) return kept.room;
+      const result = geometry.layoutRegion(node, { width: widthOf(scope), scope });
+      const room = roomOf(result);
+      if (!result.ok || !result.provisional) regions.set(node, { key, room });
+      return room;
     },
     lines(node, place) {
       const key = `${place.scope ?? ''}|${place.prefix ?? ''}`;

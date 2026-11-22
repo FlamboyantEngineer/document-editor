@@ -174,6 +174,16 @@ test.describe('objects', () => {
     const height = (region: typeof area) =>
       region.evaluate((element) => element.getBoundingClientRect().height);
     await expect.poll(() => height(area)).toBe(0);
+    // The page is full: the room left under its text is taken by the area's spacing above an
+    // entry, so the entry's line no longer fits beside the text.
+    const free = await first.evaluate((element) => {
+      const body = element.querySelector('.pm-page-content');
+      const ends = [...(body?.children ?? [])].map((child) => child.getBoundingClientRect().bottom);
+      return (body?.getBoundingClientRect().bottom ?? 0) - Math.max(...ends);
+    });
+    await page.addStyleTag({
+      content: `.pm-page-footnotes { --doc-footnote-spacing-to-content: ${Math.ceil(free)}px; }`,
+    });
     await toolbar(page).getByRole('button', { name: 'Footnote' }).click();
     // Before anything is typed, the marker's page holds the entry, its text ending above it: the
     // block that no longer fits with the entry moves on, here to the next page.

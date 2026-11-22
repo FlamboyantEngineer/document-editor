@@ -786,6 +786,13 @@ With the option on, the pages shall draw the numbers the engine laid them out wi
 Implementation: `src/pagination/engine-numbers.ts`, `src/pagination/projection.ts`, `labs/reference/document.css`
 Verification: `src/pagination/engine-numbers.test.ts`, `e2e/text-layout.spec.ts`
 
+### DOCE-PAGINATION-11.10 - Headers, footers and footnote areas on the engine
+
+With the option on, each section's page header and footer shall take the room the engine lays out for it (`measureRegion`, DOCE-PAGINATION-10.6): its height and its spacing to the content, none when it is empty; and the section's footnote area shall take each entry's height, with the space before the next, and the separator and spacing above them, from the engine's layout of the area (`footnoteAreaOf`), as `measureFootnotes` gives them from the view. A region the view draws at no height, such as one a web layout hides, shall take none; one the engine cannot lay out shall be measured in the view as before. The reference stylesheet shall draw what the engine lays out: footnote entries with no margins but the template's entry spacing between them, and the separator painted in the area's padding at exactly the template's thickness (`--doc-footnote-separator-thickness`, `--doc-footnote-separator-color`), never as a border, whose width a browser rounds to whole device pixels.
+
+Implementation: `src/pagination/text-engine.ts`, `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `labs/reference/document.css`
+Verification: `src/pagination/text-engine.test.ts`, `e2e/regression.spec.ts`
+
 ## DOCE-PAGINATION-12 - Widths from the font files
 
 Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.

@@ -49,6 +49,7 @@ function stubEngine(options: StubOptions = {}) {
       paragraphs: options.paragraphs ?? new Set(),
     }),
     measureBlock: () => null,
+    measureRegion: () => null,
     lines(node, place) {
       calls.push({ text: node.textContent, scope: place.scope, prefix: place.prefix });
       const size = node.content.size;
