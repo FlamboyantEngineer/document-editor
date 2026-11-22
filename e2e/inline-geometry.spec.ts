@@ -6,10 +6,10 @@ import { expect, test, waitForLab } from './fixtures.js';
 // no-break spaces in justified text, soft hyphens, aligned numbered headings and code beside line
 // numbers the pages must draw exactly as the layout engine laid them out.
 
-async function open(page: Page, textLayout: 'dom' | 'pretext') {
-  await page.goto(`regression.html?document=inline-geometry&textLayout=${textLayout}&debug`);
+async function open(page: Page) {
+  await page.goto('regression.html?document=inline-geometry&textLayout=pretext&debug');
   await waitForLab(page);
-  if (textLayout === 'pretext') await page.evaluate(() => window.regressionLab.drawAllLines(true));
+  await page.evaluate(() => window.regressionLab.drawAllLines(true));
 }
 
 // Each block of the pages whose drawn height is not the one the layout gave it. Code figures are
@@ -27,30 +27,30 @@ const offPlan = (page: Page) =>
       .filter((block) => Math.abs(block.drawn - block.planned) > 0.5),
   );
 
-// Where each heading's text starts, by its element id, from the left of its page's content.
-const headingStarts = (page: Page) =>
+// Each heading on one line: where its number starts (its first-line indent), and the room left
+// after its text, from its page's content edges. Both sides are equal when it is centred, and the
+// second is nothing when it is right-aligned.
+const headingGaps = (page: Page) =>
   page.evaluate(() =>
     [
       ...document.querySelectorAll<HTMLElement>(
         '.de-document-editor__content .pm-page-content > :is(h1, h2)',
       ),
-    ].map((heading) => {
-      const text = [...heading.childNodes].find((node) => node.nodeType === Node.TEXT_NODE) ?? null;
-      const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
-      const first = text ?? walker.nextNode();
-      const range = document.createRange();
-      range.setStart(first ?? heading, 0);
-      range.setEnd(first ?? heading, first ? 1 : 0);
-      const content = heading.closest('.pm-page-content')?.getBoundingClientRect().left ?? 0;
+    ].flatMap((heading) => {
       const whole = document.createRange();
       whole.selectNodeContents(heading);
-      const tops = new Set([...whole.getClientRects()].map((rect) => Math.round(rect.top)));
-      return {
-        id: heading.dataset.id,
-        tag: heading.tagName,
-        left: Math.round(range.getBoundingClientRect().left - content),
-        oneLine: tops.size === 1,
-      };
+      const rects = [...whole.getClientRects()];
+      if (new Set(rects.map((rect) => Math.round(rect.top))).size !== 1) return [];
+      const content = heading.closest('.pm-page-content')?.getBoundingClientRect();
+      const indent = parseFloat(getComputedStyle(heading).getPropertyValue('--de-first-indent'));
+      return [
+        {
+          id: heading.dataset.id,
+          tag: heading.tagName,
+          before: Number.isNaN(indent) ? 0 : indent,
+          after: (content?.right ?? 0) - Math.max(...rects.map((rect) => rect.right)),
+        },
+      ];
     }),
   );
 
@@ -58,18 +58,17 @@ test.describe('inline geometry on the engine’s lines', () => {
   test('DOCE-PAGINATION-9.3 DOCE-PAGINATION-9.6 DOCE-PAGINATION-13.1 draws each block at the height the engine gave it', async ({
     page,
   }) => {
-    await open(page, 'pretext');
+    await open(page);
     expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
     expect(await offPlan(page)).toEqual([]);
   });
 
-  test('DOCE-PAGINATION-9.3 draws subscripts and superscripts without growing a line, in both modes', async ({
+  test('DOCE-PAGINATION-9.3 draws subscripts and superscripts without growing a line', async ({
     page,
   }) => {
-    await open(page, 'dom');
-    expect(await offPlan(page)).toEqual([]);
+    await open(page);
     const heights = await page.evaluate(() =>
-      [...document.querySelectorAll('.pm-page-content sup')]
+      [...document.querySelectorAll('.de-document-editor__content .pm-page-content sup')]
         .slice(0, 3)
         .map((sup) => getComputedStyle(sup).lineHeight),
     );
@@ -79,27 +78,22 @@ test.describe('inline geometry on the engine’s lines', () => {
   test('DOCE-PAGINATION-13.1 starts an aligned numbered heading’s first line before its number', async ({
     page,
   }) => {
-    await open(page, 'dom');
-    const measured = await headingStarts(page);
-    await open(page, 'pretext');
-    const laid = await headingStarts(page);
-    // A heading on one line in both modes starts where the browser centres or aligns it; a longer
-    // one may break a word apart from the browser's line, within the closeness budget.
-    const compared = laid.filter(
-      (heading) => heading.oneLine && measured.find((each) => each.id === heading.id)?.oneLine,
-    );
+    await open(page);
+    const headings = await headingGaps(page);
     // A centred first level and a right-aligned second level.
-    expect(new Set(compared.map((heading) => heading.tag))).toEqual(new Set(['H1', 'H2']));
-    for (const heading of compared) {
-      const left = measured.find((each) => each.id === heading.id)?.left ?? 0;
-      expect(Math.abs(heading.left - left), heading.id).toBeLessThanOrEqual(1);
+    expect(new Set(headings.map((heading) => heading.tag))).toEqual(new Set(['H1', 'H2']));
+    for (const heading of headings) {
+      const { id, before, after } = heading;
+      if (heading.tag === 'H1') expect(Math.abs(before - after), id).toBeLessThanOrEqual(1);
+      else expect(Math.abs(after), id).toBeLessThanOrEqual(1);
+      expect(before, id).toBeGreaterThan(0);
     }
   });
 
   test('DOCE-PAGINATION-13.1 shows the hyphen at a line that ends at a soft hyphen', async ({
     page,
   }) => {
-    await open(page, 'pretext');
+    await open(page);
     const ends = await page.evaluate(() =>
       [...document.querySelectorAll('.de-forced-lines__hyphen')].map(
         (end) => getComputedStyle(end, '::after').content,
