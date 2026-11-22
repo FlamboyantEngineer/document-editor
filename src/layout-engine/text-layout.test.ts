@@ -62,13 +62,22 @@ describe('createTextLayout', () => {
     expect(lines).toMatchObject({ width: 60, height: 54, overhead: 0 });
   });
 
+  it('DOCE-PAGINATION-9.1 counts the runs it prepares and the runs it finds prepared', () => {
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    const node = block('<p>aa<br>bb</p>');
+    engine.layoutText(node, { width: 60 });
+    expect(engine.stats()).toEqual({ hits: 0, misses: 2 });
+    engine.layoutText(node, { width: 30 });
+    expect(engine.stats()).toEqual({ hits: 2, misses: 2 });
+  });
+
   it('DOCE-PAGINATION-9.1 gives an empty paragraph one line', () => {
     expect(table(block('<p></p>'), 60).lines).toEqual([
       { from: 0, to: 0, width: 0, left: 0, top: 0, height: 18, end: 'end' },
     ]);
   });
 
-  it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, and same-font neighbours as one run', () => {
+  it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, each text node as its own item', () => {
     const plain = table(block(`<p>${WORDS}</p>`), 60);
     const linked = table(
       block('<p>aaaa <a href="https://example.com">bbbb</a> cccc dddd eeee</p>'),
@@ -79,6 +88,10 @@ describe('createTextLayout', () => {
     expect(bold.lines[0]?.width).toBe(24);
     const code = table(block('<p><code>aaaa</code></p>'), 60);
     expect(code.lines[0]?.width).toBe(26);
+    // A line ending inside the code fits without its 3px end padding: "aa aa" with both pads is
+    // 28.5px, and fits in 26px.
+    expect(table(block('<p><code>aa aa aa</code></p>'), 26).lines).toHaveLength(2);
+    expect(table(block('<p><code>aa aa aa</code></p>'), 25).lines).toHaveLength(3);
   });
 
   it('DOCE-PAGINATION-9.4 ends a line at each hard break, and a final break makes an empty line', () => {

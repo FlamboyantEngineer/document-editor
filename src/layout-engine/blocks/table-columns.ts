@@ -48,7 +48,8 @@ function scaled(widths: readonly number[], room: number): number[] {
 /**
  * A table's column widths in an available width. An aligned table's columns take their stored
  * width or a default, and one set to the page's width is scaled to it; an unaligned table spans
- * the width unless every column has a width. Collapsed borders add one outer border to the sum.
+ * the width unless every column has a width, a column without one never taking less than an equal
+ * share. Collapsed borders add one outer border to the sum.
  */
 export function tableColumns(
   table: ProseMirrorNode,
@@ -76,7 +77,12 @@ export function tableColumns(
     const widths = set > room ? scaled(own, room) : own;
     return { widths, width: widths.reduce((sum, width) => sum + width, 0) + borders.vertical };
   }
+  // A column without a width takes what the others leave, but never less than an equal share of
+  // the room; the stored columns are then scaled into the rest.
+  const least = room / count;
   const share = Math.max(0, room - set) / unset;
-  const widths = set > room ? scaled(own, room) : own.map((width) => width || share);
+  if (share >= least) return { widths: own.map((width) => width || share), width: available };
+  const rest = scaled(own, Math.max(0, room - least * unset));
+  const widths = own.map((width, index) => (width ? (rest[index] ?? 0) : least));
   return { widths, width: available };
 }

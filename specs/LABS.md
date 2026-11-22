@@ -266,9 +266,9 @@ Verification: `e2e/regression.spec.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-LABS-5.1 - DOM-free prediction and virtual pages
 
-The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker. It shall reuse prepared inline data on width changes, reuse item-local line offsets at the same width, and discard both when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
+The Pretext pagination lab shall read stored document fixtures through the editor schema and predict page dimensions and source ranges in a worker, laying text blocks out with the library's text layout engine (DOCE-PAGINATION-9). Its HTML shall draw what the engine computes: the editor's pre-wrap white space, the engine's leadings, and inline code in the code font and size with 3px of padding on each side of each line. It shall reuse prepared inline data on width changes, reuse item-local line offsets at the same width, and discard both when font readiness changes. The read-only viewer shall render only the visible pages and the chosen overscan, support jumping by page number and report unsupported content explicitly. The experiment shall leave production rendering, pagination, and editing unchanged.
 
-Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/html.ts`
+Implementation: `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/prediction.ts`, `labs/src/spikes/pretext/settings.ts`, `labs/src/spikes/pretext/html.ts`, `labs/reference/pretext-pagination.css`, `src/layout-engine/text-layout.ts`
 Verification: `e2e/pretext-pagination.spec.ts`
 
 ### DOCE-LABS-5.2 - Independent HTML parity
@@ -321,6 +321,22 @@ With the lines drawn on the pages' own view and pages off screen skipping their 
 
 Implementation: `labs/src/spikes/forced-lines/direct.ts`, `labs/forced-lines.html`
 Verification: `e2e/forced-lines.performance.spec.ts`
+
+## DOCE-LABS-7 - Font-file widths spike
+
+### DOCE-LABS-7.1 - Widths from the font files
+
+The font-widths lab shall measure a fixed reference text (55 strings at five sizes in each served face: Geist regular, bold, italic and bold italic, Geist Mono, and the KaTeX main and sans faces) from the served font files, shaped with HarfBuzz in WebAssembly, and with the browser's Canvas, and show both fingerprints, the fingerprint of Pretext's line breaks for seeded paragraphs through each, and every string whose widths differ. The font-file widths and line breaks shall equal recorded fingerprints on every machine, in a page and in a worker alike, and the characters no served face has shall be reported. On Linux Chromium the font-file widths shall equal Canvas's, within the last bit of a float32 sum, wherever a served face has the glyphs. The measurer is the library's (DOCE-PAGINATION-11).
+
+Implementation: `labs/font-widths.html`, `labs/src/font-widths.lab.ts`, `src/layout-engine/font-files/`, `test/font-files-reference.ts`, `test/font-files-lines.ts`, `scripts/build-labs.mjs`, `scripts/font-widths.mjs`, `scripts/font-widths-coverage.mjs`
+Verification: `e2e/font-widths.spec.ts`
+
+### DOCE-LABS-7.2 - Closeness with font-file widths
+
+The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, mapping the template's families to them through `fontStacks` for both the HTML and the text layout engine, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used, and lay the natural HTML out under `text-rendering: geometricPrecision` with `font-synthesis: none`, as pages under Pretext layout are drawn. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind.
+
+Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/client.ts`, `labs/src/spikes/pretext/settings.ts`
+Verification: `e2e/font-widths.spec.ts`
 
 ## DOCE-LABS-8 - One layout result
 

@@ -68,6 +68,9 @@ const ALIGNMENTS: readonly TextAlign[] = ['left', 'center', 'right', 'justify'];
 /** A length snapped to the layout unit. */
 export const snap = (value: number) => Math.round(value / LAYOUT_UNIT) * LAYOUT_UNIT;
 
+/** A line height in layout units: Chromium truncates the size times the line height to the unit. */
+const snapLeading = (value: number) => Math.floor(value / LAYOUT_UNIT + 1e-9) * LAYOUT_UNIT;
+
 /** A length in CSS pixels; `em` and `%` against a base size, `rem` against the root's. */
 export function resolveLength(value: unknown, base: number): number | null {
   const absolute = lengthToCssPx(value);
@@ -152,7 +155,7 @@ function blockOf(
   const font = fontOf(text, fallback, { fontStacks: context.fontStacks, base });
   return {
     font,
-    leading: snap(font.size * (text?.lineHeight ?? defaults.lineHeight ?? 1)),
+    leading: snapLeading(font.size * (text?.lineHeight ?? defaults.lineHeight ?? 1)),
     align: alignOf(text, 'left'),
     marginTop: spacing(text, 'spaceBefore', font.size),
     marginBottom: spacing(text, 'spaceAfter', font.size),
