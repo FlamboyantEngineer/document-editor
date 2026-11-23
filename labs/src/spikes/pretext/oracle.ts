@@ -157,7 +157,7 @@ function measure(
 // Whether the page's text or an atom reaches past its content's right edge. White space that hangs
 // at a line end, and the padding Chromium paints after it in inline code, are ink past the edge
 // that no line holds (G3), so only words and atoms count.
-function inkPastEdge(body: HTMLElement): boolean {
+export function inkPastEdge(body: HTMLElement): boolean {
   if (body.scrollWidth <= body.clientWidth + 1) return false;
   const edge = body.getBoundingClientRect().left + body.clientWidth + 1;
   const range = document.createRange();

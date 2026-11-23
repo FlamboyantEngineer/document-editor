@@ -311,7 +311,7 @@ Verification: `e2e/pretext-page-link.spec.ts`
 The lab tests shall measure how close the prediction is to Chromium's own line breaking. Seeded paragraphs of plain text, words that kern with a following space, bold, italic, inline code, links and a dense mix shall be laid out at nine widths by the worker and by natural HTML, and the paragraphs with different line starts or line counts, the pages with different boundaries and the overflowing pages shall equal a recorded budget per kind. A page overflows when its column scrolls or a word or atom of it reaches past the content edge; the ink of white space hanging at a line end does not count. The same run shall happen in Chromium launched at device pixel ratios 1, 1.25 and 2, each checking that the page reports its ratio. A threshold test shall find, in the browser and in the prediction, the narrowest column that keeps a case's last character on its first line: plain controls shall match, and each case of a known fault shall be recorded as an expected miss naming its finding, so a fix fails the test until its miss and budgets are updated.
 
 Implementation: `labs/src/spikes/pretext/thresholds.ts`, `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/oracle.ts`, `playwright.config.ts`
-Verification: `e2e/pretext-pagination-fuzz.spec.ts`
+Verification: `e2e/pretext-pagination-fuzz.spec.ts`, `e2e/pretext-pagination.spec.ts`
 
 ## DOCE-LABS-6 - Forced-lines spike
 
