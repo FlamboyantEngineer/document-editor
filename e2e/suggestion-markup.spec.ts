@@ -35,6 +35,9 @@ async function open(page: Page, query = '') {
   await page.setViewportSize(ROOMY);
   await page.goto(`regression.html?document=comments-and-suggestions&textLayout=pretext${query}`);
   await waitForLab(page);
+  // Under load the first layout can still be pending or provisional when the lab is ready.
+  await page.evaluate(() => window.stressLab.whenSettled());
+  await page.waitForFunction(() => window.regressionLab.layout()?.provisional === false);
 }
 
 // The editor's own pages, not its measuring view's nor the viewer's.
