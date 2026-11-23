@@ -18,14 +18,9 @@ import {
 } from './incremental-layout.js';
 import { insertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { measureChildBlocks } from './measure-blocks.js';
-import { blockMargin, type MeasureCache, measureCacheCounts } from './measure-cache.js';
-import {
-  type FootnoteArea,
-  footnoteAreaHeight,
-  footnoteAreaOf,
-  measureFootnotes,
-} from './measure-footnotes.js';
-import { unzoom } from './measure-scale.js';
+import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
+import { type FootnoteArea, footnoteAreaHeight } from './measure-footnotes.js';
+import { footnoteArea, type SectionRegions, sectionRegions } from './page-regions.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
@@ -69,6 +64,8 @@ export interface SectionReport {
 /** The sections' layouts a document was laid out with, for the next layout to reuse. */
 export interface LayoutMemory {
   sections: SectionLayout[];
+  /** The document's page count the last layout laid out. */
+  pages?: number | undefined;
 }
 
 /** A memory for layouts, empty until the first. */
@@ -170,128 +167,98 @@ function sectionPlaces(doc: ProseMirrorNode): SectionPlace[] {
   return places;
 }
 
-// The text each template variable in a header or footer shows, as the view draws it
-// (`createPageVariables`): the engine lays the region out with these values.
-function variableTexts(region: HTMLElement): ReadonlyMap<string, string> {
-  const texts = new Map<string, string>();
-  for (const variable of region.querySelectorAll<HTMLElement>('[data-template-variable]')) {
-    texts.set(variable.dataset.templateVariable ?? '', variable.textContent);
-  }
-  return texts;
-}
-
-// The room a page header or footer takes, with its margins; one the view hides takes none. The
-// layout engine gives it when it lays the region out (`measureRegion`), the view's box otherwise.
-function regionHeight(view: EditorView, pos: number | null, at: RegionAt): number {
-  const dom = pos === null ? null : view.nodeDOM(pos);
-  if (!dom || dom.nodeType !== 1) return 0;
-  const element = dom as HTMLElement;
-  const { height } = element.getBoundingClientRect();
-  if (!height) return 0;
-  const node = pos === null ? null : view.state.doc.nodeAt(pos);
-  const room = node ? at.engine?.measureRegion(node, at.scope, variableTexts(element)) : null;
-  if (room) return room.height > 0 ? room.height + room.gap : 0;
-  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  if (!style) return unzoom(height, at.ratio);
-  const margins =
-    (parseFloat(blockMargin(style, 'start')) || 0) + (parseFloat(blockMargin(style, 'end')) || 0);
-  return unzoom(height, at.ratio) + margins;
-}
-
-// Where a section's regions are measured: at the view's scale, or by the layout engine in a scope.
-interface RegionAt {
-  readonly ratio: number;
-  readonly scope: string | null;
-  readonly engine: PagesTextEngine | null | undefined;
-}
-
-// A section's footnote area, laid out by the layout engine when it can, else measured in the view.
-function footnoteArea(view: EditorView, pos: number | null, at: RegionAt): FootnoteArea | null {
-  if (pos === null) return null;
-  const node = view.state.doc.nodeAt(pos);
-  const room = node ? at.engine?.measureRegion(node, at.scope) : null;
-  if (node && room) return footnoteAreaOf(node, room);
-  return measureFootnotes(view, pos, { scale: at.ratio });
-}
-
 interface SectionFill {
   readonly blocks: LayoutBlock[];
   readonly area: FootnoteArea | null;
-  readonly baseHeight: number;
-  /** The room the header and the footer take. */
-  readonly regions: { readonly header: number; readonly footer: number };
-  /** Footnotes whose entries an earlier page holds. */
+  /** The section's page height inside its margins, before its regions take their room. */
+  readonly pageHeight: number;
+  /** The room the header and the footer take on each page. */
+  readonly regions: SectionRegions;
+  readonly rules: LayoutRules | undefined;
+}
+
+// Where a pass lays a section out: the number of its first page through the document, the
+// document's page count it assumes, and the footnotes whose entries an earlier page holds.
+interface SectionStart {
+  readonly page: number;
+  readonly pages: number;
   readonly shown: Set<string>;
 }
 
-// What a section's page heights depend on besides its blocks, as a key.
-function fillKey(fill: SectionFill, perPage: boolean): string {
+// What a section's page heights depend on besides its blocks, as a key: its page height, its
+// footnotes and, where its regions show them, its first page's number and the page count.
+function fillKey(
+  fill: SectionFill,
+  start: Pick<SectionStart, 'page' | 'pages'>,
+  perPage: boolean,
+): string {
   const last = fill.area?.last;
   const entries = fill.area
     ? [...fill.area.entries].map(([id, height]) => `${id}:${height}:${last?.get(id) ?? ''}`)
     : [];
-  return [fill.baseHeight, perPage, fill.area?.overhead ?? '-', ...entries].join('|');
+  const { reads } = fill.regions;
+  const numbers = `${reads.current ? start.page : '-'}/${reads.total ? start.pages : '-'}`;
+  return [fill.pageHeight, numbers, perPage, fill.area?.overhead ?? '-', ...entries].join('|');
 }
 
 function layoutSection(
   fill: SectionFill,
-  options: Omit<DocumentLayoutOptions, 'rules'> & { readonly rules?: LayoutRules | undefined },
-  previous: SectionLayout | undefined,
-): IncrementalResult {
+  start: SectionStart & { readonly previous: SectionLayout | undefined },
+  options: DocumentLayoutOptions,
+): { result: IncrementalResult; metrics: PageMetric[] } {
   const perPage = options.footnoteNumbering === 'page';
-  const { area, shown, baseHeight } = fill;
-  const pageHeight = (blocks: readonly LayoutBlock[]) => {
-    if (!area) return baseHeight;
-    const fresh = [...cited(blocks)].filter((id) => perPage || !shown.has(id));
-    return baseHeight - footnoteAreaHeight(area, fresh);
+  const { area, regions } = fill;
+  const { shown } = start;
+  const roomOn = (index: number) => regions.on(start.page + index, start.pages);
+  const baseHeight = (index: number) => {
+    const room = roomOn(index);
+    return fill.pageHeight - room.header - room.footer;
   };
-  return layoutSectionIncrementally({
+  const pageHeight = (blocks: readonly LayoutBlock[], index: number) => {
+    if (!area) return baseHeight(index);
+    const fresh = [...cited(blocks)].filter((id) => perPage || !shown.has(id));
+    return baseHeight(index) - footnoteAreaHeight(area, fresh);
+  };
+  const metrics: PageMetric[] = [];
+  const result = layoutSectionIncrementally({
     blocks: fill.blocks,
-    key: fillKey(fill, perPage),
-    previous,
+    key: fillKey(fill, start, perPage),
+    previous: start.previous,
     // With footnotes numbered through the document, a page's room depends on those shown before.
     state: () => (area && !perPage ? [...shown].join(' ') : ''),
-    next: (queue, index) => layoutNextPage(queue, index, { pageHeight, rules: options.rules }),
+    next: (queue, index) => layoutNextPage(queue, index, { pageHeight, rules: fill.rules }),
     page(page) {
-      const available = pageHeight(page);
-      options.onPage?.({
+      const index = metrics.length;
+      const available = pageHeight(page, index);
+      metrics.push({
         used: stackedHeight(page),
         stacked: stackedWithMargins(page),
         available,
         blocks: page.map((block) => block.height),
         tops: blockTops(page),
-        ...fill.regions,
-        footnotes: baseHeight - available,
+        ...roomOn(index),
+        footnotes: baseHeight(index) - available,
       });
       for (const id of cited(page)) shown.add(id);
     },
   });
+  return { result, metrics };
 }
 
-/**
- * The pages of each section of the whole document a view renders, as `projectDocument` takes them:
- * every block measured, cached ones reused, and each page short by its header's, its footer's and
- * its footnote entries' heights.
- */
-export function layoutDocument(view: EditorView, options: DocumentLayoutOptions): SectionPages[] {
-  const { scale, cache, memory } = options;
+// The blocks, footnote area, page height and regions of each section the view renders.
+function sectionFills(view: EditorView, options: DocumentLayoutOptions) {
+  const { scale, cache, engine } = options;
   const ratio = scale && scale > 0 ? scale : 1;
-  const shown = new Set<string>();
   const measuredSoFar = () => (cache ? measureCacheCounts(cache).measured : 0);
-  const places = sectionPlaces(view.state.doc);
-  const { engine } = options;
-  engine?.number(view.state.doc);
   // The words other plugins draw in its text blocks, such as a comparison's deleted words.
   const inserted = engine ? insertedTexts(view.state, [forcedLinesKey]) : NO_INSERTED;
-  const sections = places.map(({ section, content, footnotes, header, footer }, index) => {
+  return sectionPlaces(view.state.doc).map((place, index) => {
+    const { section, content, footnotes } = place;
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
     const scope = (section.attrs.sectionName as string | null | undefined) ?? null;
     const at = { ratio, scope, engine };
-    const regions = {
-      header: regionHeight(view, header, at),
-      footer: regionHeight(view, footer, at),
-    };
+    const regions = sectionRegions(view, at, place);
     const before = measuredSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
@@ -301,13 +268,101 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const blocks = measureChildBlocks(view, content, { scale, cache, rules, engine: laid });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnoteArea(view, footnotes, at);
-    const baseHeight = pageHeight - regions.header - regions.footer;
-    const fill = { blocks, area, baseHeight, regions, shown };
-    const result = layoutSection(fill, { ...options, rules }, memory?.sections[index]);
-    const { pagesLaidOut, pages } = result;
-    options.onSection?.({ blocksMeasured, pagesLaidOut, pages: pages.length });
-    return result;
+    const fill: SectionFill = { blocks, area, pageHeight, regions, rules };
+    return { fill, blocksMeasured };
   });
-  if (memory) memory.sections = sections.map((result) => result.layout);
-  return sections.map(({ pages }) => pages.map((page) => page.map((block) => block.node)));
+}
+
+// Passes at most this many times over a document whose regions show the page count, each with the
+// count the one before laid out, until the count it assumed is the count it laid out.
+const COUNT_PASSES = 3;
+
+type SectionFills = ReturnType<typeof sectionFills>;
+
+// One pass over the document's sections, assuming a page count: each section's layout and the
+// number of its first page.
+function layoutPass(
+  fills: SectionFills,
+  at: { readonly pages: number; readonly previous: readonly (SectionLayout | undefined)[] },
+  options: DocumentLayoutOptions,
+) {
+  const shown = new Set<string>();
+  let page = 1;
+  const starts: number[] = [];
+  const laid = fills.map(({ fill }, index) => {
+    starts.push(page);
+    const start = { page, pages: at.pages, shown, previous: at.previous[index] };
+    const section = layoutSection(fill, start, options);
+    page += section.result.pages.length;
+    return section;
+  });
+  return { laid, starts, counted: page - 1 };
+}
+
+// Whether every page a pass laid out, assuming a page count, gives its regions the same room under
+// the count it came to, so the pass holds for that count too.
+function holds(fills: SectionFills, pass: ReturnType<typeof layoutPass>, assumed: number) {
+  return fills.every(({ fill }, index) => {
+    if (!fill.regions.reads.total) return true;
+    const first = pass.starts[index] ?? 1;
+    const count = pass.laid[index]?.result.pages.length ?? 0;
+    for (let page = first; page < first + count; page += 1) {
+      const before = fill.regions.on(page, assumed);
+      const after = fill.regions.on(page, pass.counted);
+      if (before.header !== after.header || before.footer !== after.footer) return false;
+    }
+    return true;
+  });
+}
+
+// The document laid out until the page count its regions were laid out with is the count it came
+// to, or a pass's rooms hold for that count; with the pages each section laid out over all passes.
+function settlePasses(fills: SectionFills, options: DocumentLayoutOptions) {
+  const readsTotal = fills.some(({ fill }) => fill.regions.reads.total);
+  let previous: readonly (SectionLayout | undefined)[] = options.memory?.sections ?? [];
+  let pages = options.memory?.pages ?? 0;
+  const laidOut = fills.map(() => 0);
+  let pass = layoutPass(fills, { pages, previous }, options);
+  let settled = false;
+  for (let count = 1; ; count += 1) {
+    pass.laid.forEach(({ result }, index) => {
+      laidOut[index] = (laidOut[index] ?? 0) + result.pagesLaidOut;
+    });
+    settled = !readsTotal || pass.counted === pages || holds(fills, pass, pages);
+    if (settled || count >= COUNT_PASSES) break;
+    pages = pass.counted;
+    previous = pass.laid.map(({ result }) => result.layout);
+    pass = layoutPass(fills, { pages, previous }, options);
+  }
+  // Each section's layout, kept for the page count it came to when it holds for it.
+  const perPage = options.footnoteNumbering === 'page';
+  const layouts = pass.laid.map(({ result }, index) => {
+    const fill = settled ? fills[index]?.fill : undefined;
+    const start = { page: pass.starts[index] ?? 1, pages: pass.counted };
+    return fill ? { ...result.layout, key: fillKey(fill, start, perPage) } : result.layout;
+  });
+  return { pass, laidOut, layouts };
+}
+
+/**
+ * The pages of each section of the whole document a view renders, as `projectDocument` takes them:
+ * every block measured, cached ones reused, and each page short by its header's, its footer's and
+ * its footnote entries' heights, each laid out with the page's own number and the page count.
+ */
+export function layoutDocument(view: EditorView, options: DocumentLayoutOptions): SectionPages[] {
+  const { memory, engine } = options;
+  engine?.number(view.state.doc);
+  const fills = sectionFills(view, options);
+  const { pass, laidOut, layouts } = settlePasses(fills, options);
+  pass.laid.forEach(({ result, metrics }, index) => {
+    for (const metric of metrics) options.onPage?.(metric);
+    const pagesLaidOut = laidOut[index] ?? 0;
+    const blocksMeasured = fills[index]?.blocksMeasured ?? 0;
+    options.onSection?.({ blocksMeasured, pagesLaidOut, pages: result.pages.length });
+  });
+  if (memory) {
+    memory.sections = layouts;
+    memory.pages = pass.counted;
+  }
+  return pass.laid.map(({ result }) => result.pages.map((page) => page.map((block) => block.node)));
 }

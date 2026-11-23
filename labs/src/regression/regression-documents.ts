@@ -141,6 +141,14 @@ const TEMPLATES = new Map<string, unknown>([
   ].map((template) => [template.id, template] as const),
 ]);
 
+/** A template resolved over the regression set's templates and the base template. */
+export function resolveRegressionTemplate(own: TemplateFile): TemplateFile {
+  return resolveTemplateFile(own, {
+    loadTemplate: (id) => TEMPLATES.get(id) ?? null,
+    baseTemplateId: BASE_TEMPLATE_ID,
+  });
+}
+
 /** A regression document and its resolved template. */
 export function regressionDocument(name: RegressionDocumentName): {
   file: DocumentFile;
@@ -149,10 +157,5 @@ export function regressionDocument(name: RegressionDocumentName): {
   const file = REGRESSION_DOCUMENTS[name] as unknown as DocumentFile;
   const pin = file.template;
   const id = (typeof pin === 'string' ? pin : pin?.id) ?? BASE_TEMPLATE_ID;
-  const own = TEMPLATES.get(id) as TemplateFile;
-  const template = resolveTemplateFile(own, {
-    loadTemplate: (id) => TEMPLATES.get(id) ?? null,
-    baseTemplateId: BASE_TEMPLATE_ID,
-  });
-  return { file, template };
+  return { file, template: resolveRegressionTemplate(TEMPLATES.get(id) as TemplateFile) };
 }
