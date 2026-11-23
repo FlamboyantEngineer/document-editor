@@ -59,6 +59,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     number: () => undefined,
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
     measureBlock: () => null,
+    measureRegion: () => null,
     lines(block) {
       const size = block.content.size;
       const lines: TextLine[] = [];
@@ -80,6 +81,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
       const reserve = (cluster: string) => (reserved.has(cluster) ? 16 : null);
       return { ...table, reserved: reservedBoxes(text, { offset: 0, font: '', reserve }) };
     },
+    provisional: () => false,
     stats: () => ({ laid: 0, refused: 0, reasons: new Map() }),
     destroy: () => undefined,
   };

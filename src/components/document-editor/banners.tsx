@@ -112,6 +112,9 @@ export function useReportedFonts(fonts: FontsAdapter | undefined, timeout?: numb
   const reported = useMemo<FontsAdapter | undefined>(
     () =>
       fonts && {
+        // The font files and shaper of Pretext layout pass through unchanged (DOCE-HOST-1.14.1).
+        ...(fonts.files ? { files: fonts.files.bind(fonts) } : {}),
+        ...(fonts.shaper ? { shaper: fonts.shaper.bind(fonts) } : {}),
         async load(families, options) {
           const result = await fonts.load(families, {
             ...options,

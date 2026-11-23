@@ -2,6 +2,7 @@
 
 import type { LayoutState } from '../../pagination/index.js';
 import type { DocumentEditorDebug, DocumentEditorProps } from './document-editor.js';
+import type { PagesFontsState } from './use-pages-fonts.js';
 
 /** The parts of the layout debugging shown: `true` shows the pages'. */
 export function debugParts(debug: DocumentEditorProps['debug']): DocumentEditorDebug {
@@ -20,13 +21,19 @@ function debugData(props: DocumentEditorProps) {
 }
 
 /** The editor root's hook values. */
-export function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
+export function rootData(
+  props: DocumentEditorProps,
+  layoutState: LayoutState,
+  text: Pick<PagesFontsState, 'textLayout' | 'reason'>,
+) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
   return {
     markup: props.markup ?? 'all',
     layout,
     // Only the pages lay text out with the engine; the web layout keeps the browser's lines.
-    textLayout: layout === 'page' ? (props.textLayout ?? 'dom') : 'dom',
+    // and only with the fonts the host serves; the reason says why the browser lays them out.
+    textLayout: layout === 'page' ? text.textLayout : 'dom',
+    textLayoutReason: text.reason ?? undefined,
     webWidth: props.webWidth ?? 'fill',
     mode: editable ? 'authoring' : 'reading',
     suggesting: editable && suggesting,

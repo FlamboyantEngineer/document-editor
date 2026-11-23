@@ -121,6 +121,8 @@ function paintPage(page: HTMLElement, drawing: Drawing) {
   const wrapper = page.ownerDocument.createElement('div');
   wrapper.className = hooks.slot('canvas-page').className ?? '';
   canvas.className = hooks.slot('canvas').className ?? '';
+  // Chromium 157 and later paint only a child marked `drawable`.
+  page.setAttribute('drawable', '');
   canvas.append(page);
   wrapper.append(canvas);
   let stopped = false;
@@ -138,6 +140,7 @@ function paintPage(page: HTMLElement, drawing: Drawing) {
   const fallback = (reason: CanvasFallback) => {
     if (stopped) return;
     stop();
+    page.removeAttribute('drawable');
     page.setAttribute('data-canvas-fallback', reason);
     canvas.replaceWith(page);
   };

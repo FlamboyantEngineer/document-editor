@@ -1,4 +1,5 @@
 import type * as Pretext from '@chenglou/pretext';
+import { setMeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
@@ -69,6 +70,46 @@ describe('createTextLayout', () => {
     expect(engine.stats()).toEqual({ hits: 0, misses: 2 });
     engine.layoutText(node, { width: 30 });
     expect(engine.stats()).toEqual({ hits: 2, misses: 2 });
+  });
+
+  it('DOCE-PAGINATION-9.1 keeps every block of a long document prepared while its node lives', () => {
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    // More blocks than the 4,000 runs kept by their text alone; made from the schema, not parsed.
+    const paragraph = documentSchema.nodes.paragraph;
+    if (!paragraph) throw new Error('no paragraph');
+    const nodes = Array.from({ length: 4500 }, (_, index) =>
+      paragraph.create(null, documentSchema.text(`run ${String(index)}`)),
+    );
+    for (const node of nodes) engine.layoutText(node, { width: 60 });
+    expect(engine.stats()).toEqual({ hits: 0, misses: 4500 });
+    for (const node of nodes) engine.layoutText(node, { width: 30 });
+    expect(engine.stats()).toEqual({ hits: 4500, misses: 4500 });
+  }, 20_000);
+
+  it('DOCE-PAGINATION-9.1 tells Pretext the language only when it changes, so widths stay measured', () => {
+    let measured = 0;
+    setMeasureContext(() => {
+      const context = new OffscreenCanvas(1, 1).getContext(
+        '2d',
+      ) as unknown as Pretext.MeasureContext;
+      const measure = context.measureText.bind(context);
+      context.measureText = (text: string) => {
+        measured += 1;
+        return measure(text);
+      };
+      return context;
+    });
+    try {
+      table(block(`<p>${WORDS}</p>`), 60, { language: 'de-CH' });
+      const first = measured;
+      table(block(`<p>${WORDS}</p>`), 60, { language: 'de-CH' });
+      expect(first).toBeGreaterThan(5);
+      expect(measured - first).toBeLessThanOrEqual(1);
+      table(block('<p>aaaa</p>'), 60, { language: 'fr' });
+      expect(pretext.locales).toEqual(['de-CH', 'fr']);
+    } finally {
+      setMeasureContext();
+    }
   });
 
   it('DOCE-PAGINATION-9.1 gives an empty paragraph one line', () => {

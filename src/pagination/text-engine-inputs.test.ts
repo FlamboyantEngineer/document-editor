@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { note, paragraph, text } from '../../test/footnote-fixtures.js';
@@ -121,7 +121,7 @@ describe('the pages engine and its inputs', () => {
     element.remove();
   });
 
-  it('DOCE-PAGINATION-11.1 leaves only captions, footnote markers, template variables and contents lists of the stored documents to the DOM', () => {
+  it('DOCE-PAGINATION-11.1 leaves only captions, template variables and contents lists of the stored documents to the DOM', () => {
     const documents = join(
       dirname(fileURLToPath(import.meta.url)),
       '../../test/fixtures/documents',
@@ -148,18 +148,40 @@ describe('the pages engine and its inputs', () => {
       for (const reason of engine.stats().reasons.keys()) reasons.add(reason);
       engine.destroy();
     }
-    expect(laid).toBeGreaterThanOrEqual(676);
+    expect(laid).toBeGreaterThanOrEqual(721);
     // Code captions are left to their code figures in the DOM until the code figure's planned box
-    // matches the drawn one (DOCE-PAGINATION-9.11), footnote markers until thread Q3's superscript
-    // fix lands; contents lists are the DOM's still, and blocks holding a template variable always
-    // are, since its value may be the page's own number (DOCE-PAGINATION-9.5).
+    // matches the drawn one (DOCE-PAGINATION-9.11); contents lists are the DOM's still, and blocks
+    // holding a template variable always are, since its value may be the page's own number
+    // (DOCE-PAGINATION-9.5).
     const left = [...reasons].filter(
       (reason) =>
         reason !== 'a code caption is left to its code figure in the DOM' &&
         reason !== 'toc_block is not laid out by the engine yet' &&
-        reason !== 'footnote marker raises its line' &&
         reason !== 'template variable',
     );
     expect(left).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-11.1 tells that an atom it measured still loads until it settles', async () => {
+    const settled = vi.fn();
+    const measureIn = document.createElement('div');
+    document.body.append(measureIn);
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn,
+      onAtomsSettled: settled,
+    });
+    const image = { type: 'image', attrs: { src: 'https://example.org/a.png' } };
+    const doc = read([paragraph(text('aaaa '), image as StoredNode)]);
+    engine.number(doc);
+    const [block] = blocksOf(doc);
+    if (!block) throw new Error('no paragraph');
+    expect(engine.measureBlock(block, null)).not.toBeNull();
+    expect(engine.provisional()).toBe(true);
+    measureIn.querySelector('img')?.dispatchEvent(new Event('load'));
+    await vi.waitFor(() => expect(settled).toHaveBeenCalled());
+    expect(engine.provisional()).toBe(false);
+    engine.destroy();
+    measureIn.remove();
   });
 });

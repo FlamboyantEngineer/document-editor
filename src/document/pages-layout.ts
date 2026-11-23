@@ -52,6 +52,12 @@ export interface PagesLayout {
   readonly variables: readonly PagesLayoutVariable[];
   /** The heading, caption and equation numbers the pages draw, by position. */
   readonly numbers: readonly PagesLayoutNumber[];
+  /**
+   * Whether the layout may still move: the pages are not settled, an atom such as an image or math
+   * is still loading, or fonts are. A host prints or keeps the layout once it is false, as after
+   * the editor's `whenSettled`.
+   */
+  readonly provisional: boolean;
 }
 
 /** The pages' document of a layout, in a schema of the editor's. */
