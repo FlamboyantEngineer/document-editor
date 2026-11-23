@@ -29,6 +29,7 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../model/index.js';
+import { captionLabelKeys } from './caption-label-keys.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
@@ -145,6 +146,10 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const labels = blockNumbers(doc, template);
   const footnotes = footnotesOf(doc);
   const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
+  // Read when a block is laid out, not for the numbering the pages draw on every change.
+  let captions: ReadonlyMap<ProseMirrorNode, string> | null = null;
+  const captionKey = (node: ProseMirrorNode) =>
+    (captions ??= captionLabelKeys(doc, (caption) => labels.labelOf(caption))).get(node) ?? '';
   const byNode: NodeNumbers = {
     doc,
     prefixes,
@@ -152,7 +157,7 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     labelOf: (caption) => labels.labelOf(caption),
     footnoteOf,
     keyOf: (node) =>
-      `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}`,
+      `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}`,
   };
   const numbering = { headings, paragraphs: new Set(paragraphs.keys()) };
   return { byNode, numbering };
@@ -244,6 +249,18 @@ function engineLayouts(
   return { host, atoms, text, geometry, select, measureContext };
 }
 
+// A way into the engine that measures, setting Pretext's width source to the engine's own first
+// (DOCE-PAGINATION-12.6).
+function selecting<Args extends unknown[], Result>(
+  select: () => void,
+  measure: (...args: Args) => Result,
+): (...args: Args) => Result {
+  return (...args) => {
+    select();
+    return measure(...args);
+  };
+}
+
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
@@ -299,7 +316,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       return result.block;
     },
     insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
-    measureRegion: (node, scope, variables) => regions.lay(node, scope, variables).room,
+    measureRegion: selecting(select, (...at) => regions.lay(...at).room),
     lines(node, place) {
       select();
       const markers = markerKey(node, numbers.footnoteOf);
@@ -315,10 +332,9 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       lines.set(node, { key, table });
       return table;
     },
-    nestedLines(container, scope) {
-      select();
-      return nested.lines(container, { scope, footnoteOf: numbers.footnoteOf });
-    },
+    nestedLines: selecting(select, (container, scope) =>
+      nested.lines(container, { scope, footnoteOf: numbers.footnoteOf }),
+    ),
     provisional: atoms.pending,
     stats: counts.stats,
     destroy() {

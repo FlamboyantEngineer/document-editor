@@ -102,6 +102,11 @@ export interface TextSplitInput {
   readonly measurement: TextMeasurement;
   /** The fewest lines the second fragment keeps, at least two. */
   readonly minimumTrailingLines?: number | undefined;
+  /**
+   * How many characters at the fragment's start draw no line: the hard break an earlier split
+   * moved there (DOCE-PAGINATION-3.6), so the line it ended stays with the fragment before.
+   */
+  readonly hiddenStart?: number | undefined;
 }
 
 // The word to end the first fragment after, keeping at least the minimum lines on each side.
@@ -139,9 +144,10 @@ function chooseLineCount(heights: readonly number[], overhead: number, input: Te
 function planLineSplit(input: TextSplitInput, measured: MeasuredLines): TextSplitPlan | null {
   const { offset } = input.measurement;
   const end = offset + input.text.length;
-  const lines = measured.lines.filter(
-    (line) => line.from >= offset && line.from < Math.max(end, offset + 1),
-  );
+  const start = offset + (input.hiddenStart ?? 0);
+  // A fragment being split runs to its block's end, so the empty line after a last hard break,
+  // which starts there, is its own.
+  const lines = measured.lines.filter((line) => line.from >= start && line.from <= end);
   const heights = lines.map((line) => line.height);
   const total = heights.reduce((sum, height) => sum + height, 0);
   const overhead = Math.max(0, input.height - total);
@@ -292,6 +298,11 @@ function splitBlock(
   };
 }
 
+// Whether a later fragment starts with the hard break a split moved there, which draws no line.
+function movedBreak(node: ProseMirrorNode): boolean {
+  return partIndex(node) > 0 && node.firstChild?.type.name === 'hard_break';
+}
+
 // A split after a hard break moves the break to the second fragment's start, where the stylesheet
 // hides it: at the first fragment's end it would start a line no fragment holds
 // (DOCE-PAGINATION-3.6).
@@ -314,6 +325,7 @@ export function splitParagraphWith(minimumTrailingLines: number) {
       fitting,
       measurement: block.measurement,
       minimumTrailingLines,
+      hiddenStart: movedBreak(block.node) ? 1 : 0,
     });
     const at = plan && breakToTail(block.node, plan);
     return at ? splitBlock(block, at, splitTextNode(block.node, at)) : null;

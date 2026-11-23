@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
+import type { RegionGeometry } from '../layout-engine/blocks/types.js';
+import { createRegionLines, REGIONS_KEPT_PER_NODE } from './region-lines.js';
+
+// A footer node, and regions laid out for it as the engine would, counting each layout.
+function footerRegions() {
+  const footer = documentSchema.node('paragraph', null, documentSchema.text('Page'));
+  let laidOut = 0;
+  const geometry = {
+    layoutRegion: (): RegionGeometry => {
+      laidOut += 1;
+      return { ok: true, height: 10, gap: 0, children: [], provisional: false };
+    },
+  };
+  const regions = createRegionLines({ geometry, recorder: { lines: null }, widthOf: () => 100 });
+  const lay = (page: number, pages: number) =>
+    regions.lay(
+      footer,
+      null,
+      new Map([
+        ['page.current', String(page)],
+        ['page.total', String(pages)],
+      ]),
+    );
+  return { lay, laidOut: () => laidOut };
+}
+
+describe('the laid header and footer regions', () => {
+  it('DOCE-PAGINATION-11.10 keeps a region laid out for each page number it showed', () => {
+    const { lay, laidOut } = footerRegions();
+    for (let page = 1; page <= 10; page += 1) lay(page, 10);
+    for (let page = 1; page <= 10; page += 1) lay(page, 10);
+    expect(laidOut()).toBe(10);
+  });
+
+  it('DOCE-PAGINATION-11.10 keeps at most a bounded number per node under many page counts', () => {
+    const { lay, laidOut } = footerRegions();
+    // A document grown page by page: every page is laid under every count it came to.
+    for (let pages = 1; pages <= 300; pages += 1)
+      for (let page = 1; page <= pages; page += 1) lay(page, pages);
+    const grown = laidOut();
+    // The latest count's pages are kept; the first count's region was dropped.
+    for (let page = 1; page <= 300; page += 1) lay(page, 300);
+    expect(laidOut()).toBe(grown);
+    lay(1, 1);
+    expect(laidOut()).toBe(grown + 1);
+  });
+
+  it('DOCE-PAGINATION-11.10 drops the region used least recently first', () => {
+    const { lay, laidOut } = footerRegions();
+    for (let page = 1; page <= REGIONS_KEPT_PER_NODE; page += 1) lay(page, 1);
+    lay(1, 1);
+    lay(REGIONS_KEPT_PER_NODE + 1, 1);
+    const laid = laidOut();
+    lay(1, 1);
+    expect(laidOut()).toBe(laid);
+    lay(2, 1);
+    expect(laidOut()).toBe(laid + 1);
+  });
+});
