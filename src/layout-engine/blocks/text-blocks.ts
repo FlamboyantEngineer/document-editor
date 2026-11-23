@@ -18,13 +18,14 @@ function flushMargins(node: ProseMirrorNode, parent: BlockParent): boolean {
 export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid {
   const { options, place, parent } = context;
   const scope = place.scope ?? null;
-  const prefix = options.labelOf?.(node);
+  // A caption's label, drawn before its text in the caption label font.
+  const label = options.labelOf?.(node);
   const footnoteNumber =
     node.type.name === 'footnote_entry' ? options.footnoteOf?.(node) : undefined;
   const result = options.text.layoutText(node, {
     width: place.width,
     scope,
-    ...(prefix ? { prefix } : {}),
+    ...(label ? { label } : {}),
     ...(footnoteNumber === undefined ? {} : { footnoteNumber }),
     ...(place.variables ? { variables: place.variables } : {}),
   });

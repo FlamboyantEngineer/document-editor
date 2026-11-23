@@ -61,6 +61,7 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     stats: projection.stats,
     textLines: projection.textLines,
     pagesLayout: projection.pagesLayout,
+    servedFonts: projection.servedFonts,
     destroy() {
       detach();
       shown.destroy();

@@ -20,6 +20,7 @@ import { blockNumbers } from '../layout-engine/blocks/numbers.js';
 import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
 import type { BlockTextLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
+import { insertedKey } from '../layout-engine/inserted-text.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import { createTextLayout } from '../layout-engine/text-layout.js';
@@ -30,6 +31,8 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
+import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { createCounts } from './text-engine-counts.js';
 import type {
   DrawnLines,
   PagesTextEngine,
@@ -82,7 +85,7 @@ function atomHost(measureIn: HTMLElement, drawn: boolean): HTMLElement {
 // paragraph's line table is kept whole in its measurement, so it splits at a computed line start.
 function numberedText(
   text: ReturnType<typeof createTextLayout>,
-  numbers: () => NodeNumbers,
+  { numbers, inserted }: { numbers: () => NodeNumbers; inserted: () => InsertedTexts },
 ): BlockTextLayout {
   return {
     typography: (node, scope) => text.typography(node, scope),
@@ -90,7 +93,13 @@ function numberedText(
       const { prefixes, paragraphs } = numbers();
       const prefix = place.prefix ?? prefixes.get(node);
       const number = paragraphs.get(node);
-      return text.layoutText(node, { ...place, ...(prefix ? { prefix } : {}), number });
+      const words = inserted().byBlock.get(node);
+      return text.layoutText(node, {
+        ...place,
+        ...(prefix ? { prefix } : {}),
+        number,
+        ...(words ? { inserted: words } : {}),
+      });
     },
   };
 }
@@ -226,7 +235,10 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
 }
 
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
-function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
+function engineLayouts(
+  options: TextEngineOptions,
+  { numbers, inserted }: { numbers: () => NodeNumbers; inserted: () => InsertedTexts },
+) {
   const { template } = options;
   const measureContext = options.measureContext ?? unhintedContext;
   const select = measuringWith(measureContext);
@@ -250,7 +262,7 @@ function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
     },
   });
   const geometry = createBlockLayout({
-    text: numberedText(text, numbers),
+    text: numberedText(text, { numbers, inserted }),
     atoms,
     metrics: (scope) => blockMetrics(template, scope, sheet),
     labelOf: (caption) => numbers().labelOf(caption),
@@ -263,14 +275,16 @@ function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
   let numbers = NO_NUMBERS;
-  const { host, atoms, text, geometry, select, measureContext } = engineLayouts(
-    options,
-    () => numbers,
-  );
+  // The words inserted in the blocks being measured.
+  let current = NO_INSERTED;
+  const { host, atoms, text, geometry, select, measureContext } = engineLayouts(options, {
+    numbers: () => numbers,
+    inserted: () => current,
+  });
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
   let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
-  const counts = { laid: 0, refused: 0, reasons: new Map<string, number>() };
+  const counts = createCounts();
   const widthOf = contentWidths(template);
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
@@ -281,22 +295,29 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
 
   return {
     template,
+    fonts: options.fonts,
     number(doc) {
       if (numbers.doc !== doc) numbers = numbersByNode(doc, template).byNode;
     },
     numbering: (doc) => numbersByNode(doc, template).numbering,
-    measureBlock(node, scope) {
+    measureBlock(node, scope, inserted = NO_INSERTED) {
       select();
-      const key = `${scope ?? ''}|${numbers.keyOf(node)}`;
-      const kept = blocks.get(node);
-      if (kept?.key === key) return kept.block;
-      const result = geometry.layoutBlock(node, { width: widthOf(scope), scope });
-      if (!result.ok) {
-        counts.refused += 1;
-        counts.reasons.set(result.reason, (counts.reasons.get(result.reason) ?? 0) + 1);
+      // Words inserted outside a text block take room the engine cannot lay out.
+      if (inserted.outside.has(node)) {
+        counts.refuse('inserted words outside a text block');
         return null;
       }
-      counts.laid += 1;
+      const key = `${scope ?? ''}|${numbers.keyOf(node)}|${blockInsertedKey(node, inserted)}`;
+      const kept = blocks.get(node);
+      if (kept?.key === key) return kept.block;
+      current = inserted;
+      const result = geometry.layoutBlock(node, { width: widthOf(scope), scope });
+      current = NO_INSERTED;
+      if (!result.ok) {
+        counts.refuse(result.reason);
+        return null;
+      }
+      counts.laid();
       if (!result.provisional) blocks.set(node, { key, block: result.block });
       return result.block;
     },
@@ -313,19 +334,20 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     lines(node, place) {
       select();
       const markers = markerKey(node, numbers.footnoteOf);
-      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}`;
+      const words = insertedKey(place.inserted);
+      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}`;
       const kept = lines.get(node);
       if (kept?.key === key) return kept.table;
       const width = widthOf(place.scope);
-      const { scope, prefix, number } = place;
-      const result = text.layoutText(node, { width, scope, prefix, number });
+      const { scope, prefix, number, inserted } = place;
+      const result = text.layoutText(node, { width, scope, prefix, number, inserted });
       const justify = text.typography(node, place.scope).align === 'justify';
       const table = result.ok ? { ...result.table, justify } : null;
       lines.set(node, { key, table });
       return table;
     },
     provisional: atoms.pending,
-    stats: () => ({ laid: counts.laid, refused: counts.refused, reasons: new Map(counts.reasons) }),
+    stats: counts.stats,
     destroy() {
       unsubscribe();
       host.remove();

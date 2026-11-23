@@ -4,12 +4,13 @@ import type { RegressionProbe } from '../labs/src/regression/regression-probe.js
 import { printSnapshot } from '../src/document/index.js';
 import { mismatchedLines } from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
-import { expectPrintEqualsEditor, pdfPageTexts } from './print-fidelity.js';
+import { expectPrintEqualsEditor, pdfFontNames, pdfPageTexts } from './print-fidelity.js';
 
 // Print on the layout engine's lines (specs/PAGINATION.md DOCE-PAGINATION-13): the editor's
 // snapshot and the static render of its pages' layout, each printed to PDF, hold every page's
 // computed lines on that page, the print draws each forced block on exactly those lines, with no
-// line the browser wrapped by itself, and the static render prints as the editor shows its pages.
+// line the browser wrapped by itself, the PDF embeds only the served faces the lines were broken in
+// (DOCE-PAGINATION-13.8), and the static render prints as the editor shows its pages.
 
 declare global {
   interface Window {
@@ -68,8 +69,14 @@ async function printedLines(page: Page, kind: Print, restyle?: string) {
   if (restyle) await printed.addStyleTag({ content: restyle });
   const wrapped = await mismatchedLines(printed, computed, 'print');
   await printed.close();
-  return { missing: missingFrom(result.pdf, pages), wrapped };
+  const pdf = Buffer.from(result.pdf);
+  return { missing: missingFrom(result.pdf, pages), wrapped, fonts: pdfFontNames(pdf) };
 }
+
+// The faces the labs serve (labs/src/served-fonts.ts): Arimo, Cousine and Tinos for Arial, Courier
+// New and Times New Roman, and Geist.
+const SERVED = /^(?:Arimo|Cousine|Tinos|Geist)/u;
+const unserved = (fonts: readonly string[]) => fonts.filter((font) => !SERVED.test(font));
 
 // Each page's computed lines missing from that page of the PDF, in order.
 function missingFrom(pdf: Uint8Array, pages: readonly (readonly string[])[]) {
@@ -87,23 +94,29 @@ function missingFrom(pdf: Uint8Array, pages: readonly (readonly string[])[]) {
 
 test.describe('print on the layout engine lines', () => {
   for (const name of NAMES) {
-    test(`DOCE-PAGINATION-13.5 prints the snapshot of ${name} on the computed lines`, async ({
+    test(`DOCE-PAGINATION-13.5 DOCE-PAGINATION-13.8 prints the snapshot of ${name} on the computed lines in the served faces`, async ({
       page,
     }) => {
       await open(page, name);
-      const { missing, wrapped } = await printedLines(page, 'snapshot');
+      const { missing, wrapped, fonts } = await printedLines(page, 'snapshot');
       expect(missing, 'computed lines missing from the PDF').toEqual([]);
       expect(wrapped, 'forced blocks the print draws on other lines').toEqual([]);
+      // DOCE-PAGINATION-13.8: the PDF embeds the served faces the lines were broken in, and no
+      // local font.
+      expect(fonts.length).toBeGreaterThan(0);
+      expect(unserved(fonts), 'fonts in the PDF the host does not serve').toEqual([]);
     });
 
-    test(`DOCE-PAGINATION-13.4 prints the layout of ${name} on the computed lines, as the editor shows it`, async ({
+    test(`DOCE-PAGINATION-13.4 DOCE-PAGINATION-13.8 prints the layout of ${name} on the computed lines in the served faces, as the editor shows it`, async ({
       page,
       context,
     }) => {
       await open(page, name);
-      const { missing, wrapped } = await printedLines(page, 'layoutPrint');
+      const { missing, wrapped, fonts } = await printedLines(page, 'layoutPrint');
       expect(missing, 'computed lines missing from the PDF').toEqual([]);
       expect(wrapped, 'forced blocks the print draws on other lines').toEqual([]);
+      expect(fonts.length).toBeGreaterThan(0);
+      expect(unserved(fonts), 'fonts in the PDF the host does not serve').toEqual([]);
       await expectPrintEqualsEditor(page, context, () => printOf(page, 'layoutPrint'));
     });
   }

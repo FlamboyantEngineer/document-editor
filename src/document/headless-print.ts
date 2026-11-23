@@ -28,8 +28,18 @@ interface Readiness {
   readonly failed: readonly string[];
 }
 
-// Runs in the browser's page: waits for its fonts and for every image to load or fail.
+// Runs in the browser's page: waits for its fonts and for every image to load or fail. Each face
+// the page's text is drawn in is asked for first, such as a face a snapshot holds inline, which
+// nothing has loaded yet, so the fonts are never ready before the faces print needs have loaded.
 async function waitForPrintReadiness(): Promise<Readiness> {
+  const fonts = new Set<string>();
+  for (const element of document.body.querySelectorAll('*')) {
+    const text = [...element.childNodes].some((child) => child.nodeType === Node.TEXT_NODE);
+    if (!text) continue;
+    const style = getComputedStyle(element);
+    fonts.add(`${style.fontStyle} ${style.fontWeight} 16px ${style.fontFamily}`);
+  }
+  await Promise.all([...fonts].map((font) => document.fonts.load(font).catch(() => [])));
   await document.fonts.ready;
   const failed: string[] = [];
   await Promise.all(

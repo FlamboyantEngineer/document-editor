@@ -35,6 +35,37 @@ describe('lineMarks', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-11.11 breaks a line among inserted words with a mark of its own', () => {
+    const node = paragraph('aaaaabbbbb');
+    const [first, second] = table(10, 5).lines;
+    if (!first || !second) throw new Error('two lines');
+    // The second line starts among words inserted at 5, its break drawn at side -3 between them.
+    const lines = [first, { ...second, left: 4, side: -3 }];
+    expect(lineMarks(node, { ...table(10, 5), lines })).toEqual([
+      {
+        from: 5,
+        to: 5,
+        class: 'de-forced-lines__break',
+        side: -3,
+        style: '--de-line-indent: 4.000px',
+      },
+    ]);
+    // After a hard break, the line only starts at its indent there.
+    const broken = [
+      { ...first, end: 'break' as const },
+      { ...second, left: 4, side: -3 },
+    ];
+    expect(lineMarks(node, { ...table(10, 5), lines: broken })).toEqual([
+      {
+        from: 5,
+        to: 5,
+        class: 'de-forced-lines__indent',
+        side: -3,
+        style: '--de-line-indent: 4.000px',
+      },
+    ]);
+  });
+
   it('DOCE-PAGINATION-13.1 keeps a character whole at a line end', () => {
     const node = paragraph('aaaa😀bb');
     const marks = lineMarks(node, table(8, 6));
