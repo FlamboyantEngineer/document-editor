@@ -7,6 +7,9 @@ import { expect, test } from './fixtures.js';
 // planes that hold characters: the Basic and Supplementary Multilingual planes, the ideographic
 // planes and the special-purpose plane. The other planes are unassigned or private use, of class
 // L throughout, which a code point at each end of each stands for.
+// The table follows the Unicode version of the browser's ICU (17.0 in Chromium 153 to 159). A failure
+// after a browser bump that names code points new in a later version means the table is generated
+// again for that version (scripts/bidi-classes.mjs), not that the rule changed.
 
 const SHARD = 0x8000;
 const RANGES: readonly (readonly [number, number])[] = [
