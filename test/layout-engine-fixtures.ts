@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type AtomMeasurer, createAtomCache } from '../src/layout-engine/atoms.js';
 import { createBlockLayout } from '../src/layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../src/layout-engine/blocks/metrics.js';
+import type { SheetNumbers } from '../src/layout-engine/blocks/sheet-numbers.js';
 import type { BlockTextLayout } from '../src/layout-engine/blocks/types.js';
 import type { LineTable } from '../src/layout-engine/line-table.js';
 import type { TemplateFile } from '../src/model/index.js';
@@ -87,18 +88,20 @@ export function standInBlockLayout({
   refuse = [],
   labelOf,
   footnoteOf,
+  sheet,
 }: {
   template?: TemplateFile;
   measure?: AtomMeasurer;
   refuse?: readonly string[];
   labelOf?: (caption: ProseMirrorNode) => string | undefined;
   footnoteOf?: (entry: ProseMirrorNode) => string | undefined;
+  sheet?: SheetNumbers;
 } = {}) {
   const atoms = createAtomCache({ measure });
   const layout = createBlockLayout({
     text: standInTextLayout(refuse),
     atoms,
-    metrics: (scope) => blockMetrics(template, scope),
+    metrics: (scope) => blockMetrics(template, scope, sheet),
     labelOf,
     footnoteOf,
   });

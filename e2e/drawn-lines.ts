@@ -72,7 +72,10 @@ export function readDrawnLines(
       const range = document.createRange();
       // Text the writer cannot edit is drawn beside the block's own: an atom's node view, a widget
       // inside the block. A block that is locked as a whole, such as a template's, is still read.
+      // A footnote marker's number is laid out on the line, as the computed lines read it.
       const ownText = (node: Node, block: Element) => {
+        if (node.parentElement?.closest('.footnote-reference, [data-footnote-reference]'))
+          return true;
         const beside = node.parentElement?.closest(
           '[contenteditable="false"], .ProseMirror-widget',
         );
