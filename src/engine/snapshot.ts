@@ -51,6 +51,7 @@ const EDITING_ATTRIBUTES = [
   'draggable',
   'tabindex',
   'data-canvas-fallback',
+  'drawable',
 ];
 const EDITING_ELEMENTS = '.ProseMirror-gapcursor, .ProseMirror-separator';
 const ROOT_CLASS = 'de-document-editor';

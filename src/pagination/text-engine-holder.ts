@@ -1,8 +1,9 @@
 // Holds a projection's text layout engine behind the `textLayout: 'pretext'` option: the engine
 // module loads on first use, so an editor without the option never loads the layout engine, and
-// the engine is made again for each template the pages are laid out with, and when code's line
-// numbers are turned on or off. It measures with the fonts the host serves (DOCE-HOST-1.14.1), and
-// asks for a family a new template names.
+// the engine is made again for each template the pages are laid out with, when code's line
+// numbers are turned on or off, and when the language the pages are drawn in changes. It
+// measures with the fonts the host serves (DOCE-HOST-1.14.1), and asks for a family a new
+// template names.
 
 import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
@@ -34,6 +35,10 @@ export interface TextEngineHolder {
   destroy(): void;
 }
 
+// The language an element's text is drawn in: its own or its nearest ancestor's `lang`, empty for
+// none, as the browser reads it.
+const languageOf = (element: Element) => element.closest('[lang]')?.getAttribute('lang') ?? '';
+
 interface EngineModule {
   readonly createPagesTextEngine: typeof createPagesTextEngine;
   readonly forgetFontWidths: typeof forgetFontWidths;
@@ -55,6 +60,7 @@ export function holdTextEngine(options: {
   let fonts: PagesFonts | null = null;
   let current: PagesTextEngine | null = null;
   let numbered = false;
+  let spoken = '';
   let version = 0;
   let destroyed = false;
   const loaded = Promise.all([import('./text-engine.js'), options.setting.fonts]).then(
@@ -93,14 +99,18 @@ export function holdTextEngine(options: {
       if (!made || destroyed || fonts?.phase !== 'pretext') return null;
       const template = options.setting.template();
       const codeLineNumbers = options.setting.codeLineNumbers?.() ?? false;
-      if (current?.template === template && numbered === codeLineNumbers) return current;
+      const language = languageOf(options.measureIn);
+      if (current?.template === template && numbered === codeLineNumbers && language === spoken)
+        return current;
       numbered = codeLineNumbers;
+      spoken = language;
       current?.destroy();
       version += 1;
       askFor(template);
       current = made.createPagesTextEngine({
         template,
         codeLineNumbers,
+        language,
         measureIn: options.measureIn,
         onAtomsSettled: settled,
         view: options.view,

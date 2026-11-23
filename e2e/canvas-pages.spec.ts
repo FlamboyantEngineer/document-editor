@@ -3,7 +3,7 @@ import type { RegressionProbe } from '../labs/src/regression/regression-probe.js
 import { expect, test, waitForLab } from './fixtures.js';
 
 // Pages painted into a canvas (specs/DOCUMENT-EDITOR.md DOCE-EDITOR-1.9), in the regression lab with
-// `rendering=html-canvas`. Playwright's Chromium needs `--enable-blink-features=CanvasDrawElement`
+// `rendering=html-canvas`. Chromium before 157 needs `--enable-blink-features=CanvasDrawElement`
 // for the API, which the projects pass (playwright.config.ts). The `chromium-dpr-*` projects run
 // these at real device pixel ratios.
 
@@ -50,6 +50,9 @@ const pixelsOf = (canvas: Locator) =>
 test('DOCE-EDITOR-1.9 paints every page into a canvas of its exact device pixels at each zoom', async ({
   page,
 }) => {
+  // Five loads of the long document, each painted into canvases. On CI this took 17.5 s at a ratio
+  // of 1.25 and 19.7 s at 2 on dev, and 26.0 s and 30.8 s on a slower runner, past the default 30 s.
+  test.setTimeout(90_000);
   for (const zoom of [50, 75, 100, 125, 150]) {
     await open(page, `document=long-mixed&textLayout=pretext&zoom=${String(zoom)}`);
     const pages = page.locator('.de-document-editor__content .pm-page');

@@ -9,6 +9,7 @@ import {
   requireValue,
   type Workload,
 } from './pretext/fixtures.js';
+import { labLanguage } from './pretext/fonts.js';
 import { VirtualPages } from './pretext/html.js';
 import { blockId } from './pretext/prediction.js';
 import { applySettings, defaultWidth } from './pretext/settings.js';
@@ -18,6 +19,7 @@ function mount<T extends HTMLElement>(selector: string) {
   return requireValue(document.querySelector<T>(selector), selector);
 }
 
+document.documentElement.lang = labLanguage;
 const root = mount('[data-pretext-lab]');
 const editor = mount('#pretext-editor');
 const view = mount<HTMLSelectElement>('#pretext-view');

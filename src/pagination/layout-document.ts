@@ -10,11 +10,13 @@ import {
   type SectionPages,
   stackedHeight,
 } from '../model/index.js';
+import { forcedLinesKey } from './forced-lines.js';
 import {
   type IncrementalResult,
   layoutSectionIncrementally,
   type SectionLayout,
 } from './incremental-layout.js';
+import { insertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { measureChildBlocks } from './measure-blocks.js';
 import { blockMargin, type MeasureCache, measureCacheCounts } from './measure-cache.js';
 import {
@@ -268,6 +270,8 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   const places = sectionPlaces(view.state.doc);
   const { engine } = options;
   engine?.number(view.state.doc);
+  // The words other plugins draw in its text blocks, such as a comparison's deleted words.
+  const inserted = engine ? insertedTexts(view.state, [forcedLinesKey]) : NO_INSERTED;
   const sections = places.map(({ section, content, footnotes, header, footer }, index) => {
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
@@ -280,7 +284,9 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const before = measuredSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const laid = engine ? (node: ProseMirrorNode) => engine.measureBlock(node, scope) : undefined;
+    const laid = engine
+      ? (node: ProseMirrorNode) => engine.measureBlock(node, scope, inserted)
+      : undefined;
     const blocks = measureChildBlocks(view, content, { scale, cache, rules, engine: laid });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnoteArea(view, footnotes, at);
