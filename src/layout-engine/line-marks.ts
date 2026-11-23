@@ -45,17 +45,32 @@ function clusterLength(text: string, last: boolean): number {
   return (last ? clusters.at(-1) : clusters[0])?.segment.length ?? 1;
 }
 
-// Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
-// pair, a joined emoji sequence, a flag or a letter with its combining marks.
-function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
-  const from = Math.max(line.from, line.to - CLUSTER_WINDOW);
-  return line.to - clusterLength(node.textBetween(from, line.to, '￼', '￼'), true);
+// The inline node other than text that holds an offset of a block's content strictly inside it,
+// such as math, whose text a view never draws: a mark must take it whole.
+function atomAround(node: ProseMirrorNode, offset: number): { from: number; to: number } | null {
+  let around: { from: number; to: number } | null = null;
+  if (node.childCount === 1 && node.firstChild?.isText) return null;
+  node.forEach((child, start) => {
+    const to = start + child.nodeSize;
+    if (!child.isText && start < offset && offset < to) around = { from: start, to };
+  });
+  return around;
 }
 
-// Where a line's first grapheme cluster ends.
+// Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
+// pair, a joined emoji sequence, a flag or a letter with its combining marks; or where the inline
+// node it ends with starts, such as math, which draws the mark on its own element.
+function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
+  const from = Math.max(line.from, line.to - CLUSTER_WINDOW);
+  const at = line.to - clusterLength(node.textBetween(from, line.to, '￼', '￼'), true);
+  return Math.max(line.from, atomAround(node, at)?.from ?? at);
+}
+
+// Where a line's first grapheme cluster ends, or the inline node it starts with.
 function firstCharacterEnd(node: ProseMirrorNode, line: TextLine): number {
   const to = Math.min(line.to, line.from + CLUSTER_WINDOW);
-  return line.from + clusterLength(node.textBetween(line.from, to, '￼', '￼'), false);
+  const at = line.from + clusterLength(node.textBetween(line.from, to, '￼', '￼'), false);
+  return Math.min(line.to, atomAround(node, at)?.to ?? at);
 }
 
 // The characters Chromium stretches by `word-spacing`: spaces and no-break spaces, not tabs.

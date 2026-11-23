@@ -22,12 +22,26 @@ import {
   mathInputProps,
   type MathInputState,
 } from './math-input.js';
+import {
+  createMathTypesets,
+  mathTree,
+  type MathTypesets,
+  type TypesetMath,
+} from './math-typeset.js';
+
+// What a math view draws with: the renderer, what invalid math shows, and where it keeps what it
+// typeset.
+interface MathDrawing {
+  readonly render: MathRenderer;
+  readonly invalid: InvalidMathText;
+  readonly typesets: MathTypesets;
+}
 
 // Draws one math node, typesetting its source and drawing it again when the source changes.
 function mathView(
   node: ProseMirrorNode,
   view: EditorView,
-  { render, invalid }: { render: MathRenderer; invalid: InvalidMathText },
+  { render, invalid, typesets }: MathDrawing,
 ): NodeView {
   const display = node.type.name === 'math_display';
   const owner = view.dom.ownerDocument;
@@ -51,6 +65,12 @@ function mathView(
       renderer: render,
       ownerDocument: dom.ownerDocument,
     }).then((result) => {
+      if (result.ok)
+        typesets.keep(display, latex, { state: 'ready', math: mathTree(result.element) });
+      else {
+        const text = display ? invalid.display : invalid.inline;
+        typesets.keep(display, latex, { state: 'invalid', text, message: result.message });
+      }
       if (source !== latex) return;
       if (result.ok) dom.replaceChildren(result.element);
       else {
@@ -86,6 +106,15 @@ export function mathEditingAt(state: EditorState): MathEditing | null {
 /** Commits the math edited in place with its LaTeX; empty LaTeX deletes it. */
 export const commitMathEditing = (latex: string): Command => commitMath(mathViewsKey, latex);
 
+/**
+ * What a math node of a state was typeset as by the math views it runs, its MathML or what invalid
+ * math shows; null before it is typeset or without the views (DOCE-PAGINATION-13.2).
+ */
+export function typesetMathOf(state: EditorState, node: ProseMirrorNode): TypesetMath | null {
+  const spec = mathViewsKey.get(state)?.spec as { typesets?: MathTypesets } | undefined;
+  return spec?.typesets?.of(node) ?? null;
+}
+
 /** Stops editing math in place, keeping its LaTeX; math left empty is deleted. */
 export const cancelMathEditing: Command = cancelMath(mathViewsKey);
 
@@ -117,9 +146,10 @@ export function createMathViews({
   render = renderKatexMath,
   invalid = DEFAULT_INVALID_MATH_TEXT,
 }: MathViewsOptions = {}): Plugin {
-  const drawing = { render, invalid };
+  const drawing: MathDrawing = { render, invalid, typesets: createMathTypesets() };
   return new Plugin<MathInputState>({
     key: mathViewsKey,
+    typesets: drawing.typesets,
     state: mathInputField(mathViewsKey),
     props: {
       ...mathInputProps(mathViewsKey),
