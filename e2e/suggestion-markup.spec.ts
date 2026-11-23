@@ -50,6 +50,12 @@ const stylesheet = (page: Page) => new URL('build/reference.css', page.url()).hr
 async function shownBy(page: Page, html: string) {
   const shown = await page.context().newPage();
   await shown.setContent(html, { waitUntil: 'load' });
+  // The text can show a moment after the load, once the page's stylesheet and faces apply.
+  await expect
+    .poll(() => shown.evaluate(() => document.body.innerText.trim().length), {
+      message: 'the page shows its text',
+    })
+    .toBeGreaterThan(0);
   const result = await shown.evaluate(() => ({
     text: document.body.innerText.replace(/\s+/gu, ' '),
     marked: document.querySelectorAll('ins, del').length,
