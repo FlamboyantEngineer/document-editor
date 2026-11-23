@@ -66,7 +66,7 @@ Verification: `src/model/templates/template-scopes.test.ts`
 
 ### DOCE-TEMPLATES-3.2 - Footnote properties
 
-`buildFootnoteCssVarEntries(settings, fontStacks)` shall set the `--doc-footnote-*` custom properties of the suffix (an escaped CSS string), the separator border, the spacings, and the marker and text typography, each with its default, which a value that is not of its setting's kind (DOCE-TEMPLATES-5.2) takes too.
+`buildFootnoteCssVarEntries(settings, fontStacks)` shall set the `--doc-footnote-*` custom properties of the suffix (an escaped CSS string), the separator's thickness (`0px` when it is switched off) and color, the spacings, and the marker and text typography, each with its default, which a value that is not of its setting's kind (DOCE-TEMPLATES-5.2) takes too.
 
 Implementation: `src/model/templates/template-scopes.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-scopes.test.ts`

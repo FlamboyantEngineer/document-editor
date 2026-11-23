@@ -1,8 +1,7 @@
 // The numbers block geometry lays blocks out with: the template scope's own (list indentation and
 // spacing, cell padding and borders, caption placement, the paragraph spacing objects take) and
-// the reference stylesheet's fixed ones (a code box's padding, a layout section's gap). The
-// rendered document follows these numbers, so a stylesheet that draws blocks differently must
-// change them here too (DOCE-PAGINATION-10.3).
+// the stylesheet's own (a quote's spacing, a code box's padding, a layout section's gap), which the
+// stylesheet states as custom properties (`sheet-numbers.ts`, DOCE-PAGINATION-10.9).
 
 import type {
   TemplateFile,
@@ -17,6 +16,7 @@ import {
   resolveRegionSpacing,
 } from '../../model/templates/template-scopes.js';
 import { findTemplateSection } from '../../model/templates/template-sections.js';
+import { referenceSheetNumbers, type SheetNumbers, sheetPixels } from './sheet-numbers.js';
 
 /** A template scope's block geometry numbers, in CSS pixels. */
 export interface BlockMetrics {
@@ -65,24 +65,6 @@ interface RegionMetrics {
   readonly gap: number;
 }
 
-/** The stylesheet's fixed numbers, which no template setting changes. */
-const REFERENCE_BLOCK_NUMBERS = Object.freeze({
-  codePadding: 8,
-  codeCaptionGap: 4,
-  codeCaptionRule: 1,
-  tableCaptionPadding: 2,
-  mathMargin: 6,
-  layoutGap: 4,
-  layoutAfter: 4,
-  layoutColumnPadding: 5,
-  layoutColumnBorder: 1,
-  quoteIndent: 40,
-  // A quote's and a rule's margins are the browser's own, in its 16px default font size.
-  quoteMargin: 16,
-  ruleHeight: 2,
-  ruleMargin: 8,
-});
-
 const DEFAULT_FONT_SIZE = 12;
 const DEFAULT_LIST_INDENT = '24pt';
 const DEFAULT_CELL_PADDING = '4px';
@@ -93,25 +75,24 @@ function pixels(length: unknown, fallback = '0px'): number {
 }
 
 // The numbers of objects whose look the template sets by its object styles.
-function objectNumbers(styles: TemplateStyles) {
-  const numbers = REFERENCE_BLOCK_NUMBERS;
+function objectNumbers(styles: TemplateStyles, sheet: (name: keyof SheetNumbers) => number) {
   return {
     table: {
       cellPadding: pixels(styles.table?.cellPadding, DEFAULT_CELL_PADDING),
       border: pixels(styles.table?.border?.width, DEFAULT_BORDER),
-      captionPadding: numbers.tableCaptionPadding,
+      captionPadding: sheet('tableCaptionPadding'),
     },
     code: {
-      padding: numbers.codePadding,
-      captionGap: numbers.codeCaptionGap,
-      captionRule: numbers.codeCaptionRule,
+      padding: sheet('codePadding'),
+      captionGap: sheet('codeCaptionGap'),
+      captionRule: sheet('codeCaptionRule'),
     },
-    math: { before: numbers.mathMargin, after: numbers.mathMargin },
+    math: { before: sheet('equationSpacing'), after: sheet('equationSpacing') },
     layout: {
-      gap: numbers.layoutGap,
-      after: numbers.layoutAfter,
-      columnPadding: numbers.layoutColumnPadding,
-      columnBorder: numbers.layoutColumnBorder,
+      gap: sheet('columnsGap'),
+      after: sheet('columnsAfter'),
+      columnPadding: sheet('columnPadding'),
+      columnBorder: sheet('columnBorder'),
     },
   };
 }
@@ -134,12 +115,20 @@ function regionNumbers(template: TemplateFile, section: TemplateSection | null) 
   };
 }
 
-/** A template scope's block geometry numbers: a section's over the template's, by its name. */
-export function blockMetrics(template: TemplateFile, scope: string | null = null): BlockMetrics {
+/**
+ * A template scope's block geometry numbers: a section's over the template's, by its name, with the
+ * stylesheet's own numbers (by default the reference stylesheet's), its `em` lengths in the
+ * scope's paragraph size, which the page content's text is set in.
+ */
+export function blockMetrics(
+  template: TemplateFile,
+  scope: string | null = null,
+  numbers: SheetNumbers = referenceSheetNumbers,
+): BlockMetrics {
   const section = findTemplateSection(template, scope);
   const styles = templateScopeStyles(template, section);
-  const numbers = REFERENCE_BLOCK_NUMBERS;
   const em = pixels(styles.paragraph?.size, `${String(DEFAULT_FONT_SIZE)}px`);
+  const sheet = (name: keyof SheetNumbers) => sheetPixels(numbers[name], em);
   return {
     em,
     paragraphAfter: pixels(styles.paragraph?.spaceAfter),
@@ -149,16 +138,16 @@ export function blockMetrics(template: TemplateFile, scope: string | null = null
       after: pixels(styles.list?.spaceAfter),
     },
     quote: {
-      indent: numbers.quoteIndent,
-      before: numbers.quoteMargin,
-      after: numbers.quoteMargin,
+      indent: sheet('quoteIndent'),
+      before: sheet('quoteSpacing'),
+      after: sheet('quoteSpacing'),
     },
     rule: {
-      height: numbers.ruleHeight,
-      before: numbers.ruleMargin,
-      after: numbers.ruleMargin,
+      height: sheet('ruleHeight'),
+      before: sheet('ruleSpacing'),
+      after: sheet('ruleSpacing'),
     },
-    ...objectNumbers(styles),
+    ...objectNumbers(styles, sheet),
     ...regionNumbers(template, section),
   };
 }

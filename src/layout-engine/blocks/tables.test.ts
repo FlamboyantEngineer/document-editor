@@ -129,13 +129,17 @@ describe('table rows', () => {
     expect(rowsOf(tall)).toEqual([[0, 77]]);
   });
 
-  it('DOCE-PAGINATION-10.5 sets a caption above the table within its width', () => {
+  it('DOCE-PAGINATION-10.5 DOCE-PAGINATION-4.5 sets a caption above the table within its width', () => {
     const sized = table(null, row(cell(1, { colwidth: [119] })));
     // The table is 120px wide: a 40-character caption takes two lines of 20 characters.
     const block = blockOf(layout.layoutBlock(figure(sized, 40), place));
     expect(block.height).toBe(2 + 32 + 2 + (18 + 17 + 1));
+    // The caption's box goes with the rows, for a later part that shows none (DOCE-PAGINATION-4.5).
+    expect(block.measurement).toMatchObject({ caption: 36 });
     const hidden = table({ captionEnabled: false }, row(cell(1, { colwidth: [119] })));
-    expect(blockOf(layout.layoutBlock(figure(hidden, 40), place)).height).toBe(36);
+    const without = blockOf(layout.layoutBlock(figure(hidden, 40), place));
+    expect(without.height).toBe(36);
+    expect(without.measurement).not.toHaveProperty('caption');
   });
 
   it('DOCE-PAGINATION-10.5 takes no cell padding in a header', () => {

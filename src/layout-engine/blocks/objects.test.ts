@@ -110,17 +110,35 @@ describe('equations, rules and markup', () => {
     expect(measure).toHaveBeenCalledTimes(1);
   });
 
-  it('DOCE-PAGINATION-10.4 gives a rule its border and a page break no height', () => {
+  it('DOCE-PAGINATION-10.4 gives a rule its border, half its text size (12px) above and below, and a page break no height', () => {
     const { layout } = standInBlockLayout();
     expect(blockOf(layout.layoutBlock(node('horizontal_rule', null), place))).toMatchObject({
       height: 2,
-      marginTop: 8,
-      marginBottom: 8,
+      marginTop: 6,
+      marginBottom: 6,
     });
     expect(blockOf(layout.layoutBlock(node('page_break', null), place))).toMatchObject({
       height: 0,
       marginTop: 0,
       marginBottom: 0,
+    });
+  });
+
+  it('DOCE-PAGINATION-10.8 takes the margins a block atom is drawn with, its content’s that pass through its edges among them', () => {
+    const { layout } = standInBlockLayout({
+      measure: () => ({ size: { width: 600, height: 18, margins: { top: 0, bottom: 8 } } }),
+    });
+    const markup = node('dynamic_template', { renderedHtml: '<p>a</p>' });
+    expect(blockOf(layout.layoutBlock(markup, place))).toMatchObject({
+      height: 18,
+      marginTop: 0,
+      marginBottom: 8,
+    });
+    // An equation keeps the stylesheet's margins where it is drawn with less.
+    const equation = node('math_display', null, [schema.text('x')]);
+    expect(blockOf(layout.layoutBlock(equation, place))).toMatchObject({
+      marginTop: 6,
+      marginBottom: 8,
     });
   });
 

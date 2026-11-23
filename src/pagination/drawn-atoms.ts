@@ -10,6 +10,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { AtomMeasure, AtomMeasurer, AtomSize } from '../layout-engine/atoms.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
+import { margins } from './measure-cache.js';
 
 /** Where the pages' atoms are measured. */
 interface DrawnAtomMeasurerOptions {
@@ -123,7 +124,13 @@ function readBlock(
   const box = drawn.getBoundingClientRect();
   const caption = captionOf(view, node);
   const height = box.height - (caption?.getBoundingClientRect().height ?? 0);
-  return { width: box.width / ratio(), height: Math.max(0, height) / ratio() };
+  // Computed margins are not scaled by the zoom, as the box is.
+  const { marginTop, marginBottom } = margins(drawn);
+  return {
+    width: box.width / ratio(),
+    height: Math.max(0, height) / ratio(),
+    margins: { top: marginTop, bottom: marginBottom },
+  };
 }
 
 // An inline atom's box as the view draws it, and its baseline from a copy drawn in a copy of
