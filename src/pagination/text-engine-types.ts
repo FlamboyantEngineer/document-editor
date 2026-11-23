@@ -8,7 +8,7 @@ import type { FontFiles } from '../host/font-files.js';
 import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
-import type { ReserveCluster } from '../layout-engine/reserved-boxes.js';
+import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 
@@ -122,6 +122,11 @@ export interface PagesTextEngine {
     scope: string | null,
     variables?: ReadonlyMap<string, string>,
   ): RegionRoom | null;
+  /**
+   * The clusters of a word drawn in a text block that is not its content, such as a comparison's
+   * deleted word, that take a reserved width in the block's font, by offset in the word.
+   */
+  insertedReserved(node: ProseMirrorNode, scope: string | null, word: string): ReservedBox[];
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */
   lines(node: ProseMirrorNode, place: LinesPlace): DrawnLines | null;
   /**

@@ -6,6 +6,7 @@
 import { type EditorState, Plugin } from 'prosemirror-state';
 import { Decoration, type DecorationAttrs, DecorationSet } from 'prosemirror-view';
 import { footnoteNumbersKey } from '../engine/footnote-numbers.js';
+import { withReservedWords } from './inserted-reserved.js';
 import type { ProjectionMap } from './projection-map.js';
 
 /** What the drawn decorations read: the canonical state and the map onto the projection. */
@@ -140,14 +141,16 @@ export function canonicalDecorations(source: DecorationSource): Plugin {
           }
         }
         if (sets.length === 0) return null;
-        if (sets.length === 1) return sets[0];
-        if (merged?.doc === state.doc && sameSets(merged.sets, sets)) return merged.set;
+        // A word drawn in a text block draws the clusters the engine reserves in their boxes.
+        if (sets.length === 1) return withReservedWords(state, sets[0] ?? DecorationSet.empty);
+        if (merged?.doc === state.doc && sameSets(merged.sets, sets))
+          return withReservedWords(state, merged.set);
         const set = DecorationSet.create(
           state.doc,
           sets.flatMap((each) => each.find()),
         );
         merged = { doc: state.doc, sets, set };
-        return set;
+        return withReservedWords(state, set);
       },
     },
   });

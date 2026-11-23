@@ -280,8 +280,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const widthOf = contentWidths(template);
   const regions = createRegionRooms((node, place) => geometry.layoutRegion(node, place), widthOf);
   const unsubscribe = atoms.subscribe(() => {
-    blocks = new WeakMap();
-    lines = new WeakMap();
+    [blocks, lines] = [new WeakMap(), new WeakMap()];
     regions.forget();
     options.onAtomsSettled();
   });
@@ -314,6 +313,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       if (!result.provisional) blocks.set(node, { key, block: result.block });
       return result.block;
     },
+    insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
     measureRegion: (node, scope, variables) => regions.measure(node, scope, variables),
     lines(node, place) {
       select();
