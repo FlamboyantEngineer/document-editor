@@ -13,6 +13,8 @@ export interface FaceRegistration {
    * surface already draws other files under it.
    */
   drawnFamily(family: string): string;
+  /** Whether the surface draws some served family under another name. */
+  readonly renamed: boolean;
   /** Settles once every face has loaded, or failed to and been taken out. */
   readonly loaded: Promise<void>;
   /** Takes the surface's faces out of the document, once no other surface draws them. */
@@ -112,6 +114,7 @@ function letGo(doc: Document, family: string, holder: Held): void {
 
 const NONE: FaceRegistration = {
   drawnFamily: (family) => family,
+  renamed: false,
   loaded: Promise.resolve(),
   release: () => undefined,
 };
@@ -147,6 +150,9 @@ export function registerFaces(doc: Document, fonts: FontFiles | null): FaceRegis
   let released = false;
   return {
     drawnFamily: (family) => holders.get(familyKey(family))?.holder.name ?? family,
+    renamed: [...holders.values()].some(
+      ({ family, holder }) => familyKey(holder.name) !== familyKey(family),
+    ),
     loaded,
     release() {
       if (released) return;

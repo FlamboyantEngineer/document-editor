@@ -111,9 +111,11 @@ function useLayoutFaces(
     if (!doc) return undefined;
     const registration = registerFaces(doc, fonts);
     let released = false;
-    void registration.loaded.then(() => {
-      if (!released) setDrawn({ fonts, family: registration.drawnFamily });
-    });
+    // Only a viewer drawing a family under another name draws its pages again.
+    if (registration.renamed)
+      void registration.loaded.then(() => {
+        if (!released) setDrawn({ fonts, family: registration.drawnFamily });
+      });
     return () => {
       released = true;
       registration.release();
