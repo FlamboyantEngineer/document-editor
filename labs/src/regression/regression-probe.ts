@@ -77,8 +77,11 @@ export interface RegressionProbe {
   setFonts(fonts: LabFonts): void;
   /** With `textLayout=pretext`, the pages' layout as data (`pagesLayout()`), or null. */
   layout(): PagesLayout | null;
-  /** Opens a stored document afresh, in a new editor, as if the page had just loaded it. */
-  load(file: DocumentFile): void;
+  /**
+   * Opens a stored document afresh, in a new editor, as if the page had just loaded it: on its
+   * template, or on a template of the test's own resolved over the regression set's.
+   */
+  load(file: DocumentFile, template?: TemplateFile): void;
   /** Sets the document's zoom in percent while it shows. */
   setZoom(percent: number): void;
   /**
@@ -102,7 +105,7 @@ export interface RegressionLabControls {
   readonly showViewer: ShowViewer;
   readonly setFonts: (fonts: LabFonts) => void;
   readonly keepViewers: (count: number) => void;
-  readonly load: (file: DocumentFile) => void;
+  readonly load: (file: DocumentFile, template?: TemplateFile) => void;
   readonly setZoom: (percent: number) => void;
 }
 

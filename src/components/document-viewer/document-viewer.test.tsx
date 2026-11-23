@@ -158,6 +158,24 @@ describe('DocumentViewer', () => {
     expect(sheets(container)[299]?.querySelector('h1')?.getAttribute('data-number')).toBe('300');
   });
 
+  it('DOCE-PAGINATION-13.10 draws its pages in the language they were laid out in, not its host page’s', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const turkish = { ...tenPages(2), language: 'tr' };
+    const { rerender } = render(
+      <div lang="en">
+        <DocumentViewer layout={turkish} template={BASE_TEMPLATE} label="Turkish" />
+      </div>,
+    );
+    expect(screen.getByRole('document', { name: 'Turkish' })).toHaveAttribute('lang', 'tr');
+    rerender(
+      <div lang="en">
+        <DocumentViewer layout={tenPages(2)} template={BASE_TEMPLATE} label="Unnamed" />
+      </div>,
+    );
+    // None around the editor's pages: none here either, rather than the host page's English.
+    expect(screen.getByRole('document', { name: 'Unnamed' })).toHaveAttribute('lang', '');
+  });
+
   it('DOCE-PAGINATION-13.8 adds the served faces to its document while it shows the pages', () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     const made: { family: string; descriptors: FontFaceDescriptors }[] = [];

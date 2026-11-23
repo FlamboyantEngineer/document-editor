@@ -2,68 +2,15 @@
 import type { Node } from 'prosemirror-model';
 import { requireValue } from './fixtures.js';
 import { pageContent, renderBlock } from './html.js';
-import { type Block, blockId, boundaries, indexPages, type Line } from './prediction.js';
+import { browserLines } from './natural-lines.js';
+import { type Block, blockId } from './prediction.js';
 import type { BlockReport, LayoutIndex } from './protocol.js';
-
-const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-const inlineMathSelector = '[data-inline-type="latex"]';
-
-function browserLines(node: Node, element: HTMLElement, rect: DOMRect) {
-  const css = getComputedStyle(element);
-  const leading = Number.parseFloat(css.lineHeight);
-  const padTop = Number.parseFloat(css.paddingTop);
-  const padBottom = Number.parseFloat(css.paddingBottom);
-  const count = Math.max(1, Math.round((rect.height - padTop - padBottom) / leading));
-  const starts = Array<number | undefined>(count);
-  const explicit = new Map<number, number>([[0, 0]]);
-  const range = document.createRange();
-  const boxSizes: number[] = [];
-  node.forEach((child) => {
-    if (child.type.name === 'math_inline') boxSizes.push(child.nodeSize);
-  });
-  let boxIndex = 0;
-  let offset = 0;
-  const preserve = css.whiteSpace === 'pre-wrap';
-  const lineOf = (glyph: DOMRect) =>
-    Math.max(0, Math.round((glyph.top + glyph.height / 2 - rect.top - padTop) / leading - 0.5));
-  const mark = (line: number, at: number) => {
-    if (line < count && starts[line] === undefined) starts[line] = at;
-  };
-
-  function scan(parent: globalThis.Node) {
-    for (const child of parent.childNodes) {
-      if (child instanceof Text) {
-        for (const { segment, index } of segmenter.segment(child.data)) {
-          if (!preserve && /^[\t\n\r\f ]+$/u.test(segment)) continue;
-          range.setStart(child, index);
-          range.setEnd(child, index + segment.length);
-          const glyph = range.getClientRects()[0];
-          if (!glyph) continue;
-          const line = lineOf(glyph);
-          if (preserve && segment.includes('\n'))
-            explicit.set(line + 1, offset + index + segment.length);
-          else if (glyph.width > 0) mark(line, offset + index);
-        }
-        offset += child.length;
-      } else if (child instanceof HTMLElement) {
-        if (child.matches(inlineMathSelector)) {
-          mark(lineOf(child.getBoundingClientRect()), offset);
-          offset += boxSizes[boxIndex++] ?? 1;
-        } else if (child.tagName === 'BR') {
-          explicit.set(lineOf(child.getBoundingClientRect()) + 1, offset + 1);
-          offset += 1;
-        } else scan(child);
-      }
-    }
-  }
-
-  scan(element);
-  const lines: Line[] = Array.from(starts, (start, index) => ({
-    from: start ?? explicit.get(index) ?? offset,
-    width: 0,
-  }));
-  return { lines, leading: (rect.height - padTop - padBottom) / count };
-}
+import {
+  type Boundary,
+  divergence,
+  referenceBoundaries,
+  referencePages,
+} from './reference-pages.js';
 
 interface Difference {
   readonly path: string;
@@ -154,6 +101,29 @@ function measure(
   };
 }
 
+// Whether the page's text or an atom reaches past its content's right edge. White space that hangs
+// at a line end, and the padding Chromium paints after it in inline code, are ink past the edge
+// that no line holds (G3), so only words and atoms count.
+export function inkPastEdge(body: HTMLElement): boolean {
+  if (body.scrollWidth <= body.clientWidth + 1) return false;
+  const edge = body.getBoundingClientRect().left + body.clientWidth + 1;
+  const range = document.createRange();
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node instanceof HTMLElement) {
+      const atom = node.matches('img, svg, [contenteditable="false"]');
+      if (atom && node.getBoundingClientRect().right > edge) return true;
+      continue;
+    }
+    for (const word of (node.textContent ?? '').matchAll(/\S+/g)) {
+      range.setStart(node, word.index);
+      range.setEnd(node, word.index + word[0].length);
+      if ([...range.getClientRects()].some((rect) => rect.right > edge)) return true;
+    }
+  }
+  return false;
+}
+
 export function verifyPages(
   sheets: HTMLElement,
   index: LayoutIndex,
@@ -176,9 +146,7 @@ export function verifyPages(
       page.querySelector<HTMLElement>('.pm-page-content'),
       'rendered page content',
     );
-    if (body.scrollHeight > body.clientHeight + 1 || body.scrollWidth > body.clientWidth + 1) {
-      overflow.push(position + 1);
-    }
+    if (body.scrollHeight > body.clientHeight + 1 || inkPastEdge(body)) overflow.push(position + 1);
     const pageRect = page.getBoundingClientRect();
     const bodyRect = body.getBoundingClientRect();
     const path = `page ${number}`;
@@ -278,28 +246,29 @@ export function verify(
         differences,
       ),
     );
-    const htmlPages = indexPages(blocks, index.contentWidth);
-    const htmlBoundaries = boundaries(htmlPages);
+    // The page boundaries natural HTML gives, filled by the oracle's own packer.
+    const htmlBoundaries = referenceBoundaries(referencePages(blocks, index.contentHeight));
     const predictedBoundaries = index.pages.map((page) =>
-      page.map(({ block, from, to }) => [
+      page.map(({ block, from, to }): Boundary => [
         blockId(requireValue(nodes[block], 'fragment source block')) ?? String(block),
         from,
         to,
       ]),
     );
+    const boundaryMismatches = Array.from(
+      { length: Math.max(htmlBoundaries.length, predictedBoundaries.length) },
+      (_, i) => i + 1,
+    ).filter(
+      (page) =>
+        JSON.stringify(htmlBoundaries[page - 1]) !== JSON.stringify(predictedBoundaries[page - 1]),
+    );
     return {
       differences,
       comparedBlocks: countBlocks(measurements),
       predictedPages: index.pages.length,
-      htmlPages: htmlPages.pages.length,
-      boundaryMismatches: Array.from(
-        { length: Math.max(htmlBoundaries.length, predictedBoundaries.length) },
-        (_, i) => i + 1,
-      ).filter(
-        (page) =>
-          JSON.stringify(htmlBoundaries[page - 1]) !==
-          JSON.stringify(predictedBoundaries[page - 1]),
-      ),
+      htmlPages: htmlBoundaries.length,
+      boundaryMismatches,
+      firstDivergence: divergence(predictedBoundaries, htmlBoundaries, boundaryMismatches[0]),
       predictedBoundaries,
       htmlBoundaries,
     };
