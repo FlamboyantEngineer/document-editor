@@ -66,6 +66,37 @@ describe('createDrawnAtomMeasurer', () => {
     view.destroy();
   });
 
+  it('DOCE-PAGINATION-10.8 reads a block atom’s margins as drawn, its content’s that pass through its edges', () => {
+    stubBoxes();
+    const element = document.createElement('div');
+    document.body.append(element);
+    const view = new EditorView(element, {
+      state: EditorState.create({ doc: parseMarkup('<div data-dynamic-template="true"></div>') }),
+      editable: () => false,
+      nodeViews: {
+        dynamic_template: () => {
+          const dom = document.createElement('div');
+          const inner = document.createElement('p');
+          inner.style.margin = '5px 0 8px';
+          inner.textContent = 'a';
+          dom.append(inner);
+          return { dom, ignoreMutation: () => true };
+        },
+      },
+    });
+    const host = document.createElement('div');
+    element.append(host);
+    const block = findNode(view.state.doc, 'dynamic_template');
+    if (!block) throw new Error('no template block');
+    const measure = createDrawnAtomMeasurer({ view: () => view, host, scale: () => 2 });
+    expect(measure(block, 600)?.size).toEqual({
+      width: 3,
+      height: 8,
+      margins: { top: 5, bottom: 8 },
+    });
+    view.destroy();
+  });
+
   it('DOCE-PAGINATION-10.8 keeps a size provisional until the view has drawn the atom', async () => {
     stubBoxes();
     const { view, host, views } = measuringView(

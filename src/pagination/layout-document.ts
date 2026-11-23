@@ -19,7 +19,12 @@ import {
 import { insertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { measureChildBlocks } from './measure-blocks.js';
 import { blockMargin, type MeasureCache, measureCacheCounts } from './measure-cache.js';
-import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
+import {
+  type FootnoteArea,
+  footnoteAreaHeight,
+  footnoteAreaOf,
+  measureFootnotes,
+} from './measure-footnotes.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
@@ -164,18 +169,38 @@ function sectionPlaces(doc: ProseMirrorNode): SectionPlace[] {
   return places;
 }
 
-// The room a page header or footer takes, with its margins; one the view hides takes none.
-function regionHeight(view: EditorView, pos: number | null, ratio: number): number {
+// The room a page header or footer takes, with its margins; one the view hides takes none. The
+// layout engine gives it when it lays the region out (`measureRegion`), the view's box otherwise.
+function regionHeight(view: EditorView, pos: number | null, at: RegionAt): number {
   const dom = pos === null ? null : view.nodeDOM(pos);
   if (!dom || dom.nodeType !== 1) return 0;
   const element = dom as HTMLElement;
   const { height } = element.getBoundingClientRect();
   if (!height) return 0;
+  const node = pos === null ? null : view.state.doc.nodeAt(pos);
+  const room = node ? at.engine?.measureRegion(node, at.scope) : null;
+  if (room) return room.height > 0 ? room.height + room.gap : 0;
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  if (!style) return height / ratio;
+  if (!style) return height / at.ratio;
   const margins =
     (parseFloat(blockMargin(style, 'start')) || 0) + (parseFloat(blockMargin(style, 'end')) || 0);
-  return height / ratio + margins;
+  return height / at.ratio + margins;
+}
+
+// Where a section's regions are measured: at the view's scale, or by the layout engine in a scope.
+interface RegionAt {
+  readonly ratio: number;
+  readonly scope: string | null;
+  readonly engine: PagesTextEngine | null | undefined;
+}
+
+// A section's footnote area, laid out by the layout engine when it can, else measured in the view.
+function footnoteArea(view: EditorView, pos: number | null, at: RegionAt): FootnoteArea | null {
+  if (pos === null) return null;
+  const node = view.state.doc.nodeAt(pos);
+  const room = node ? at.engine?.measureRegion(node, at.scope) : null;
+  if (node && room) return footnoteAreaOf(node, room);
+  return measureFootnotes(view, pos, { scale: at.ratio });
 }
 
 interface SectionFill {
@@ -250,20 +275,21 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   const sections = places.map(({ section, content, footnotes, header, footer }, index) => {
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
+    const scope = (section.attrs.sectionName as string | null | undefined) ?? null;
+    const at = { ratio, scope, engine };
     const regions = {
-      header: regionHeight(view, header, ratio),
-      footer: regionHeight(view, footer, ratio),
+      header: regionHeight(view, header, at),
+      footer: regionHeight(view, footer, at),
     };
     const before = measuredSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const scope = (section.attrs.sectionName as string | null | undefined) ?? null;
     const laid = engine
       ? (node: ProseMirrorNode) => engine.measureBlock(node, scope, inserted)
       : undefined;
     const blocks = measureChildBlocks(view, content, { scale, cache, rules, engine: laid });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
-    const area = footnotes === null ? null : measureFootnotes(view, footnotes, { scale });
+    const area = footnoteArea(view, footnotes, at);
     const baseHeight = pageHeight - regions.header - regions.footer;
     const fill = { blocks, area, baseHeight, regions, shown };
     const result = layoutSection(fill, { ...options, rules }, memory?.sections[index]);

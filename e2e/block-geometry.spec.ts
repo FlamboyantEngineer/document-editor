@@ -29,12 +29,6 @@ type Mode = (typeof MODES)[number];
 
 // The known faults, each with the thread that owns its fix and the review finding it is
 // (/mnt/project-files/pretext-review/requirements-review/findings.md).
-const CONTINUED =
-  'Q4 block metrics (V2): a code or quote continuation drawn with its top margin and continued line';
-const LINKED = 'Q4 block metrics (V2): linked code blocks drawn further apart than planned';
-const OBJECT_GAP =
-  'Q4 block metrics: the block after an empty template block drawn 8 px lower than planned';
-const TABLE_PART = 'Q4 block metrics (V3): a table continuation drawn shorter than planned';
 const SINCE_330 =
   'Q2 atoms and engine inputs (#330): drawn otherwise than planned, cause not yet shown, appeared with #330';
 
@@ -44,35 +38,7 @@ type Known = Readonly<Record<string, string>>;
 // What differs today, by document and text layout. An entry stands for every block of its type
 // with that difference; the check fails when none has it any more.
 const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>>> = {
-  'code-block-stress pretext': {
-    'code_figure height': CONTINUED,
-    'code_figure gap': CONTINUED,
-    'linked_code_block gap': LINKED,
-    'paragraph gap': LINKED,
-    'page overflow': CONTINUED,
-  },
-  'blockquotes pretext': { 'blockquote height': SINCE_330, 'blockquote gap': SINCE_330 },
-  // Laid out by the engine since footnote markers are (#334): the same quote margin as above.
-  'footnotes-in-structures pretext': { 'blockquote gap': SINCE_330, 'paragraph gap': SINCE_330 },
-  'code-blocks pretext': { 'code_figure height': CONTINUED, 'code_figure gap': CONTINUED },
-  'inline-geometry pretext': { 'code_figure gap': CONTINUED, 'page overflow': CONTINUED },
   'inline-images pretext': { 'paragraph height': SINCE_330 },
-  'linked-code pretext': { 'linked_code_block gap': LINKED },
-  'long-mixed pretext': {
-    'blockquote gap': SINCE_330,
-    'code_figure height': CONTINUED,
-    'code_figure gap': CONTINUED,
-    'figure gap': SINCE_330,
-  },
-  'oversized-blocks pretext': {
-    'blockquote height': CONTINUED,
-    'blockquote gap': CONTINUED,
-    'page overflow': CONTINUED,
-  },
-  'page-breaks-and-rules pretext': { 'paragraph gap': SINCE_330 },
-  'table-both-header-modes pretext': { 'table_figure height': TABLE_PART },
-  'table-long-single-header pretext': { 'table_figure height': TABLE_PART },
-  'template-blocks-and-variables pretext': { 'paragraph gap': OBJECT_GAP },
 };
 
 // Differences that depend on timing, which the check allows but does not ask for. The fixtures'

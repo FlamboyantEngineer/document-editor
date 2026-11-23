@@ -17,7 +17,8 @@ import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { blockNumbers } from '../layout-engine/blocks/numbers.js';
-import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
+import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
+import type { BlockTextLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
@@ -34,6 +35,7 @@ import { type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import type {
   DrawnLines,
   PagesTextEngine,
+  RegionRoom,
   TextEngineOptions,
   TextEngineStats,
 } from './text-engine-types.js';
@@ -213,6 +215,11 @@ function measureIn(options: TextEngineOptions) {
   return context;
 }
 
+// A region's room as the pages read it; null when the engine cannot lay the region out.
+function roomOf(result: RegionGeometry): RegionRoom | null {
+  return result.ok ? { height: result.height, gap: result.gap, children: result.children } : null;
+}
+
 /** Forgets the widths the layout engine measured, as after font faces load. */
 export function forgetFontWidths(): void {
   clearCache();
@@ -247,14 +254,16 @@ function createCounts() {
   };
 }
 
-/** Creates the pages' text layout engine for a template. */
-export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+// The text layout and block geometry the engine lays out with, reading the document's numbers.
+function engineLayouts(
+  options: TextEngineOptions,
+  { numbers, inserted }: { numbers: () => NodeNumbers; inserted: () => InsertedTexts },
+) {
   const { template } = options;
   const host = atomHost(options.measureIn, Boolean(options.view));
   const atoms = createAtomCache({ measure: atomMeasurer(options, host) });
-  let numbers = NO_NUMBERS;
-  // The words inserted in the blocks being measured.
-  let current = NO_INSERTED;
+  // The stylesheet's own block numbers, read where the pages' content is drawn.
+  const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
     measureContext: measureIn(options),
@@ -263,24 +272,39 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
       types: textAtomTypes(options),
-      footnoteOf: (marker) => numbers.footnoteOf(marker),
+      footnoteOf: (marker) => numbers().footnoteOf(marker),
       refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
     },
   });
   const geometry = createBlockLayout({
-    text: numberedText(text, { numbers: () => numbers, inserted: () => current }),
+    text: numberedText(text, { numbers, inserted }),
     atoms,
-    metrics: (scope) => blockMetrics(template, scope),
-    labelOf: (caption) => numbers.labelOf(caption),
-    footnoteOf: (entry) => numbers.footnoteOf(entry),
+    metrics: (scope) => blockMetrics(template, scope, sheet),
+    labelOf: (caption) => numbers().labelOf(caption),
+    footnoteOf: (entry) => numbers().footnoteOf(entry),
+  });
+  return { host, atoms, text, geometry };
+}
+
+/** Creates the pages' text layout engine for a template. */
+export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+  const { template } = options;
+  let numbers = NO_NUMBERS;
+  // The words inserted in the blocks being measured.
+  let current = NO_INSERTED;
+  const { host, atoms, text, geometry } = engineLayouts(options, {
+    numbers: () => numbers,
+    inserted: () => current,
   });
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
+  let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();
+    regions = new WeakMap();
     options.onAtomsSettled();
   });
 
@@ -309,6 +333,15 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       counts.laid();
       if (!result.provisional) blocks.set(node, { key, block: result.block });
       return result.block;
+    },
+    measureRegion(node, scope) {
+      const key = scope ?? '';
+      const kept = regions.get(node);
+      if (kept?.key === key) return kept.room;
+      const result = geometry.layoutRegion(node, { width: widthOf(scope), scope });
+      const room = roomOf(result);
+      if (!result.ok || !result.provisional) regions.set(node, { key, room });
+      return room;
     },
     lines(node, place) {
       const markers = markerKey(node, numbers.footnoteOf);
