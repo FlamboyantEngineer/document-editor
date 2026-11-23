@@ -130,19 +130,24 @@ describe('DocumentViewer', () => {
   it('DOCE-PAGINATION-13.6 keeps its drawn pages when given options of the same fields again', () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     const layout = tenPages();
+    const href = () => null;
     const { container, rerender } = render(
-      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ markup: 'all' }} />,
+      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ citationHref: href }} />,
     );
     showInView([2]);
     const drawnPage = sheets(container)[2]?.firstElementChild;
     expect(drawnPage).toBeTruthy();
     rerender(
-      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ markup: 'all' }} />,
+      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ citationHref: href }} />,
     );
     expect(observed).toHaveLength(1);
     expect(sheets(container)[2]?.firstElementChild).toBe(drawnPage);
     rerender(
-      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ markup: 'final' }} />,
+      <DocumentViewer
+        layout={layout}
+        template={BASE_TEMPLATE}
+        options={{ citationHref: () => null }}
+      />,
     );
     expect(observed).toHaveLength(2);
   });

@@ -45,6 +45,43 @@ function clusterLength(text: string, last: boolean): number {
   return (last ? clusters.at(-1) : clusters[0])?.segment.length ?? 1;
 }
 
+type Range = readonly [number, number];
+
+// Where a line's shown content starts and ends: past the hidden ranges at its start, and before
+// those at its end (`LineTable.hidden`), so its marks sit on text the pages draw.
+function shownLine(table: JustifiedLines, line: TextLine): TextLine {
+  const hidden = table.hidden ?? [];
+  if (!hidden.length) return line;
+  let { from, to } = line;
+  for (let range = startingAt(hidden, from); range && range[1] <= to;) {
+    from = range[1];
+    range = startingAt(hidden, from);
+  }
+  for (let range = endingAt(hidden, to); range && range[0] >= from;) {
+    to = range[0];
+    range = endingAt(hidden, to);
+  }
+  return { ...line, from, to };
+}
+
+const startingAt = (hidden: readonly Range[], at: number) =>
+  hidden.find(([from, to]) => from === at && to > at);
+const endingAt = (hidden: readonly Range[], at: number) =>
+  hidden.find(([from, to]) => to === at && from < at);
+
+// A line's shown text, without the hidden ranges inside it.
+function shownText(node: ProseMirrorNode, table: JustifiedLines, line: TextLine): string {
+  let text = '';
+  let at = line.from;
+  const inside = (table.hidden ?? []).filter(([from, to]) => from < line.to && to > line.from);
+  for (const [from, to] of inside) {
+    if (from > at) text += node.textBetween(at, from, '￼', '￼');
+    at = Math.max(at, to);
+  }
+  if (line.to > at) text += node.textBetween(at, line.to, '￼', '￼');
+  return text;
+}
+
 // Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
 // pair, a joined emoji sequence, a flag or a letter with its combining marks.
 function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
@@ -95,9 +132,10 @@ function insertedStart(
 function marksOfLine(
   node: ProseMirrorNode,
   table: JustifiedLines,
-  { line, prefixed, next }: { line: TextLine; prefixed: boolean; next: TextLine | undefined },
+  { line: laid, prefixed, next }: { line: TextLine; prefixed: boolean; next: TextLine | undefined },
 ): LineMark[] {
   const marks: LineMark[] = [];
+  const line = shownLine(table, laid);
   const indent = indentOf(table, line);
   if (indent > 0.001 && line.to > line.from && !prefixed && line.side === undefined) {
     const style = `--de-line-indent: ${px(indent)}`;
@@ -109,12 +147,12 @@ function marksOfLine(
     });
   }
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
-  const text = node.textBetween(line.from, line.to, '￼', '￼');
+  const text = shownText(node, table, line);
   const spaces = spacesIn(text);
   const room = table.width - table.overhead;
   if (table.justify && spaces > 0 && room > line.width) {
     const style = `--de-word-spacing: ${px((room - line.width) / spaces)}`;
-    const end = line.from + text.trimEnd().length;
+    const end = line.to - (text.length - text.trimEnd().length);
     marks.push({ from: line.from, to: end, class: 'de-forced-lines__justified', style });
   }
   if (next?.side !== undefined) return marks;

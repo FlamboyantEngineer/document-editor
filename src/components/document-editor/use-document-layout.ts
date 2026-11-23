@@ -19,7 +19,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PagesLayout } from '../../document/pages-layout.js';
 import {
   type CompareSuggestions,
   contentsKey,
@@ -31,7 +30,6 @@ import {
   unpagedNumbering,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
-import type { FontFiles } from '../../host/font-files.js';
 import type {
   FontsAdapter,
   GlossaryAdapter,
@@ -52,15 +50,15 @@ import {
   type LayoutState,
   pageDebugKey,
   type PageDebugParts,
-  type PageTextLines,
   pageVariablesKey,
-  type PaginationStats,
   type TextLayoutMode,
 } from '../../pagination/index.js';
-import { createAllLines } from './all-lines.js';
 import type { DocumentEditorDebug } from './document-editor.js';
 import { type EditorContentsOptions, lackedPlugins } from './editor-contents.js';
+import type { DocumentMarkup } from './editor-context.js';
+import { useLayoutMarkup } from './layout-markup.js';
 import { layoutOwnPlugins } from './layout-own-plugins.js';
+import { type LayoutProgress, useLayoutProgress } from './layout-progress.js';
 import {
   fragmentRulesOf,
   type LayoutRunner,
@@ -119,6 +117,8 @@ const repeatHeaderKey = (template: TemplateFile) =>
 export interface DocumentLayoutOptions {
   readonly layout: DocumentLayout;
   readonly template: TemplateFile;
+  /** How suggestions show; the engine lays out none it hides (DOCE-PAGINATION-11.12). */
+  readonly markup?: DocumentMarkup | undefined;
   /** The pages' text layout and served fonts (`usePagesFonts`). */
   readonly text: PagesFontsState;
   readonly state: EditorState;
@@ -270,40 +270,6 @@ function useLayoutPlugins(options: DocumentLayoutOptions, own: RefObject<readonl
   }, [plugins, onStateChange, own]);
 }
 
-/** What the layout tells of its pages: when they settle, and what their layouts did. */
-export interface LayoutProgress {
-  /** Resolves with `settled` or `failed` once no layout is pending; at once in the web layout. */
-  whenSettled(): Promise<LayoutState>;
-  /** What the layouts did since the pages were first laid out; null in the web layout. */
-  stats(): PaginationStats | null;
-  /** The lines the layout engine drew the pages' text on (`textLayout: 'pretext'`); none else. */
-  textLines(): PageTextLines[];
-  /** The pages' layout as data (`textLayout: 'pretext'`); null else. */
-  pagesLayout(): PagesLayout | null;
-  /** The served faces the pages are measured and drawn with (`textLayout: 'pretext'`); null else. */
-  servedFonts(): FontFiles | null;
-  /** With the layout engine, draws every page on its lines, or only those near the screen again. */
-  drawAllLines(all: boolean): void;
-  /** Draws every page on the engine's lines until the function it returns is called. */
-  holdAllLines(): () => void;
-}
-
-// What the active pagination tells of its pages; with none, in the web layout, they are settled.
-function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgress {
-  return useMemo(() => {
-    const allLines = createAllLines((all) => active.current?.drawAllLines(all));
-    return {
-      whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
-      stats: () => active.current?.stats() ?? null,
-      textLines: () => active.current?.textLines() ?? [],
-      pagesLayout: () => active.current?.pagesLayout() ?? null,
-      servedFonts: () => active.current?.servedFonts() ?? null,
-      drawAllLines: allLines.drawAll,
-      holdAllLines: allLines.hold,
-    };
-  }, [active]);
-}
-
 /**
  * Shows each section in its template section's scope, lays the document out on a paged projection
  * in page layout, measuring it in the element `measureIn` holds, and joins its pages in the web
@@ -331,7 +297,7 @@ export function useDocumentLayout(
   const ownPlugins = useRef<readonly Plugin[]>([]);
   const active = useRef<LayoutRunner | null>(null);
   const [paged, setPaged] = useState<PagedEditor | null>(null);
-
+  const markup = useLayoutMarkup(options.markup, latest, active);
   useEffect(() => {
     const own = layoutOwnPlugins(latest);
     ownPlugins.current = own;
@@ -360,11 +326,20 @@ export function useDocumentLayout(
       return undefined;
     }
     return startPaging(element, latest, {
-      settings: { footnoteNumbering, textLayout, fonts: servedFonts },
+      settings: { footnoteNumbering, textLayout, fonts: servedFonts, markup: markup.now },
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, measureIn, repeatHeaders, footnoteNumbering, textLayout, servedFonts, schema]);
+  }, [
+    layout,
+    measureIn,
+    repeatHeaders,
+    footnoteNumbering,
+    textLayout,
+    servedFonts,
+    schema,
+    markup,
+  ]);
 
   useLayoutPlugins(options, ownPlugins);
 
@@ -386,6 +361,6 @@ export function useDocumentLayout(
     `${String(Boolean(options.onRegionChange))} ${String(Boolean(options.onTemplatePartChange))}`,
     options.onStateChange,
   );
-  const progress = useLayoutProgress(active);
+  const progress = useLayoutProgress(active, markup.inMarkup);
   return useMemo(() => ({ ...progress, paged, text }), [progress, paged, text]);
 }

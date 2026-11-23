@@ -64,6 +64,11 @@ export interface TextLayoutOptions {
    * the gutter takes the code's width in from its left.
    */
   readonly codeLineNumbers?: boolean | undefined;
+  /**
+   * The suggestion mark the pages' markup hides now (`hiddenSuggestion`), whose content takes no
+   * room (DOCE-PAGINATION-11.12); none hidden when absent.
+   */
+  readonly hidden?: (() => string | null) | undefined;
 }
 
 /** The inline atoms laid out as their text, and their numbers. */
@@ -280,6 +285,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         variables: place.variables,
         boxOf: boxOf(style),
         inserted: place.inserted,
+        hidden: options.hidden?.(),
       });
       if (!runs.ok) return runs;
       const table = layoutLines(cache, {
@@ -293,7 +299,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         restStart: starts.restStart,
         block: node,
       });
-      return { ok: true, table: withReserved(table, runs.runs, options.reserve) };
+      const laid = runs.hidden.length ? { ...table, hidden: runs.hidden } : table;
+      return { ok: true, table: withReserved(laid, runs.runs, options.reserve) };
     },
   };
 }

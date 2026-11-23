@@ -150,3 +150,38 @@ describe('renderPrintPage', () => {
     expect(view).not.toContain('href="#abbr-g1"');
   });
 });
+
+describe('renderPrintPage suggestions', () => {
+  // A paragraph with an insertion and a deletion stored with only their comment thread's ids.
+  const SUGGESTED: DocumentFile = {
+    formatVersion: 1,
+    sections: [
+      {
+        name: null,
+        content: [
+          {
+            type: 'paragraph',
+            attrs: { id: 'a1000010' },
+            content: [
+              text('Text with '),
+              text('an insertion', [{ type: 'insertion', attrs: { thread: 'thread-03' } }]),
+              text(' and '),
+              text('a deletion', [{ type: 'deletion', attrs: { thread: 'thread-04' } }]),
+              text('.'),
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const body = (markup: 'all' | 'final' | 'original') =>
+    renderPrintPage(SUGGESTED, BASE_TEMPLATE, { markup }).replace(/^.*<body[^>]*>/su, '');
+
+  it('DOCE-EDITOR-6.16 leaves out or unmarks suggestions known only by their thread', () => {
+    expect(body('all')).toMatch(/<ins[^>]*>an insertion<\/ins>.*<del[^>]*>a deletion<\/del>/su);
+    expect(body('final')).toContain('Text with an insertion and .');
+    expect(body('final')).not.toMatch(/<(ins|del)\b/u);
+    expect(body('original')).toContain('Text with  and a deletion.');
+    expect(body('original')).not.toMatch(/<(ins|del)\b/u);
+  });
+});

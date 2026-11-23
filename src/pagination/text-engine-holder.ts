@@ -6,6 +6,7 @@
 // template names.
 
 import type { EditorView } from 'prosemirror-view';
+import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
 import type { PagesFonts, ServedFonts } from './served-fonts.js';
@@ -22,6 +23,11 @@ export interface TextLayoutSetting {
   readonly hostViews?: readonly string[] | undefined;
   /** The served fonts the text is measured with; no engine is made without them. */
   readonly fonts: PromiseLike<PagesFonts>;
+  /**
+   * How the pages show suggestions now; those it hides take no room (DOCE-PAGINATION-11.12). All
+   * shown when not given.
+   */
+  readonly markup?: (() => SuggestionMarkup) | undefined;
 }
 
 /** A projection's text layout engine, once loaded. */
@@ -57,6 +63,20 @@ function servedInputs(fonts: ServedFonts) {
   };
 }
 
+// What the engine takes from the setting beside its template: the host's views and the markup.
+const settingInputs = ({ hostViews, markup }: TextLayoutSetting) => ({ hostViews, markup });
+
+// How many times the markup the pages are laid out in has changed, as it is read.
+function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => number {
+  let shown: SuggestionMarkup = 'all';
+  let changes = 0;
+  return () => {
+    const now = markup?.() ?? 'all';
+    if (now !== shown) [shown, changes] = [now, changes + 1];
+    return changes;
+  };
+}
+
 /**
  * Loads and holds a text layout engine; `changed` is told when its atoms' sizes settle or font
  * faces load in the measuring document, which makes the engine again: widths measured before a
@@ -75,6 +95,7 @@ export function holdTextEngine(options: {
   let numbered = false;
   let spoken = '';
   let version = 0;
+  const markups = markupChanges(options.setting.markup);
   let destroyed = false;
   const loaded = Promise.all([import('./text-engine.js'), options.setting.fonts]).then(
     ([module, served]) => {
@@ -130,13 +151,14 @@ export function holdTextEngine(options: {
         measureIn: options.measureIn,
         onAtomsSettled: settled,
         view: options.view,
-        hostViews: options.setting.hostViews,
+        ...settingInputs(options.setting),
       });
       // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.10).
       current = Object.assign(engine, { language });
       return current;
     },
-    version: () => version,
+    // Another markup keeps the engine, but moves the lines it draws.
+    version: () => version + markups(),
     loaded,
     remeasure: drop,
     destroy() {

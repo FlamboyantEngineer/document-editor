@@ -33,7 +33,7 @@ export { STATUS_BAR_ITEMS } from './document-status-bar.js';
 export type { EditorContentsOptions } from './editor-contents.js';
 export type { EditorContext, ObjectDialog, ReferenceKind } from './editor-context.js';
 export { useDocumentEditor } from './editor-context.js';
-export type { DocumentEditorHandle } from './editor-handle.js';
+export type { DocumentEditorHandle, PagesLayoutRequest } from './editor-handle.js';
 export type { DocumentEditorLabels } from './editor-labels.js';
 export { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 export type { DocumentOverviewOptions } from './editor-overview.js';

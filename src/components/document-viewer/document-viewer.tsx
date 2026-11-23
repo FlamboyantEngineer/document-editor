@@ -7,8 +7,12 @@
 
 import { type CSSProperties, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import type { PagesLayout } from '../../document/pages-layout.js';
-import type { PrintPageOptions } from '../../document/print.js';
-import { drawLayoutPages, layoutTemplate, VIEW_CLASSES } from '../../document/print-pages.js';
+import {
+  drawLayoutPages,
+  type LayoutPrintOptions,
+  layoutTemplate,
+  VIEW_CLASSES,
+} from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
 import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
@@ -26,8 +30,8 @@ export interface DocumentViewerProps {
   layout: PagesLayout;
   /** The template the pages were laid out under. */
   template: TemplateFile;
-  /** How suggestions show, links and the document kit, as for `renderLayoutPrintPage`. */
-  options?: Omit<PrintPageOptions, 'title' | 'styles' | 'stylesheets'> | undefined;
+  /** Links and the document kit, as for `renderLayoutPrintPage`; suggestions show as laid out. */
+  options?: Omit<LayoutPrintOptions, 'title' | 'styles' | 'stylesheets'> | undefined;
   /** How many pages before and after the ones in view are drawn; `Infinity` draws them all. */
   overscan?: number | undefined;
   /** The viewer's accessible name. */
@@ -209,7 +213,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
     <div
       {...hooks.root({
         className: className ? `${EDITOR_CLASS} ${className}` : EDITOR_CLASS,
-        data: { mode: 'reading', markup: options?.markup ?? 'all', layout: 'page' },
+        data: { mode: 'reading', markup: layout.markup, layout: 'page' },
       })}
       data-text-layout="pretext"
       // The language the pages were laid out in, whatever the host's page is in; empty for none,

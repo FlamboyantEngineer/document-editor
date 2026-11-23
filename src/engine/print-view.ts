@@ -67,8 +67,10 @@ export function editorMarkup(view: EditorView): SnapshotMarkup {
 export function applySuggestionMarkup(copy: Element, markup: SnapshotMarkup): void {
   if (markup === 'all') return;
   const [kept, dropped] = markup === 'final' ? ['ins', 'del'] : ['del', 'ins'];
-  for (const element of copy.querySelectorAll(`${dropped}[data-id]`)) element.remove();
-  for (const element of copy.querySelectorAll(`${kept}[data-id]`)) {
+  // A suggestion's element carries its id, or only its comment thread's id.
+  const suggestion = ':is([data-id], [data-comment-id])';
+  for (const element of copy.querySelectorAll(`${dropped}${suggestion}`)) element.remove();
+  for (const element of copy.querySelectorAll(`${kept}${suggestion}`)) {
     element.replaceWith(...element.childNodes);
   }
 }

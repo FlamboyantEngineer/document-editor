@@ -6,6 +6,7 @@
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { FontFiles } from '../host/font-files.js';
+import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { LineMark } from '../layout-engine/line-marks.js';
 
 /** A top-level paragraph or heading of a page, drawn on the engine's lines. */
@@ -51,6 +52,12 @@ export interface PagesLayout {
   readonly doc: Readonly<Record<string, unknown>>;
   /** How the pages number their footnotes. */
   readonly footnoteNumbering: 'document' | 'page';
+  /**
+   * How the pages show suggestions (DOCE-PAGINATION-11.12): all their markup, as if accepted, or as
+   * if rejected. The suggestions it hides took no room in the layout, and what draws the layout
+   * leaves them out.
+   */
+  readonly markup: SuggestionMarkup;
   readonly blocks: readonly PagesLayoutBlock[];
   readonly variables: readonly PagesLayoutVariable[];
   /** The heading, caption and equation numbers the pages draw, by position. */

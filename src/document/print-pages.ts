@@ -169,12 +169,18 @@ function pageSheetRules(doc: ProseMirrorNode, template: TemplateFile): string {
 export const layoutTemplate = (layout: PagesLayout, template: TemplateFile): TemplateFile =>
   servedTemplate(template, layout.fonts?.generics ?? {});
 
-function drawnLayout(layout: PagesLayout, template: TemplateFile, options: PrintPageOptions) {
+/**
+ * What a static drawing of a layout holds beside it: as a print's, but its suggestions show as the
+ * layout was laid out with them (`PagesLayout.markup`, DOCE-PAGINATION-11.12).
+ */
+export type LayoutPrintOptions = Omit<PrintPageOptions, 'markup'>;
+
+function drawnLayout(layout: PagesLayout, template: TemplateFile, options: LayoutPrintOptions) {
   const doc = readPagesDocument(layout, createDocumentSchema(options.kit));
   const trees = pagesTrees(doc, layout, { template, draw: drawNode });
   numberFootnotes(trees, doc, layout.footnoteNumbering);
   addLinks(trees, elementNumbers(joinDocumentPages(doc).doc, template), options);
-  return { doc, trees: allow(trees, options.markup ?? 'all') };
+  return { doc, trees: allow(trees, layout.markup) };
 }
 
 /** One page of a layout drawn on its own: where it is, its element's attributes, its content. */
@@ -211,7 +217,7 @@ const attrsOf = (tree: PrintTree | undefined) =>
 export function drawLayoutPages(
   layout: PagesLayout,
   template: TemplateFile,
-  options: PrintPageOptions = {},
+  options: LayoutPrintOptions = {},
 ): LayoutDrawing {
   const { doc, trees } = drawnLayout(layout, layoutTemplate(layout, template), options);
   const sections: LayoutSectionDrawing[] = [];
@@ -244,11 +250,11 @@ export function drawLayoutPages(
 export function renderLayoutPrintPage(
   layout: PagesLayout,
   template: TemplateFile,
-  options: PrintPageOptions = {},
+  options: LayoutPrintOptions = {},
 ): string {
   const drawn = layoutTemplate(layout, template);
   const { doc, trees } = drawnLayout(layout, drawn, options);
-  const markup = options.markup ?? 'all';
+  const { markup } = layout;
   const root = printElement(
     'div',
     {

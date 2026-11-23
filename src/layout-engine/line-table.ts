@@ -43,4 +43,10 @@ export interface LineTable {
   readonly overhead: number;
   /** The clusters drawn in a box of a fixed width (`reserved-boxes.ts`); absent when none are. */
   readonly reserved?: readonly ReservedBox[] | undefined;
+  /**
+   * The content ranges laid out as taking no room, `[from, to)`, as the suggestions a markup hides
+   * (DOCE-PAGINATION-11.12); absent when none are. The lines still tile the content, the hidden
+   * ranges inside them; what draws a line starts and ends it at its first and last shown character.
+   */
+  readonly hidden?: readonly (readonly [number, number])[] | undefined;
 }

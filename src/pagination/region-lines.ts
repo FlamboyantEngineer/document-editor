@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { BlockPlace, RegionGeometry } from '../layout-engine/blocks/types.js';
+import { suggestionKey, type SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { LinesRecorder } from './nested-lines.js';
 import type { DrawnLines, RegionRoom } from './text-engine-types.js';
 
@@ -13,6 +14,8 @@ interface RegionSource {
   };
   readonly recorder: LinesRecorder;
   readonly widthOf: (scope: string | null) => number;
+  /** The markup the pages are laid out in, by which one holding a suggestion is kept too. */
+  readonly markup?: (() => SuggestionMarkup) | undefined;
 }
 
 /** A region as the engine laid it out: its room, and its text blocks' lines. */
@@ -36,7 +39,7 @@ function roomOf(result: RegionGeometry): RegionRoom | null {
 }
 
 /**
- * The laid regions, kept by node, scope and variable texts until forgotten: a header showing the
+ * The laid regions, kept by node, scope, variable texts and markup until forgotten: a header showing the
  * page's number keeps a region for each number it showed, up to `REGIONS_KEPT_PER_NODE`.
  */
 export function createRegionLines(source: RegionSource) {
@@ -47,7 +50,8 @@ export function createRegionLines(source: RegionSource) {
       scope: string | null,
       variables?: ReadonlyMap<string, string>,
     ): LaidRegion {
-      const key = `${scope ?? ''}|${variables ? JSON.stringify([...variables]) : '-'}`;
+      const markup = suggestionKey(node, source.markup);
+      const key = `${scope ?? ''}|${variables ? JSON.stringify([...variables]) : '-'}|${markup}`;
       const regions = kept.get(node) ?? new Map<string, LaidRegion>();
       const found = regions.get(key);
       if (found) {

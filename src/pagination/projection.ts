@@ -384,7 +384,8 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     textLines: () => pageTextLines(live.projection),
     pagesLayout: () => {
       const settled = layoutSettled(live.pace.readiness.state(), options.measureIn);
-      return pagesLayout(live.projection, { ...options, settled });
+      const markup = options.textLayout?.markup?.() ?? 'all';
+      return pagesLayout(live.projection, { ...options, settled, markup });
     },
     servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {
