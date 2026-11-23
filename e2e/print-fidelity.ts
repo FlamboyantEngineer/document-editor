@@ -137,6 +137,17 @@ function missingWords(page: readonly string[], sheet: string): string[] {
   return missing;
 }
 
+// The PostScript names of the fonts a PDF embeds, without their subset tags, by poppler's
+// `pdffonts`, which the CI runner installs with `pdftotext`.
+export function pdfFontNames(pdf: Buffer): string[] {
+  const dir = mkdtempSync(join(tmpdir(), 'print-fidelity-'));
+  const file = join(dir, 'print.pdf');
+  writeFileSync(file, pdf);
+  const listed = execFileSync('pdffonts', [file], { encoding: 'utf8' }).split('\n').slice(2);
+  const names = listed.flatMap((row) => row.split(/\s+/u)[0] ?? []).filter(Boolean);
+  return [...new Set(names.map((name) => name.replace(/^[A-Z]{6}\+/u, '')))].sort();
+}
+
 // The text of each page of a PDF, by poppler's `pdftotext`, which the CI runner installs.
 export function pdfPageTexts(pdf: Buffer, pages: number): string[] {
   const dir = mkdtempSync(join(tmpdir(), 'print-fidelity-'));
