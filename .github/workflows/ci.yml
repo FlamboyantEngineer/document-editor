@@ -162,6 +162,11 @@ jobs:
         env:
           THEN: ${{ matrix.then }}
           AFTER: ${{ matrix.after }}
+          TIMING_READINGS: ${{ runner.temp }}/timing-readings.txt
+      # Last, so the readings are the last lines of the timing job's log, which its tail shows.
+      - name: Timing readings
+        if: always() && matrix.name == 'performance'
+        run: cat "$RUNNER_TEMP/timing-readings.txt" 2>/dev/null || echo "No timing readings were written."
 
   font-file-changes:
     # Whether the change reaches the font-file widths: the measurer and the layout engine, its test
