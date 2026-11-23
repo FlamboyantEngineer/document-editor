@@ -280,6 +280,8 @@ describe('documentSnapshot', () => {
   it('DOCE-EDITOR-6.19 prints with the text style and language the pages inherit in the editor', () => {
     const { view, template: sectioned } = sectionedView();
     const around = view.dom.parentElement;
+    // Only an element in the document has a computed style, as in a browser.
+    if (around) document.body.append(around);
     around?.style.setProperty('font-family', 'Georgia');
     around?.style.setProperty('color', 'rgb(1, 2, 3)');
     around?.setAttribute('lang', 'fr');
@@ -289,6 +291,7 @@ describe('documentSnapshot', () => {
     expect(root?.style.getPropertyValue('font-family')).toBe('Georgia');
     expect(root?.style.getPropertyValue('color')).toBe('rgb(1, 2, 3)');
     view.destroy();
+    around?.remove();
   });
 
   it('DOCE-EDITOR-6.33 prints a manual page break as its place only, and cells statically', () => {

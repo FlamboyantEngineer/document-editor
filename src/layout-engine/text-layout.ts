@@ -18,6 +18,7 @@ import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
   blockTypography,
+  captionLabelFont,
   firstFamily,
   fontString,
   type FontStyle,
@@ -76,6 +77,8 @@ export interface TextBlockPlace {
   readonly footnoteNumber?: string | undefined;
   /** Text drawn in the block that is not its content, such as a comparison's deleted words. */
   readonly inserted?: readonly InsertedText[] | undefined;
+  /** A caption's label, number and separator, drawn before its text in the caption label font. */
+  readonly label?: string | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
@@ -93,7 +96,14 @@ interface TextLayout {
   readonly stats: () => CacheStats;
 }
 
-const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block', 'footnote_entry']);
+const TEXT_BLOCKS = new Set([
+  'paragraph',
+  'heading',
+  'code_block',
+  'footnote_entry',
+  'figure_caption',
+  'table_caption',
+]);
 
 function hasCode(node: ProseMirrorNode): boolean {
   let found = false;
@@ -197,17 +207,28 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   };
   const typography = (node: ProseMirrorNode, scope?: string | null) =>
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
+  // What a block draws before its content in a font of its own: a footnote entry's number, or a
+  // caption's label.
+  const leadingItem = (node: ProseMirrorNode, style: BlockTypography, place: TextBlockPlace) => {
+    const source = { ...options, scope: place.scope };
+    if (place.footnoteNumber !== undefined)
+      return footnoteMarkerItem(place.footnoteNumber, style, source);
+    const font = place.label ? captionLabelFont(node, style, source) : null;
+    return font && place.label
+      ? { item: { text: place.label, font: fontString(font) }, family: font.family }
+      : null;
+  };
   return {
     typography,
     stats: cache.stats,
     layoutText(node, place) {
+      // A code caption waits for code figure geometry that matches the drawn box (DOCE-PAGINATION-9.11).
+      if (node.type.name === 'code_caption')
+        return { ok: false, reason: 'a code caption is left to its code figure in the DOM' };
       if (!TEXT_BLOCKS.has(node.type.name))
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
-      const marker =
-        place.footnoteNumber === undefined
-          ? null
-          : footnoteMarkerItem(place.footnoteNumber, style, { ...options, scope: place.scope });
+      const marker = leadingItem(node, style, place);
       const unserved = options.isFontServed
         ? unservedFamily(node, style, {
             isFontServed: options.isFontServed,
@@ -238,6 +259,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         padding: style.padding,
         firstStart: starts.firstStart,
         restStart: starts.restStart,
+        block: node,
       });
       return { ok: true, table: withReserved(table, runs.runs, options.reserve) };
     },

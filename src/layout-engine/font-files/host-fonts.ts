@@ -3,6 +3,7 @@
 // pages keep the browser's own layout and the phase says why. No fallback font is ever measured.
 
 import type { FontsAdapter } from '../../host/adapters.js';
+import type { FontFiles } from '../../host/font-files.js';
 import type { FontFaceProblem } from './host-faces.js';
 import { createHostMeasurer, type FontFileMeasurer } from './measurer.js';
 
@@ -15,6 +16,8 @@ type HostFonts =
   | {
       readonly phase: 'pretext';
       readonly measurer: FontFileMeasurer;
+      /** The files the host served, for the pages to draw the same faces. */
+      readonly files: FontFiles;
       readonly problems: readonly FontFaceProblem[];
     };
 
@@ -42,7 +45,7 @@ export async function loadHostFonts(
     const { measurer, problems } = await createHostMeasurer(shaper.value, files.value);
     if (problems.length === files.value.faces.length)
       return { phase: 'browser', reason: 'no-faces' };
-    return { phase: 'pretext', measurer, problems };
+    return { phase: 'pretext', measurer, files: files.value, problems };
   } catch {
     return { phase: 'browser', reason: 'shaper-failed' };
   }

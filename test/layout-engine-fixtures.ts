@@ -75,7 +75,8 @@ export function standInTextLayout(refuse: readonly string[] = []): BlockTextLayo
             table: standInLines(
               node,
               place.width,
-              (place.prefix ?? '') + (place.footnoteNumber ? `${place.footnoteNumber} ` : ''),
+              (place.prefix ?? place.label ?? '') +
+                (place.footnoteNumber ? `${place.footnoteNumber} ` : ''),
             ),
           },
   };

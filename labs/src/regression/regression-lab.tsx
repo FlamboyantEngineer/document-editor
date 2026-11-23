@@ -27,6 +27,7 @@ import {
   type TemplateFile,
 } from '../../../src/model/index.js';
 import { markReadyWhenSettled } from '../lab-ready.js';
+import { LAB_FONTS } from '../served-fonts.js';
 import { useStressProbe } from '../stress/stress-probe.js';
 import { HOST_VIEWS } from './host-quote-view.js';
 import { REGRESSION_CODE } from './regression-code.js';
@@ -66,6 +67,13 @@ const COMPARE =
 // (`textLayout=pretext`, DOCE-PAGINATION-11).
 const TEXT_LAYOUT =
   new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+
+// With the layout engine, the lab serves its font files and HarfBuzz (DOCE-HOST-1.14.1); with
+// `fonts=none` it serves neither, and the pages keep the browser's layout.
+const FONTS =
+  TEXT_LAYOUT === 'pretext' && new URLSearchParams(window.location.search).get('fonts') !== 'none'
+    ? LAB_FONTS
+    : undefined;
 
 // How the pages are painted: as HTML, or each into a canvas (`rendering=html-canvas`,
 // DOCE-EDITOR-1.9) where the browser has the HTML-in-Canvas API.
@@ -182,6 +190,7 @@ function RegressionLab() {
         layout={LAYOUT}
         zoom={zoom}
         textLayout={TEXT_LAYOUT}
+        fonts={FONTS}
         rendering={RENDERING}
         compare={COMPARE}
         debug={DEBUG}

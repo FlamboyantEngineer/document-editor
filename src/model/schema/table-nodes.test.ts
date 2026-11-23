@@ -66,11 +66,14 @@ describe('table nodes', () => {
       paragraph.create(),
     );
     const dom = DOMSerializer.fromSchema(documentSchema).serializeNode(stored) as HTMLElement;
+    // Only an element in the document has a computed style, as in a browser.
+    document.body.append(dom);
     expect(dom).toHaveStyle({ textAlign: 'left', verticalAlign: 'middle' });
     expect(dom).not.toHaveStyle({ position: 'fixed' });
     expect(dom).not.toHaveStyle({ zIndex: '9999' });
     expect(dom).toHaveAttribute('data-text-align', 'left');
     expect(dom).toHaveAttribute('data-vertical-align', 'middle');
+    dom.remove();
   });
 
   it('DOCE-SCHEMA-3.5 keeps a span between 1 and 1000 rows or columns', () => {

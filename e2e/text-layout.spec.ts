@@ -187,6 +187,38 @@ test.describe('the layout engine on the pages', () => {
     expect(counts.shown).toBeLessThan(counts.computed);
   });
 
+  test('DOCE-HOST-1.14.2 draws the pages without a synthesised bold or italic', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const synthesis = await page.evaluate(() => {
+      const sheet = document.querySelector<HTMLElement>('.de-document-editor__content .pm-page');
+      return sheet ? getComputedStyle(sheet).fontSynthesis : null;
+    });
+    expect(synthesis).toBe('none');
+  });
+
+  test('DOCE-PAGINATION-11.6 keeps every page on the engine lines through a snapshot when the host asked', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const forced = () => page.evaluate(() => document.querySelectorAll('.de-forced-lines').length);
+    const computed = await page.evaluate(
+      () =>
+        window.regressionLab
+          .textLines()
+          .flatMap((each) => each.blocks)
+          .filter((block) => block.lines !== null).length,
+    );
+    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    await expect.poll(forced).toBe(computed);
+    await page.evaluate(() => window.regressionLab.snapshot());
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    expect(await forced()).toBe(computed);
+    await page.evaluate(() => window.regressionLab.drawAllLines(false));
+    await expect.poll(forced).toBeLessThan(computed);
+  });
+
   test('DOCE-PAGINATION-11.9 draws every heading, caption and equation number as without the option', async ({
     page,
   }) => {
@@ -200,5 +232,52 @@ test.describe('the layout engine on the pages', () => {
   test('DOCE-PAGINATION-11.3 gives no computed lines without the option', async ({ page }) => {
     await open(page, 'long-mixed', 'dom');
     expect(await page.evaluate(() => window.regressionLab.textLines())).toEqual([]);
+  });
+});
+
+test.describe('served fonts', () => {
+  test('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.5 keeps the browser layout and says why when the host serves no shaper', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=long-mixed&textLayout=pretext&fonts=none');
+    await waitForLab(page);
+    const root = page.locator('.de-document-editor').first();
+    await expect(root).toHaveAttribute('data-text-layout', 'dom');
+    await expect(root).toHaveAttribute('data-text-layout-reason', 'no-shaper');
+    await expect(page.locator('.de-forced-lines')).toHaveCount(0);
+  });
+
+  test('DOCE-HOST-1.14.2 DOCE-PAGINATION-12.5 draws the pages from the served faces only, never synthesised', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const root = page.locator('.de-document-editor').first();
+    await expect(root).toHaveAttribute('data-text-layout', 'pretext');
+    await expect(root).not.toHaveAttribute('data-text-layout-reason');
+    const drawn = await page.evaluate(() => ({
+      faces: [...document.fonts]
+        .filter((face) => face.family === 'Arial' && face.status === 'loaded')
+        .map((face) => `${face.weight} ${face.style}`)
+        .sort(),
+      synthesis: getComputedStyle(
+        document.querySelector('.de-document-editor__content .pm-page-content') ?? document.body,
+      ).fontSynthesis,
+    }));
+    expect(drawn.faces).toEqual(['400 italic', '400 normal', '700 italic', '700 normal']);
+    expect(drawn.synthesis).toBe('none');
+  });
+
+  test('DOCE-PAGINATION-12.5 draws a generic family the template names as the served family it is measured in', async ({
+    page,
+  }) => {
+    // The regression base template's paragraphs are in `Serif`, its code in the default monospace.
+    await open(page, 'long-mixed', 'pretext');
+    const family = (selector: string) =>
+      page
+        .locator(`.de-document-editor__content .pm-page-content ${selector}`)
+        .first()
+        .evaluate((element) => getComputedStyle(element).fontFamily);
+    expect(await family('p')).toBe('"Times New Roman"');
+    expect(await family('pre')).toBe('"Courier New"');
   });
 });

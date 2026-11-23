@@ -22,13 +22,16 @@ const labs = listLabSources();
 
 rmSync(outdir, { recursive: true, force: true });
 
-// Geist and Geist Mono (Latin, WOFF), four KaTeX faces, the script fonts and HarfBuzz, as files the
+// Geist and Geist Mono, and Arimo and Cousine, which the labs serve as Arial and Courier New with
+// the same metrics (Latin, WOFF), four KaTeX faces, the script fonts and HarfBuzz, as files the
 // labs fetch.
 const require = createRequire(import.meta.url);
 const fontsDir = join(outdir, 'fonts');
 mkdirSync(fontsDir, { recursive: true });
 const served = (file) => /-latin-(400|700)-(normal|italic)\.woff$/u.test(file);
-for (const name of ['@fontsource/geist', '@fontsource/geist-mono']) {
+for (const name of ['geist', 'geist-mono', 'arimo', 'cousine', 'tinos'].map(
+  (font) => `@fontsource/${font}`,
+)) {
   const files = join(dirname(require.resolve(`${name}/package.json`)), 'files');
   for (const file of readdirSync(files).filter(served))
     copyFileSync(join(files, file), join(fontsDir, file));

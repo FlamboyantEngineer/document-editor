@@ -66,6 +66,13 @@
     "family": "Lab Noto SC",
     "weight": 400,
     "italic": false,
+    "file": "noto-sans-sc-91.woff",
+    "unicodeRange": "U+1d34-1d35,U+1d38-1d3a,U+1d3c,U+1d3f-1d40,U+1d49,U+1d4e-1d4f,U+1d52,U+1d55,U+1d5b,U+1d5e,U+1d9c,U+1da0,U+1dc4-1dc5,U+1e69,U+1e73,U+1ea0-1ea9,U+1eab-1ead,U+1eaf,U+1eb1,U+1eb3,U+1eb5,U+1eb7,U+1eb9,U+1ebb,U+1ebd-1ebe,U+1ec0-1ec3,U+1ec5-1ec6,U+1ec9-1ecd,U+1ecf-1ed3,U+1ed5,U+1ed7-1edf,U+1ee1,U+1ee3,U+1ee5-1eeb,U+1eed,U+1eef-1ef1,U+1ef3,U+1ef7,U+1ef9,U+1f62,U+1f7b,U+2001-2002,U+2004-2006,U+2009-200a,U+200c-2012,U+2015-2016,U+201a,U+201e-2021,U+2023,U+2025,U+2028,U+202a-202d,U+202f-2030,U+2032-2033,U+2035,U+2038,U+203c,U+203e-203f,U+2043-2044,U+2049,U+204d-204e,U+2060-2061,U+2070,U+2074-2078,U+207a-207b"
+  },
+  {
+    "family": "Lab Noto SC",
+    "weight": 400,
+    "italic": false,
     "file": "noto-sans-sc-97.woff",
     "unicodeRange": "U+2ae-2b3,U+2b5-2bf,U+2c2-2c3,U+2c6-2d1,U+2d8-2da,U+2dc,U+2e1-2e3,U+2e5,U+2eb,U+2ee-2f0,U+2f2-2f7,U+2f9-2ff,U+302-30d,U+311,U+31b,U+321-325,U+327-329,U+32b-32c,U+32e-32f,U+331-339,U+33c-33d,U+33f,U+348,U+352,U+35c,U+35e-35f,U+361,U+363,U+368,U+36c,U+36f,U+530-540,U+55d-55e,U+561,U+563,U+565,U+56b,U+56e-579"
   },

@@ -85,6 +85,8 @@ export interface AtomCache {
   ): MeasuredAtom | null;
   /** Listens for final sizes; returns the function that stops listening. */
   subscribe(listener: AtomListener): () => void;
+  /** Whether an atom it measured still waits for its final size. */
+  pending(): boolean;
 }
 
 /** The default number of atoms a cache keeps. */
@@ -153,6 +155,7 @@ export function createAtomCache({
 }: AtomCacheOptions): AtomCache {
   const entries = new Map<string, Entry>();
   const listeners = new Set<AtomListener>();
+  let unsettled = 0;
 
   const keep = (key: string, entry: Entry) => {
     entries.delete(key);
@@ -165,8 +168,10 @@ export function createAtomCache({
   };
 
   const settle = (key: string, entry: Entry, settled: Promise<AtomSize | null>) => {
+    unsettled += 1;
     settled.then(
       (size) => {
+        unsettled -= 1;
         if (entries.get(key) !== entry) return;
         if (size === null) entries.delete(key);
         else
@@ -176,6 +181,7 @@ export function createAtomCache({
         for (const listener of [...listeners]) listener([...entry.nodes]);
       },
       () => {
+        unsettled -= 1;
         // A failed load leaves the box the browser drew while it loaded, which is final.
         if (entries.get(key) === entry) entry.size = { ...entry.size, provisional: false };
       },
@@ -224,5 +230,6 @@ export function createAtomCache({
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    pending: () => unsettled > 0,
   };
 }

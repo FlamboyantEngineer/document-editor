@@ -1,4 +1,5 @@
 import type * as Pretext from '@chenglou/pretext';
+import { setMeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
@@ -70,6 +71,46 @@ describe('createTextLayout', () => {
     expect(engine.stats()).toEqual({ hits: 0, misses: 2 });
     engine.layoutText(node, { width: 30 });
     expect(engine.stats()).toEqual({ hits: 2, misses: 2 });
+  });
+
+  it('DOCE-PAGINATION-9.1 keeps every block of a long document prepared while its node lives', () => {
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    // More blocks than the 4,000 runs kept by their text alone; made from the schema, not parsed.
+    const paragraph = documentSchema.nodes.paragraph;
+    if (!paragraph) throw new Error('no paragraph');
+    const nodes = Array.from({ length: 4500 }, (_, index) =>
+      paragraph.create(null, documentSchema.text(`run ${String(index)}`)),
+    );
+    for (const node of nodes) engine.layoutText(node, { width: 60 });
+    expect(engine.stats()).toEqual({ hits: 0, misses: 4500 });
+    for (const node of nodes) engine.layoutText(node, { width: 30 });
+    expect(engine.stats()).toEqual({ hits: 4500, misses: 4500 });
+  }, 20_000);
+
+  it('DOCE-PAGINATION-9.1 tells Pretext the language only when it changes, so widths stay measured', () => {
+    let measured = 0;
+    setMeasureContext(() => {
+      const context = new OffscreenCanvas(1, 1).getContext(
+        '2d',
+      ) as unknown as Pretext.MeasureContext;
+      const measure = context.measureText.bind(context);
+      context.measureText = (text: string) => {
+        measured += 1;
+        return measure(text);
+      };
+      return context;
+    });
+    try {
+      table(block(`<p>${WORDS}</p>`), 60, { language: 'de-CH' });
+      const first = measured;
+      table(block(`<p>${WORDS}</p>`), 60, { language: 'de-CH' });
+      expect(first).toBeGreaterThan(5);
+      expect(measured - first).toBeLessThanOrEqual(1);
+      table(block('<p>aaaa</p>'), 60, { language: 'fr' });
+      expect(pretext.locales).toEqual(['de-CH', 'fr']);
+    } finally {
+      setMeasureContext();
+    }
   });
 
   it('DOCE-PAGINATION-9.1 gives an empty paragraph one line', () => {
@@ -350,6 +391,28 @@ describe('createTextLayout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-11.11 lays a block out again when its inserted words change', () => {
+    const node = block('<p>aaaa bbbb</p>');
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    const lay = (pieces: readonly string[]) => {
+      const sides = pieces.map((_, index) => -2 * (pieces.length - index));
+      const result = engine.layoutText(node, {
+        width: 60,
+        inserted: [{ offset: 5, pieces, sides }],
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map((line) => [line.from, line.to, line.end]);
+    };
+    expect(lay(['x '])).toEqual([[0, 9, 'end']]);
+    // The same node, kept prepared, with a longer word: it takes a line, and the content the next.
+    expect(lay(['xxxxxxxx '])).toEqual([
+      [0, 5, 'wrap'],
+      [5, 5, 'wrap'],
+      [5, 9, 'end'],
+    ]);
+    expect(lay(['x '])).toEqual([[0, 9, 'end']]);
+  });
+
   it('DOCE-PAGINATION-9.7 refuses a block whose font is not served', () => {
     const engine = createTextLayout({
       template: BASE_TEMPLATE,
@@ -370,6 +433,17 @@ describe('createTextLayout', () => {
   it('DOCE-PAGINATION-9.7 breaks lines in the document’s language', () => {
     table(block('<p>aaaa</p>'), 60, { language: 'ja' });
     expect(pretext.locales).toEqual(['ja']);
+  });
+
+  it('DOCE-PAGINATION-9.7 sets the language only when text of another language prepares', () => {
+    const chinese = createTextLayout({ template: BASE_TEMPLATE, language: 'zh' });
+    chinese.layoutText(block('<p>aaaa</p>'), { width: 60 });
+    chinese.layoutText(block('<p>bbbb</p>'), { width: 60 });
+    chinese.layoutText(block('<p>aaaa</p>'), { width: 40 });
+    expect(pretext.locales).toEqual(['zh']);
+    table(block('<p>cccc</p>'), 60, { language: 'ko' });
+    chinese.layoutText(block('<p>dddd</p>'), { width: 60 });
+    expect(pretext.locales).toEqual(['zh', 'ko', 'zh']);
   });
 
   it('DOCE-PAGINATION-9.8 measures ranges and splits a paragraph at a line start', () => {
