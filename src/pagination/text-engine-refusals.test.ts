@@ -75,9 +75,9 @@ function refusalsOf(file: DocumentFile): Refusals {
   return { laid, refused, reasons: Object.fromEntries([...reasons].sort()) };
 }
 
-// The blocks each document leaves to the DOM today, and why, over the whole set (689 laid, 193
-// refused): captions and contents lists wait for thread G, blocks with footnote markers for thread
-// Q3. A count may only go down.
+// The blocks each document leaves to the DOM today, and why, over the whole set (733 laid, 149
+// refused): captions and contents lists wait for thread G, and a block with a template variable
+// is left to the DOM since #323. A count may only go down.
 const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {
   'caption-numbering': 26,
   'code-block-stress': 7,
@@ -86,12 +86,11 @@ const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {
   'contents-lists': 7,
   'cross-references': 3,
   figures: 4,
-  'footnote-heavy': 30,
-  'footnotes-in-structures': 4,
+  'footnotes-in-structures': 1,
   'heading-keep-with-next': 15,
   'inline-geometry': 1,
   'linked-code': 2,
-  'long-mixed': 49,
+  'long-mixed': 37,
   'mixed-geometry': 2,
   'oversized-blocks': 1,
   'roman-and-alpha-numbering': 1,
@@ -103,13 +102,14 @@ const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {
   'table-rich-cells': 3,
   'table-simple': 1,
   'table-wide': 1,
+  'template-blocks-and-variables': 1,
 };
 
 const REFUSED_BY_REASON: Readonly<Record<string, number>> = {
-  'footnote marker raises its line': 46,
   'not a text block: code_caption': 43,
   'not a text block: figure_caption': 34,
-  'not a text block: table_caption': 54,
+  'not a text block: table_caption': 55,
+  'template variable': 1,
   'toc_block is not laid out by the engine yet': 16,
 };
 
