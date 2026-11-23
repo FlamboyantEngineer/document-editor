@@ -99,6 +99,8 @@ export interface PagesTextEngine {
   readonly template: TemplateFile;
   /** The served faces the engine measured with (DOCE-HOST-1.14.1); none with another width source. */
   readonly fonts?: (() => FontFiles) | undefined;
+  /** The language the engine was made to lay the pages out in (DOCE-PAGINATION-9.7), empty for none. */
+  readonly language?: string | undefined;
   /** Counts the measured document's numbered headings and paragraphs, for `measureBlock`. */
   number(doc: ProseMirrorNode): void;
   /** A document's numbered headings and paragraphs, such as the pages'. */

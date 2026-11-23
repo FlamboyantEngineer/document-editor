@@ -71,6 +71,36 @@ describe('renderLayoutPrintPage', () => {
     expect(directions(printed)).toEqual(directions(view));
   });
 
+  it('DOCE-PAGINATION-9.12 prints a block, and its later part, in its first strong character’s Bidi_Class', () => {
+    const doc = pagesDocument([
+      page([
+        paragraph([text('\u2162 \u05e9\u05dc\u05d5\u05dd')], { dataId: 'n' }),
+        paragraph([text('\u0640abc')], { dataId: 't' }),
+      ]),
+      page([paragraph([text('\u05e9\u05dc\u05d5\u05dd')], { dataId: 'n', splitPartIndex: 1 })]),
+    ]);
+    const { view, printed } = bothDrawings(doc);
+    const directions = (root: ParentNode) =>
+      [...root.querySelectorAll<HTMLElement>('p.de-forced-lines')].map((each) => each.dir);
+    expect(directions(printed)).toEqual(['ltr', 'rtl', 'ltr']);
+    expect(directions(printed)).toEqual(directions(view));
+  });
+
+  it('DOCE-PAGINATION-13.10 prints in the language the pages were laid out in', () => {
+    const doc = pagesDocument([page([paragraph([text('kış')], { dataId: 'p' })])]);
+    const printed = (language?: string) => {
+      const engine = language === undefined ? stubEngine() : { ...stubEngine(), language };
+      const layout = pagesLayout(pagesState(doc, engine));
+      if (!layout) throw new Error('no layout');
+      return new DOMParser().parseFromString(
+        renderLayoutPrintPage(layout, BASE_TEMPLATE),
+        'text/html',
+      );
+    };
+    expect(printed('tr').documentElement.lang).toBe('tr');
+    expect(printed().documentElement.outerHTML).toMatch(/^<html>/u);
+  });
+
   it('DOCE-PAGINATION-12.4 draws a reserved cluster in its box inside a line end, as the view does', () => {
     const doc = pagesDocument([page([paragraph([text('aaaa☃bb☃c')], { dataId: 'p1' })])]);
     const engine = stubEngine({ perLine: 5, reserved: new Set(['☃']) });

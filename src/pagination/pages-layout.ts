@@ -107,6 +107,7 @@ export function pagesLayout(
     variables: drawnVariables(state),
     numbers: drawnNumbers(state),
     fonts: engine.fonts?.() ?? null,
+    language: engine.language ?? '',
     provisional: options.settled === false || engine.provisional(),
   };
 }
