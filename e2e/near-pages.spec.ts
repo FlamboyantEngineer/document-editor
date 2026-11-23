@@ -129,6 +129,8 @@ test.describe('DOCE-LABS-8.12 pages near the screen while scrolling', () => {
     const places = first.pages.map(({ top, blocks }) => ({ top, blocks }));
 
     const faults: string[] = [];
+    // How many forced blocks each move compared, so a run that compares nothing fails.
+    const compared: number[] = [];
     const visit = async (at: number, move: string) => {
       await scrollTo(page, at);
       const state = await pagesState(page);
@@ -152,6 +154,7 @@ test.describe('DOCE-LABS-8.12 pages near the screen while scrolling', () => {
         page,
         computed.map((each, index) => (near.includes(index) ? each : { blocks: [] })),
       );
+      compared.push(near.reduce((sum, index) => sum + (forcedOf[index]?.length ?? 0), 0));
       for (const each of lines)
         faults.push(
           `${move}: page ${String(each.page)} block ${each.block} draws other lines than computed`,
@@ -181,5 +184,18 @@ test.describe('DOCE-LABS-8.12 pages near the screen while scrolling', () => {
     const farPage = first.pages[Math.floor(first.pages.length * 0.7)];
     await visit(farPage?.top ?? 0, 'the jump to a far page');
     expect(faults, 'what changed when a page came near the screen').toEqual([]);
+    // Pages of tables and figures alone force nothing, so a move may compare no block; on average a
+    // move compares more than one.
+    expect(
+      compared.reduce((sum, each) => sum + each, 0),
+      'forced blocks compared over all moves',
+    ).toBeGreaterThan(compared.length);
+
+    // The control: a column narrower than the one the engine fitted the lines to wraps the forced
+    // blocks again, so the next move finds other lines and taller blocks.
+    await page.addStyleTag({ content: 'p.de-forced-lines { inline-size: 60%; }' });
+    await visit(step, 'the control');
+    expect(faults.some((fault) => fault.includes('draws other lines than computed'))).toBe(true);
+    expect(faults.some((fault) => fault.includes(' is now '))).toBe(true);
   });
 });
