@@ -17,6 +17,7 @@ and the emoji family's sequences reach across parts.
 | Lab Noto Color Emoji | `@fontsource/noto-color-emoji@5.3.2` (COLRv1) |
 
 To cut them again after changing the words, for each 400-weight WOFF of a package that has one of the characters in
-its `unicode-range`, run fontTools' `pyftsubset <file> --text=<characters> --layout-features='*' --flavor=woff
+its `unicode-range` and draws it, except the parts for scripts Geist serves (latin, latin-ext, cyrillic, cyrillic-ext,
+vietnamese, greek), run fontTools' `pyftsubset <file> --text=<characters> --layout-features='*' --flavor=woff
 --no-hinting`, where the characters are `scriptCharacters()` of `e2e/pretext-scripts.ts` plus ` ()[],.:;!?-0123456789`,
 and give the face its rule's `unicode-range` in `faces.json`.
