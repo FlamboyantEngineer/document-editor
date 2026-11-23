@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { type EditorState, NodeSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { useState } from 'react';
+import { createRef, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import {
@@ -14,6 +14,7 @@ import { listScriptBlocks } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
+import type { DocumentEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS as labels } from './editor-labels.js';
 import { scriptEntries } from './script-entries.js';
 
@@ -230,6 +231,7 @@ describe('a run of the scripts in the editor', () => {
 
   it('DOCE-EDITOR-4.8 DOCE-EDITOR-7.7 DOCE-OBJECTS-4.3 shows a running banner, then the failure, and a message in each block', async () => {
     const user = userEvent.setup();
+    const handle = createRef<DocumentEditorHandle>();
     let release: () => void = () => undefined;
     const run = vi.fn<ScriptRunnerAdapter['run']>(async ({ source }) => {
       await new Promise<void>((resolve) => (release = resolve));
@@ -246,6 +248,7 @@ describe('a run of the scripts in the editor', () => {
         ]}
         scriptRunner={{ run }}
         layout="web"
+        handleRef={handle}
       />,
     );
     const report = await screen.findByRole('textbox', { name: 'Report' });
@@ -256,8 +259,17 @@ describe('a run of the scripts in the editor', () => {
     expect(report.querySelector('[data-script-message="empty"]')).toHaveTextContent(
       labels.scriptEmpty,
     );
-    await user.click(screen.getByText('Shown before'));
-    await user.pointer({ keys: '[MouseRight]', target: screen.getByText('Shown before') });
+    // The menu opens from the keyboard on the block selected: a press's selection reaches the
+    // editor a moment after the press, which on a loaded runner can come after the menu's frame.
+    await user.click(report);
+    act(() => {
+      handle.current?.run((state, dispatch) => {
+        const at = listScriptBlocks(state.doc)[0]?.pos ?? 0;
+        dispatch?.(state.tr.setSelection(NodeSelection.create(state.doc, at)));
+        return true;
+      });
+    });
+    await user.keyboard('{Shift>}{F10}{/Shift}');
     const menu = await screen.findByRole('menu');
     await user.click(within(menu).getByRole('menuitem', { name: labels.runAllScripts }));
     const busy = await screen.findByText(labels.scriptsRunning);

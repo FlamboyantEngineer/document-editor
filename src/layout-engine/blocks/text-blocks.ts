@@ -27,6 +27,7 @@ export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid
     scope,
     ...(label ? { label } : {}),
     ...(footnoteNumber === undefined ? {} : { footnoteNumber }),
+    ...(place.variables ? { variables: place.variables } : {}),
   });
   if (!result.ok) return notLaid(node, result.reason);
   const { table } = result;

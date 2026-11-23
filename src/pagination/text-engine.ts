@@ -322,11 +322,12 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       return result.block;
     },
     insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
-    measureRegion(node, scope) {
-      const key = scope ?? '';
+    measureRegion(node, scope, variables) {
+      const key = `${scope ?? ''}|${variables ? JSON.stringify([...variables]) : '-'}`;
       const kept = regions.get(node);
       if (kept?.key === key) return kept.room;
-      const result = geometry.layoutRegion(node, { width: widthOf(scope), scope });
+      const place = { width: widthOf(scope), scope, ...(variables ? { variables } : {}) };
+      const result = geometry.layoutRegion(node, place);
       const room = roomOf(result);
       if (!result.ok || !result.provisional) regions.set(node, { key, room });
       return room;

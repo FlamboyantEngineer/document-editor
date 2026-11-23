@@ -112,8 +112,16 @@ export interface PagesTextEngine {
     scope: string | null,
     inserted?: InsertedTexts,
   ): LayoutBlock | null;
-  /** A section's page header, footer or footnote area, laid out; null when the DOM must measure it. */
-  measureRegion(node: ProseMirrorNode, scope: string | null): RegionRoom | null;
+  /**
+   * A section's page header, footer or footnote area, laid out with the text its template variables
+   * show (none when absent, so a region with one is left to the DOM); null when the DOM must
+   * measure it.
+   */
+  measureRegion(
+    node: ProseMirrorNode,
+    scope: string | null,
+    variables?: ReadonlyMap<string, string>,
+  ): RegionRoom | null;
   /**
    * The clusters of a word drawn in a text block that is not its content, such as a comparison's
    * deleted word, that take a reserved width in the block's font, by offset in the word.
