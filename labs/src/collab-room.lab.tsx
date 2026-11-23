@@ -35,6 +35,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { createSessionRooms } from '../../test/session-rooms.js';
 import { sampleDocument } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const DOCUMENT_ID = 'collab-room';
 
@@ -59,6 +60,8 @@ function labDocument(): DocumentFile {
 // How the writers' pages lay their text out (`textLayout=pretext`, DOCE-PAGINATION-11).
 const TEXT_LAYOUT =
   new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+// The writers' served fonts under `textLayout=pretext` (DOCE-HOST-1.14.1).
+const FONTS = TEXT_LAYOUT === 'pretext' ? LAB_FONTS : undefined;
 
 const ROOMS = createSessionRooms({ documents: [{ id: DOCUMENT_ID, content: labDocument() }] });
 
@@ -259,6 +262,7 @@ function FreshPane() {
         }
         template={template}
         textLayout={TEXT_LAYOUT}
+        fonts={FONTS}
         aria-label="Fresh document"
         handleRef={handle}
       />
@@ -320,6 +324,7 @@ function WriterPane({ person }: { person: Writer }) {
               layout={web ? 'web' : 'page'}
               suggesting={suggesting}
               textLayout={TEXT_LAYOUT}
+              fonts={FONTS}
               handleRef={handle}
             />
           </>
