@@ -21,6 +21,8 @@ export interface TextEngineOptions {
   readonly onAtomsSettled: () => void;
   /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
   readonly measureContext?: (() => MeasureContext) | undefined;
+  /** Whether a family has served faces; a block in another family is left to the DOM. */
+  readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
   readonly reserve?: ReserveCluster | undefined;
   /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
@@ -75,6 +77,16 @@ export interface TextEngineStats {
   readonly reasons: ReadonlyMap<string, number>;
 }
 
+/** A page header's, footer's or footnote area's height, its gap to the content and its children. */
+export interface RegionRoom {
+  /** Its height; 0 for an empty region, which the page does not draw. */
+  readonly height: number;
+  /** The space between it and the page's content. */
+  readonly gap: number;
+  /** Where each block or entry sits, from the first one's top. */
+  readonly children: readonly { readonly top: number; readonly bottom: number }[];
+}
+
 /** The pages' text layout engine for one template. */
 export interface PagesTextEngine {
   readonly template: TemplateFile;
@@ -84,8 +96,15 @@ export interface PagesTextEngine {
   numbering(doc: ProseMirrorNode): DocumentNumbering;
   /** A top-level block of a section's page content, laid out; null when the DOM must measure it. */
   measureBlock(node: ProseMirrorNode, scope: string | null): LayoutBlock | null;
+  /** A section's page header, footer or footnote area, laid out; null when the DOM must measure it. */
+  measureRegion(node: ProseMirrorNode, scope: string | null): RegionRoom | null;
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */
   lines(node: ProseMirrorNode, place: LinesPlace): DrawnLines | null;
+  /**
+   * Whether an atom the engine measured, such as an image or math, still waits for its final size,
+   * so the blocks holding it, and the page breaks after them, may move.
+   */
+  provisional(): boolean;
   stats(): TextEngineStats;
   destroy(): void;
 }

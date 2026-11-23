@@ -16,14 +16,24 @@ export const PARAGRAPH_HEIGHT = 400;
 export const TEXTS = ['Alpha one', 'Beta two', 'Gamma three', 'Delta four', 'Epsilon five'];
 
 // How the test DOM lays out: each paragraph `height` pixels tall, 400 by default so that pages
-// 1,000 pixels tall hold two paragraphs each; every other element and range measures as empty.
+// 1,000 pixels tall hold two paragraphs each, with no margins; every other element and range
+// measures as empty.
 // With `boxes`, elements are drawn with boxes, so the pages, drawn with no height, overflow.
 export interface StubbedLayout {
   readonly height?: number;
   readonly boxes?: boolean;
 }
 
+const NO_MARGINS = 'data-stubbed-layout';
+
 export function stubLayout({ height = PARAGRAPH_HEIGHT, boxes = false }: StubbedLayout) {
+  // The test DOM gives paragraphs the browser's default margins.
+  if (!document.head.querySelector(`[${NO_MARGINS}]`)) {
+    const style = document.createElement('style');
+    style.setAttribute(NO_MARGINS, '');
+    style.textContent = 'p { margin: 0 }';
+    document.head.append(style);
+  }
   Object.assign(Range.prototype, {
     getBoundingClientRect: () => new DOMRect(),
     getClientRects: (): DOMRect[] => [],

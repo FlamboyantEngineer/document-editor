@@ -3,7 +3,7 @@ import type { RegressionProbe } from '../labs/src/regression/regression-probe.js
 import { expect, test, waitForLab } from './fixtures.js';
 
 // Pages painted into a canvas (specs/DOCUMENT-EDITOR.md DOCE-EDITOR-1.9), in the regression lab with
-// `rendering=html-canvas`. Playwright's Chromium needs `--enable-blink-features=CanvasDrawElement`
+// `rendering=html-canvas`. Chromium before 157 needs `--enable-blink-features=CanvasDrawElement`
 // for the API, which the projects pass (playwright.config.ts). The `chromium-dpr-*` projects run
 // these at real device pixel ratios.
 

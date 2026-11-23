@@ -42,7 +42,7 @@ import { awaitReady, followMeasuring, frameIn, settleEdits } from './layout-trig
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-cache.js';
 import { pageChromeDecorations } from './page-chrome.js';
-import { pagesLayout } from './pages-layout.js';
+import { layoutSettled, pagesLayout } from './pages-layout.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { inputPlugin } from './projection-input-plugin.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
@@ -387,7 +387,10 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       ...(live.pace.text ? { textLayout: live.pace.text.engine()?.stats() } : {}),
     }),
     textLines: () => pageTextLines(live.projection),
-    pagesLayout: () => pagesLayout(live.projection, options),
+    pagesLayout: () => {
+      const settled = layoutSettled(live.pace.readiness.state(), options.measureIn);
+      return pagesLayout(live.projection, { ...options, settled });
+    },
     destroy() {
       unlisten();
       live.cells.release();

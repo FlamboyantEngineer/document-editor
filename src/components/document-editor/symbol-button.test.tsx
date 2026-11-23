@@ -67,7 +67,7 @@ describe('SymbolButton', () => {
     await screen.findByRole('grid', { name: 'Symbol' });
     const rows = document.querySelectorAll<HTMLElement>('[style*="grid-template-columns"]');
     expect([...rows].map((row) => row.style.gridTemplateColumns)).toContain(
-      'repeat(8, minmax(0, 1fr))',
+      'repeat(8, minmax(0px, 1fr))',
     );
   });
 });

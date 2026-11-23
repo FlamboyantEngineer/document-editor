@@ -17,7 +17,8 @@ import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { blockNumbers } from '../layout-engine/blocks/numbers.js';
-import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
+import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
+import type { BlockTextLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
@@ -29,7 +30,12 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
-import type { DrawnLines, PagesTextEngine, TextEngineOptions } from './text-engine-types.js';
+import type {
+  DrawnLines,
+  PagesTextEngine,
+  RegionRoom,
+  TextEngineOptions,
+} from './text-engine-types.js';
 
 interface KeptBlock {
   readonly key: string;
@@ -178,14 +184,26 @@ function unhintedContext(): MeasureContext {
   return context;
 }
 
+// The width source Pretext measures with now. Pretext keeps one for the whole page, so each engine
+// sets its own before it lays out, and two editors with different fonts never share widths
+// (DOCE-PAGINATION-12).
+let measuring: (() => MeasureContext) | null = null;
+
 // Measures with the host's width source, or unhinted, and fits lines at a scale of 1 whatever the
 // screen or zoom, so every device computes the same lines; the pages are drawn on them. The font
 // metrics come from the same source, rounded at that scale too (the engine's default).
-function measureIn(options: TextEngineOptions) {
-  const context = options.measureContext ?? unhintedContext;
-  setMeasureContext(context);
-  setLayoutScale(1);
-  return context;
+function measuringWith(context: () => MeasureContext) {
+  return () => {
+    if (measuring === context) return;
+    measuring = context;
+    setMeasureContext(context);
+    setLayoutScale(1);
+  };
+}
+
+// A region's room as the pages read it; null when the engine cannot lay the region out.
+function roomOf(result: RegionGeometry): RegionRoom | null {
+  return result.ok ? { height: result.height, gap: result.gap, children: result.children } : null;
 }
 
 /** Forgets the widths the layout engine measured, as after font faces load. */
@@ -207,39 +225,57 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
     : createDomAtomMeasurer({ host });
 }
 
-/** Creates the pages' text layout engine for a template. */
-export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+// The text layout and block geometry the engine lays out with, reading the document's numbers.
+function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
   const { template } = options;
+  const measureContext = options.measureContext ?? unhintedContext;
+  const select = measuringWith(measureContext);
+  select();
   const host = atomHost(options.measureIn, Boolean(options.view));
   const atoms = createAtomCache({ measure: atomMeasurer(options, host) });
-  let numbers = NO_NUMBERS;
+  // The stylesheet's own block numbers, read where the pages' content is drawn.
+  const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
-    measureContext: measureIn(options),
+    measureContext,
+    isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
     language: options.language ?? '',
     reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
       types: textAtomTypes(options),
-      footnoteOf: (marker) => numbers.footnoteOf(marker),
+      footnoteOf: (marker) => numbers().footnoteOf(marker),
       refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
     },
   });
   const geometry = createBlockLayout({
-    text: numberedText(text, () => numbers),
+    text: numberedText(text, numbers),
     atoms,
-    metrics: (scope) => blockMetrics(template, scope),
-    labelOf: (caption) => numbers.labelOf(caption),
-    footnoteOf: (entry) => numbers.footnoteOf(entry),
+    metrics: (scope) => blockMetrics(template, scope, sheet),
+    labelOf: (caption) => numbers().labelOf(caption),
+    footnoteOf: (entry) => numbers().footnoteOf(entry),
   });
+  return { host, atoms, text, geometry, select, measureContext };
+}
+
+/** Creates the pages' text layout engine for a template. */
+export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+  const { template } = options;
+  let numbers = NO_NUMBERS;
+  const { host, atoms, text, geometry, select, measureContext } = engineLayouts(
+    options,
+    () => numbers,
+  );
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
+  let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
   const counts = { laid: 0, refused: 0, reasons: new Map<string, number>() };
   const widthOf = contentWidths(template);
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();
+    regions = new WeakMap();
     options.onAtomsSettled();
   });
 
@@ -250,6 +286,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     },
     numbering: (doc) => numbersByNode(doc, template).numbering,
     measureBlock(node, scope) {
+      select();
       const key = `${scope ?? ''}|${numbers.keyOf(node)}`;
       const kept = blocks.get(node);
       if (kept?.key === key) return kept.block;
@@ -263,7 +300,17 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       if (!result.provisional) blocks.set(node, { key, block: result.block });
       return result.block;
     },
+    measureRegion(node, scope) {
+      const key = scope ?? '';
+      const kept = regions.get(node);
+      if (kept?.key === key) return kept.room;
+      const result = geometry.layoutRegion(node, { width: widthOf(scope), scope });
+      const room = roomOf(result);
+      if (!result.ok || !result.provisional) regions.set(node, { key, room });
+      return room;
+    },
     lines(node, place) {
+      select();
       const markers = markerKey(node, numbers.footnoteOf);
       const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}`;
       const kept = lines.get(node);
@@ -276,10 +323,12 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       lines.set(node, { key, table });
       return table;
     },
+    provisional: atoms.pending,
     stats: () => ({ laid: counts.laid, refused: counts.refused, reasons: new Map(counts.reasons) }),
     destroy() {
       unsubscribe();
       host.remove();
+      if (measuring === measureContext) measuring = null;
     },
   };
 }

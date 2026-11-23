@@ -3,6 +3,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
+import { footnoteNumberOf, footnoteNumbersKey } from '../engine/footnote-numbers.js';
 import {
   FORCED_TYPES,
   forcedLinesKey,
@@ -47,6 +48,8 @@ interface Reading {
   readonly numbered: ReadonlySet<number>;
   /** How much of each split element's content earlier parts hold. */
   readonly before: Map<string, number>;
+  /** The number the pages draw for the footnote marker at a position, if any. */
+  readonly markerAt: (pos: number) => string;
 }
 
 function linesOf(
@@ -81,17 +84,26 @@ function blockOf(
       lines?.map(({ from, to }) => ({
         from: from + start,
         to: to + start,
-        text: ownText(node, from, to),
+        text: ownText(node, {
+          from,
+          to,
+          marker: (offset) => reading.markerAt(at.pos + 1 + offset),
+        }),
       })) ?? null,
     ...(reason ? { reason } : {}),
   };
 }
 
-// A block's own text between two content offsets: its text nodes', none of its inline atoms'.
-function ownText(node: ProseMirrorNode, from: number, to: number): string {
+// A block's own text between two content offsets: its text nodes' and its footnote markers'
+// numbers, none of its other inline atoms'.
+function ownText(
+  node: ProseMirrorNode,
+  { from, to, marker }: { from: number; to: number; marker: (offset: number) => string },
+): string {
   let text = '';
   node.nodesBetween(from, to, (child, pos) => {
     if (child.isText) text += (child.text ?? '').slice(Math.max(0, from - pos), to - pos);
+    else if (child.type.name === 'footnote_reference') text += marker(pos);
     return !child.isAtom;
   });
   return text;
@@ -102,7 +114,14 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
   const engine = (forcedLinesKey.getState(state) as ForcedLinesState | undefined)?.engine;
   if (!engine) return [];
   const { headings, paragraphs } = engine.numbering(state.doc);
-  const reading: Reading = { engine, headings, numbered: paragraphs, before: new Map() };
+  const numbers = footnoteNumbersKey.getState(state)?.set;
+  const markerAt = (pos: number) => {
+    const number = numbers
+      ? footnoteNumberOf(numbers.find(pos, pos + 1).filter((each) => each.from === pos))
+      : null;
+    return number === null ? '' : String(number);
+  };
+  const reading: Reading = { engine, headings, numbered: paragraphs, before: new Map(), markerAt };
   const pages: PageTextLines[] = [];
   let scope: string | null = null;
   let blocks: BlockTextLines[] = [];

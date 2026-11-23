@@ -4,7 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { TableMap } from 'prosemirror-tables';
-import type { LayoutBlock } from '../../model/index.js';
+import { isContainerMeasurement, type LayoutBlock } from '../../model/index.js';
 import { type BlockContext, isLaid, type Laid, laid, layChildren, notLaid } from './context.js';
 import { stackContainer } from './stack.js';
 import { type TableBorders, tableBorders, tableColumns } from './table-columns.js';
@@ -111,6 +111,13 @@ export function tableWidth(context: BlockContext, table: ProseMirrorNode): numbe
   return tableColumns(table, { available: context.place.width, borders, count }).width;
 }
 
+// A table's rows with its caption's box, which a later part opening with a body row does not show.
+function withCaption(measurement: unknown, caption: number): unknown {
+  return caption > 0 && isContainerMeasurement(measurement)
+    ? { ...measurement, caption }
+    : measurement;
+}
+
 /**
  * A table with its caption: the caption above or below it, as wide as the table, measured by the
  * table's rows for the held split.
@@ -136,7 +143,7 @@ export function layTableFigure(context: BlockContext, figure: ProseMirrorNode): 
       height: captionHeight + laidTable.block.height,
       marginTop: 0,
       marginBottom: context.metrics.paragraphAfter,
-      measurement: laidTable.block.measurement,
+      measurement: withCaption(laidTable.block.measurement, captionHeight),
     },
     laidTable.provisional,
   );

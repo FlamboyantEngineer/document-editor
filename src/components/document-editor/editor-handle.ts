@@ -266,20 +266,21 @@ function snapshotMethods(
   };
 }
 
-// Runs `take` with every page drawn on the layout engine's lines (DOCE-PAGINATION-11.6), and puts
-// back only the pages near the screen once it is done.
+// Runs `take` with every page drawn on the layout engine's lines (DOCE-PAGINATION-11.6), and lets
+// the pages near the screen come back once it is done, unless the host or another snapshot still
+// asks for every page.
 function allLines<T>(layout: LayoutProgress, take: () => T): T {
-  layout.drawAllLines(true);
+  const release = layout.holdAllLines();
   let async = false;
   try {
     const result = take();
     if (result instanceof Promise) {
       async = true;
-      return result.finally(() => layout.drawAllLines(false)) as T;
+      return result.finally(release) as T;
     }
     return result;
   } finally {
-    if (!async) layout.drawAllLines(false);
+    if (!async) release();
   }
 }
 

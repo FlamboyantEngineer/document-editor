@@ -84,6 +84,7 @@ describe('canvasPageView', () => {
     const page = canvas.firstElementChild;
     expect(page).toHaveClass('pm-page');
     expect(shown.contentDOM).toBe(page);
+    expect(page).toHaveAttribute('drawable', '');
     paint(canvas, 794, 1123);
     expect([canvas.width, canvas.height]).toEqual([794, 1123]);
     expect(api.drawn).toEqual([[page, 0, 0, 794, 1123]]);
@@ -139,6 +140,7 @@ describe('canvasPageView', () => {
     paint(shown.dom.firstElementChild as HTMLCanvasElement, 794, 1123);
     expect(shown.dom.firstElementChild).toHaveClass('pm-page');
     expect(shown.dom.firstElementChild).toHaveAttribute('data-canvas-fallback', 'paint');
+    expect(shown.dom.firstElementChild).not.toHaveAttribute('drawable');
   });
 
   it('DOCE-EDITOR-1.9 leaves painting to itself and edits in the page to the view', () => {

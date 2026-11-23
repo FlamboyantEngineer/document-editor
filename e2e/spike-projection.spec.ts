@@ -77,6 +77,71 @@ async function expectInSync(page: Page) {
   expect({ outOfSync, resyncs, refused }).toEqual({ outOfSync: 0, resyncs: 0, refused: 0 });
 }
 
+// Each key at the split paragraph's break, as the page saw it: the browser's selection, the
+// canonical one and the pages' own as the key went down, whether a handler took it, and the same
+// after it. Check 1 loses a Shift+ArrowLeft at the break now and then on CI only, never locally
+// (follow-up in the merge queue's known flakes); a failed test prints this log, which shows which
+// press was lost and why. CI keeps no traces.
+function recordBreakKeys() {
+  const log: string[] = [];
+  (window as unknown as { breakKeys: string[] }).breakKeys = log;
+  const where = () => {
+    const selection = document.getSelection();
+    const side = (node: Node | null | undefined, offset: number | undefined) => {
+      const part = node?.parentElement?.closest('[data-split-part-index]');
+      const index = part instanceof HTMLElement ? part.dataset.splitPartIndex : '-';
+      const text = node?.textContent ?? '';
+      const at = offset ?? 0;
+      return `${String(index)}:${String(at)}${JSON.stringify(text.slice(Math.max(0, at - 3), at + 3))}`;
+    };
+    const focus = side(selection?.focusNode, selection?.focusOffset);
+    return `${side(selection?.anchorNode, selection?.anchorOffset)}..${focus}`;
+  };
+  const canonical = () => {
+    try {
+      const { from, to, text } = window.projectionSpike?.canonicalSelection() ?? {};
+      const { anchor, head } = window.projectionSpike?.editor?.projection.selection ?? {};
+      return `${String(from)}-${String(to)}${JSON.stringify(text ?? '')} pages ${String(anchor)}>${String(head)}`;
+    } catch {
+      return 'none';
+    }
+  };
+  // The layouts so far: one between two keys may have moved the break.
+  const write = (line: string) => {
+    const layouts = document.documentElement.dataset.labLayouts ?? '0';
+    log.push(`${performance.now().toFixed(1)} layouts ${layouts} ${line}`);
+  };
+  const named = (event: KeyboardEvent) => `${event.shiftKey ? 'Shift+' : ''}${event.key}`;
+  document.addEventListener(
+    'keydown',
+    (event) => write(`down ${named(event)} dom ${where()} canonical ${canonical()}`),
+    true,
+  );
+  window.addEventListener('keydown', (event) => {
+    write(`handled ${named(event)} ${String(event.defaultPrevented)}`);
+  });
+  document.addEventListener('keyup', (event) => {
+    write(`up ${named(event)} dom ${where()} canonical ${canonical()}`);
+  });
+  document.addEventListener('selectionchange', () => {
+    write(`selectionchange dom ${where()} canonical ${canonical()}`);
+  });
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(recordBreakKeys);
+});
+
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+  const log = await page
+    .evaluate(() => (window as unknown as { breakKeys?: string[] }).breakKeys ?? [])
+    .catch(() => []);
+  const body = log.join('\n');
+  console.log(`Keys at the break (${testInfo.title}):\n${body}`);
+  await testInfo.attach('break-keys.log', { body, contentType: 'text/plain' });
+});
+
 test.describe('paged projection spike', () => {
   test('check 1: caret, arrows, selection, Backspace and Enter across a split paragraph', async ({
     lab,

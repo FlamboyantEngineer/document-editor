@@ -1,6 +1,7 @@
 // Laying a block's runs out on lines with Pretext, and the line table they make. Each prepared run
-// is kept by its items, so a keystroke prepares only the run it changed, and its lines are kept by
-// width, so the same text at two widths lays out once at each.
+// is kept with its block's node for as long as the node lives, so a keystroke prepares only the run
+// it changed and laying the whole document out again prepares nothing, however long it is; its
+// lines are kept by width, so the same text at two widths lays out once at each.
 
 import { setLocale } from '@chenglou/pretext';
 import {
@@ -27,8 +28,8 @@ interface RunLine {
 
 /** Prepared runs and their lines, kept between layouts. */
 interface LineCache {
-  /** Lays a run out at its first line's width and the other lines' width. */
-  readonly lines: (run: TextRun, widths: LineWidths) => readonly RunLine[];
+  /** Lays a run of a block out at its first line's width and the other lines' width. */
+  readonly lines: (run: TextRun, widths: LineWidths, block: object) => readonly RunLine[];
   /** How many runs were found prepared, and how many had to be prepared. */
   readonly stats: () => CacheStats;
 }
@@ -60,10 +61,26 @@ interface LineLayoutInput {
   readonly firstStart: number;
   /** Where its other lines start. */
   readonly restStart: number;
+  /** The block the runs are of, which keeps them prepared while it lives. */
+  readonly block: object;
 }
 
-/** How many prepared runs a cache keeps before it forgets the oldest. */
-const CACHE_LIMIT = 4000;
+/**
+ * How many prepared runs a cache keeps by their items alone, for text a new node repeats (a
+ * document read again, a run another block has too), before it forgets the oldest. The runs of the
+ * document's own blocks are kept by node, without a limit.
+ */
+const RECENT_LIMIT = 4000;
+
+// The language Pretext was last told, module-wide as Pretext's is. Telling it clears every width
+// it measured, so it is told only when the language changes.
+let toldLocale: { readonly language: string | undefined } | null = null;
+
+function tellLocale(language: string | undefined): void {
+  if (toldLocale?.language === language) return;
+  setLocale(language);
+  toldLocale = { language };
+}
 
 const toEnd: RichInlineCursor = { itemIndex: 0, segmentIndex: 0, graphemeIndex: 0 };
 
@@ -87,39 +104,44 @@ function walk(prepared: PreparedRichInline, widths: LineWidths): RunLine[] {
   }
 }
 
-// The language Pretext prepares under now. Setting it clears Pretext's caches, so it is set only
-// when a cache of another language prepares (DOCE-PAGINATION-9.7).
-let locale: { readonly language: string | undefined } | null = null;
-
-function prepareIn(language: string | undefined): void {
-  if (locale?.language === language) return;
-  setLocale(language);
-  locale = { language };
+interface Prepared {
+  readonly run: PreparedRichInline;
+  readonly widths: Map<string, RunLine[]>;
 }
 
 /** A cache of prepared runs for one language, laid out in Pretext's pre-wrap white space. */
 export function createLineCache(language: string | undefined): LineCache {
-  const prepared = new Map<string, { run: PreparedRichInline; widths: Map<string, RunLine[]> }>();
+  const byBlock = new WeakMap<object, Map<string, Prepared>>();
+  const recent = new Map<string, Prepared>();
   let hits = 0;
   let misses = 0;
+  const remember = (key: string, entry: Prepared) => {
+    recent.delete(key);
+    recent.set(key, entry);
+    if (recent.size > RECENT_LIMIT) recent.delete(recent.keys().next().value ?? key);
+  };
   return {
     stats: () => ({ hits, misses }),
-    lines(run, widths) {
+    lines(run, widths, block) {
+      tellLocale(language);
       const key = JSON.stringify(run.items);
-      let entry = prepared.get(key);
+      let own = byBlock.get(block);
+      if (!own) {
+        own = new Map();
+        byBlock.set(block, own);
+      }
+      let entry = own.get(key) ?? recent.get(key);
       if (entry) {
         hits += 1;
-        prepared.delete(key);
       } else {
         misses += 1;
-        prepareIn(language);
         entry = {
           run: prepareRichInline([...run.items], { whiteSpace: 'pre-wrap' }),
           widths: new Map(),
         };
       }
-      prepared.set(key, entry);
-      if (prepared.size > CACHE_LIMIT) prepared.delete(prepared.keys().next().value ?? key);
+      own.set(key, entry);
+      remember(key, entry);
       const widthKey = `${String(widths.first)} ${String(widths.rest)}`;
       let lines = entry.widths.get(widthKey);
       if (!lines) {
@@ -175,7 +197,7 @@ function runLines(
   const { width, leading, firstStart, restStart } = input;
   const opening = first ? firstStart : restStart;
   const widths = { first: width - opening, rest: width - restStart };
-  const lines = run.items.length ? cache.lines(run, widths) : [];
+  const lines = run.items.length ? cache.lines(run, widths, input.block) : [];
   if (!lines.length) {
     return [{ from: run.start, width: 0, height: leading, start: opening, lastOfRun: true, run }];
   }

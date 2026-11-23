@@ -56,6 +56,7 @@ import {
   type PaginationStats,
   type TextLayoutMode,
 } from '../../pagination/index.js';
+import { createAllLines } from './all-lines.js';
 import type { DocumentEditorDebug } from './document-editor.js';
 import { type EditorContentsOptions, lackedPlugins } from './editor-contents.js';
 import { layoutOwnPlugins } from './layout-own-plugins.js';
@@ -68,6 +69,7 @@ import {
   startPaging,
 } from './start-paging.js';
 import type { PagedEditor } from './use-paged-projection.js';
+import type { PagesFontsState } from './use-pages-fonts.js';
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
 export type DocumentLayout = 'page' | 'web';
@@ -116,6 +118,8 @@ const repeatHeaderKey = (template: TemplateFile) =>
 export interface DocumentLayoutOptions {
   readonly layout: DocumentLayout;
   readonly template: TemplateFile;
+  /** The pages' text layout and served fonts (`usePagesFonts`). */
+  readonly text: PagesFontsState;
   readonly state: EditorState;
   readonly onStateChange: (update: RichTextStateUpdate) => void;
   /** The older version the document is compared with, and how its changes show. */
@@ -277,20 +281,23 @@ export interface LayoutProgress {
   pagesLayout(): PagesLayout | null;
   /** With the layout engine, draws every page on its lines, or only those near the screen again. */
   drawAllLines(all: boolean): void;
+  /** Draws every page on the engine's lines until the function it returns is called. */
+  holdAllLines(): () => void;
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
 function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgress {
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const allLines = createAllLines((all) => active.current?.drawAllLines(all));
+    return {
       whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
       stats: () => active.current?.stats() ?? null,
       textLines: () => active.current?.textLines() ?? [],
       pagesLayout: () => active.current?.pagesLayout() ?? null,
-      drawAllLines: (all) => active.current?.drawAllLines(all),
-    }),
-    [active],
-  );
+      drawAllLines: allLines.drawAll,
+      holdAllLines: allLines.hold,
+    };
+  }, [active]);
 }
 
 /**
@@ -302,13 +309,15 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
 export function useDocumentLayout(
   measureIn: RefObject<HTMLDivElement | null>,
   options: DocumentLayoutOptions,
-): LayoutProgress & { readonly paged: PagedEditor | null } {
+): LayoutProgress & { readonly paged: PagedEditor | null; readonly text: PagesFontsState } {
   const { layout, template } = options;
   // The template's settings that change how the pages are laid out: the pagination starts over
   // when they do.
   const repeatHeaders = repeatHeaderKey(template);
   const footnoteNumbering = resolveFootnoteSettings(template, null).numbering ?? 'document';
-  const textLayout = options.textLayout ?? 'dom';
+  // The layout engine lays the pages' text out only with the fonts the host serves.
+  const { text } = options;
+  const { textLayout, fonts: servedFonts } = text;
   const latest = useRef(options);
   useEffect(() => {
     latest.current = options;
@@ -347,11 +356,11 @@ export function useDocumentLayout(
       return undefined;
     }
     return startPaging(element, latest, {
-      settings: { footnoteNumbering, textLayout },
+      settings: { footnoteNumbering, textLayout, fonts: servedFonts },
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, measureIn, repeatHeaders, footnoteNumbering, textLayout, schema]);
+  }, [layout, measureIn, repeatHeaders, footnoteNumbering, textLayout, servedFonts, schema]);
 
   useLayoutPlugins(options, ownPlugins);
 
@@ -374,5 +383,5 @@ export function useDocumentLayout(
     options.onStateChange,
   );
   const progress = useLayoutProgress(active);
-  return useMemo(() => ({ ...progress, paged }), [progress, paged]);
+  return useMemo(() => ({ ...progress, paged, text }), [progress, paged, text]);
 }

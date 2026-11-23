@@ -106,15 +106,15 @@ Verification: `src/pagination/fonts.test.ts`
 
 Under Pretext layout every text width comes from font files the host serves (DOCE-PAGINATION-12), and `load()` above is unchanged. The `fonts` adapter's optional `shaper(options)` shall give harfbuzzjs's `harfbuzz.wasm`, as bytes or a compiled module, asked once per editor; the library bundles no shaper. Its optional `files(families, options)` shall give the faces of the families asked for, each a static instance with its family, weight from 1 to 1000, style (`normal` or `italic`), optional `unicode-range` and the bytes of a WOFF 1.0 or OpenType file, and optionally the served family each generic keyword stands for. WOFF2 is not read and no decoder ships: a host serves the `.woff` or OpenType file of the same font. The editor shall ask `files()` for every family the template and the content name, the code and math fonts included, and again for only the families a later change names (a template switch, a paste, a font pick, a writer's change); until a family's faces arrive, its text is measured with the first served family and a problem says so. Without a shaper or without `files()`, Pretext pages use the browser's own layout and say why; Canvas is never a width source.
 
-Implementation: `src/host/adapters.ts`, `src/host/font-files.ts`, `src/layout-engine/font-files/measurer.ts`
-Verification: `src/layout-engine/font-files/measurer.test.ts`
+Implementation: `src/host/adapters.ts`, `src/host/font-files.ts`, `src/layout-engine/font-files/measurer.ts`, `src/pagination/served-fonts.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`, `src/pagination/served-fonts.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/text-layout.spec.ts`
 
 #### DOCE-HOST-1.14.2 - Checking the served faces
 
 The faces shall be checked before they are read: a face with no bytes, a style other than `normal` or `italic`, a weight outside 1 to 1000, or a file that is not WOFF 1.0 or OpenType (such as WOFF2) shall be left out with a problem naming the face, and nothing shall throw. A weight or style the host does not serve is matched to the nearest served face as CSS matches it, and nothing is synthesised: the drawn pages turn `font-synthesis` off so drawing matches measuring.
 
-Implementation: `src/layout-engine/font-files/host-faces.ts`, `src/layout-engine/font-files/faces.ts`
-Verification: `src/layout-engine/font-files/host-faces.test.ts`, `src/layout-engine/font-files/measurer.test.ts`
+Implementation: `src/layout-engine/font-files/host-faces.ts`, `src/layout-engine/font-files/faces.ts`, `labs/reference/document.css`
+Verification: `src/layout-engine/font-files/host-faces.test.ts`, `src/layout-engine/font-files/measurer.test.ts`, `e2e/text-layout.spec.ts`
 
 #### DOCE-HOST-1.14.3 - Characters no served face has
 

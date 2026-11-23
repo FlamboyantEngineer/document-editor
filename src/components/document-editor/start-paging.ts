@@ -29,6 +29,7 @@ import {
   pageDebugKey,
   type PagedProjection,
   type PagedProjectionOptions,
+  type PagesFonts,
   pageVariablesKey,
   type SectionLayoutRules,
   type TextLayoutMode,
@@ -134,6 +135,31 @@ export interface PagingRefs {
   readonly ownPlugins: RefObject<readonly Plugin[]>;
 }
 
+/** What a page layout starts from: its footnote numbering and how it lays its text out. */
+interface PagingSettings {
+  readonly footnoteNumbering: 'document' | 'page';
+  readonly textLayout: TextLayoutMode;
+  /** The served fonts the layout engine measures with (DOCE-HOST-1.14.1). */
+  readonly fonts: () => PromiseLike<PagesFonts> | null;
+}
+
+// The layout engine lays the text out with the template the pages show now, measured with the
+// served fonts, which the pages wait for (DOCE-HOST-1.14.1), and code beside the gutter of line
+// numbers the state's object views draw.
+function textLayoutOf(
+  { textLayout, fonts: served }: PagingSettings,
+  latest: RefObject<DocumentLayoutOptions>,
+) {
+  const fonts = textLayout === 'pretext' ? served() : null;
+  if (!fonts) return undefined;
+  return {
+    fonts,
+    template: () => latest.current.template,
+    codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
+    hostViews: Object.keys(latest.current.nodeViews ?? {}),
+  };
+}
+
 // Lays the pages out in the element given, as a projection of the state; returns how to stop.
 export function startPaging(
   element: HTMLElement,
@@ -143,7 +169,7 @@ export function startPaging(
     refs,
     setPaged,
   }: {
-    settings: { footnoteNumbering: 'document' | 'page'; textLayout: TextLayoutMode };
+    settings: PagingSettings;
     refs: PagingRefs;
     setPaged: (paged: PagedEditor | null) => void;
   },
@@ -156,16 +182,7 @@ export function startPaging(
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,
-    // The layout engine lays the text out with the template the pages show now, and code beside
-    // the gutter of line numbers the state's object views draw.
-    textLayout:
-      settings.textLayout === 'pretext'
-        ? {
-            template: () => latest.current.template,
-            codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
-            hostViews: Object.keys(latest.current.nodeViews ?? {}),
-          }
-        : undefined,
+    textLayout: textLayoutOf(settings, latest),
   };
   const start = () => startProjectionOf(setup, latest, { refs, setPaged });
   if (!ghostWith(latest)) return start();

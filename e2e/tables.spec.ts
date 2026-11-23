@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.js';
+import { expect, test, waitForLab } from './fixtures.js';
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
 const cell = (page: Page, text: string) =>
@@ -223,6 +223,69 @@ test.describe('table handles', () => {
     const total = widths.reduce((sum, width) => sum + width, 0);
     expect(total).toBeLessThanOrEqual(region + 1);
     expect(total).toBeGreaterThan(region - 4);
+  });
+
+  test('DOCE-TABLES-2.4 resizes the columns either side of a border on the layout engine’s fixed table layout', async ({
+    page,
+  }) => {
+    // Under the layout engine the pages draw tables at the widths the engine gives their columns
+    // (`table-layout: fixed`, DOCE-PAGINATION-10.5); a resize starts from them and keeps them.
+    await page.goto('regression.html?document=table-rich-cells&textLayout=pretext');
+    await waitForLab(page);
+    const first = cell(page, 'Kind');
+    const second = cell(page, 'Content');
+    await first.scrollIntoViewIfNeeded();
+    const box = await first.boundingBox();
+    const next = await second.boundingBox();
+    const table = await content(page).locator('table').first().boundingBox();
+    if (!box || !next || !table) throw new Error('The table is not drawn');
+    await expect(content(page).locator('table').first()).toHaveCSS('table-layout', 'fixed');
+    const border = { x: box.x + box.width - 1, y: box.y + box.height / 2 };
+    await page.mouse.move(border.x - 10, border.y);
+    await page.mouse.move(border.x, border.y, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.move(border.x + 60, border.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(first).toHaveAttribute('data-colwidth', /^\d+$/);
+    const width = Number(await first.getAttribute('data-colwidth'));
+    expect(Math.abs(width - (box.width + 60))).toBeLessThan(12);
+    const following = Number(await second.getAttribute('data-colwidth'));
+    expect(Math.abs(following - (next.width - 60))).toBeLessThan(12);
+    // The pages draw the kept widths, and the table keeps its width.
+    expect(Math.abs(((await first.boundingBox())?.width ?? 0) - width)).toBeLessThan(2);
+    const after = await content(page).locator('table').first().boundingBox();
+    expect(Math.abs((after?.width ?? 0) - table.width)).toBeLessThan(4);
+  });
+
+  test('DOCE-TABLES-3.7 widens the last column no further than the page content on the layout engine’s fixed table layout', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=table-merged-cells&textLayout=pretext');
+    await waitForLab(page);
+    const table = content(page).locator('table').first();
+    const last = table.locator('tr').first().locator('th, td').last();
+    await last.scrollIntoViewIfNeeded();
+    const box = await last.boundingBox();
+    if (!box) throw new Error('The cell is not drawn');
+    const border = { x: box.x + box.width - 1, y: box.y + box.height / 2 };
+    await page.mouse.move(border.x - 10, border.y);
+    await page.mouse.move(border.x, border.y, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.move(border.x + 2000, border.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(last).toHaveAttribute('data-colwidth', /^[\d,]+$/);
+    const region = await content(page)
+      .locator('.pm-page-content')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().width);
+    const columns = await table
+      .locator('col')
+      .evaluateAll((cols) => cols.map((col) => parseFloat((col as HTMLElement).style.width)));
+    const total = columns.reduce((sum, width) => sum + width, 0);
+    expect(total).toBeLessThanOrEqual(region + 1);
+    expect(total).toBeGreaterThan(region - 4);
+    // The pages draw the table at the kept widths.
+    expect(Math.abs(((await table.boundingBox())?.width ?? 0) - total)).toBeLessThan(3);
   });
 
   test('DOCE-TABLES-3.5 DOCE-TABLES-3.6 selects cells with Ctrl clicks and drags a row taller', async ({

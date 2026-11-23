@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { findNode, parseMarkup } from '../../test/document-markup.js';
 import { type LayoutBlock, splitParagraph } from '../model/index.js';
+import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
+import type { ServedFonts } from './served-fonts.js';
 import { createPagesTextEngine } from './text-engine.js';
 import { holdTextEngine } from './text-engine-holder.js';
 
@@ -56,7 +59,88 @@ describe('createPagesTextEngine', () => {
     expect(engine.lines(node, { scope: null })).toBe(table);
     engine.destroy();
   });
+
+  it('DOCE-PAGINATION-10.9 lays blocks out with the numbers the stylesheet states where it measures', () => {
+    const measureIn = document.createElement('div');
+    measureIn.style.setProperty('--de-quote-spacing', '30px');
+    document.body.append(measureIn);
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn,
+      onAtomsSettled: () => undefined,
+    });
+    const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
+    if (!quote) throw new Error('no quote');
+    expect(engine.measureBlock(quote, null)).toMatchObject({ marginTop: 30, marginBottom: 30 });
+    engine.destroy();
+    measureIn.remove();
+  });
 });
+
+describe('the engine on page regions', () => {
+  const schema = createDocumentSchema();
+  const type = (name: string) => {
+    const found = schema.nodes[name];
+    if (!found) throw new Error(`no ${name}`);
+    return found;
+  };
+  const text = (value: string) => schema.text(value);
+  const engine = () =>
+    createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+    });
+
+  it('DOCE-PAGINATION-11.10 lays a header out with its gap, keeps it by node, and refuses a block', () => {
+    const pages = engine();
+    const header = type('page_header').create(null, [
+      type('paragraph').create(null, text('Header')),
+    ]);
+    const room = pages.measureRegion(header, null);
+    expect(room?.height).toBeGreaterThan(0);
+    expect(room?.children).toHaveLength(1);
+    expect(pages.measureRegion(header, null)).toBe(room);
+    expect(pages.measureRegion(type('page_header').create(), null)).toMatchObject({
+      height: 0,
+    });
+    expect(pages.measureRegion(paragraph(WORDS), null)).toBeNull();
+    pages.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.10 gives a footnote area the shape measured footnotes take', () => {
+    const pages = engine();
+    const entry = (id: string) =>
+      type('footnote_entry').create({ footnoteId: id }, text(`Note ${id}`));
+    const area = type('page_footnotes').create(null, [entry('a'), entry('b')]);
+    const room = pages.measureRegion(area, null);
+    if (!room) throw new Error('no room');
+    const [first, second] = room.children;
+    if (!first || !second) throw new Error('no entries');
+    const measured = footnoteAreaOf(area, room);
+    expect(measured.entries.get('a')).toBeCloseTo(second.top - first.top);
+    expect(measured.last?.get('b')).toBeCloseTo(second.bottom - second.top);
+    expect(measured.overhead).toBeCloseTo(room.height - (second.bottom - first.top));
+    expect(footnoteAreaHeight(measured, ['a', 'b'])).toBeCloseTo(room.height);
+    pages.destroy();
+  });
+});
+
+// Served fonts as a host's would be, measured with the fake canvas.
+function served(added: string[] = []): ServedFonts {
+  return {
+    phase: 'pretext',
+    measureContext: () => new OffscreenCanvas(1, 1).getContext('2d') as unknown as MeasureContext,
+    isFontServed: () => true,
+    generics: {},
+    reserve: () => null,
+    add: (families) => {
+      added.push(...families);
+      return Promise.resolve(families.includes('Lab Serif'));
+    },
+    destroy: () => undefined,
+  };
+}
 
 describe('holdTextEngine', () => {
   it('DOCE-PAGINATION-9.7 lays the pages out in the language they are drawn in, and again when it changes', async () => {
@@ -64,12 +148,13 @@ describe('holdTextEngine', () => {
     const measureIn = host.appendChild(document.createElement('div'));
     host.lang = 'zh-Hans';
     const holder = holdTextEngine({
-      setting: { template: () => BASE_TEMPLATE },
+      setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
       measureIn,
       changed: () => undefined,
     });
     await holder.loaded;
     const first = holder.engine();
+    expect(first).not.toBeNull();
     expect(holder.engine()).toBe(first);
     host.lang = 'ja';
     const second = holder.engine();
@@ -82,7 +167,7 @@ describe('holdTextEngine', () => {
   it('DOCE-PAGINATION-11.1 loads the engine on first use and makes it again for another template', async () => {
     let template = BASE_TEMPLATE;
     const holder = holdTextEngine({
-      setting: { template: () => template },
+      setting: { template: () => template, fonts: Promise.resolve(served()) },
       measureIn: document.createElement('div'),
       changed: () => undefined,
     });
@@ -99,13 +184,46 @@ describe('holdTextEngine', () => {
     expect(holder.engine()).toBeNull();
   });
 
-  it('DOCE-PAGINATION-5.6 makes the engine again when font faces load, and tells it', async () => {
+  it('DOCE-HOST-1.14.1 makes no engine without served fonts, and asks for a new family', async () => {
+    const browser = holdTextEngine({
+      setting: {
+        template: () => BASE_TEMPLATE,
+        fonts: Promise.resolve({ phase: 'browser', reason: 'no-shaper' }),
+      },
+      measureIn: document.createElement('div'),
+      changed: () => undefined,
+    });
+    await browser.loaded;
+    expect(browser.engine()).toBeNull();
+    const added: string[] = [];
+    const changed = vi.fn();
+    const paragraphStyle = { font: 'Lab Serif' };
+    const template = { ...BASE_TEMPLATE, textStyles: { paragraph: paragraphStyle } };
+    const holder = holdTextEngine({
+      setting: {
+        template: () => template as typeof BASE_TEMPLATE,
+        fonts: Promise.resolve(served(added)),
+      },
+      measureIn: document.createElement('div'),
+      changed,
+    });
+    await holder.loaded;
+    const first = holder.engine();
+    expect(added).toContain('Lab Serif');
+    await vi.waitFor(() => {
+      expect(changed).toHaveBeenCalled();
+    });
+    expect(holder.engine()).not.toBe(first);
+    holder.destroy();
+  });
+
+  it('DOCE-PAGINATION-5.6 DOCE-PAGINATION-12.5 makes the engine again once when faces load, then settles', async () => {
     const fonts = new EventTarget();
     Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
     try {
       let changes = 0;
       const holder = holdTextEngine({
-        setting: { template: () => BASE_TEMPLATE },
+        setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
         measureIn: document.createElement('div'),
         changed: () => {
           changes += 1;
@@ -123,6 +241,48 @@ describe('holdTextEngine', () => {
       holder.destroy();
       fonts.dispatchEvent(new Event('loadingdone'));
       expect(changes).toBe(1);
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+    }
+  });
+  it('DOCE-PAGINATION-9.1 lays a kept node out again with the widths of faces that loaded later', async () => {
+    const fonts = new EventTarget();
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    let scale = 1;
+    class WideningContext {
+      font = '10px sans-serif';
+      letterSpacing = '0px';
+      textRendering = 'auto';
+      fontKerning = 'auto';
+      measureText(text: string) {
+        const size = Number(/(\d+(?:\.\d+)?)px/u.exec(this.font)?.[1] ?? 16);
+        return { width: [...text].length * (size / 2) * scale };
+      }
+    }
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class {
+        getContext() {
+          return new WideningContext();
+        }
+      },
+    );
+    try {
+      const holder = holdTextEngine({
+        setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
+        measureIn: document.createElement('div'),
+        changed: () => undefined,
+      });
+      await holder.loaded;
+      const node = paragraph(WORDS);
+      const before = holder.engine()?.measureBlock(node, null)?.height ?? 0;
+      // A wider face loads: the remade engine prepares the same node again, at its widths.
+      scale = 2;
+      fonts.dispatchEvent(new Event('loadingdone'));
+      const after = holder.engine()?.measureBlock(node, null)?.height ?? 0;
+      expect(before).toBeGreaterThan(0);
+      expect(after).toBeGreaterThan(before);
+      holder.destroy();
     } finally {
       Reflect.deleteProperty(document, 'fonts');
     }
