@@ -184,14 +184,21 @@ function unhintedContext(): MeasureContext {
   return context;
 }
 
+// The width source Pretext measures with now. Pretext keeps one for the whole page, so each engine
+// sets its own before it lays out, and two editors with different fonts never share widths
+// (DOCE-PAGINATION-12).
+let measuring: (() => MeasureContext) | null = null;
+
 // Measures with the host's width source, or unhinted, and fits lines at a scale of 1 whatever the
 // screen or zoom, so every device computes the same lines; the pages are drawn on them. The font
 // metrics come from the same source, rounded at that scale too (the engine's default).
-function measureIn(options: TextEngineOptions) {
-  const context = options.measureContext ?? unhintedContext;
-  setMeasureContext(context);
-  setLayoutScale(1);
-  return context;
+function measuringWith(context: () => MeasureContext) {
+  return () => {
+    if (measuring === context) return;
+    measuring = context;
+    setMeasureContext(context);
+    setLayoutScale(1);
+  };
 }
 
 // A region's room as the pages read it; null when the engine cannot lay the region out.
@@ -221,13 +228,17 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
 function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
   const { template } = options;
+  const measureContext = options.measureContext ?? unhintedContext;
+  const select = measuringWith(measureContext);
+  select();
   const host = atomHost(options.measureIn, Boolean(options.view));
   const atoms = createAtomCache({ measure: atomMeasurer(options, host) });
   // The stylesheet's own block numbers, read where the pages' content is drawn.
   const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
-    measureContext: measureIn(options),
+    measureContext,
+    isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
     reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
@@ -244,14 +255,17 @@ function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
     labelOf: (caption) => numbers().labelOf(caption),
     footnoteOf: (entry) => numbers().footnoteOf(entry),
   });
-  return { host, atoms, text, geometry };
+  return { host, atoms, text, geometry, select, measureContext };
 }
 
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template } = options;
   let numbers = NO_NUMBERS;
-  const { host, atoms, text, geometry } = engineLayouts(options, () => numbers);
+  const { host, atoms, text, geometry, select, measureContext } = engineLayouts(
+    options,
+    () => numbers,
+  );
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
   let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
@@ -271,6 +285,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     },
     numbering: (doc) => numbersByNode(doc, template).numbering,
     measureBlock(node, scope) {
+      select();
       const key = `${scope ?? ''}|${numbers.keyOf(node)}`;
       const kept = blocks.get(node);
       if (kept?.key === key) return kept.block;
@@ -294,6 +309,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       return room;
     },
     lines(node, place) {
+      select();
       const markers = markerKey(node, numbers.footnoteOf);
       const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}`;
       const kept = lines.get(node);
@@ -311,6 +327,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     destroy() {
       unsubscribe();
       host.remove();
+      if (measuring === measureContext) measuring = null;
     },
   };
 }

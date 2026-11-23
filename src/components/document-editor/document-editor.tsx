@@ -15,8 +15,6 @@ import {
   type CSSProperties,
   type ReactNode,
   type Ref,
-  type RefObject,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -43,11 +41,11 @@ import {
   type TemplatePin,
   templateProperties,
 } from '../../model/index.js';
-import type { LayoutState, LayoutTrace, PageDebugParts } from '../../pagination/index.js';
+import type { LayoutTrace, PageDebugParts } from '../../pagination/index.js';
 import type { LoadProgress } from '../../session/load-progress.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
-import { type DocumentBanner, useReportedFonts } from './banners.js';
+import type { DocumentBanner } from './banners.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { useDebugShortcut } from './debug-modes.js';
 import type { HostDialogProps } from './dialog-parts.js';
@@ -56,7 +54,6 @@ import { EditorBody } from './editor-body.js';
 import { useWheelZoom } from './editor-chrome.js';
 import type { EditorContentsOptions } from './editor-contents.js';
 import {
-  DocumentEditorContext,
   type DocumentMarkup,
   type EditorContext,
   type ReferenceKind,
@@ -69,26 +66,26 @@ import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-label
 import type { DocumentOverviewOptions } from './editor-overview.js';
 import { EditorScope } from './editor-scope.js';
 import { EditorSurface } from './editor-surface.js';
-import { useFirstLayout } from './first-layout.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
-import { debugParts, rootData } from './root-data.js';
+import { rootData } from './root-data.js';
 import { type EditorSession, useRoomReloadNotice, useSaveShortcut } from './save-status-item.js';
 import { usePinnedScripts } from './script-entries.js';
 import type { TextChromeProps } from './text-chrome.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import type { MenuKeys } from './trigger-menu.js';
 import { useReviewNotifications } from './use-change-notifications.js';
-import { useDispatchBody, useEngineView } from './use-editor-engine.js';
-import { useLayoutTap, useMountTelemetry } from './use-editor-telemetry.js';
+import { useEngineView } from './use-editor-engine.js';
+import { useEditorLayout } from './use-editor-layout.js';
+import { useLayoutTap } from './use-editor-telemetry.js';
 import {
   type DocumentEditorNotifications,
   useActiveProps,
   useElementIdRepair,
 } from './use-host-events.js';
 import { useHostReach } from './use-host-reach.js';
-import { usePagedEditor, usePagedView } from './use-paged-projection.js';
-import { useVisibleElementsFeed, type VisibleElement } from './visible-elements.js';
+import { useShownFonts } from './use-pages-fonts.js';
+import type { VisibleElement } from './visible-elements.js';
 
 /** How the editor repairs the element ids of the documents it is given. */
 export interface DocumentEditorIdRepair {
@@ -105,11 +102,7 @@ export interface DocumentEditorDebug extends PageDebugParts {
   /** Receives the layout's trace, a line for each layout, mirror and scheduling event. */
   readonly trace?: ((entry: LayoutTrace) => void) | undefined;
 }
-import {
-  type DocumentComparison,
-  type DocumentLayout,
-  useDocumentLayout,
-} from './use-document-layout.js';
+import type { DocumentComparison, DocumentLayout } from './use-document-layout.js';
 
 /** What a document editor shows and how. */
 export interface DocumentEditorProps
@@ -371,55 +364,6 @@ export interface DocumentEditorProps
 
 const hooks = createHooks('document-editor', ['toolbar', 'body', 'content', 'status-bar', 'find']);
 
-// Where the pages are measured, and the editor's context, which the ghost's node views read too.
-interface EditorLayoutRefs {
-  readonly measureIn: RefObject<HTMLDivElement | null>;
-  readonly context: RefObject<EditorContext | null>;
-}
-
-// The editor's layout, and the view its chrome acts on: the engine's, or, while the pages are a
-// projection of the state, the engine's view as a view of the state.
-function useEditorLayout(
-  props: DocumentEditorProps,
-  engine: ReturnType<typeof useEngineView>,
-  { measureIn, context }: EditorLayoutRefs,
-) {
-  const { state, editable = true } = props;
-  const paging = usePagedEditor({
-    state,
-    onStateChange: props.onStateChange,
-    body: useDispatchBody(props, editable && (props.suggesting ?? false), props.author ?? null),
-    events: engine.events,
-  });
-  const [layoutState, setLayoutState] = useState<LayoutState>('pending');
-  const reported = useReportedFonts(props.fonts, props.fontTimeout);
-  const progress = useDocumentLayout(measureIn, {
-    ...props,
-    fonts: reported.fonts,
-    layout: props.layout ?? 'page',
-    compare: props.compare ?? null,
-    debug: debugParts(props.debug),
-    onLayoutStateChange: setLayoutState,
-    onCanonical: paging.onCanonical,
-    onLayout: paging.onLayout,
-    wrapGhost: (shown) => (
-      <DocumentEditorContext value={context.current}>{shown}</DocumentEditorContext>
-    ),
-  });
-  const view = usePagedView(progress.paged, engine.view, { state, ...paging });
-  useMountTelemetry(props.telemetry, engine.view, progress.paged?.projection ?? null);
-  useVisibleElementsFeed(view, props.onVisibleElementsChange);
-  // Pages that wait for template fonts are not shown without them: their first layout fails.
-  const firstLayout = useFirstLayout(
-    (props.layout ?? 'page') === 'page',
-    reported.missing.length > 0 ? 'failed' : layoutState,
-    props,
-  );
-  // What the surface shows around the document: the fonts that did not load, and the cover.
-  const surface = { missingFonts: reported.missing, firstLayout };
-  return { progress, view, layoutState, surface };
-}
-
 /**
  * Shows and edits a document. In page layout the pages follow every change; the template's values
  * are set on the editor as `--doc-*` properties for the stylesheet. Optionally the editor shows
@@ -427,9 +371,10 @@ function useEditorLayout(
  * with overlay scrollbars.
  */
 export function DocumentEditor(given: DocumentEditorProps) {
-  const props = usePinnedScripts(useActiveProps(given));
-  const { state, template, layout = 'page', editable = true, className } = props;
+  const authored = usePinnedScripts(useActiveProps(given));
   const measureIn = useRef<HTMLDivElement>(null);
+  const { props, ...fonts } = useShownFonts(authored, measureIn);
+  const { state, template, layout = 'page', editable = true, className } = props;
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
   useSaveShortcut(root, props);
@@ -440,10 +385,9 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const { progress, view, layoutState, surface } = useEditorLayout(props, engine, {
     measureIn,
     context: editorContext,
+    fonts,
+    ready,
   });
-  useEffect(() => {
-    if (view && layout === 'web') ready.signal();
-  }, [view, layout, ready]);
   useElementIdRepair(editable ? view : null, state, props.repairIds);
   const refs = useCommentRefs();
   const [menuKeys] = useState<MenuKeys>(() => new Set());
@@ -451,7 +395,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useRoomReloadNotice(props.session, props.feedback, labels.roomChangeRefused);
   const reach = { root, refs, progress, transactions: engine.transactions };
-  const { find, scope, exports } = useHostReach(props, view, reach);
+  const { find, scope, exports } = useHostReach(authored, view, reach);
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const { dialog, open: openDialog, close: closeDialog } = useObjectDialog(editable);
   const context = useShownContext(props, { view, labels, openDialog });
@@ -481,7 +425,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
     <EditorScope context={context} {...scope}>
       <div
         ref={root}
-        {...hooks.root({ className, props, data: rootData(props, layoutState) })}
+        {...hooks.root({ className, props, data: rootData(props, layoutState, progress.text) })}
         style={
           { ...templateStyle, '--de-zoom': String((props.zoom ?? 100) / 100) } as CSSProperties
         }

@@ -7,6 +7,7 @@ import { type LayoutBlock, splitParagraph } from '../model/index.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
+import type { ServedFonts } from './served-fonts.js';
 import { createPagesTextEngine } from './text-engine.js';
 import { holdTextEngine } from './text-engine-holder.js';
 
@@ -125,11 +126,27 @@ describe('the engine on page regions', () => {
   });
 });
 
+// Served fonts as a host's would be, measured with the fake canvas.
+function served(added: string[] = []): ServedFonts {
+  return {
+    phase: 'pretext',
+    measureContext: () => new OffscreenCanvas(1, 1).getContext('2d') as unknown as MeasureContext,
+    isFontServed: () => true,
+    generics: {},
+    reserve: () => null,
+    add: (families) => {
+      added.push(...families);
+      return Promise.resolve(families.includes('Lab Serif'));
+    },
+    destroy: () => undefined,
+  };
+}
+
 describe('holdTextEngine', () => {
   it('DOCE-PAGINATION-11.1 loads the engine on first use and makes it again for another template', async () => {
     let template = BASE_TEMPLATE;
     const holder = holdTextEngine({
-      setting: { template: () => template },
+      setting: { template: () => template, fonts: Promise.resolve(served()) },
       measureIn: document.createElement('div'),
       changed: () => undefined,
     });
@@ -146,13 +163,46 @@ describe('holdTextEngine', () => {
     expect(holder.engine()).toBeNull();
   });
 
-  it('DOCE-PAGINATION-5.6 makes the engine again when font faces load, and tells it', async () => {
+  it('DOCE-HOST-1.14.1 makes no engine without served fonts, and asks for a new family', async () => {
+    const browser = holdTextEngine({
+      setting: {
+        template: () => BASE_TEMPLATE,
+        fonts: Promise.resolve({ phase: 'browser', reason: 'no-shaper' }),
+      },
+      measureIn: document.createElement('div'),
+      changed: () => undefined,
+    });
+    await browser.loaded;
+    expect(browser.engine()).toBeNull();
+    const added: string[] = [];
+    const changed = vi.fn();
+    const paragraphStyle = { font: 'Lab Serif' };
+    const template = { ...BASE_TEMPLATE, textStyles: { paragraph: paragraphStyle } };
+    const holder = holdTextEngine({
+      setting: {
+        template: () => template as typeof BASE_TEMPLATE,
+        fonts: Promise.resolve(served(added)),
+      },
+      measureIn: document.createElement('div'),
+      changed,
+    });
+    await holder.loaded;
+    const first = holder.engine();
+    expect(added).toContain('Lab Serif');
+    await vi.waitFor(() => {
+      expect(changed).toHaveBeenCalled();
+    });
+    expect(holder.engine()).not.toBe(first);
+    holder.destroy();
+  });
+
+  it('DOCE-PAGINATION-5.6 DOCE-PAGINATION-12.5 makes the engine again once when faces load, then settles', async () => {
     const fonts = new EventTarget();
     Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
     try {
       let changes = 0;
       const holder = holdTextEngine({
-        setting: { template: () => BASE_TEMPLATE },
+        setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
         measureIn: document.createElement('div'),
         changed: () => {
           changes += 1;
@@ -198,7 +248,7 @@ describe('holdTextEngine', () => {
     );
     try {
       const holder = holdTextEngine({
-        setting: { template: () => BASE_TEMPLATE },
+        setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
         measureIn: document.createElement('div'),
         changed: () => undefined,
       });

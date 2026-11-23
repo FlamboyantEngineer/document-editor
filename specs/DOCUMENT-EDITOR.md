@@ -6,7 +6,7 @@
 
 ### DOCE-EDITOR-1.1 - Showing a document
 
-The editor shall render the state's document as a multi-line text box named by its `aria-label` or `aria-labelledby`, mark its root with its `layout`, how its pages lay text out (`data-text-layout`: `pretext` on pages with the `textLayout: 'pretext'` option, DOCE-PAGINATION-11, `dom` otherwise) and its mode (`authoring` while editable, `reading` otherwise), and set its template's values (`templateProperties`) on the root as `--doc-*` custom properties for the stylesheet.
+The editor shall render the state's document as a multi-line text box named by its `aria-label` or `aria-labelledby`, mark its root with its `layout`, how its pages lay text out (`data-text-layout`: `pretext` on pages with the `textLayout: 'pretext'` option and the fonts the host serves, DOCE-PAGINATION-11, `dom` otherwise, with why in `data-text-layout-reason`, DOCE-PAGINATION-12.5) and its mode (`authoring` while editable, `reading` otherwise), and set its template's values (`templateProperties`) on the root as `--doc-*` custom properties for the stylesheet.
 
 Implementation: `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`
@@ -835,6 +835,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `--de-script-editor-counters`           | property  |                                                                        | On the script preview once run: the counters its block is under (DOCE-OBJECTS-4.8).                                |
 | `data-layout`                           | attribute | `page`, `web`                                                          | How the document is laid out.                                                                                      |
 | `data-text-layout`                      | attribute | `dom`, `pretext`                                                       | How the pages lay text out (DOCE-PAGINATION-11).                                                                   |
+| `data-text-layout-reason`               | attribute | `no-shaper`, `no-files`, `shaper-failed`, `files-failed`, `no-faces`   | Why the pages keep the browser's layout though `textLayout: 'pretext'` was asked for (DOCE-PAGINATION-12.5).       |
 | `data-mode`                             | state     | `authoring`, `reading`                                                 | Whether the writer can edit.                                                                                       |
 | `data-scrollable`                       | state     | `true`                                                                 | The editor scrolls the document itself.                                                                            |
 | `data-formatting-marks`                 | state     | `true`                                                                 | Formatting marks show (DOCE-EDITOR-4.25).                                                                          |
