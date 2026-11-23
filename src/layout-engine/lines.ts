@@ -206,7 +206,8 @@ function runLines(
   return lines.map((line, index) => {
     const offset = run.offsets[line.item] ?? -1;
     return {
-      from: offset < 0 ? run.start : offset + line.sourceStart,
+      // A run's first line starts at the run, before any hidden content its first item follows.
+      from: offset < 0 || index === 0 ? run.start : offset + line.sourceStart,
       side: insertedSide(run, line),
       width: line.width,
       height: lineHeight(run, line, input.strut),

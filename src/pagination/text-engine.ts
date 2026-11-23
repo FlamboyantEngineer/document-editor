@@ -19,6 +19,7 @@ import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { blockNumbers } from '../layout-engine/blocks/numbers.js';
 import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
+import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
@@ -227,6 +228,7 @@ function engineLayouts(
   const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
+    hidden: () => hiddenSuggestion(options.markup?.() ?? 'all'),
     measureContext,
     isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
@@ -277,8 +279,8 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
-  const nested = createNestedLines({ geometry, recorder, widthOf });
-  const regions = createRegionLines({ geometry, recorder, widthOf });
+  const nested = createNestedLines({ geometry, recorder, widthOf, markup: options.markup });
+  const regions = createRegionLines({ geometry, recorder, widthOf, markup: options.markup });
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();
@@ -301,7 +303,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
         counts.refuse('inserted words outside a text block');
         return null;
       }
-      const key = `${scope ?? ''}|${numbers.keyOf(node)}|${blockInsertedKey(node, inserted)}`;
+      const key = `${scope ?? ''}|${numbers.keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, options.markup)}`;
       const kept = blocks.get(node);
       if (kept?.key === key) return kept.block;
       current = inserted;
@@ -321,7 +323,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       select();
       const markers = markerKey(node, numbers.footnoteOf);
       const words = insertedKey(place.inserted);
-      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}`;
+      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}|${suggestionKey(node, options.markup)}`;
       const kept = lines.get(node);
       if (kept?.key === key) return kept.table;
       const width = widthOf(place.scope);

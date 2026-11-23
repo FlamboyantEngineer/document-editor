@@ -36,13 +36,27 @@ async function resolveImages(
  */
 export async function documentSnapshotWhenReady(
   view: EditorView,
+  options: ReadySnapshotOptions,
+): Promise<string> {
+  return snapshotOnceReady(view, options, (take) => take());
+}
+
+/**
+ * `documentSnapshotWhenReady`, its snapshot taken inside `around`, as with the pages laid out in
+ * the snapshot's markup for that moment.
+ */
+export async function snapshotOnceReady(
+  view: EditorView,
   { whenSettled, resolveImage, ...options }: ReadySnapshotOptions,
+  around: (take: () => string) => string,
 ): Promise<string> {
   await whenSettled();
   await view.dom.ownerDocument.fonts?.ready;
   const images = resolveImage ? await resolveImages(view, resolveImage) : null;
-  return documentSnapshot(view, {
-    ...options,
-    ...(images ? { resolveImage: (src: string) => images.get(src) ?? null } : {}),
-  });
+  return around(() =>
+    documentSnapshot(view, {
+      ...options,
+      ...(images ? { resolveImage: (src: string) => images.get(src) ?? null } : {}),
+    }),
+  );
 }

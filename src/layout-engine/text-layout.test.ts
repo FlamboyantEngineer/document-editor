@@ -49,6 +49,25 @@ beforeEach(() => {
 });
 
 describe('createTextLayout', () => {
+  it('DOCE-PAGINATION-11.12 lays a paragraph out without the suggestions its markup hides', () => {
+    const node = block(
+      `<p>aaaa <del data-id="s1">${WORDS} ${WORDS}</del><ins data-id="s2">bbbb </ins>cccc</p>`,
+    );
+    const shown = table(node, 100);
+    expect(shown.lines.length).toBeGreaterThan(2);
+    expect(shown.hidden).toBeUndefined();
+    // As if accepted, the deletion takes no room: one line, which still tiles the content.
+    const final = table(node, 100, { hidden: () => 'deletion' });
+    const deleted = 5 + 2 * WORDS.length + 1;
+    expect(final.hidden).toEqual([[5, deleted]]);
+    expect(starts(final)).toEqual([[0, node.content.size, 'end']]);
+    expect(final.lines[0]?.width).toBe(table(block('<p>aaaa bbbb cccc</p>'), 100).lines[0]?.width);
+    // As if rejected, the insertion does.
+    const original = table(node, 100, { hidden: () => 'insertion' });
+    expect(original.hidden).toEqual([[deleted, deleted + 5]]);
+    expect(original.lines.length).toBeGreaterThan(2);
+  });
+
   it('DOCE-PAGINATION-9.1 lays a paragraph out on lines that tile its content', () => {
     const lines = table(block(`<p>${WORDS}</p>`), 60);
     expect(starts(lines)).toEqual([

@@ -14,7 +14,6 @@ import { lengthToCssPx, resolveFontStack } from '../model/templates/template-css
 import { templateScopeStyles } from '../model/templates/template-properties.js';
 import { resolveFootnoteSettings } from '../model/templates/template-scopes.js';
 import { findTemplateSection } from '../model/templates/template-sections.js';
-import { resolveContentsList } from '../model/templates/template-settings.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 
 /** A font as the engine measures it, sizes in CSS pixels. */
@@ -49,7 +48,7 @@ export interface BlockTypography {
 }
 
 /** Where a block's typography comes from: the template and the fonts the host serves. */
-interface TypographySource {
+export interface TypographySource {
   readonly template: TemplateFile;
   readonly fontStacks?: FontStacks | undefined;
 }
@@ -297,7 +296,7 @@ const CAPTION_KINDS: Readonly<Record<string, 'figure' | 'table' | 'codeBlock'>> 
 
 type CaptionSettingsOf = NonNullable<NonNullable<TemplateStyles['table']>['caption']>;
 
-const fontOnly = (font: FontSettings | null | undefined): TextSettings => ({
+export const fontOnly = (font: FontSettings | null | undefined): TextSettings => ({
   font: font?.font ?? null,
   size: font?.size ?? null,
   weight: font?.weight ?? null,
@@ -344,24 +343,23 @@ export function smallerFont(font: FontStyle): FontStyle {
   return { ...font, size: snap(font.size / SMALLER_RATIO) };
 }
 
-/** The line height of a list of contents' rows, as the stylesheet sets it. */
-const CONTENTS_LINE_HEIGHT = 1.5;
-
 /**
- * A list of contents row's typography: its kind's level font over the entries' in its scope, unset
- * values the paragraph's family and size, a weight of 400 and upright, at a line height of 1.5.
+ * A scope's styles and its blocks' typography over its paragraph font, for the styles laid out in
+ * modules of their own.
  */
-export function contentsTypography(
-  { kind, level, scope }: { kind: string; level: number; scope?: string | null | undefined },
-  { template, fontStacks }: TypographySource,
-): BlockTypography {
+export function scopeTypography({
+  template,
+  fontStacks,
+  scope,
+}: TypographySource & { readonly scope?: string | null | undefined }) {
   const styles = scopeStyles(template, scope);
   const context = scopeFonts(styles, fontStacks);
-  const levels = resolveContentsList(styles.contents, kind).levels;
-  const own = levels[Math.min(levels.length, Math.max(1, level)) - 1]?.font;
-  const defaults = { lineHeight: CONTENTS_LINE_HEIGHT, weight: 400 };
-  const text = { ...fontOnly(own), lineHeight: CONTENTS_LINE_HEIGHT };
-  return { ...blockOf(text, defaults, context), marginTop: 0, marginBottom: 0 };
+  return {
+    styles,
+    paragraph: context.paragraph,
+    blockOf: (text: TextSettings | null | undefined, defaults: Defaults) =>
+      blockOf(text, defaults, context),
+  };
 }
 
 /** The font text with these marks takes inside a block. */

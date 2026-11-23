@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { BlockGeometry, BlockPlace } from '../layout-engine/blocks/types.js';
+import { suggestionKey, type SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { DrawnLines } from './text-engine-types.js';
 
 /**
@@ -18,6 +19,8 @@ interface NestedSource {
   readonly geometry: { layoutBlock(node: ProseMirrorNode, place: BlockPlace): BlockGeometry };
   readonly recorder: LinesRecorder;
   readonly widthOf: (scope: string | null) => number;
+  /** The markup the pages are laid out in, by which one holding a suggestion is kept too. */
+  readonly markup?: (() => SuggestionMarkup) | undefined;
 }
 
 interface NestedPlace {
@@ -35,7 +38,10 @@ function markersKey(node: ProseMirrorNode, footnoteOf: NestedPlace['footnoteOf']
   return key;
 }
 
-/** The nested lines of containers, kept by node, scope and footnote numbers until forgotten. */
+/**
+ * The nested lines of containers, kept by node, scope, footnote numbers and markup until
+ * forgotten.
+ */
 export function createNestedLines(source: NestedSource) {
   let kept = new WeakMap<
     ProseMirrorNode,
@@ -47,7 +53,7 @@ export function createNestedLines(source: NestedSource) {
       place: NestedPlace,
     ): ReadonlyMap<ProseMirrorNode, DrawnLines> {
       const { scope } = place;
-      const key = `${scope ?? ''}|${markersKey(container, place.footnoteOf)}`;
+      const key = `${scope ?? ''}|${markersKey(container, place.footnoteOf)}|${suggestionKey(container, source.markup)}`;
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
       const { geometry, recorder } = source;

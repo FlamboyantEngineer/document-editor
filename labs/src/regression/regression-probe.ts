@@ -9,8 +9,8 @@ import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect } from 'react';
 import type { DocumentEditorHandle } from '../../../src/components/index.js';
 import {
+  type LayoutPrintOptions,
   type PagesLayout,
-  type PrintPageOptions,
   renderLayoutPrintPage,
 } from '../../../src/document/index.js';
 import {
@@ -55,7 +55,7 @@ export interface RegressionProbe {
    * With `textLayout=pretext`, the pages drawn from their layout without the editor
    * (`renderLayoutPrintPage`), as a standalone page; null without the engine.
    */
-  layoutPrint(options?: PrintPageOptions): string | null;
+  layoutPrint(options?: LayoutPrintProbeOptions): string | null;
   /** With `textLayout=pretext`, draws every page on the engine's lines, or only those near again. */
   drawAllLines(all: boolean): void;
   /**
@@ -63,7 +63,7 @@ export interface RegressionProbe {
    * under the editor, drawing as many pages beyond the ones in view (all by default); false
    * without the engine.
    */
-  showViewer(overscan?: number): boolean;
+  showViewer(overscan?: number, markup?: LayoutMarkup): boolean;
   /**
    * Shows the pages' layout in two viewers at once, the second drawing Cousine's files under the
    * same families (DOCE-PAGINATION-12.8); false without the engine.
@@ -76,7 +76,7 @@ export interface RegressionProbe {
   /** Gives the editor another fonts adapter while it shows (DOCE-PAGINATION-12.7). */
   setFonts(fonts: LabFonts): void;
   /** With `textLayout=pretext`, the pages' layout as data (`pagesLayout()`), or null. */
-  layout(): PagesLayout | null;
+  layout(markup?: LayoutMarkup): PagesLayout | null;
   /**
    * Opens a stored document afresh, in a new editor, as if the page had just loaded it: on its
    * template, or on a template of the test's own resolved over the regression set's.
@@ -121,6 +121,14 @@ export type ShowViewer = (
  * or the lab's a second late.
  */
 export type LabFonts = 'none' | 'lab' | 'cousine' | 'slow';
+
+/** A markup the editor lays its pages out in for a layout it hands over (`pagesLayout`). */
+type LayoutMarkup = 'all' | 'final' | 'original';
+
+/** What the probe's layout print takes: the print's options, and the markup it is laid out in. */
+export interface LayoutPrintProbeOptions extends LayoutPrintOptions {
+  readonly markup?: LayoutMarkup | undefined;
+}
 
 /** What the probe's snapshot takes: the editor's snapshot options. */
 export type SnapshotProbeOptions = Parameters<DocumentEditorHandle['exportSnapshot']>[0];
@@ -278,13 +286,13 @@ export function useRegressionProbe(
       snapshot: (options) => handle.current?.exportSnapshot(options) ?? null,
       textLines: () => handle.current?.textLines() ?? [],
       wrappedLines: () => findWrappedLines(document),
-      layoutPrint: (options) => {
-        const layout = handle.current?.pagesLayout();
+      layoutPrint: ({ markup, ...options } = {}) => {
+        const layout = handle.current?.pagesLayout({ markup });
         return layout ? renderLayoutPrintPage(layout, template, options) : null;
       },
       drawAllLines: (all) => handle.current?.drawAllLines(all),
-      showViewer: (overscan = Infinity) => {
-        const layout = handle.current?.pagesLayout();
+      showViewer: (overscan = Infinity, markup) => {
+        const layout = handle.current?.pagesLayout({ markup });
         if (layout) showViewer(layout, overscan);
         return Boolean(layout);
       },
@@ -300,7 +308,7 @@ export function useRegressionProbe(
         return selection ? [selection.from, selection.to] : null;
       },
       setFonts,
-      layout: () => handle.current?.pagesLayout() ?? null,
+      layout: (markup) => handle.current?.pagesLayout({ markup }) ?? null,
       load,
       setZoom,
       textRanges: () => {
