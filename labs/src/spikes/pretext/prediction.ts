@@ -9,7 +9,7 @@ import {
   PAGE_SAFETY_MARGIN_PX,
 } from '../../../../src/model/pagination/page-layout.js';
 import { contentBlocks, requireValue } from './fixtures.js';
-import { labLanguage } from './fonts.js';
+import { labLanguage, labMeasurer } from './fonts.js';
 import {
   cellBorder,
   cellPadding,
@@ -77,6 +77,8 @@ export function createPreparationCache({
     language: labLanguage,
     scale,
     measureContext,
+    // The page draws its text unhinted only with font-file widths (settings.ts).
+    hinted: labMeasurer !== 'font-files',
     // Every inline atom is a box here; the spike sizes only inline math.
     textAtoms: { types: new Set() },
     measureAtom: (node) =>
