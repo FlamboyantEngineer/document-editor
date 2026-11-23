@@ -8,7 +8,7 @@
 import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
-import type { PagesFonts } from './served-fonts.js';
+import type { PagesFonts, ServedFonts } from './served-fonts.js';
 import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
@@ -32,6 +32,8 @@ export interface TextEngineHolder {
   version(): number;
   /** Settles once the engine's module has loaded. */
   readonly loaded: Promise<unknown>;
+  /** Makes the engine again, so its atoms are measured again, as after the screen changed. */
+  remeasure(): void;
   destroy(): void;
 }
 
@@ -42,6 +44,17 @@ const languageOf = (element: Element) => element.closest('[lang]')?.getAttribute
 interface EngineModule {
   readonly createPagesTextEngine: typeof createPagesTextEngine;
   readonly forgetFontWidths: typeof forgetFontWidths;
+}
+
+// What the engine takes from the host's served fonts: its widths, which families are served, the
+// room it keeps for unserved glyphs and the font files.
+function servedInputs(fonts: ServedFonts) {
+  return {
+    measureContext: fonts.measureContext,
+    isFontServed: (family: string) => fonts.isFontServed(family),
+    reserve: fonts.reserve,
+    fonts: fonts.files,
+  };
 }
 
 /**
@@ -73,13 +86,16 @@ export function holdTextEngine(options: {
     version += 1;
     options.changed();
   };
+  const drop = () => {
+    current?.destroy();
+    current = null;
+  };
   // The engine measures again once the faces of a family the template names newly arrive.
   const askFor = (template: TemplateFile) => {
     if (fonts?.phase !== 'pretext') return;
     void fonts.add(templateFontFamilies(template)).then((added) => {
       if (!added || destroyed) return;
-      current?.destroy();
-      current = null;
+      drop();
       settled();
     });
   };
@@ -88,8 +104,7 @@ export function holdTextEngine(options: {
   const faces = options.measureIn.ownerDocument.fonts as FontFaceSet | undefined;
   const onFonts = () => {
     if (!made || destroyed || !current) return;
-    current.destroy();
-    current = null;
+    drop();
     made.forgetFontWidths();
     settled();
   };
@@ -108,6 +123,7 @@ export function holdTextEngine(options: {
       version += 1;
       askFor(template);
       current = made.createPagesTextEngine({
+        ...servedInputs(fonts),
         template,
         codeLineNumbers,
         language,
@@ -115,19 +131,16 @@ export function holdTextEngine(options: {
         onAtomsSettled: settled,
         view: options.view,
         hostViews: options.setting.hostViews,
-        measureContext: fonts.measureContext,
-        isFontServed: (family) => fonts?.phase === 'pretext' && fonts.isFontServed(family),
-        reserve: fonts.reserve,
       });
       return current;
     },
     version: () => version,
     loaded,
+    remeasure: drop,
     destroy() {
       destroyed = true;
       faces?.removeEventListener('loadingdone', onFonts);
-      current?.destroy();
-      current = null;
+      drop();
     },
   };
 }

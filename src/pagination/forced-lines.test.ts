@@ -1,6 +1,6 @@
 import type { Node } from 'prosemirror-model';
-import { EditorState, TextSelection } from 'prosemirror-state';
-import { type Decoration, type DecorationSet, EditorView } from 'prosemirror-view';
+import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
+import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import type { TextLine } from '../layout-engine/line-table.js';
@@ -112,10 +112,56 @@ describe('forcedLines', () => {
     const state = stateWith(doc, stubEngine().engine);
     const at = positionOf(doc, 'aaaaaaaaaabbbbbbbbbbcc');
     expect(drawn(state)).toEqual([
-      { from: at, to: at + 24, class: 'de-forced-lines', 'data-lines': '3' },
+      { from: at, to: at + 24, class: 'de-forced-lines', 'data-lines': '3', dir: 'ltr' },
       { from: at + 10, to: at + 11, class: 'de-forced-lines__end' },
       { from: at + 20, to: at + 21, class: 'de-forced-lines__end' },
     ]);
+  });
+
+  it('DOCE-PAGINATION-9.12 draws a block right to left from its text, and a later part as its first', () => {
+    const doc = pagesDoc([
+      [paragraph('שלום world', { dataId: 'h' }), paragraph('hello مرحبا', { dataId: 'l' })],
+      [paragraph('later part', { dataId: 'h', splitPartIndex: 1 })],
+    ]);
+    const state = stateWith(doc, stubEngine().engine);
+    const directions = drawn(state)
+      .filter((each) => each.class === 'de-forced-lines')
+      .map((each) => each.dir);
+    expect(directions).toEqual(['rtl', 'ltr', 'rtl']);
+  });
+
+  it('DOCE-PAGINATION-9.12 keeps a block’s direction from its content, whatever words are deleted in it', () => {
+    const doc = pagesDoc([[paragraph('שלום world', { dataId: 'h' })]]);
+    const at = positionOf(doc, 'שלום world') + 1;
+    // A comparison's deleted Latin words drawn before the Hebrew content (DOCE-PAGINATION-11.11).
+    const words = new Plugin({
+      props: {
+        decorations: (state) =>
+          DecorationSet.create(state.doc, [
+            Decoration.widget(at, () => document.createElement('del'), {
+              insertedText: 'old ',
+              insertedGroup: 'g',
+              side: -4,
+            }),
+            Decoration.widget(at, () => document.createElement('del'), {
+              insertedText: 'words ',
+              insertedGroup: 'g',
+              side: -2,
+            }),
+          ]),
+      },
+    });
+    const source = { engine: () => stubEngine().engine, version: () => 0 };
+    const plugin = forcedLines(source);
+    const state = EditorState.create({ doc, plugins: [plugin, words] });
+    // The decorations the pages draw, laid out with the deleted words.
+    const set = plugin.props.decorations?.call(plugin, state);
+    const attrs = (set instanceof DecorationSet ? set.find() : []).map(
+      (each) => (each as unknown as { type: { attrs?: Record<string, string> } }).type.attrs ?? {},
+    );
+    expect(
+      attrs.filter((each) => each.class === 'de-forced-lines').map((each) => each.dir),
+    ).toEqual(['rtl']);
   });
 
   it('DOCE-PAGINATION-11.2 never cuts a character in two at a line end', () => {

@@ -491,10 +491,650 @@
           ]
         },
         {
+          "type": "paragraph",
+          "attrs": {
+            "id": "e8e25d94"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with  the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "81e74ef5"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with x the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "36f675cc"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "099950d8"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "1600a35a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "6f03675a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "6b0d549b"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "11e20b8f"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "3d9c1724"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "1738f7d9"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "8d116ece"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "6cad4a26"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "0f21ddb6"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "d3ac94af"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "90c192cf"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "1fb17c23"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxxxxx the plan, see "
+            },
+            {
+              "type": "text",
+              "text": "GRD-PLAN Rev B",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "external-document",
+                    "baseline": {
+                      "version": 1,
+                      "documentId": "doc-garden",
+                      "numbering": "GRD-PLAN",
+                      "title": "Garden plan",
+                      "revision": {
+                        "majorRevision": "B",
+                        "minorRevision": null
+                      },
+                      "revisionLabel": "Rev B",
+                      "defaultLabel": "GRD-PLAN"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " for the rows."
+            }
+          ]
+        },
+        {
           "type": "table",
           "attrs": {
             "captionEnabled": false,
-            "id": "e8e25d94"
+            "id": "f28c105d"
           },
           "content": [
             {
@@ -503,19 +1143,19 @@
             {
               "type": "tableRow",
               "attrs": {
-                "id": "81e74ef5"
+                "id": "39263059"
               },
               "content": [
                 {
                   "type": "tableCell",
                   "attrs": {
-                    "id": "099950d8"
+                    "id": "a09f76b5"
                   },
                   "content": [
                     {
                       "type": "paragraph",
                       "attrs": {
-                        "id": "36f675cc"
+                        "id": "a170b338"
                       },
                       "content": [
                         {
@@ -529,14 +1169,14 @@
                 {
                   "type": "tableCell",
                   "attrs": {
-                    "id": "6f03675a"
+                    "id": "f29d0da9"
                   },
                   "content": [
                     {
                       "type": "codeBlock",
                       "attrs": {
                         "captionEnabled": false,
-                        "id": "1600a35a"
+                        "id": "953f48f1"
                       },
                       "content": [
                         {

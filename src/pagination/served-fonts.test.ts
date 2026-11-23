@@ -57,6 +57,12 @@ describe('loadPagesFonts', () => {
     expect(served.isFontServed('Lab Geist Mono')).toBe(true);
     expect(served.isFontServed('monospace')).toBe(false);
     expect(served.generics).toEqual({ monospace: 'Lab Geist Mono' });
+    // DOCE-PAGINATION-13.8: the faces the pages measure and draw with, for their static drawings.
+    const files = served.files();
+    expect(new Set(files.faces.map((face) => face.family))).toEqual(
+      new Set(['Lab Geist', 'Lab Geist Mono']),
+    );
+    expect(files.generics).toEqual({ monospace: 'Lab Geist Mono' });
     served.destroy();
   });
 });
