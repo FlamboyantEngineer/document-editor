@@ -26,6 +26,7 @@ import {
   type PageTextLines,
   type WrappedBlock,
 } from '../../../src/pagination/index.js';
+import { cousineFiles } from '../served-fonts.js';
 
 /** Where a caret goes at a fragment boundary: the head fragment's end or its continuation's start. */
 export type FragmentEdge = 'head-end' | 'continuation-start';
@@ -63,6 +64,17 @@ export interface RegressionProbe {
    * without the engine.
    */
   showViewer(overscan?: number, markup?: LayoutMarkup): boolean;
+  /**
+   * Shows the pages' layout in two viewers at once, the second drawing Cousine's files under the
+   * same families (DOCE-PAGINATION-12.8); false without the engine.
+   */
+  showTwoViewers(): Promise<boolean>;
+  /** Keeps the first `count` viewers, taking the others away. */
+  keepViewers(count: number): void;
+  /** The selection, at positions of the document with its pages joined whole. */
+  selected(): [number, number] | null;
+  /** Gives the editor another fonts adapter while it shows (DOCE-PAGINATION-12.7). */
+  setFonts(fonts: LabFonts): void;
   /** With `textLayout=pretext`, the pages' layout as data (`pagesLayout()`), or null. */
   layout(markup?: LayoutMarkup): PagesLayout | null;
   /**
@@ -91,12 +103,24 @@ export type RemoteChange =
 /** What the lab gives its probe besides the editor: how it opens a document and sets the zoom. */
 export interface RegressionLabControls {
   readonly showViewer: ShowViewer;
+  readonly setFonts: (fonts: LabFonts) => void;
+  readonly keepViewers: (count: number) => void;
   readonly load: (file: DocumentFile, template?: TemplateFile) => void;
   readonly setZoom: (percent: number) => void;
 }
 
-/** Shows a layout in the lab's viewer. */
-export type ShowViewer = (layout: PagesLayout, overscan: number) => void;
+/** Shows a layout in the lab's viewer, and more layouts in viewers after it. */
+export type ShowViewer = (
+  layout: PagesLayout,
+  overscan: number,
+  more?: readonly PagesLayout[],
+) => void;
+
+/**
+ * The fonts adapter the lab gives its editor: none, the lab's, Cousine's files under every family,
+ * or the lab's a second late.
+ */
+export type LabFonts = 'none' | 'lab' | 'cousine' | 'slow';
 
 /** A markup the editor lays its pages out in for a layout it hands over (`pagesLayout`). */
 type LayoutMarkup = 'all' | 'final' | 'original';
@@ -241,7 +265,7 @@ function remoteChange(view: EditorView, change: RemoteChange) {
 export function useRegressionProbe(
   handle: RefObject<DocumentEditorHandle | null>,
   template: TemplateFile,
-  { showViewer, load, setZoom }: RegressionLabControls,
+  { showViewer, load, setZoom, setFonts, keepViewers }: RegressionLabControls,
 ) {
   useEffect(() => {
     const probe: RegressionProbe = {
@@ -272,6 +296,18 @@ export function useRegressionProbe(
         if (layout) showViewer(layout, overscan);
         return Boolean(layout);
       },
+      showTwoViewers: async () => {
+        const layout = handle.current?.pagesLayout();
+        if (!layout?.fonts) return false;
+        showViewer(layout, Infinity, [{ ...layout, fonts: await cousineFiles(layout.fonts) }]);
+        return true;
+      },
+      keepViewers,
+      selected: () => {
+        const selection = handle.current?.view()?.state.selection;
+        return selection ? [selection.from, selection.to] : null;
+      },
+      setFonts,
       layout: (markup) => handle.current?.pagesLayout({ markup }) ?? null,
       load,
       setZoom,
@@ -292,5 +328,5 @@ export function useRegressionProbe(
       },
     };
     Object.assign(window, { regressionLab: probe });
-  }, [handle, template, showViewer, load, setZoom]);
+  }, [handle, template, showViewer, load, setZoom, setFonts, keepViewers]);
 }

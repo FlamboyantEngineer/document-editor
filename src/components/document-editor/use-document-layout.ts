@@ -361,6 +361,6 @@ export function useDocumentLayout(
     `${String(Boolean(options.onRegionChange))} ${String(Boolean(options.onTemplatePartChange))}`,
     options.onStateChange,
   );
-  const progress = useLayoutProgress(active, markup.inMarkup);
+  const progress = useLayoutProgress(active, latest, markup.inMarkup);
   return useMemo(() => ({ ...progress, paged, text }), [progress, paged, text]);
 }

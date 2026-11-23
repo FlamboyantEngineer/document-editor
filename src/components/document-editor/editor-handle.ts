@@ -234,10 +234,11 @@ export function useCommentRefs(): CommentRefs {
 const hrefOf = (references: ReferenceSourceAdapter | undefined): CitationHref | undefined =>
   references?.href ? (citation) => references.href?.(citation) ?? null : undefined;
 
-// A snapshot's stylesheets, after the served faces the pages were measured and drawn with, so it
-// prints in the glyphs its lines were broken in (DOCE-PAGINATION-13.8).
+// A snapshot's stylesheets, after the served faces the pages were measured and drawn with, under
+// the families the pages draw them in too (DOCE-PAGINATION-12.8), so it prints in the glyphs its
+// lines were broken in (DOCE-PAGINATION-13.8).
 function servedStyles(layout: LayoutProgress, styles: readonly string[] | undefined) {
-  const faces = fontFaceRules(layout.servedFonts());
+  const faces = fontFaceRules(layout.drawnFonts());
   return faces ? [faces, ...(styles ?? [])] : styles;
 }
 

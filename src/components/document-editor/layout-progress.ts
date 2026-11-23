@@ -8,6 +8,7 @@ import type { SuggestionMarkup } from '../../layout-engine/hidden-suggestions.js
 import type { LayoutState, PageTextLines, PaginationStats } from '../../pagination/index.js';
 import { createAllLines } from './all-lines.js';
 import type { LayoutRunner } from './start-paging.js';
+import type { PagesFontsState } from './use-pages-fonts.js';
 
 /** What the layout tells of its pages: when they settle, and what their layouts did. */
 export interface LayoutProgress {
@@ -23,6 +24,11 @@ export interface LayoutProgress {
   inMarkup<T>(markup: SuggestionMarkup, take: () => T): T;
   /** The served faces the pages are measured and drawn with (`textLayout: 'pretext'`); null else. */
   servedFonts(): FontFiles | null;
+  /**
+   * The served faces as `servedFonts` gives them, and again under each family the pages draw under
+   * another (DOCE-PAGINATION-12.8), for a snapshot of the pages; null without the engine.
+   */
+  drawnFonts(): FontFiles | null;
   /** With the layout engine, draws every page on its lines, or only those near the screen again. */
   drawAllLines(all: boolean): void;
   /** Draws every page on the engine's lines until the function it returns is called. */
@@ -32,6 +38,7 @@ export interface LayoutProgress {
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
 export function useLayoutProgress(
   active: RefObject<LayoutRunner | null>,
+  latest: RefObject<{ readonly text: PagesFontsState }>,
   inMarkup: LayoutProgress['inMarkup'],
 ): LayoutProgress {
   return useMemo(() => {
@@ -43,8 +50,9 @@ export function useLayoutProgress(
       textLines: () => active.current?.textLines() ?? [],
       pagesLayout: () => active.current?.pagesLayout() ?? null,
       servedFonts: () => active.current?.servedFonts() ?? null,
+      drawnFonts: () => (active.current?.servedFonts() ? latest.current.text.drawnFiles() : null),
       drawAllLines: allLines.drawAll,
       holdAllLines: allLines.hold,
     };
-  }, [active, inMarkup]);
+  }, [active, latest, inMarkup]);
 }
