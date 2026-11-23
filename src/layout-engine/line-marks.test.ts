@@ -94,6 +94,26 @@ describe('lineMarks', () => {
     }
   });
 
+  it('DOCE-LABS-8.6 keeps clusters longer than any window whole at forced line starts and ends', () => {
+    // A letter with 40 accents (41 units) and four people with skin tones (19 units), each starting
+    // an indented line and ending a wrapped one.
+    for (const cluster of [`q${'\u0301'.repeat(40)}`, '👨🏽‍👩🏾‍👧🏿‍👦🏻']) {
+      const node = paragraph(`${cluster}a${cluster}`);
+      const size = 2 * cluster.length + 1;
+      const lines = table(size, cluster.length + 1).lines.map((line) => ({ ...line, left: 5 }));
+      const marks = lineMarks(node, { ...table(size, cluster.length + 1), lines });
+      const indent = '--de-line-indent: 5.000px';
+      expect(marks).toEqual([
+        { from: 0, to: cluster.length, class: 'de-forced-lines__start', style: indent },
+        { from: cluster.length, to: cluster.length + 1, class: 'de-forced-lines__end' },
+        { from: cluster.length + 1, to: size, class: 'de-forced-lines__start', style: indent },
+      ]);
+      // A wrapped line ending with the cluster ends at its start.
+      const ends = lineMarks(paragraph(`a${cluster}b`), table(size, cluster.length + 1));
+      expect(ends).toEqual([{ from: 1, to: cluster.length + 1, class: 'de-forced-lines__end' }]);
+    }
+  });
+
   it('DOCE-PAGINATION-12.4 draws a reserved cluster as an inner mark inside a line end', () => {
     const node = paragraph('aaaa☃bb');
     const marks = lineMarks(node, { ...table(7, 5), reserved: [{ from: 4, to: 5, width: 16 }] });

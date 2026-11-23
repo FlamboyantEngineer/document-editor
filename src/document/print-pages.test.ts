@@ -302,3 +302,89 @@ describe('served faces in static pages', () => {
     expect(layout && renderLayoutPrintPage(layout, BASE_TEMPLATE)).not.toContain('@font-face');
   });
 });
+
+// Two pages as a table's repeated header row draws them: a note cited before the table on the first
+// page, and the header's note cited on both, its entry on each page.
+function repeatedHeaderNotes() {
+  const marker = (id: string) => node('footnote_reference', { footnoteId: id });
+  const entry = (id: string) => node('footnote_entry', { footnoteId: id }, [text(`Note ${id}.`)]);
+  const notesPage = (blocks: Node[], ids: string[], pageNumber: number) =>
+    node('page', null, [
+      node('page_header', { pageNumber, totalPages: 2 }, []),
+      node('page_content', null, blocks),
+      node('page_footnotes', null, ids.map(entry)),
+      node('page_footer', { pageNumber, totalPages: 2 }, []),
+    ]);
+  return pagesDocument([
+    notesPage(
+      [
+        paragraph([text('Before'), marker('before')], { dataId: 'p1' }),
+        paragraph([text('Header'), marker('head')], { dataId: 'h1' }),
+      ],
+      ['before', 'head'],
+      1,
+    ),
+    notesPage([paragraph([text('Header'), marker('head')], { dataId: 'h1' })], ['head'], 2),
+  ]);
+}
+
+describe('footnotes drawn on more than one page', () => {
+  const drawnNotes = (footnoteNumbering: 'document' | 'page') => {
+    const layout = pagesLayout(pagesState(repeatedHeaderNotes(), stubEngine()), {
+      footnoteNumbering,
+    });
+    if (!layout) throw new Error('no layout');
+    const printed = new DOMParser().parseFromString(
+      renderLayoutPrintPage(layout, BASE_TEMPLATE),
+      'text/html',
+    );
+    return [...printed.querySelectorAll('.pm-page')].map((sheet) => ({
+      markers: [...sheet.querySelectorAll('sup.footnote-reference')].map((each) => ({
+        number: each.textContent,
+        id: each.id,
+        href: each.querySelector('a')?.getAttribute('href'),
+      })),
+      entries: [...sheet.querySelectorAll('.pm-footnote-entry')].map((each) => ({
+        number: each.querySelector('.pm-footnote-entry-number')?.textContent,
+        id: each.id,
+        href: each.querySelector('.pm-footnote-entry-number > a')?.getAttribute('href'),
+      })),
+    }));
+  };
+
+  it('DOCE-PAGINATION-13.11 numbers a repeated header’s note by the page each occurrence is on', () => {
+    const [first, second] = drawnNotes('page');
+    expect(first?.markers.map((each) => each.number)).toEqual(['1', '2']);
+    expect(first?.entries.map((each) => each.number)).toEqual(['1', '2']);
+    expect(second?.markers.map((each) => each.number)).toEqual(['1']);
+    expect(second?.entries.map((each) => each.number)).toEqual(['1']);
+  });
+
+  it('DOCE-PAGINATION-13.11 links each page’s marker to that page’s entry and back', () => {
+    for (const numbering of ['document', 'page'] as const) {
+      const [first, second] = drawnNotes(numbering);
+      expect(first?.markers[1]).toMatchObject({ id: 'fnref-head', href: '#fn-head' });
+      expect(first?.entries[1]).toMatchObject({ id: 'fn-head', href: '#fnref-head' });
+      expect(second?.markers[0]).toMatchObject({ id: 'fnref-head~2', href: '#fn-head~2' });
+      expect(second?.entries[0]).toMatchObject({ id: 'fn-head~2', href: '#fnref-head~2' });
+    }
+    // Through the document, the header's note keeps its number on every page.
+    expect(drawnNotes('document')[1]?.markers[0]?.number).toBe('2');
+  });
+
+  it('DOCE-PAGINATION-13.11 names each page’s own footnote anchors for the viewer', () => {
+    const layout = pagesLayout(pagesState(repeatedHeaderNotes(), stubEngine()), {
+      footnoteNumbering: 'page',
+    });
+    if (!layout) throw new Error('no layout');
+    const [section] = drawLayoutPages(layout, BASE_TEMPLATE).sections;
+    const notes = (anchors: readonly string[] = []) => anchors.filter((id) => id.startsWith('fn'));
+    expect(notes(section?.pages[0]?.anchors)).toEqual([
+      'fnref-before',
+      'fnref-head',
+      'fn-before',
+      'fn-head',
+    ]);
+    expect(notes(section?.pages[1]?.anchors)).toEqual(['fnref-head~2', 'fn-head~2']);
+  });
+});

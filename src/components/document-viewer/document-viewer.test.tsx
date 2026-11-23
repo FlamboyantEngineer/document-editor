@@ -349,4 +349,77 @@ describe('DocumentViewer', () => {
     expect(window.location.hash).toBe('');
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
   });
+
+  // The viewer on page 0 of ten, a link on it to the anchor given, and what scrolled into view.
+  function linkOnFirstPage(href: string, layout = tenPages()) {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const scrolled: string[] = [];
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value(this: Element) {
+        scrolled.push(this.id);
+      },
+    });
+    const { container } = render(
+      <DocumentViewer layout={layout} template={BASE_TEMPLATE} overscan={0} />,
+    );
+    showInView([0]);
+    const link = document.createElement('a');
+    link.setAttribute('href', href);
+    link.textContent = 'Go there';
+    sheets(container)[0]?.append(link);
+    return { container, scrolled, link: screen.getByRole('link', { name: 'Go there' }) };
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  });
+
+  it('DOCE-PAGINATION-13.9 follows a fragment with a literal percent sign and an encoded one', async () => {
+    const doc = pagesDocument(
+      Array.from({ length: 10 }, (_, index) =>
+        page([paragraph(index === 6 ? '50%' : index === 8 ? 'a b' : `text${String(index)}`)]),
+      ),
+    );
+    const layout = pagesLayout(pagesState(doc, stubEngine({ perLine: 4 })));
+    if (!layout) throw new Error('no layout');
+    const user = userEvent.setup();
+    const literal = linkOnFirstPage('#50%', layout);
+    await user.click(literal.link);
+    expect(drawn(literal.container)).toEqual([0, 6]);
+    expect(literal.scrolled).toEqual(['50%']);
+    literal.link.setAttribute('href', '#a%20b');
+    await user.click(literal.link);
+    expect(drawn(literal.container)).toEqual([0, 6, 8]);
+    expect(literal.scrolled).toEqual(['50%', 'a b']);
+  });
+
+  it('DOCE-PAGINATION-13.9 leaves a modified or cancelled click to the browser', async () => {
+    const { container, scrolled, link } = linkOnFirstPage('#Part8');
+    const defaults: boolean[] = [];
+    container.addEventListener('click', (event) => {
+      defaults.push(event.defaultPrevented);
+      event.preventDefault();
+    });
+    const user = userEvent.setup();
+    for (const key of ['Control', 'Meta', 'Shift', 'Alt']) {
+      await user.keyboard(`{${key}>}`);
+      await user.click(link);
+      await user.keyboard(`{/${key}}`);
+    }
+    await user.pointer({ keys: '[MouseMiddle]', target: link });
+    expect(defaults).toEqual([false, false, false, false]);
+    link.addEventListener('click', (event) => event.preventDefault(), { once: true });
+    await user.click(link);
+    expect(drawn(container)).toEqual([0]);
+    expect(scrolled).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-13.9 follows a link activated with Enter to a distant page', async () => {
+    const { container, scrolled, link } = linkOnFirstPage('#Part8');
+    link.focus();
+    await userEvent.setup().keyboard('{Enter}');
+    expect(drawn(container)).toEqual([0, 8]);
+    expect(scrolled).toEqual(['Part8']);
+  });
 });
