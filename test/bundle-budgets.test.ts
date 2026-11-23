@@ -6,6 +6,8 @@ import {
   allowedGrowth,
   chunksOf,
   compareBudgets,
+  loadedFiles,
+  loadsOf,
   matchingModules,
   measureFiles,
   updatedBudgets,
@@ -130,6 +132,38 @@ describe('consumer bundle budgets', () => {
       'dist/components/document-editor/document-editor.js',
     ];
     expect(matchingModules(modules, ['-dialog\\.js$'])).toEqual([modules[0]]);
+  });
+
+  it('DOCE-ENTRY-2.6 reads what each import() fetches on first use, and not the entry', () => {
+    const chunk = (files: string[]) => ({ files: new Set(files) });
+    const group = (initial: boolean, requests: (string | undefined)[], chunks: unknown[]) => ({
+      isInitial: () => initial,
+      origins: requests.map((request) => ({ request })),
+      chunks,
+    });
+    const shared = chunk(['7.chunk.js']);
+    const compilation = {
+      chunkGroups: [
+        group(true, ['./editor.js'], [chunk(['bundle.js'])]),
+        group(false, ['./text-engine.js', './text-engine.js'], [chunk(['1.chunk.js']), shared]),
+        group(false, [undefined, './dialog.js'], [chunk(['2.chunk.js', '2.chunk.js.map']), shared]),
+      ],
+    };
+    expect(loadsOf(compilation)).toEqual([
+      { requests: ['./text-engine.js'], files: ['1.chunk.js', '7.chunk.js'] },
+      { requests: ['./dialog.js'], files: ['2.chunk.js', '7.chunk.js'] },
+    ]);
+  });
+
+  it('DOCE-ENTRY-2.6 finds the files a named load fetches, each once, and none for no load', () => {
+    const loads = [
+      { requests: ['./text-engine.js'], files: ['1.chunk.js', '7.chunk.js'] },
+      { requests: ['../pagination/text-engine.js'], files: ['3.chunk.js', '7.chunk.js'] },
+      { requests: ['./dialog.js'], files: ['2.chunk.js', '7.chunk.js'] },
+    ];
+    const files = loadedFiles(loads, '(^|/)text-engine\\.js$');
+    expect(files).toEqual(['1.chunk.js', '7.chunk.js', '3.chunk.js']);
+    expect(loadedFiles(loads, '/host-fonts\\.js$')).toEqual([]);
   });
 
   it('DOCE-ENTRY-2.1 keeps a reviewed budget for every consumer the check bundles', () => {
