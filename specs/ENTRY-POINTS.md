@@ -50,7 +50,7 @@ Verification: `test/reference-stylesheet.test.ts`
 
 ### DOCE-ENTRY-2.1 - Consumer bundle budgets
 
-`npm run check:bundle-size` shall bundle a small matrix of consumers of the built `.` entry under production webpack, with React and its runtime external as a host provides them: `DocumentEditor` alone, `DocumentEditor` with `DocumentSidePanel` and `DocumentCommentsPanel`, and `TemplateWorkspace`. It shall measure each consumer's initial code, every file that loads with the entry, raw and gzipped, compare it with the reviewed baseline in `scripts/bundle-budgets.json`, and fail a consumer that grew by more than the file's allowance (the larger of 5% and 2 KB), or that no longer holds the module it is named for, so a broken measurement fails. `--update` rewrites the baselines. `npm run check` runs it after the build, so hosted CI checks every pull request.
+`npm run check:bundle-size` shall bundle a small matrix of consumers of the built `.` entry under production webpack, with React and its runtime external as a host provides them: `DocumentEditor` alone, `DocumentEditor` with `DocumentSidePanel` and `DocumentCommentsPanel`, and `TemplateWorkspace`. It shall measure each consumer's initial code, every file that loads with the entry, raw and gzipped, compare it with the reviewed baseline in `scripts/bundle-budgets.json`, and fail a consumer that grew by more than the file's allowance (the larger of 5% and 2 KB), or that no longer holds the module it is named for, so a broken measurement fails. `--update` rewrites the baselines. While the budgets file holds a suspension with its date and cause (`suspended`), a consumer that grew past the allowance shall be reported with its sizes and shall not fail; a consumer without a budget, a budget without a consumer and a broken measurement fail as before, as do the surfaces of DOCE-ENTRY-2.2. The file holds one since 2026-11-23 (Charles: the limits are skipped while both text layouts ship, and assessed again after the DOM text layout is removed and the bundles have had an optimization pass); ending it removes the entry and rewrites the baselines. `npm run check` runs it after the build and prints its report, every consumer's sizes, whether it passes or fails, so hosted CI checks every pull request and its log holds the sizes.
 
 Implementation: `scripts/check-bundle-size.mjs`, `scripts/bundle-budgets.json`, `scripts/lib/bundle-budgets.mjs`, `scripts/check.mjs`
 Verification: `test/bundle-budgets.test.ts`
@@ -82,3 +82,10 @@ The template workspace shall load its own preview, with the document editor, and
 
 Implementation: `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/template-open-dialog.tsx`, `scripts/check-bundle-size.mjs`
 Verification: `test/bundle-budgets.test.ts`, `src/components/template-workspace/template-workspace-layout.test.tsx`, `src/components/template-workspace/template-preview-editor.test.tsx`
+
+### DOCE-ENTRY-2.6 - Sizes on record for what loads on first use
+
+`npm run check:bundle-size` shall also measure, for the editor consumer, what two of its `import()`s fetch on first use, raw and gzipped, each file once: the text layout engine, which is in no consumer's initial code, and the measurer of a host's font files. It shall print them after the consumers' sizes, with no budget and no baseline, so each run's log holds them; a host supplies the shaper's WebAssembly, which is in no bundle. A named load that no `import()` requests any more shall fail, so a size does not leave the record unnoticed.
+
+Implementation: `scripts/check-bundle-size.mjs`, `scripts/lib/bundle-budgets.mjs`
+Verification: `test/bundle-budgets.test.ts`

@@ -4,7 +4,7 @@
 
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { documentSnapshotWhenReady } from '../../engine/index.js';
+import { snapshotOnceReady } from '../../engine/snapshot-ready.js';
 import type {
   DocumentExport,
   ExportRequest,
@@ -14,7 +14,7 @@ import type {
 import { writeDocumentFile } from '../../model/index.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import type { LayoutProgress } from './use-document-layout.js';
+import type { LayoutProgress } from './layout-progress.js';
 
 /** An export File > Export offers. */
 interface ExportEntry {
@@ -49,14 +49,20 @@ function exportRequest(
     content: writeDocumentFile(props.state.doc, { template: props.templatePin ?? null }),
     snapshot: async (options = {}) => {
       if (!view) throw new Error('The editor is not mounted');
-      return documentSnapshotWhenReady(view, {
-        ...(references?.href
-          ? { citationHref: (citation) => references.href?.(citation) ?? null }
-          : {}),
-        ...options,
-        template: props.template,
-        whenSettled: progress.whenSettled,
-      });
+      const { markup } = options;
+      // In another markup than the editor's, the pages are laid out in it as it is taken.
+      return snapshotOnceReady(
+        view,
+        {
+          ...(references?.href
+            ? { citationHref: (citation) => references.href?.(citation) ?? null }
+            : {}),
+          ...options,
+          template: props.template,
+          whenSettled: progress.whenSettled,
+        },
+        (take) => (markup ? progress.inMarkup(markup, take) : take()),
+      );
     },
     signal,
   };

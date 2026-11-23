@@ -8,8 +8,12 @@
 import { type CSSProperties, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { registerFaces } from '../../document/font-registry.js';
 import type { PagesLayout } from '../../document/pages-layout.js';
-import type { PrintPageOptions } from '../../document/print.js';
-import { drawLayoutPages, layoutTemplate, VIEW_CLASSES } from '../../document/print-pages.js';
+import {
+  drawLayoutPages,
+  type LayoutPrintOptions,
+  layoutTemplate,
+  VIEW_CLASSES,
+} from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
 import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
@@ -28,8 +32,8 @@ export interface DocumentViewerProps {
   layout: PagesLayout;
   /** The template the pages were laid out under. */
   template: TemplateFile;
-  /** How suggestions show, links and the document kit, as for `renderLayoutPrintPage`. */
-  options?: Omit<PrintPageOptions, 'title' | 'styles' | 'stylesheets'> | undefined;
+  /** Links and the document kit, as for `renderLayoutPrintPage`; suggestions show as laid out. */
+  options?: Omit<LayoutPrintOptions, 'title' | 'styles' | 'stylesheets'> | undefined;
   /** How many pages before and after the ones in view are drawn; `Infinity` draws them all. */
   overscan?: number | undefined;
   /** The viewer's accessible name. */
@@ -127,9 +131,32 @@ function useLayoutFaces(
 
 const sameFamily = (family: string) => family;
 
+// The anchor a link's fragment names: decoded, or as written when it does not decode (a literal
+// `%`), the first of the two that names an anchor of the pages.
+function fragmentTarget(href: string, pageOf: ReadonlyMap<string, number>) {
+  const raw = href.slice(1);
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    // Not percent-encoded: the fragment is its own text.
+  }
+  return [decoded, raw].find((id) => pageOf.has(id));
+}
+
+// Whether a click is the link's ordinary activation, which the viewer takes over: the main button
+// or Enter, no modifier asking the browser for a new tab or window, not cancelled before.
+const ordinary = (event: MouseEvent) =>
+  !event.defaultPrevented &&
+  event.button === 0 &&
+  !event.ctrlKey &&
+  !event.metaKey &&
+  !event.shiftKey &&
+  !event.altKey;
+
 // Follows each link inside the pages to an anchor of theirs (a reference, a footnote, a list of
 // contents row): the page holding it is drawn as if in view, though it was not drawn, and the
-// anchor scrolled to (DOCE-PAGINATION-13.9).
+// anchor scrolled to (DOCE-PAGINATION-13.9). A modified click is left to the browser.
 function followLinks(
   element: HTMLElement,
   pageOf: ReadonlyMap<string, number>,
@@ -137,9 +164,9 @@ function followLinks(
 ) {
   const follow = (event: MouseEvent) => {
     const link = isElement(event.target) ? event.target.closest('a[href^="#"]') : null;
-    if (!link || !element.contains(link)) return;
-    const id = decodeURIComponent((link.getAttribute('href') ?? '').slice(1));
-    const index = pageOf.get(id);
+    if (!link || !element.contains(link) || !ordinary(event)) return;
+    const id = fragmentTarget(link.getAttribute('href') ?? '', pageOf);
+    const index = id === undefined ? undefined : pageOf.get(id);
     if (index === undefined) return;
     event.preventDefault();
     show(index);
@@ -218,7 +245,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
     <div
       {...hooks.root({
         className: className ? `${EDITOR_CLASS} ${className}` : EDITOR_CLASS,
-        data: { mode: 'reading', markup: options?.markup ?? 'all', layout: 'page' },
+        data: { mode: 'reading', markup: layout.markup, layout: 'page' },
       })}
       data-text-layout="pretext"
       // The language the pages were laid out in, whatever the host's page is in; empty for none,

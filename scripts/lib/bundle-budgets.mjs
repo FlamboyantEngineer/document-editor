@@ -1,12 +1,16 @@
 // Measures the initial code of a consumer bundle and compares it with its reviewed budget
 // (DOCE-ENTRY-2.1). The budgets live in `scripts/bundle-budgets.json`: each consumer's measured
-// baseline in bytes, raw and gzipped, and one allowance for growth over every baseline.
+// baseline in bytes, raw and gzipped, and one allowance for growth over every baseline. While the
+// file holds a suspension with its cause, growth past the allowance is reported and does not fail.
+// What a consumer loads on first use has no budget; the sizes of named loads are measured, to be on
+// record (DOCE-ENTRY-2.6).
 
 import { gzipSync } from 'node:zlib';
 
 /**
  * @typedef {{ raw: number, gzip: number }} Sizes
- * @typedef {{ allowance: { relative: number, absolute: number }, consumers: Record<string, Sizes> }} Budgets
+ * @typedef {{ since: string, cause: string }} Suspension
+ * @typedef {{ allowance: { relative: number, absolute: number }, suspended?: Suspension, consumers: Record<string, Sizes> }} Budgets
  */
 
 /**
@@ -26,6 +30,35 @@ export function chunksOf(compilation) {
       .flatMap(leaves)
       .map((module) => module.readableIdentifier(compilation.requestShortener)),
   }));
+}
+
+/**
+ * What each `import()` of a webpack compilation loads on first use: the requests that name it and
+ * the JavaScript files of the chunks fetched for it.
+ * @param {import('webpack').Compilation} compilation
+ * @returns {{ requests: string[], files: string[] }[]}
+ */
+export function loadsOf(compilation) {
+  return [...compilation.chunkGroups]
+    .filter((group) => !group.isInitial())
+    .map((group) => ({
+      requests: [...new Set(group.origins.flatMap((origin) => origin.request ?? []))],
+      files: group.chunks
+        .flatMap((chunk) => [...chunk.files])
+        .filter((file) => file.endsWith('.js')),
+    }));
+}
+
+/**
+ * The files fetched on first use by the loads a request pattern names, each file once.
+ * @param {{ requests: string[], files: string[] }[]} loads
+ * @param {string} pattern
+ * @returns {string[]}
+ */
+export function loadedFiles(loads, pattern) {
+  const expression = new RegExp(pattern);
+  const named = loads.filter((load) => load.requests.some((request) => expression.test(request)));
+  return [...new Set(named.flatMap((load) => load.files))];
 }
 
 /**
@@ -69,7 +102,8 @@ const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
 /**
  * Compares measurements with the budgets. Returns the problems, a consumer over its allowance or
  * without a baseline, and notes, a consumer that shrank by more than its allowance, so its baseline
- * can be lowered.
+ * can be lowered. While the budgets hold a suspension, a consumer over its allowance is no problem:
+ * it is returned as `suspended`, to report.
  * @param {Record<string, Sizes>} measured
  * @param {Budgets} budgets
  */
@@ -78,6 +112,9 @@ export function compareBudgets(measured, budgets) {
   const problems = [];
   /** @type {string[]} */
   const notes = [];
+  /** @type {string[]} */
+  const suspended = [];
+  const grown = budgets.suspended ? suspended : problems;
   for (const [consumer, sizes] of Object.entries(measured)) {
     const baseline = budgets.consumers[consumer];
     if (!baseline) {
@@ -88,19 +125,18 @@ export function compareBudgets(measured, budgets) {
       const allowed = allowedGrowth(baseline[kind], budgets.allowance);
       const growth = sizes[kind] - baseline[kind];
       const summary = `${consumer} ${kind} ${kb(sizes[kind])} against a ${kb(baseline[kind])} baseline`;
-      if (growth > allowed)
-        problems.push(`${summary} grew by ${kb(growth)} (allowed ${kb(allowed)})`);
+      if (growth > allowed) grown.push(`${summary} grew by ${kb(growth)} (allowed ${kb(allowed)})`);
       else if (-growth > allowed) notes.push(`${summary} shrank by ${kb(-growth)}`);
     }
   }
   for (const consumer of Object.keys(budgets.consumers)) {
     if (!(consumer in measured)) problems.push(`${consumer} has a budget but no consumer`);
   }
-  return { problems, notes };
+  return { problems, notes, suspended };
 }
 
 /**
- * Budgets holding the measurements as baselines, keeping the reviewed allowance.
+ * Budgets holding the measurements as baselines, keeping the reviewed allowance and a suspension.
  * @param {Record<string, Sizes>} measured
  * @param {Budgets} budgets
  * @returns {Budgets}

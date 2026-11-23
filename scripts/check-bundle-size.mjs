@@ -3,6 +3,7 @@
 // its budget in `scripts/bundle-budgets.json` (DOCE-ENTRY-2): the initial code's raw and gzipped
 // size, which modules must load on first use rather than with the entry, and which a consumer must
 // still hold somewhere, so a broken measurement fails. React stays external, as a host provides it.
+// It also prints, with no budget, the sizes of named loads on first use (DOCE-ENTRY-2.6).
 //   node scripts/check-bundle-size.mjs [--update]
 // `--update` writes the measured sizes as the new baselines.
 
@@ -15,6 +16,8 @@ import webpackModule from 'webpack';
 import {
   chunksOf,
   compareBudgets,
+  loadedFiles,
+  loadsOf,
   matchingModules,
   measureFiles,
   updatedBudgets,
@@ -41,6 +44,14 @@ const ON_FIRST_USE = [
   `${UI}/emoji-picker/data/`,
 ];
 
+// What the editor loads on first use whose size is on record with no budget, by the request of its
+// `import()` (DOCE-ENTRY-2.6): the text layout engine, in no consumer's initial code, and the
+// measurer of a host's font files.
+const ON_RECORD = [
+  { name: 'text-layout-engine', request: '(^|/)text-engine\\.js$' },
+  { name: 'font-file-measurer', request: '/font-files/host-fonts\\.js$' },
+];
+
 const use = (/** @type {string[]} */ names) => `import { ${names.join(', ')} } from ${ENTRY};
 globalThis.used = [${names.join(', ')}];`;
 
@@ -50,6 +61,7 @@ const CONSUMERS = [
     entry: use(['DocumentEditor']),
     lazy: ON_FIRST_USE,
     holds: ['dist/components/document-editor/figure-dialog\\.js', 'node_modules/katex/'],
+    record: ON_RECORD,
   },
   {
     name: 'editor-with-panels',
@@ -73,11 +85,12 @@ const CONSUMERS = [
 
 /**
  * Bundles one consumer under production webpack, as a host's build would, and returns its initial
- * code's sizes and the modules of its initial and of all its chunks.
+ * code's sizes, the modules of its initial and of all its chunks, and the sizes of the loads on
+ * first use it keeps on record, null for one no `import()` requests.
  * @param {string} workDir
- * @param {{ name: string, entry: string }} consumer
+ * @param {{ name: string, entry: string, record?: { name: string, request: string }[] }} consumer
  */
-async function bundle(workDir, { name, entry }) {
+async function bundle(workDir, { name, entry, record = [] }) {
   writeFileSync(join(workDir, `${name}.js`), entry);
   const output = join(workDir, name);
   const compiler = webpack({
@@ -106,12 +119,17 @@ async function bundle(workDir, { name, entry }) {
     });
     const chunks = chunksOf(stats.compilation);
     const initial = chunks.filter((chunk) => chunk.initial);
+    const loads = loadsOf(stats.compilation);
+    const sizesOf = (/** @type {string[]} */ files) =>
+      measureFiles(files.map((file) => readFileSync(join(output, file))));
     return {
-      sizes: measureFiles(
-        initial.flatMap((chunk) => chunk.files.map((file) => readFileSync(join(output, file)))),
-      ),
+      sizes: sizesOf(initial.flatMap((chunk) => chunk.files)),
       initialModules: initial.flatMap((chunk) => chunk.modules),
       allModules: chunks.flatMap((chunk) => chunk.modules),
+      recorded: record.map((load) => {
+        const files = loadedFiles(loads, load.request);
+        return { name: load.name, sizes: files.length > 0 ? sizesOf(files) : null };
+      }),
     };
   } finally {
     await new Promise((resolve, reject) => {
@@ -125,6 +143,8 @@ const budgets = JSON.parse(readFileSync(BUDGETS, 'utf8'));
 const problems = [];
 /** @type {Record<string, { raw: number, gzip: number }>} */
 const measured = {};
+/** @type {Record<string, Record<string, { raw: number, gzip: number }>>} */
+const onFirstUse = {};
 if (!existsSync(join(root, 'dist/index.js'))) {
   console.error('dist/index.js is missing: run `npm run build` before checking bundle sizes.');
   process.exit(1);
@@ -134,8 +154,12 @@ const workDir = mkdtempSync(join(tmpdir(), 'de-bundle-size-'));
 
 try {
   for (const consumer of CONSUMERS) {
-    const { sizes, initialModules, allModules } = await bundle(workDir, consumer);
+    const { sizes, initialModules, allModules, recorded } = await bundle(workDir, consumer);
     measured[consumer.name] = sizes;
+    for (const load of recorded) {
+      if (load.sizes) (onFirstUse[consumer.name] ??= {})[load.name] = load.sizes;
+      else problems.push(`${consumer.name} loads no ${load.name} on first use; its size is lost`);
+    }
     for (const module of matchingModules(initialModules, consumer.lazy).slice(0, 5)) {
       problems.push(`${consumer.name} loads ${module} with the entry; it must load on first use`);
     }
@@ -150,10 +174,18 @@ try {
 }
 
 const kb = (/** @type {number} */ bytes) => `${(bytes / 1024).toFixed(1)} KB`.padStart(10);
-for (const [name, { raw, gzip }] of Object.entries(measured)) {
-  console.log(`${name.padEnd(22)}${kb(raw)} raw${kb(gzip)} gzip`);
+const printSizes = (/** @type {Record<string, { raw: number, gzip: number }>} */ sizes) => {
+  for (const [name, { raw, gzip }] of Object.entries(sizes)) {
+    console.log(`${name.padEnd(22)}${kb(raw)} raw${kb(gzip)} gzip`);
+  }
+};
+printSizes(measured);
+for (const [consumer, loads] of Object.entries(onFirstUse)) {
+  console.log(`Loaded on first use by ${consumer}, on record with no budget:`);
+  printSizes(loads);
 }
 
+let success = `${CONSUMERS.length} consumer bundles are within their budgets.`;
 if (flag('update')) {
   writeFileSync(BUDGETS, `${JSON.stringify(updatedBudgets(measured, budgets), null, 2)}\n`);
   console.log(
@@ -164,11 +196,17 @@ if (flag('update')) {
   for (const note of comparison.notes) {
     console.log(`note: ${note}; lower its baseline with \`npm run check:bundle-size -- --update\``);
   }
+  for (const growth of comparison.suspended) console.log(`not enforced: ${growth}`);
+  if (budgets.suspended) {
+    const { since, cause } = budgets.suspended;
+    console.log(`The growth limits are suspended since ${since}. ${cause}`);
+    success = `${CONSUMERS.length} consumer bundles measured; sizes past their allowance, not enforced: ${comparison.suspended.length}.`;
+  }
   problems.push(...comparison.problems);
 }
 
 reportProblems(problems, {
   heading: 'Consumer bundle problems',
   hint: 'A deliberate size change updates the baselines: `npm run check:bundle-size -- --update`.',
-  success: `${CONSUMERS.length} consumer bundles are within their budgets.`,
+  success,
 });

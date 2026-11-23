@@ -16,6 +16,7 @@ import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
+import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import { createTextLayout } from '../layout-engine/text-layout.js';
@@ -147,6 +148,7 @@ function engineLayouts(
   const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
+    hidden: () => hiddenSuggestion(options.markup?.() ?? 'all'),
     measureContext,
     isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
@@ -188,8 +190,13 @@ function keptLines(
   text: ReturnType<typeof createTextLayout>,
   {
     widthOf,
-    footnoteOf,
-  }: { widthOf: (scope: string | null) => number; footnoteOf: NodeNumbers['footnoteOf'] },
+    numbers,
+    markup,
+  }: {
+    widthOf: (scope: string | null) => number;
+    numbers: () => NodeNumbers;
+    markup: TextEngineOptions['markup'];
+  },
 ) {
   let kept = new WeakMap<ProseMirrorNode, KeptLines>();
   return {
@@ -197,9 +204,9 @@ function keptLines(
       kept = new WeakMap();
     },
     lines(node: ProseMirrorNode, place: Parameters<PagesTextEngine['lines']>[1]) {
-      const markers = markerKey(node, footnoteOf);
+      const markers = markerKey(node, numbers().footnoteOf);
       const words = insertedKey(place.inserted);
-      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}`;
+      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}|${suggestionKey(node, markup)}`;
       const found = kept.get(node);
       if (found?.key === key) return found.table;
       const width = widthOf(place.scope);
@@ -230,9 +237,10 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
-  const tables = keptLines(text, { widthOf, footnoteOf: (marker) => numbers.footnoteOf(marker) });
-  const nested = createNestedLines({ geometry, recorder, widthOf });
-  const regions = createRegionLines({ geometry, recorder, widthOf });
+  const { markup } = options;
+  const tables = keptLines(text, { widthOf, markup, numbers: () => numbers });
+  const nested = createNestedLines({ geometry, recorder, widthOf, markup });
+  const regions = createRegionLines({ geometry, recorder, widthOf, markup });
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     tables.forget();
@@ -267,7 +275,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
         return null;
       }
       const listed = contents.keyOf(node, numbers.doc);
-      const key = `${scope ?? ''}|${numbers.keyOf(node)}|${blockInsertedKey(node, inserted)}${listed}`;
+      const key = `${scope ?? ''}|${numbers.keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, options.markup)}${listed}`;
       const kept = blocks.get(node);
       if (kept?.key === key) return kept.block;
       current = inserted;

@@ -3,6 +3,7 @@
 // print snapshot keeps, the suggestions as the markup shows them, and the snapshot's allow-list.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { footnotePartLinks } from '../engine/footnote-anchors.js';
 import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
 import {
@@ -13,7 +14,6 @@ import {
 import type { ResolveImage } from '../engine/print-images.js';
 import { PRINT_MARKER_RULES } from '../engine/print-view.js';
 import { signatureSvgMarkup, type TemplateFile, templateProperties } from '../model/index.js';
-import { footnoteEntryAnchor, footnoteMarkerAnchor } from '../model/schema/footnote-nodes.js';
 import { type CitationHref, referencePrintHref } from '../model/schema/reference-mark.js';
 import {
   isPrintElement,
@@ -57,19 +57,43 @@ function link(element: PrintElement, href: string, kind: string) {
   element.children = [printElement('a', { href, 'data-print-link': kind }, element.children)];
 }
 
-// Each footnote marker's and entry's number, through the document, as the editor draws it: its text
-// and its hooks (`createFootnoteNumbers`).
+// Each element of a tree with the index of the page it is drawn on, in order; -1 before any page.
+function* pagedElements(trees: readonly PrintTree[]) {
+  let page = -1;
+  for (const element of printElements(trees)) {
+    if (element.attrs.get('data-pm-page') === 'true') page += 1;
+    yield { element, page };
+  }
+}
+
+// The index of the page each position of a document is on, as `pagedElements` counts pages.
+function pageAt(doc: ProseMirrorNode) {
+  const starts: number[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name !== 'page') return !node.isTextblock;
+    starts.push(pos);
+    return false;
+  });
+  return (pos: number) => starts.filter((start) => start < pos).length - 1;
+}
+
+const footnoteKey = (page: number, id: string) => `${String(page)} ${id}`;
+
+// Each footnote marker's and entry's number, by the page it is drawn on, as the editor draws it:
+// its text and its hooks (`createFootnoteNumbers`). A footnote drawn on more than one page (a
+// marker in a repeated table header) takes each page's number there (DOCE-PAGINATION-13.11).
 export function numberFootnotes(
   trees: PrintTree[],
   doc: ProseMirrorNode,
   numbering: 'document' | 'page' = 'document',
 ) {
   const numbers = new Map<string, string>();
-  for (const { node, number } of numberFootnoteParts(doc, numbering))
-    numbers.set(idOf(node) ?? '', String(number));
+  const pageOf = pageAt(doc);
+  for (const { node, number, pos } of numberFootnoteParts(doc, numbering))
+    numbers.set(footnoteKey(pageOf(pos), idOf(node) ?? ''), String(number));
   const tooltip = doc.type.schema.nodes.footnote_reference?.spec.tooltipAttribute;
-  for (const element of printElements(trees)) {
-    const number = numbers.get(element.attrs.get('data-footnote-id') ?? '');
+  for (const { element, page } of pagedElements(trees)) {
+    const number = numbers.get(footnoteKey(page, element.attrs.get('data-footnote-id') ?? ''));
     if (number === undefined) continue;
     const marker = element.attrs.has('data-footnote-reference');
     const shows = marker ? element : element.children.find(isPrintElement);
@@ -78,6 +102,23 @@ export function numberFootnotes(
     element.attrs.set(typeof tooltip === 'string' ? tooltip : 'title', `Footnote ${number}`);
     if (shows) shows.children = [{ text: number }];
   }
+}
+
+// Each footnote marker and entry linked to its own page's part and back (DOCE-PAGINATION-13.11).
+function linkFootnotes(trees: PrintTree[], anchor: (element: PrintElement, id: string) => boolean) {
+  const found = [...pagedElements(trees)].flatMap(({ element, page }) => {
+    const id = element.attrs.get('data-footnote-id');
+    const marker = element.attrs.has('data-footnote-reference');
+    if (!id || (!marker && !element.attrs.has('data-footnote-entry'))) return [];
+    return [{ element, part: { id, marker, page } }];
+  });
+  footnotePartLinks(found.map(({ part }) => part)).forEach(({ anchor: id, href }, index) => {
+    const { element, part } = found[index] ?? {};
+    if (!element || !part) return;
+    if (id) anchor(element, id);
+    const number = part.marker ? element : element.children.find(isPrintElement);
+    if (href && number) link(number, href, part.marker ? 'footnote' : 'footnote-back');
+  });
 }
 
 // Whether an element keeps the number it was laid out with: a block drawn on the layout engine's
@@ -104,16 +145,9 @@ export function addLinks(
     if (id && anchor(element, id) && numbers.has(id) && !keepsNumber(element))
       attrs.set('data-number', numbers.get(id) ?? '');
     if (attrs.get('data-reference') === 'true') referenceLink(element, options.citationHref);
-    const footnote = attrs.get('data-footnote-id');
-    if (footnote && attrs.has('data-footnote-reference')) {
-      anchor(element, footnoteMarkerAnchor(footnote));
-      link(element, `#${footnoteEntryAnchor(footnote)}`, 'footnote');
-    } else if (footnote && anchor(element, footnoteEntryAnchor(footnote))) {
-      const number = element.children.find(isPrintElement);
-      if (number) link(number, `#${footnoteMarkerAnchor(footnote)}`, 'footnote-back');
-    }
     if (element.tag === 'img') image(element, options.resolveImage);
   }
+  linkFootnotes(trees, anchor);
   linkAbbreviations(trees);
 }
 
@@ -159,6 +193,11 @@ function image(element: PrintElement, resolveImage: ResolveImage | undefined) {
   if (resolved !== null) element.attrs.set('src', resolved);
 }
 
+// Whether an element is a suggestion's: an insertion or deletion with an id, or with only its
+// comment thread's id, as the schema reads either (DOCE-EDITOR-6.16).
+const isSuggestion = ({ attrs }: PrintElement) =>
+  attrs.has('data-id') || attrs.has('data-comment-id');
+
 // The suggestions a markup leaves out, and those it shows as plain text.
 function suggestionTags(markup: PrintMarkup) {
   if (markup === 'final') return { dropped: 'del', kept: 'ins' };
@@ -172,7 +211,7 @@ export function allow(trees: readonly PrintTree[], markup: PrintMarkup): PrintTr
   const tags = suggestionTags(markup);
   return trees.flatMap((tree): PrintTree[] => {
     if (!isPrintElement(tree)) return [tree];
-    const suggestion = tree.attrs.has('data-id') ? tree.tag : '';
+    const suggestion = isSuggestion(tree) ? tree.tag : '';
     if (SNAPSHOT_DROPPED.has(tree.tag) || suggestion === tags?.dropped) return [];
     const children = allow(tree.children, markup);
     if (!SNAPSHOT_ELEMENTS.has(tree.tag) || suggestion === tags?.kept) return children;

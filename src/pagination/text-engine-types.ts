@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { FontFiles } from '../host/font-files.js';
 import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
+import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
@@ -50,6 +51,11 @@ export interface TextEngineOptions {
   readonly hostViews?: readonly string[] | undefined;
   /** The text atoms left to the DOM, with why; `REFUSED_TEXT_ATOMS` by default. */
   readonly refusedTextAtoms?: ReadonlyMap<string, string> | undefined;
+  /**
+   * How the pages show suggestions now: the suggestions the markup hides take no room
+   * (DOCE-PAGINATION-11.12). All shown when absent.
+   */
+  readonly markup?: (() => SuggestionMarkup) | undefined;
 }
 
 /** A text block's place on the pages. */

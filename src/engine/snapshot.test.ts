@@ -215,6 +215,30 @@ describe('documentSnapshot', () => {
     view.destroy();
   });
 
+  it('DOCE-EDITOR-6.16 prints suggestions known only by their comment thread as the markup says', () => {
+    const { view, template: sectioned } = sectionedView({ markup: 'all' });
+    const ranges: Record<string, [number, number]> = {};
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text) ranges[node.text] = [pos, pos + node.text.length];
+    });
+    const [bodyFrom = 0, bodyTo = 0] = ranges.Body ?? [];
+    const [moreFrom = 0] = ranges['More body'] ?? [];
+    const { insertion, deletion } = documentSchema.marks;
+    if (!insertion || !deletion) throw new Error('The schema has no suggestion marks.');
+    view.dispatch(
+      view.state.tr
+        .addMark(bodyFrom, bodyTo, insertion.create({ commentId: 't1' }))
+        .addMark(moreFrom, moreFrom + 'More '.length, deletion.create({ commentId: 't2' })),
+    );
+    const final = parse(documentSnapshot(view, { template: sectioned, markup: 'final' }));
+    expect(final.body.querySelector('ins, del')).toBeNull();
+    expect(texts(final.body)).toEqual(['Body', 'Appendix', 'body', 'Letter']);
+    const original = parse(documentSnapshot(view, { template: sectioned, markup: 'original' }));
+    expect(original.body.querySelector('ins, del')).toBeNull();
+    expect(texts(original.body)).toEqual(['', 'Appendix', 'More body', 'Letter']);
+    view.destroy();
+  });
+
   it('DOCE-EDITOR-6.16 takes the editor markup by default, its simple markup as if accepted', () => {
     const { view, template: sectioned } = suggestedView({ markup: 'simple' });
     const snapshot = parse(documentSnapshot(view, { template: sectioned }));

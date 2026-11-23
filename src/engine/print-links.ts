@@ -6,12 +6,12 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { catalogDocument, ELEMENT_KINDS, type TemplateFile } from '../model/index.js';
-import { footnoteEntryAnchor, footnoteMarkerAnchor } from '../model/schema/footnote-nodes.js';
 import {
   type CitationHref,
   readReferenceAttrs,
   referencePrintHref,
 } from '../model/schema/reference-mark.js';
+import { footnotePartLinks } from './footnote-anchors.js';
 
 /** The hook a printed link carries, naming what it links. */
 export const PRINT_LINK_ATTRIBUTE = 'data-print-link';
@@ -55,19 +55,28 @@ function linkReferences(copy: Element, href: CitationHref | undefined) {
   }
 }
 
+// Each footnote marker and entry, in the snapshot's order, by the page it is on; each page's marker
+// links to that page's entry and back (DOCE-PAGINATION-13.11).
 function linkFootnotes(copy: Element, taken: Set<string>) {
-  for (const marker of copy.querySelectorAll('sup.footnote-reference[data-footnote-id]')) {
-    const id = marker.getAttribute('data-footnote-id') ?? '';
-    anchor(marker, footnoteMarkerAnchor(id), taken);
-    linkContent(marker, `#${footnoteEntryAnchor(id)}`, 'footnote');
-  }
-  for (const entry of copy.querySelectorAll('.pm-footnote-entry[data-footnote-id]')) {
-    const id = entry.getAttribute('data-footnote-id') ?? '';
-    const first = !taken.has(footnoteEntryAnchor(id));
-    anchor(entry, footnoteEntryAnchor(id), taken);
-    const number = entry.querySelector(':scope > .pm-footnote-entry-number');
-    if (first && number) linkContent(number, `#${footnoteMarkerAnchor(id)}`, 'footnote-back');
-  }
+  const pages = [...copy.querySelectorAll('.pm-page')];
+  const elements = [
+    ...copy.querySelectorAll(
+      'sup.footnote-reference[data-footnote-id], .pm-footnote-entry[data-footnote-id]',
+    ),
+  ];
+  const parts = elements.map((element) => ({
+    id: element.getAttribute('data-footnote-id') ?? '',
+    marker: element.matches('sup.footnote-reference'),
+    page: pages.findIndex((page) => page.contains(element)),
+  }));
+  footnotePartLinks(parts).forEach(({ anchor: id, href }, index) => {
+    const element = elements[index];
+    if (!element) return;
+    if (id) anchor(element, id, taken);
+    const marker = parts[index]?.marker === true;
+    const number = marker ? element : element.querySelector(':scope > .pm-footnote-entry-number');
+    if (href && number) linkContent(number, href, marker ? 'footnote' : 'footnote-back');
+  });
 }
 
 // Links each part of a list of contents row that names an element in the snapshot to it, its

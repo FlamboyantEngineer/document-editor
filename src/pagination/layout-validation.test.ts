@@ -2,8 +2,10 @@ import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
 import { readDocumentFile } from '../model/index.js';
-import { findPageOverflow, findWrappedLines } from './layout-validation.js';
+import { checkDraws, findPageOverflow, findWrappedLines } from './layout-validation.js';
+import type { MeasureCache } from './measure-cache.js';
 
 const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
@@ -63,6 +65,68 @@ describe('layout validation', () => {
     drawPages(900);
     expect(findPageOverflow(view)).toEqual([]);
     view.destroy();
+  });
+});
+
+// Pages one under another, 5,000 pixels apart, each 400 tall with its last block 450 below its top.
+function drawPagesApart() {
+  const pageOf = (element: HTMLElement) => element.closest('.pm-page');
+  const rect = (element: HTMLElement) => {
+    const sheet = pageOf(element);
+    const all = [...element.ownerDocument.querySelectorAll('.pm-page')];
+    const top = sheet ? all.indexOf(sheet) * 5000 : 0;
+    if (element.classList.contains('pm-page')) return new DOMRect(0, top, 300, 400);
+    const last = element.tagName === 'P' && !element.nextElementSibling;
+    return new DOMRect(0, top, 300, last ? 450 : 100);
+  };
+  const read: Element[] = [];
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    if (!this.classList.contains('pm-page')) read.push(this);
+    return rect(this);
+  });
+  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    read.push(this);
+    return [rect(this)] as unknown as DOMRectList;
+  });
+  return read;
+}
+
+describe('checkDraws', () => {
+  const twoBlocks = (name: string) =>
+    page([
+      node('paragraph', null, [documentSchema.text(`${name} one`)]),
+      node('paragraph', null, [documentSchema.text(`${name} two`)]),
+    ]);
+  const counted = (view: EditorView) => {
+    const counts: number[] = [];
+    const cache = { clear: () => undefined } as unknown as MeasureCache;
+    checkDraws({ cache, count: (pages) => counts.push(pages), request: () => undefined }).drawn(
+      view,
+      null,
+    );
+    return counts;
+  };
+
+  it('DOCE-PAGINATION-11.6 reads only the pages near the frame until the pages near the screen are known', () => {
+    const doc = pagesDocument([twoBlocks('a'), twoBlocks('b'), twoBlocks('c')]);
+    for (const engine of [null, stubEngine()]) {
+      const host = document.createElement('div');
+      document.body.append(host);
+      const view = new EditorView(host, { state: pagesState(doc, engine) });
+      const read = drawPagesApart();
+      // Only the first page is within half a screen of the window: what the others hold is not read,
+      // which would lay them out.
+      expect(counted(view)).toEqual([1]);
+      const sheets = [...host.querySelectorAll('.pm-page')];
+      expect(read.filter((element) => element.closest('.pm-page') !== sheets[0])).toEqual([]);
+      view.destroy();
+      host.remove();
+      vi.restoreAllMocks();
+    }
   });
 });
 
