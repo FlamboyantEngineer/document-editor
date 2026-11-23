@@ -27,7 +27,10 @@ interface DrawnAtomMeasurerOptions {
 }
 
 // How often an atom still drawn is checked for having left the view, in milliseconds, and how many
-// checks it is waited for at most, as an image out of sight that loads lazily may never load.
+// checks its images are waited for at most, as an image out of sight that loads lazily may never
+// load. Math still typesetting is waited for as long as it stays in the view: its final size is what
+// the pages must be laid out with, and the math views end a renderer that does not answer by
+// their deadline as invalid math (DOCE-PAGINATION-10.8).
 const LEFT_CHECK_MS = 1000;
 const MOST_CHECKS = 10;
 
@@ -137,6 +140,21 @@ function readBlock(
   };
 }
 
+// An inline element's box with the boxes it holds: an inline element's own box is its font's,
+// which a box inside it, such as typeset math, may overhang while growing its line. Text inside is
+// left to the element's own box, as a glyph's ink may overhang without growing the line.
+function drawnBox(element: HTMLElement): DOMRect {
+  const own = element.getBoundingClientRect();
+  let [top, left, right, bottom] = [own.top, own.left, own.right, own.bottom];
+  for (const child of element.children) {
+    const box = child.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) continue;
+    [top, left] = [Math.min(top, box.top), Math.min(left, box.left)];
+    [right, bottom] = [Math.max(right, box.right), Math.max(bottom, box.bottom)];
+  }
+  return new DOMRect(left, top, right - left, bottom - top);
+}
+
 // An inline atom's box as the view draws it, and its baseline from a copy drawn in a copy of
 // its ancestors on a line of its own, beside an empty image whose bottom sits on the baseline:
 // the copy's depth below the baseline is the atom's. An atom the view drew across lines is read
@@ -160,10 +178,10 @@ function readInline(
   const shown = outer ?? frame;
   host.append(shown);
   const sizeNow = (): AtomSize => {
-    const copied = made.getBoundingClientRect();
+    const copied = drawnBox(made);
     const depth = copied.bottom - probe.getBoundingClientRect().bottom;
     const align = documentOf.defaultView?.getComputedStyle(made).verticalAlign;
-    const box = drawn.getClientRects().length === 1 ? drawn.getBoundingClientRect() : copied;
+    const box = drawn.getClientRects().length === 1 ? drawnBox(drawn) : copied;
     return {
       width: unzoom(box.width, ratio()),
       height: unzoom(box.height, ratio()),
@@ -229,7 +247,7 @@ function settle(
     check =
       window?.setInterval(() => {
         checks += 1;
-        if (!drawn.isConnected || checks >= MOST_CHECKS) done();
+        if (!drawn.isConnected || (checks >= MOST_CHECKS && !isPending(drawn))) done();
       }, LEFT_CHECK_MS) ?? 0;
   });
 }

@@ -563,18 +563,20 @@
  * How suggestions show (`data-markup`): as if accepted, with a bar beside each line a suggestion
  * shows on in the simple markup, or as if rejected.
  */
-.de-document-editor:is([data-markup='simple'], [data-markup='final']) ins[data-id] {
+.de-document-editor:is([data-markup='simple'], [data-markup='final'])
+  ins:is([data-id], [data-comment-id]) {
   background: none;
   color: inherit;
   text-decoration: none;
 }
 
-.de-document-editor:is([data-markup='simple'], [data-markup='final']) del[data-id],
-.de-document-editor[data-markup='original'] ins[data-id] {
+.de-document-editor:is([data-markup='simple'], [data-markup='final'])
+  del:is([data-id], [data-comment-id]),
+.de-document-editor[data-markup='original'] ins:is([data-id], [data-comment-id]) {
   display: none;
 }
 
-.de-document-editor[data-markup='original'] del[data-id] {
+.de-document-editor[data-markup='original'] del:is([data-id], [data-comment-id]) {
   background: none;
   color: inherit;
   text-decoration: none;

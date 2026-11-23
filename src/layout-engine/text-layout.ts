@@ -65,6 +65,11 @@ export interface TextLayoutOptions {
    * the gutter takes the code's width in from its left.
    */
   readonly codeLineNumbers?: boolean | undefined;
+  /**
+   * The suggestion mark the pages' markup hides now (`hiddenSuggestion`), whose content takes no
+   * room (DOCE-PAGINATION-11.12); none hidden when absent.
+   */
+  readonly hidden?: (() => string | null) | undefined;
 }
 
 /** The inline atoms laid out as their text, and their numbers. */
@@ -134,8 +139,12 @@ function hasCode(node: ProseMirrorNode): boolean {
 function unservedFamily(
   node: ProseMirrorNode,
   typography: BlockTypography,
-  { isFontServed, marker }: { isFontServed: (family: string) => boolean; marker?: string },
+  {
+    isFontServed,
+    marker,
+  }: { isFontServed: ((family: string) => boolean) | undefined; marker?: string | undefined },
 ): string | null {
+  if (!isFontServed) return null;
   const families = [typography.font.family];
   if (hasCode(node)) families.push(typography.codeFamily);
   if (marker) families.push(marker);
@@ -262,12 +271,10 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
       const marker = leadingItem(node, style, place);
-      const unserved = options.isFontServed
-        ? unservedFamily(node, style, {
-            isFontServed: options.isFontServed,
-            ...(marker ? { marker: marker.family } : {}),
-          })
-        : null;
+      const unserved = unservedFamily(node, style, {
+        isFontServed: options.isFontServed,
+        marker: marker?.family,
+      });
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
       const font = fontString(style.font);
       const starts = lineStarts(node, { style, place, codeLineNumbers: options.codeLineNumbers });
@@ -282,6 +289,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         variables: place.variables,
         boxOf: boxOf(style),
         inserted: place.inserted,
+        hidden: options.hidden?.(),
       });
       if (!runs.ok) return runs;
       const table = layoutLines(cache, {
@@ -295,7 +303,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         restStart: starts.restStart,
         block: node,
       });
-      return { ok: true, table: withReserved(table, runs.runs, options.reserve) };
+      const laid = runs.hidden.length ? { ...table, hidden: runs.hidden } : table;
+      return { ok: true, table: withReserved(laid, runs.runs, options.reserve) };
     },
   };
 }

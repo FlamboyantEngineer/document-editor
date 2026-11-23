@@ -4,6 +4,7 @@
 // the pages showed, and each section in its template scope, as the pages' view draws them.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { isMath, type MathTree } from '../engine/math-typeset.js';
 import { elementNumbers } from '../engine/print-links.js';
 import {
   createDocumentSchema,
@@ -19,6 +20,7 @@ import { fontFaceRules } from './font-faces.js';
 import {
   type PagesLayout,
   type PagesLayoutBlock,
+  type PagesLayoutMath,
   type PagesLayoutNumber,
   readPagesDocument,
 } from './pages-layout.js';
@@ -83,6 +85,33 @@ function numberHooks(element: PrintElement, number: PagesLayoutNumber) {
   else addStyle(element, `--de-number: ${cssString(number.number)}`);
 }
 
+// Math as the pages drew it (DOCE-PAGINATION-13.3): typeset as MathML, or what invalid math shows,
+// on an element with the math views' hooks; math not typeset yet keeps its source. The renderer's
+// reason, the view's title, is left out, as a snapshot leaves titles out.
+function mathHooks(
+  element: PrintElement,
+  node: ProseMirrorNode,
+  math: PagesLayoutMath | undefined,
+) {
+  const own = element.attrs.get('class');
+  element.attrs.set('class', own ? `${own} de-math` : 'de-math');
+  element.attrs.set('data-display', node.type.name === 'math_display' ? 'display' : 'inline');
+  element.attrs.set('data-state', math?.state ?? 'pending');
+  if (math?.state === 'ready') element.children = [mathElement(math.math)];
+  else if (math?.state === 'invalid') element.children = [{ text: math.text }];
+}
+
+// A typeset MathML element as a rendered tree, which the snapshot's allow-list then holds to.
+function mathElement(tree: MathTree): PrintElement {
+  return printElement(
+    tree.tag,
+    tree.attrs,
+    tree.children.map((child) =>
+      typeof child === 'string' ? { text: child } : mathElement(child),
+    ),
+  );
+}
+
 // The first element a node draws, which carries its hooks.
 const rootOf = (drawn: PrintTree[]) => drawn.find(isPrintElement);
 
@@ -91,6 +120,7 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
   const blocks = new Map(layout.blocks.map((block) => [block.pos, block]));
   const values = new Map(layout.variables.map((variable) => [variable.pos, variable.text]));
   const numbers = new Map(layout.numbers.map((number) => [number.pos, number]));
+  const math = new Map((layout.math ?? []).map((typeset) => [typeset.pos, typeset]));
   const drawing: NodeDrawing = {
     draw(node, drawn, pos) {
       const own = options.draw(node, drawn, pos);
@@ -102,6 +132,7 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
       if (block) forcedHooks(element, block);
       const number = numbers.get(pos);
       if (number) numberHooks(element, number);
+      if (isMath(node)) mathHooks(element, node, math.get(pos));
       const order = Number(node.attrs.order ?? 1);
       // A list's continuation numbers on from the items before it, as the list starts draw it.
       if (name === 'ordered_list' && order > 1)
@@ -169,12 +200,18 @@ function pageSheetRules(doc: ProseMirrorNode, template: TemplateFile): string {
 export const layoutTemplate = (layout: PagesLayout, template: TemplateFile): TemplateFile =>
   servedTemplate(template, layout.fonts?.generics ?? {});
 
-function drawnLayout(layout: PagesLayout, template: TemplateFile, options: PrintPageOptions) {
+/**
+ * What a static drawing of a layout holds beside it: as a print's, but its suggestions show as the
+ * layout was laid out with them (`PagesLayout.markup`, DOCE-PAGINATION-11.12).
+ */
+export type LayoutPrintOptions = Omit<PrintPageOptions, 'markup'>;
+
+function drawnLayout(layout: PagesLayout, template: TemplateFile, options: LayoutPrintOptions) {
   const doc = readPagesDocument(layout, createDocumentSchema(options.kit));
   const trees = pagesTrees(doc, layout, { template, draw: drawNode });
   numberFootnotes(trees, doc, layout.footnoteNumbering);
   addLinks(trees, elementNumbers(joinDocumentPages(doc).doc, template), options);
-  return { doc, trees: allow(trees, options.markup ?? 'all') };
+  return { doc, trees: allow(trees, layout.markup) };
 }
 
 /** One page of a layout drawn on its own: where it is, its element's attributes, its content. */
@@ -211,7 +248,7 @@ const attrsOf = (tree: PrintTree | undefined) =>
 export function drawLayoutPages(
   layout: PagesLayout,
   template: TemplateFile,
-  options: PrintPageOptions = {},
+  options: LayoutPrintOptions = {},
 ): LayoutDrawing {
   const { doc, trees } = drawnLayout(layout, layoutTemplate(layout, template), options);
   const sections: LayoutSectionDrawing[] = [];
@@ -244,11 +281,11 @@ export function drawLayoutPages(
 export function renderLayoutPrintPage(
   layout: PagesLayout,
   template: TemplateFile,
-  options: PrintPageOptions = {},
+  options: LayoutPrintOptions = {},
 ): string {
   const drawn = layoutTemplate(layout, template);
   const { doc, trees } = drawnLayout(layout, drawn, options);
-  const markup = options.markup ?? 'all';
+  const { markup } = layout;
   const root = printElement(
     'div',
     {

@@ -53,6 +53,15 @@ function breakWidget(
   );
 }
 
+// Whether a range of a block's content is exactly one inline node other than text.
+function isWholeAtom(node: ProseMirrorNode, { from, to }: { from: number; to: number }): boolean {
+  let whole = false;
+  node.forEach((child, start) => {
+    if (!child.isText && start === from && start + child.nodeSize === to) whole = true;
+  });
+  return whole;
+}
+
 // A forced block's own decorations, relative to its content, kept by node and number.
 export function blockSet(
   builder: Builder,
@@ -70,6 +79,13 @@ export function blockSet(
     if (side !== undefined) return breakWidget(from, { side, ...attrs });
     const before = marks[index - 1];
     const around = !inner && before?.inner && before.from === from && before.to === to;
+    // A mark on an inline node other than text, such as math, is drawn on the node's own element:
+    // a view draws an inline decoration only on text.
+    if (!inner && !around && isWholeAtom(node, { from, to }))
+      return Decoration.node(from, to, {
+        class: attrs.class,
+        ...(attrs.style ? { style: attrs.style } : {}),
+      });
     return Decoration.inline(from, to, {
       ...(inner || around ? { nodeName: 'span' } : {}),
       class: attrs.class,

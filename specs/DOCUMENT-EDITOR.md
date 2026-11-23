@@ -527,10 +527,10 @@ Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 
 ### DOCE-EDITOR-6.16 - Suggestions in print
 
-A snapshot's `markup` shall say how its suggestions print: `all`, every suggested insertion and deletion with its markup; `final`, as if accepted, the suggested deletions left out and the insertions as plain text; or `original`, as if rejected, the other way round. Without it, a snapshot shall print as the editor shows suggestions, its `simple` markup as `final`. The snapshot root's `data-markup` shall carry the markup printed.
+A snapshot's `markup` shall say how its suggestions print: `all`, every suggested insertion and deletion with its markup; `final`, as if accepted, the suggested deletions left out and the insertions as plain text; or `original`, as if rejected, the other way round. Without it, a snapshot shall print as the editor shows suggestions, its `simple` markup as `final`. The snapshot root's `data-markup` shall carry the markup printed. A suggestion is an insertion or deletion element carrying its id (`data-id`) or only its comment thread's id (`data-comment-id`), as the schema reads either; a snapshot, `renderPrintPage` and a print drawn from the pages' layout shall each print both kinds as the markup says. With the text layout engine, a snapshot in another markup than the editor's shall be taken with the pages laid out in that markup for that moment (DOCE-PAGINATION-11.12), so the suggestions it leaves out leave no room behind.
 
-Implementation: `src/engine/print-view.ts`, `src/engine/snapshot.ts`, `labs/src/print.lab.tsx`
-Verification: `src/engine/snapshot.test.ts`
+Implementation: `src/engine/print-view.ts`, `src/engine/snapshot.ts`, `src/engine/snapshot-ready.ts`, `src/document/print-content.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/use-document-exports.ts`, `labs/src/print.lab.tsx`, `labs/reference/editor-chrome.css`
+Verification: `src/engine/snapshot.test.ts`, `src/document/print.test.ts`, `e2e/suggestion-markup.spec.ts`
 
 ### DOCE-EDITOR-6.17 - Comparisons in print
 
