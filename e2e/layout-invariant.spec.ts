@@ -571,10 +571,10 @@ async function fingerprintOf(page: Page): Promise<string> {
 }
 
 /**
- * A fingerprint of the planned heights, from the lab's `debug` query: each page's used and free room, and
+ * The planned heights, from the lab's `debug` query, and their fingerprint: each page's used and free room, and
  * each top-level block's type, part, planned top and height, to a thousandth of a pixel.
  */
-async function heightsFingerprintOf(page: Page): Promise<string> {
+async function plannedHeightsOf(page: Page): Promise<{ text: string; print: string }> {
   const text = await page.evaluate(() =>
     [
       ...document.querySelectorAll<HTMLElement>(
@@ -592,7 +592,7 @@ async function heightsFingerprintOf(page: Page): Promise<string> {
       })
       .join('\n'),
   );
-  return digest(text);
+  return { text, print: digest(text) };
 }
 
 test.describe('DOCE-LABS-8.8 the computed result is the same on every device', () => {
@@ -622,12 +622,14 @@ test.describe('DOCE-LABS-8.8 the computed result is the same on every device', (
           DPR_HEIGHT_FAULTS[name]?.includes(ratio) ?? false,
           'DOM-measured block heights follow the device pixel ratio',
         );
-        const print = await heightsFingerprintOf(page);
+        const { text, print } = await plannedHeightsOf(page);
         testInfo.annotations.push({
           type: 'fingerprint',
           description: `${testInfo.project.name} heights ${print}`,
         });
-        expect(print, 'the planned heights, as recorded').toBe(pinned.heights);
+        // On a failure the message gives each page's room and each block's planned top and height, so
+        // a run on another system names the block that differs.
+        expect(print, `the planned heights, as recorded, from:\n${text}`).toBe(pinned.heights);
       });
     }
   }
