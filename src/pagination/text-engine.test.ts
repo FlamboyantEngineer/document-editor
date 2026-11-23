@@ -60,6 +60,34 @@ describe('createPagesTextEngine', () => {
     engine.destroy();
   });
 
+  it('DOCE-PAGINATION-12.4 reserves the widths of an inserted word in its block font', () => {
+    const fonts: string[] = [];
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      reserve: (cluster, font) => {
+        fonts.push(font);
+        return cluster === '\u2603' ? 12 : null;
+      },
+    });
+    expect(engine.insertedReserved(paragraph('kept'), null, 'a\u2603b\u2603 ')).toEqual([
+      { from: 1, to: 2, width: 12 },
+      { from: 3, to: 4, width: 12 },
+    ]);
+    // The paragraph's own font, as the inserted word is laid out in.
+    expect(new Set(fonts).size).toBe(1);
+    expect(fonts[0]).toMatch(/px /u);
+    engine.destroy();
+    const plain = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+    });
+    expect(plain.insertedReserved(paragraph('kept'), null, '\u2603')).toEqual([]);
+    plain.destroy();
+  });
+
   it('DOCE-PAGINATION-10.9 lays blocks out with the numbers the stylesheet states where it measures', () => {
     const measureIn = document.createElement('div');
     measureIn.style.setProperty('--de-quote-spacing', '30px');
@@ -105,6 +133,23 @@ describe('the engine on page regions', () => {
       height: 0,
     });
     expect(pages.measureRegion(paragraph(WORDS), null)).toBeNull();
+    pages.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.10 lays a footer with a template variable out with the text it shows', () => {
+    const pages = engine();
+    const variable = type('template_variable').create({ variableKey: 'page.current' });
+    const footer = type('page_footer').create(null, [
+      type('paragraph').create(null, [text('Page '), variable]),
+    ]);
+    expect(pages.measureRegion(footer, null)).toBeNull();
+    const first = pages.measureRegion(footer, null, new Map([['page.current', '1']]));
+    expect(first?.height).toBeGreaterThan(0);
+    expect(pages.measureRegion(footer, null, new Map([['page.current', '1']]))).toBe(first);
+    // Another value lays the footer out again.
+    const next = pages.measureRegion(footer, null, new Map([['page.current', '12']]));
+    expect(next).not.toBe(first);
+    expect(next?.height).toBe(first?.height);
     pages.destroy();
   });
 

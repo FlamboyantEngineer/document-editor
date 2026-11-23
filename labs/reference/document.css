@@ -832,6 +832,12 @@ div.de-host-view {
   white-space: pre-wrap;
 }
 
+/* A code block's text is in its block's font, not the browser's own `code` font, which the engine
+   never measured (DOCE-PAGINATION-12.5). */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre > code {
+  font: inherit;
+}
+
 /* A cell's content sits where the cell aligns it, across and down. */
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
