@@ -46,3 +46,24 @@ export function scriptFaces(): ServedFace[] {
     bytes: bytesOf(join(scriptFontsDir, file)),
   }));
 }
+
+/**
+ * One of the labs' metric-compatible faces (`arimo`, `cousine`, `tinos`) served under `family`, so
+ * two hosts can serve different bytes under one logical family name.
+ */
+export function fontsourceFaces(face: 'arimo' | 'cousine' | 'tinos', family: string): ServedFace[] {
+  return [400, 700].flatMap((weight) =>
+    [false, true].map((italic) => ({
+      family,
+      weight,
+      italic,
+      bytes: bytesOf(
+        join(
+          packageDir(`@fontsource/${face}`),
+          'files',
+          `${face}-latin-${String(weight)}-${italic ? 'italic' : 'normal'}.woff`,
+        ),
+      ),
+    })),
+  );
+}

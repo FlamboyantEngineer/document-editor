@@ -13,14 +13,14 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Selection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import type { TextDirection } from '../layout-engine/direction.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
-import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
-import { continuedDirections, drawnDirection, isContinued } from './block-directions.js';
+import { continuedDirections, drawnDirection } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
+import { forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
+import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
 import { type InsertedTexts, insertedTexts, NO_INSERTED } from './inserted-texts.js';
-import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
+import type { PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
 export interface ForcedLinesState {
@@ -38,84 +38,6 @@ export interface ForcedLinesState {
 /** The forced lines' plugin key. */
 export const forcedLinesKey = new PluginKey<ForcedLinesState>('forced-lines');
 
-type DecorationSetConstructor = new (
-  local: readonly Decoration[],
-  children: readonly (number | DecorationSet)[],
-) => DecorationSet;
-// The set's own constructor, which ProseMirror keeps internal: local decorations, then each
-// child's start, end and set. Building a container's set from its children's kept sets is what
-// lets the view skip every unchanged block.
-const makeSet = DecorationSet as unknown as DecorationSetConstructor;
-
-/** The block types drawn on forced lines, directly in a page's content. */
-export const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading']);
-
-interface Builder {
-  readonly engine: PagesTextEngine;
-  readonly version: number;
-  readonly numbers: ReadonlyMap<number, string>;
-  /** The numbered paragraphs, which the browser still draws on its own lines. */
-  readonly skipped: ReadonlySet<number>;
-  /** The direction of each later part of a split block, by position. */
-  readonly directions: ReadonlyMap<number, TextDirection>;
-  readonly blocks: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
-  readonly containers: WeakMap<ProseMirrorNode, DecorationSet>;
-  readonly inserted: InsertedTexts;
-}
-
-// The number a heading's part shows: only its first part carries it.
-function prefixOf(builder: Builder, node: ProseMirrorNode, pos: number): string | undefined {
-  if (node.type.name !== 'heading' || isContinued(node)) return undefined;
-  return builder.numbers.get(pos);
-}
-
-// A break, or an indent, drawn among the words inserted at a position, such as a comparison's
-// deleted words (DOCE-PAGINATION-11.11): an empty element between two of them.
-function breakWidget(
-  pos: number,
-  mark: { side: number; class: string; style?: string | undefined },
-) {
-  const key = `${mark.class}|${String(mark.side)}|${mark.style ?? ''}`;
-  return Decoration.widget(
-    pos,
-    (view) => {
-      const element = view.dom.ownerDocument.createElement('span');
-      element.className = mark.class;
-      if (mark.style) element.setAttribute('style', mark.style);
-      return element;
-    },
-    { side: mark.side, key },
-  );
-}
-
-// A forced block's own decorations, relative to its content, kept by node and number.
-function blockSet(
-  builder: Builder,
-  node: ProseMirrorNode,
-  drawn: { table: DrawnLines; key: string; prefixed: boolean },
-) {
-  const { table, key, prefixed } = drawn;
-  const kept = builder.blocks.get(node);
-  if (kept?.key === key) return kept.set;
-  // An inner mark is an element of its own, and the view nests each later level around the one
-  // before: the first other mark on an inner mark's range starts the element around it, which the
-  // marks after it on that range join, as a static drawing nests them.
-  const marks = lineMarks(node, table, { prefixed });
-  const own = marks.map(({ from, to, inner, side, ...attrs }, index) => {
-    if (side !== undefined) return breakWidget(from, { side, ...attrs });
-    const before = marks[index - 1];
-    const around = !inner && before?.inner && before.from === from && before.to === to;
-    return Decoration.inline(from, to, {
-      ...(inner || around ? { nodeName: 'span' } : {}),
-      class: attrs.class,
-      ...(attrs.style ? { style: attrs.style } : {}),
-    });
-  });
-  const set = own.length ? new makeSet(own, []) : DecorationSet.empty;
-  builder.blocks.set(node, { key, set });
-  return set;
-}
-
 interface Scope {
   readonly name: string | null;
 }
@@ -126,24 +48,34 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
   const children: (number | DecorationSet)[] = [];
   content.forEach((child, offset) => {
     const pos = at.pos + 1 + offset;
-    if (!FORCED_TYPES.has(child.type.name) || builder.skipped.has(pos)) return;
-    const prefix = prefixOf(builder, child, pos);
-    const inserted = builder.inserted.byBlock.get(child);
-    const table = builder.engine.lines(child, { scope: at.name, prefix, inserted });
-    if (!table) return;
-    const attrs: Record<string, string> = {
-      class: 'de-forced-lines',
-      'data-lines': String(table.lines.length),
+    const end = offset + child.nodeSize;
+    const kept = builder.nested.get(child)?.set;
+    if (kept) {
+      if (kept !== DecorationSet.empty) children.push(offset, end, kept);
+      return;
+    }
+    const place = {
+      pos,
+      scope: at.name,
+      headings: builder.numbers,
+      numbered: builder.skipped,
+      inserted: builder.inserted,
     };
-    if (prefix) attrs['data-number'] = prefix;
-    attrs.dir = drawnDirection(builder.directions, { node: child, pos });
-    // A number is drawn before the content, so its line's indent is the block's, before it.
-    const indent = prefix ? firstLineIndent(table) : null;
-    if (indent) attrs.style = indent;
-    locals.push(Decoration.node(offset, offset + child.nodeSize, attrs));
-    const key = `${prefix ?? ''}|${insertedKey(inserted)}`;
-    const set = blockSet(builder, child, { table, key, prefixed: Boolean(prefix) });
-    if (set !== DecorationSet.empty) children.push(offset, offset + child.nodeSize, set);
+    const forced = forcedBlocksOf(builder.engine, child, place);
+    const [first] = forced;
+    if (first?.nested) {
+      const lines = new Map(forced.flatMap(({ node, table }) => (table ? [[node, table]] : [])));
+      const { set } = containerSet(builder, child, lines);
+      if (set !== DecorationSet.empty) children.push(offset, end, set);
+      return;
+    }
+    const table = first?.table;
+    if (!first || !table) return;
+    const dir = drawnDirection(builder.directions, { node: child, pos });
+    locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
+    const key = `${first.prefix ?? ''}|${insertedKey(builder.inserted.byBlock.get(child))}`;
+    const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
+    if (set !== DecorationSet.empty) children.push(offset, end, set);
   });
   return locals.length || children.length ? new makeSet(locals, children) : DecorationSet.empty;
 }
@@ -249,6 +181,7 @@ function decorate(
     directions,
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
+    nested: same && previous.inserted === state.inserted ? previous.nested : new WeakMap(),
     inserted: state.inserted,
   };
   return { builder, decorations: documentSet(builder, doc, state.drawn) };

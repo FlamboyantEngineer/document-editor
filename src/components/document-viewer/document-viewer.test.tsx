@@ -158,6 +158,24 @@ describe('DocumentViewer', () => {
     expect(sheets(container)[299]?.querySelector('h1')?.getAttribute('data-number')).toBe('300');
   });
 
+  it('DOCE-PAGINATION-13.10 draws its pages in the language they were laid out in, not its host page’s', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const turkish = { ...tenPages(2), language: 'tr' };
+    const { rerender } = render(
+      <div lang="en">
+        <DocumentViewer layout={turkish} template={BASE_TEMPLATE} label="Turkish" />
+      </div>,
+    );
+    expect(screen.getByRole('document', { name: 'Turkish' })).toHaveAttribute('lang', 'tr');
+    rerender(
+      <div lang="en">
+        <DocumentViewer layout={tenPages(2)} template={BASE_TEMPLATE} label="Unnamed" />
+      </div>,
+    );
+    // None around the editor's pages: none here either, rather than the host page's English.
+    expect(screen.getByRole('document', { name: 'Unnamed' })).toHaveAttribute('lang', '');
+  });
+
   it('DOCE-PAGINATION-13.8 adds the served faces to its document while it shows the pages', () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     const made: { family: string; descriptors: FontFaceDescriptors }[] = [];
@@ -185,6 +203,63 @@ describe('DocumentViewer', () => {
     expect(made).toEqual([{ family: 'Tinos', descriptors: { weight: '700', style: 'italic' } }]);
     expect(added.size).toBe(1);
     unmount();
+    expect(added.size).toBe(0);
+    Reflect.deleteProperty(document, 'fonts');
+  });
+
+  it('DOCE-PAGINATION-12.8 draws other files under a family another viewer holds in a family of its own, through mount and unmount', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const made: string[] = [];
+    class FakeFace {
+      constructor(family: string) {
+        made.push(family);
+      }
+      load() {
+        return Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', FakeFace);
+    const added = new Set<unknown>();
+    const fonts = {
+      add: (face: unknown) => added.add(face),
+      delete: (face: unknown) => added.delete(face),
+    };
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    const served = (bytes: Uint8Array<ArrayBuffer>) => ({
+      ...tenPages(1),
+      fonts: { faces: [{ family: 'Arial', weight: 400, style: 'normal' as const, bytes }] },
+    });
+    const arimo = served(new Uint8Array([1]));
+    const cousine = served(new Uint8Array([2]));
+    const family = (root: Element | null) =>
+      root instanceof HTMLElement
+        ? root.style.getPropertyValue('--doc-paragraph-font-family')
+        : null;
+    const { container: inFirst, unmount: unmountFirst } = render(
+      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} label="First" />,
+    );
+    await act(async () => undefined);
+    const own = family(inFirst.firstElementChild);
+    expect(own).toContain('Arial');
+    // The same files are shared; other files under the family are drawn in one of the viewer's own.
+    const { container: inSame, unmount: unmountSame } = render(
+      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} />,
+    );
+    const { container: inOther, unmount: unmountOther } = render(
+      <DocumentViewer layout={cousine} template={BASE_TEMPLATE} />,
+    );
+    await act(async () => undefined);
+    expect(made).toEqual(['Arial', expect.stringMatching(/^Arial de-\d+$/u)]);
+    expect(family(inSame.firstElementChild)).toBe(own);
+    const otherFamily = family(inOther.firstElementChild);
+    expect(otherFamily).toContain(made[1]);
+    expect(family(inFirst.firstElementChild)).toBe(own);
+    // Unmounting either leaves the first viewer's faces and family as they were.
+    unmountOther();
+    unmountSame();
+    expect(added.size).toBe(1);
+    expect(family(inFirst.firstElementChild)).toBe(own);
+    unmountFirst();
     expect(added.size).toBe(0);
     Reflect.deleteProperty(document, 'fonts');
   });

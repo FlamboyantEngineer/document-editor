@@ -5,6 +5,7 @@ import { readFixture } from './fixtures.js';
 import { addServedFaces, type FontSetup, labMeasurer } from './fonts.js';
 import { type Block, createPreparationCache, indexPages, measureDocument } from './prediction.js';
 import type { BlockReport, LayoutRequest, LayoutResult } from './protocol.js';
+import { contentHeight } from './settings.js';
 
 if (typeof document !== 'undefined') throw new Error('Prediction must run without a DOM');
 
@@ -44,7 +45,8 @@ function predict(request: LayoutRequest): LayoutResult {
   if (!doc) throw new Error('Prediction requires a document first');
   const { blocks, issues } = measureDocument(doc, request.width, cache);
   const prepared = performance.now();
-  const index = issues.length ? null : indexPages(blocks, request.width);
+  const room = contentHeight * (request.packedShare ?? 1);
+  const index = issues.length ? null : indexPages(blocks, request.width, room);
   const portable = index
     ? {
         width: index.width,
