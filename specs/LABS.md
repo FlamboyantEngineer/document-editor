@@ -438,6 +438,13 @@ Every document of the regression set, laid out block by block by the pages' text
 Implementation: `src/pagination/text-engine.ts`
 Verification: `src/pagination/text-engine-refusals.test.ts`
 
+### DOCE-LABS-8.12 - Pages coming near the screen
+
+With `textLayout=pretext` and only the pages near the screen drawn on the engine's lines (DOCE-PAGINATION-11.6), on the regression set's long document, scrolling the editor's frame down to the end and back up half a screen at a time, then jumping to a far page, shall after each move draw every page within half a screen of the frame with exactly the forced blocks the engine put on it, each on its computed lines, while a page farther away keeps the browser's lines; every page and every top-level block shall keep the place and height it had before its page was forced, and the frame shall stay at the scroll position it was moved to.
+
+Implementation: `src/pagination/projection.ts`
+Verification: `e2e/near-pages.spec.ts`
+
 ## DOCE-LABS-9 - Edited pages equal a fresh layout
 
 ### DOCE-LABS-9.1 - Seeded edit sequences in the regression lab
