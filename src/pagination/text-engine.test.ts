@@ -160,6 +160,27 @@ function served(added: string[] = []): ServedFonts {
 }
 
 describe('holdTextEngine', () => {
+  it('DOCE-PAGINATION-9.7 lays the pages out in the language they are drawn in, and again when it changes', async () => {
+    const host = document.createElement('section');
+    const measureIn = host.appendChild(document.createElement('div'));
+    host.lang = 'zh-Hans';
+    const holder = holdTextEngine({
+      setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
+      measureIn,
+      changed: () => undefined,
+    });
+    await holder.loaded;
+    const first = holder.engine();
+    expect(first).not.toBeNull();
+    expect(holder.engine()).toBe(first);
+    host.lang = 'ja';
+    const second = holder.engine();
+    expect(second).not.toBe(first);
+    host.removeAttribute('lang');
+    expect(holder.engine()).not.toBe(second);
+    holder.destroy();
+  });
+
   it('DOCE-PAGINATION-11.1 loads the engine on first use and makes it again for another template', async () => {
     let template = BASE_TEMPLATE;
     const holder = holdTextEngine({

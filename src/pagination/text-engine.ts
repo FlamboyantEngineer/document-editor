@@ -240,6 +240,7 @@ function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
     measureContext,
     isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
+    language: options.language ?? '',
     reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {

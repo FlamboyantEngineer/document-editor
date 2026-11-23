@@ -28,6 +28,12 @@ export interface TextEngineOptions {
   /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
   readonly codeLineNumbers?: boolean | undefined;
   /**
+   * The language the pages are drawn in, which lines break and text is shaped by
+   * (DOCE-PAGINATION-9.7): the `lang` of the element they are in, empty for none, which Chromium
+   * lays out under its default language.
+   */
+  readonly language?: string | undefined;
+  /**
    * The view that measures the pages, which draws each atom as the pages do; atoms are measured as
    * it draws them (DOCE-PAGINATION-10.2). Without it, an atom is drawn in a host of its own.
    */
