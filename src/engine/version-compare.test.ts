@@ -464,6 +464,42 @@ describe('showing version changes', () => {
     expect(marks('Alpha blue', 'Alpha gamma')).toEqual([['modification', 6, 11]]);
   });
 
+  it('DOCE-PAGINATION-11.11 draws deleted text word by word, and deleted blocks on lines of their own', () => {
+    // The words of each deleted text, by what the pages lay out, in drawing order.
+    const words = (before: StoredNode[], after: StoredNode[]) => {
+      const doc = read(...after);
+      return versionChangeDecorations(doc, compareVersions(read(...before), doc), 'markup')
+        .find()
+        .map((decoration) => decoration.spec as { insertedText?: string; side?: number })
+        .filter((spec) => spec.insertedText !== undefined || spec.side !== undefined)
+        .sort((a, b) => (a.side ?? 0) - (b.side ?? 0))
+        .map(({ insertedText, side }) => [insertedText ?? 'break', side]);
+    };
+    expect(
+      words([paragraph('a0000001', 'Keep two old words')], [paragraph('a0000001', 'Keep words')]),
+    ).toEqual([
+      ['two ', -4],
+      ['old ', -2],
+    ]);
+    // Two blocks deleted before a kept one: each text, then a break, before its content.
+    expect(
+      words(
+        [
+          paragraph('a0000001', 'First gone'),
+          paragraph('a0000002', 'Next'),
+          paragraph('a0000003', 'Kept'),
+        ],
+        [paragraph('a0000003', 'Kept')],
+      ),
+    ).toEqual([
+      ['First ', -10],
+      ['gone', -8],
+      ['break', -6],
+      ['Next', -4],
+      ['break', -2],
+    ]);
+  });
+
   it('DOCE-VERSIONS-2.2 compares the document after each change, with the older version it reads', () => {
     let previous: typeof older | null = null;
     const plugin = createVersionChanges({ previous: () => previous });

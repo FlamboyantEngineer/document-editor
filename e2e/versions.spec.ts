@@ -36,9 +36,11 @@ test.describe('versions lab', () => {
     );
     await expect(block(page, 'shall report each fault').locator('del')).toHaveText(['one']);
     await expect(block(page, 'Each report names')).toHaveAttribute('data-diff-change', 'insertion');
-    await expect(block(page, 'Each fault record').locator('del[data-diff-block]')).toHaveText(
-      'Operators may clear the log at any time.',
-    );
+    // A deleted block's text shows word by word (DOCE-PAGINATION-11.11).
+    const deleted = block(page, 'Each fault record').locator('del[data-diff-block]');
+    await expect
+      .poll(async () => (await deleted.allTextContents()).join(''))
+      .toBe('Operators may clear the log at any time.');
     await expect(block(page, 'Reports go')).toHaveAttribute('data-diff-change', 'move');
     await compareWith(page, 'Version 2');
     await expect(block(page, 'shall report each fault')).not.toHaveAttribute('data-diff-change');

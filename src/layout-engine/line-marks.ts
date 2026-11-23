@@ -20,6 +20,11 @@ export interface LineMark {
    * as a reserved box is, so a line's end or indent stays outside the box.
    */
   readonly inner?: boolean | undefined;
+  /**
+   * For a break drawn among text inserted at `from` (`TextLine.side`), an element of its own with
+   * no content: the side it is drawn at among the inserted elements there.
+   */
+  readonly side?: number | undefined;
 }
 
 /** A block's lines as drawn, and whether its alignment justifies them. */
@@ -71,15 +76,30 @@ interface LineMarksOptions {
   readonly prefixed?: boolean | undefined;
 }
 
-// The marks that draw one line.
+// The break before a line that starts among inserted text, drawn between the inserted elements
+// with the line's indent after it (`de-forced-lines__break`); after a hard break or at the block's
+// start, only the indent (`de-forced-lines__indent`).
+function insertedStart(
+  table: JustifiedLines,
+  { line, wraps, prefixed }: { line: TextLine; wraps: boolean; prefixed: boolean },
+): LineMark | null {
+  const indent = indentOf(table, line);
+  const style = indent > 0.001 && !prefixed ? `--de-line-indent: ${px(indent)}` : undefined;
+  if (!wraps && !style) return null;
+  const at = { from: line.from, to: line.from, side: line.side };
+  return { ...at, class: wraps ? 'de-forced-lines__break' : 'de-forced-lines__indent', style };
+}
+
+// The marks that draw one line; a line followed by one that starts among inserted text ends at
+// that line's break instead.
 function marksOfLine(
   node: ProseMirrorNode,
   table: JustifiedLines,
-  { line, prefixed }: { line: TextLine; prefixed: boolean },
+  { line, prefixed, next }: { line: TextLine; prefixed: boolean; next: TextLine | undefined },
 ): LineMark[] {
   const marks: LineMark[] = [];
   const indent = indentOf(table, line);
-  if (indent > 0.001 && line.to > line.from && !prefixed) {
+  if (indent > 0.001 && line.to > line.from && !prefixed && line.side === undefined) {
     const style = `--de-line-indent: ${px(indent)}`;
     marks.push({
       from: line.from,
@@ -97,6 +117,7 @@ function marksOfLine(
     const end = line.from + text.trimEnd().length;
     marks.push({ from: line.from, to: end, class: 'de-forced-lines__justified', style });
   }
+  if (next?.side !== undefined) return marks;
   // A line that ends at a soft hyphen draws its hyphen, as the engine counted it.
   const end = text.endsWith(SOFT_HYPHEN)
     ? 'de-forced-lines__end de-forced-lines__hyphen'
@@ -152,9 +173,17 @@ export function lineMarks(
   { prefixed = false }: LineMarksOptions = {},
 ): LineMark[] {
   const boxes = table.reserved ?? [];
-  let marks = table.lines.flatMap((line, index) =>
-    marksOfLine(node, table, { line, prefixed: prefixed && index === 0 }),
-  );
+  let marks = table.lines.flatMap((line, index) => {
+    const own = marksOfLine(node, table, {
+      line,
+      prefixed: prefixed && index === 0,
+      next: table.lines[index + 1],
+    });
+    if (line.side === undefined) return own;
+    const wraps = table.lines[index - 1]?.end === 'wrap';
+    const start = insertedStart(table, { line, wraps, prefixed: prefixed && index === 0 });
+    return start ? [start, ...own] : own;
+  });
   for (const box of boxes) marks = marks.flatMap((mark) => cutAt(mark, box));
   return [...marks, ...boxes.map(reservedMark)].sort(
     (a, b) => a.from - b.from || a.to - b.to || Number(!!b.inner) - Number(!!a.inner),

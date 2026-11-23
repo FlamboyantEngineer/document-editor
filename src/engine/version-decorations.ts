@@ -73,6 +73,89 @@ function deletedText(owner: Document, text: string, block = false): HTMLElement 
   return element;
 }
 
+// The words of a text and the white space after each, the first with any space before it.
+function wordsOf(text: string): string[] {
+  const words = text.match(/\s*\S+\s*/gu) ?? [];
+  return words.length ? words : text ? [text] : [];
+}
+
+/** Where deleted text is drawn, and how. */
+interface DeletedWords {
+  readonly pos: number;
+  /** The texts deleted there, each a deleted block's on lines of its own when `alone`. */
+  readonly texts: readonly string[];
+  /** The widgets' key, which each word's extends. */
+  readonly key: string;
+  /** Deleted blocks' text: on lines of their own before the block's content, or after it. */
+  readonly alone?: 'before' | 'after' | undefined;
+  readonly own?: boolean | undefined;
+  /** Sets the deleted words' other attributes. */
+  readonly mark?: ((element: HTMLElement) => void) | undefined;
+}
+
+/** One element drawn among deleted words: a word, or a break before or after a deleted block. */
+type DrawnWord = { readonly word: string; readonly group: string } | { readonly word: null };
+
+// The elements drawn for deleted texts, in order: the words of each, a deleted block's text with a
+// break after it before the content, or before it after the content.
+function drawnWords({ texts, key, alone }: DeletedWords): DrawnWord[] {
+  const drawn: DrawnWord[] = [];
+  texts.forEach((text, index) => {
+    if (alone === 'after') drawn.push({ word: null });
+    const group = `${key}-${String(index)}`;
+    for (const word of wordsOf(text)) drawn.push({ word, group });
+    if (alone === 'before') drawn.push({ word: null });
+  });
+  return drawn;
+}
+
+/**
+ * Deleted text drawn in place, word by word: each word, with the white space after it, a widget of
+ * its own whose spec names the word (`insertedText`) and the text it is part of (`insertedGroup`),
+ * so the pages' text layout lays the words out on the block's lines and a line can break between
+ * two of them (DOCE-PAGINATION-11.11). The words of a text deleted inside a block come before what
+ * follows them; deleted blocks' texts are on lines of their own, each with a break after it, or
+ * before it, drawn by a widget of its own. The widgets' sides go up by 2 in drawing order, before
+ * the content up to -2 and after it from 1, so a break can be drawn between any two.
+ */
+function deletedWords(words: DeletedWords): Decoration[] {
+  const { pos, key, alone } = words;
+  const drawn = drawnWords(words);
+  const sideOf = (index: number) =>
+    alone === 'after' ? 1 + 2 * index : -2 * (drawn.length - index);
+  return drawn.map((each, index) => {
+    const side = sideOf(index);
+    if (each.word === null) {
+      return Decoration.widget(
+        pos,
+        (view) => {
+          const element = view.dom.ownerDocument.createElement('span');
+          element.setAttribute('data-diff-block-break', 'true');
+          return element;
+        },
+        { side, key: `${key}-break-${String(index)}` },
+      );
+    }
+    const { word, group } = each;
+    return Decoration.widget(
+      pos,
+      (view) => {
+        const element = deletedText(view.dom.ownerDocument, word, Boolean(alone));
+        words.mark?.(element);
+        return element;
+      },
+      {
+        ...(words.own ? OWN : {}),
+        insertedText: word,
+        insertedGroup: group,
+        ...(alone ? { alone } : {}),
+        side,
+        key: index === 0 ? key : `${key}#${String(index)}`,
+      },
+    );
+  });
+}
+
 // Whether the document still shows `text` at `pos`, just before or after it, as text suggested for
 // deletion: a comparison that counts suggestions as accepted reads it as deleted, and inline markup
 // shows it once, as the suggestion, not again as a deleted run.
@@ -118,16 +201,21 @@ function textDecorations(
     }
     const { from, text } = mark;
     const withText = markup && !showsAsSuggestedDeletion(doc, from, text);
+    const key = `del-${display}-${String(withText)}-${String(from)}-${text}`;
+    if (withText) {
+      const line = (element: HTMLElement) => element.setAttribute(LINE_ATTR, 'deletion');
+      decorations.push(...deletedWords({ pos: from, texts: [text], key, own: true, mark: line }));
+      continue;
+    }
     decorations.push(
       Decoration.widget(
         from,
         (view) => {
-          const owner = view.dom.ownerDocument;
-          const element = withText ? deletedText(owner, text) : owner.createElement('span');
+          const element = view.dom.ownerDocument.createElement('span');
           element.setAttribute(LINE_ATTR, 'deletion');
           return element;
         },
-        { ...OWN, side: -1, key: `del-${display}-${String(withText)}-${String(from)}-${text}` },
+        { ...OWN, side: -1, key },
       ),
     );
   }
@@ -150,11 +238,7 @@ function replacedText(change: VersionChange, doc: ProseMirrorNode, decorations: 
     const text = segment.text;
     if (showsAsSuggestedDeletion(doc, pos, text)) return;
     decorations.push(
-      Decoration.widget(pos, (view) => deletedText(view.dom.ownerDocument, text), {
-        ...OWN,
-        side: -1,
-        key: `del-${String(pos)}-${text}`,
-      }),
+      ...deletedWords({ pos, texts: [text], key: `del-${String(pos)}-${text}`, own: true }),
     );
   });
 }
@@ -163,26 +247,27 @@ function replacedText(change: VersionChange, doc: ProseMirrorNode, decorations: 
 // blocks' text shows inside them, first or last, so it is measured with them.
 function deletionDecorations(changes: readonly VersionChange[], display: VersionChangeDisplay) {
   const decorations: Decoration[] = [];
-  const marked = new Set<string>();
+  // The deleted blocks' texts by where they show, in order.
+  const places = new Map<string, { at: number; after: boolean; texts: string[]; ids: string[] }>();
   for (const change of changes) {
     if (change.kind !== 'deletion' || !change.at) continue;
     const { from, to, after } = change.at;
     const key = `${String(from)}-${String(after)}`;
-    if (!marked.has(key)) {
-      marked.add(key);
+    let place = places.get(key);
+    if (!place) {
+      place = { at: after ? to - 1 : from + 1, after, texts: [], ids: [] };
+      places.set(key, place);
       decorations.push(
         Decoration.node(from, to, { 'data-diff-deletion': after ? 'after' : 'before' }),
       );
     }
-    if (display !== 'markup') continue;
-    const text = change.text;
-    const at = after ? to - 1 : from + 1;
-    decorations.push(
-      Decoration.widget(at, (view) => deletedText(view.dom.ownerDocument, text, true), {
-        side: after ? 1 : -1,
-        key: `deleted-${change.id ?? text}`,
-      }),
-    );
+    place.texts.push(change.text);
+    place.ids.push(change.id ?? change.text);
+  }
+  if (display !== 'markup') return decorations;
+  for (const { at, after, texts, ids } of places.values()) {
+    const alone = after ? 'after' : 'before';
+    decorations.push(...deletedWords({ pos: at, texts, key: `deleted-${ids.join(',')}`, alone }));
   }
   return decorations;
 }

@@ -7,6 +7,7 @@ import { documentSchema, findNode, parseMarkup } from '../../test/document-marku
 import type { TemplateFile } from '../model/format/template-format.js';
 import { planParagraphSplit } from '../model/pagination/text-split.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { createTextLayout, lineTableMeasurement, type TextLayoutOptions } from './text-layout.js';
 
@@ -324,6 +325,92 @@ describe('createTextLayout', () => {
       codeLineNumbers: true,
     });
     expect(thousand.lines.at(-1)?.left).toBe(8 + 34);
+  });
+
+  it('DOCE-PAGINATION-9.4 keeps a citation’s identifier whole on its line', () => {
+    const baseline = {
+      version: 1,
+      documentId: 'doc-7',
+      numbering: 'SYS-REQ',
+      title: 'Requirements',
+      revisionLabel: 'Rev B',
+      defaultLabel: 'SYS-REQ',
+    };
+    const reference = documentSchema.marks.reference?.create({
+      refType: 'external-document',
+      referenceBaseline: JSON.stringify(baseline),
+    });
+    if (!reference) throw new Error('schema has no reference mark');
+    const cited = documentSchema.nodes.paragraph?.create(null, [
+      documentSchema.text('aaaa '),
+      documentSchema.text('SYS-REQ', [reference]),
+    ]);
+    const plain = documentSchema.nodes.paragraph?.create(null, documentSchema.text('aaaa SYS-REQ'));
+    if (!cited || !plain) throw new Error('schema has no paragraph');
+    // `aaaa SYS-` is 51px: a hyphen before letters breaks, unless the identifier is kept whole.
+    expect(starts(table(plain, 60))).toEqual([
+      [0, 9, 'wrap'],
+      [9, 12, 'end'],
+    ]);
+    expect(starts(table(cited, 60))).toEqual([
+      [0, 5, 'wrap'],
+      [5, 12, 'end'],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.11 lays inserted words out on the lines, breaking only between words', () => {
+    const node = block('<p>aaaa bbbb</p>');
+    const lay = (width: number, inserted: readonly InsertedText[]) => {
+      const result = createTextLayout({ template: BASE_TEMPLATE }).layoutText(node, {
+        width,
+        inserted,
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map((line) => [line.from, line.to, line.end, line.side]);
+    };
+    const deleted = { offset: 5, pieces: ['xxxx ', 'yyyy '], sides: [-4, -2] };
+    // `aaaa xxxx ` is 54px: the second word goes on the next line, whose break is drawn before it.
+    expect(lay(60, [deleted])).toEqual([
+      [0, 5, 'wrap', undefined],
+      [5, 9, 'end', -3],
+    ]);
+    // `aaaa xxxx yyyy ` is 81px: the content goes on the next line, after both words.
+    expect(lay(85, [deleted])).toEqual([
+      [0, 5, 'wrap', undefined],
+      [5, 9, 'end', -1],
+    ]);
+    // A word inside a text node cuts it: `aaxxxx ` is 36px, and `aa bbbb` goes after the word.
+    expect(lay(40, [{ offset: 2, pieces: ['xxxx '], sides: [-2] }])).toEqual([
+      [0, 2, 'wrap', undefined],
+      [2, 9, 'end', -1],
+    ]);
+    // A deleted block's text before the content is on lines of its own.
+    expect(lay(200, [{ offset: 0, pieces: ['zz'], sides: [-2], alone: 'before' }])).toEqual([
+      [0, 0, 'break', -3],
+      [0, 9, 'end', undefined],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.11 lays a block out again when its inserted words change', () => {
+    const node = block('<p>aaaa bbbb</p>');
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    const lay = (pieces: readonly string[]) => {
+      const sides = pieces.map((_, index) => -2 * (pieces.length - index));
+      const result = engine.layoutText(node, {
+        width: 60,
+        inserted: [{ offset: 5, pieces, sides }],
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map((line) => [line.from, line.to, line.end]);
+    };
+    expect(lay(['x '])).toEqual([[0, 9, 'end']]);
+    // The same node, kept prepared, with a longer word: it takes a line, and the content the next.
+    expect(lay(['xxxxxxxx '])).toEqual([
+      [0, 5, 'wrap'],
+      [5, 5, 'wrap'],
+      [5, 9, 'end'],
+    ]);
+    expect(lay(['x '])).toEqual([[0, 9, 'end']]);
   });
 
   it('DOCE-PAGINATION-9.7 refuses a block whose font is not served', () => {
