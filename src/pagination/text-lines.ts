@@ -11,6 +11,7 @@ import {
   isContinued,
   sectionScope,
 } from './forced-lines.js';
+import { type InsertedTexts, insertedTexts } from './inserted-texts.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** A computed line of a block: content offsets in the whole block, and the text between them. */
@@ -50,6 +51,8 @@ interface Reading {
   readonly before: Map<string, number>;
   /** The number the pages draw for the footnote marker at a position, if any. */
   readonly markerAt: (pos: number) => string;
+  /** The words other plugins insert in the blocks, as the forced lines lay them out with. */
+  readonly inserted: InsertedTexts;
 }
 
 function linesOf(
@@ -59,7 +62,8 @@ function linesOf(
 ) {
   if (reading.numbered.has(at.pos)) return { lines: null, reason: 'numbered paragraph' };
   const prefix = isContinued(node) ? undefined : reading.headings.get(at.pos);
-  const table = reading.engine.lines(node, { scope: at.scope, prefix });
+  const inserted = reading.inserted.byBlock.get(node);
+  const table = reading.engine.lines(node, { scope: at.scope, prefix, inserted });
   if (!table) return { lines: null, reason: 'not laid out by the engine' };
   return { lines: table.lines.map(({ from, to }) => ({ from, to })) };
 }
@@ -121,7 +125,15 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
       : null;
     return number === null ? '' : String(number);
   };
-  const reading: Reading = { engine, headings, numbered: paragraphs, before: new Map(), markerAt };
+  const inserted = insertedTexts(state, [forcedLinesKey]);
+  const reading: Reading = {
+    engine,
+    headings,
+    numbered: paragraphs,
+    before: new Map(),
+    markerAt,
+    inserted,
+  };
   const pages: PageTextLines[] = [];
   let scope: string | null = null;
   let blocks: BlockTextLines[] = [];

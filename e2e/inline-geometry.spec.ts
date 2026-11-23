@@ -119,4 +119,79 @@ test.describe('inline geometry on the engine’s lines', () => {
     expect(lines.filter((text) => text.includes('GRD-PLAN')).length).toBeGreaterThan(15);
     expect(lines.filter((text) => /(GRD-|Rev )$/.test(text))).toEqual([]);
   });
+
+  test.describe('a comparison’s deleted words', () => {
+    async function compare(page: Page) {
+      await page.goto(
+        'regression.html?document=inline-geometry&textLayout=pretext&debug&compare=markup',
+      );
+      await waitForLab(page);
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    }
+
+    // The pages' paragraph with that id, as the editor draws it.
+    const paragraph = (page: Page, id: string | null) =>
+      page.locator(`.de-document-editor__content .pm-page-content > p[data-id="${String(id)}"]`);
+
+    // Draws the pages again on forced lines, and reads which blocks the browser drew otherwise.
+    async function drawnAsPlanned(page: Page) {
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      await expect.poll(() => page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+      expect(await offPlan(page)).toEqual([]);
+    }
+
+    test('DOCE-PAGINATION-11.11 lays deleted words out on the engine’s lines, word by word', async ({
+      page,
+    }) => {
+      await compare(page);
+      // The first paragraph over several lines loses forty words from its middle, which the
+      // comparison shows in place, over more than one line.
+      const id = await page.evaluate(
+        () =>
+          [...document.querySelectorAll<HTMLElement>('.pm-page-content > p[data-lines]')].find(
+            (block) => block.getBoundingClientRect().height > 60,
+          )?.dataset.id ?? null,
+      );
+      expect(id).not.toBeNull();
+      const block = paragraph(page, id);
+      const box = await block.boundingBox();
+      await block.click({ position: { x: (box?.width ?? 200) / 2, y: 8 } });
+      for (let word = 0; word < 40; word += 1)
+        await page.keyboard.press('Control+Shift+ArrowRight');
+      await page.keyboard.press('Delete');
+      const words = block.locator('del[data-diff-change="deletion"]');
+      await expect.poll(() => words.count()).toBeGreaterThan(30);
+      // The block keeps the engine's lines, one of which breaks between two deleted words.
+      await expect(block).toHaveClass(/de-forced-lines/);
+      await expect(block.locator('.de-forced-lines__break')).not.toHaveCount(0);
+      await drawnAsPlanned(page);
+    });
+
+    test('DOCE-PAGINATION-11.11 lays a deleted block’s text out on lines of its own', async ({
+      page,
+    }) => {
+      await compare(page);
+      // A paragraph after another is deleted with the end of the one before: its text shows in
+      // the next block, before that block's own.
+      const id = await page.evaluate(
+        () =>
+          [...document.querySelectorAll<HTMLElement>('.pm-page-content > p[data-lines]')].find(
+            (block) => block.previousElementSibling?.matches('p[data-lines]'),
+          )?.dataset.id ?? null,
+      );
+      const block = paragraph(page, id);
+      const text = (await block.textContent()) ?? '';
+      await block.click();
+      await page.keyboard.press('End');
+      for (let line = 0; line < 12; line += 1) await page.keyboard.press('Shift+ArrowUp');
+      await page.keyboard.press('Shift+Home');
+      await page.keyboard.press('Shift+ArrowLeft');
+      await page.keyboard.press('Delete');
+      const deleted = page.locator('.de-document-editor__content del[data-diff-block]');
+      await expect
+        .poll(async () => (await deleted.allTextContents()).join(''))
+        .toContain(text.trim());
+      await drawnAsPlanned(page);
+    });
+  });
 });

@@ -552,6 +552,20 @@ div.de-host-view {
   padding-inline-start: var(--de-line-indent, 0);
 }
 
+/* A line that starts among words drawn in the block that are not its content, such as a
+   comparison's deleted words, breaks between two of them, and starts after its indent
+   (DOCE-PAGINATION-11.11). */
+:where(.de-document-editor) .de-forced-lines__break::before {
+  content: '\A';
+  white-space: pre;
+}
+
+:where(.de-document-editor) :is(.de-forced-lines__break, .de-forced-lines__indent)::after {
+  content: '';
+  display: inline-block;
+  width: var(--de-line-indent, 0);
+}
+
 /* A line that ends at a soft hyphen shows the hyphen the engine counted, which the browser draws
    only at a break of its own. */
 :where(.de-document-editor) .de-forced-lines__hyphen::after {
@@ -1589,9 +1603,11 @@ a.de-contents__entry {
   content: none;
 }
 
-/* The text of a block lost before a block, or after the last one, on its own line. */
-.de-document-editor del[data-diff-block] {
-  display: block;
+/* The text of a block lost before a block, or after the last one, is on lines of its own: a break
+   follows it, or comes before it. */
+.de-document-editor [data-diff-block-break]::before {
+  content: '\A';
+  white-space: pre;
 }
 
 /* DOCE-VERSIONS-3.6: blocks outside a scoped comparison are dimmed. */

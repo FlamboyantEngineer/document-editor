@@ -6,6 +6,7 @@ import { documentSchema, findNode, parseMarkup } from '../../test/document-marku
 import type { TemplateFile } from '../model/format/template-format.js';
 import { planParagraphSplit } from '../model/pagination/text-split.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { createTextLayout, lineTableMeasurement, type TextLayoutOptions } from './text-layout.js';
 
@@ -313,6 +314,39 @@ describe('createTextLayout', () => {
     expect(starts(table(cited, 60))).toEqual([
       [0, 5, 'wrap'],
       [5, 12, 'end'],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.11 lays inserted words out on the lines, breaking only between words', () => {
+    const node = block('<p>aaaa bbbb</p>');
+    const lay = (width: number, inserted: readonly InsertedText[]) => {
+      const result = createTextLayout({ template: BASE_TEMPLATE }).layoutText(node, {
+        width,
+        inserted,
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map((line) => [line.from, line.to, line.end, line.side]);
+    };
+    const deleted = { offset: 5, pieces: ['xxxx ', 'yyyy '], sides: [-4, -2] };
+    // `aaaa xxxx ` is 54px: the second word goes on the next line, whose break is drawn before it.
+    expect(lay(60, [deleted])).toEqual([
+      [0, 5, 'wrap', undefined],
+      [5, 9, 'end', -3],
+    ]);
+    // `aaaa xxxx yyyy ` is 81px: the content goes on the next line, after both words.
+    expect(lay(85, [deleted])).toEqual([
+      [0, 5, 'wrap', undefined],
+      [5, 9, 'end', -1],
+    ]);
+    // A word inside a text node cuts it: `aaxxxx ` is 36px, and `aa bbbb` goes after the word.
+    expect(lay(40, [{ offset: 2, pieces: ['xxxx '], sides: [-2] }])).toEqual([
+      [0, 2, 'wrap', undefined],
+      [2, 9, 'end', -1],
+    ]);
+    // A deleted block's text before the content is on lines of its own.
+    expect(lay(200, [{ offset: 0, pieces: ['zz'], sides: [-2], alone: 'before' }])).toEqual([
+      [0, 0, 'break', -3],
+      [0, 9, 'end', undefined],
     ]);
   });
 
