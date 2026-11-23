@@ -747,6 +747,13 @@ The numbers no template setting changes shall be the stylesheet's, stated as cus
 Implementation: `src/layout-engine/blocks/sheet-numbers.ts`, `src/layout-engine/blocks/metrics.ts`, `src/pagination/text-engine.ts`, `labs/reference/document.css`
 Verification: `src/layout-engine/blocks/sheet-numbers.test.ts`
 
+### DOCE-PAGINATION-10.10 - Sizes measured the same on every screen
+
+Chromium rounds a font's ascent and descent, borders and line boxes to device pixels, so a block the browser sizes (a figure, a table, code, an equation, a contents list) measures differently at each device pixel ratio. The pages' measuring element shall publish the inverse of its window's device pixel ratio as `--de-measure-zoom`, again when the ratio changes, as when the window moves to another screen, and the reference stylesheet shall zoom it by that. The view inside it then lays out as on a screen of ratio 1. Every size measured there, by the DOM's measuring and by the drawn-atom measurer (DOCE-PAGINATION-10.8), shall be divided by the zoom the browser draws it at (`measuredZoom`) and snapped to Chromium's layout unit, 1/64 px (`unzoom`), which drops the remainder of dividing by an inexact zoom such as 1/1.25, so the planned pages are the same on every screen; a host stylesheet without the zoom still measures right, at its screen's ratio. A change of ratio shall measure every block and atom again.
+
+Implementation: `src/pagination/measure-scale.ts`, `src/pagination/ghost-measuring.ts`, `src/pagination/projection-layout.ts`, `src/pagination/drawn-atoms.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/measure-cache.ts`, `src/pagination/measure-footnotes.ts`, `src/pagination/layout-document.ts`, `labs/reference/document.css`
+Verification: `src/pagination/measure-scale.test.ts`, `e2e/layout-invariant.spec.ts` (DOCE-LABS-8.8, the planned heights at ratios 1.25 to 3)
+
 ## DOCE-PAGINATION-11 - The layout engine on the pages
 
 Behind the editor's `textLayout: 'pretext'` option, off by default, the pages are laid out and drawn with the text layout engine (DOCE-PAGINATION-9, DOCE-PAGINATION-10) in place of the DOM's measuring. The engine's module loads only when the option is on. The web layout keeps the DOM's lines.
