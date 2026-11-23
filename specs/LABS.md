@@ -460,3 +460,12 @@ With `textLayout=pretext`, the shared room lab (DOCE-COLLAB-6.4) shall hold DOCE
 
 Implementation: `labs/src/collab-room.lab.tsx`
 Verification: `e2e/editing-layout-room.spec.ts`
+
+## DOCE-LABS-10 - Browser tests in CI
+
+### DOCE-LABS-10.1 - Shards of equal time
+
+Hosted CI shall run the lab tests, the one-result invariant's page checks at a device pixel ratio of 1 and the invariant at the display scaling ratios in shards that end at about the same time, each test in exactly one shard. `scripts/lab-shards.mjs plan` shall deal the listed tests out by the seconds recorded in `scripts/lab-durations.json`, slowest first, each to the shard with the least time so far, and write one shard's tests as a Playwright `--test-list` file, failing when the file does not select exactly the tests planned for it. A test with no recorded time counts as the median recorded test, and a test as at least 0.2 s, so a stale record only costs balance. `scripts/lab-shards.mjs record` shall rewrite the record from the list reporter's lines in the CI logs of every shard of one run.
+
+Implementation: `scripts/lab-shards.mjs`, `scripts/lib/lab-shards.mjs`, `scripts/lab-durations.json`, `.github/workflows/ci.yml`
+Verification: `test/lab-shards.test.ts`
