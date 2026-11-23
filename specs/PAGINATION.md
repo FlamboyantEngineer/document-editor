@@ -921,3 +921,10 @@ The pages' layout (DOCE-PAGINATION-13.2) shall hold each number the pages draw f
 
 Implementation: `src/pagination/pages-layout.ts`, `src/pagination/engine-numbers.ts`, `src/document/print-pages.ts`, `src/document/print-content.ts`, `src/engine/print-links.ts`, `labs/reference/document.css`
 Verification: `src/document/print-pages.test.ts`, `e2e/document-viewer.spec.ts`
+
+### DOCE-PAGINATION-13.8 - Served faces in static pages
+
+Under `textLayout: 'pretext'` with served fonts (DOCE-HOST-1.14.1), the pages' layout shall hold the served faces the pages were measured and drawn with and the served family each generic keyword stands for (`fonts`), and null when the host serves none. A static drawing of the layout shall draw in them: the print drawn from the layout holds each face as an `@font-face` rule with its file inline, under the family the template names, in the template with each generic family as its served family (DOCE-PAGINATION-12.5); the viewer adds the faces to its document while it shows the pages, and takes them out again. The handle's snapshots (`exportSnapshot`, `exportSnapshotAsync`) shall hold the same faces inline before the host's stylesheets. A PDF printed from either (DOCE-EDITOR-6.26) shall embed only the served faces, with every page's computed lines on that page.
+
+Implementation: `src/pagination/served-fonts.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/pages-layout.ts`, `src/document/font-faces.ts`, `src/document/print-pages.ts`, `src/components/document-viewer/document-viewer.tsx`, `src/components/document-editor/editor-handle.ts`, `src/document/headless-print.ts`
+Verification: `src/document/font-faces.test.ts`, `src/document/print-pages.test.ts`, `src/components/document-viewer/document-viewer.test.tsx`, `e2e/print-lines.spec.ts`

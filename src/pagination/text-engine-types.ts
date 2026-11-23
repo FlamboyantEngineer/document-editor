@@ -4,6 +4,7 @@
 import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
+import type { FontFiles } from '../host/font-files.js';
 import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
@@ -27,6 +28,8 @@ export interface TextEngineOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
   readonly reserve?: ReserveCluster | undefined;
+  /** The served faces the widths come from, which every drawing of the pages draws with. */
+  readonly fonts?: (() => FontFiles) | undefined;
   /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
   readonly codeLineNumbers?: boolean | undefined;
   /**
@@ -94,6 +97,8 @@ export interface RegionRoom {
 /** The pages' text layout engine for one template. */
 export interface PagesTextEngine {
   readonly template: TemplateFile;
+  /** The served faces the engine measured with (DOCE-HOST-1.14.1); none with another width source. */
+  readonly fonts?: (() => FontFiles) | undefined;
   /** Counts the measured document's numbered headings and paragraphs, for `measureBlock`. */
   number(doc: ProseMirrorNode): void;
   /** A document's numbered headings and paragraphs, such as the pages'. */

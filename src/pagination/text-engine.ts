@@ -295,6 +295,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
 
   return {
     template,
+    fonts: options.fonts,
     number(doc) {
       if (numbers.doc !== doc) numbers = numbersByNode(doc, template).byNode;
     },

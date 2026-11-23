@@ -31,6 +31,7 @@ import {
   unpagedNumbering,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
+import type { FontFiles } from '../../host/font-files.js';
 import type {
   FontsAdapter,
   GlossaryAdapter,
@@ -279,6 +280,8 @@ export interface LayoutProgress {
   textLines(): PageTextLines[];
   /** The pages' layout as data (`textLayout: 'pretext'`); null else. */
   pagesLayout(): PagesLayout | null;
+  /** The served faces the pages are measured and drawn with (`textLayout: 'pretext'`); null else. */
+  servedFonts(): FontFiles | null;
   /** With the layout engine, draws every page on its lines, or only those near the screen again. */
   drawAllLines(all: boolean): void;
   /** Draws every page on the engine's lines until the function it returns is called. */
@@ -294,6 +297,7 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
       stats: () => active.current?.stats() ?? null,
       textLines: () => active.current?.textLines() ?? [],
       pagesLayout: () => active.current?.pagesLayout() ?? null,
+      servedFonts: () => active.current?.servedFonts() ?? null,
       drawAllLines: allLines.drawAll,
       holdAllLines: allLines.hold,
     };
