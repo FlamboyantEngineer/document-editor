@@ -287,9 +287,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const counts = createCounts();
   const widthOf = contentWidths(template);
   const unsubscribe = atoms.subscribe(() => {
-    blocks = new WeakMap();
-    lines = new WeakMap();
-    regions = new WeakMap();
+    [blocks, lines, regions] = [new WeakMap(), new WeakMap(), new WeakMap()];
     options.onAtomsSettled();
   });
 

@@ -205,6 +205,14 @@ function lineStarts(
   return { firstStart: gutter, restStart: gutter };
 }
 
+// The reserved boxes of a word drawn in a text block that is not its content, in the block's font.
+const insertedReservedIn =
+  (typography: TextLayout['typography'], reserve: ReserveCluster | undefined) =>
+  (node: ProseMirrorNode, scope: string | null, word: string): ReservedBox[] => {
+    const font = fontString(typography(node, scope).font);
+    return reserve ? reservedBoxes(word, { offset: 0, font, reserve }) : [];
+  };
+
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
 export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const cache = createLineCache(options.language);
@@ -242,11 +250,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   };
   return {
     typography,
-    insertedReserved: (node, scope, word) => {
-      const { reserve } = options;
-      const font = fontString(typography(node, scope).font);
-      return reserve ? reservedBoxes(word, { offset: 0, font, reserve }) : [];
-    },
+    insertedReserved: insertedReservedIn(typography, options.reserve),
     stats: cache.stats,
     layoutText(node, place) {
       // A code caption waits for code figure geometry that matches the drawn box (DOCE-PAGINATION-9.11).
