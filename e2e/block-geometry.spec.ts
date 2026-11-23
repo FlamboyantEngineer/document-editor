@@ -52,6 +52,8 @@ const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>
     'page overflow': CONTINUED,
   },
   'blockquotes pretext': { 'blockquote height': SINCE_330, 'blockquote gap': SINCE_330 },
+  // Laid out by the engine since footnote markers are (#334): the same quote margin as above.
+  'footnotes-in-structures pretext': { 'blockquote gap': SINCE_330, 'paragraph gap': SINCE_330 },
   'code-blocks pretext': { 'code_figure height': CONTINUED, 'code_figure gap': CONTINUED },
   'inline-geometry pretext': { 'code_figure gap': CONTINUED, 'page overflow': CONTINUED },
   'inline-images pretext': { 'paragraph height': SINCE_330 },
