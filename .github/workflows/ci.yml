@@ -165,8 +165,18 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # A cold `npm ci` takes about 16 minutes on Windows (the git dependencies are prepared there), so
+      # the installed tree is kept per system and lock file. An older tree is brought up to the lock
+      # with `npm install`, and only a miss installs from nothing.
+      - id: modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: font-files-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', '.nvmrc') }}
+          restore-keys: font-files-modules-${{ runner.os }}-
       # The base component library is a private git dependency, read with the token as in the gates job.
       - name: Install, reading the base component library with the read token
+        if: steps.modules.outputs.cache-hit != 'true'
         env:
           GIT_CONFIG_COUNT: 3
           GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
@@ -175,7 +185,9 @@ jobs:
           GIT_CONFIG_VALUE_1: ssh://git@github.com/FlamboyantEngineer/
           GIT_CONFIG_KEY_2: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
           GIT_CONFIG_VALUE_2: git@github.com:FlamboyantEngineer/
-        run: npm ci
+        shell: bash
+        run: |
+          if [ -d node_modules ]; then npm install --no-audit --no-fund; else npm ci; fi
       - run: npx vitest run src/layout-engine/font-files/measurer.test.ts
 
   check:
