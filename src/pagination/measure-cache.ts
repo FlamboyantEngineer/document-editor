@@ -189,9 +189,12 @@ export function blockMargin(style: CSSStyleDeclaration | undefined, side: 'start
 }
 
 // Whether a side of a block lets its first or last child's margin through it, as a plain block
-// with no border or padding there does in a horizontal writing mode.
+// with no border or padding there does in a horizontal writing mode. A block that starts its own
+// formatting context (a display other than block, clipped overflow, layout or paint containment)
+// keeps its children's margins.
 function passesMargin(style: CSSStyleDeclaration, side: 'top' | 'bottom'): boolean {
   if (style.display !== 'block' || !['', 'visible'].includes(style.overflow)) return false;
+  if (/\b(layout|paint|strict|content)\b/.test(style.contain)) return false;
   if (/^(vertical|sideways)/.test(style.writingMode)) return false;
   const padding = side === 'top' ? style.paddingTop : style.paddingBottom;
   const border = side === 'top' ? style.borderTopWidth : style.borderBottomWidth;

@@ -65,6 +65,10 @@ describe('the margins that pass through any block', () => {
       marginTop: 3,
       marginBottom: 0,
     });
+    // A block that starts its own formatting context keeps them.
+    for (const own of ['overflow: hidden', 'display: flow-root', 'contain: paint']) {
+      expect(margins(block(script.innerHTML, own))).toEqual({ marginTop: 0, marginBottom: 0 });
+    }
   });
 
   it('DOCE-PAGINATION-2.2 skips children out of its flow, hidden or inline at its edges', () => {
