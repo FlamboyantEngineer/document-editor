@@ -7,6 +7,9 @@ import { deleteCharacter } from './projection-input.js';
 const FAMILY = '\u{1F468}‍\u{1F469}‍\u{1F467}';
 const FLAG = '\u{1F1EB}\u{1F1F7}';
 const ACCENTED = 'é';
+// Four people with skin tones: 19 UTF-16 units, longer than any first window.
+const TONED_FAMILY = '👨🏽‍👩🏾‍👧🏿‍👦🏻';
+const ACCENTS = `q${'\u0301'.repeat(40)}`;
 
 // A paragraph of `text` with the caret `at` characters into it.
 function caretIn(text: string, at: number) {
@@ -50,5 +53,15 @@ describe('characters on the pages', () => {
     const state = caretIn(`${FLAG}z`, FLAG.length);
     expect(characterWidth(state.selection.$head, -1)).toBe(FLAG.length);
     expect(characterWidth(state.selection.$head, 1)).toBe(1);
+  });
+
+  it('DOCE-PAGINATION-7.11 deletes a cluster of any length whole, either way', () => {
+    const text = `A${TONED_FAMILY}Z`;
+    expect(deleted(caretIn(text, 1 + TONED_FAMILY.length), -1)).toBe('AZ');
+    expect(deleted(caretIn(text, 1), 1)).toBe('AZ');
+    expect(deleted(caretIn(`${ACCENTS}x`, ACCENTS.length), -1)).toBe('x');
+    expect(deleted(caretIn(`x${ACCENTS}`, 1), 1)).toBe('x');
+    const state = caretIn(text, 1);
+    expect(characterWidth(state.selection.$head, 1)).toBe(TONED_FAMILY.length);
   });
 });

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Runs every check of `npm run check`. The checks of a stage run side by side and print their
-// output once each finishes; a stage starts only when every check of the one before it passed.
+// Runs every check of `npm run check`. The checks of a stage run side by side; a check that fails
+// prints its output once it finishes, and so does one whose output is a report to read on every
+// run. A stage starts only when every check of the one before it passed.
 // `--skip <check>` leaves a check out, for hosted CI, which runs the browser tests in parallel jobs.
 
 import { parseArgs } from 'node:util';
@@ -20,6 +21,10 @@ const STAGES = [
   ['test', 'test:labs', 'check:bundle-size', 'check:consumer'],
   ['test:guard-budgets'],
 ];
+
+// The checks whose output is read on every run: the bundle sizes of each pull request
+// (DOCE-ENTRY-2.1).
+const REPORTS = new Set(['check:bundle-size']);
 
 const skipped = parseArgs({ options: { skip: { type: 'string', multiple: true, default: [] } } })
   .values.skip;
@@ -41,7 +46,7 @@ function run(script) {
       const passed = code === 0;
       const status = passed ? 'passed' : `FAILED (${signal ?? `exit ${code}`})`;
       console.log(`${status}  ${script} (${seconds}s)`);
-      if (!passed && output.trim()) console.log(output.trimEnd(), '\n');
+      if ((!passed || REPORTS.has(script)) && output.trim()) console.log(output.trimEnd(), '\n');
       resolve(passed);
     });
   });
