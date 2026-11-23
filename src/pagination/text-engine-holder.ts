@@ -8,7 +8,7 @@
 import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
-import type { PagesFonts } from './served-fonts.js';
+import type { PagesFonts, ServedFonts } from './served-fonts.js';
 import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
@@ -44,6 +44,17 @@ const languageOf = (element: Element) => element.closest('[lang]')?.getAttribute
 interface EngineModule {
   readonly createPagesTextEngine: typeof createPagesTextEngine;
   readonly forgetFontWidths: typeof forgetFontWidths;
+}
+
+// What the engine takes from the host's served fonts: its widths, which families are served, the
+// room it keeps for unserved glyphs and the font files.
+function servedInputs(fonts: ServedFonts) {
+  return {
+    measureContext: fonts.measureContext,
+    isFontServed: (family: string) => fonts.isFontServed(family),
+    reserve: fonts.reserve,
+    fonts: fonts.files,
+  };
 }
 
 /**
@@ -112,6 +123,7 @@ export function holdTextEngine(options: {
       version += 1;
       askFor(template);
       current = made.createPagesTextEngine({
+        ...servedInputs(fonts),
         template,
         codeLineNumbers,
         language,
@@ -119,10 +131,6 @@ export function holdTextEngine(options: {
         onAtomsSettled: settled,
         view: options.view,
         hostViews: options.setting.hostViews,
-        measureContext: fonts.measureContext,
-        isFontServed: (family) => fonts?.phase === 'pretext' && fonts.isFontServed(family),
-        reserve: fonts.reserve,
-        fonts: fonts.files,
       });
       return current;
     },
