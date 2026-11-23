@@ -70,21 +70,63 @@ test('DOCE-LABS-5.1 explains unsupported features in the full pagination stress 
   ).toHaveCount(0);
 });
 
-test('DOCE-LABS-5.2 matches production source ranges on every page before and after narrowing', async ({
+// The production projection, laid out by the prediction's rules with its paragraphs split at the
+// lines its own measuring view drew, puts the same source ranges on every page.
+const production = [
+  { name: 'long', widths: [601.6875, 481.6875], pages: [300, 320] },
+  { name: 'stress-fragments', widths: [601.6875, 601, 375.5], pages: [6, 6, 7] },
+  { name: 'stress-text', widths: [601.6875, 480], pages: [300, 354] },
+  { name: 'stress-distinct', widths: [601.6875], pages: [312] },
+  { name: 'stress-lists', widths: [601.6875, 480, 375.5], pages: [110, 130, 174] },
+  { name: 'stress-mixed', widths: [601.6875, 601, 480, 375.5], pages: [70, 70, 81, 97] },
+] as const;
+
+for (const { name, widths, pages } of production) {
+  test(`DOCE-LABS-5.2 matches production source ranges on every page of the ${name} document`, async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await page.goto('/pretext-pagination.html?measure');
+    for (const [at, width] of widths.entries()) {
+      const result = await page.evaluate(
+        ({ name, width }) => window.pretextPagination.compareProductionBoundaries(name, width),
+        { name, width },
+      );
+      const where = `${name} at ${String(width)} px`;
+      expect(result.firstDivergence, `first page that differs, ${where}`).toBeNull();
+      expect(result.html, where).toHaveLength(pages[at] ?? 0);
+      expect(result.predicted, where).toEqual(result.html);
+    }
+  });
+}
+
+// The oracle fills its pages with a packer of its own, so pages the prediction packs into a share
+// of their room show as pages ended too soon, and pages packed past it as pages ended too late.
+test('DOCE-LABS-5.2 finds pages the prediction filled short of or past their room', async ({
   page,
 }) => {
+  test.setTimeout(180_000);
   await page.goto('/pretext-pagination.html?measure');
-  for (const [width, pages] of [
-    [601.6875, 300],
-    [481.6875, 320],
-  ] as const) {
-    const { predicted, html } = await page.evaluate(
-      (width) => window.pretextPagination.compareProductionBoundaries('long', width),
-      width,
+  for (const name of ['stress-fragments', 'stress-lists', 'stress-mixed'] as const) {
+    const fair = await page.evaluate(
+      (name) => window.pretextPagination.verify(name, undefined, undefined),
+      name,
     );
-    expect(html).toHaveLength(pages);
-    expect(predicted).toHaveLength(pages);
-    for (const [i, parts] of html.entries())
-      expect(predicted?.[i], `Page ${String(i + 1)} at ${String(width)} px`).toEqual(parts);
+    expect(fair.boundaryMismatches, name).toEqual([]);
+    const short = await page.evaluate(
+      (name) => window.pretextPagination.verify(name, undefined, undefined, { packedShare: 0.75 }),
+      name,
+    );
+    expect(short.predictedPages, name).toBeGreaterThan(short.htmlPages);
+    expect(short.htmlPages, name).toBe(fair.htmlPages);
+    expect(short.firstDivergence, name).toMatchObject({ page: 1, ends: 'short' });
+    expect(short.overflow, name).toEqual([]);
+    const long = await page.evaluate(
+      (name) => window.pretextPagination.verify(name, undefined, undefined, { packedShare: 1.1 }),
+      name,
+    );
+    expect(long.predictedPages, name).toBeLessThan(long.htmlPages);
+    expect(long.firstDivergence, name).toMatchObject({ ends: 'long' });
+    expect(long.overflow.length, name).toBeGreaterThan(0);
   }
 });

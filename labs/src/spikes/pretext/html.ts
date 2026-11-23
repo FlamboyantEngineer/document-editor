@@ -1,6 +1,7 @@
 import { DOMSerializer, type Node } from 'prosemirror-model';
 import { blockDirection } from '../../../../src/layout-engine/direction.js';
 import { requireValue, schema } from './fixtures.js';
+import { endsInLineBreak } from './prediction.js';
 import type { LayoutIndex } from './protocol.js';
 import { applySettings, pageGap } from './settings.js';
 
@@ -28,6 +29,10 @@ export function renderBlock(node: Node, whole: Node = node) {
     );
     table.style.width = `${String(widths.reduce((total, width) => total + width, 0))}px`;
   }
+  // Code ending in a line break shows the empty line after it, as the editor's view draws it with
+  // a trailing break.
+  const code = element.querySelector('pre > code') ?? element.querySelector('pre');
+  if (code && endsInLineBreak(whole)) code.append(document.createElement('br'));
   const math = '[data-inline-type="latex"], [data-block-type="latex"]';
   for (const box of element.matches(math)
     ? [element]

@@ -23,6 +23,8 @@ export interface GeometryMismatch {
   readonly kind: GeometryKind;
   readonly planned: number;
   readonly drawn: number;
+  /** Whether the block holds an image that never loaded. */
+  readonly brokenImage?: boolean;
 }
 
 /** The pages' geometry against their plan, in the order drawn. It runs in the page. */
@@ -53,6 +55,9 @@ export function readBlockGeometry(page: Page): Promise<GeometryMismatch[]> {
         if (part === 0) counts.set(type, (counts.get(type) ?? 0) + 1);
         const block = `${type} ${String(counts.get(type) ?? 1)}#${String(part)}`;
         const rect = element.getBoundingClientRect();
+        const brokenImage = [...element.querySelectorAll('img')].some(
+          (image) => image.complete && image.naturalWidth === 0,
+        );
         const height = Number(element.dataset.debugHeight);
         const top = Number(element.dataset.debugTop);
         const drawnHeight = rect.height / scale;
@@ -67,6 +72,7 @@ export function readBlockGeometry(page: Page): Promise<GeometryMismatch[]> {
             kind: 'height',
             planned: round(height),
             drawn: round(drawnHeight),
+            ...(brokenImage ? { brokenImage } : {}),
           });
         const gap = top - plannedBottom;
         const drawnGap = drawnTop - drawnBottom;
@@ -77,6 +83,7 @@ export function readBlockGeometry(page: Page): Promise<GeometryMismatch[]> {
             kind: 'gap',
             planned: round(gap),
             drawn: round(drawnGap),
+            ...(brokenImage ? { brokenImage } : {}),
           });
         plannedBottom = top + height;
         drawnBottom = drawnTop + drawnHeight;
