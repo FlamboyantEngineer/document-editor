@@ -2,6 +2,8 @@
 // (DOCE-ENTRY-2.1). The budgets live in `scripts/bundle-budgets.json`: each consumer's measured
 // baseline in bytes, raw and gzipped, and one allowance for growth over every baseline. While the
 // file holds a suspension with its cause, growth past the allowance is reported and does not fail.
+// What a consumer loads on first use has no budget; the sizes of named loads are measured, to be on
+// record (DOCE-ENTRY-2.6).
 
 import { gzipSync } from 'node:zlib';
 
@@ -28,6 +30,35 @@ export function chunksOf(compilation) {
       .flatMap(leaves)
       .map((module) => module.readableIdentifier(compilation.requestShortener)),
   }));
+}
+
+/**
+ * What each `import()` of a webpack compilation loads on first use: the requests that name it and
+ * the JavaScript files of the chunks fetched for it.
+ * @param {import('webpack').Compilation} compilation
+ * @returns {{ requests: string[], files: string[] }[]}
+ */
+export function loadsOf(compilation) {
+  return [...compilation.chunkGroups]
+    .filter((group) => !group.isInitial())
+    .map((group) => ({
+      requests: [...new Set(group.origins.flatMap((origin) => origin.request ?? []))],
+      files: group.chunks
+        .flatMap((chunk) => [...chunk.files])
+        .filter((file) => file.endsWith('.js')),
+    }));
+}
+
+/**
+ * The files fetched on first use by the loads a request pattern names, each file once.
+ * @param {{ requests: string[], files: string[] }[]} loads
+ * @param {string} pattern
+ * @returns {string[]}
+ */
+export function loadedFiles(loads, pattern) {
+  const expression = new RegExp(pattern);
+  const named = loads.filter((load) => load.requests.some((request) => expression.test(request)));
+  return [...new Set(named.flatMap((load) => load.files))];
 }
 
 /**
