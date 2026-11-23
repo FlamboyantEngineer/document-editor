@@ -527,12 +527,15 @@ const PINNED: Readonly<
   'roman-numbering-stress': { lines: 'd24934809773ffdb', heights: '19718eeba63c6a81' },
 };
 
-// Where the planned heights differ from those at ratio 1, by document: the ratios. The blocks the
-// engine does not lay out (tables, figures, code, display math, contents) keep heights measured in
-// the page, which Chromium rounds to device pixels, so they, the blocks below them and page
-// boundaries move; at 2, a figure of caption-numbering goes to the page before. Expected failures,
-// for thread I: a fix removes its document's ratios here, and a ratio that starts to differ is a
-// finding, not an entry to add.
+// Where the planned heights differ from those at ratio 1, by document: the ratios. Two causes, both
+// measured in the page, which Chromium rounds to device pixels:
+// - the blocks the engine does not lay out (tables, figures, code, display math, contents), so they,
+//   the blocks below them and page boundaries move; at 2, a figure of caption-numbering goes to the
+//   page before;
+// - each page's room beside its header and footer (in roman-numbering-stress, text only, the free
+//   room alone moves, 31.387 px at 1 against 31.399 at 1.25 and 31.402 at 2).
+// Expected failures; the owner is named by the requirements review (atoms, Q2). A fix removes its
+// document's ratios here, and a ratio that starts to differ is a finding, not an entry to add.
 const DPR_HEIGHT_FAULTS: Readonly<Partial<Record<RegressionDocumentName, readonly number[]>>> = {
   'caption-numbering': [1.25, 1.5, 1.75, 2, 3],
   'heading-keep-with-next': [1.25, 1.5, 1.75, 2],
