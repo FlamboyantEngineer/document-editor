@@ -515,8 +515,9 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
   'caption-numbering': 'b7088b707c5b1f03',
   'heading-keep-with-next': 'cde9efbfd0216fdd',
-  // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10): pages hold more.
-  'long-mixed': '7d74fe3d8d8fccb5',
+  // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
+  // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5).
+  'long-mixed': 'a63acc7dc31961b5',
   'oversized-blocks': '04f2d26ec8b3697c',
   'roman-numbering-stress': 'd24934809773ffdb',
 };

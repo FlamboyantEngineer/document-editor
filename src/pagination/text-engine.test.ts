@@ -6,8 +6,8 @@ import { findNode, parseMarkup } from '../../test/document-markup.js';
 import { type LayoutBlock, splitParagraph } from '../model/index.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
-import type { ServedFonts } from './served-fonts.js';
 import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
+import type { ServedFonts } from './served-fonts.js';
 import { createPagesTextEngine } from './text-engine.js';
 import { holdTextEngine } from './text-engine-holder.js';
 
