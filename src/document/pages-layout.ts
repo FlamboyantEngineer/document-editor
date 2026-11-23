@@ -5,6 +5,7 @@
 // not a stored format.
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import type { FontFiles } from '../host/font-files.js';
 import type { LineMark } from '../layout-engine/line-marks.js';
 
 /** A top-level paragraph or heading of a page, drawn on the engine's lines. */
@@ -20,7 +21,7 @@ export interface PagesLayoutBlock {
    * (`--de-first-indent`), drawn before its number.
    */
   readonly style?: string | undefined;
-  /** `rtl` when it is drawn right to left (DOCE-PAGINATION-9.11); absent when left to right. */
+  /** `rtl` when it is drawn right to left (DOCE-PAGINATION-9.12); absent when left to right. */
   readonly direction?: 'rtl' | undefined;
   /** The marks that draw its lines, by offset in its content. */
   readonly marks: readonly LineMark[];
@@ -54,6 +55,12 @@ export interface PagesLayout {
   readonly variables: readonly PagesLayoutVariable[];
   /** The heading, caption and equation numbers the pages draw, by position. */
   readonly numbers: readonly PagesLayoutNumber[];
+  /**
+   * The served faces the pages were measured and drawn with, and the family each generic keyword
+   * stands for (DOCE-HOST-1.14.1); null when the host serves none. What draws the layout draws
+   * with them.
+   */
+  readonly fonts: FontFiles | null;
   /**
    * Whether the layout may still move: the pages are not settled, an atom such as an image or math
    * is still loading, or fonts are. A host prints or keeps the layout once it is false, as after

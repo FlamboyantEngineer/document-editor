@@ -1,4 +1,4 @@
-// A text block's direction, from its text alone (DOCE-PAGINATION-9.11): its first strongly
+// A text block's direction, from its text alone (DOCE-PAGINATION-9.12): its first strongly
 // directional character decides it, as Unicode's paragraph rule (UAX #9, P2 and P3) and the
 // browser's `dir="auto"` do, read in its text and the text its mentions and glossary references
 // show. A block without one is left to right. Lines break in the text's order whatever its

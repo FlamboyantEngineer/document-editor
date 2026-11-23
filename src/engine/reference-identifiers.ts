@@ -5,40 +5,20 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { readReferenceBaseline } from '../model/index.js';
+import { citationIdentifiers } from '../model/citation-identifiers.js';
 import { touchesReferences } from './reference-updates.js';
-import { internalTargetId, listReferences } from './references.js';
 
 const identifiersKey = new PluginKey<DecorationSet>('reference-identifiers');
-
-// Each identifier a citation reads, by where it first reads in its text.
-function identifiersOf(text: string, parts: readonly (string | null | undefined)[]) {
-  const found: [number, number][] = [];
-  for (const part of parts) {
-    const value = part?.trim();
-    const at = value ? text.indexOf(value) : -1;
-    if (value && at >= 0) found.push([at, at + value.length]);
-  }
-  return found;
-}
 
 /** The marks that keep each citation's identifiers whole, for a document. */
 export function referenceIdentifiers(doc: ProseMirrorNode): DecorationSet {
   const decorations: Decoration[] = [];
-  for (const reference of listReferences(doc)) {
-    if (internalTargetId(reference.mark)) continue;
-    const baseline = readReferenceBaseline(reference.mark.attrs.referenceBaseline);
-    if (!baseline) continue;
-    const text = doc.textBetween(reference.from, reference.to);
-    const parts = [baseline.numbering, baseline.revisionLabel, baseline.target?.numbering];
-    for (const [from, to] of identifiersOf(text, parts)) {
-      decorations.push(
-        Decoration.inline(reference.from + from, reference.from + to, {
-          'data-reference-identifier': '',
-        }),
-      );
-    }
-  }
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    for (const [from, to] of citationIdentifiers(node, pos + 1))
+      decorations.push(Decoration.inline(from, to, { 'data-reference-identifier': '' }));
+    return false;
+  });
   return DecorationSet.create(doc, decorations);
 }
 

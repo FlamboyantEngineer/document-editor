@@ -1,4 +1,4 @@
-// The direction each forced block of the pages is drawn in (DOCE-PAGINATION-9.11): its own, from
+// The direction each forced block of the pages is drawn in (DOCE-PAGINATION-9.12): its own, from
 // its text, or a later part of a split block its first part's, so a paragraph keeps one direction
 // across its pages whatever text its later parts start with.
 

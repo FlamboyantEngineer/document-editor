@@ -7,7 +7,7 @@ import { applySettings, pageGap } from './settings.js';
 const serializer = DOMSerializer.fromSchema(schema);
 
 // A block drawn as the pages draw it: a text block with its direction from its first strong
-// letter, a part of a split block with the whole block's (DOCE-PAGINATION-9.11).
+// letter, a part of a split block with the whole block's (DOCE-PAGINATION-9.12).
 export function renderBlock(node: Node, whole: Node = node) {
   const element = serializer.serializeNode(node) as HTMLElement;
   if (whole.isTextblock) element.dir = blockDirection(whole);

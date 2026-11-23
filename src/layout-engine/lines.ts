@@ -182,6 +182,7 @@ function alignedLeft(align: TextAlign, room: number, width: number): number {
 
 interface Placed {
   readonly from: number;
+  readonly side: number | undefined;
   readonly width: number;
   readonly height: number;
   readonly start: number;
@@ -199,12 +200,14 @@ function runLines(
   const widths = { first: width - opening, rest: width - restStart };
   const lines = run.items.length ? cache.lines(run, widths, input.block) : [];
   if (!lines.length) {
-    return [{ from: run.start, width: 0, height: leading, start: opening, lastOfRun: true, run }];
+    const empty = { from: run.start, side: undefined, width: 0, height: leading };
+    return [{ ...empty, start: opening, lastOfRun: true, run }];
   }
   return lines.map((line, index) => {
     const offset = run.offsets[line.item] ?? -1;
     return {
       from: offset < 0 ? run.start : offset + line.sourceStart,
+      side: insertedSide(run, line),
       width: line.width,
       height: lineHeight(run, line, input.strut),
       start: index === 0 ? opening : restStart,
@@ -212,6 +215,18 @@ function runLines(
       run,
     };
   });
+}
+
+// Where a line that starts among inserted text breaks from the line before: before its first
+// inserted word, or after the last word inserted where its content starts.
+function insertedSide(run: TextRun, line: RunLine): number | undefined {
+  const own = run.sides[line.item];
+  if (own !== null && own !== undefined) return own - 1;
+  const before = run.sides[line.item - 1];
+  const sameOffset = run.offsets[line.item - 1] === run.offsets[line.item];
+  return before !== null && before !== undefined && sameOffset && line.sourceStart === 0
+    ? before + 1
+    : undefined;
 }
 
 /** The line table of a block's runs. */
@@ -232,6 +247,7 @@ export function layoutLines(cache: LineCache, input: LineLayoutInput): LineTable
       top,
       height: line.height,
       end: line.lastOfRun ? (line.run.endsWithBreak ? 'break' : 'end') : 'wrap',
+      ...(line.side === undefined ? {} : { side: line.side }),
     });
     top += line.height;
   });

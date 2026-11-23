@@ -4,7 +4,9 @@
 
 import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inline';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { citationIdentifiers } from '../model/citation-identifiers.js';
 import type { AtomPlace } from './atoms.js';
+import type { InsertedText } from './inserted-text.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
 
@@ -37,6 +39,8 @@ export interface TextRun {
   readonly offsets: readonly number[];
   /** Each item's box on the line: an atom's size, or text's in another font; null otherwise. */
   readonly atoms: readonly (InlineAtomSize | null)[];
+  /** For each item of inserted text (`InsertedText`), its side among the elements there. */
+  readonly sides: readonly (number | null)[];
 }
 
 /** A block's runs, or why its content cannot be laid out. */
@@ -60,6 +64,8 @@ interface RunInput {
     (TextAtomSource & { readonly types?: ReadonlySet<string> | undefined }) | undefined;
   /** The box a text item in another font takes on its line; null when it cannot grow the line. */
   readonly boxOf?: ((font: FontStyle) => InlineAtomSize | null) | undefined;
+  /** Text drawn in the block that is not its content, such as a comparison's deleted words. */
+  readonly inserted?: readonly InsertedText[] | undefined;
 }
 
 /** The padding inline code takes on each side of each of its lines. */
@@ -69,18 +75,46 @@ interface Builder {
   items: (RichInlineItem | RichInlineBox)[];
   offsets: number[];
   atoms: (InlineAtomSize | null)[];
+  sides: (number | null)[];
   start: number;
 }
 
-const startRun = (start: number): Builder => ({ items: [], offsets: [], atoms: [], start });
+const startRun = (start: number): Builder => ({
+  items: [],
+  offsets: [],
+  atoms: [],
+  sides: [],
+  start,
+});
 
 function addText(
   run: Builder,
-  { item, offset, box }: { item: RichInlineItem; offset: number; box: InlineAtomSize | null },
+  {
+    item,
+    offset,
+    box,
+    side = null,
+  }: {
+    item: RichInlineItem | RichInlineBox;
+    offset: number;
+    box: InlineAtomSize | null;
+    side?: number | null;
+  },
 ) {
   run.items.push(item);
   run.offsets.push(offset);
   run.atoms.push(box);
+  run.sides.push(side);
+}
+
+// Adds the words inserted at an offset, each an item of its own in the block's font, so a line
+// that breaks among them breaks between two words, at the space after one (DOCE-PAGINATION-11.11).
+function addInserted(run: Builder, inserted: InsertedText, typography: BlockTypography) {
+  const font = fontString(typography.font);
+  inserted.pieces.forEach((text, index) => {
+    const item: RichInlineItem = { text, font };
+    addText(run, { item, offset: inserted.offset, box: null, side: inserted.sides[index] ?? 0 });
+  });
 }
 
 // The box text in its marks' font takes on the line: its own font's, at the inherited line height.
@@ -127,33 +161,80 @@ function addAtom(
     if (!size) return `no size for inline ${name}`;
     item = { width: size.width };
   }
-  run.items.push(item);
-  run.offsets.push(offset);
-  run.atoms.push(size);
+  addText(run, { item, offset, box: size });
   return null;
 }
 
 // A fragment after the first of a split block.
 const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
+// A text node's pieces, cut where a citation's identifier starts and ends: each identifier piece
+// is one unbreakable item, as the stylesheet keeps it whole (DOCE-REFERENCES-1.13), and is its own
+// element on the line, as the identifier's decoration draws it.
+function textPieces(
+  child: ProseMirrorNode,
+  { offset, typography, identifiers, inserted }: PieceInput,
+): { item: RichInlineItem; offset: number }[] {
+  const item = textItem(child, typography);
+  const end = offset + child.nodeSize;
+  const inside = identifiers.filter(([from, to]) => from < end && to > offset);
+  // Text inserted inside the node is drawn between two of its pieces.
+  const between = inserted.filter((at) => at > offset && at < end);
+  if (!inside.length && !between.length) return [{ item, offset }];
+  const cuts = [...new Set([offset, ...inside.flat(), ...between, end])]
+    .filter((cut) => cut >= offset && cut <= end)
+    .sort((a, b) => a - b);
+  const pieces: { item: RichInlineItem; offset: number }[] = [];
+  for (let index = 0; index + 1 < cuts.length; index += 1) {
+    const from = cuts[index] ?? offset;
+    const to = cuts[index + 1] ?? end;
+    const text = item.text.slice(from - offset, to - offset);
+    const whole = inside.some(([start, stop]) => start <= from && to <= stop);
+    pieces.push({ item: { ...item, text, ...(whole ? { break: 'never' } : {}) }, offset: from });
+  }
+  return pieces;
+}
+
+interface PieceInput {
+  readonly offset: number;
+  readonly typography: BlockTypography;
+  /** The block's citation identifiers, as content ranges. */
+  readonly identifiers: readonly (readonly [number, number])[];
+  /** The offsets text is inserted at. */
+  readonly inserted: readonly number[];
+}
+
+// Adds the inserted text at or before an offset that is not added yet, in the run it is drawn in.
+function insertedUpTo(input: RunInput) {
+  const waiting = (input.inserted ?? []).filter((each) => !each.alone);
+  return (run: Builder, at: number) => {
+    while (waiting[0] && waiting[0].offset <= at) {
+      const next = waiting.shift();
+      if (next) addInserted(run, next, input.typography);
+    }
+  };
+}
 
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */
 export function buildRuns(input: RunInput): TextRuns {
   const { node, typography, prefix, lead } = input;
   const runs: TextRun[] = [];
   let run = startRun(0);
-  if (lead) {
-    run.items.push({ width: lead });
-    run.offsets.push(-1);
-    run.atoms.push(null);
-  }
+  if (lead) addText(run, { item: { width: lead }, offset: -1, box: null });
   if (prefix) {
-    run.items.push(
-      typeof prefix === 'string' ? { text: prefix, font: fontString(typography.font) } : prefix,
-    );
-    run.offsets.push(-1);
-    run.atoms.push(null);
+    const item =
+      typeof prefix === 'string' ? { text: prefix, font: fontString(typography.font) } : prefix;
+    addText(run, { item, offset: -1, box: null });
   }
   let failure: string | null = null;
+  const identifiers = citationIdentifiers(node);
+  const inserted = [...(input.inserted ?? [])].sort((a, b) => a.offset - b.offset);
+  const insert = insertedUpTo({ ...input, inserted });
+  // A deleted block's text before the content is on lines of its own.
+  for (const before of inserted.filter((each) => each.alone === 'before')) {
+    addInserted(run, before, typography);
+    runs.push(finish(run, 0, true));
+    run = startRun(0);
+  }
   node.forEach((child, offset) => {
     if (failure) return;
     if (child.type.name === 'hard_break') {
@@ -163,18 +244,32 @@ export function buildRuns(input: RunInput): TextRuns {
         run = startRun(child.nodeSize);
         return;
       }
+      insert(run, offset);
       runs.push(finish(run, offset + child.nodeSize, true));
       run = startRun(offset + child.nodeSize);
     } else if (child.isText) {
-      addText(run, { item: textItem(child, typography), offset, box: textBox(child, input) });
+      const box = textBox(child, input);
+      const at = inserted.map((each) => each.offset);
+      for (const piece of textPieces(child, { offset, typography, identifiers, inserted: at })) {
+        insert(run, piece.offset);
+        addText(run, { ...piece, box });
+      }
     } else if (child.type.name === 'template_variable') {
       // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
       failure = 'template variable';
     } else {
+      insert(run, offset);
       failure = addAtom(run, { child, offset, input });
     }
   });
   if (failure) return { ok: false, reason: failure };
-  runs.push(finish(run, node.content.size, false));
+  const size = node.content.size;
+  insert(run, size);
+  for (const after of inserted.filter((each) => each.alone === 'after')) {
+    runs.push(finish(run, size, true));
+    run = startRun(size);
+    addInserted(run, after, typography);
+  }
+  runs.push(finish(run, size, false));
   return { ok: true, runs };
 }

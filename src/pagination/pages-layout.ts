@@ -103,6 +103,7 @@ export function pagesLayout(
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
     numbers: drawnNumbers(state),
+    fonts: engine.fonts?.() ?? null,
     provisional: options.settled === false || engine.provisional(),
   };
 }

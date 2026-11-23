@@ -106,7 +106,7 @@ test.describe('the layout engine on the pages', () => {
     await expect(paragraph).toContainText('lines of this paragraph');
   });
 
-  test('DOCE-PAGINATION-9.11 draws a paragraph that starts right to left from the right, on the engine lines', async ({
+  test('DOCE-PAGINATION-9.12 draws a paragraph that starts right to left from the right, on the engine lines', async ({
     page,
   }) => {
     await open(page, 'long-mixed', 'pretext');

@@ -560,7 +560,7 @@ div.de-host-view {
  * drawn on the lines the layout engine computed. Each line ends after its last character, drawn as
  * a line feed; the engine's alignment is drawn from the room it left each line, so the block itself
  * aligns to its start: the left, or the right in a block drawn right to left (`dir`,
- * DOCE-PAGINATION-9.11). Its end overhangs by 8px, so a width the browser finds a little wider than the
+ * DOCE-PAGINATION-9.12). Its end overhangs by 8px, so a width the browser finds a little wider than the
  * engine's never wraps a line on its own. A heading shows the engine's number, not a counter. The
  * block's `data-lines` makes these rules win over a custom style's alignment and margins.
  */
@@ -576,6 +576,20 @@ div.de-host-view {
 
 :where(.de-document-editor) .de-forced-lines__start {
   padding-inline-start: var(--de-line-indent, 0);
+}
+
+/* A line that starts among words drawn in the block that are not its content, such as a
+   comparison's deleted words, breaks between two of them, and starts after its indent
+   (DOCE-PAGINATION-11.11). */
+:where(.de-document-editor) .de-forced-lines__break::before {
+  content: '\A';
+  white-space: pre;
+}
+
+:where(.de-document-editor) :is(.de-forced-lines__break, .de-forced-lines__indent)::after {
+  content: '';
+  display: inline-block;
+  width: var(--de-line-indent, 0);
 }
 
 /* A line that ends at a soft hyphen shows the hyphen the engine counted, which the browser draws
@@ -1651,9 +1665,11 @@ a.de-contents__entry {
   content: none;
 }
 
-/* The text of a block lost before a block, or after the last one, on its own line. */
-.de-document-editor del[data-diff-block] {
-  display: block;
+/* The text of a block lost before a block, or after the last one, is on lines of its own: a break
+   follows it, or comes before it. */
+.de-document-editor [data-diff-block-break]::before {
+  content: '\A';
+  white-space: pre;
 }
 
 /* DOCE-VERSIONS-3.6: blocks outside a scoped comparison are dimmed. */
