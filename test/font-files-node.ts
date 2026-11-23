@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ServedFace } from '../src/layout-engine/font-files/faces.js';
 import { REFERENCE_FACES } from './font-files-reference.js';
 
@@ -28,7 +29,8 @@ export function referenceFaces(): ServedFace[] {
   return REFERENCE_FACES.map(({ file, ...face }) => ({ ...face, bytes: bytesOf(fontPath(file)) }));
 }
 
-const scriptFontsDir = join(dirname(new URL(import.meta.url).pathname), 'fixtures', 'fonts');
+// From the module's file URL, so the path is right on Windows too (DOCE-PAGINATION-12.1 runs there).
+const scriptFontsDir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'fonts');
 
 /** The script fonts of test/fixtures/fonts/, each with its unicode-range. */
 export function scriptFaces(): ServedFace[] {

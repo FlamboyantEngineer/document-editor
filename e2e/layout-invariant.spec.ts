@@ -56,9 +56,10 @@ async function open(
   name: RegressionDocumentName,
   zoom: number,
   rendering: 'dom' | 'html-canvas' = 'dom',
+  query = '',
 ) {
   await page.goto(
-    `regression.html?document=${name}&textLayout=pretext&zoom=${String(zoom)}&rendering=${rendering}`,
+    `regression.html?document=${name}&textLayout=pretext&zoom=${String(zoom)}&rendering=${rendering}${query}`,
   );
   await waitForLab(page);
   // Every page on forced lines, not only those near the screen (DOCE-PAGINATION-11.6).
@@ -509,18 +510,24 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
   });
 });
 
-// The documents whose computed result is pinned, and its fingerprint: the same on every device and
-// at every zoom, as recorded at a device pixel ratio of 1 and 100 percent.
+// The documents whose computed result is pinned, and its fingerprints: the same on every device and
+// at every zoom, as recorded at a device pixel ratio of 1 and 100 percent. `lines` covers the pages
+// and their text blocks' lines, `heights` each page's used and free room and each block's planned
+// top and height.
 // Recorded with Chromium's Canvas on Linux; the CI runner's fingerprints are the reference.
-const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
-  'caption-numbering': 'b7088b707c5b1f03',
-  'heading-keep-with-next': 'cde9efbfd0216fdd',
+const PINNED: Readonly<
+  Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
+> = {
+  'caption-numbering': { lines: 'b7088b707c5b1f03', heights: '685c13b50fa7abf4' },
+  'heading-keep-with-next': { lines: 'cde9efbfd0216fdd', heights: '7c217daccffd64de' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5).
-  'long-mixed': 'a63acc7dc31961b5',
-  'oversized-blocks': '04f2d26ec8b3697c',
-  'roman-numbering-stress': 'd24934809773ffdb',
+  'long-mixed': { lines: 'a63acc7dc31961b5', heights: 'ece23bd6846470b0' },
+  'oversized-blocks': { lines: '04f2d26ec8b3697c', heights: 'f3be75ce06ce1c8d' },
+  'roman-numbering-stress': { lines: 'd24934809773ffdb', heights: '19718eeba63c6a81' },
 };
+
+const digest = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
 
 /**
  * A fingerprint of the computed result: pages, each block's type and part, and its line offsets, or
@@ -542,11 +549,40 @@ async function fingerprintOf(page: Page): Promise<string> {
         .join('|'),
     )
     .join('\n');
-  return createHash('sha256').update(text).digest('hex').slice(0, 16);
+  return digest(text);
+}
+
+/**
+ * A fingerprint of the planned heights, from the lab's `debug` query: each page's used and free room, and
+ * each top-level block's type, part, planned top and height, to a thousandth of a pixel.
+ */
+async function heightsFingerprintOf(page: Page): Promise<string> {
+  const text = await page.evaluate(() =>
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        ':not(.de-document-viewer) > .de-document-editor__content .pm-page',
+      ),
+    ]
+      .map((sheet) => {
+        const blocks = [
+          ...sheet.querySelectorAll<HTMLElement>(':scope > .pm-page-content > [data-debug-height]'),
+        ].map(
+          ({ dataset }) =>
+            `${dataset.debugType ?? ''}#${dataset.splitPartIndex ?? '0'}:${dataset.debugTop ?? ''}+${dataset.debugHeight ?? ''}`,
+        );
+        return `${sheet.dataset.debugUsed ?? ''}/${sheet.dataset.debugFree ?? ''}|${blocks.join('|')}`;
+      })
+      .join('\n'),
+  );
+  return digest(text);
 }
 
 test.describe('DOCE-LABS-8.8 the computed result is the same on every device', () => {
-  for (const [name, pinned] of Object.entries(PINNED) as [RegressionDocumentName, string][]) {
+  const pins = Object.entries(PINNED) as [
+    RegressionDocumentName,
+    { readonly lines: string; readonly heights: string },
+  ][];
+  for (const [name, pinned] of pins) {
     for (const zoom of [50, 100, 150]) {
       test(`DOCE-LABS-8.8 ${name} at ${String(zoom)}%`, async ({ page }, testInfo) => {
         await open(page, name, zoom);
@@ -555,7 +591,26 @@ test.describe('DOCE-LABS-8.8 the computed result is the same on every device', (
           type: 'fingerprint',
           description: `${testInfo.project.name} ${print}`,
         });
-        expect(print, 'the computed result, as recorded').toBe(pinned);
+        expect(print, 'the computed result, as recorded').toBe(pinned.lines);
+      });
+
+      test(`DOCE-LABS-8.8 ${name}'s planned heights at ${String(zoom)}%`, async ({
+        page,
+      }, testInfo) => {
+        await open(page, name, zoom, 'dom', '&debug');
+        // Expected failure at other ratios (thread I): the blocks the engine does not lay out
+        // (tables, figures, code, display math, contents) keep heights measured in the page, which
+        // Chromium rounds to device pixels, so they, the blocks below them and page boundaries move.
+        test.fail(
+          (await page.evaluate(() => window.devicePixelRatio)) !== 1,
+          'DOM-measured block heights follow the device pixel ratio',
+        );
+        const print = await heightsFingerprintOf(page);
+        testInfo.annotations.push({
+          type: 'fingerprint',
+          description: `${testInfo.project.name} heights ${print}`,
+        });
+        expect(print, 'the planned heights, as recorded').toBe(pinned.heights);
       });
     }
   }
