@@ -25,7 +25,10 @@ async function insertWidePanel(page: Page, caption: string) {
   await dialog(page).getByRole('button', { name: 'Choose an image…' }).click();
   const picker = page.getByRole('group', { name: 'Choose an image…' });
   await picker.getByRole('searchbox').fill('wide');
-  await picker.getByRole('row', { name: 'Wide panel' }).click();
+  const row = picker.getByRole('row', { name: 'Wide panel' });
+  await row.click();
+  // The picker draws its list again for the choice; Insert is pressed once that settles.
+  await expect(row).toHaveAttribute('aria-selected', 'true');
   await picker.getByRole('button', { name: 'Insert' }).click();
   // The picker closes on its own Insert; under load its fade can outlast the next few steps.
   await expect(picker).toHaveCount(0);
@@ -170,17 +173,20 @@ test.describe('objects', () => {
     await last.scrollIntoViewIfNeeded();
     await last.click();
     await page.keyboard.press('End');
-    // The page is filled: its last block grows by a line, still on it, so an entry no longer fits
-    // beside it.
-    const lines = (await last.evaluate((element) => element.getBoundingClientRect().height)) + 1;
-    for (let word = 0; word < 40; word += 1) {
-      if ((await last.evaluate((element) => element.getBoundingClientRect().height)) > lines) break;
-      await page.keyboard.type(' and more');
-    }
     const area = first.locator('.pm-page-footnotes');
     const height = (region: typeof area) =>
       region.evaluate((element) => element.getBoundingClientRect().height);
     await expect.poll(() => height(area)).toBe(0);
+    // The page is full: the room left under its text is taken by the area's spacing above an
+    // entry, so the entry's line no longer fits beside the text.
+    const free = await first.evaluate((element) => {
+      const body = element.querySelector('.pm-page-content');
+      const ends = [...(body?.children ?? [])].map((child) => child.getBoundingClientRect().bottom);
+      return (body?.getBoundingClientRect().bottom ?? 0) - Math.max(...ends);
+    });
+    await page.addStyleTag({
+      content: `.pm-page-footnotes { --doc-footnote-spacing-to-content: ${Math.ceil(free)}px; }`,
+    });
     await toolbar(page).getByRole('button', { name: 'Footnote' }).click();
     // Before anything is typed, the marker's page holds the entry, its text ending above it: the
     // block that no longer fits with the entry moves on, here to the next page.

@@ -109,6 +109,13 @@ The budgets counted in layouts, sections, blocks and restyled elements rather th
 Implementation: `e2e/budgets.ts`
 Verification: `e2e/budget-counters.performance.spec.ts`
 
+### DOCE-LABS-2.6 - Budgets with the layout engine
+
+On the scale lab's 300 pages, with `textLayout=pretext`, by the median of three rounds, the layout engine shall settle the first layout within 12 seconds, and settle an Enter within 400 ms, an insert of about 3,400 characters as a paste gives within 800 ms, and eight lines selected and deleted within 1,100 ms, each near the document's start, from the key's press to the pages settled with its change laid out; and typing far down the document, after a scroll to about its 270th page, shall keep each key's work at p95 within the 300-page typing budget (DOCE-LABS-2.3). The budgets are times of their own, not against the DOM's measuring, which goes once the engine is the only text layout. The engine's speed work (thread Q5 of the Pretext review) owns them and lowers them as it makes the engine faster. The CI's timing job runs it after the other timing tests.
+
+Implementation: `e2e/budgets.ts`
+Verification: `e2e/text-layout.performance.spec.ts`
+
 ## DOCE-LABS-3 - Editor labs
 
 ### DOCE-LABS-3.1 - The template editor beside a document
@@ -333,7 +340,7 @@ Verification: `e2e/font-widths.spec.ts`
 
 ### DOCE-LABS-7.2 - Closeness with font-file widths
 
-The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, mapping the template's families to them through `fontStacks` for both the HTML and the text layout engine, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used, and lay the natural HTML out under `text-rendering: geometricPrecision` with `font-synthesis: none`, as pages under Pretext layout are drawn. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind.
+The Pretext pagination lab shall serve Geist and Geist Mono to the page and to its worker with `?fonts=served`, mapping the template's families to them through `fontStacks` for both the HTML and the text layout engine, and with `&measurer=font-files` shall measure in the worker with the font files instead of Canvas, reporting which measurer it used, and lay the natural HTML out under `text-rendering: geometricPrecision` with `font-synthesis: none`, as pages under Pretext layout are drawn. The closeness counts of DOCE-LABS-5.6 measured this way shall equal a recorded budget per kind and half of the seeds, each half checked on its own so it runs well inside its time limit.
 
 Implementation: `labs/src/spikes/pretext/fonts.ts`, `labs/src/spikes/pretext/worker.ts`, `labs/src/spikes/pretext/client.ts`, `labs/src/spikes/pretext/settings.ts`
 Verification: `e2e/font-widths.spec.ts`
@@ -356,7 +363,7 @@ Verification: `e2e/font-widths.spec.ts`
 
 ### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones
 
-With `textLayout: 'pretext'`, the regression lab shall show (`window.regressionLab.textLines()`) the layout engine's result: page by page, each text block fragment it laid out with the lines it draws on that page, and each block it left to the DOM with the reason. For every document of the regression set, at zooms of 50, 75, 100, 125 and 150 percent at a device pixel ratio of 1, and of 50, 100 and 150 percent in Chromium launched at device pixel ratios 1.25 and 2, the editor shall draw as many pages as computed, each page shall draw exactly the forced blocks the engine put on it, and each block's drawn lines, read from the line boxes its own characters sit on, shall equal the computed lines in count and text: a hard break's box counts, so an empty line between two breaks is a line, and a block locked as a whole, such as a template's, is read like any other. A block drawn in a narrower column than its lines were fitted to shall fail the check. The regression lab shall take a `zoom` query in percent.
+With `textLayout: 'pretext'`, the regression lab shall show (`window.regressionLab.textLines()`) the layout engine's result: page by page, each text block fragment it laid out with the lines it draws on that page, and each block it left to the DOM with the reason. For every document of the regression set, at zooms of 50, 67, 75, 90, 100, 110, 125, 133, 150, 175 and 200 percent at a device pixel ratio of 1, of 50, 100 and 150 percent in Chromium launched at device pixel ratios 1.25 and 2, and of 100 percent at ratios 1.5, 1.75 and 3 (display scaling at 150, 175 and 300 percent), the editor shall draw as many pages as computed, each page shall draw exactly the forced blocks the engine put on it, nested ones and those in its header, footer and footnotes included once the engine forces them, and each block's drawn lines, read from the line boxes its own characters sit on, shall equal the computed lines in count and text: a hard break's box counts, so an empty line between two breaks is a line, and a block locked as a whole, such as a template's, is read like any other. The guard (`wrappedLines()`, DOCE-PAGINATION-11.4) shall find no wrapped block there either. A block drawn in a narrower column than its lines were fitted to shall fail the check. The regression lab shall take a `zoom` query in percent.
 
 Implementation: `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`, `playwright.config.ts`
 Verification: `e2e/layout-invariant.spec.ts`
@@ -423,3 +430,26 @@ For every document of the regression set, laid out with `textLayout: 'pretext'` 
 
 Implementation: `labs/src/regression/regression-lab.tsx`
 Verification: `e2e/block-geometry.spec.ts`, `e2e/text-layout.spec.ts`
+
+### DOCE-LABS-8.11 - Blocks left to the DOM, counted
+
+Every document of the regression set, laid out block by block by the pages' text layout engine as the pages lay it out, shall leave to the DOM's measuring exactly the pinned number of blocks for each document, and for each reason over the whole set. A change that leaves more fails, and so does one that leaves fewer: the pull request that lays out more blocks with the engine writes the lower counts, so they only go down.
+
+Implementation: `src/pagination/text-engine.ts`
+Verification: `src/pagination/text-engine-refusals.test.ts`
+
+## DOCE-LABS-9 - Edited pages equal a fresh layout
+
+### DOCE-LABS-9.1 - Seeded edit sequences in the regression lab
+
+With `textLayout=pretext`, after every step of a seeded sequence of edits on a document of the regression set (typing; Enter and Shift+Enter; Backspace and Delete runs; deletes across blocks, pages and sections; typing, Enter, Backspace and Delete at the edges of split blocks and at line starts and ends; bold, italic, code, superscript and heading and paragraph styles over a range; undo and redo; pasted text and HTML; an input method's composition committed or cancelled; another writer's inserts and deletes; zoom changes), the editor shall draw what a new page draws when it opens the document as stored (`stored()`) afresh: the same pages' layout (`pagesLayout()`: pages, page breaks, split parts, every forced block's lines, numbers and variables), the same text on every page, and its own drawn lines equal to its computed ones (DOCE-LABS-8.1). A failure names the steps so far. The regression lab's probe shall open a stored document afresh (`load`), set the zoom (`setZoom`), give the text blocks' ranges (`textRanges`), select between two positions (`selectJoined`), make another writer's change (`remote`) and give the pages' layout (`layout`). `EDIT_LAYOUT_SEEDS`, `EDIT_LAYOUT_STEPS` and `EDIT_LAYOUT_FIRST_SEED` set how many sequences, how long, and from which seed.
+
+Implementation: `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`
+Verification: `e2e/editing-layout.spec.ts`
+
+### DOCE-LABS-9.2 - Seeded edit sequences in a shared room
+
+With `textLayout=pretext`, the shared room lab (DOCE-COLLAB-6.4) shall hold DOCE-LABS-9.1 for two writers editing one document through the room server, each at their own width and zoom, on its short and its long document. Each step is a single-writer step made by one of the writers, another writer's change typed in the other writer's editor, or a step of the room's: a writer going offline and coming back to merge what each changed meanwhile, both writers typing at once, or a service writing the room (`updateRoomDocument`, DOCE-COLLAB-6.5). After each step, once both writers online hold the same stored document, their pages' layouts shall be the same, and each writer's pages shall equal a fresh layout of the document they hold, opened in a third editor, with their own drawn lines equal to their computed ones. With `textLayout=pretext`, the lab shall lay its writers' pages out with the engine, and its probe shall give a writer's stored document, pages' layout, computed lines and text block ranges, select in a writer's document, draw every page on the engine's lines, wait for every editor to settle, write the room as a service, and open a stored document in the third editor.
+
+Implementation: `labs/src/collab-room.lab.tsx`
+Verification: `e2e/editing-layout-room.spec.ts`

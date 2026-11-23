@@ -15,11 +15,11 @@ const heading = (value: string): Node =>
 
 // Ten pages, each with a heading the engine numbers after its page and a paragraph drawn on lines
 // of four characters.
-function tenPages() {
-  const pages = Array.from({ length: 10 }, (_, index) =>
+function tenPages(count = 10) {
+  const pages = Array.from({ length: count }, (_, index) =>
     page([heading(`Part${String(index)}`), paragraph(`text${String(index)} more`)], {
       pageNumber: index + 1,
-      totalPages: 10,
+      totalPages: count,
     }),
   );
   const doc = pagesDocument(pages);
@@ -35,11 +35,15 @@ function tenPages() {
 }
 
 // An intersection observer the test drives: it reports the sheets it is told are in view.
-const observed: { callback: IntersectionObserverCallback; targets: Element[] }[] = [];
+const observed: {
+  callback: IntersectionObserverCallback;
+  targets: Element[];
+  init: IntersectionObserverInit | undefined;
+}[] = [];
 class FakeObserver {
   readonly targets: Element[] = [];
-  constructor(callback: IntersectionObserverCallback) {
-    observed.push({ callback, targets: this.targets });
+  constructor(callback: IntersectionObserverCallback, init?: IntersectionObserverInit) {
+    observed.push({ callback, targets: this.targets, init });
   }
   observe(target: Element) {
     this.targets.push(target);
@@ -108,5 +112,48 @@ describe('DocumentViewer', () => {
       <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} overscan={Infinity} />,
     );
     expect(drawn(container)).toHaveLength(10);
+  });
+
+  it('DOCE-PAGINATION-13.6 draws the pages a screen beyond its scrolling frame', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    render(
+      <div style={{ overflowY: 'auto' }} data-frame="">
+        <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />
+      </div>,
+    );
+    const init = observed.at(-1)?.init;
+    expect(init?.rootMargin).toBe('100% 0px');
+    expect(init?.root).toBe(document.querySelector('[data-frame]'));
+  });
+
+  it('DOCE-PAGINATION-13.6 keeps its drawn pages when given options of the same fields again', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const layout = tenPages();
+    const { container, rerender } = render(
+      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ markup: 'all' }} />,
+    );
+    showInView([2]);
+    const drawnPage = sheets(container)[2]?.firstElementChild;
+    expect(drawnPage).toBeTruthy();
+    rerender(
+      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ markup: 'all' }} />,
+    );
+    expect(observed).toHaveLength(1);
+    expect(sheets(container)[2]?.firstElementChild).toBe(drawnPage);
+    rerender(
+      <DocumentViewer layout={layout} template={BASE_TEMPLATE} options={{ markup: 'final' }} />,
+    );
+    expect(observed).toHaveLength(2);
+  });
+
+  it('DOCE-PAGINATION-13.6 shows a 300-page document with only the pages near the view drawn', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const { container } = render(
+      <DocumentViewer layout={tenPages(300)} template={BASE_TEMPLATE} />,
+    );
+    expect(sheets(container)).toHaveLength(300);
+    showInView([299]);
+    expect(drawn(container)).toEqual([298, 299]);
+    expect(sheets(container)[299]?.querySelector('h1')?.getAttribute('data-number')).toBe('300');
   });
 });

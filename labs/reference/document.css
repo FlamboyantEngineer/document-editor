@@ -207,6 +207,39 @@ div.de-host-view {
   flex: 1;
 }
 
+/*
+ * The stylesheet's own block numbers, which no template setting changes. The rules below draw
+ * blocks with them and the layout engine reads them where it measures, so a host stylesheet that
+ * sets other values changes both (DOCE-PAGINATION-10.9). Each is a length in an absolute unit or em; em is
+ * the page content's text size. They are stated on the editor, so a host's values reach its
+ * measuring view too, and on a measuring view standing alone.
+ */
+:where(.de-document-editor, .de-document-editor__measure:not(.de-document-editor *)) {
+  --de-quote-indent: 40px;
+  --de-quote-spacing: 1em;
+  --de-rule-height: 2px;
+  --de-rule-spacing: 0.5em;
+  --de-code-padding: 8px;
+  --de-code-caption-gap: 4px;
+  --de-code-caption-rule: 1px;
+  --de-table-caption-padding: 2px;
+  --de-equation-spacing: 6px;
+  --de-columns-gap: 4px;
+  --de-columns-after: 4px;
+  --de-column-padding: 5px;
+  --de-column-border: 1px;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content blockquote {
+  margin: var(--de-quote-spacing) var(--de-quote-indent);
+}
+
+/* A rule is drawn as the browser draws it, its height its two inset border lines. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content hr {
+  margin-block: var(--de-rule-spacing);
+  border-width: calc(var(--de-rule-height) / 2);
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content {
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
@@ -275,16 +308,6 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-header,
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-footer {
   color: #475569;
-}
-
-/* A page's first block has no block-start margin and its last no block-end margin, in any
-   writing mode. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :first-child {
-  margin-block-start: 0;
-}
-
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :last-child {
-  margin-block-end: 0;
 }
 
 /* Nor does a block ending a list's last item, such as a nested list: its margin would collapse
@@ -482,9 +505,11 @@ div.de-host-view {
  * With the layout engine, a list item is as tall as its blocks, as the engine counts it: the list
  * takes its paragraphs' line height, so an item's marker draws no taller line box than its text.
  */
-/* The layout engine measures text unhinted, so the pages draw it so (DOCE-PAGINATION-11.1). */
+/* The layout engine measures text unhinted and from the faces served, never a synthesised bold or
+   italic, so the pages draw it so (DOCE-PAGINATION-11.1, DOCE-HOST-1.14.2). */
 :where(.de-document-editor[data-text-layout='pretext']) :is(.pm-page, .de-atom-measure) {
   text-rendering: geometricPrecision;
+  font-synthesis: none;
 }
 
 /* The hard break a split paragraph's later fragment starts with ends the line before it, on the
@@ -506,13 +531,6 @@ div.de-host-view {
 :where(.de-document-editor) .de-forced-lines :not(pre) > code {
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-}
-
-/* With the layout engine, the pages draw only the served faces they were measured with: a weight or
-   style the host does not serve is matched to the nearest served face, never synthesised
-   (DOCE-HOST-1.14.2). */
-:where(.de-document-editor[data-text-layout='pretext']) .de-document-editor__content {
-  font-synthesis: none;
 }
 
 /* Pages far from the screen skip their layout: their size is the page's own (DOCE-PAGINATION-11.6). */
@@ -783,7 +801,7 @@ div.de-host-view {
 
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre {
   margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
-  padding: 8px;
+  padding: var(--de-code-padding);
   background: var(--doc-code-background);
   color: var(--doc-code-color);
   font-family: var(--doc-code-font-family, monospace);
@@ -871,6 +889,18 @@ div.de-host-view {
   counter-increment: codeblock;
 }
 
+/* Linked code takes code's margins on its own box, as it is measured and packed. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .linked-code-block {
+  margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .linked-code-block
+  > pre {
+  margin: 0;
+}
+
 /*
  * A code block and its caption: one box on the code's background, the caption above or below the
  * code inside it, and the code with no box of its own.
@@ -879,7 +909,7 @@ div.de-host-view {
   display: flex;
   flex-direction: column;
   margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
-  padding: 8px;
+  padding: var(--de-code-padding);
   background: var(--doc-code-background);
   color: var(--doc-code-color);
   font-size: var(--doc-code-font-size);
@@ -933,7 +963,7 @@ div.de-host-view {
   order: var(--doc-table-caption-order, -1);
   contain: inline-size;
   text-align: var(--doc-table-caption-text-align, left);
-  padding: 2px 0;
+  padding: var(--de-table-caption-padding) 0;
 }
 
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content figure,
@@ -998,14 +1028,14 @@ div.de-host-view {
   /* The caption's order is -1 above the code and 1 below it. */
   --doc-code-caption-rule-below: calc((1 - var(--doc-code-caption-order, -1)) / 2);
   --doc-code-caption-rule-above: calc((1 + var(--doc-code-caption-order, -1)) / 2);
-  padding-block: calc(var(--doc-code-caption-rule-above) * 4px)
-    calc(var(--doc-code-caption-rule-below) * 4px);
-  margin-block: calc(var(--doc-code-caption-rule-above) * 4px)
-    calc(var(--doc-code-caption-rule-below) * 4px);
+  padding-block: calc(var(--doc-code-caption-rule-above) * var(--de-code-caption-gap))
+    calc(var(--doc-code-caption-rule-below) * var(--de-code-caption-gap));
+  margin-block: calc(var(--doc-code-caption-rule-above) * var(--de-code-caption-gap))
+    calc(var(--doc-code-caption-rule-below) * var(--de-code-caption-gap));
   border-color: var(--doc-code-caption-rule-color, currentColor);
   border-style: solid none;
-  border-width: calc(var(--doc-code-caption-rule-above) * 1px) 0
-    calc(var(--doc-code-caption-rule-below) * 1px);
+  border-width: calc(var(--doc-code-caption-rule-above) * var(--de-code-caption-rule)) 0
+    calc(var(--doc-code-caption-rule-below) * var(--de-code-caption-rule));
 }
 
 /* Inline code: the template's code font on its code background, padded. */
@@ -1178,10 +1208,17 @@ div.de-host-view {
   content: var(--doc-table-caption-continued, '');
 }
 
-/* A later part's caption shows the caption's text, which only the first part holds. */
+/* A later part's caption shows the caption's text, which only the first part holds; the empty
+   caption's trailing break would start a second line after it. */
 :where(.de-document-editor, .de-document-editor__measure)
   .doc-caption-text[data-continued-text]::before {
   content: attr(data-continued-text);
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-caption-text[data-continued-text]
+  > br.ProseMirror-trailingBreak {
+  display: none;
 }
 
 /* A later part of a split table repeats its caption only with its header rows: a part that opens
@@ -1204,9 +1241,21 @@ div.de-host-view {
   content: var(--doc-code-caption-continued, '');
 }
 
+/*
+ * The separator is painted in the area's padding, not drawn as a border, so it takes exactly the
+ * template's thickness on every screen, as the layout engine lays it out: a browser rounds a
+ * border's width to whole device pixels.
+ */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes {
-  border-top: var(--doc-footnote-separator-border, 1px solid);
-  padding-top: var(--doc-footnote-spacing-to-content, 6px);
+  padding-top: calc(
+    var(--doc-footnote-separator-thickness, 1px) + var(--doc-footnote-spacing-to-content, 6px)
+  );
+  background: linear-gradient(
+      var(--doc-footnote-separator-color, currentcolor),
+      var(--doc-footnote-separator-color, currentcolor)
+    )
+    top / 100% var(--doc-footnote-separator-thickness, 1px) no-repeat;
+  print-color-adjust: exact;
   color: var(--doc-footnote-text-color, inherit);
   font-family: var(--doc-footnote-text-font-family, inherit);
   font-size: var(--doc-footnote-text-font-size, 10px);
@@ -1216,7 +1265,12 @@ div.de-host-view {
   text-align: var(--doc-footnote-text-align, left);
 }
 
-/* Entries stand the template's spacing apart; each number in the marker style, with its suffix. */
+/* Entries stand the template's spacing apart and no further; each number in the marker style, with
+   its suffix. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry {
+  margin: 0;
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry + .pm-footnote-entry {
   margin-top: var(--doc-footnote-entry-spacing, 0);
 }
@@ -1285,8 +1339,8 @@ div.de-host-view {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column;
-  gap: 4px;
-  margin: 0 0 4px;
+  gap: var(--de-columns-gap, 4px);
+  margin: 0 0 var(--de-columns-after, 4px);
 }
 
 .doc-layout-section[data-layout-preset='third-two-thirds'] {
@@ -1298,9 +1352,9 @@ div.de-host-view {
 }
 
 .doc-layout-column {
-  border: 1px dashed transparent;
+  border: var(--de-column-border, 1px) dashed transparent;
   border-radius: 4px;
-  padding: 5px;
+  padding: var(--de-column-padding, 5px);
 }
 
 .de-document-editor[data-mode='authoring'] .doc-layout-column {
@@ -1757,7 +1811,7 @@ a.de-contents__entry {
 /* Display math stands centred on its own line, with no background of its own. */
 .de-math[data-display='display'] {
   display: block;
-  margin: 6px 0;
+  margin: var(--de-equation-spacing, 6px) 0;
   text-align: center;
 }
 
@@ -2409,4 +2463,48 @@ a.de-contents__entry {
 .de-document-editor[data-layout='page'] .de-document-comments[data-cards-open='false'] {
   grid-template-columns: max-content 0;
   column-gap: 0;
+}
+
+/*
+ * A page's first block has no block-start margin and its last no block-end margin, in any writing
+ * mode, as the pages pack them: nor has a block whose margin would pass through to that edge, the
+ * first or last of a quote, list or list item there, which have no padding or border at their
+ * ends (DOCE-PAGINATION-3.3). Last in the sheet, so it wins over every block's own margins.
+ */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :first-child,
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  > :is(blockquote, ul, ol):first-child
+  > :first-child,
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  > :is(blockquote, ul, ol):first-child
+  > :is(blockquote, ul, ol, li):first-child
+  > :first-child,
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  > :is(blockquote, ul, ol):first-child
+  > :is(blockquote, ul, ol, li):first-child
+  > :is(blockquote, ul, ol, li):first-child
+  > :first-child {
+  margin-block-start: 0;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :last-child,
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  > :is(blockquote, ul, ol):last-child
+  > :last-child,
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  > :is(blockquote, ul, ol):last-child
+  > :is(blockquote, ul, ol, li):last-child
+  > :last-child,
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  > :is(blockquote, ul, ol):last-child
+  > :is(blockquote, ul, ol, li):last-child
+  > :is(blockquote, ul, ol, li):last-child
+  > :last-child {
+  margin-block-end: 0;
 }

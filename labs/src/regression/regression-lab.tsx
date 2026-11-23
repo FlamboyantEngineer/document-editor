@@ -22,6 +22,7 @@ import {
 } from '../../../src/engine/index.js';
 import {
   createDocumentSchema,
+  type DocumentFile,
   readDocumentFile,
   type TemplateFile,
 } from '../../../src/model/index.js';
@@ -90,9 +91,12 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug')
 // Whether the host draws quotes with a React view of its own (`hostViews`).
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
 
-function opened(name: RegressionDocumentName): { state: EditorState; template: TemplateFile } {
+function opened(
+  name: RegressionDocumentName,
+  stored?: DocumentFile,
+): { state: EditorState; template: TemplateFile } {
   const document = regressionDocument(name);
-  const { file } = document;
+  const file = stored ?? document.file;
   const template = RELATIVE_SIZES ? withRelativeSizes(document.template) : document.template;
   const schema = createDocumentSchema();
   const state = EditorState.create({
@@ -113,6 +117,9 @@ function RegressionLab() {
   const [first] = useState(() => opened(name));
   const [template, setTemplate] = useState(first.template);
   const [state, setState] = useState(first.state);
+  const [zoom, setZoom] = useState(ZOOM);
+  // A stored document opened afresh mounts a new editor, as a page loading it would.
+  const [opening, setOpening] = useState(0);
   const handle = useRef<DocumentEditorHandle>(null);
   useStressProbe(handle, null);
   const [viewer, setViewer] = useState<{ layout: PagesLayout; overscan: number } | null>(null);
@@ -120,7 +127,17 @@ function RegressionLab() {
     (layout, overscan) => setViewer({ layout, overscan }),
     [],
   );
-  useRegressionProbe(handle, template, showViewer);
+  const load = useCallback(
+    (file: DocumentFile) => {
+      const loaded = opened(name, file);
+      setTemplate(loaded.template);
+      setState(loaded.state);
+      setViewer(null);
+      setOpening((count) => count + 1);
+    },
+    [name],
+  );
+  useRegressionProbe(handle, template, { showViewer, load, setZoom });
   const pick = (next: string) => {
     if (!isName(next)) return;
     setName(next);
@@ -163,12 +180,12 @@ function RegressionLab() {
         ) : null}
       </fieldset>
       <DocumentEditor
-        key={name}
+        key={`${name}-${String(opening)}`}
         state={state}
         onStateChange={setState}
         template={template}
         layout={LAYOUT}
-        zoom={ZOOM}
+        zoom={zoom}
         textLayout={TEXT_LAYOUT}
         fonts={FONTS}
         rendering={RENDERING}

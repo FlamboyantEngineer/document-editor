@@ -8,7 +8,7 @@ import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
 import type { PagesFonts } from './served-fonts.js';
-import type { createPagesTextEngine } from './text-engine.js';
+import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** How a projection lays its text out with the layout engine. */
@@ -36,9 +36,14 @@ export interface TextEngineHolder {
 
 interface EngineModule {
   readonly createPagesTextEngine: typeof createPagesTextEngine;
+  readonly forgetFontWidths: typeof forgetFontWidths;
 }
 
-/** Loads and holds a text layout engine; `changed` is told when its atoms' sizes settle. */
+/**
+ * Loads and holds a text layout engine; `changed` is told when its atoms' sizes settle or font
+ * faces load in the measuring document, which makes the engine again: widths measured before a
+ * face loaded were measured in a fallback font.
+ */
 export function holdTextEngine(options: {
   readonly setting: TextLayoutSetting;
   readonly measureIn: HTMLElement;
@@ -72,6 +77,17 @@ export function holdTextEngine(options: {
       settled();
     });
   };
+  // A face loading in the measuring document may change what atoms measure as drawn, so the
+  // engine is made again; its text widths still come from the served files.
+  const faces = options.measureIn.ownerDocument.fonts as FontFaceSet | undefined;
+  const onFonts = () => {
+    if (!made || destroyed || !current) return;
+    current.destroy();
+    current = null;
+    made.forgetFontWidths();
+    settled();
+  };
+  faces?.addEventListener('loadingdone', onFonts);
   return {
     engine() {
       if (!made || destroyed || fonts?.phase !== 'pretext') return null;
@@ -99,6 +115,7 @@ export function holdTextEngine(options: {
     loaded,
     destroy() {
       destroyed = true;
+      faces?.removeEventListener('loadingdone', onFonts);
       current?.destroy();
       current = null;
     },
