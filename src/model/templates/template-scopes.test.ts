@@ -105,7 +105,7 @@ describe('template footnotes and captions', () => {
     );
     expect(entries).toMatchObject({
       '--doc-footnote-numbering-suffix': '"\\""',
-      '--doc-footnote-separator-border': 'none',
+      '--doc-footnote-separator-thickness': '0px',
       '--doc-footnote-spacing-to-content': '12pt',
       '--doc-footnote-marker-font-family': 'inherit',
       '--doc-footnote-marker-font-size': '0.85em',
@@ -130,7 +130,8 @@ describe('template footnotes and captions', () => {
     const entries = Object.fromEntries(buildFootnoteCssVarEntries(resolveFootnoteSettings(stored)));
     for (const value of Object.values(entries)) expect(value).not.toMatch(/;|top/);
     expect(entries).toMatchObject({
-      '--doc-footnote-separator-border': '1px solid #111827',
+      '--doc-footnote-separator-thickness': '1px',
+      '--doc-footnote-separator-color': '#111827',
       '--doc-footnote-spacing-to-content': '12pt',
       '--doc-footnote-entry-spacing': '3pt',
       '--doc-footnote-marker-font-size': '0.85em',

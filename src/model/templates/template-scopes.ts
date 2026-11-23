@@ -177,11 +177,10 @@ export function buildFootnoteCssVarEntries(
   return [
     ['--doc-footnote-numbering-suffix', `"${escapeCssContent(settings.suffix)}"`],
     [
-      '--doc-footnote-separator-border',
-      separator.enabled
-        ? `${cssLength(separator.thickness) ?? FOOTNOTE_DEFAULTS.thickness} solid ${cssColor(separator.color) ?? FOOTNOTE_COLOR}`
-        : 'none',
+      '--doc-footnote-separator-thickness',
+      separator.enabled ? (cssLength(separator.thickness) ?? FOOTNOTE_DEFAULTS.thickness) : '0px',
     ],
+    ['--doc-footnote-separator-color', cssColor(separator.color) ?? FOOTNOTE_COLOR],
     [
       '--doc-footnote-spacing-to-content',
       cssLength(settings.spacingToContent) ?? FOOTNOTE_DEFAULTS.spacingToContent,

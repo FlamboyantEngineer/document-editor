@@ -4,7 +4,12 @@
 // DOM measuring, with the reason counted. Results are kept by node, so a keystroke lays out only
 // the block it changed (DOCE-PAGINATION-11). This module is loaded only when the option is on.
 
-import { type MeasureContext, setLayoutScale, setMeasureContext } from '@chenglou/pretext';
+import {
+  clearCache,
+  type MeasureContext,
+  setLayoutScale,
+  setMeasureContext,
+} from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
@@ -12,7 +17,8 @@ import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { blockNumbers } from '../layout-engine/blocks/numbers.js';
-import type { BlockTextLayout } from '../layout-engine/blocks/types.js';
+import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
+import type { BlockTextLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
@@ -24,7 +30,12 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
-import type { DrawnLines, PagesTextEngine, TextEngineOptions } from './text-engine-types.js';
+import type {
+  DrawnLines,
+  PagesTextEngine,
+  RegionRoom,
+  TextEngineOptions,
+} from './text-engine-types.js';
 
 interface KeptBlock {
   readonly key: string;
@@ -43,7 +54,7 @@ function contentWidth(template: TemplateFile, scope: string | null): number {
   return width - margins.left - margins.right;
 }
 
-// The width of each section's page content, kept by scope.
+// Each section's content width, computed once per scope.
 function contentWidths(template: TemplateFile): (scope: string | null) => number {
   const widths = new Map<string | null, number>();
   return (scope) => {
@@ -183,6 +194,16 @@ function measureIn(options: TextEngineOptions) {
   return context;
 }
 
+// A region's room as the pages read it; null when the engine cannot lay the region out.
+function roomOf(result: RegionGeometry): RegionRoom | null {
+  return result.ok ? { height: result.height, gap: result.gap, children: result.children } : null;
+}
+
+/** Forgets the widths the layout engine measured, as after font faces load. */
+export function forgetFontWidths(): void {
+  clearCache();
+}
+
 // The inline atoms laid out as their text: those the pages draw as the schema does, not a host's.
 function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
   const host = new Set(options.hostViews ?? []);
@@ -197,37 +218,49 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
     : createDomAtomMeasurer({ host });
 }
 
-/** Creates the pages' text layout engine for a template. */
-export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+// The text layout and block geometry the engine lays out with, reading the document's numbers.
+function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
   const { template } = options;
   const host = atomHost(options.measureIn, Boolean(options.view));
   const atoms = createAtomCache({ measure: atomMeasurer(options, host) });
-  let numbers = NO_NUMBERS;
+  // The stylesheet's own block numbers, read where the pages' content is drawn.
+  const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
     measureContext: measureIn(options),
     codeLineNumbers: options.codeLineNumbers,
+    reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
       types: textAtomTypes(options),
-      footnoteOf: (marker) => numbers.footnoteOf(marker),
+      footnoteOf: (marker) => numbers().footnoteOf(marker),
       refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
     },
   });
   const geometry = createBlockLayout({
-    text: numberedText(text, () => numbers),
+    text: numberedText(text, numbers),
     atoms,
-    metrics: (scope) => blockMetrics(template, scope),
-    labelOf: (caption) => numbers.labelOf(caption),
-    footnoteOf: (entry) => numbers.footnoteOf(entry),
+    metrics: (scope) => blockMetrics(template, scope, sheet),
+    labelOf: (caption) => numbers().labelOf(caption),
+    footnoteOf: (entry) => numbers().footnoteOf(entry),
   });
+  return { host, atoms, text, geometry };
+}
+
+/** Creates the pages' text layout engine for a template. */
+export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+  const { template } = options;
+  let numbers = NO_NUMBERS;
+  const { host, atoms, text, geometry } = engineLayouts(options, () => numbers);
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
+  let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
   const counts = { laid: 0, refused: 0, reasons: new Map<string, number>() };
   const widthOf = contentWidths(template);
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();
+    regions = new WeakMap();
     options.onAtomsSettled();
   });
 
@@ -250,6 +283,15 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       counts.laid += 1;
       if (!result.provisional) blocks.set(node, { key, block: result.block });
       return result.block;
+    },
+    measureRegion(node, scope) {
+      const key = scope ?? '';
+      const kept = regions.get(node);
+      if (kept?.key === key) return kept.room;
+      const result = geometry.layoutRegion(node, { width: widthOf(scope), scope });
+      const room = roomOf(result);
+      if (!result.ok || !result.provisional) regions.set(node, { key, room });
+      return room;
     },
     lines(node, place) {
       const markers = markerKey(node, numbers.footnoteOf);

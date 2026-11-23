@@ -14,6 +14,8 @@ export interface AtomSize {
   readonly baseline?: number | undefined;
   /** Whether an inline atom is aligned to its line's top or bottom (`vertical-align`). */
   readonly align?: 'top' | 'bottom' | undefined;
+  /** A block atom's outer margins as drawn, its content's margins that pass through its edges included. */
+  readonly margins?: { readonly top: number; readonly bottom: number } | undefined;
 }
 
 /** A cached atom's box, and whether it may still change. */

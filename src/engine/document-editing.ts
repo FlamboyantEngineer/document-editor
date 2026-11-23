@@ -61,6 +61,7 @@ import { createVariableTokens } from './variable-tokens.js';
 import {
   type ContentLimit,
   createContentLimit,
+  createSectionFill,
   createTrailingParagraph,
 } from './writing-helpers.js';
 
@@ -329,6 +330,7 @@ export function createDocumentEditingExtension<C = unknown>(
         when: () => options.trailingParagraph ?? false,
         build: () => [createTrailingParagraph({ isRemote })],
       },
+      { name: 'section-fill', priority: 871, build: () => [createSectionFill({ isRemote })] },
       {
         name: 'content-limit',
         priority: 465,

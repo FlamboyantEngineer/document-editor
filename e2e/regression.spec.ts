@@ -751,6 +751,58 @@ test.describe('table fragment stress', () => {
   });
 });
 
+test.describe('footnote areas', () => {
+  for (const mode of ['dom', 'pretext'] as const) {
+    test(`DOCE-PAGINATION-11.10 draws a footnote area at its template's numbers in ${mode} mode`, async ({
+      page,
+    }) => {
+      await page.goto(`regression.html?document=footnote-heavy&layout=page&textLayout=${mode}`);
+      await waitForLab(page);
+      const areas = await page
+        .locator('.de-document-editor__content .pm-page-footnotes')
+        .evaluateAll((all) =>
+          all
+            .filter((area) => area.children.length > 1)
+            .map((area) => {
+              const style = getComputedStyle(area);
+              // A length the area's custom properties give, in pixels, as the area resolves it.
+              const pixels = (length: string) => {
+                const probe = document.createElement('div');
+                probe.style.cssText = `position: absolute; height: ${length}`;
+                area.append(probe);
+                const height = probe.getBoundingClientRect().height;
+                probe.remove();
+                return height;
+              };
+              const boxes = [...area.children].map((entry) => entry.getBoundingClientRect());
+              const box = area.getBoundingClientRect();
+              const gaps = boxes
+                .slice(1)
+                .map((entry, index) => entry.top - (boxes[index]?.bottom ?? 0));
+              return {
+                border: parseFloat(style.borderTopWidth) || 0,
+                spacing: pixels('var(--doc-footnote-entry-spacing)'),
+                above: (boxes[0]?.top ?? 0) - box.top,
+                below: box.bottom - (boxes.at(-1)?.bottom ?? 0),
+                room: pixels(
+                  'calc(var(--doc-footnote-separator-thickness) + var(--doc-footnote-spacing-to-content))',
+                ),
+                gaps,
+              };
+            }),
+        );
+      expect(areas.length).toBeGreaterThan(0);
+      for (const area of areas) {
+        // No border to round per screen: the separator is painted in the area's padding.
+        expect(area.border).toBe(0);
+        expect(area.above).toBeCloseTo(area.room, 1);
+        expect(area.below).toBeCloseTo(0, 1);
+        for (const gap of area.gaps) expect(gap).toBeCloseTo(area.spacing, 1);
+      }
+    });
+  }
+});
+
 test.describe('code block stress', () => {
   test('DOCE-LABS-4.5 DOCE-PAGINATION-3.3 splits a long listing at line breaks, each line once and numbered on', async ({
     page,

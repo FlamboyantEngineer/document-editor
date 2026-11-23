@@ -39,12 +39,14 @@ function atomBlock(context: BlockContext, node: ProseMirrorNode, margins = { top
   );
   if (!size) return notLaid(node, `${node.type.name} has no measured size`);
   const flush = context.parent === 'region';
+  // The stylesheet's margins, or wider ones the atom is drawn with.
+  const drawn = size.margins ?? { top: 0, bottom: 0 };
   return laid(
     {
       node,
       height: size.height,
-      marginTop: flush ? 0 : margins.top,
-      marginBottom: flush ? 0 : margins.bottom,
+      marginTop: flush ? 0 : Math.max(margins.top, drawn.top),
+      marginBottom: flush ? 0 : Math.max(margins.bottom, drawn.bottom),
     },
     size.provisional,
   );

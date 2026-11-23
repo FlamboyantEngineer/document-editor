@@ -48,7 +48,7 @@ Verification: `src/engine/tables.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-1.7 - Remote changes
 
-The repair that keeps every row of a table as wide as the table, which comes with cell selections, shall write only after a change that is not remote (`isRemote`, `isRemoteTransaction` by default): a remote change carries its sender's repair already.
+The repair that keeps every row of a table as wide as the table, which comes with cell selections, shall write only after a change that is not remote (`isRemote`, `isRemoteTransaction` by default): a remote change carries its sender's repair already. A table a writer's change left with no cell, such as one a delete across it left with an empty row, which the repair can only delete while the node holding it with its caption needs a table, shall be taken out whole with its caption instead of repaired again after each write.
 
 Implementation: `src/engine/tables.ts`
 Verification: `src/engine/tables.test.ts`
@@ -129,7 +129,7 @@ Verification: `src/engine/table-format.test.ts`, `src/engine/table-row-resize.te
 
 ### DOCE-TABLES-3.7 - Within the page
 
-After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history. Dragging the last column's right border shall widen or narrow the table, never wider than the content box the table sits in. A resize starts from the widths the columns are laid out at. A table fitted to the page width (`fit-page-width`) keeps the fit when a border between two of its columns moves, which changes only their proportions, and leaves it, aligned left at the widths it was laid out at, when its last column's border changes its outer width (`setColumnWidths(table, widths, { keepFit })`).
+After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history. Dragging the last column's right border shall widen or narrow the table, never wider than the content box the table sits in. A resize starts from the widths the columns are laid out at. Under the layout engine (`textLayout: 'pretext'`) the pages draw tables at the engine's column widths with a fixed table layout (DOCE-PAGINATION-10.5), and resizing and the page-content limit work there as on the DOM's automatic layout, each drawn column as wide as its kept width. A table fitted to the page width (`fit-page-width`) keeps the fit when a border between two of its columns moves, which changes only their proportions, and leaves it, aligned left at the widths it was laid out at, when its last column's border changes its outer width (`setColumnWidths(table, widths, { keepFit })`).
 
 Implementation: `src/model/layout/column-widths.ts`, `src/engine/table-width.ts`, `src/engine/table-resize.ts`, `src/engine/document-editing.ts`
 Verification: `src/model/layout/column-widths.test.ts`, `src/engine/table-format.test.ts`, `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`

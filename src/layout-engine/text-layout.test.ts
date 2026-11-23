@@ -118,6 +118,19 @@ describe('createTextLayout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-12.4 lists the clusters its reserve option reserves a width for', () => {
+    // Reserves each ☃ and the joined family, in any font, at the font's size.
+    const reserve = (cluster: string, font: string) =>
+      cluster === '☃' || cluster.includes('\u200d') ? Number(/(\d+)px/u.exec(font)?.[1]) : null;
+    const node = block('<p>aa ☃ <strong>b👩\u200d👧</strong></p>');
+    expect(table(node, 200, { reserve }).reserved).toEqual([
+      { from: 3, to: 4, width: 12 },
+      { from: 6, to: 11, width: 12 },
+    ]);
+    expect(table(node, 200).reserved).toBeUndefined();
+    expect(table(block('<p>aa</p>'), 200, { reserve }).reserved).toBeUndefined();
+  });
+
   it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, each text node as its own item', () => {
     const plain = table(block(`<p>${WORDS}</p>`), 60);
     const linked = table(
@@ -263,20 +276,16 @@ describe('createTextLayout', () => {
     expect(measureAtom).toHaveBeenCalledWith(atom, { parent: heading, scope: 'appendix' });
   });
 
-  it('DOCE-PAGINATION-9.5 keeps a template variable on one line', () => {
-    const variable = documentSchema.nodes.template_variable?.create(
-      { variableKey: 'title' },
-      documentSchema.text('cccc dddd'),
-    );
+  it('DOCE-PAGINATION-9.5 refuses a block that holds a template variable', () => {
+    const variable = documentSchema.nodes.template_variable?.create({ variableKey: 'page.total' });
     const paragraph = documentSchema.nodes.paragraph?.create(null, [
       documentSchema.text('aaaa '),
       ...(variable ? [variable] : []),
     ]);
     if (!paragraph) throw new Error('schema has no paragraph');
-    expect(starts(table(paragraph, 60))).toEqual([
-      [0, 5, 'wrap'],
-      [5, paragraph.content.size, 'end'],
-    ]);
+    expect(
+      createTextLayout({ template: BASE_TEMPLATE }).layoutText(paragraph, { width: 60 }),
+    ).toEqual({ ok: false, reason: 'template variable' });
   });
 
   it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {

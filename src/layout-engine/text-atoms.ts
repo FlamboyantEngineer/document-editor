@@ -16,13 +16,10 @@ export const TEXT_ATOMS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The text atoms the pages' engine still leaves to the DOM, with why: a footnote marker's `sup`
- * raises its line in Chromium, which the engine's superscript does not yet (requirements review
- * P3, thread Q3).
+ * The text atoms the pages' engine still leaves to the DOM, with why: none, since a footnote
+ * marker's `sup` no longer raises its line (DOCE-PAGINATION-9.3).
  */
-export const REFUSED_TEXT_ATOMS: ReadonlyMap<string, string> = new Map([
-  ['footnote_reference', 'footnote marker raises its line'],
-]);
+export const REFUSED_TEXT_ATOMS: ReadonlyMap<string, string> = new Map<string, string>();
 
 /** What a text atom's text comes from. */
 export interface TextAtomSource {

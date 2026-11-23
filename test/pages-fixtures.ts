@@ -4,6 +4,7 @@
 import type { Node } from 'prosemirror-model';
 import { EditorState, type Plugin } from 'prosemirror-state';
 import type { TextLine } from '../src/layout-engine/line-table.js';
+import { reservedBoxes } from '../src/layout-engine/reserved-boxes.js';
 import { forcedLines } from '../src/pagination/forced-lines.js';
 import { createPageVariables } from '../src/pagination/page-variables.js';
 import type { DrawnLines, PagesTextEngine } from '../src/pagination/text-engine-types.js';
@@ -46,6 +47,8 @@ export interface StubEngineOptions {
   readonly left?: number;
   readonly justify?: boolean;
   readonly headings?: ReadonlyMap<number, string>;
+  /** Clusters given a reserved box 16px wide (DOCE-PAGINATION-12.4). */
+  readonly reserved?: ReadonlySet<string>;
 }
 
 /** An engine that breaks a block's content every `perLine` characters, each line 10px of 100px. */
@@ -56,6 +59,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     number: () => undefined,
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
     measureBlock: () => null,
+    measureRegion: () => null,
     lines(block) {
       const size = block.content.size;
       const lines: TextLine[] = [];
@@ -71,7 +75,11 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
         overhead: 0,
         justify: options.justify ?? false,
       };
-      return table;
+      const reserved = options.reserved;
+      if (!reserved) return table;
+      const text = block.textBetween(0, size, '\ufffc', '\ufffc');
+      const reserve = (cluster: string) => (reserved.has(cluster) ? 16 : null);
+      return { ...table, reserved: reservedBoxes(text, { offset: 0, font: '', reserve }) };
     },
     provisional: () => false,
     stats: () => ({ laid: 0, refused: 0, reasons: new Map() }),
