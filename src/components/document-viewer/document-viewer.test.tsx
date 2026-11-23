@@ -18,12 +18,12 @@ const figure = (index: number): Node =>
   node('figure', { dataId: `f${String(index)}`, src: `image-${String(index)}.png`, alt: '' });
 
 // Ten pages, each with a heading the engine numbers after its page and a paragraph drawn on lines
-// of four characters, and, `withImages`, a figure of an image of its own.
-function tenPages(count = 10, withImages = false) {
+// of four characters, and, `withImages`, a figure of an image of its own; `title` starts each heading.
+function tenPages(count = 10, withImages = false, title = 'Part') {
   const pages = Array.from({ length: count }, (_, index) =>
     page(
       [
-        heading(`Part${String(index)}`),
+        heading(`${title}${String(index)}`),
         paragraph(`text${String(index)} more`),
         ...(withImages ? [figure(index)] : []),
       ],
@@ -213,6 +213,28 @@ describe('DocumentViewer', () => {
     // Back to the first page: drawn again from what it drew before, without asking again.
     showInView([0]);
     expect(resolveImage).toHaveBeenCalledTimes(2);
+  });
+
+  it('DOCE-PAGINATION-13.6 draws a new layout’s pages, never those it drew for the layout before', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const heading = (container: HTMLElement) =>
+      sheets(container)[0]?.querySelector('h1')?.textContent;
+    const { container, rerender } = render(
+      <DocumentViewer layout={tenPages(3)} template={BASE_TEMPLATE} overscan={0} />,
+    );
+    showInView([0]);
+    expect(heading(container)).toBe('Part0');
+    // A new layout, as an edit gives: each page is drawn from it, not from the old drawing.
+    rerender(
+      <DocumentViewer
+        layout={tenPages(3, false, 'Edited')}
+        template={BASE_TEMPLATE}
+        overscan={0}
+      />,
+    );
+    expect(drawn(container)).toEqual([]);
+    showInView([0]);
+    expect(heading(container)).toBe('Edited0');
   });
 
   it('DOCE-PAGINATION-13.8 adds the served faces to its document while it shows the pages', () => {
