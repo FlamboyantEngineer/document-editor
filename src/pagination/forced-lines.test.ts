@@ -212,6 +212,28 @@ describe('forcedLines', () => {
     ]);
   });
 
+  it("DOCE-PAGINATION-11.2 marks each paragraph in a list's items, but not a continuation's placeholder", () => {
+    const placeholder = create('paragraph', { continuationPlaceholder: true });
+    const item = (attrs: Record<string, unknown>, blocks: Node[]) =>
+      create('list_item', attrs, blocks);
+    const list = create('bullet_list', null, [
+      item({ orphanedListContinuation: true, splitPartIndex: 1 }, [
+        placeholder,
+        create('bullet_list', null, [item({}, [paragraph('dd', { dataId: 'i2' })])]),
+      ]),
+    ]);
+    const doc = pagesDoc([[list]]);
+    const at = positionOf(doc, 'dd');
+    const state = stateWith(doc, stubEngine().engine);
+    expect(drawn(state)).toEqual([
+      { from: at, to: at + 4, class: 'de-forced-lines', 'data-lines': '1', dir: 'ltr' },
+    ]);
+    const [page] = pageTextLines(state);
+    expect(page?.blocks.map(({ elementId, nested }) => ({ elementId, nested }))).toEqual([
+      { elementId: 'i2', nested: true },
+    ]);
+  });
+
   it('DOCE-PAGINATION-11.2 never cuts a character in two at a line end', () => {
     const doc = pagesDoc([[paragraph('aaaaaaaa😀bb')]]);
     const state = stateWith(doc, stubEngine().engine);
