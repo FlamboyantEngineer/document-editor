@@ -50,6 +50,9 @@ const pixelsOf = (canvas: Locator) =>
 test('DOCE-EDITOR-1.9 paints every page into a canvas of its exact device pixels at each zoom', async ({
   page,
 }) => {
+  // Five loads of the long document, each painted into canvases: about 26 s on CI at a ratio of
+  // 1.25 and more at 2, so the default 30 s is too short.
+  test.setTimeout(90_000);
   for (const zoom of [50, 75, 100, 125, 150]) {
     await open(page, `document=long-mixed&textLayout=pretext&zoom=${String(zoom)}`);
     const pages = page.locator('.de-document-editor__content .pm-page');
