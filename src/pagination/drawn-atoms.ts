@@ -28,8 +28,9 @@ interface DrawnAtomMeasurerOptions {
 
 // How often an atom still drawn is checked for having left the view, in milliseconds, and how many
 // checks its images are waited for at most, as an image out of sight that loads lazily may never
-// load. Math still typesetting is waited for as long as it stays in the view, however slow its
-// renderer: its final size is what the pages must be laid out with (DOCE-PAGINATION-10.8).
+// load. Math still typesetting is waited for as long as it stays in the view: its final size is what
+// the pages must be laid out with, and the math views end a renderer that does not answer by
+// their deadline as invalid math (DOCE-PAGINATION-10.8).
 const LEFT_CHECK_MS = 1000;
 const MOST_CHECKS = 10;
 

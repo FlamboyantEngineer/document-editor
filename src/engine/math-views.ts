@@ -35,13 +35,14 @@ interface MathDrawing {
   readonly render: MathRenderer;
   readonly invalid: InvalidMathText;
   readonly typesets: MathTypesets;
+  readonly timeout: { readonly ms: number; readonly message: string };
 }
 
 // Draws one math node, typesetting its source and drawing it again when the source changes.
 function mathView(
   node: ProseMirrorNode,
   view: EditorView,
-  { render, invalid, typesets }: MathDrawing,
+  { render, invalid, typesets, timeout }: MathDrawing,
 ): NodeView {
   const display = node.type.name === 'math_display';
   const owner = view.dom.ownerDocument;
@@ -51,6 +52,20 @@ function mathView(
   dom.contentEditable = 'false';
   let source: string | null = null;
   let current = node;
+  let deadline: number | undefined;
+  const window = owner.defaultView;
+  // Shows what the source typeset as, or what invalid math shows and why, and asks the pages to
+  // measure it again.
+  const show = (result: { ok: true; element: Element } | { ok: false; message: string }) => {
+    if (result.ok) dom.replaceChildren(result.element);
+    else {
+      dom.textContent = display ? invalid.display : invalid.inline;
+      dom.title = result.message;
+    }
+    dom.dataset.state = result.ok ? 'ready' : 'invalid';
+    const Event = window?.CustomEvent;
+    if (Event) dom.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
+  };
   const draw = (next: ProseMirrorNode) => {
     current = next;
     const latex = next.textContent;
@@ -59,6 +74,16 @@ function mathView(
     dom.textContent = latex;
     dom.dataset.state = 'pending';
     dom.removeAttribute('title');
+    window?.clearTimeout(deadline);
+    // A renderer that has not answered by the deadline shows as invalid, so nothing waits on it
+    // for good (DOCE-PAGINATION-10.8); a later answer is still drawn.
+    deadline = window?.setTimeout(() => {
+      if (source !== latex || dom.dataset.state !== 'pending') return;
+      const message = `${timeout.message} (${String(timeout.ms / 1000)} s)`;
+      const text = display ? invalid.display : invalid.inline;
+      typesets.keep(display, latex, { state: 'invalid', text, message });
+      show({ ok: false, message });
+    }, timeout.ms);
     // The base library typesets and keeps only MathML's allowed parts; it never throws.
     void renderMathElement(latex, {
       displayMode: display,
@@ -72,14 +97,8 @@ function mathView(
         typesets.keep(display, latex, { state: 'invalid', text, message: result.message });
       }
       if (source !== latex) return;
-      if (result.ok) dom.replaceChildren(result.element);
-      else {
-        dom.textContent = display ? invalid.display : invalid.inline;
-        dom.title = result.message;
-      }
-      dom.dataset.state = result.ok ? 'ready' : 'invalid';
-      const Event = dom.ownerDocument.defaultView?.CustomEvent;
-      if (Event) dom.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
+      window?.clearTimeout(deadline);
+      show(result);
     });
   };
   draw(node);
@@ -93,6 +112,7 @@ function mathView(
     selectNode: () => dom.setAttribute('data-selected', 'true'),
     deselectNode: () => dom.removeAttribute('data-selected'),
     ignoreMutation: () => true,
+    destroy: () => window?.clearTimeout(deadline),
   };
 }
 
@@ -136,7 +156,17 @@ export interface MathViewsOptions {
   readonly render?: MathRenderer | undefined;
   /** What invalid math shows; `DEFAULT_INVALID_MATH_TEXT` by default. */
   readonly invalid?: InvalidMathText | undefined;
+  /**
+   * How long the renderer is waited for, in milliseconds, before the math shows as invalid with
+   * `timeoutMessage` as its reason; 30 seconds by default. An answer after it is still drawn.
+   */
+  readonly timeout?: number | undefined;
+  /** The reason math the renderer did not answer for shows; English by default. */
+  readonly timeoutMessage?: string | undefined;
 }
+
+/** How long math views wait for their renderer by default, in milliseconds. */
+export const DEFAULT_MATH_TIMEOUT = 30_000;
 
 /**
  * Draws math as typeset MathML in every view the plugin runs in, turns `$x$` and `$$` with Enter
@@ -145,8 +175,15 @@ export interface MathViewsOptions {
 export function createMathViews({
   render = renderKatexMath,
   invalid = DEFAULT_INVALID_MATH_TEXT,
+  timeout = DEFAULT_MATH_TIMEOUT,
+  timeoutMessage = 'The math was not typeset in time',
 }: MathViewsOptions = {}): Plugin {
-  const drawing: MathDrawing = { render, invalid, typesets: createMathTypesets() };
+  const drawing: MathDrawing = {
+    render,
+    invalid,
+    typesets: createMathTypesets(),
+    timeout: { ms: timeout, message: timeoutMessage },
+  };
   return new Plugin<MathInputState>({
     key: mathViewsKey,
     typesets: drawing.typesets,
