@@ -188,6 +188,11 @@ jobs:
         shell: bash
         run: |
           if [ -d node_modules ]; then npm install --no-audit --no-fund; else npm ci; fi
+      # A kept tree may only cost time, never change what is measured: the lock is unchanged and the
+      # tree is exactly what it describes.
+      - name: The installed tree is the lock's
+        shell: bash
+        run: git diff --exit-code package-lock.json && npm ls --all > /dev/null
       - run: npx vitest run src/layout-engine/font-files/measurer.test.ts
 
   check:
