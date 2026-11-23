@@ -386,5 +386,12 @@ describe('footnotes drawn on more than one page', () => {
       'fn-head',
     ]);
     expect(notes(section?.pages[1]?.anchors)).toEqual(['fnref-head~2', 'fn-head~2']);
+    // Named before a page is drawn, and the ids its drawing then holds (DOCE-PAGINATION-13.6).
+    for (const each of section?.pages ?? []) {
+      const ids = [
+        ...new DOMParser().parseFromString(each.html(), 'text/html').querySelectorAll('[id]'),
+      ];
+      expect(each.anchors).toEqual(ids.map((element) => element.id));
+    }
   });
 });
