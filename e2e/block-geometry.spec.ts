@@ -27,18 +27,27 @@ const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 const MODES = ['pretext'] as const;
 type Mode = (typeof MODES)[number];
 
-/** A known difference, as `type kind` (`page overflow` for a page), and the thread that owns its fix. */
+/**
+ * Known differences by place, each one block's fragment and kind (`figure 3#0 height`, numbered
+ * as `GeometryMismatch.block`) or a page's overflow (`page 4 overflow`, from 0), with the thread
+ * that owns its fix. A second block or fragment with the same fault is a new difference.
+ */
 type Known = Readonly<Record<string, string>>;
 
-// What differs today, by document and text layout. An entry stands for every block of its type
-// with that difference; the check fails when none has it any more.
+const placeOf = (found: GeometryMismatch) =>
+  found.kind === 'overflow'
+    ? `page ${String(found.page)} overflow`
+    : `${found.block} ${found.kind}`;
+
+// What differs today, by document and text layout. The check fails when a listed place no longer
+// differs, so a fix removes its entry.
 const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>>> = {};
 
 // Differences that depend on timing, which the check allows but does not ask for. The fixtures'
 // figures hold an image that never loads (a cut GIF): the plan gives each no height, or the
 // height of its drawn alt box, or of two, by whether the image's error came before the layout; an
 // equation's plan likewise by whether it was drawn first. That the plan depends on timing is the
-// fault, and its owner's.
+// fault, and its owner's. A figure's allowance holds only for a figure whose image did not load.
 const NO_IMAGE =
   'Q2 atoms: a figure whose image never loads planned by whether its error came before the layout';
 const TIMING = 'Q2 atoms (P1): display math planned by whether KaTeX drew it before the layout';
@@ -52,14 +61,21 @@ const CUT_IMAGES: readonly RegressionDocumentName[] = [
   'long-mixed',
   'roman-numbering-coverage',
 ];
+// The equations of the caption-numbering document, each its own place.
+const CAPTION_EQUATIONS = Object.fromEntries(
+  Array.from({ length: 8 }, (_, at) => [`math_display ${String(at + 1)}#0 height`, TIMING]),
+);
 const SOMETIMES: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>>> = {
-  ...Object.fromEntries(
-    CUT_IMAGES.flatMap((name) =>
-      MODES.map((mode) => [`${name} ${mode}`, { 'figure height': NO_IMAGE }]),
-    ),
-  ),
-  'caption-numbering pretext': { 'figure height': NO_IMAGE, 'math_display height': TIMING },
+  'caption-numbering pretext': CAPTION_EQUATIONS,
 };
+
+// The fault a difference that depends on timing is allowed as: a figure whose image never loaded,
+// in a document with cut images, or a listed place; none for any other difference.
+function timingFault(name: RegressionDocumentName, mode: Mode, found: GeometryMismatch) {
+  const figure = found.block.startsWith('figure ') && found.brokenImage === true;
+  if (figure && CUT_IMAGES.includes(name) && found.kind === 'height') return NO_IMAGE;
+  return SOMETIMES[`${name} ${mode}`]?.[placeOf(found)];
+}
 
 async function open(page: Page, name: RegressionDocumentName, textLayout: Mode) {
   await page.goto(`regression.html?document=${name}&textLayout=${textLayout}&debug`);
@@ -84,17 +100,49 @@ test.describe('DOCE-LABS-8.10 planned block geometry is the drawn one', () => {
         await open(page, name, mode);
         const found = await readBlockGeometry(page);
         const known = KNOWN[`${name} ${mode}`] ?? {};
-        const sometimes = SOMETIMES[`${name} ${mode}`] ?? {};
         const unknown = found.filter(
-          (each) => !(kindOf(each) in known || kindOf(each) in sometimes),
+          (each) => !(placeOf(each) in known || timingFault(name, mode, each)),
         );
         expect(unknown, 'blocks drawn otherwise than planned, not known').toEqual([]);
-        const kinds = new Set(found.map(kindOf));
-        const gone = Object.entries(known).filter(([kind]) => !kinds.has(kind));
+        const places = new Set(found.map(placeOf));
+        const gone = Object.entries(known).filter(([place]) => !places.has(place));
         expect(gone, 'known differences that no longer happen: remove them').toEqual([]);
       });
     }
   }
+
+  test('DOCE-PAGINATION-3.6 draws each part of a paragraph split after its hard breaks as planned', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    // Lines of text, each followed by two hard breaks, so splits fall both after a line's text
+    // and after the empty line between the breaks.
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const content = Array.from({ length: 80 }, (_, line) => [
+        { type: 'text', text: `   Line ${String(line + 1)}` },
+        { type: 'lineBreak' },
+        { type: 'lineBreak' },
+      ]).flat();
+      window.regressionLab.load({
+        ...file,
+        sections: [
+          { ...section, content: [{ type: 'paragraph', attrs: { id: 'breaks' }, content }] },
+        ],
+      });
+    });
+    await waitForLab(page);
+    await page.evaluate(async () => {
+      window.regressionLab.drawAllLines(true);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return window.stressLab.whenSettled();
+    });
+    const parts = page.locator('.pm-page-content > p[data-debug-height]');
+    expect(await parts.count()).toBeGreaterThan(3);
+    expect(await readBlockGeometry(page)).toEqual([]);
+  });
 
   test('DOCE-LABS-8.10 a block drawn taller or lower than planned fails the check', async ({
     page,

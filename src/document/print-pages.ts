@@ -267,6 +267,8 @@ export function renderLayoutPrintPage(
     ...options,
     template: drawn,
     bodyClass: 'de-static',
+    // In the language the pages were laid out in, as the editor's snapshot is (DOCE-PAGINATION-9.7).
+    language: layout.language,
     rules: [
       pageSheetRules(doc, drawn),
       // The served faces the lines were broken in, so the print draws the same glyphs.

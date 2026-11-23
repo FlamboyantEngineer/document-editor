@@ -60,6 +60,16 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
     measureBlock: () => null,
     measureRegion: () => null,
+    nestedLines(container, scope) {
+      const found = new Map<Node, DrawnLines>();
+      container.descendants((child) => {
+        if (!child.isTextblock) return true;
+        const table = this.lines(child, { scope });
+        if (table) found.set(child, table);
+        return false;
+      });
+      return found;
+    },
     lines(block) {
       const size = block.content.size;
       const lines: TextLine[] = [];

@@ -62,6 +62,12 @@ export interface PagesLayout {
    */
   readonly fonts: FontFiles | null;
   /**
+   * The language the pages were laid out and drawn in (DOCE-PAGINATION-9.7), the `lang` around the
+   * editor's pages; empty when nothing names one. What draws the layout draws it in this language,
+   * whatever language is around it, as its line breaks, quotes and font fallbacks depend on it.
+   */
+  readonly language: string;
+  /**
    * Whether the layout may still move: the pages are not settled, an atom such as an image or math
    * is still loading, or fonts are. A host prints or keeps the layout once it is false, as after
    * the editor's `whenSettled`.
