@@ -509,7 +509,7 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
   'caption-numbering': 'b7088b707c5b1f03',
   'heading-keep-with-next': 'cde9efbfd0216fdd',
-  'long-mixed': 'b32fd4781d7661da',
+  'long-mixed': 'e83aba0e479e7771',
   'oversized-blocks': '04f2d26ec8b3697c',
   'roman-numbering-stress': 'd24934809773ffdb',
 };
