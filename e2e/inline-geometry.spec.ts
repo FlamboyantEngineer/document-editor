@@ -167,6 +167,41 @@ test.describe('inline geometry on the engine’s lines', () => {
       await drawnAsPlanned(page);
     });
 
+    test('DOCE-PAGINATION-12.4 draws a deleted word no served font draws in its reserved boxes', async ({
+      page,
+    }) => {
+      await page.goto(
+        'regression.html?document=line-breaks-and-writing-systems&textLayout=pretext&debug&compare=markup',
+      );
+      await waitForLab(page);
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      const block = page
+        .locator('.de-document-editor__content .pm-page-content > p[data-lines]')
+        .filter({ hasText: 'East Asian' });
+      // The content's own ideographs are drawn in reserved boxes, as no served face has them.
+      await expect(block.locator('.de-forced-lines__reserved').first()).toBeAttached();
+      // Deletes the first two ideographs, which the comparison then shows deleted in place.
+      await block.evaluate((element) => {
+        // Each ideograph is a text node of its own, in its box.
+        const texts: Text[] = [];
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        for (let text = walker.nextNode(); text; text = walker.nextNode()) texts.push(text as Text);
+        const first = texts.find((text) => text.data.startsWith('雨'));
+        const second = texts.find((text) => text.data.startsWith('量'));
+        if (!first || !second) throw new Error('no ideographs to delete');
+        const range = document.createRange();
+        range.setStart(first, 0);
+        range.setEnd(second, 1);
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(range);
+      });
+      await page.keyboard.press('Delete');
+      const deleted = block.locator('del[data-diff-change="deletion"]');
+      await expect(deleted.first()).toBeAttached();
+      await expect(deleted.locator('.de-forced-lines__reserved')).not.toHaveCount(0);
+      await drawnAsPlanned(page);
+    });
+
     test('DOCE-PAGINATION-11.11 lays a deleted block’s text out on lines of its own', async ({
       page,
     }) => {

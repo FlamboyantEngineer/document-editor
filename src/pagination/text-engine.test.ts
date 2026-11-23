@@ -60,6 +60,34 @@ describe('createPagesTextEngine', () => {
     engine.destroy();
   });
 
+  it('DOCE-PAGINATION-12.4 reserves the widths of an inserted word in its block font', () => {
+    const fonts: string[] = [];
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      reserve: (cluster, font) => {
+        fonts.push(font);
+        return cluster === '\u2603' ? 12 : null;
+      },
+    });
+    expect(engine.insertedReserved(paragraph('kept'), null, 'a\u2603b\u2603 ')).toEqual([
+      { from: 1, to: 2, width: 12 },
+      { from: 3, to: 4, width: 12 },
+    ]);
+    // The paragraph's own font, as the inserted word is laid out in.
+    expect(new Set(fonts).size).toBe(1);
+    expect(fonts[0]).toMatch(/px /u);
+    engine.destroy();
+    const plain = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+    });
+    expect(plain.insertedReserved(paragraph('kept'), null, '\u2603')).toEqual([]);
+    plain.destroy();
+  });
+
   it('DOCE-PAGINATION-10.9 lays blocks out with the numbers the stylesheet states where it measures', () => {
     const measureIn = document.createElement('div');
     measureIn.style.setProperty('--de-quote-spacing', '30px');

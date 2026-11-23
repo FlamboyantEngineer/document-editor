@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import type { Node } from 'prosemirror-model';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
@@ -243,5 +244,30 @@ describe('DocumentViewer', () => {
     unmountFirst();
     expect(added.size).toBe(0);
     Reflect.deleteProperty(document, 'fonts');
+  });
+
+  it('DOCE-PAGINATION-13.9 draws the page a link goes to, though it is not drawn, and goes to its anchor', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const scrolled: string[] = [];
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value(this: Element) {
+        scrolled.push(this.id);
+      },
+    });
+    const { container } = render(
+      <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} overscan={0} />,
+    );
+    showInView([0]);
+    expect(drawn(container)).toEqual([0]);
+    const link = document.createElement('a');
+    link.href = '#Part8';
+    link.textContent = 'See part 8';
+    sheets(container)[0]?.append(link);
+    await userEvent.setup().click(screen.getByRole('link', { name: 'See part 8' }));
+    expect(drawn(container)).toEqual([0, 8]);
+    expect(scrolled).toEqual(['Part8']);
+    expect(window.location.hash).toBe('');
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
   });
 });

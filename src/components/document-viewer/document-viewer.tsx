@@ -15,6 +15,7 @@ import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { renameTemplateFonts } from '../../pagination/served-template.js';
 import { createHooks } from '../../utils/hooks.js';
+import { isElement } from '../../utils/is-element.js';
 import { scrollerOf } from '../../utils/scroll-frame.js';
 
 const hooks = createHooks('document-viewer');
@@ -126,6 +127,29 @@ function useLayoutFaces(
 
 const sameFamily = (family: string) => family;
 
+// Follows each link inside the pages to an anchor of theirs (a reference, a footnote, a list of
+// contents row): the page holding it is drawn as if in view, though it was not drawn, and the
+// anchor scrolled to (DOCE-PAGINATION-13.9).
+function followLinks(
+  element: HTMLElement,
+  pageOf: ReadonlyMap<string, number>,
+  show: (index: number) => void,
+) {
+  const follow = (event: MouseEvent) => {
+    const link = isElement(event.target) ? event.target.closest('a[href^="#"]') : null;
+    if (!link || !element.contains(link)) return;
+    const id = decodeURIComponent((link.getAttribute('href') ?? '').slice(1));
+    const index = pageOf.get(id);
+    if (index === undefined) return;
+    event.preventDefault();
+    show(index);
+    const target = [...element.querySelectorAll('[id]')].find((each) => each.id === id);
+    target?.scrollIntoView({ block: 'start' });
+  };
+  element.addEventListener('click', follow);
+  return () => element.removeEventListener('click', follow);
+}
+
 /**
  * A document's laid-out pages, read-only (DOCE-PAGINATION-13.6): `de-document-viewer` beside the
  * editor's root class, in the template's properties, around an element with the classes of the
@@ -179,7 +203,13 @@ export function DocumentViewer(props: DocumentViewerProps) {
     );
     for (const sheet of sheets) observer.observe(sheet);
     draw();
+    const pageOf = new Map(pages.flatMap((page, index) => page.anchors.map((id) => [id, index])));
+    const unfollow = followLinks(element, pageOf, (index) => {
+      visible.add(index);
+      draw();
+    });
     return () => {
+      unfollow();
       observer.disconnect();
       element.replaceChildren();
     };
