@@ -22,6 +22,7 @@ import {
 } from './layout-document.js';
 import { createPageVariables } from './page-variables.js';
 import { createPagesTextEngine } from './text-engine.js';
+import type { PagesTextEngine, RegionRoom } from './text-engine-types.js';
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
 const variable = (key: string): StoredNode => ({ type: 'variable', attrs: { key } });
@@ -52,7 +53,7 @@ function layOut(
   template: TemplateFile,
   paragraphs: number,
   pageHeight: number,
-  more: Partial<DocumentLayoutOptions> = {},
+  more: Partial<DocumentLayoutOptions> & { regionRoom?: RegionRoomBy } = {},
 ): PageMetric[] {
   const content = Array.from({ length: paragraphs }, (_, index) => line(text(`Line ${index}`)));
   const { doc } = readDocumentFile({ formatVersion: 1, sections: [{ content }] }, documentSchema);
@@ -61,19 +62,26 @@ function layOut(
     plugins: [createPageVariables()],
   });
   const view = new EditorView(document.createElement('div'), { state });
-  const engine = createPagesTextEngine({
+  const real = createPagesTextEngine({
     template,
     measureIn: document.createElement('div'),
     onAtomsSettled: () => undefined,
   });
+  const { regionRoom, ...options } = more;
+  const engine: PagesTextEngine = regionRoom
+    ? { ...real, measureRegion: (node, scope, texts) => regionRoom(texts) }
+    : real;
   const pages: PageMetric[] = [];
-  const layout = { ...more, pageHeight, engine, onPage: (page: PageMetric) => pages.push(page) };
+  const layout = { ...options, pageHeight, engine, onPage: (page: PageMetric) => pages.push(page) };
   layoutDocument(view, layout);
   layoutDocument(view, { ...layout, onPage: undefined });
-  engine.destroy();
+  real.destroy();
   view.destroy();
   return pages;
 }
+
+// A region's room by the texts its variables show, standing in for the engine's.
+type RegionRoomBy = (texts: ReadonlyMap<string, string> | undefined) => RegionRoom;
 
 // One line paragraph and its spacing, as the engine lays it out under the fake Canvas.
 const LINE = 26;
@@ -138,6 +146,23 @@ describe('headers and footers showing page numbers', () => {
     const [first, again] = sections;
     expect(first?.pagesLaidOut).toBeGreaterThan(0);
     expect(again).toMatchObject({ pagesLaidOut: 0, pages: first?.pages });
-    expect(memory.pages).toBe(first?.pages);
+    expect(memory.pages).toEqual([first?.pages]);
+  });
+
+  it('DOCE-PAGINATION-11.10 leaves room for both counts when the page count flips between two', () => {
+    // A footer whose count takes two lines at 9 pages and one at 10, as a font whose `10` is
+    // narrower than its `9` can: 9 pages' tall footers make 10 pages, 10 pages' short ones 9.
+    const regionRoom: RegionRoomBy = (texts) => {
+      const total = texts?.get('page.total');
+      const height = total === '9' ? 2 * LINE : LINE;
+      return { height, gap: 0, children: [] };
+    };
+    const template = templateWith({ footer: [line(variable('page.total'))] });
+    const memory = createLayoutMemory();
+    const pages = layOut(template, 76, 280, { regionRoom, memory });
+    expect(memory.pages).toEqual([9, 10]);
+    // Every page takes the taller room, so the count drawn, whichever it is, fits its footer.
+    for (const page of pages) expect(page.footer).toBe(2 * LINE);
+    expect(pages.length).toBe(10);
   });
 });

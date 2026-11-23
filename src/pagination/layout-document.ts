@@ -20,7 +20,7 @@ import { insertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { measureChildBlocks } from './measure-blocks.js';
 import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
 import { type FootnoteArea, footnoteAreaHeight } from './measure-footnotes.js';
-import { footnoteArea, type SectionRegions, sectionRegions } from './page-regions.js';
+import { footnoteArea, roomsFor, type SectionRegions, sectionRegions } from './page-regions.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
@@ -64,8 +64,8 @@ export interface SectionReport {
 /** The sections' layouts a document was laid out with, for the next layout to reuse. */
 export interface LayoutMemory {
   sections: SectionLayout[];
-  /** The document's page count the last layout laid out. */
-  pages?: number | undefined;
+  /** The page counts the last layout's regions took room for. */
+  pages?: readonly number[] | undefined;
 }
 
 /** A memory for layouts, empty until the first. */
@@ -181,7 +181,8 @@ interface SectionFill {
 // document's page count it assumes, and the footnotes whose entries an earlier page holds.
 interface SectionStart {
   readonly page: number;
-  readonly pages: number;
+  /** The page counts the regions take room for: each page the most any of them needs. */
+  readonly pages: readonly number[];
   readonly shown: Set<string>;
 }
 
@@ -197,7 +198,7 @@ function fillKey(
     ? [...fill.area.entries].map(([id, height]) => `${id}:${height}:${last?.get(id) ?? ''}`)
     : [];
   const { reads } = fill.regions;
-  const numbers = `${reads.current ? start.page : '-'}/${reads.total ? start.pages : '-'}`;
+  const numbers = `${reads.current ? start.page : '-'}/${reads.total ? start.pages.join(',') : '-'}`;
   return [fill.pageHeight, numbers, perPage, fill.area?.overhead ?? '-', ...entries].join('|');
 }
 
@@ -209,7 +210,7 @@ function layoutSection(
   const perPage = options.footnoteNumbering === 'page';
   const { area, regions } = fill;
   const { shown } = start;
-  const roomOn = (index: number) => regions.on(start.page + index, start.pages);
+  const roomOn = (index: number) => roomsFor(regions, start.page + index, start.pages);
   const baseHeight = (index: number) => {
     const room = roomOn(index);
     return fill.pageHeight - room.header - room.footer;
@@ -273,8 +274,10 @@ function sectionFills(view: EditorView, options: DocumentLayoutOptions) {
   });
 }
 
-// Passes at most this many times over a document whose regions show the page count, each with the
-// count the one before laid out, until the count it assumed is the count it laid out.
+// Passes at most this many times over a document whose regions show the page count: with the count
+// the pass before came to, and from the second on, if that is not the count it comes to, leaving
+// room for every count tried, so a count that flips between two values never leaves a region more
+// text than its room.
 const COUNT_PASSES = 3;
 
 type SectionFills = ReturnType<typeof sectionFills>;
@@ -283,7 +286,10 @@ type SectionFills = ReturnType<typeof sectionFills>;
 // number of its first page.
 function layoutPass(
   fills: SectionFills,
-  at: { readonly pages: number; readonly previous: readonly (SectionLayout | undefined)[] },
+  at: {
+    readonly pages: readonly number[];
+    readonly previous: readonly (SectionLayout | undefined)[];
+  },
   options: DocumentLayoutOptions,
 ) {
   const shown = new Set<string>();
@@ -299,15 +305,19 @@ function layoutPass(
   return { laid, starts, counted: page - 1 };
 }
 
-// Whether every page a pass laid out, assuming a page count, gives its regions the same room under
-// the count it came to, so the pass holds for that count too.
-function holds(fills: SectionFills, pass: ReturnType<typeof layoutPass>, assumed: number) {
+// Whether every page a pass laid out, assuming page counts, gives its regions the same room under
+// the count it came to, so the pass holds for that count alone too.
+function holds(
+  fills: SectionFills,
+  pass: ReturnType<typeof layoutPass>,
+  assumed: readonly number[],
+) {
   return fills.every(({ fill }, index) => {
     if (!fill.regions.reads.total) return true;
     const first = pass.starts[index] ?? 1;
     const count = pass.laid[index]?.result.pages.length ?? 0;
     for (let page = first; page < first + count; page += 1) {
-      const before = fill.regions.on(page, assumed);
+      const before = roomsFor(fill.regions, page, assumed);
       const after = fill.regions.on(page, pass.counted);
       if (before.header !== after.header || before.footer !== after.footer) return false;
     }
@@ -315,12 +325,14 @@ function holds(fills: SectionFills, pass: ReturnType<typeof layoutPass>, assumed
   });
 }
 
-// The document laid out until the page count its regions were laid out with is the count it came
-// to, or a pass's rooms hold for that count; with the pages each section laid out over all passes.
+// The document laid out until the page counts its regions took room for hold the count it came to,
+// with the pages each section laid out over all passes. The count is drawn as the pages come to it.
 function settlePasses(fills: SectionFills, options: DocumentLayoutOptions) {
   const readsTotal = fills.some(({ fill }) => fill.regions.reads.total);
   let previous: readonly (SectionLayout | undefined)[] = options.memory?.sections ?? [];
-  let pages = options.memory?.pages ?? 0;
+  let pages: readonly number[] = options.memory?.pages ?? [0];
+  // The counts layouts came to; a first layout's guess of none is not one.
+  const tried = new Set(options.memory?.pages ?? []);
   const laidOut = fills.map(() => 0);
   let pass = layoutPass(fills, { pages, previous }, options);
   let settled = false;
@@ -328,20 +340,22 @@ function settlePasses(fills: SectionFills, options: DocumentLayoutOptions) {
     pass.laid.forEach(({ result }, index) => {
       laidOut[index] = (laidOut[index] ?? 0) + result.pagesLaidOut;
     });
-    settled = !readsTotal || pass.counted === pages || holds(fills, pass, pages);
+    if (!readsTotal || pages.includes(pass.counted)) settled = true;
+    else if (holds(fills, pass, pages)) [settled, pages] = [true, [pass.counted]];
     if (settled || count >= COUNT_PASSES) break;
-    pages = pass.counted;
+    tried.add(pass.counted);
+    pages = count === 1 ? [pass.counted] : [...tried].sort((a, b) => a - b);
     previous = pass.laid.map(({ result }) => result.layout);
     pass = layoutPass(fills, { pages, previous }, options);
   }
-  // Each section's layout, kept for the page count it came to when it holds for it.
+  // Each section's layout, kept for the page counts it holds for.
   const perPage = options.footnoteNumbering === 'page';
   const layouts = pass.laid.map(({ result }, index) => {
     const fill = settled ? fills[index]?.fill : undefined;
-    const start = { page: pass.starts[index] ?? 1, pages: pass.counted };
+    const start = { page: pass.starts[index] ?? 1, pages };
     return fill ? { ...result.layout, key: fillKey(fill, start, perPage) } : result.layout;
   });
-  return { pass, laidOut, layouts };
+  return { pass, laidOut, layouts, pages };
 }
 
 /**
@@ -353,7 +367,7 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   const { memory, engine } = options;
   engine?.number(view.state.doc);
   const fills = sectionFills(view, options);
-  const { pass, laidOut, layouts } = settlePasses(fills, options);
+  const { pass, laidOut, layouts, pages } = settlePasses(fills, options);
   pass.laid.forEach(({ result, metrics }, index) => {
     for (const metric of metrics) options.onPage?.(metric);
     const pagesLaidOut = laidOut[index] ?? 0;
@@ -362,7 +376,7 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   });
   if (memory) {
     memory.sections = layouts;
-    memory.pages = pass.counted;
+    memory.pages = pages;
   }
   return pass.laid.map(({ result }) => result.pages.map((page) => page.map((block) => block.node)));
 }

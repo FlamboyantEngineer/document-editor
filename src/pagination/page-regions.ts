@@ -106,6 +106,18 @@ export function sectionRegions(
   };
 }
 
+/** The room a section's regions take on a page under several page counts: the most of each. */
+export function roomsFor(regions: SectionRegions, page: number, counts: readonly number[]) {
+  let header = 0;
+  let footer = 0;
+  for (const count of counts) {
+    const room = regions.on(page, count);
+    header = Math.max(header, room.header);
+    footer = Math.max(footer, room.footer);
+  }
+  return { header, footer };
+}
+
 /** A section's footnote area, laid out by the layout engine when it can, else measured in the view. */
 export function footnoteArea(
   view: EditorView,
