@@ -6,12 +6,14 @@
 // drawn.
 
 import { type CSSProperties, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { registerFaces } from '../../document/font-registry.js';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import type { PrintPageOptions } from '../../document/print.js';
 import { drawLayoutPages, layoutTemplate, VIEW_CLASSES } from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
 import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
+import { renameTemplateFonts } from '../../pagination/served-template.js';
 import { createHooks } from '../../utils/hooks.js';
 import { scrollerOf } from '../../utils/scroll-frame.js';
 
@@ -93,28 +95,34 @@ function wantedPages(visible: ReadonlySet<number>, overscan: number, total: numb
 }
 
 // The served faces the pages were measured with, added to the viewer's document while it shows
-// them, so its pages draw the glyphs their lines were broken in (DOCE-PAGINATION-13.8).
-function useLayoutFaces(fonts: FontFiles | null, root: RefObject<HTMLElement | null>) {
+// them, so its pages draw the glyphs their lines were broken in (DOCE-PAGINATION-13.8); and the
+// family the viewer draws each served family under: another one when another surface of the
+// document draws other files under it (DOCE-PAGINATION-12.8).
+function useLayoutFaces(
+  fonts: FontFiles | null,
+  root: RefObject<HTMLElement | null>,
+): (family: string) => string {
+  const [drawn, setDrawn] = useState<{
+    readonly fonts: FontFiles | null;
+    readonly family: (family: string) => string;
+  }>({ fonts: null, family: sameFamily });
   useEffect(() => {
-    const faces = root.current?.ownerDocument.fonts as FontFaceSet | undefined;
-    if (!fonts?.faces.length || !faces || typeof FontFace === 'undefined') return undefined;
-    const drawn = fonts.faces.map(
-      (face) =>
-        new FontFace(face.family, face.bytes, {
-          weight: String(face.weight),
-          style: face.style,
-          ...(face.unicodeRange ? { unicodeRange: face.unicodeRange } : {}),
-        }),
-    );
-    for (const face of drawn) {
-      faces.add(face);
-      face.load().catch(() => faces.delete(face));
-    }
+    const doc = root.current?.ownerDocument;
+    if (!doc) return undefined;
+    const registration = registerFaces(doc, fonts);
+    let released = false;
+    void registration.loaded.then(() => {
+      if (!released) setDrawn({ fonts, family: registration.drawnFamily });
+    });
     return () => {
-      for (const face of drawn) faces.delete(face);
+      released = true;
+      registration.release();
     };
   }, [fonts, root]);
+  return drawn.fonts === fonts ? drawn.family : sameFamily;
 }
+
+const sameFamily = (family: string) => family;
 
 /**
  * A document's laid-out pages, read-only (DOCE-PAGINATION-13.6): `de-document-viewer` beside the
@@ -126,15 +134,14 @@ export function DocumentViewer(props: DocumentViewerProps) {
   const { layout, template, overscan = 1, label, className } = props;
   const options = useSameOptions(props.options);
   const content = useRef<HTMLDivElement>(null);
-  useLayoutFaces(layout.fonts, content);
-  const drawing = useMemo(
-    () => drawLayoutPages(layout, template, options),
-    [layout, template, options],
+  const drawnFamily = useLayoutFaces(layout.fonts, content);
+  // The template as the viewer draws it: each served family under the family it draws it in.
+  const drawn = useMemo(
+    () => renameTemplateFonts(layoutTemplate(layout, template), drawnFamily),
+    [layout, template, drawnFamily],
   );
-  const style = useMemo(
-    () => templateProperties(layoutTemplate(layout, template)) as CSSProperties,
-    [layout, template],
-  );
+  const drawing = useMemo(() => drawLayoutPages(layout, drawn, options), [layout, drawn, options]);
+  const style = useMemo(() => templateProperties(drawn) as CSSProperties, [drawn]);
   useEffect(() => {
     const element = content.current;
     if (!element) return undefined;

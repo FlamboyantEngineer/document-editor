@@ -20,6 +20,7 @@ import {
   createContents,
   createDocumentEditing,
 } from '../../../src/engine/index.js';
+import type { FontsAdapter } from '../../../src/host/index.js';
 import {
   createDocumentSchema,
   type DocumentFile,
@@ -27,7 +28,7 @@ import {
   type TemplateFile,
 } from '../../../src/model/index.js';
 import { markReadyWhenSettled } from '../lab-ready.js';
-import { LAB_FONTS } from '../served-fonts.js';
+import { COUSINE_FONTS, LAB_FONTS, SLOW_LAB_FONTS } from '../served-fonts.js';
 import { useStressProbe } from '../stress/stress-probe.js';
 import { HOST_VIEWS } from './host-quote-view.js';
 import { REGRESSION_CODE } from './regression-code.js';
@@ -36,7 +37,7 @@ import {
   regressionDocument,
   type RegressionDocumentName,
 } from './regression-documents.js';
-import { type ShowViewer, useRegressionProbe } from './regression-probe.js';
+import { type LabFonts, type ShowViewer, useRegressionProbe } from './regression-probe.js';
 import { RELATIVE_SIZES, withRelativeSizes } from './relative-sizes.js';
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
@@ -69,11 +70,22 @@ const TEXT_LAYOUT =
   new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
 
 // With the layout engine, the lab serves its font files and HarfBuzz (DOCE-HOST-1.14.1); with
-// `fonts=none` it serves neither, and the pages keep the browser's layout.
-const FONTS =
-  TEXT_LAYOUT === 'pretext' && new URLSearchParams(window.location.search).get('fonts') !== 'none'
-    ? LAB_FONTS
-    : undefined;
+// `fonts=none` it serves neither, and the pages keep the browser's layout; with `fonts=cousine` it
+// serves Cousine's files under every family (DOCE-PAGINATION-12.7).
+const FONTS_QUERY = new URLSearchParams(window.location.search).get('fonts');
+const FONTS: LabFonts =
+  TEXT_LAYOUT !== 'pretext' || FONTS_QUERY === 'none'
+    ? 'none'
+    : FONTS_QUERY === 'cousine'
+      ? 'cousine'
+      : 'lab';
+
+const ADAPTERS: Readonly<Record<LabFonts, FontsAdapter | undefined>> = {
+  none: undefined,
+  lab: LAB_FONTS,
+  cousine: COUSINE_FONTS,
+  slow: SLOW_LAB_FONTS,
+};
 
 // How the pages are painted: as HTML, or each into a canvas (`rendering=html-canvas`,
 // DOCE-EDITOR-1.9) where the browser has the HTML-in-Canvas API.
@@ -125,9 +137,11 @@ function RegressionLab() {
   const [opening, setOpening] = useState(0);
   const handle = useRef<DocumentEditorHandle>(null);
   useStressProbe(handle, null);
-  const [viewer, setViewer] = useState<{ layout: PagesLayout; overscan: number } | null>(null);
+  const [fonts, setFonts] = useState<LabFonts>(FONTS);
+  const [viewers, setViewers] = useState<readonly { layout: PagesLayout; overscan: number }[]>([]);
   const showViewer = useCallback<ShowViewer>(
-    (layout, overscan) => setViewer({ layout, overscan }),
+    (layout, overscan, more = []) =>
+      setViewers([{ layout, overscan }, ...more.map((each) => ({ layout: each, overscan }))]),
     [],
   );
   const load = useCallback(
@@ -135,19 +149,23 @@ function RegressionLab() {
       const loaded = opened(name, file);
       setTemplate(loaded.template);
       setState(loaded.state);
-      setViewer(null);
+      setViewers([]);
       setOpening((count) => count + 1);
     },
     [name],
   );
-  useRegressionProbe(handle, template, { showViewer, load, setZoom });
+  const keepViewers = useCallback(
+    (count: number) => setViewers((shown) => shown.slice(0, count)),
+    [],
+  );
+  useRegressionProbe(handle, template, { showViewer, load, setZoom, setFonts, keepViewers });
   const pick = (next: string) => {
     if (!isName(next)) return;
     setName(next);
     const picked = opened(next);
     setTemplate(picked.template);
     setState(picked.state);
-    setViewer(null);
+    setViewers([]);
     const url = new URL(window.location.href);
     url.searchParams.set('document', next);
     window.history.replaceState(null, '', url);
@@ -190,7 +208,7 @@ function RegressionLab() {
         layout={LAYOUT}
         zoom={zoom}
         textLayout={TEXT_LAYOUT}
-        fonts={FONTS}
+        fonts={ADAPTERS[fonts]}
         rendering={RENDERING}
         compare={COMPARE}
         debug={DEBUG}
@@ -202,16 +220,21 @@ function RegressionLab() {
         aria-label="Regression document"
         handleRef={handle}
       />
-      {viewer ? (
-        <section className="lab-document-viewer" aria-label="Viewer">
+      {viewers.map((viewer, index) => (
+        <section
+          // The viewers are only ever shown or taken away together, in order.
+          key={index}
+          className="lab-document-viewer"
+          aria-label={index ? `Viewer ${String(index + 1)}` : 'Viewer'}
+        >
           <DocumentViewer
             layout={viewer.layout}
             template={template}
             overscan={viewer.overscan}
-            label="Viewed document"
+            label={index ? `Viewed document ${String(index + 1)}` : 'Viewed document'}
           />
         </section>
-      ) : null}
+      ))}
     </>
   );
 }

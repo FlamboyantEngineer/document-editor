@@ -187,4 +187,61 @@ describe('DocumentViewer', () => {
     expect(added.size).toBe(0);
     Reflect.deleteProperty(document, 'fonts');
   });
+
+  it('DOCE-PAGINATION-12.8 draws other files under a family another viewer holds in a family of its own, through mount and unmount', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const made: string[] = [];
+    class FakeFace {
+      constructor(family: string) {
+        made.push(family);
+      }
+      load() {
+        return Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', FakeFace);
+    const added = new Set<unknown>();
+    const fonts = {
+      add: (face: unknown) => added.add(face),
+      delete: (face: unknown) => added.delete(face),
+    };
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    const served = (bytes: Uint8Array<ArrayBuffer>) => ({
+      ...tenPages(1),
+      fonts: { faces: [{ family: 'Arial', weight: 400, style: 'normal' as const, bytes }] },
+    });
+    const arimo = served(new Uint8Array([1]));
+    const cousine = served(new Uint8Array([2]));
+    const family = (root: Element | null) =>
+      root instanceof HTMLElement
+        ? root.style.getPropertyValue('--doc-paragraph-font-family')
+        : null;
+    const { container: inFirst, unmount: unmountFirst } = render(
+      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} label="First" />,
+    );
+    await act(async () => undefined);
+    const own = family(inFirst.firstElementChild);
+    expect(own).toContain('Arial');
+    // The same files are shared; other files under the family are drawn in one of the viewer's own.
+    const { container: inSame, unmount: unmountSame } = render(
+      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} />,
+    );
+    const { container: inOther, unmount: unmountOther } = render(
+      <DocumentViewer layout={cousine} template={BASE_TEMPLATE} />,
+    );
+    await act(async () => undefined);
+    expect(made).toEqual(['Arial', expect.stringMatching(/^Arial de-\d+$/u)]);
+    expect(family(inSame.firstElementChild)).toBe(own);
+    const otherFamily = family(inOther.firstElementChild);
+    expect(otherFamily).toContain(made[1]);
+    expect(family(inFirst.firstElementChild)).toBe(own);
+    // Unmounting either leaves the first viewer's faces and family as they were.
+    unmountOther();
+    unmountSame();
+    expect(added.size).toBe(1);
+    expect(family(inFirst.firstElementChild)).toBe(own);
+    unmountFirst();
+    expect(added.size).toBe(0);
+    Reflect.deleteProperty(document, 'fonts');
+  });
 });
