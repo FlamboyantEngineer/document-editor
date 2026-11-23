@@ -35,6 +35,7 @@ import {
   REGRESSION_DOCUMENTS,
   regressionDocument,
   type RegressionDocumentName,
+  resolveRegressionTemplate,
 } from './regression-documents.js';
 import { type ShowViewer, useRegressionProbe } from './regression-probe.js';
 import { RELATIVE_SIZES, withRelativeSizes } from './relative-sizes.js';
@@ -97,10 +98,12 @@ const HOST = new URLSearchParams(window.location.search).has('hostViews');
 function opened(
   name: RegressionDocumentName,
   stored?: DocumentFile,
+  own?: TemplateFile,
 ): { state: EditorState; template: TemplateFile } {
   const document = regressionDocument(name);
   const file = stored ?? document.file;
-  const template = RELATIVE_SIZES ? withRelativeSizes(document.template) : document.template;
+  const resolved = own ? resolveRegressionTemplate(own) : document.template;
+  const template = RELATIVE_SIZES ? withRelativeSizes(resolved) : resolved;
   const schema = createDocumentSchema();
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
@@ -131,8 +134,8 @@ function RegressionLab() {
     [],
   );
   const load = useCallback(
-    (file: DocumentFile) => {
-      const loaded = opened(name, file);
+    (file: DocumentFile, own?: TemplateFile) => {
+      const loaded = opened(name, file, own);
       setTemplate(loaded.template);
       setState(loaded.state);
       setViewer(null);
