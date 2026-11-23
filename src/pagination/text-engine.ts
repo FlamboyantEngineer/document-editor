@@ -168,7 +168,10 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const labels = blockNumbers(doc, template);
   const footnotes = footnotesOf(doc);
   const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
-  const captions = captionLabelKeys(doc, (caption) => labels.labelOf(caption));
+  // Read when a block is laid out, not for the numbering the pages draw on every change.
+  let captions: ReadonlyMap<ProseMirrorNode, string> | null = null;
+  const captionKey = (node: ProseMirrorNode) =>
+    (captions ??= captionLabelKeys(doc, (caption) => labels.labelOf(caption))).get(node) ?? '';
   const byNode: NodeNumbers = {
     doc,
     prefixes,
@@ -176,7 +179,7 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     labelOf: (caption) => labels.labelOf(caption),
     footnoteOf,
     keyOf: (node) =>
-      `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captions.get(node) ?? ''}`,
+      `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}`,
   };
   const numbering = { headings, paragraphs: new Set(paragraphs.keys()) };
   return { byNode, numbering };

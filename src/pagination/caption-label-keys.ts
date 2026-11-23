@@ -14,11 +14,13 @@ export function captionLabelKeys(
     if (node.type.name !== 'page_content') return !node.isTextblock;
     node.forEach((block) => {
       let key = labelOf(block) ?? '';
-      block.descendants((child) => {
-        const label = labelOf(child);
-        if (label !== undefined) key += `,${label}`;
-        return !child.isTextblock;
-      });
+      // A text block holds no captions, so its text is not walked.
+      if (!block.isTextblock)
+        block.descendants((child) => {
+          const label = labelOf(child);
+          if (label !== undefined) key += `,${label}`;
+          return !child.isTextblock;
+        });
       if (key) keys.set(block, key);
     });
     return false;
