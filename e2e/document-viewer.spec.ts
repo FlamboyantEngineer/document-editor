@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import type { RegressionDocumentName } from '../labs/src/regression/regression-documents.js';
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
-import { readDrawnLines, readDrawnPages } from './drawn-lines.js';
+import { blocksToRead, readDrawnLines, readDrawnPages } from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // The read-only viewer (specs/PAGINATION.md DOCE-PAGINATION-13.6): the pages' layout drawn without
@@ -48,16 +48,10 @@ async function showViewer(page: Page, overscan?: number) {
 // The computed lines of each forced block, by page, and the lines the viewer draws for each.
 async function linesAgainstComputed(page: Page) {
   const computed = await page.evaluate(() => window.regressionLab.textLines());
-  const asked = computed.flatMap(({ blocks }, index) =>
-    blocks.flatMap((block) =>
-      block.lines
-        ? [{ page: index, elementId: block.elementId, part: block.part, lines: block.lines }]
-        : [],
-    ),
-  );
+  const asked = blocksToRead(computed);
   const drawn = await readDrawnLines(page, asked, 'viewer');
   const mismatches = asked.flatMap((block, index) => {
-    const lines = block.lines.map((line) => plain(line.text));
+    const { lines } = block;
     const own = drawn[index]?.map(plain) ?? null;
     const same = own?.length === lines.length && own.every((text, at) => text === lines[at]);
     return same ? [] : [{ page: block.page, block: block.elementId, computed: lines, drawn: own }];
@@ -164,7 +158,9 @@ test.describe('the read-only viewer', () => {
     }) => {
       await open(page, 'long-mixed');
       const computed = await page.evaluate(() => window.regressionLab.textLines());
-      const last = computed.at(-1)?.blocks.find((block) => (block.lines?.length ?? 0) > 0);
+      const last = computed
+        .at(-1)
+        ?.blocks.find((block) => !block.region && (block.lines?.length ?? 0) > 0);
       const target = last?.elementId ?? '';
       expect(target, 'a paragraph on the last page').not.toBe('');
       if (rtl) {

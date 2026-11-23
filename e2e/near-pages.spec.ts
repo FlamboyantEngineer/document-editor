@@ -66,7 +66,10 @@ const pagesState = (page: Page): Promise<PagesState> =>
         return {
           top: at.top - box.top + frame.scrollTop,
           height: at.height,
-          forced: [...sheet.querySelectorAll<HTMLElement>('.de-forced-lines')].map(id),
+          // A header's or footer's block has no element id, as its computed lines have none.
+          forced: [...sheet.querySelectorAll<HTMLElement>('.de-forced-lines')].map(
+            (block) => `${block.dataset.id ?? ''}#${block.dataset.splitPartIndex ?? '0'}`,
+          ),
           blocks: [...sheet.querySelectorAll<HTMLElement>(':scope > .pm-page-content > *')].map(
             (block) => {
               const drawn = block.getBoundingClientRect();

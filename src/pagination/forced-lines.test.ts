@@ -51,6 +51,7 @@ function stubEngine(options: StubOptions = {}) {
     measureBlock: () => null,
     measureRegion: () => null,
     insertedReserved: () => [],
+    regionLines: () => new Map(),
     nestedLines(container, scope) {
       const found = new Map<Node, DrawnLines>();
       container.descendants((child) => {

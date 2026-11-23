@@ -150,6 +150,12 @@ describe('the engine on page regions', () => {
     const next = pages.measureRegion(footer, null, new Map([['page.current', '12']]));
     expect(next).not.toBe(first);
     expect(next?.height).toBe(first?.height);
+    // The lines of its paragraph, laid out with the text the variable shows.
+    const [paragraph] = footer.children;
+    if (!paragraph) throw new Error('no paragraph');
+    const texts = new Map([['page.current', '12']]);
+    expect(pages.regionLines(footer, null, texts).get(paragraph)?.lines).toHaveLength(1);
+    expect(pages.regionLines(footer, null).size).toBe(0);
     pages.destroy();
   });
 

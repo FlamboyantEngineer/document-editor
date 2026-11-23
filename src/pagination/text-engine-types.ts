@@ -129,6 +129,15 @@ export interface PagesTextEngine {
    * deleted word, that take a reserved width in the block's font, by offset in the word.
    */
   insertedReserved(node: ProseMirrorNode, scope: string | null, word: string): ReservedBox[];
+  /**
+   * The lines of each text block in a page's header or footer, as the engine lays the region out
+   * with the texts its template variables show; none when it cannot lay the region out.
+   */
+  regionLines(
+    node: ProseMirrorNode,
+    scope: string | null,
+    variables?: ReadonlyMap<string, string>,
+  ): ReadonlyMap<ProseMirrorNode, DrawnLines>;
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */
   lines(node: ProseMirrorNode, place: LinesPlace): DrawnLines | null;
   /**

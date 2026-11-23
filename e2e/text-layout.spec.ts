@@ -88,7 +88,9 @@ test.describe('the layout engine on the pages', () => {
   }) => {
     await open(page, 'long-mixed', 'pretext');
     const before = await page.evaluate(() => {
-      const block = window.regressionLab.textLines()[0]?.blocks.find((each) => each.lines);
+      const block = window.regressionLab
+        .textLines()[0]
+        ?.blocks.find((each) => each.lines && !each.region);
       return block ? { id: block.elementId, lines: block.lines?.length ?? 0 } : null;
     });
     if (!before) throw new Error('no paragraph on the first page');
