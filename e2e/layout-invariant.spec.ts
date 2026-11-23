@@ -534,8 +534,9 @@ const PINNED: Readonly<
 //   page before;
 // - each page's room beside its header and footer (in roman-numbering-stress, text only, the free
 //   room alone moves, 31.387 px at 1 against 31.399 at 1.25 and 31.402 at 2).
-// Expected failures; the owner is named by the requirements review (atoms, Q2). A fix removes its
-// document's ratios here, and a ratio that starts to differ is a finding, not an entry to add.
+// Expected failures, owned by the atoms thread (blocks, #349) and the engine thread (page room, #350).
+// A fix removes its document's ratios here, and a ratio that starts to differ is a finding, not an
+// entry to add.
 const DPR_HEIGHT_FAULTS: Readonly<Partial<Record<RegressionDocumentName, readonly number[]>>> = {
   'caption-numbering': [1.25, 1.5, 1.75, 2, 3],
   'heading-keep-with-next': [1.25, 1.75, 2],
