@@ -162,7 +162,7 @@ test.describe('print on the layout engine lines', () => {
   });
 });
 
-test('DOCE-PAGINATION-13.9 prints and views the layout in the language the editor laid it out in', async ({
+test('DOCE-PAGINATION-13.10 prints and views the layout in the language the editor laid it out in', async ({
   page,
 }) => {
   await open(page, 'page-breaks-and-rules');

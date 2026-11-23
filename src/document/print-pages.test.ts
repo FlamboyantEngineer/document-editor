@@ -86,7 +86,7 @@ describe('renderLayoutPrintPage', () => {
     expect(directions(printed)).toEqual(directions(view));
   });
 
-  it('DOCE-PAGINATION-13.9 prints in the language the pages were laid out in', () => {
+  it('DOCE-PAGINATION-13.10 prints in the language the pages were laid out in', () => {
     const doc = pagesDocument([page([paragraph([text('kış')], { dataId: 'p' })])]);
     const printed = (language?: string) => {
       const engine = language === undefined ? stubEngine() : { ...stubEngine(), language };

@@ -50,6 +50,7 @@ function stubEngine(options: StubOptions = {}) {
     }),
     measureBlock: () => null,
     measureRegion: () => null,
+    insertedReserved: () => [],
     lines(node, place) {
       calls.push({ text: node.textContent, scope: place.scope, prefix: place.prefix });
       const size = node.content.size;

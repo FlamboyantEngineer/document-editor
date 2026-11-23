@@ -132,7 +132,7 @@ export function holdTextEngine(options: {
         view: options.view,
         hostViews: options.setting.hostViews,
       });
-      // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.9).
+      // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.10).
       current = Object.assign(engine, { language });
       return current;
     },
