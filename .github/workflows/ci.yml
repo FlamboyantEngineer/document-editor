@@ -111,25 +111,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Each shard takes a quarter of the lab tests, then a quarter of the one-result invariant's
-          # page checks at ratio 1, the heaviest tests, then a quarter of the invariant at the display
-          # scaling ratios 150, 175 and 300 percent, so the shards end at about the same time.
+          # The lab tests, the one-result invariant's page checks at ratio 1 and the invariant at the
+          # display scaling ratios 150, 175 and 300 percent, dealt into four shards by their recorded
+          # seconds (scripts/lab-shards.mjs, DOCE-LABS-10.1), so the shards end at about the same time.
           - name: chromium 1 of 4
-            args: --project=chromium --shard=1/4
-            then: --project=chromium-invariant --shard=1/4
-            after: --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3 --shard=1/4
+            shard: 1
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
           - name: chromium 2 of 4
-            args: --project=chromium --shard=2/4
-            then: --project=chromium-invariant --shard=2/4
-            after: --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3 --shard=2/4
+            shard: 2
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
           - name: chromium 3 of 4
-            args: --project=chromium --shard=3/4
-            then: --project=chromium-invariant --shard=3/4
-            after: --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3 --shard=3/4
+            shard: 3
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
           - name: chromium 4 of 4
-            args: --project=chromium --shard=4/4
-            then: --project=chromium-invariant --shard=4/4
-            after: --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3 --shard=4/4
+            shard: 4
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
           # The Pretext closeness tests and the one-result invariant at real device pixel ratios, but
           # for the pages painted into canvases (DOCE-EDITOR-1.9, DOCE-LABS-8.9), which the
           # performance job runs after its timing tests.
@@ -151,13 +147,16 @@ jobs:
       # The browser tests need Playwright's own Chromium, which the runner image does not carry.
       - uses: ./.github/actions/browser
       - run: npm run build:labs
+      - name: This shard's tests
+        if: matrix.shard
+        run: node scripts/lab-shards.mjs plan --shards 4 --shard ${{ matrix.shard }} --out "$RUNNER_TEMP/tests.txt" -- ${{ matrix.args }}
       # Guard timing shares only the dedicated performance runner, sequentially with browser budgets.
       - name: Guard functional cases and budgets
         if: matrix.name == 'performance'
         run: npm run test:guard-budgets
       - name: Lab browser tests (${{ matrix.name }})
         run: |
-          npx playwright test ${{ matrix.args }}
+          npx playwright test ${{ matrix.args }} ${{ matrix.shard && '--test-list "$RUNNER_TEMP/tests.txt"' || '' }}
           if [ -n "$THEN" ]; then npx playwright test $THEN; fi
           if [ -n "$AFTER" ]; then npx playwright test $AFTER; fi
         env:
@@ -196,7 +195,8 @@ jobs:
     # macOS runs them weekly in the other-systems workflow, as its runners can be too scarce to hold a
     # pull request on.
     needs: font-file-changes
-    if: needs.font-file-changes.outputs.changed == 'true'
+    # A skipped `reuse` above does not skip this job.
+    if: ${{ !cancelled() && needs.font-file-changes.outputs.changed == 'true' }}
     strategy:
       fail-fast: false
       matrix:
