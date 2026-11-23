@@ -43,7 +43,7 @@ describe('text blocks', () => {
     expect(layout.layoutBlock(contents, place)).toEqual({
       ok: false,
       node: contents,
-      reason: 'toc_block is not laid out by the engine yet',
+      reason: 'a list of contents without its rows',
     });
     expect(layout.layoutBlock(paragraph(5), { width: 0 })).toMatchObject({ ok: false });
     const { layout: refusing } = standInBlockLayout({ refuse: ['heading'] });

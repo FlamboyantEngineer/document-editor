@@ -3,6 +3,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
+import { hasContents } from '../engine/contents-presence.js';
 import {
   type LayoutBlock,
   layoutNextPage,
@@ -21,6 +22,7 @@ import { measureChildBlocks } from './measure-blocks.js';
 import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
 import { type FootnoteArea, footnoteAreaHeight } from './measure-footnotes.js';
 import { footnoteArea, roomsFor, type SectionRegions, sectionRegions } from './page-regions.js';
+import { cited, sectionPlaces } from './section-places.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
@@ -52,6 +54,8 @@ export interface DocumentLayoutOptions {
   memory?: LayoutMemory | undefined;
   /** Lays the blocks it can out without the DOM (`textLayout: 'pretext'`, DOCE-PAGINATION-11.1). */
   engine?: PagesTextEngine | null | undefined;
+  /** Receives why a layout stopped before its lists of contents settled, as after too many passes. */
+  onUnsettled?: ((reason: string) => void) | undefined;
 }
 
 /** What a layout did in one section. */
@@ -114,57 +118,6 @@ function stackedWithMargins(page: readonly LayoutBlock[]): number {
       (index < page.length - 1 ? Math.max(0, block.marginBottom) : 0),
     0,
   );
-}
-
-const citations = new WeakMap<ProseMirrorNode, readonly string[]>();
-
-function citedIn(node: ProseMirrorNode): readonly string[] {
-  const known = citations.get(node);
-  if (known) return known;
-  const ids: string[] = [];
-  node.descendants((child) => {
-    const id = child.attrs.footnoteId as unknown;
-    if (child.type.name === 'footnote_reference' && typeof id === 'string' && id) ids.push(id);
-  });
-  citations.set(node, ids);
-  return ids;
-}
-
-function cited(blocks: readonly LayoutBlock[]): Set<string> {
-  return new Set(blocks.flatMap((block) => citedIn(block.node)));
-}
-
-interface SectionPlace {
-  readonly section: ProseMirrorNode;
-  readonly content: number;
-  readonly footnotes: number | null;
-  /** The header's and footer's positions. */
-  readonly header: number | null;
-  readonly footer: number | null;
-}
-
-// Where each section's page content and footnote area start in a whole document.
-function sectionPlaces(doc: ProseMirrorNode): SectionPlace[] {
-  const places: SectionPlace[] = [];
-  doc.forEach((section, offset) => {
-    const page = section.type.name === 'page_section' ? section.firstChild : null;
-    if (!page) return;
-    const at: Record<string, number> = {};
-    page.forEach((region, regionOffset) => {
-      at[region.type.name] = offset + 2 + regionOffset;
-    });
-    const content = at.page_content;
-    if (content === undefined) return;
-    const [footnotes, header, footer] = [at.page_footnotes, at.page_header, at.page_footer];
-    places.push({
-      section,
-      content,
-      footnotes: footnotes ?? null,
-      header: header ?? null,
-      footer: footer ?? null,
-    });
-  });
-  return places;
 }
 
 interface SectionFill {
@@ -358,6 +311,36 @@ function settlePasses(fills: SectionFills, options: DocumentLayoutOptions) {
   return { pass, laidOut, layouts, pages };
 }
 
+// Passes at most this many times over a document with a list of contents, each time with room for
+// one more digit in its rows' page numbers, as long as the pages it comes to need more.
+const DIGIT_PASSES = 3;
+
+// The document laid out with its lists of contents' page boxes keeping room for the digits of the
+// page count it comes to (DOCE-PAGINATION-10.11). Every layout starts from the least room, so the
+// pages are the same whatever was laid out before, and the room only grows.
+function settleDigits(view: EditorView, options: DocumentLayoutOptions) {
+  const { engine } = options;
+  let digits = engine?.pageDigits(0) ?? 0;
+  let fills = sectionFills(view, options);
+  let settled = settlePasses(fills, options);
+  if (!engine || !hasContents(view.state.doc)) return { fills, settled };
+  for (let count = 1; ; count += 1) {
+    const needed = engine.pageDigits(Math.max(settled.pass.counted, 10 ** (digits - 1)));
+    if (needed === digits) break;
+    if (count >= DIGIT_PASSES) {
+      options.onUnsettled?.(
+        `list of contents page numbers need ${String(needed)} digits after ${String(count)} passes`,
+      );
+      engine.pageDigits(10 ** (digits - 1));
+      break;
+    }
+    digits = needed;
+    fills = sectionFills(view, options);
+    settled = settlePasses(fills, options);
+  }
+  return { fills, settled };
+}
+
 /**
  * The pages of each section of the whole document a view renders, as `projectDocument` takes them:
  * every block measured, cached ones reused, and each page short by its header's, its footer's and
@@ -366,8 +349,8 @@ function settlePasses(fills: SectionFills, options: DocumentLayoutOptions) {
 export function layoutDocument(view: EditorView, options: DocumentLayoutOptions): SectionPages[] {
   const { memory, engine } = options;
   engine?.number(view.state.doc);
-  const fills = sectionFills(view, options);
-  const { pass, laidOut, layouts, pages } = settlePasses(fills, options);
+  const { fills, settled } = settleDigits(view, options);
+  const { pass, laidOut, layouts, pages } = settled;
   pass.laid.forEach(({ result, metrics }, index) => {
     for (const metric of metrics) options.onPage?.(metric);
     const pagesLaidOut = laidOut[index] ?? 0;
