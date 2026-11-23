@@ -52,4 +52,14 @@ describe('changedRanges', () => {
     expect(ranges[0]).toEqual({ from: second + 1, to: second + 2 });
     expect(ranges.at(-1)).toEqual({ from: first + 1, to: first + 1 });
   });
+
+  it('DOCE-LABS-2.3 maps a range through a step that replaces one token by two', () => {
+    const state = stateOf(3);
+    const [first = 0, second = 0] = paragraphs(state);
+    const tr = state.tr.setNodeAttribute(second, 'dataId', null);
+    // One character replaced by two: the same start, but every later position moves one forward,
+    // the attribute step's node with them.
+    tr.insertText('xy', first + 1, first + 2);
+    expect(changedRanges([tr])[0]).toEqual({ from: second + 1, to: second + 2 });
+  });
 });
