@@ -23,6 +23,13 @@ interface LaidRegion {
 
 const NONE: ReadonlyMap<ProseMirrorNode, DrawnLines> = new Map();
 
+/**
+ * The most laid regions kept for one node, the least recently used dropped first: a footer showing
+ * `Page X of Y` is laid out for each page under each page count, and a long session tries many
+ * counts. A 300-page document takes about 900 across its page-count passes.
+ */
+export const REGIONS_KEPT_PER_NODE = 1024;
+
 // A region's room as the pages read it; null when the engine cannot lay the region out.
 function roomOf(result: RegionGeometry): RegionRoom | null {
   return result.ok ? { height: result.height, gap: result.gap, children: result.children } : null;
@@ -30,7 +37,7 @@ function roomOf(result: RegionGeometry): RegionRoom | null {
 
 /**
  * The laid regions, kept by node, scope and variable texts until forgotten: a header showing the
- * page's number keeps a region for each number it showed.
+ * page's number keeps a region for each number it showed, up to `REGIONS_KEPT_PER_NODE`.
  */
 export function createRegionLines(source: RegionSource) {
   let kept = new WeakMap<ProseMirrorNode, Map<string, LaidRegion>>();
@@ -41,16 +48,24 @@ export function createRegionLines(source: RegionSource) {
       variables?: ReadonlyMap<string, string>,
     ): LaidRegion {
       const key = `${scope ?? ''}|${variables ? JSON.stringify([...variables]) : '-'}`;
-      const regions = kept.get(node);
-      const found = regions?.get(key);
-      if (found) return found;
+      const regions = kept.get(node) ?? new Map<string, LaidRegion>();
+      const found = regions.get(key);
+      if (found) {
+        regions.delete(key);
+        regions.set(key, found);
+        return found;
+      }
       const { geometry, recorder } = source;
       const place = { width: source.widthOf(scope), scope, ...(variables ? { variables } : {}) };
       recorder.lines = new Map();
       const result = geometry.layoutRegion(node, place);
       const laid = { room: roomOf(result), lines: result.ok ? recorder.lines : NONE };
       recorder.lines = null;
-      if (!result.ok || !result.provisional) kept.set(node, (regions ?? new Map()).set(key, laid));
+      if (!result.ok || !result.provisional) {
+        if (regions.size >= REGIONS_KEPT_PER_NODE)
+          regions.delete(regions.keys().next().value ?? '');
+        kept.set(node, regions.set(key, laid));
+      }
       return laid;
     },
     forget() {
