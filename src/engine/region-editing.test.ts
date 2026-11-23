@@ -200,4 +200,34 @@ describe('editing regions in place', () => {
     expect(view.dom).not.toHaveAttribute('data-template-editing');
     view.destroy();
   });
+
+  it('DOCE-SECTIONS-5.1 sets a read-only region back to its template after a change in it', () => {
+    const template: TemplateFile = { formatVersion: 1, id: 't', footer: { content: text('Page') } };
+    const changes: RegionChange[] = [];
+    const plugins = [
+      createRegionEditing({
+        enabled: () => false,
+        template: () => template,
+        onChange: (change) => changes.push(change),
+      }),
+      createDocumentSections({ template: () => template }),
+    ];
+    let state = EditorState.create({ doc: twoPages(), plugins });
+    state = state.apply(setPageRegions(state.tr, template));
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.isText && node.text === 'Page') at = pos + 4;
+      return at < 0;
+    });
+    // A composition committed in the first page's footer, which the DOM let through.
+    state = state.apply(state.tr.insertText(' typed', at));
+    const footers: string[] = [];
+    state.doc.descendants((node) => {
+      if (node.type.name === 'page_footer') footers.push(node.textContent);
+      return node.type.name !== 'page_footer';
+    });
+    expect(footers).toEqual(['Page', 'Page']);
+    expect(regionEdits(state).size).toBe(0);
+    expect(changes).toEqual([]);
+  });
 });

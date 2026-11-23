@@ -121,7 +121,7 @@ describe('the pages engine and its inputs', () => {
     element.remove();
   });
 
-  it('DOCE-PAGINATION-11.1 leaves only captions and contents lists of the stored documents to the DOM', () => {
+  it('DOCE-PAGINATION-11.1 leaves only captions, template variables and contents lists of the stored documents to the DOM', () => {
     const documents = join(
       dirname(fileURLToPath(import.meta.url)),
       '../../test/fixtures/documents',
@@ -149,11 +149,14 @@ describe('the pages engine and its inputs', () => {
       engine.destroy();
     }
     expect(laid).toBeGreaterThanOrEqual(721);
-    // Captions are laid out as text by thread G's next change; contents lists are the DOM's still.
+    // Captions are laid out as text by thread G's next change; contents lists are the DOM's still,
+    // and blocks holding a template variable always are, since its value may be the page's own
+    // number (DOCE-PAGINATION-9.5).
     const left = [...reasons].filter(
       (reason) =>
         !/^not a text block: (table|figure|code)_caption$/.test(reason) &&
-        reason !== 'toc_block is not laid out by the engine yet',
+        reason !== 'toc_block is not laid out by the engine yet' &&
+        reason !== 'template variable',
     );
     expect(left).toEqual([]);
   });

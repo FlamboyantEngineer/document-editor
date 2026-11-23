@@ -4,21 +4,32 @@
 // own, then come back and merge, and either can switch between the pages and the web layout. The
 // page shows the harness the document each writer's editor holds (`window.collabRoom`). With
 // `?document=long`, the document ends with code and a list of contents too long for one page, which
-// the pages split while the room holds each whole.
+// the pages split while the room holds each whole. With `?textLayout=pretext`, the writers' pages
+// are laid out by the layout engine, and the probe opens a writer's stored document afresh in a
+// third editor below them, so a test compares each writer's pages with a fresh layout.
 
-import type { EditorState } from 'prosemirror-state';
-import { useEffect, useState } from 'react';
+import { EditorState, TextSelection } from 'prosemirror-state';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { updateRoomDocument } from '../../src/collab/convert.js';
 import { readContent } from '../../src/collab/delta.js';
 import { wholeValuesOf } from '../../src/collab/guard-shape.js';
 import {
   DocumentEditor,
+  type DocumentEditorHandle,
   DocumentSessionBoundary,
   useDocumentSession,
   useSessionValue,
 } from '../../src/components/index.js';
+import type { PagesLayout } from '../../src/document/index.js';
 import { createMemoryHost, type EditorHost } from '../../src/host/index.js';
-import type { DocumentFile } from '../../src/model/index.js';
+import {
+  type DocumentFile,
+  readDocumentFile,
+  type TemplateFile,
+  writeDocumentFile,
+} from '../../src/model/index.js';
+import type { PageTextLines } from '../../src/pagination/index.js';
 import type { DocumentSession } from '../../src/session/index.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { createSessionRooms } from '../../test/session-rooms.js';
@@ -44,6 +55,10 @@ function labDocument(): DocumentFile {
   );
   return file;
 }
+
+// How the writers' pages lay their text out (`textLayout=pretext`, DOCE-PAGINATION-11).
+const TEXT_LAYOUT =
+  new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
 
 const ROOMS = createSessionRooms({ documents: [{ id: DOCUMENT_ID, content: labDocument() }] });
 
@@ -95,9 +110,49 @@ export interface CollabRoomProbe {
   canonicalText(name: string): string | null;
   /** The attributes only the pages set that a writer's room document holds other than whole. */
   pageOnlyInRoom(name: string): string[];
+  /** The document a writer's editor holds, as stored. */
+  stored(name: string): DocumentFile | null;
+  /** With `textLayout=pretext`, a writer's pages' layout (`pagesLayout()`), or null. */
+  layout(name: string): PagesLayout | null;
+  /** With `textLayout=pretext`, the lines a writer's pages computed (`textLines()`). */
+  textLines(name: string): PageTextLines[];
+  /** Resolves once every editor's pages are laid out (`whenSettled`). */
+  settled(): Promise<void>;
+  /** With `textLayout=pretext`, draws every page of every editor on the engine's lines. */
+  drawAllLines(): void;
+  /**
+   * Where each text block's content is in a writer's document with its pages joined whole, as
+   * `[from, to]`, in order.
+   */
+  textRanges(name: string): [number, number][];
+  /** Selects, focused, between two positions of a writer's document with its pages joined whole. */
+  select(name: string, from: number, to: number): void;
+  /** Writes a document into the room as a service would (`updateRoomDocument`), not as a writer. */
+  updateRoom(file: DocumentFile): Promise<boolean>;
+  /** Opens a stored document afresh in the third editor, with the writers' template. */
+  openFresh(file: DocumentFile): void;
+  /** The fresh editor's pages' layout, once it has one. */
+  freshLayout(): PagesLayout | null;
 }
 
 const STATES = new Map<string, EditorState>();
+const HANDLES = new Map<string, RefObject<DocumentEditorHandle | null>>();
+const TEMPLATES = new Map<string, TemplateFile>();
+const FRESH: { open: ((file: DocumentFile) => void) | null; handle: DocumentEditorHandle | null } =
+  { open: null, handle: null };
+
+const viewOf = (name: string) => HANDLES.get(name)?.current?.view() ?? null;
+
+function textRanges(state: EditorState): [number, number][] {
+  const ranges: [number, number][] = [];
+  state.doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    ranges.push([pos + 1, pos + node.nodeSize - 1]);
+    return false;
+  });
+  return ranges;
+}
+
 const probe: CollabRoomProbe = {
   canonicalText: (name) => STATES.get(name)?.doc.textContent ?? null,
   pageOnlyInRoom: (name) => {
@@ -114,19 +169,109 @@ const probe: CollabRoomProbe = {
     });
     return found;
   },
+  stored: (name) => {
+    const state = STATES.get(name);
+    return state ? writeDocumentFile(state.doc) : null;
+  },
+  layout: (name) => HANDLES.get(name)?.current?.pagesLayout() ?? null,
+  textLines: (name) => HANDLES.get(name)?.current?.textLines() ?? [],
+  settled: async () => {
+    const handles = [...HANDLES.values()].map((each) => each.current);
+    await Promise.all([...handles, FRESH.handle].map((handle) => handle?.whenSettled()));
+  },
+  drawAllLines: () => {
+    for (const handle of HANDLES.values()) handle.current?.drawAllLines(true);
+    FRESH.handle?.drawAllLines(true);
+  },
+  textRanges: (name) => {
+    const view = viewOf(name);
+    return view ? textRanges(view.state) : [];
+  },
+  select: (name, from, to) => {
+    const view = viewOf(name);
+    if (!view) return;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+    view.focus();
+  },
+  updateRoom: async (file) => {
+    const handle = await ROOMS.server.openRoom(DOCUMENT_ID);
+    try {
+      return handle.transact({ actor: { id: 'room-service' }, capabilities: [] }, (doc) =>
+        updateRoomDocument(doc, file, {
+          schema: documentSchema,
+          pageTemplate: TEMPLATES.get('Ada'),
+        }),
+      );
+    } finally {
+      handle.release();
+    }
+  },
+  openFresh: (file) => FRESH.open?.(file),
+  freshLayout: () => FRESH.handle?.pagesLayout() ?? null,
 };
 Object.assign(window, { collabRoom: probe });
 
 // Keeps the state a writer's editor holds where the probe reads it.
-function Canonical({ name, state }: { name: string; state: EditorState }) {
+function Canonical({
+  name,
+  state,
+  template,
+}: {
+  name: string;
+  state: EditorState;
+  template: TemplateFile;
+}) {
   useEffect(() => {
     STATES.set(name, state);
-  }, [name, state]);
+    TEMPLATES.set(name, template);
+  }, [name, state, template]);
   return null;
+}
+
+// A stored document opened afresh, laid out as the writers' pages are, for comparing with them.
+function FreshPane() {
+  const [opened, setOpened] = useState<{ state: EditorState; key: number } | null>(null);
+  const handle = useRef<DocumentEditorHandle>(null);
+  useEffect(() => {
+    FRESH.open = (file) => {
+      const state = EditorState.create({ doc: readDocumentFile(file, documentSchema).doc });
+      setOpened((last) => ({ state, key: (last?.key ?? 0) + 1 }));
+    };
+  }, []);
+  useEffect(() => {
+    FRESH.handle = handle.current;
+  });
+  const template = TEMPLATES.values().next().value;
+  if (!opened || !template) return null;
+  return (
+    <section aria-label="Fresh">
+      <DocumentEditor
+        key={opened.key}
+        state={opened.state}
+        onStateChange={(update) =>
+          setOpened(
+            (last) =>
+              last && {
+                ...last,
+                state: typeof update === 'function' ? update(last.state) : update,
+              },
+          )
+        }
+        template={template}
+        textLayout={TEXT_LAYOUT}
+        aria-label="Fresh document"
+        handleRef={handle}
+      />
+    </section>
+  );
 }
 
 function WriterPane({ person }: { person: Writer }) {
   const [zoom, setZoom] = useState(person.zoom);
+  const handle = useRef<DocumentEditorHandle>(null);
+  useEffect(() => {
+    HANDLES.set(person.name, handle);
+  }, [person.name]);
   const [web, setWeb] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const session = useDocumentSession({
@@ -166,7 +311,7 @@ function WriterPane({ person }: { person: Writer }) {
       >
         {(props) => (
           <>
-            <Canonical name={person.name} state={props.state} />
+            <Canonical name={person.name} state={props.state} template={props.template} />
             <DocumentEditor
               {...props}
               aria-label={`${person.name}'s document`}
@@ -174,6 +319,8 @@ function WriterPane({ person }: { person: Writer }) {
               onZoomChange={setZoom}
               layout={web ? 'web' : 'page'}
               suggesting={suggesting}
+              textLayout={TEXT_LAYOUT}
+              handleRef={handle}
             />
           </>
         )}
@@ -185,11 +332,14 @@ function WriterPane({ person }: { person: Writer }) {
 const container = document.querySelector('#lab-editor');
 if (container) {
   createRoot(container).render(
-    <div style={{ display: 'flex', gap: '2%', alignItems: 'flex-start' }}>
-      {WRITERS.map((person) => (
-        <WriterPane key={person.id} person={person} />
-      ))}
-    </div>,
+    <>
+      <div style={{ display: 'flex', gap: '2%', alignItems: 'flex-start' }}>
+        {WRITERS.map((person) => (
+          <WriterPane key={person.id} person={person} />
+        ))}
+      </div>
+      <FreshPane />
+    </>,
   );
   markReadyWhenSettled();
 }

@@ -14,9 +14,10 @@ import {
   type PrintTree,
 } from './print-tree.js';
 
-// The hooks of the marks covering a range, merged as a view merges decorations on one node.
+// The hooks of the marks covering a range, merged as a view merges decorations on one node; an
+// inner mark is left to `inInnerMarks`.
 function hooksOver(marks: readonly LineMark[], from: number, to: number) {
-  const covering = marks.filter((mark) => mark.from <= from && mark.to >= to);
+  const covering = marks.filter((mark) => !mark.inner && mark.from <= from && mark.to >= to);
   if (!covering.length) return null;
   const styles = covering.flatMap((mark) => (mark.style ? [mark.style] : []));
   // Written as a view writes an element's style, each declaration ended.
@@ -44,6 +45,21 @@ function withHooks(trees: PrintTree[], hooks: { class: string; style: string }):
   return [printElement('span', attrs, trees)];
 }
 
+// A piece wrapped in a span of each inner mark covering it, as the view nests them.
+function inInnerMarks(
+  trees: PrintTree[],
+  marks: readonly LineMark[],
+  { from, to }: { from: number; to: number },
+) {
+  return marks
+    .filter((mark) => mark.inner && mark.from <= from && mark.to >= to)
+    .reduceRight<PrintTree[]>((inner, mark) => {
+      const attrs: Record<string, string> = { class: mark.class };
+      if (mark.style) attrs.style = `${mark.style};`;
+      return [printElement('span', attrs, inner)];
+    }, trees);
+}
+
 // A text node cut at the marks' edges inside it, each piece in the hooks covering it.
 function textPieces(text: string, at: number, marks: readonly LineMark[]): PrintTree[] {
   const edges = new Set([at, at + text.length]);
@@ -52,14 +68,14 @@ function textPieces(text: string, at: number, marks: readonly LineMark[]): Print
       if (edge > at && edge < at + text.length) edges.add(edge);
   }
   const sorted = [...edges].sort((a, b) => a - b);
-  return sorted.slice(1).map((to, index) => {
+  return sorted.slice(1).flatMap((to, index) => {
     const from = sorted[index] ?? at;
-    const piece = { text: text.slice(from - at, to - at) };
+    const pieces = inInnerMarks([{ text: text.slice(from - at, to - at) }], marks, { from, to });
     const hooks = hooksOver(marks, from, to);
-    if (!hooks) return piece;
+    if (!hooks) return pieces;
     const attrs: Record<string, string> = { class: hooks.class };
     if (hooks.style) attrs.style = hooks.style;
-    return printElement('span', attrs, [piece]);
+    return [printElement('span', attrs, pieces)];
   });
 }
 

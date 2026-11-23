@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
+import type { ReserveCluster } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
 
 /** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
@@ -20,6 +21,8 @@ export interface TextEngineOptions {
   readonly onAtomsSettled: () => void;
   /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
   readonly measureContext?: (() => MeasureContext) | undefined;
+  /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
+  readonly reserve?: ReserveCluster | undefined;
   /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
   readonly codeLineNumbers?: boolean | undefined;
   /**

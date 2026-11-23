@@ -3,6 +3,8 @@
 // reaches it as bytes, so it runs the same in a page, a worker or Node, and fetches nothing.
 
 import type { FontFiles, FontShaper } from '../../host/font-files.js';
+import type { ReserveCluster } from '../reserved-boxes.js';
+import { reserveUnserved } from './cluster-faces.js';
 import { createFaceSet, type ServedFace } from './faces.js';
 import { createHarfBuzz } from './harfbuzz.js';
 import { type FontFaceProblem, readHostFaces } from './host-faces.js';
@@ -26,6 +28,11 @@ interface FontFileMeasurerOptions {
 export interface FontFileMeasurer {
   createContext(): FontFileContext;
   readonly problems: MeasureProblems;
+  /**
+   * The width a cluster its contexts cannot measure takes (no served face draws it whole), for the
+   * layout engine's `reserve` option; null for one they measure (DOCE-PAGINATION-12.4).
+   */
+  readonly reserve: ReserveCluster;
   /** Bytes of the WebAssembly heap, font data included. */
   heapBytes(): number;
   /**
@@ -49,6 +56,7 @@ export async function createFontFileMeasurer({
   return {
     createContext: () => createFontFileContext(faceSet, problems),
     problems,
+    reserve: reserveUnserved(faceSet),
     heapBytes: () => harfBuzz.heapBytes(),
     async addFiles(files) {
       const read = readHostFaces(files);

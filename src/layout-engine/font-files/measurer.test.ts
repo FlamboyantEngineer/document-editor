@@ -7,7 +7,7 @@ import { createFontFileMeasurer, createHostMeasurer } from './measurer.js';
 
 // The fingerprints the browser test DOCE-LABS-7.1 pins on Linux, Windows and macOS, in a page and
 // a worker; Node gives the same.
-const WIDTHS_FINGERPRINT = 'c2be3986';
+const WIDTHS_FINGERPRINT = 'f43b1311';
 const LINES_FINGERPRINT = '0811af10';
 
 const measurer = () => createFontFileMeasurer({ wasm: harfBuzzWasm(), faces: referenceFaces() });
@@ -40,12 +40,27 @@ describe('DOCE-PAGINATION-12.2 Canvas words', () => {
     expect(width('zerowidth')).not.toBe(apart);
   });
 
-  it('gives a character no served face has the .notdef advance and reports it (DOCE-HOST-1.14.3)', async () => {
+  it('gives a character no served face has its reserved em and reports it (DOCE-HOST-1.14.3)', async () => {
     const { createContext, problems } = await measurer();
     const context = createContext();
     context.font = '16px "Lab Geist"';
-    expect(context.measureText('a☃b').width).toBeGreaterThan(context.measureText('ab').width);
+    // The box cuts the word: no kerning reaches across it.
+    const alone = context.measureText('a').width + context.measureText('b').width;
+    expect(context.measureText('a☃b').width).toBeCloseTo(alone + 16, 4);
     expect([...problems.missingGlyphs]).toEqual([0x2603]);
+  });
+
+  it('DOCE-PAGINATION-12.4 reserves an em for each cluster no served face draws whole', async () => {
+    const { createContext, reserve } = await measurer();
+    const context = createContext();
+    context.font = '400 12px "Lab Geist"';
+    expect(reserve('a', context.font)).toBeNull();
+    expect(reserve('\u1230', context.font)).toBe(12);
+    // A joined sequence is one cluster, one box: no kerning or shaping reaches across its edges.
+    expect(reserve('👩\u200d👩\u200d👧', context.font)).toBe(12);
+    const ethiopic = context.measureText('\u1230\u120b\u121d').width;
+    expect(ethiopic).toBe(36);
+    expect(context.measureText('a \u1230').width).toBe(context.measureText('a ').width + 12);
   });
 });
 

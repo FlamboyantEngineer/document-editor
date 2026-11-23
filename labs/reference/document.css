@@ -572,6 +572,17 @@ div.de-host-view {
   word-spacing: var(--de-word-spacing, 0);
 }
 
+/* A cluster the engine cannot measure, such as one no served font draws, takes the width the
+   engine reserved for it; its real glyph is drawn in the middle and may reach past the box, which
+   moves nothing around it (DOCE-PAGINATION-12.4). */
+:where(.de-document-editor) .de-forced-lines__reserved {
+  display: inline-block;
+  width: var(--de-reserved-width);
+  text-align: center;
+  text-indent: 0;
+  white-space: pre;
+}
+
 .de-document-editor .pm-page-content > :is(h1, h2, h3, h4, h5, h6).de-forced-lines::before {
   content: attr(data-number);
 }
@@ -1016,8 +1027,10 @@ div.de-host-view {
 
 /* With the layout engine, each page contains its style while off screen, which scopes counters to
    it: the pages, and the viewer and prints drawn from their layout, draw the numbers the engine
-   laid them out with (DOCE-PAGINATION-11.9, DOCE-PAGINATION-13.6). */
+   laid them out with (DOCE-PAGINATION-11.9, DOCE-PAGINATION-13.6). The measuring view, which has
+   no engine numbers, counts them as the browser does. */
 .de-document-editor[data-text-layout='pretext']
+  .de-document-editor__content
   .pm-page-content
   :is(
     .doc-table-caption-line,
@@ -1029,12 +1042,14 @@ div.de-host-view {
 }
 
 .de-document-editor[data-text-layout='pretext']
+  .de-document-editor__content
   .pm-page-content
   :is(h1, h2, h3, h4, h5, h6)::before {
   content: attr(data-number);
 }
 
 .de-document-editor[data-text-layout='pretext']
+  .de-document-editor__content
   .pm-page-content
   .de-math[data-display='display']::after {
   content: var(--de-number, none);
