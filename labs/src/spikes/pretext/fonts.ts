@@ -60,10 +60,15 @@ export const SCRIPT_FAMILIES = [
 ];
 export const labMeasurer: LabMeasurer =
   query.get('measurer') === 'font-files' ? 'font-files' : 'canvas';
+/**
+ * The language the lab lays its text out in, `&lang=` or English: the page's `lang`, which
+ * Chromium breaks lines by, and the text layout engine's (DOCE-LABS-7.3).
+ */
+export const labLanguage = query.get('lang') ?? 'en';
 /** The query the prediction worker is named with, so it reads the same settings. */
 export const workerName = `fonts=${servesFonts ? 'served' : 'system'}&measurer=${labMeasurer}${
   servesScripts ? '&scripts' : ''
-}`;
+}&lang=${encodeURIComponent(labLanguage)}`;
 
 /** What the page hands the worker: the served font files, and HarfBuzz for font-file widths. */
 export interface FontSetup {
