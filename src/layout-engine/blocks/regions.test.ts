@@ -33,6 +33,17 @@ describe('page regions', () => {
     expect(layout.layoutRegion(footer, place)).toMatchObject({ ok: true, height: 54, gap: 9 });
   });
 
+  it('DOCE-PAGINATION-10.6 lays a rule in a header out without its margins', () => {
+    const { layout } = standInBlockLayout({ template });
+    const header = node('page_header', null, [paragraph(10), node('horizontal_rule', null)]);
+    const region = layout.layoutRegion(header, place);
+    expect(region).toMatchObject({ ok: true, height: 60 });
+    expect(region.ok && region.children.map(({ top, bottom }) => [top, bottom])).toEqual([
+      [0, 18],
+      [18, 20],
+    ]);
+  });
+
   it('DOCE-PAGINATION-10.6 draws no empty region', () => {
     const { layout } = standInBlockLayout({ template });
     expect(layout.layoutRegion(node('page_header', null), place)).toMatchObject({

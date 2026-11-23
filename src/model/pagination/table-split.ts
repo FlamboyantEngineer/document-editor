@@ -124,9 +124,25 @@ export function splitTableWith(repeatHeader: boolean) {
   };
 }
 
+// A later part without its caption's box, which the stylesheet shows only above header rows.
+function withoutCaption(part: LayoutBlock, caption: number): LayoutBlock {
+  const firstRow = part.node.lastChild?.firstChild;
+  if (!firstRow || isHeaderRow(firstRow)) return part;
+  return { ...part, height: Math.max(0, part.height - caption) };
+}
+
 /**
  * A table with its caption split as its table splits (`splitTableWith`), the node holding them
- * measured by its table's rows (`splitHeldWith`).
+ * measured by its table's rows (`splitHeldWith`); a later part that opens with a body row shows no
+ * caption, so it takes none of the caption's height.
  */
-export const splitTableFigureWith = (repeatHeader: boolean) =>
-  splitHeldWith(splitTableWith(repeatHeader));
+export const splitTableFigureWith = (repeatHeader: boolean) => {
+  const split = splitHeldWith(splitTableWith(repeatHeader));
+  return (block: LayoutBlock, fitting: number): SplitBlock | null => {
+    const result = split(block, fitting);
+    const measured = block.measurement;
+    const caption = isContainerMeasurement(measured) ? Math.max(0, measured.caption ?? 0) : 0;
+    if (!result || !(caption > 0)) return result;
+    return { ...result, tail: result.tail.map((part) => withoutCaption(part, caption)) };
+  };
+};

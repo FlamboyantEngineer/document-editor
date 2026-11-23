@@ -35,6 +35,7 @@ import {
 } from '../../../src/model/index.js';
 import { isPaginationTransaction } from '../../../src/pagination/index.js';
 import { markReadyWhenSettled } from '../lab-ready.js';
+import { LAB_FONTS } from '../served-fonts.js';
 import { useRemoteTypist, useStressProbe } from './stress-probe.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
@@ -262,6 +263,7 @@ function StressLab({
         template={TEMPLATE}
         layout={layout}
         textLayout={TEXT_LAYOUT}
+        fonts={TEXT_LAYOUT === 'pretext' ? LAB_FONTS : undefined}
         rendering={RENDERING}
         toolbar={completion ? TOOLBAR : undefined}
         scrollable

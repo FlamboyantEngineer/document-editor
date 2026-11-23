@@ -7,13 +7,18 @@ import {
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
 import type { PageTextLines } from '../src/pagination/index.js';
-import { type BlockAt, readDrawnLines, readDrawnPages } from './drawn-lines.js';
+import {
+  type LineMismatch,
+  mismatchedLines,
+  readDrawnLines,
+  readDrawnPages,
+} from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // The one-result invariant (specs/LABS.md DOCE-LABS-8): with `textLayout: 'pretext'`, the lines and
 // pages the layout engine computed are the ones the editor draws. For every document of the
-// regression set, at zooms from 50 to 150 percent and at real device pixel ratios of 1, 1.25 and 2
-// (the `chromium-dpr-*` projects), each page holds the text blocks the engine put on it, and each
+// regression set, at zooms from 50 to 200 percent and at real device pixel ratios of 1, 1.25, 1.5,
+// 1.75, 2 and 3 (the `chromium-dpr-*` projects), each page holds the text blocks the engine put on it, and each
 // block draws exactly the engine's lines: same count, same text on each. The drawn lines are read
 // from the characters' line boxes, so a line the browser wrapped by itself fails as surely as a
 // forced break that drew nothing.
@@ -27,17 +32,24 @@ declare global {
 
 const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
-// Every zoom at a device pixel ratio of 1; the ends and the middle at the others.
-const ZOOMS = [50, 75, 100, 125, 150] as const;
+// Every zoom a browser or the status bar offers at a device pixel ratio of 1 (the
+// `chromium-invariant` project); the ends and the middle at ratios 1.25 and 2; 100 percent at the
+// ratios of display scaling at 150, 175 and 300 percent (the `chromium-dpr-*` projects).
+const ZOOMS = [50, 67, 75, 90, 100, 110, 125, 133, 150, 175, 200] as const;
 const DPR_ZOOMS: readonly number[] = [50, 100, 150];
+const SCALING_ZOOMS: readonly number[] = [100];
+// The pages painted into a canvas, at the status bar's zooms and the first two ratios.
+const CANVAS_ZOOMS = [50, 75, 100, 125, 150] as const;
+const CANVAS_PROJECTS: readonly string[] = [
+  'chromium-invariant',
+  'chromium-dpr-1.25',
+  'chromium-dpr-2',
+];
 
 const FORCED = '.de-forced-lines';
 
 const key = (block: { elementId: string; part: number }) =>
   `${block.elementId}#${String(block.part)}`;
-
-// Spaces as the stored text holds them: a no-break space a browser kept at a writer's edge is a space.
-const plain = (text: string) => text.replaceAll(' ', ' ');
 
 async function open(
   page: Page,
@@ -64,19 +76,16 @@ const settle = (page: Page) =>
 const computedOf = (page: Page): Promise<PageTextLines[]> =>
   page.evaluate(() => window.regressionLab.textLines());
 
-/** One line drawn otherwise than the engine computed it. */
-interface LineMismatch {
-  readonly page: number;
-  readonly block: string;
-  readonly computed: readonly string[];
-  readonly drawn: readonly string[] | null;
-}
-
 /** The invariant on the pages shown now: pages, the forced blocks on each, and every block's lines. */
 async function expectOneResult(page: Page) {
   expect(
     await mismatchesOf(page),
     'blocks whose drawn lines differ from the computed ones',
+  ).toEqual([]);
+  // The guard (DOCE-PAGINATION-11.4) agrees: no false wrap, at any zoom.
+  expect(
+    await page.evaluate(() => window.regressionLab.wrappedLines()),
+    'blocks the guard takes for wrapped',
   ).toEqual([]);
 }
 
@@ -93,41 +102,23 @@ async function mismatchesOf(page: Page): Promise<LineMismatch[]> {
     forced,
   );
 
-  const asked: (BlockAt & { lines: readonly string[] })[] = computed.flatMap(({ blocks }, index) =>
-    blocks.flatMap((block) =>
-      block.lines
-        ? [
-            {
-              page: index,
-              elementId: block.elementId,
-              part: block.part,
-              lines: block.lines.map((line) => plain(line.text)),
-            },
-          ]
-        : [],
-    ),
-  );
-  const lines = await readDrawnLines(page, asked);
-  return asked.flatMap((block, index) => {
-    const own = lines[index]?.map(plain) ?? null;
-    const same =
-      own !== null &&
-      own.length === block.lines.length &&
-      own.every((text, at) => text === block.lines[at]);
-    return same ? [] : [{ page: block.page, block: key(block), computed: block.lines, drawn: own }];
-  });
+  return mismatchedLines(page, computed);
 }
 
 // The zooms this project runs.
 function zoomRuns(testInfo: TestInfo, zoom: number) {
-  return testInfo.project.name === 'chromium' || DPR_ZOOMS.includes(zoom);
+  const { name } = testInfo.project;
+  // The `chromium` project runs the other tests; `chromium-invariant` runs these at ratio 1.
+  if (name === 'chromium') return false;
+  if (name === 'chromium-invariant') return true;
+  return (CANVAS_PROJECTS.includes(name) ? DPR_ZOOMS : SCALING_ZOOMS).includes(zoom);
 }
 
 test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () => {
   for (const name of NAMES) {
     for (const zoom of ZOOMS) {
       test(`DOCE-LABS-8.1 ${name} at ${String(zoom)}%`, async ({ page }, testInfo) => {
-        test.skip(!zoomRuns(testInfo, zoom), 'the middle zooms run at a device pixel ratio of 1');
+        test.skip(!zoomRuns(testInfo, zoom), 'another project runs this zoom');
         await open(page, name, zoom);
         await expectOneResult(page);
       });
@@ -158,9 +149,12 @@ const paintedPages = (page: Page) =>
 
 test.describe('DOCE-LABS-8.9 the same lines and pages painted into a canvas', () => {
   for (const name of NAMES) {
-    for (const zoom of ZOOMS) {
+    for (const zoom of CANVAS_ZOOMS) {
       test(`DOCE-LABS-8.9 ${name} at ${String(zoom)}% in a canvas`, async ({ page }, testInfo) => {
-        test.skip(!zoomRuns(testInfo, zoom), 'the middle zooms run at a device pixel ratio of 1');
+        test.skip(
+          !CANVAS_PROJECTS.includes(testInfo.project.name) || !zoomRuns(testInfo, zoom),
+          'the middle zooms run at a device pixel ratio of 1',
+        );
         await open(page, name, zoom, 'html-canvas');
         const { pages, painted } = await paintedPages(page);
         expect(painted, 'pages painted into a canvas').toBe(pages);
@@ -284,6 +278,18 @@ test.describe('DOCE-LABS-8.4 inline offers keep the drawn lines', () => {
     await page.goto('stress-long.html?textLayout=pretext');
     await waitForLab(page);
     await settle(page);
+    // Lines are forced on the pages near the screen: bring the body text after the contents there.
+    await page
+      .locator('.de-document-editor__content .pm-page')
+      .nth(2)
+      .evaluate((element) => element.scrollIntoView());
+    await expect
+      .poll(() =>
+        page
+          .locator('.pm-page p.de-forced-lines')
+          .evaluateAll((all) => all.some((each) => Number(each.getAttribute('data-lines')) >= 3)),
+      )
+      .toBe(true);
     const starts = await lineStartsOf(page, 3);
     const [first] = starts ?? [];
     if (!first) throw new Error('No paragraph with three lines.');
@@ -509,7 +515,9 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
   'caption-numbering': 'b7088b707c5b1f03',
   'heading-keep-with-next': 'cde9efbfd0216fdd',
-  'long-mixed': 'e83aba0e479e7771',
+  // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
+  // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5).
+  'long-mixed': 'a63acc7dc31961b5',
   'oversized-blocks': '04f2d26ec8b3697c',
   'roman-numbering-stress': 'd24934809773ffdb',
 };

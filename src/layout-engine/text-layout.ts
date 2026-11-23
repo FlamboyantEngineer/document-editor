@@ -233,6 +233,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         padding: style.padding,
         firstStart: starts.firstStart,
         restStart: starts.restStart,
+        block: node,
       });
       return { ok: true, table: withReserved(table, runs.runs, options.reserve) };
     },
