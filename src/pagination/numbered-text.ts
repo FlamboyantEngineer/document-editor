@@ -25,8 +25,13 @@ export function numberedText(
     recorder,
   }: { numbers: () => TextNumbers; inserted: () => InsertedTexts; recorder: LinesRecorder },
 ): BlockTextLayout {
+  const contentsText = (text as Partial<Pick<BlockTextLayout, 'layoutContentsText'>>)
+    .layoutContentsText;
   return {
     typography: (node, scope) => text.typography(node, scope),
+    layoutContentsRow: (row, place) => text.layoutContentsRow(row, place),
+    contentsTextWidth: (value, level) => text.contentsTextWidth(value, level),
+    ...(contentsText ? { layoutContentsText: contentsText } : {}),
     layoutText: (node, place) => {
       const { prefixes, paragraphs } = numbers();
       const prefix = place.prefix ?? prefixes.get(node);

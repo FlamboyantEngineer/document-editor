@@ -49,6 +49,8 @@ function stubEngine(options: StubOptions = {}) {
       paragraphs: options.paragraphs ?? new Set(),
     }),
     measureBlock: () => null,
+    pageDigits: () => 3,
+    contentsDrawn: () => null,
     measureRegion: () => null,
     insertedReserved: () => [],
     nestedLines(container, scope) {

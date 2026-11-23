@@ -1474,6 +1474,19 @@ div.de-host-view {
   align-self: flex-end;
 }
 
+/*
+ * Under the layout engine, the page box is as wide as the engine kept room for, its number at its
+ * end, and the text breaks only where the engine broke its lines (DOCE-PAGINATION-10.11).
+ */
+.de-contents__entry[style*='--de-contents-page-width'] > .de-contents__page {
+  width: var(--de-contents-page-width);
+  text-align: right;
+}
+
+.de-contents__text[data-engine-lines] {
+  white-space: nowrap;
+}
+
 /* A long entry wraps; its leader and page stay on its last line. */
 .de-contents__text {
   min-width: 0;

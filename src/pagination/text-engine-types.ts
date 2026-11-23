@@ -5,6 +5,7 @@ import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { FontFiles } from '../host/font-files.js';
+import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
 import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
@@ -105,6 +106,13 @@ export interface PagesTextEngine {
   number(doc: ProseMirrorNode): void;
   /** A document's numbered headings and paragraphs, such as the pages'. */
   numbering(doc: ProseMirrorNode): DocumentNumbering;
+  /**
+   * Keeps room in each list of contents row's page box for the digits of a page count, at least 3
+   * (DOCE-PAGINATION-10.11), and gives that number of digits.
+   */
+  pageDigits(count: number): number;
+  /** How the pages draw a list of contents block; null when the engine left it to the DOM. */
+  contentsDrawn(node: ProseMirrorNode, scope: string | null): ContentsDrawn | null;
   /**
    * A top-level block of a section's page content, laid out with the words inserted in its text
    * blocks; null when the DOM must measure it.
