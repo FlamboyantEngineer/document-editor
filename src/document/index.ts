@@ -60,6 +60,7 @@ export { printSnapshot } from './headless-print.js';
 export type {
   PagesLayout,
   PagesLayoutBlock,
+  PagesLayoutMath,
   PagesLayoutNumber,
   PagesLayoutVariable,
 } from './pages-layout.js';

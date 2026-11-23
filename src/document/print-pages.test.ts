@@ -56,6 +56,50 @@ describe('renderLayoutPrintPage', () => {
     expect(static_[0]?.querySelectorAll('.de-forced-lines__end')).toHaveLength(3);
   });
 
+  it('DOCE-PAGINATION-13.3 draws math as the pages typeset it, and the line end after it', () => {
+    const math = (latex: string) => node('math_inline', null, [documentSchema.text(latex)]);
+    const display = node('math_display', null, [documentSchema.text('y')]);
+    const doc = pagesDocument([
+      page([
+        paragraph([math('x'), text('aaaaaaa'), math('bad'), math('later')], { dataId: 'p1' }),
+        display,
+      ]),
+    ]);
+    const state = pagesState(doc, stubEngine({ perLine: 3 }));
+    const typeset = {
+      tag: 'math',
+      attrs: { display: 'inline' },
+      children: [{ tag: 'mi', attrs: {}, children: ['x'] }],
+    };
+    const layout = pagesLayout(state, {
+      typesetOf: (each) => {
+        if (each.textContent === 'x') return { state: 'ready', math: typeset };
+        if (each.textContent === 'y') return { state: 'ready', math: { ...typeset, attrs: {} } };
+        if (each.textContent === 'bad') return { state: 'invalid', text: 'Bad', message: 'why' };
+        return null;
+      },
+    });
+    if (!layout) throw new Error('no layout');
+    const printed = new DOMParser().parseFromString(
+      renderLayoutPrintPage(layout, BASE_TEMPLATE),
+      'text/html',
+    );
+    const drawn = [...printed.querySelectorAll<HTMLElement>('.de-math')].map((each) => ({
+      display: each.dataset.display,
+      state: each.dataset.state,
+      html: each.innerHTML,
+    }));
+    expect(drawn).toEqual([
+      { display: 'inline', state: 'ready', html: '<math display="inline"><mi>x</mi></math>' },
+      { display: 'inline', state: 'invalid', html: 'Bad' },
+      { display: 'inline', state: 'pending', html: 'later' },
+      { display: 'display', state: 'ready', html: '<math><mi>x</mi></math>' },
+    ]);
+    // The math that ends the first line takes its end hook on its own element.
+    const first = printed.querySelector('.de-math');
+    expect(first?.classList.contains('de-forced-lines__end')).toBe(true);
+  });
+
   it('DOCE-PAGINATION-9.12 draws each forced block in the direction the pages view draws it', () => {
     const doc = pagesDocument([
       page([

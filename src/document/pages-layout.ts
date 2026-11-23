@@ -5,6 +5,7 @@
 // not a stored format.
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import type { TypesetMath } from '../engine/math-typeset.js';
 import type { FontFiles } from '../host/font-files.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { LineMark } from '../layout-engine/line-marks.js';
@@ -45,6 +46,12 @@ export interface PagesLayoutNumber {
   readonly heading: boolean;
 }
 
+/**
+ * What a math node at a position was typeset as where the pages drew it: its MathML as data, as
+ * the typesetter kept it, or what invalid math shows and why.
+ */
+export type PagesLayoutMath = TypesetMath & { readonly pos: number };
+
 /** A document's pages as the editor laid them out on the text layout engine's lines. */
 export interface PagesLayout {
   readonly formatVersion: 1;
@@ -62,6 +69,11 @@ export interface PagesLayout {
   readonly variables: readonly PagesLayoutVariable[];
   /** The heading, caption and equation numbers the pages draw, by position. */
   readonly numbers: readonly PagesLayoutNumber[];
+  /**
+   * The typeset math the pages draw, by position (DOCE-PAGINATION-13.2); math missing from it,
+   * not typeset yet, is drawn as its source. Absent in a layout of an older library version.
+   */
+  readonly math?: readonly PagesLayoutMath[] | undefined;
   /**
    * The served faces the pages were measured and drawn with, and the family each generic keyword
    * stands for (DOCE-HOST-1.14.1); null when the host serves none. What draws the layout draws

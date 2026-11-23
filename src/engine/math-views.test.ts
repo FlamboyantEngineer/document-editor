@@ -1,10 +1,10 @@
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
 import { createDocumentEditing } from './document-editing.js';
-import { createMathViews, DEFAULT_INVALID_MATH_TEXT } from './math-views.js';
+import { createMathViews, DEFAULT_INVALID_MATH_TEXT, typesetMathOf } from './math-views.js';
 
 installEditorDom();
 
@@ -59,5 +59,73 @@ describe('invalid math', () => {
     const [inline, block] = [...view.dom.querySelectorAll('.de-math')];
     await expect.poll(() => inline?.textContent).toBe('! Error !');
     await expect.poll(() => block?.textContent).toBe('Invalid LaTeX code');
+  });
+});
+
+describe('typeset math kept for static drawings', () => {
+  it('DOCE-PAGINATION-13.2 keeps what each math node was typeset as, its MathML held to the allow-list', async () => {
+    const render = (source: string) => ({
+      ok: true as const,
+      mathml: `<math><mi onclick="alert(1)">${source}</mi><script>alert(2)</script></math>`,
+    });
+    const plugins = [createMathViews({ render })];
+    const inline = nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = nodes.paragraph?.create(null, inline ? [inline] : []);
+    const doc = paragraph && documentSchema.topNodeType.createAndFill(null, [paragraph]);
+    if (!inline || !doc) throw new Error('The schema has math');
+    const state = EditorState.create({ doc, plugins });
+    expect(typesetMathOf(state, inline)).toBeNull();
+    view = new EditorView(document.createElement('div'), { state });
+    await expect.poll(() => typesetMathOf(state, inline)?.state).toBe('ready');
+    const typeset = typesetMathOf(state, inline);
+    if (typeset?.state !== 'ready') throw new Error('typeset');
+    expect(JSON.stringify(typeset.math)).not.toMatch(/script|onclick/u);
+    expect(typeset.math.tag).toBe('math');
+    // Refused math keeps what invalid math shows.
+    const refused = EditorState.create({ doc, plugins: [createMathViews({ render: refuse })] });
+    view.destroy();
+    view = new EditorView(document.createElement('div'), { state: refused });
+    await expect
+      .poll(() => typesetMathOf(refused, inline))
+      .toEqual({
+        state: 'invalid',
+        text: DEFAULT_INVALID_MATH_TEXT.inline,
+        message: 'Expected group after "\\frac"',
+      });
+  });
+});
+
+describe('a renderer that does not answer', () => {
+  it('DOCE-PAGINATION-10.8 shows math invalid once its renderer misses the deadline, and a later answer still', async () => {
+    vi.useFakeTimers();
+    let answer: (value: { ok: true; mathml: string }) => void = () => {};
+    const render = () =>
+      new Promise<{ ok: true; mathml: string }>((resolve) => {
+        answer = resolve;
+      });
+    const plugins = [createMathViews({ render, timeout: 5_000, timeoutMessage: 'Too slow' })];
+    const inline = nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = nodes.paragraph?.create(null, inline ? [inline] : []);
+    const doc = paragraph && documentSchema.topNodeType.createAndFill(null, [paragraph]);
+    if (!inline || !doc) throw new Error('The schema has math');
+    const state = EditorState.create({ doc, plugins });
+    view = new EditorView(document.createElement('div'), { state });
+    const drawn = view.dom.querySelector<HTMLElement>('.de-math');
+    const remeasured = vi.fn();
+    drawn?.addEventListener('de-remeasure', remeasured);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(drawn?.dataset.state).toBe('pending');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(drawn?.dataset.state).toBe('invalid');
+    expect(drawn?.title).toBe('Too slow (5 s)');
+    expect(drawn?.textContent).toBe(DEFAULT_INVALID_MATH_TEXT.inline);
+    expect(remeasured).toHaveBeenCalledTimes(1);
+    expect(typesetMathOf(state, inline)?.state).toBe('invalid');
+    answer({ ok: true, mathml: '<math><mi>x</mi></math>' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(drawn?.dataset.state).toBe('ready');
+    expect(remeasured).toHaveBeenCalledTimes(2);
+    expect(typesetMathOf(state, inline)?.state).toBe('ready');
+    vi.useRealTimers();
   });
 });
