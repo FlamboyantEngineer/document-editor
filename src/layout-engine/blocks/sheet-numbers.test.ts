@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { blockBuilders, standInBlockLayout } from '../../../test/layout-engine-fixtures.js';
+import type { TemplateFile } from '../../model/index.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../../model/templates/base-template.js';
 import { blockMetrics } from './metrics.js';
@@ -68,6 +69,21 @@ describe('the stylesheet’s block numbers', () => {
     expect(metrics.quote).toMatchObject({ before: 24, after: 24 });
     expect(metrics.rule).toMatchObject({ before: 6, after: 6 });
     expect(metrics.code.padding).toBe(3);
+  });
+
+  it('DOCE-PAGINATION-10.9 counts a quote’s and a rule’s em in their section’s paragraph size', () => {
+    const template: TemplateFile = {
+      ...BASE_TEMPLATE,
+      sections: [{ name: 'annex', styles: { paragraph: { size: '10px' } } }],
+    };
+    expect(blockMetrics(template, null, referenceSheetNumbers)).toMatchObject({
+      quote: { before: 12, after: 12 },
+      rule: { before: 6, after: 6 },
+    });
+    expect(blockMetrics(template, 'annex', referenceSheetNumbers)).toMatchObject({
+      quote: { before: 10, after: 10 },
+      rule: { before: 5, after: 5 },
+    });
   });
 
   it('DOCE-PAGINATION-10.9 lays blocks out with a host stylesheet’s numbers', () => {

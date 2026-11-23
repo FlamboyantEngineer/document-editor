@@ -124,6 +124,24 @@ describe('equations, rules and markup', () => {
     });
   });
 
+  it('DOCE-PAGINATION-10.8 takes the margins a block atom is drawn with, its content’s that pass through its edges among them', () => {
+    const { layout } = standInBlockLayout({
+      measure: () => ({ size: { width: 600, height: 18, margins: { top: 0, bottom: 8 } } }),
+    });
+    const markup = node('dynamic_template', { renderedHtml: '<p>a</p>' });
+    expect(blockOf(layout.layoutBlock(markup, place))).toMatchObject({
+      height: 18,
+      marginTop: 0,
+      marginBottom: 8,
+    });
+    // An equation keeps the stylesheet's margins where it is drawn with less.
+    const equation = node('math_display', null, [schema.text('x')]);
+    expect(blockOf(layout.layoutBlock(equation, place))).toMatchObject({
+      marginTop: 6,
+      marginBottom: 8,
+    });
+  });
+
   it('DOCE-PAGINATION-10.4 measures a kept block as an atom', () => {
     const { layout } = standInBlockLayout({
       measure: () => ({ size: { width: 600, height: 33 } }),
