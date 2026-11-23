@@ -108,3 +108,25 @@ test('DOCE-LABS-5.1 reuses prepared rich text when only page width changes', asy
   expect(result.predicted.cold.mountedPages).toBeLessThan(result.baseline.cold.mountedPages);
   expect(result.predicted.warm.mountedPages).toBeLessThan(result.baseline.warm.mountedPages);
 });
+
+test('DOCE-LABS-5.6 counts a word or an atom past the edge as overflow, and white space not', async ({
+  page,
+}) => {
+  await page.goto(`${url}?measure`);
+  const found = await page.evaluate(() =>
+    window.pretextPagination.overflowControls({
+      word: `<p style="white-space: nowrap">${'words forced past the edge '.repeat(4)}</p>`,
+      atom: '<p><img alt="" style="display: inline-block; width: 320px; height: 10px"></p>',
+      space: `<p style="white-space: pre">short<code>${' '.repeat(200)}</code></p>`,
+      fits: '<p>a short line</p>',
+    }),
+  );
+  // White space past the edge, as inline code's end padding after a hanging space was in G3, scrolls
+  // the page sideways yet holds no word past the edge.
+  expect(found).toEqual({
+    word: { scrolls: true, past: true },
+    atom: { scrolls: true, past: true },
+    space: { scrolls: true, past: false },
+    fits: { scrolls: false, past: false },
+  });
+});
