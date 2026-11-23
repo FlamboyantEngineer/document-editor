@@ -335,6 +335,7 @@ declare global {
       verify: typeof verify;
       compareProductionBoundaries: typeof compareProductionBoundaries;
       lineFitThresholds: typeof lineFitThresholds;
+      overflowControls: typeof overflowControls;
     };
   }
 }
@@ -351,4 +352,40 @@ async function lineFitThresholds(cases: readonly FitCase[]) {
   }
 }
 
-window.pretextPagination = { compare, verify, compareProductionBoundaries, lineFitThresholds };
+// The overflow rule's controls: a page body holding only the given markup, whether it scrolls
+// sideways and whether the oracle finds ink past its edge (DOCE-LABS-5.6).
+async function overflowControls(cases: Readonly<Record<string, string>>) {
+  await fontsReady();
+  const oracle = await import('./pretext/oracle.js');
+  const host = document.createElement('div');
+  host.className = 'de-document-editor';
+  applySettings(host, 300);
+  root.append(host);
+  try {
+    return Object.fromEntries(
+      Object.entries(cases).map(([name, markup]) => {
+        const body = document.createElement('div');
+        body.className = 'pm-page-content';
+        body.style.cssText = 'width: 300px; overflow: hidden; white-space: pre-wrap;';
+        body.innerHTML = markup;
+        host.append(body);
+        const found = {
+          scrolls: body.scrollWidth > body.clientWidth + 1,
+          past: oracle.inkPastEdge(body),
+        };
+        body.remove();
+        return [name, found];
+      }),
+    );
+  } finally {
+    host.remove();
+  }
+}
+
+window.pretextPagination = {
+  compare,
+  verify,
+  compareProductionBoundaries,
+  lineFitThresholds,
+  overflowControls,
+};

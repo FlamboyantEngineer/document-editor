@@ -101,6 +101,29 @@ function measure(
   };
 }
 
+// Whether the page's text or an atom reaches past its content's right edge. White space that hangs
+// at a line end, and the padding Chromium paints after it in inline code, are ink past the edge
+// that no line holds (G3), so only words and atoms count.
+export function inkPastEdge(body: HTMLElement): boolean {
+  if (body.scrollWidth <= body.clientWidth + 1) return false;
+  const edge = body.getBoundingClientRect().left + body.clientWidth + 1;
+  const range = document.createRange();
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node instanceof HTMLElement) {
+      const atom = node.matches('img, svg, [contenteditable="false"]');
+      if (atom && node.getBoundingClientRect().right > edge) return true;
+      continue;
+    }
+    for (const word of (node.textContent ?? '').matchAll(/\S+/g)) {
+      range.setStart(node, word.index);
+      range.setEnd(node, word.index + word[0].length);
+      if ([...range.getClientRects()].some((rect) => rect.right > edge)) return true;
+    }
+  }
+  return false;
+}
+
 export function verifyPages(
   sheets: HTMLElement,
   index: LayoutIndex,
@@ -123,9 +146,7 @@ export function verifyPages(
       page.querySelector<HTMLElement>('.pm-page-content'),
       'rendered page content',
     );
-    if (body.scrollHeight > body.clientHeight + 1 || body.scrollWidth > body.clientWidth + 1) {
-      overflow.push(position + 1);
-    }
+    if (body.scrollHeight > body.clientHeight + 1 || inkPastEdge(body)) overflow.push(position + 1);
     const pageRect = page.getBoundingClientRect();
     const bodyRect = body.getBoundingClientRect();
     const path = `page ${number}`;

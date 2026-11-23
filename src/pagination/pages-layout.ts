@@ -11,9 +11,11 @@ import type {
   PagesLayoutVariable,
 } from '../document/pages-layout.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
-import { continuedDirections, drawnDirection, isContinued } from './block-directions.js';
+import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
-import { FORCED_TYPES, forcedLinesKey, sectionScope } from './forced-lines.js';
+import { forcedBlocksOf } from './forced-blocks.js';
+import { forcedLinesKey, sectionScope } from './forced-lines.js';
+import { NO_INSERTED } from './inserted-texts.js';
 import type { LayoutState } from './layout-readiness.js';
 import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -37,19 +39,20 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
     const name = node.type.name;
     if (name === 'page_section') scope = sectionScope(node);
     if (parent?.type.name !== 'page_content') return !node.isTextblock;
-    if (!FORCED_TYPES.has(name) || paragraphs.has(pos)) return false;
-    const prefix = isContinued(node) ? undefined : headings.get(pos);
-    const table = engine.lines(node, { scope, prefix });
-    if (!table) return false;
-    const indent = prefix ? firstLineIndent(table) : null;
-    blocks.push({
-      pos,
-      lines: table.lines.length,
-      ...(prefix ? { number: prefix } : {}),
-      ...(indent ? { style: indent } : {}),
-      ...(drawnDirection(directions, { node, pos }) === 'rtl' ? { direction: 'rtl' as const } : {}),
-      marks: lineMarks(node, table, { prefixed: Boolean(prefix) }),
-    });
+    const place = { pos, scope, headings, numbered: paragraphs, inserted: NO_INSERTED };
+    for (const { node: block, pos: at, table, prefix } of forcedBlocksOf(engine, node, place)) {
+      if (!table) continue;
+      const indent = prefix ? firstLineIndent(table) : null;
+      const rtl = drawnDirection(directions, { node: block, pos: at }) === 'rtl';
+      blocks.push({
+        pos: at,
+        lines: table.lines.length,
+        ...(prefix ? { number: prefix } : {}),
+        ...(indent ? { style: indent } : {}),
+        ...(rtl ? { direction: 'rtl' as const } : {}),
+        marks: lineMarks(block, table, { prefixed: Boolean(prefix) }),
+      });
+    }
     return false;
   });
   return blocks;
@@ -104,6 +107,7 @@ export function pagesLayout(
     variables: drawnVariables(state),
     numbers: drawnNumbers(state),
     fonts: engine.fonts?.() ?? null,
+    language: engine.language ?? '',
     provisional: options.settled === false || engine.provisional(),
   };
 }

@@ -62,6 +62,12 @@ describe('pagesLayout', () => {
     expect(JSON.parse(JSON.stringify(layout))).toEqual(layout);
   });
 
+  it('DOCE-PAGINATION-13.10 holds the language the engine laid the pages out in', () => {
+    const doc = pagesDocument([page([paragraph('One')])]);
+    expect(pagesLayout(pagesState(doc, { ...stubEngine(), language: 'tr' }))?.language).toBe('tr');
+    expect(pagesLayout(pagesState(doc, stubEngine()))?.language).toBe('');
+  });
+
   it('DOCE-PAGINATION-13.2 gives no layout when the pages are not drawn on the engine', () => {
     const doc = pagesDocument([page([paragraph('One')])]);
     expect(pagesLayout(pagesState(doc, null))).toBeNull();

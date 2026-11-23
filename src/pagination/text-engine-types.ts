@@ -8,7 +8,7 @@ import type { FontFiles } from '../host/font-files.js';
 import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
-import type { ReserveCluster } from '../layout-engine/reserved-boxes.js';
+import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 
@@ -99,6 +99,8 @@ export interface PagesTextEngine {
   readonly template: TemplateFile;
   /** The served faces the engine measured with (DOCE-HOST-1.14.1); none with another width source. */
   readonly fonts?: (() => FontFiles) | undefined;
+  /** The language the engine was made to lay the pages out in (DOCE-PAGINATION-9.7), empty for none. */
+  readonly language?: string | undefined;
   /** Counts the measured document's numbered headings and paragraphs, for `measureBlock`. */
   number(doc: ProseMirrorNode): void;
   /** A document's numbered headings and paragraphs, such as the pages'. */
@@ -122,8 +124,22 @@ export interface PagesTextEngine {
     scope: string | null,
     variables?: ReadonlyMap<string, string>,
   ): RegionRoom | null;
+  /**
+   * The clusters of a word drawn in a text block that is not its content, such as a comparison's
+   * deleted word, that take a reserved width in the block's font, by offset in the word.
+   */
+  insertedReserved(node: ProseMirrorNode, scope: string | null, word: string): ReservedBox[];
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */
   lines(node: ProseMirrorNode, place: LinesPlace): DrawnLines | null;
+  /**
+   * The lines of each text block inside a top-level container of a page, such as a table's cells'
+   * paragraphs, as the engine lays the container out in its section's content width; none when it
+   * cannot lay the container out.
+   */
+  nestedLines(
+    container: ProseMirrorNode,
+    scope: string | null,
+  ): ReadonlyMap<ProseMirrorNode, DrawnLines>;
   /**
    * Whether an atom the engine measured, such as an image or math, still waits for its final size,
    * so the blocks holding it, and the page breaks after them, may move.

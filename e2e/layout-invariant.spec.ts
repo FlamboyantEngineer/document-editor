@@ -515,15 +515,17 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // and their text blocks' lines, `heights` each page's used and free room and each block's planned
 // top and height.
 // Recorded with Chromium's Canvas on Linux; the CI runner's fingerprints are the reference.
+// The paragraphs in tables' cells are on forced lines and counted too (DOCE-PAGINATION-11.2); the
+// top-level blocks' line fingerprints did not move.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: 'b7088b707c5b1f03', heights: '685c13b50fa7abf4' },
-  'heading-keep-with-next': { lines: 'cde9efbfd0216fdd', heights: '7c217daccffd64de' },
+  'caption-numbering': { lines: '7edaabe9b848e668', heights: '685c13b50fa7abf4' },
+  'heading-keep-with-next': { lines: 'f336a222502648bb', heights: '7c217daccffd64de' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: 'a63acc7dc31961b5', heights: 'f9afd020ec769c5d' },
+  'long-mixed': { lines: '4ce5a16d5c62813b', heights: 'f9afd020ec769c5d' },
   'oversized-blocks': { lines: '04f2d26ec8b3697c', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: 'd24934809773ffdb', heights: '19718eeba63c6a81' },
 };

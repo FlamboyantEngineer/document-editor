@@ -50,6 +50,17 @@ function stubEngine(options: StubOptions = {}) {
     }),
     measureBlock: () => null,
     measureRegion: () => null,
+    insertedReserved: () => [],
+    nestedLines(container, scope) {
+      const found = new Map<Node, DrawnLines>();
+      container.descendants((child) => {
+        if (!child.isTextblock) return true;
+        const table = this.lines(child, { scope });
+        if (table) found.set(child, table);
+        return false;
+      });
+      return found;
+    },
     lines(node, place) {
       calls.push({ text: node.textContent, scope: place.scope, prefix: place.prefix });
       const size = node.content.size;
@@ -130,6 +141,18 @@ describe('forcedLines', () => {
     expect(directions).toEqual(['rtl', 'ltr', 'rtl']);
   });
 
+  it('DOCE-PAGINATION-9.12 draws a block, and its later part, in its first strong character’s Bidi_Class', () => {
+    const doc = pagesDoc([
+      [paragraph('\u2162 שלום', { dataId: 'n' }), paragraph('\u0640abc', { dataId: 't' })],
+      [paragraph('שלום again', { dataId: 'n', splitPartIndex: 1 })],
+    ]);
+    const state = stateWith(doc, stubEngine().engine);
+    const directions = drawn(state)
+      .filter((each) => each.class === 'de-forced-lines')
+      .map((each) => each.dir);
+    expect(directions).toEqual(['ltr', 'rtl', 'ltr']);
+  });
+
   it('DOCE-PAGINATION-9.12 keeps a block’s direction from its content, whatever words are deleted in it', () => {
     const doc = pagesDoc([[paragraph('שלום world', { dataId: 'h' })]]);
     const at = positionOf(doc, 'שלום world') + 1;
@@ -162,6 +185,43 @@ describe('forcedLines', () => {
     expect(
       attrs.filter((each) => each.class === 'de-forced-lines').map((each) => each.dir),
     ).toEqual(['rtl']);
+  });
+
+  it("DOCE-PAGINATION-11.2 marks each paragraph in a table's cells, and leaves numbered ones alone", () => {
+    const cell = (text: string, id: string) =>
+      create('table_cell', null, [paragraph(text, { dataId: id })]);
+    const table = create('table', null, [
+      create('table_row', null, [cell('aaaaaaaaaabb', 'c1'), cell('cc', 'c2')]),
+    ]);
+    const figure = create('table_figure', null, [table]);
+    const doc = pagesDoc([[figure]]);
+    const first = positionOf(doc, 'aaaaaaaaaabb');
+    const second = positionOf(doc, 'cc');
+    const state = stateWith(doc, stubEngine({ paragraphs: new Set([second]) }).engine);
+    expect(drawn(state)).toEqual([
+      { from: first, to: first + 14, class: 'de-forced-lines', 'data-lines': '2', dir: 'ltr' },
+      { from: first + 10, to: first + 11, class: 'de-forced-lines__end' },
+    ]);
+    const [page] = pageTextLines(state);
+    expect(
+      page?.blocks.map(({ elementId, lines, reason, nested }) => ({
+        elementId,
+        lines,
+        reason,
+        nested,
+      })),
+    ).toEqual([
+      {
+        elementId: 'c1',
+        lines: [
+          { from: 0, to: 10, text: 'aaaaaaaaaa' },
+          { from: 10, to: 12, text: 'bb' },
+        ],
+        reason: undefined,
+        nested: true,
+      },
+      { elementId: 'c2', lines: null, reason: 'numbered paragraph', nested: true },
+    ]);
   });
 
   it('DOCE-PAGINATION-11.2 never cuts a character in two at a line end', () => {
@@ -237,6 +297,30 @@ describe('forcedLines', () => {
     const typed = state.apply(state.tr.insertText('x', positionOf(doc, 'first') + 1));
     expect(calls.map((call) => call.text)).toEqual(['xfirst']);
     expect(kept(typed)).toBe(before);
+  });
+
+  it("DOCE-PAGINATION-11.2 draws a cell again when another cell's text moves its lines", () => {
+    const cell = (text: string) => create('table_cell', null, [paragraph(text)]);
+    const table = create('table', null, [
+      create('table_row', null, [cell('aaaa'), cell('bbbbbbbb')]),
+    ]);
+    const doc = pagesDoc([[create('table_figure', null, [table])]]);
+    // The second cell narrows as the first one grows, as an automatic column width does.
+    const narrow = stubEngine({ perLine: 4 }).engine;
+    const wide = stubEngine({ perLine: 10 }).engine;
+    const engine: PagesTextEngine = {
+      ...wide,
+      nestedLines: (container, scope) =>
+        (container.textContent.length > 12 ? narrow : wide).nestedLines(container, scope),
+    };
+    const state = stateWith(doc, engine);
+    const lineCount = (on: EditorState) =>
+      drawn(on)
+        .filter((each) => each.class === 'de-forced-lines')
+        .map((each) => each['data-lines']);
+    expect(lineCount(state)).toEqual(['1', '1']);
+    const typed = state.apply(state.tr.insertText('x', positionOf(doc, 'aaaa') + 1));
+    expect(lineCount(typed)).toEqual(['2', '2']);
   });
 
   it('DOCE-PAGINATION-11.2 draws nothing until the engine has loaded, and draws once it has', () => {

@@ -35,6 +35,26 @@ const settle = (page: Page) =>
     return window.stressLab.whenSettled();
   });
 
+/** How long a settled layout may stay provisional. */
+const FINAL_WAIT = 30_000;
+
+// Settles the pages until their layout is final: an image or math the engine measured may still
+// wait for its size after the pages settle, and its layout is provisional until then
+// (DOCE-PAGINATION-13.2).
+async function settleFinal(page: Page, side: 'edited' | 'fresh') {
+  await settle(page);
+  const final = await page
+    .waitForFunction(() => window.regressionLab.layout()?.provisional === false, null, {
+      timeout: FINAL_WAIT,
+    })
+    .then(
+      () => true,
+      () => false,
+    );
+  expect(final, `the ${side} layout stayed provisional for ${String(FINAL_WAIT)} ms`).toBe(true);
+  await settle(page);
+}
+
 async function openLab(page: Page, name: RegressionDocumentName) {
   await page.goto(`regression.html?document=${name}&textLayout=pretext`);
   await waitForLab(page);
@@ -74,7 +94,7 @@ async function freshLayout(context: BrowserContext, name: RegressionDocumentName
     }, stored);
     await fresh.waitForFunction(() => window.regressionLab.layout() !== null);
     await fresh.evaluate(() => window.regressionLab.drawAllLines(true));
-    await settle(fresh);
+    await settleFinal(fresh, 'fresh');
     return await drawnOf(fresh);
   } finally {
     await fresh.close();
@@ -129,7 +149,7 @@ test.describe('DOCE-LABS-9.1 edited pages equal a fresh layout of the stored doc
           done.push(step.label);
           await runStep(step, target, done);
           await page.evaluate(() => window.regressionLab.drawAllLines(true));
-          await settle(page);
+          await settleFinal(page, 'edited');
           const edited = await drawnOf(page);
           expect(edited.layout, 'pages laid out by the engine').not.toBeNull();
           const fresh = await freshLayout(context, name, page);

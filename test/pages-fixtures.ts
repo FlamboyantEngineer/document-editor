@@ -60,6 +60,16 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
     measureBlock: () => null,
     measureRegion: () => null,
+    nestedLines(container, scope) {
+      const found = new Map<Node, DrawnLines>();
+      container.descendants((child) => {
+        if (!child.isTextblock) return true;
+        const table = this.lines(child, { scope });
+        if (table) found.set(child, table);
+        return false;
+      });
+      return found;
+    },
     lines(block) {
       const size = block.content.size;
       const lines: TextLine[] = [];
@@ -80,6 +90,11 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
       const text = block.textBetween(0, size, '\ufffc', '\ufffc');
       const reserve = (cluster: string) => (reserved.has(cluster) ? 16 : null);
       return { ...table, reserved: reservedBoxes(text, { offset: 0, font: '', reserve }) };
+    },
+    insertedReserved(_node, _scope, word) {
+      const reserved = options.reserved;
+      const reserve = (cluster: string) => (reserved?.has(cluster) ? 16 : null);
+      return reserved ? reservedBoxes(word, { offset: 0, font: '', reserve }) : [];
     },
     provisional: () => false,
     stats: () => ({ laid: 0, refused: 0, reasons: new Map() }),

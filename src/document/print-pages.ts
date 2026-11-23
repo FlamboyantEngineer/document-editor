@@ -31,6 +31,7 @@ import {
   nodeTree,
   type PrintElement,
   printElement,
+  printElements,
   printHtml,
   type PrintTree,
 } from './print-tree.js';
@@ -183,6 +184,8 @@ interface LayoutPageDrawing {
   readonly attrs: Readonly<Record<string, string>>;
   /** Its regions as HTML, allowed and escaped as a print's. */
   readonly html: string;
+  /** The anchors its regions hold, which a link to the page goes to (DOCE-PAGINATION-13.9). */
+  readonly anchors: readonly string[];
 }
 
 /** One section of a layout: its element's attributes and its pages. */
@@ -222,6 +225,9 @@ export function drawLayoutPages(
         pos: offset + 1 + at,
         attrs: attrsOf(page),
         html: printHtml(page?.children ?? []),
+        anchors: [...printElements(page?.children ?? [])].flatMap(
+          (each) => each.attrs.get('id') ?? [],
+        ),
       });
     });
     sections.push({ attrs: attrsOf(tree), pages });
@@ -261,6 +267,8 @@ export function renderLayoutPrintPage(
     ...options,
     template: drawn,
     bodyClass: 'de-static',
+    // In the language the pages were laid out in, as the editor's snapshot is (DOCE-PAGINATION-9.7).
+    language: layout.language,
     rules: [
       pageSheetRules(doc, drawn),
       // The served faces the lines were broken in, so the print draws the same glyphs.

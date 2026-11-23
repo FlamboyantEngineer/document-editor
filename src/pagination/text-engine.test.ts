@@ -60,6 +60,34 @@ describe('createPagesTextEngine', () => {
     engine.destroy();
   });
 
+  it('DOCE-PAGINATION-12.4 reserves the widths of an inserted word in its block font', () => {
+    const fonts: string[] = [];
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      reserve: (cluster, font) => {
+        fonts.push(font);
+        return cluster === '\u2603' ? 12 : null;
+      },
+    });
+    expect(engine.insertedReserved(paragraph('kept'), null, 'a\u2603b\u2603 ')).toEqual([
+      { from: 1, to: 2, width: 12 },
+      { from: 3, to: 4, width: 12 },
+    ]);
+    // The paragraph's own font, as the inserted word is laid out in.
+    expect(new Set(fonts).size).toBe(1);
+    expect(fonts[0]).toMatch(/px /u);
+    engine.destroy();
+    const plain = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+    });
+    expect(plain.insertedReserved(paragraph('kept'), null, '\u2603')).toEqual([]);
+    plain.destroy();
+  });
+
   it('DOCE-PAGINATION-10.9 lays blocks out with the numbers the stylesheet states where it measures', () => {
     const measureIn = document.createElement('div');
     measureIn.style.setProperty('--de-quote-spacing', '30px');
@@ -122,6 +150,34 @@ describe('the engine on page regions', () => {
     const next = pages.measureRegion(footer, null, new Map([['page.current', '12']]));
     expect(next).not.toBe(first);
     expect(next?.height).toBe(first?.height);
+    pages.destroy();
+  });
+
+  it("DOCE-PAGINATION-11.2 gives a table's cell paragraphs the lines it lays them out on", () => {
+    const pages = engine();
+    const cell = (value: string) =>
+      type('table_cell').create(null, [type('paragraph').create(null, text(value))]);
+    const words = 'aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk';
+    const row = type('table_row').create(null, [cell(words), cell('b')]);
+    const caption = type('table_caption').create(null, text('Table'));
+    const table = type('table').create(null, [row]);
+    const figure = type('table_figure').create(null, [caption, table]);
+    const lines = pages.nestedLines(figure, null);
+    const paragraphs: ProseMirrorNode[] = [];
+    figure.descendants((node) => {
+      if (node.type.name === 'paragraph') paragraphs.push(node);
+      return true;
+    });
+    expect(paragraphs.map((node) => lines.has(node))).toEqual([true, true]);
+    // Laid out in its cell's width, which is narrower than the page's.
+    const [wide] = paragraphs;
+    if (!wide) throw new Error('no paragraph');
+    const own = pages.lines(wide, { scope: null });
+    expect(lines.get(wide)?.lines.length).toBeGreaterThan(own?.lines.length ?? 0);
+    expect(pages.nestedLines(figure, null)).toBe(lines);
+    // None for a container the engine cannot lay out, such as a table figure with no caption.
+    const bare = type('table_figure').create(null, [table]);
+    expect(pages.nestedLines(bare, null).size).toBe(0);
     pages.destroy();
   });
 

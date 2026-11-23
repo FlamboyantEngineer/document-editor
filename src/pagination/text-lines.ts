@@ -4,15 +4,9 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { footnoteNumberOf, footnoteNumbersKey } from '../engine/footnote-numbers.js';
-import { isContinued } from './block-directions.js';
-import {
-  FORCED_TYPES,
-  forcedLinesKey,
-  type ForcedLinesState,
-  sectionScope,
-} from './forced-lines.js';
-import { type InsertedTexts, insertedTexts } from './inserted-texts.js';
-import type { PagesTextEngine } from './text-engine-types.js';
+import { type ForcedBlock, forcedBlocksOf } from './forced-blocks.js';
+import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
+import { insertedTexts } from './inserted-texts.js';
 
 /** A computed line of a block: content offsets in the whole block, and the text between them. */
 export interface ComputedLine {
@@ -22,7 +16,7 @@ export interface ComputedLine {
   readonly text: string;
 }
 
-/** A top-level text block of a page, and the lines the engine computed for it. */
+/** A text block of a page, and the lines the engine computed for it. */
 export interface BlockTextLines {
   readonly elementId: string;
   /** Which part of a split block it is, from 0. */
@@ -36,6 +30,8 @@ export interface BlockTextLines {
   readonly lines: readonly ComputedLine[] | null;
   /** Why the browser draws it, when it does. */
   readonly reason?: string | undefined;
+  /** Whether it is inside a top-level block, such as a paragraph in a table's cell. */
+  readonly nested?: true | undefined;
 }
 
 /** A page's top-level text blocks, in order. */
@@ -44,57 +40,36 @@ export interface PageTextLines {
 }
 
 interface Reading {
-  readonly engine: PagesTextEngine;
-  readonly headings: ReadonlyMap<number, string>;
-  readonly numbered: ReadonlySet<number>;
   /** How much of each split element's content earlier parts hold. */
   readonly before: Map<string, number>;
   /** The number the pages draw for the footnote marker at a position, if any. */
   readonly markerAt: (pos: number) => string;
-  /** The words other plugins insert in the blocks, as the forced lines lay them out with. */
-  readonly inserted: InsertedTexts;
 }
 
-function linesOf(
-  reading: Reading,
-  node: ProseMirrorNode,
-  at: { pos: number; scope: string | null },
-) {
-  if (reading.numbered.has(at.pos)) return { lines: null, reason: 'numbered paragraph' };
-  const prefix = isContinued(node) ? undefined : reading.headings.get(at.pos);
-  const inserted = reading.inserted.byBlock.get(node);
-  const table = reading.engine.lines(node, { scope: at.scope, prefix, inserted });
-  if (!table) return { lines: null, reason: 'not laid out by the engine' };
-  return { lines: table.lines.map(({ from, to }) => ({ from, to })) };
-}
-
-function blockOf(
-  reading: Reading,
-  node: ProseMirrorNode,
-  at: { pos: number; scope: string | null },
-): BlockTextLines {
+function blockOf(reading: Reading, block: ForcedBlock): BlockTextLines {
+  const { node, pos, table, reason } = block;
   const id: unknown = node.attrs.dataId;
   const elementId = typeof id === 'string' ? id : '';
   const start = elementId ? (reading.before.get(elementId) ?? 0) : 0;
   if (elementId) reading.before.set(elementId, start + node.content.size);
-  const { lines, reason } = linesOf(reading, node, at);
   return {
     elementId,
     part: Number(node.attrs.splitPartIndex ?? 0),
     type: node.type.name,
-    pos: at.pos,
+    pos,
     start,
     lines:
-      lines?.map(({ from, to }) => ({
+      table?.lines.map(({ from, to }) => ({
         from: from + start,
         to: to + start,
         text: ownText(node, {
           from,
           to,
-          marker: (offset) => reading.markerAt(at.pos + 1 + offset),
+          marker: (offset) => reading.markerAt(pos + 1 + offset),
         }),
       })) ?? null,
     ...(reason ? { reason } : {}),
+    ...(block.nested ? { nested: true as const } : {}),
   };
 }
 
@@ -113,7 +88,10 @@ function ownText(
   return text;
 }
 
-/** The lines a pages' state draws its top-level paragraphs and headings on; none without forced lines. */
+/**
+ * The lines a pages' state draws its forced blocks on, top-level paragraphs and headings and those
+ * in tables (`forcedBlocksOf`); none without forced lines.
+ */
 export function pageTextLines(state: EditorState): PageTextLines[] {
   const engine = (forcedLinesKey.getState(state) as ForcedLinesState | undefined)?.engine;
   if (!engine) return [];
@@ -126,14 +104,7 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
     return number === null ? '' : String(number);
   };
   const inserted = insertedTexts(state, [forcedLinesKey]);
-  const reading: Reading = {
-    engine,
-    headings,
-    numbered: paragraphs,
-    before: new Map(),
-    markerAt,
-    inserted,
-  };
+  const reading: Reading = { before: new Map(), markerAt };
   const pages: PageTextLines[] = [];
   let scope: string | null = null;
   let blocks: BlockTextLines[] = [];
@@ -146,7 +117,8 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
     }
     if (parent?.type.name !== 'page_content')
       return name !== 'page_header' && name !== 'page_footer';
-    if (FORCED_TYPES.has(name)) blocks.push(blockOf(reading, node, { pos, scope }));
+    const place = { pos, scope, headings, numbered: paragraphs, inserted };
+    for (const block of forcedBlocksOf(engine, node, place)) blocks.push(blockOf(reading, block));
     return false;
   });
   return pages;
