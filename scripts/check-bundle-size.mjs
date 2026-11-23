@@ -154,6 +154,7 @@ for (const [name, { raw, gzip }] of Object.entries(measured)) {
   console.log(`${name.padEnd(22)}${kb(raw)} raw${kb(gzip)} gzip`);
 }
 
+let success = `${CONSUMERS.length} consumer bundles are within their budgets.`;
 if (flag('update')) {
   writeFileSync(BUDGETS, `${JSON.stringify(updatedBudgets(measured, budgets), null, 2)}\n`);
   console.log(
@@ -164,11 +165,17 @@ if (flag('update')) {
   for (const note of comparison.notes) {
     console.log(`note: ${note}; lower its baseline with \`npm run check:bundle-size -- --update\``);
   }
+  for (const growth of comparison.suspended) console.log(`not enforced: ${growth}`);
+  if (budgets.suspended) {
+    const { since, cause } = budgets.suspended;
+    console.log(`The growth limits are suspended since ${since}. ${cause}`);
+    success = `${CONSUMERS.length} consumer bundles measured; sizes past their allowance, not enforced: ${comparison.suspended.length}.`;
+  }
   problems.push(...comparison.problems);
 }
 
 reportProblems(problems, {
   heading: 'Consumer bundle problems',
   hint: 'A deliberate size change updates the baselines: `npm run check:bundle-size -- --update`.',
-  success: `${CONSUMERS.length} consumer bundles are within their budgets.`,
+  success,
 });

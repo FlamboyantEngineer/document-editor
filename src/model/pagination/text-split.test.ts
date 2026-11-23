@@ -101,6 +101,58 @@ describe('text splits', () => {
     expect(split?.tail[0]?.measurement).toMatchObject({ offset: 17 });
   });
 
+  it('DOCE-PAGINATION-3.6 starts no line of a later fragment with the break moved there', () => {
+    const schema = documentSchema;
+    const br = () => schema.node('hard_break');
+    // Two breaks after each text: a, an empty line, b, an empty line, c, an empty line and d.
+    const node = schema.node('paragraph', { dataId: 'p1' }, [
+      ...['aaaaaaaa', 'bbbbbbbb', 'cccccccc'].flatMap((text) => [schema.text(text), br(), br()]),
+      schema.text('dddddddd'),
+    ]);
+    const lines = [0, 9, 10, 19, 20, 29, 30].map((from) => ({ from, height: LINE }));
+    const block: LayoutBlock = {
+      node,
+      height: 7 * LINE,
+      marginTop: 0,
+      marginBottom: 0,
+      measurement: { ...lineMeasurement(''), lines: { lines } },
+    };
+    // a and the empty line after it; the break before b moves to the second fragment.
+    const first = splitParagraph(block, 25);
+    expect(first?.head.height).toBe(20);
+    const tail = first?.tail[0];
+    expect(tail?.measurement).toMatchObject({ offset: 9 });
+    expect(tail?.height).toBe(50);
+    // The moved break draws no line, so the second fragment's first two lines are b and the
+    // empty line after it, not the empty line the first fragment draws.
+    const second = tail && splitParagraph(tail, 25);
+    expect(second?.head.node.textContent).toBe('bbbbbbbb');
+    expect(second?.head.node.lastChild?.type.name).toBe('hard_break');
+    expect([second?.head.height, second?.tail[0]?.height]).toEqual([20, 30]);
+    expect(second?.tail[0]?.measurement).toMatchObject({ offset: 19 });
+  });
+
+  it('DOCE-PAGINATION-3.6 keeps the empty line after a last hard break in the last fragment', () => {
+    const schema = documentSchema;
+    // a, b, c and d, then the empty line the last break ends with.
+    const node = schema.node('paragraph', { dataId: 'p1' }, [
+      ...['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd'].flatMap((text) => [
+        schema.text(text),
+        schema.node('hard_break'),
+      ]),
+    ]);
+    const lines = [0, 9, 18, 27, 36].map((from) => ({ from, height: LINE }));
+    const block: LayoutBlock = {
+      node,
+      height: 5 * LINE,
+      marginTop: 0,
+      marginBottom: 0,
+      measurement: { ...lineMeasurement(''), lines: { lines } },
+    };
+    const split = splitParagraph(block, 25);
+    expect([split?.head.height, split?.tail[0]?.height]).toEqual([20, 30]);
+  });
+
   it('DOCE-PAGINATION-3.2 keeps at least two lines in each paragraph fragment', () => {
     const plan = (fitting: number, minimumTrailingLines?: number) =>
       planParagraphSplit({
