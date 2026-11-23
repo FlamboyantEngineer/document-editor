@@ -1,5 +1,5 @@
 import { DOMSerializer } from 'prosemirror-model';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   documentSchema,
   findNode,
@@ -25,6 +25,10 @@ const written = (html: string) =>
     ` contenteditable="false"><div class="doc-figure-caption-slot">${CAPTION}</div>`,
   );
 
+afterEach(() => {
+  document.body.replaceChildren();
+});
+
 describe('figure nodes', () => {
   it('DOCE-SCHEMA-3.3 keeps an addressed image figure with its caption, size and alignment', () => {
     const html = `<figure data-object-layout="center" data-figure-width="320" data-figure-height="200" data-figure-src="https://example.com/a.png" data-figure-type="image"><img src="https://example.com/a.png" alt="Chart" loading="lazy" decoding="async" style="display: block; width: 320px; height: 200px; margin-left: auto; margin-right: auto; max-width: 100%; object-fit: contain;" width="320" height="200">${CAPTION}</figure>`;
@@ -45,7 +49,9 @@ describe('figure nodes', () => {
     const written = (attrs: Record<string, unknown>) => {
       const figure = createFigure(documentSchema, { src: 'a.png', ...attrs });
       if (!figure) throw new Error('The schema has figures');
-      return DOMSerializer.fromSchema(documentSchema).serializeNode(figure) as HTMLElement;
+      const dom = DOMSerializer.fromSchema(documentSchema).serializeNode(figure) as HTMLElement;
+      // Only an element in the document has a computed style, as in a browser.
+      return document.body.appendChild(dom);
     };
     // A stored or synced figure holds what it was given: text that is not a size is not written.
     const unsafe = written({ width: '1px;position:fixed;inset:0', height: -5 });
