@@ -18,7 +18,6 @@ import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { blockNumbers } from '../layout-engine/blocks/numbers.js';
 import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
-import type { BlockTextLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
@@ -32,13 +31,11 @@ import {
 } from '../model/index.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { createNestedLines, type LinesRecorder } from './nested-lines.js';
+import { numberedText } from './numbered-text.js';
+import { createRegionLines } from './region-lines.js';
 import { createCounts } from './text-engine-counts.js';
-import type {
-  DrawnLines,
-  PagesTextEngine,
-  RegionRoom,
-  TextEngineOptions,
-} from './text-engine-types.js';
+import type { DrawnLines, PagesTextEngine, TextEngineOptions } from './text-engine-types.js';
 
 interface KeptBlock {
   readonly key: string;
@@ -79,29 +76,6 @@ function atomHost(measureIn: HTMLElement, drawn: boolean): HTMLElement {
   host.setAttribute('aria-hidden', 'true');
   measureIn.append(host);
   return host;
-}
-
-// The text layout block geometry reads, with each heading's number before its first line. A
-// paragraph's line table is kept whole in its measurement, so it splits at a computed line start.
-function numberedText(
-  text: ReturnType<typeof createTextLayout>,
-  { numbers, inserted }: { numbers: () => NodeNumbers; inserted: () => InsertedTexts },
-): BlockTextLayout {
-  return {
-    typography: (node, scope) => text.typography(node, scope),
-    layoutText: (node, place) => {
-      const { prefixes, paragraphs } = numbers();
-      const prefix = place.prefix ?? prefixes.get(node);
-      const number = paragraphs.get(node);
-      const words = inserted().byBlock.get(node);
-      return text.layoutText(node, {
-        ...place,
-        ...(prefix ? { prefix } : {}),
-        number,
-        ...(words ? { inserted: words } : {}),
-      });
-    },
-  };
 }
 
 // A document's numbers by node, for the blocks laid out next.
@@ -210,11 +184,6 @@ function measuringWith(context: () => MeasureContext) {
   };
 }
 
-// A region's room as the pages read it; null when the engine cannot lay the region out.
-function roomOf(result: RegionGeometry): RegionRoom | null {
-  return result.ok ? { height: result.height, gap: result.gap, children: result.children } : null;
-}
-
 /** Forgets the widths the layout engine measured, as after font faces load. */
 export function forgetFontWidths(): void {
   clearCache();
@@ -237,7 +206,11 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
 function engineLayouts(
   options: TextEngineOptions,
-  { numbers, inserted }: { numbers: () => NodeNumbers; inserted: () => InsertedTexts },
+  {
+    numbers,
+    inserted,
+    recorder,
+  }: { numbers: () => NodeNumbers; inserted: () => InsertedTexts; recorder: LinesRecorder },
 ) {
   const { template } = options;
   const measureContext = options.measureContext ?? unhintedContext;
@@ -262,7 +235,7 @@ function engineLayouts(
     },
   });
   const geometry = createBlockLayout({
-    text: numberedText(text, { numbers, inserted }),
+    text: numberedText(text, { numbers, inserted, recorder }),
     atoms,
     metrics: (scope) => blockMetrics(template, scope, sheet),
     labelOf: (caption) => numbers().labelOf(caption),
@@ -277,17 +250,23 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let numbers = NO_NUMBERS;
   // The words inserted in the blocks being measured.
   let current = NO_INSERTED;
+  const recorder: LinesRecorder = { lines: null };
   const { host, atoms, text, geometry, select, measureContext } = engineLayouts(options, {
     numbers: () => numbers,
     inserted: () => current,
+    recorder,
   });
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
-  let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
+  const nested = createNestedLines({ geometry, recorder, widthOf });
+  const regions = createRegionLines({ geometry, recorder, widthOf });
   const unsubscribe = atoms.subscribe(() => {
-    [blocks, lines, regions] = [new WeakMap(), new WeakMap(), new WeakMap()];
+    blocks = new WeakMap();
+    lines = new WeakMap();
+    regions.forget();
+    nested.forget();
     options.onAtomsSettled();
   });
 
@@ -320,16 +299,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       return result.block;
     },
     insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
-    measureRegion(node, scope, variables) {
-      const key = `${scope ?? ''}|${variables ? JSON.stringify([...variables]) : '-'}`;
-      const kept = regions.get(node);
-      if (kept?.key === key) return kept.room;
-      const place = { width: widthOf(scope), scope, ...(variables ? { variables } : {}) };
-      const result = geometry.layoutRegion(node, place);
-      const room = roomOf(result);
-      if (!result.ok || !result.provisional) regions.set(node, { key, room });
-      return room;
-    },
+    measureRegion: (node, scope, variables) => regions.lay(node, scope, variables).room,
     lines(node, place) {
       select();
       const markers = markerKey(node, numbers.footnoteOf);
@@ -344,6 +314,10 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       const table = result.ok ? { ...result.table, justify } : null;
       lines.set(node, { key, table });
       return table;
+    },
+    nestedLines(container, scope) {
+      select();
+      return nested.lines(container, { scope, footnoteOf: numbers.footnoteOf });
     },
     provisional: atoms.pending,
     stats: counts.stats,
