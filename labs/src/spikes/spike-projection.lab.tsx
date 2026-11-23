@@ -121,6 +121,8 @@ interface Probe {
 /** The projection as the browser tests drive it. */
 interface LabEditor {
   readonly canonical: EditorState;
+  /** The pages' own state, which the browser's selection is read into. */
+  readonly projection: EditorState;
   layout(): void;
 }
 
@@ -244,6 +246,9 @@ function mountProjection(doc: Node, mount: HTMLElement, measureIn: HTMLElement):
   editor = {
     get canonical() {
       return projection.state;
+    },
+    get projection() {
+      return projection.view.state;
     },
     layout: projection.layout,
   };
