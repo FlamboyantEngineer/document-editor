@@ -5,13 +5,14 @@
 // elements, and every number is the one the engine laid the pages out with, whichever pages are
 // drawn.
 
-import { type CSSProperties, useEffect, useMemo, useRef } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import type { PrintPageOptions } from '../../document/print.js';
 import { drawLayoutPages, VIEW_CLASSES } from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { scrollerOf } from '../../utils/scroll-frame.js';
 
 const hooks = createHooks('document-viewer');
 
@@ -45,6 +46,39 @@ function sheetsHtml(sections: ReturnType<typeof drawLayoutPages>['sections']): s
   );
 }
 
+/**
+ * How far beyond the viewer's scrolling frame a sheet counts as in view: a screen above and below,
+ * so a fast scroll finds the next pages drawn.
+ */
+const NEAR = '100% 0px';
+
+// The area the margin applies to: the viewer's scrolling ancestor, whose clip would otherwise cut
+// the margin off; the window when the document scrolls.
+function rootOf(element: Element): Element | null {
+  const scroller = scrollerOf(element);
+  return scroller === element.ownerDocument.scrollingElement ? null : scroller;
+}
+
+// Whether two options objects hold the same value in every field.
+function sameFields<T extends object>(one: T | undefined, other: T | undefined): boolean {
+  if (one === other) return true;
+  if (!one || !other) return false;
+  const fields = Object.entries(one);
+  return (
+    fields.length === Object.keys(other).length &&
+    fields.every(([key, value]) => Object.is((other as Record<string, unknown>)[key], value))
+  );
+}
+
+// The options as they were while each of their fields is the same, so a host that passes a new
+// object of the same fields on each render does not draw every page again.
+function useSameOptions<T extends object>(options: T | undefined): T | undefined {
+  const [kept, keep] = useState(options);
+  const same = sameFields(kept, options);
+  if (!same) keep(options);
+  return same ? kept : options;
+}
+
 // The pages to draw: those in view and as many on each side.
 function wantedPages(visible: ReadonlySet<number>, overscan: number, total: number): Set<number> {
   if (overscan === Infinity) return new Set(Array.from({ length: total }, (_, index) => index));
@@ -64,7 +98,8 @@ function wantedPages(visible: ReadonlySet<number>, overscan: number, total: numb
  * (`data-drawn`) with the numbers the engine laid it out with.
  */
 export function DocumentViewer(props: DocumentViewerProps) {
-  const { layout, template, options, overscan = 1, label, className } = props;
+  const { layout, template, overscan = 1, label, className } = props;
+  const options = useSameOptions(props.options);
   const content = useRef<HTMLDivElement>(null);
   const drawing = useMemo(
     () => drawLayoutPages(layout, template, options),
@@ -77,6 +112,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
     element.innerHTML = sheetsHtml(drawing.sections);
     const pages = drawing.sections.flatMap((section) => section.pages);
     const sheets = [...element.querySelectorAll<HTMLElement>(':scope > * > .pm-page')];
+    const indexOf = new Map<Element, number>(sheets.map((sheet, index) => [sheet, index]));
     const visible = new Set<number>();
     const draw = () => {
       const wanted = wantedPages(visible, overscan, pages.length);
@@ -92,14 +128,17 @@ export function DocumentViewer(props: DocumentViewerProps) {
         sheet.setAttribute('data-drawn', 'true');
       });
     };
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        const index = sheets.indexOf(entry.target as HTMLElement);
-        if (entry.isIntersecting) visible.add(index);
-        else visible.delete(index);
-      }
-      draw();
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const index = indexOf.get(entry.target) ?? -1;
+          if (entry.isIntersecting) visible.add(index);
+          else visible.delete(index);
+        }
+        draw();
+      },
+      { root: rootOf(element), rootMargin: NEAR },
+    );
     for (const sheet of sheets) observer.observe(sheet);
     draw();
     return () => {

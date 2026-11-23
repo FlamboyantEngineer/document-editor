@@ -505,9 +505,11 @@ div.de-host-view {
  * With the layout engine, a list item is as tall as its blocks, as the engine counts it: the list
  * takes its paragraphs' line height, so an item's marker draws no taller line box than its text.
  */
-/* The layout engine measures text unhinted, so the pages draw it so (DOCE-PAGINATION-11.1). */
+/* The layout engine measures text unhinted and from the faces served, never a synthesised bold or
+   italic, so the pages draw it so (DOCE-PAGINATION-11.1, DOCE-HOST-1.14.2). */
 :where(.de-document-editor[data-text-layout='pretext']) :is(.pm-page, .de-atom-measure) {
   text-rendering: geometricPrecision;
+  font-synthesis: none;
 }
 
 /* The hard break a split paragraph's later fragment starts with ends the line before it, on the

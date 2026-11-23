@@ -174,6 +174,48 @@ describe('holdTextEngine', () => {
       Reflect.deleteProperty(document, 'fonts');
     }
   });
+  it('DOCE-PAGINATION-9.1 lays a kept node out again with the widths of faces that loaded later', async () => {
+    const fonts = new EventTarget();
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    let scale = 1;
+    class WideningContext {
+      font = '10px sans-serif';
+      letterSpacing = '0px';
+      textRendering = 'auto';
+      fontKerning = 'auto';
+      measureText(text: string) {
+        const size = Number(/(\d+(?:\.\d+)?)px/u.exec(this.font)?.[1] ?? 16);
+        return { width: [...text].length * (size / 2) * scale };
+      }
+    }
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class {
+        getContext() {
+          return new WideningContext();
+        }
+      },
+    );
+    try {
+      const holder = holdTextEngine({
+        setting: { template: () => BASE_TEMPLATE },
+        measureIn: document.createElement('div'),
+        changed: () => undefined,
+      });
+      await holder.loaded;
+      const node = paragraph(WORDS);
+      const before = holder.engine()?.measureBlock(node, null)?.height ?? 0;
+      // A wider face loads: the remade engine prepares the same node again, at its widths.
+      scale = 2;
+      fonts.dispatchEvent(new Event('loadingdone'));
+      const after = holder.engine()?.measureBlock(node, null)?.height ?? 0;
+      expect(before).toBeGreaterThan(0);
+      expect(after).toBeGreaterThan(before);
+      holder.destroy();
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+    }
+  });
 });
 
 function engineOf(measureContext?: () => MeasureContext) {

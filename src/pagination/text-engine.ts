@@ -306,6 +306,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       lines.set(node, { key, table });
       return table;
     },
+    provisional: atoms.pending,
     stats: () => ({ laid: counts.laid, refused: counts.refused, reasons: new Map(counts.reasons) }),
     destroy() {
       unsubscribe();
