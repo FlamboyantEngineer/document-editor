@@ -50,6 +50,8 @@ const stylesheet = (page: Page) => new URL('build/reference.css', page.url()).hr
 async function shownBy(page: Page, html: string) {
   const shown = await page.context().newPage();
   await shown.setContent(html, { waitUntil: 'load' });
+  // Under load its text can still be unlaid when the page has loaded: read it once it shows.
+  await shown.waitForFunction(() => document.body.innerText.trim() !== '');
   const result = await shown.evaluate(() => ({
     text: document.body.innerText.replace(/\s+/gu, ' '),
     marked: document.querySelectorAll('ins, del').length,
@@ -116,7 +118,11 @@ test.describe('DOCE-PAGINATION-11.12 suggestions as the markup shows them', () =
       await page.evaluate((shown) => window.regressionLab.showViewer(Infinity, shown), markup);
       const viewer = page.locator('.de-document-viewer');
       await expect(viewer).toHaveAttribute('data-markup', markup);
-      expectShown((await viewer.innerText()).replace(/\s+/gu, ' '), markup);
+      // The viewer draws its pages in an effect after it takes the new layout, so its text is read
+      // until it shows the new markup's.
+      await expect(async () => {
+        expectShown((await viewer.innerText()).replace(/\s+/gu, ' '), markup);
+      }).toPass({ timeout: 5_000 });
       const snapshot = await page.evaluate(
         ([shown, href]) =>
           window.regressionLab.snapshot({ markup: shown, stylesheets: [href] }) ?? '',
