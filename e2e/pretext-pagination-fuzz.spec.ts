@@ -17,38 +17,40 @@ import {
 // fix that is pinned lowers them in the same pull request, and a rise is a regression.
 // The prediction is the library's text layout engine (DOCE-PAGINATION-9), and the HTML draws its
 // typography: pre-wrap white space, and inline code in the 10px code font with 3px of padding on
-// each line, as the editor does. Every line matches Chromium's but one kerning start at a ratio of
-// 1.25. What is left:
-// G3: a padded code piece ending a line keeps its hanging pre-wrap space, and Chrome paints the
-// end padding after it, past the content edge, so those pages overflow in natural HTML. The lines
-// fit; only the ink overflows.
+// each line, as the engine lays it out. Every line matches Chromium's but one kerning start at a
+// ratio of 1.25. Overflow counts words and atoms past the content edge, not the ink of white space
+// that hangs at a line end (G3). What is left:
+// G4: a page's last fragment of a split paragraph (seed 37, 599.123 px, p-37-10) ends on a line
+// that ends inside inline code. Drawn alone, that piece closes the code at the line's end, so Chrome
+// adds the code's end padding there and wraps one more line. Forced-line rendering draws the
+// engine's lines and does not.
 const budgets: Record<string, Record<string, Counts>> = {
   chromium: {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    code: { starts: 0, lines: 0, boundaries: 0, overflow: 71 },
+    code: { starts: 0, lines: 0, boundaries: 0, overflow: 1 },
     link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 35 },
+    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
   },
   'chromium-dpr-1.25': {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     kerning: { starts: 1, lines: 0, boundaries: 0, overflow: 0 },
     bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    code: { starts: 0, lines: 0, boundaries: 0, overflow: 72 },
+    code: { starts: 0, lines: 0, boundaries: 0, overflow: 1 },
     link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 34 },
+    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
   },
   'chromium-dpr-2': {
     plain: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     kerning: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     bold: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     italic: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    code: { starts: 0, lines: 0, boundaries: 0, overflow: 69 },
+    code: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
     link: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
-    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 33 },
+    mixed: { starts: 0, lines: 0, boundaries: 0, overflow: 0 },
   },
 };
 

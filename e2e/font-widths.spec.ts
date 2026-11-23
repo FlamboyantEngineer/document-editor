@@ -44,25 +44,19 @@ test('DOCE-LABS-7.1 agrees with Linux Chromium Canvas wherever the served faces 
 
 // The closeness counts of DOCE-LABS-5.6 with Geist served to the page and the worker, Pretext
 // measuring with the font files and the library's text layout engine laying the lab out. Every line
-// matches Chromium's. What is left is G3, as with Canvas widths (pretext-pagination-fuzz.spec.ts):
-// a padded code piece ending a line keeps its hanging pre-wrap space, and Chrome paints the end
-// padding after it, past the content edge. A change is a regression or a fix, and changes the
-// budget in the same PR.
+// matches Chromium's. Overflow counts words and atoms past the content edge, not the ink of white
+// space that hangs at a line end (G3). What is left is one mixed page, as with Canvas widths
+// (pretext-pagination-fuzz.spec.ts, G4). A change is a regression or a fix, and changes the budget
+// in the same PR.
 const none: Counts = { starts: 0, lines: 0, boundaries: 0, overflow: 0 };
 const budgets: Record<string, readonly [Counts, Counts]> = {
   plain: [none, none],
   kerning: [none, none],
   bold: [none, none],
   italic: [none, none],
-  code: [
-    { ...none, overflow: 41 },
-    { ...none, overflow: 37 },
-  ],
+  code: [none, none],
   link: [none, none],
-  mixed: [
-    { ...none, overflow: 18 },
-    { ...none, overflow: 14 },
-  ],
+  mixed: [{ ...none, overflow: 1 }, none],
 };
 
 // Each kind is checked in two halves of the seeds, so each test stays well under its timeout on CI:
