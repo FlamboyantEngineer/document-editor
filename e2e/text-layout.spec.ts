@@ -281,7 +281,13 @@ test.describe('served fonts', () => {
     expect(await family('pre')).toBe('"Courier New"');
   });
 
-  for (const name of ['long-mixed', 'code-blocks', 'table-rich-cells', 'footnotes-in-structures']) {
+  const documents: readonly RegressionDocumentName[] = [
+    'long-mixed',
+    'code-blocks',
+    'table-rich-cells',
+    'footnotes-in-structures',
+  ];
+  for (const name of documents) {
     test(`DOCE-PAGINATION-12.5 draws every text of ${name}'s pages in a family the host serves`, async ({
       page,
     }) => {
