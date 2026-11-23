@@ -173,7 +173,7 @@ test.describe('performance', () => {
   // Close to the bar: the pages within half a screen below the frame are drawn on forced lines too
   // (DOCE-PAGINATION-11.6). Measured in alternating pairs, the engine's keystrokes cost what the
   // browser's own layout's do (15.7 against 15.5 ms at 40 pages), so a local run can miss by a
-  // millisecond.
+  // millisecond. The engine is not the default until this meets 16 ms.
   test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 answers each keystroke on 40 pages within its budget with the layout engine', async ({
     lab,
     page,

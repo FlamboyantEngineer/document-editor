@@ -49,6 +49,12 @@ export interface TextLayoutOptions {
    */
   readonly scale?: number | undefined;
   /**
+   * Whether the text is drawn hinted, as Chromium draws text at a ratio of 1 unless
+   * `text-rendering: geometricPrecision` asks otherwise. Pages never are (DOCE-PAGINATION-11.1);
+   * a lab that draws hinted text says so.
+   */
+  readonly hinted?: boolean | undefined;
+  /**
    * The width a cluster the measurer cannot measure reliably takes, such as the font-file
    * measurer's `reserve`; the line table lists those clusters for the renderers.
    */
@@ -92,6 +98,15 @@ export type TextBlockLayout =
 interface TextLayout {
   /** A text block's typography in a scope. */
   readonly typography: (node: ProseMirrorNode, scope?: string | null) => BlockTypography;
+  /**
+   * The clusters of a word drawn in a text block that is not its content, such as a comparison's
+   * deleted word, that take a reserved width in the block's font, by offset in the word.
+   */
+  readonly insertedReserved: (
+    node: ProseMirrorNode,
+    scope: string | null,
+    word: string,
+  ) => ReservedBox[];
   /** A text block's lines at a width. */
   readonly layoutText: (node: ProseMirrorNode, place: TextBlockPlace) => TextBlockLayout;
   /** How many text runs the engine found prepared, and how many it prepared. */
@@ -127,7 +142,8 @@ function unservedFamily(
 }
 
 // The clusters of a block's text items that take a reserved width; inserted words and a template
-// variable's text are not the block's content, so they are left out.
+// variable's text are not the block's content, so they are left out: an inserted word's element
+// draws its own boxes (`insertedReserved`, DOCE-PAGINATION-12.4).
 function reservedOf(runs: readonly TextRun[], reserve: ReserveCluster): ReservedBox[] {
   const boxes: ReservedBox[] = [];
   for (const run of runs)
@@ -189,10 +205,22 @@ function lineStarts(
   return { firstStart: gutter, restStart: gutter };
 }
 
+// The reserved boxes of a word drawn in a text block that is not its content, in the block's font.
+const insertedReservedIn =
+  (typography: TextLayout['typography'], reserve: ReserveCluster | undefined) =>
+  (node: ProseMirrorNode, scope: string | null, word: string): ReservedBox[] => {
+    const font = fontString(typography(node, scope).font);
+    return reserve ? reservedBoxes(word, { offset: 0, font, reserve }) : [];
+  };
+
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
 export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const cache = createLineCache(options.language);
-  const strutOf = createStruts({ context: options.measureContext, scale: options.scale });
+  const strutOf = createStruts({
+    context: options.measureContext,
+    scale: options.scale,
+    hinted: options.hinted,
+  });
   const boxes = new Map<string, { width: number; height: number; baseline: number }>();
   // Text in another font takes its own font's box at the line height it inherits, as an inline
   // box in Chromium's line does; the line grows to hold the tallest.
@@ -222,6 +250,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   };
   return {
     typography,
+    insertedReserved: insertedReservedIn(typography, options.reserve),
     stats: cache.stats,
     layoutText(node, place) {
       // A code caption waits for code figure geometry that matches the drawn box (DOCE-PAGINATION-9.11).

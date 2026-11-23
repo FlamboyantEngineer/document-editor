@@ -27,19 +27,12 @@ const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 const MODES = ['pretext'] as const;
 type Mode = (typeof MODES)[number];
 
-// The known faults, each with the thread that owns its fix and the review finding it is
-// (/mnt/project-files/pretext-review/requirements-review/findings.md).
-const SINCE_330 =
-  'Q2 atoms and engine inputs (#330): drawn otherwise than planned, cause not yet shown, appeared with #330';
-
-/** A known difference, as `type kind` (`page overflow` for a page), and its owner. */
+/** A known difference, as `type kind` (`page overflow` for a page), and the thread that owns its fix. */
 type Known = Readonly<Record<string, string>>;
 
 // What differs today, by document and text layout. An entry stands for every block of its type
 // with that difference; the check fails when none has it any more.
-const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>>> = {
-  'inline-images pretext': { 'paragraph height': SINCE_330 },
-};
+const KNOWN: Readonly<Partial<Record<`${RegressionDocumentName} ${Mode}`, Known>>> = {};
 
 // Differences that depend on timing, which the check allows but does not ask for. The fixtures'
 // figures hold an image that never loads (a cut GIF): the plan gives each no height, or the

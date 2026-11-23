@@ -298,6 +298,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       if (!result.provisional) blocks.set(node, { key, block: result.block });
       return result.block;
     },
+    insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
     measureRegion: (node, scope, variables) => regions.lay(node, scope, variables).room,
     lines(node, place) {
       select();

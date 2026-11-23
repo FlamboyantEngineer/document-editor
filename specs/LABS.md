@@ -308,10 +308,10 @@ Verification: `e2e/pretext-page-link.spec.ts`
 
 ### DOCE-LABS-5.6 - Closeness to the browser
 
-The lab tests shall measure how close the prediction is to Chromium's own line breaking. Seeded paragraphs of plain text, words that kern with a following space, bold, italic, inline code, links and a dense mix shall be laid out at nine widths by the worker and by natural HTML, and the paragraphs with different line starts or line counts, the pages with different boundaries and the overflowing pages shall equal a recorded budget per kind. The same run shall happen in Chromium launched at device pixel ratios 1, 1.25 and 2, each checking that the page reports its ratio. A threshold test shall find, in the browser and in the prediction, the narrowest column that keeps a case's last character on its first line: plain controls shall match, and each case of a known fault shall be recorded as an expected miss naming its finding, so a fix fails the test until its miss and budgets are updated.
+The lab tests shall measure how close the prediction is to Chromium's own line breaking. Seeded paragraphs of plain text, words that kern with a following space, bold, italic, inline code, links and a dense mix shall be laid out at nine widths by the worker and by natural HTML, and the paragraphs with different line starts or line counts, the pages with different boundaries and the overflowing pages shall equal a recorded budget per kind. A page overflows when its column scrolls or a word or atom of it reaches past the content edge; the ink of white space hanging at a line end does not count. The same run shall happen in Chromium launched at device pixel ratios 1, 1.25 and 2, each checking that the page reports its ratio. A threshold test shall find, in the browser and in the prediction, the narrowest column that keeps a case's last character on its first line: plain controls shall match, and each case of a known fault shall be recorded as an expected miss naming its finding, so a fix fails the test until its miss and budgets are updated.
 
-Implementation: `labs/src/spikes/pretext/thresholds.ts`, `labs/src/spikes/pretext-pagination.lab.ts`, `playwright.config.ts`
-Verification: `e2e/pretext-pagination-fuzz.spec.ts`
+Implementation: `labs/src/spikes/pretext/thresholds.ts`, `labs/src/spikes/pretext-pagination.lab.ts`, `labs/src/spikes/pretext/oracle.ts`, `playwright.config.ts`
+Verification: `e2e/pretext-pagination-fuzz.spec.ts`, `e2e/pretext-pagination.spec.ts`
 
 ## DOCE-LABS-6 - Forced-lines spike
 
@@ -437,6 +437,13 @@ Every document of the regression set, laid out block by block by the pages' text
 
 Implementation: `src/pagination/text-engine.ts`
 Verification: `src/pagination/text-engine-refusals.test.ts`
+
+### DOCE-LABS-8.12 - Pages coming near the screen
+
+With `textLayout=pretext` and only the pages near the screen drawn on the engine's lines (DOCE-PAGINATION-11.6), on the regression set's long document, scrolling the editor's frame down to the end and back up half a screen at a time, then jumping to a far page, shall after each move draw every page within half a screen of the frame with exactly the forced blocks the engine put on it, each on its computed lines, while a page farther away keeps the browser's lines; every page and every top-level block shall keep the place and height it had before its page was forced, and the frame shall stay at the scroll position it was moved to.
+
+Implementation: `src/pagination/projection.ts`
+Verification: `e2e/near-pages.spec.ts`
 
 ## DOCE-LABS-9 - Edited pages equal a fresh layout
 
