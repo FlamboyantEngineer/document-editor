@@ -521,9 +521,8 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<Partial<Record<RegressionDocumentName, string>>> = {
   'caption-numbering': 'b7088b707c5b1f03',
   'heading-keep-with-next': 'cde9efbfd0216fdd',
-  // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10): pages hold more,
-  // and footnote markers no longer grow their lines (DOCE-PAGINATION-9.3), so this is one value everywhere.
-  'long-mixed': '69a2fc70cf3aaec6',
+  // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10): pages hold more.
+  'long-mixed': '7d74fe3d8d8fccb5',
   'oversized-blocks': '04f2d26ec8b3697c',
   'roman-numbering-stress': 'd24934809773ffdb',
 };
