@@ -90,10 +90,10 @@ Verification: `e2e/references.spec.ts`
 
 ### DOCE-REFERENCES-1.13 - Unbreakable citation identifiers
 
-The document editor shall mark the parts of each citation of another document that identify what it cites, its document's number, its revision label and its target's number, wherever its text reads them, each as one part (`data-reference-identifier`, `createReferenceIdentifiers`), so a stylesheet keeps each whole on one line (`white-space: nowrap`) while the citation's title may wrap. The marks move with the text and are made again only after a change that may change a reference.
+The document editor shall mark the parts of each citation of another document that identify what it cites, its document's number, its revision label and its target's number, wherever its text reads them, each as one part (`data-reference-identifier`, `createReferenceIdentifiers`), so a stylesheet keeps each whole on one line (`white-space: nowrap`) while the citation's title may wrap. The marks move with the text and are made again only after a change that may change a reference. The text layout engine keeps the same parts whole on its lines (DOCE-PAGINATION-9.4).
 
-Implementation: `src/engine/reference-identifiers.ts`, `src/components/document-editor/layout-own-plugins.ts`
-Verification: `src/engine/reference-identifiers.test.ts`
+Implementation: `src/engine/reference-identifiers.ts`, `src/model/citation-identifiers.ts`, `src/components/document-editor/layout-own-plugins.ts`
+Verification: `src/engine/reference-identifiers.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ## DOCE-REFERENCES-2 - Abbreviations
 

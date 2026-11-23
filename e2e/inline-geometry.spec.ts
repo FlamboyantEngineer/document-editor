@@ -3,8 +3,8 @@ import { expect, test, waitForLab } from './fixtures.js';
 
 // Inline geometry on the engine's lines (specs/PAGINATION.md DOCE-PAGINATION-9.3, 9.6, 11.2,
 // 13.1): the regression lab's `inline-geometry` document, whose superscripts, subscripts,
-// no-break spaces in justified text, soft hyphens, aligned numbered headings and code beside line
-// numbers the pages must draw exactly as the layout engine laid them out.
+// no-break spaces in justified text, soft hyphens, aligned numbered headings, citation identifiers
+// and code beside line numbers the pages must draw exactly as the layout engine laid them out.
 
 async function open(page: Page) {
   await page.goto('regression.html?document=inline-geometry&textLayout=pretext&debug');
@@ -101,5 +101,22 @@ test.describe('inline geometry on the engine’s lines', () => {
     );
     expect(ends.length).toBeGreaterThan(3);
     expect(new Set(ends)).toEqual(new Set(['"‐\\a "']));
+  });
+
+  test('DOCE-REFERENCES-1.13 DOCE-PAGINATION-9.4 keeps each citation identifier on one line', async ({
+    page,
+  }) => {
+    await open(page);
+    // The document cites `GRD-PLAN` at `Rev B` at sixteen places along a line; no computed line
+    // may end inside either identifier.
+    const lines = await page.evaluate(() =>
+      window.regressionLab
+        .textLines()
+        .flatMap((each) => each.blocks)
+        .flatMap((block) => block.lines ?? [])
+        .map((line) => line.text),
+    );
+    expect(lines.filter((text) => text.includes('GRD-PLAN')).length).toBeGreaterThan(15);
+    expect(lines.filter((text) => /(GRD-|Rev )$/.test(text))).toEqual([]);
   });
 });

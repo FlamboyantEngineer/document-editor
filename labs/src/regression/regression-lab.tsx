@@ -54,10 +54,13 @@ const LAYOUT: DocumentLayout =
   new URLSearchParams(window.location.search).get('layout') === 'web' ? 'web' : 'page';
 
 // `compare` shows the changes since the document opened as change bars, as a reader reviewing
-// changes sees it: none until the reader edits.
-const COMPARE = new URLSearchParams(window.location.search).has('compare')
-  ? ({ previous: 'opened', display: 'bars' } as const)
-  : undefined;
+// changes sees it: none until the reader edits; `compare=markup` marks them up in place, the
+// deleted words shown where they were.
+const COMPARE_QUERY = new URLSearchParams(window.location.search).get('compare');
+const COMPARE =
+  COMPARE_QUERY === null
+    ? undefined
+    : ({ previous: 'opened', display: COMPARE_QUERY === 'markup' ? 'markup' : 'bars' } as const);
 
 // How the pages lay their text out: measured in the DOM, or by the layout engine on its lines
 // (`textLayout=pretext`, DOCE-PAGINATION-11).

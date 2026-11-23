@@ -6,6 +6,7 @@ import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inlin
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { AtomPlace } from './atoms.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
+import { citationIdentifiers } from '../model/citation-identifiers.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
 
 /** An inline atom's box, in CSS pixels. */
@@ -135,6 +136,37 @@ function addAtom(
 
 // A fragment after the first of a split block.
 const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
+// A text node's pieces, cut where a citation's identifier starts and ends: each identifier piece
+// is one unbreakable item, as the stylesheet keeps it whole (DOCE-REFERENCES-1.13), and is its own
+// element on the line, as the identifier's decoration draws it.
+function textPieces(
+  child: ProseMirrorNode,
+  { offset, typography, identifiers }: PieceInput,
+): { item: RichInlineItem; offset: number }[] {
+  const item = textItem(child, typography);
+  const end = offset + child.nodeSize;
+  const inside = identifiers.filter(([from, to]) => from < end && to > offset);
+  if (!inside.length) return [{ item, offset }];
+  const cuts = [...new Set([offset, ...inside.flat(), end])]
+    .filter((cut) => cut >= offset && cut <= end)
+    .sort((a, b) => a - b);
+  const pieces: { item: RichInlineItem; offset: number }[] = [];
+  for (let index = 0; index + 1 < cuts.length; index += 1) {
+    const from = cuts[index] ?? offset;
+    const to = cuts[index + 1] ?? end;
+    const text = item.text.slice(from - offset, to - offset);
+    const whole = inside.some(([start, stop]) => start <= from && to <= stop);
+    pieces.push({ item: { ...item, text, ...(whole ? { break: 'never' } : {}) }, offset: from });
+  }
+  return pieces;
+}
+
+interface PieceInput {
+  readonly offset: number;
+  readonly typography: BlockTypography;
+  /** The block's citation identifiers, as content ranges. */
+  readonly identifiers: readonly (readonly [number, number])[];
+}
 
 /** A block's runs: its text and inline atoms between hard breaks, with their content offsets. */
 export function buildRuns(input: RunInput): TextRuns {
@@ -154,6 +186,7 @@ export function buildRuns(input: RunInput): TextRuns {
     run.atoms.push(null);
   }
   let failure: string | null = null;
+  const identifiers = citationIdentifiers(node);
   node.forEach((child, offset) => {
     if (failure) return;
     if (child.type.name === 'hard_break') {
@@ -166,7 +199,9 @@ export function buildRuns(input: RunInput): TextRuns {
       runs.push(finish(run, offset + child.nodeSize, true));
       run = startRun(offset + child.nodeSize);
     } else if (child.isText) {
-      addText(run, { item: textItem(child, typography), offset, box: textBox(child, input) });
+      const box = textBox(child, input);
+      for (const piece of textPieces(child, { offset, typography, identifiers }))
+        addText(run, { ...piece, box });
     } else if (child.type.name === 'template_variable') {
       // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
       failure = 'template variable';

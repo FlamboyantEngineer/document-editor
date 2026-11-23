@@ -619,10 +619,10 @@ Verification: `src/layout-engine/typography.test.ts`, `src/layout-engine/text-la
 
 ### DOCE-PAGINATION-9.4 - White space and hard breaks
 
-Text shall be laid out as `white-space: pre-wrap` with `overflow-wrap: break-word`, as the pages draw it: runs of spaces and tabs kept, spaces hanging at a line's end, and a word longer than a line broken. Each hard break shall end a line, and a block that ends with one shall have an empty last line after it.
+Text shall be laid out as `white-space: pre-wrap` with `overflow-wrap: break-word`, as the pages draw it: runs of spaces and tabs kept, spaces hanging at a line's end, and a word longer than a line broken. Each hard break shall end a line, and a block that ends with one shall have an empty last line after it. Each identifier of a citation (DOCE-REFERENCES-1.13) shall be one unbreakable piece, laid out whole on one line, as the stylesheet keeps it.
 
-Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`
-Verification: `src/layout-engine/text-layout.test.ts`
+Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/model/citation-identifiers.ts`
+Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ### DOCE-PAGINATION-9.5 - Prefixes and inline atoms
 

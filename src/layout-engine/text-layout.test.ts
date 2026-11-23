@@ -285,6 +285,37 @@ describe('createTextLayout', () => {
     expect(thousand.lines.at(-1)?.left).toBe(8 + 34);
   });
 
+  it('DOCE-PAGINATION-9.4 keeps a citation’s identifier whole on its line', () => {
+    const baseline = {
+      version: 1,
+      documentId: 'doc-7',
+      numbering: 'SYS-REQ',
+      title: 'Requirements',
+      revisionLabel: 'Rev B',
+      defaultLabel: 'SYS-REQ',
+    };
+    const reference = documentSchema.marks.reference?.create({
+      refType: 'external-document',
+      referenceBaseline: JSON.stringify(baseline),
+    });
+    if (!reference) throw new Error('schema has no reference mark');
+    const cited = documentSchema.nodes.paragraph?.create(null, [
+      documentSchema.text('aaaa '),
+      documentSchema.text('SYS-REQ', [reference]),
+    ]);
+    const plain = documentSchema.nodes.paragraph?.create(null, documentSchema.text('aaaa SYS-REQ'));
+    if (!cited || !plain) throw new Error('schema has no paragraph');
+    // `aaaa SYS-` is 51px: a hyphen before letters breaks, unless the identifier is kept whole.
+    expect(starts(table(plain, 60))).toEqual([
+      [0, 9, 'wrap'],
+      [9, 12, 'end'],
+    ]);
+    expect(starts(table(cited, 60))).toEqual([
+      [0, 5, 'wrap'],
+      [5, 12, 'end'],
+    ]);
+  });
+
   it('DOCE-PAGINATION-9.7 refuses a block whose font is not served', () => {
     const engine = createTextLayout({
       template: BASE_TEMPLATE,
