@@ -107,3 +107,15 @@ export function insertedTexts(state: EditorState, skip: readonly PluginKey[] = [
   const key = [...byBlock.values()].map((each) => insertedKey(each)).join('/');
   return { byBlock, outside, key: `${key}/${String(outside.size)}` };
 }
+
+/** The words inserted in a block and the text blocks inside it, as a key. */
+export function blockInsertedKey(node: ProseMirrorNode, inserted: InsertedTexts): string {
+  if (!inserted.byBlock.size) return '';
+  let key = insertedKey(inserted.byBlock.get(node));
+  node.descendants((child) => {
+    const words = inserted.byBlock.get(child);
+    if (words) key += `/${insertedKey(words)}`;
+    return !child.isTextblock;
+  });
+  return key;
+}

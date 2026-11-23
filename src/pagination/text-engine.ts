@@ -31,7 +31,7 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
-import { type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import type {
   DrawnLines,
   PagesTextEngine,
@@ -102,18 +102,6 @@ function numberedText(
       });
     },
   };
-}
-
-// The words inserted in a block and the text blocks inside it, as a key.
-function blockInsertedKey(node: ProseMirrorNode, inserted: InsertedTexts): string {
-  if (!inserted.byBlock.size) return '';
-  let key = insertedKey(inserted.byBlock.get(node));
-  node.descendants((child) => {
-    const words = inserted.byBlock.get(child);
-    if (words) key += `/${insertedKey(words)}`;
-    return !child.isTextblock;
-  });
-  return key;
 }
 
 // A document's numbers by node, for the blocks laid out next.
