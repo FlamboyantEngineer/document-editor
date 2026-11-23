@@ -6,11 +6,11 @@ import { expect, test } from './fixtures.js';
 // `textLayout=pretext`, the first layout, an Enter, a long insert as a paste gives, a range deleted,
 // and typing far down the document after a scroll, each the median of three rounds. The engine
 // becomes the only text layout, so each budget is a time of its own, not one against the DOM's
-// measuring: about twice CI's own times (4.2 s, 99 ms, 198 ms and 194 ms on 23 November 2026),
+// measuring: about twice CI's own times (4.2 to 5.9 s, 99, 198 and 194 ms on 23 November 2026),
 // so a slower run still passes and a real slowdown fails.
 
 // From the lab opened to its pages first settled.
-const FIRST_SETTLE_MS = 9_000;
+const FIRST_SETTLE_MS = 10_000;
 // From the key to the pages settled with its change laid out.
 const ENTER_MS = 200;
 const PASTE_MS = 400;
