@@ -17,15 +17,34 @@ const genericOf = (font: string) =>
     .replace(/^["']|["']$/gu, '')
     .toLowerCase();
 
-function served(value: unknown, families: Readonly<Record<string, string>>): unknown {
-  if (Array.isArray(value)) return value.map((item) => served(item, families));
+// A template's value with each font it names as `rename` gives it.
+function renamed(value: unknown, rename: (font: string) => string): unknown {
+  if (Array.isArray(value)) return value.map((item) => renamed(item, rename));
   if (!value || typeof value !== 'object') return value;
-  const entries = Object.entries(value).map(([key, child]) => {
-    if (key !== 'font' || typeof child !== 'string') return [key, served(child, families)];
-    const generic = genericOf(child);
-    return [key, GENERICS.has(generic) ? (families[generic] ?? child) : child];
-  });
+  const entries = Object.entries(value).map(([key, child]) =>
+    key === 'font' && typeof child === 'string'
+      ? [key, rename(child)]
+      : [key, renamed(child, rename)],
+  );
   return Object.fromEntries(entries);
+}
+
+/**
+ * The template with each family it names as `rename` gives it, such as the family a surface draws
+ * a served family under (DOCE-PAGINATION-12.8).
+ */
+export function renameTemplateFonts(
+  template: TemplateFile,
+  rename: (font: string) => string,
+): TemplateFile {
+  return renamed(template, rename) as TemplateFile;
+}
+
+function served(template: TemplateFile, families: Readonly<Record<string, string>>): TemplateFile {
+  return renameTemplateFonts(template, (font) => {
+    const generic = genericOf(font);
+    return GENERICS.has(generic) ? (families[generic] ?? font) : font;
+  });
 }
 
 /**
@@ -37,7 +56,7 @@ export function servedTemplate(
   families: Readonly<Record<string, string>>,
 ): TemplateFile {
   if (!Object.keys(families).length) return template;
-  const drawn = served(template, families) as TemplateFile;
+  const drawn = served(template, families);
   const styles = drawn.styles ?? {};
   const paragraph = families.serif && !styles.paragraph?.font;
   const code = families.monospace && !styles.codeBlock?.font;

@@ -40,6 +40,8 @@ export interface FontFileMeasurer {
    * read; contexts measure with them from their next measure.
    */
   addFiles(files: FontFiles): Promise<readonly FontFaceProblem[]>;
+  /** Measures `name` with a served family's faces (DOCE-PAGINATION-12.8). */
+  alias(name: string, family: string): void;
 }
 
 const unpacked = (faces: readonly ServedFace[]) =>
@@ -63,6 +65,7 @@ export async function createFontFileMeasurer({
       faceSet.add(await unpacked(read.faces), files.generics);
       return read.problems;
     },
+    alias: (name, family) => faceSet.alias(name, family),
   };
 }
 

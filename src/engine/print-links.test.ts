@@ -116,6 +116,28 @@ describe('print links', () => {
     view.destroy();
   });
 
+  it('DOCE-PAGINATION-13.11 links a note drawn on two pages to each page’s own entry and back', () => {
+    const notePage = (ids: readonly string[]) =>
+      `<div class="pm-page"><div class="pm-page-content"><p>${ids
+        .map((id) => `<sup class="footnote-reference" data-footnote-id="${id}">1</sup>`)
+        .join('')}</p></div><div class="pm-page-footnotes">${ids
+        .map(
+          (id) =>
+            `<p class="pm-footnote-entry" data-footnote-id="${id}"><span class="pm-footnote-entry-number">1</span></p>`,
+        )
+        .join('')}</div></div>`;
+    const copy = body(notePage(['before', 'head']) + notePage(['head']));
+    addPrintLinks(copy, { numbers: new Map() });
+    const [, second] = copy.querySelectorAll('.pm-page');
+    const marker = second?.querySelector('sup.footnote-reference');
+    expect(marker).toHaveAttribute('id', 'fnref-head~2');
+    expect(marker?.querySelector('a')).toHaveAttribute('href', '#fn-head~2');
+    const entry = second?.querySelector('.pm-footnote-entry');
+    expect(entry).toHaveAttribute('id', 'fn-head~2');
+    expect(entry?.querySelector('a')).toHaveAttribute('href', '#fnref-head~2');
+    expect(copy.querySelector('[id="fnref-head"] a')).toHaveAttribute('href', '#fn-head');
+  });
+
   it('DOCE-EDITOR-6.22 writes each numbered heading its number as static text', () => {
     const view = linkedView();
     const printed = body(documentSnapshot(view, { template: BASE_TEMPLATE }));

@@ -39,6 +39,11 @@ export interface FaceSet {
   hasFamily(family: string): boolean;
   /** Reads more faces, such as a family the document named later, and their generics. */
   add(faces: readonly ServedFace[], generics?: Readonly<Record<string, string>>): void;
+  /**
+   * Measures `name` with a served family's faces, as a page draws a family under another name
+   * (DOCE-PAGINATION-12.8).
+   */
+  alias(name: string, family: string): void;
   /** Counts the additions, so a context knows when its matched faces are stale. */
   readonly version: number;
 }
@@ -132,11 +137,13 @@ export function createFaceSet(
 ): FaceSet {
   const families = new Map<string, Entry[]>();
   const named: Record<string, string> = {};
+  const aliases = new Map<string, string>();
   let version = 0;
   const resolve = (family: string) => {
     const key = normalize(family);
     const served = named[key];
-    return generic.has(key) && served ? normalize(served) : key;
+    if (generic.has(key) && served) return normalize(served);
+    return aliases.get(key) ?? key;
   };
   const set: FaceSet = {
     facesFor(request) {
@@ -169,6 +176,10 @@ export function createFaceSet(
         });
         families.set(key, list);
       }
+      version += 1;
+    },
+    alias(name, family) {
+      aliases.set(normalize(name), normalize(family));
       version += 1;
     },
     get version() {

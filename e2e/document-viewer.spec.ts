@@ -202,4 +202,54 @@ test.describe('the read-only viewer', () => {
       expect(new URL(page.url()).hash).toBe('');
     });
   }
+
+  test('DOCE-PAGINATION-13.9 leaves modified clicks to the browser, follows Enter and reads a literal percent', async ({
+    page,
+  }) => {
+    const errors: Error[] = [];
+    page.on('pageerror', (error) => errors.push(error));
+    await open(page, 'long-mixed');
+    const computed = await page.evaluate(() => window.regressionLab.textLines());
+    const target = computed.at(-1)?.blocks.find((block) => (block.lines?.length ?? 0) > 0);
+    const at = pageOf(computed, target?.elementId ?? '');
+    expect(at, 'the target on a late page').toBeGreaterThan(1);
+    await showViewer(page, 0);
+    const first = page.locator(SHEETS).first();
+    await first.scrollIntoViewIfNeeded();
+    await expect(first).toHaveAttribute('data-drawn', 'true');
+    await first.evaluate((sheet, id) => {
+      const add = (href: string, text: string) => {
+        const link = sheet.ownerDocument.createElement('a');
+        link.setAttribute('href', href);
+        link.textContent = text;
+        sheet.querySelector('.pm-page-content')?.prepend(link);
+      };
+      add(`#${id}`, 'To a late page');
+      add('#50%', 'Half');
+      // What the browser was left to do with each click that reached the document: the test
+      // cancels it there, so no tab opens and the address stays.
+      const seen: boolean[] = [];
+      Object.assign(window, { seenClicks: seen });
+      sheet.ownerDocument.addEventListener('click', (event) => {
+        seen.push(event.defaultPrevented);
+        event.preventDefault();
+      });
+    }, target?.elementId ?? '');
+    const link = page.getByRole('link', { name: 'To a late page' });
+    const top = await page.evaluate(() => document.scrollingElement?.scrollTop ?? 0);
+    for (const modifier of ['Control', 'Meta', 'Shift', 'Alt'] as const)
+      await link.click({ modifiers: [modifier] });
+    await link.click({ button: 'middle' });
+    expect(
+      await page.evaluate(() => (window as unknown as { seenClicks: boolean[] }).seenClicks),
+    ).toEqual([false, false, false, false]);
+    await expect(page.locator(SHEETS).nth(at)).not.toHaveAttribute('data-drawn');
+    expect(await page.evaluate(() => document.scrollingElement?.scrollTop ?? 0)).toBe(top);
+    await page.getByRole('link', { name: 'Half' }).click();
+    await link.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator(SHEETS).nth(at)).toHaveAttribute('data-drawn', 'true');
+    await expect(page.locator(`${VIEWER} [id="${target?.elementId ?? ''}"]`)).toBeInViewport();
+    expect(errors).toEqual([]);
+  });
 });

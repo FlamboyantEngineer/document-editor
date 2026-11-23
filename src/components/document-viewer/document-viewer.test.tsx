@@ -207,6 +207,63 @@ describe('DocumentViewer', () => {
     Reflect.deleteProperty(document, 'fonts');
   });
 
+  it('DOCE-PAGINATION-12.8 draws other files under a family another viewer holds in a family of its own, through mount and unmount', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const made: string[] = [];
+    class FakeFace {
+      constructor(family: string) {
+        made.push(family);
+      }
+      load() {
+        return Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', FakeFace);
+    const added = new Set<unknown>();
+    const fonts = {
+      add: (face: unknown) => added.add(face),
+      delete: (face: unknown) => added.delete(face),
+    };
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    const served = (bytes: Uint8Array<ArrayBuffer>) => ({
+      ...tenPages(1),
+      fonts: { faces: [{ family: 'Arial', weight: 400, style: 'normal' as const, bytes }] },
+    });
+    const arimo = served(new Uint8Array([1]));
+    const cousine = served(new Uint8Array([2]));
+    const family = (root: Element | null) =>
+      root instanceof HTMLElement
+        ? root.style.getPropertyValue('--doc-paragraph-font-family')
+        : null;
+    const { container: inFirst, unmount: unmountFirst } = render(
+      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} label="First" />,
+    );
+    await act(async () => undefined);
+    const own = family(inFirst.firstElementChild);
+    expect(own).toContain('Arial');
+    // The same files are shared; other files under the family are drawn in one of the viewer's own.
+    const { container: inSame, unmount: unmountSame } = render(
+      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} />,
+    );
+    const { container: inOther, unmount: unmountOther } = render(
+      <DocumentViewer layout={cousine} template={BASE_TEMPLATE} />,
+    );
+    await act(async () => undefined);
+    expect(made).toEqual(['Arial', expect.stringMatching(/^Arial de-\d+$/u)]);
+    expect(family(inSame.firstElementChild)).toBe(own);
+    const otherFamily = family(inOther.firstElementChild);
+    expect(otherFamily).toContain(made[1]);
+    expect(family(inFirst.firstElementChild)).toBe(own);
+    // Unmounting either leaves the first viewer's faces and family as they were.
+    unmountOther();
+    unmountSame();
+    expect(added.size).toBe(1);
+    expect(family(inFirst.firstElementChild)).toBe(own);
+    unmountFirst();
+    expect(added.size).toBe(0);
+    Reflect.deleteProperty(document, 'fonts');
+  });
+
   it('DOCE-PAGINATION-13.9 draws the page a link goes to, though it is not drawn, and goes to its anchor', async () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     const scrolled: string[] = [];
@@ -230,5 +287,78 @@ describe('DocumentViewer', () => {
     expect(scrolled).toEqual(['Part8']);
     expect(window.location.hash).toBe('');
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  });
+
+  // The viewer on page 0 of ten, a link on it to the anchor given, and what scrolled into view.
+  function linkOnFirstPage(href: string, layout = tenPages()) {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const scrolled: string[] = [];
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value(this: Element) {
+        scrolled.push(this.id);
+      },
+    });
+    const { container } = render(
+      <DocumentViewer layout={layout} template={BASE_TEMPLATE} overscan={0} />,
+    );
+    showInView([0]);
+    const link = document.createElement('a');
+    link.setAttribute('href', href);
+    link.textContent = 'Go there';
+    sheets(container)[0]?.append(link);
+    return { container, scrolled, link: screen.getByRole('link', { name: 'Go there' }) };
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  });
+
+  it('DOCE-PAGINATION-13.9 follows a fragment with a literal percent sign and an encoded one', async () => {
+    const doc = pagesDocument(
+      Array.from({ length: 10 }, (_, index) =>
+        page([paragraph(index === 6 ? '50%' : index === 8 ? 'a b' : `text${String(index)}`)]),
+      ),
+    );
+    const layout = pagesLayout(pagesState(doc, stubEngine({ perLine: 4 })));
+    if (!layout) throw new Error('no layout');
+    const user = userEvent.setup();
+    const literal = linkOnFirstPage('#50%', layout);
+    await user.click(literal.link);
+    expect(drawn(literal.container)).toEqual([0, 6]);
+    expect(literal.scrolled).toEqual(['50%']);
+    literal.link.setAttribute('href', '#a%20b');
+    await user.click(literal.link);
+    expect(drawn(literal.container)).toEqual([0, 6, 8]);
+    expect(literal.scrolled).toEqual(['50%', 'a b']);
+  });
+
+  it('DOCE-PAGINATION-13.9 leaves a modified or cancelled click to the browser', async () => {
+    const { container, scrolled, link } = linkOnFirstPage('#Part8');
+    const defaults: boolean[] = [];
+    container.addEventListener('click', (event) => {
+      defaults.push(event.defaultPrevented);
+      event.preventDefault();
+    });
+    const user = userEvent.setup();
+    for (const key of ['Control', 'Meta', 'Shift', 'Alt']) {
+      await user.keyboard(`{${key}>}`);
+      await user.click(link);
+      await user.keyboard(`{/${key}}`);
+    }
+    await user.pointer({ keys: '[MouseMiddle]', target: link });
+    expect(defaults).toEqual([false, false, false, false]);
+    link.addEventListener('click', (event) => event.preventDefault(), { once: true });
+    await user.click(link);
+    expect(drawn(container)).toEqual([0]);
+    expect(scrolled).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-13.9 follows a link activated with Enter to a distant page', async () => {
+    const { container, scrolled, link } = linkOnFirstPage('#Part8');
+    link.focus();
+    await userEvent.setup().keyboard('{Enter}');
+    expect(drawn(container)).toEqual([0, 8]);
+    expect(scrolled).toEqual(['Part8']);
   });
 });
