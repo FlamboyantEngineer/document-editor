@@ -27,7 +27,7 @@ interface RunLine {
 }
 
 /** Prepared runs and their lines, kept between layouts. */
-interface LineCache {
+export interface LineCache {
   /** Lays a run of a block out at its first line's width and the other lines' width. */
   readonly lines: (run: TextRun, widths: LineWidths, block: object) => readonly RunLine[];
   /** How many runs were found prepared, and how many had to be prepared. */

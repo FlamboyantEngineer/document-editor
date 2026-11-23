@@ -208,6 +208,8 @@ function served(added: string[] = []): ServedFonts {
     generics: {},
     reserve: () => null,
     files: () => ({ faces: [] }),
+    drawnFamily: (family) => family,
+    drawnFiles: () => ({ faces: [] }),
     add: (families) => {
       added.push(...families);
       return Promise.resolve(families.includes('Lab Serif'));

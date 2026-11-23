@@ -19,12 +19,14 @@ interface Sizes {
 
 interface Budgets {
   allowance: { relative: number; absolute: number };
+  suspended?: { since: string; cause: string };
   consumers: Record<string, Sizes>;
 }
 
 interface Comparison {
   problems: string[];
   notes: string[];
+  suspended: string[];
 }
 
 const budgets: Budgets = {
@@ -48,6 +50,26 @@ describe('consumer bundle budgets', () => {
     expect(problems[1]).toMatch(/^editor gzip .* grew by/);
   });
 
+  it('DOCE-ENTRY-2.1 reports growth past the allowance without failing while suspended', () => {
+    const suspended: Budgets = { ...budgets, suspended: { since: '2000-01-01', cause: 'Why.' } };
+    const grown = { editor: { raw: 105_001, gzip: 32_049 } };
+    expect(compare(grown, budgets).suspended).toEqual([]);
+    const comparison = compare(grown, suspended);
+    expect(comparison.problems).toEqual([]);
+    expect(comparison.suspended).toEqual([
+      expect.stringMatching(/^editor raw .* grew by 4\.9 KB \(allowed 4\.9 KB\)$/),
+      expect.stringMatching(/^editor gzip .* grew by 2\.0 KB \(allowed 2\.0 KB\)$/),
+    ]);
+  });
+
+  it('DOCE-ENTRY-2.1 fails a consumer without a budget even while suspended', () => {
+    const suspended: Budgets = { ...budgets, suspended: { since: '2000-01-01', cause: 'Why.' } };
+    expect(compare({ panels: { raw: 1, gzip: 1 } }, suspended).problems).toEqual([
+      'panels has no budget; run `npm run check:bundle-size -- --update`',
+      'editor has a budget but no consumer',
+    ]);
+  });
+
   it('DOCE-ENTRY-2.1 notes a consumer that shrank, so its baseline can be lowered', () => {
     const { problems, notes } = compare({ editor: { raw: 90_000, gzip: 30_000 } }, budgets);
     expect(problems).toEqual([]);
@@ -65,6 +87,12 @@ describe('consumer bundle budgets', () => {
   it('DOCE-ENTRY-2.1 writes the measurements as baselines and keeps the allowance', () => {
     const measured = { editor: { raw: 1, gzip: 2 } };
     expect(updatedBudgets(measured, budgets)).toEqual({ ...budgets, consumers: measured });
+  });
+
+  it('DOCE-ENTRY-2.1 keeps a suspension when the baselines are rewritten', () => {
+    const suspended: Budgets = { ...budgets, suspended: { since: '2000-01-01', cause: 'Why.' } };
+    const measured = { editor: { raw: 1, gzip: 2 } };
+    expect(updatedBudgets(measured, suspended)).toEqual({ ...suspended, consumers: measured });
   });
 
   it('DOCE-ENTRY-2.1 measures each file gzipped on its own', () => {
@@ -113,5 +141,13 @@ describe('consumer bundle budgets', () => {
       'editor-with-panels',
       'template-workspace',
     ]);
+  });
+
+  it('DOCE-ENTRY-2.1 holds the suspension of the growth limits with its date and cause', () => {
+    const file = JSON.parse(
+      readFileSync(new URL('../scripts/bundle-budgets.json', import.meta.url), 'utf8'),
+    ) as Budgets;
+    expect(file.suspended?.since).toBe('2026-11-23');
+    expect(file.suspended?.cause).toMatch(/DOM text layout is removed/);
   });
 });

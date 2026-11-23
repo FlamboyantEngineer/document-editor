@@ -108,6 +108,9 @@ test('DOCE-LABS-2.6 DOCE-PAGINATION-11.5 lays out, edits and types on 300 pages 
       description: `${String(result[key])} of ${rounds.map((each) => each[key]).join(', ')}`,
     });
   console.log(JSON.stringify(result));
+  // On CI, a workflow command: the readings become an annotation of the check run, read without its log.
+  if (process.env.CI)
+    console.log(`::notice title=DOCE-LABS-2.6 readings::${JSON.stringify(result)}`);
   const within = (key: (typeof keys)[number], budget: number) =>
     expect(result[key] ?? Number.NaN, `${key} (ms)`).toBeLessThanOrEqual(budget);
   within('firstSettle', FIRST_SETTLE_MS);

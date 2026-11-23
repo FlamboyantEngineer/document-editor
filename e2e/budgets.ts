@@ -238,10 +238,14 @@ export async function openScale(
 ) {
   const query = `${compare ? '&compare' : ''}${textLayout === 'pretext' ? '&textLayout=pretext' : ''}`;
   await page.goto(`stress-scale.html?size=${String(size)}${query}`);
-  // The largest documents take longer than the usual wait to settle.
-  await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
-    timeout: 120_000,
-  });
+  // The largest documents take longer than the usual wait to settle. A plain function polled, not
+  // an expectation: each failed poll of an expectation reads the page's accessibility tree, about a
+  // second of the page's own time on 300 pages, which the timings would count.
+  await page.waitForFunction(
+    () => document.documentElement.getAttribute('data-lab-ready') === 'true',
+    null,
+    { timeout: 120_000, polling: 100 },
+  );
   await waitForLab(page);
   expect(lab.errors).toEqual([]);
 }

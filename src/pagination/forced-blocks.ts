@@ -4,6 +4,7 @@
 // with, and the layout handed to a viewer or a print all read them from here.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { isContinuationPlaceholder } from '../model/pagination/fragments.js';
 import { isContinued } from './block-directions.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
@@ -12,7 +13,12 @@ import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading']);
 
 /** The top-level blocks whose text blocks are drawn on forced lines, laid out with them. */
-const NESTED_TYPES: ReadonlySet<string> = new Set(['table_figure', 'table']);
+const NESTED_TYPES: ReadonlySet<string> = new Set([
+  'table_figure',
+  'table',
+  'bullet_list',
+  'ordered_list',
+]);
 
 /** A text block of a page and the lines it is drawn on, or why the browser draws it. */
 export interface ForcedBlock {
@@ -65,6 +71,8 @@ function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedP
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset) => {
     if (!FORCED_TYPES.has(node.type.name)) return !node.isTextblock;
+    // A split's empty placeholder takes no room on the page (DOCE-PAGINATION-4.3).
+    if (isContinuationPlaceholder(node)) return false;
     const pos = at.pos + 1 + offset;
     const reason = nestedRefusal(at, node, pos);
     const table = reason ? null : (lines.get(node) ?? null);
