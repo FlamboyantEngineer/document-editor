@@ -10,6 +10,20 @@ updates:
     groups:
       npm:
         patterns: ['*']
+    ignore:
+      # Moved by hand, in step with collaboration-tools' peer pins. Dependabot reads the older
+      # numbered prereleases (14.0.0-22, 1.0.0-0) as newer than the release candidates.
+      - dependency-name: '@y/y'
+      - dependency-name: 'lib0'
+      # Held at the versions @handlewithcare/react-prosemirror names in its peer dependencies.
+      - dependency-name: 'prosemirror-view'
+      - dependency-name: 'react-reconciler'
+      # The type definitions follow the Node.js major the package supports (22).
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # typescript-eslint supports TypeScript below 6.1.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     target-branch: dev
