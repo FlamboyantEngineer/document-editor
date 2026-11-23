@@ -82,3 +82,10 @@ The template workspace shall load its own preview, with the document editor, and
 
 Implementation: `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/template-open-dialog.tsx`, `scripts/check-bundle-size.mjs`
 Verification: `test/bundle-budgets.test.ts`, `src/components/template-workspace/template-workspace-layout.test.tsx`, `src/components/template-workspace/template-preview-editor.test.tsx`
+
+### DOCE-ENTRY-2.6 - Sizes on record for what loads on first use
+
+`npm run check:bundle-size` shall also measure, for the editor consumer, what two of its `import()`s fetch on first use, raw and gzipped, each file once: the text layout engine, which is in no consumer's initial code, and the measurer of a host's font files. It shall print them after the consumers' sizes, with no budget and no baseline, so each run's log holds them; a host supplies the shaper's WebAssembly, which is in no bundle. A named load that no `import()` requests any more shall fail, so a size does not leave the record unnoticed.
+
+Implementation: `scripts/check-bundle-size.mjs`, `scripts/lib/bundle-budgets.mjs`
+Verification: `test/bundle-budgets.test.ts`
