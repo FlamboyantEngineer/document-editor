@@ -398,9 +398,9 @@ Verification: `e2e/layout-invariant.spec.ts`
 
 ### DOCE-LABS-8.6 - Grapheme clusters at forced line edges
 
-Repeated emoji, a joined emoji sequence and letters with combining marks, typed with no space so lines end and start inside them, shall be drawn on the computed lines; no line decoration shall start or end inside a grapheme cluster or hold half a surrogate pair, and Shift+Arrow Right at each line start shall select one whole cluster.
+Repeated emoji, a joined emoji sequence and letters with combining marks, typed with no space so lines end and start inside them, shall be drawn on the computed lines; no line decoration shall start or end inside a grapheme cluster or hold half a surrogate pair, and Shift+Arrow Right at each line start shall select one whole cluster. A cluster has no length limit: in a centered title starting with a letter and 40 accents, and lines of families of four people with skin tones, each line's indent and end hold whole clusters, the title's first indent the whole letter with its accents.
 
-Implementation: `src/layout-engine/line-marks.ts`, `src/pagination/forced-lines.ts`
+Implementation: `src/layout-engine/line-marks.ts`, `src/layout-engine/graphemes.ts`, `src/pagination/forced-lines.ts`
 Verification: `src/layout-engine/line-marks.test.ts`, `e2e/layout-invariant.spec.ts`
 
 ### DOCE-LABS-8.7 - Review and editing on a stress document
