@@ -178,5 +178,37 @@ const reading = station.read({ sensor: 'rain-gauge', window: 3600, unit: 'mm', r
 
 ## Seeds sorted by the bench by the pond, each packet with its date and its bed
 
+The rain gauge by the north wall is read each morning and noted with  the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with x the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
+The rain gauge by the north wall is read each morning and noted with xxxxxxxxxxxxxxx the plan, see GRD-PLAN Rev B for the rows.
+
 | Gauge | ``` ls -la /var/log/station/rain-gauge-readings ``` |
 | --- | --- |

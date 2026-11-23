@@ -11,11 +11,13 @@
 // part out alone gives the whole block's lines from there.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, PluginKey, type Selection } from 'prosemirror-state';
+import { type EditorState, Plugin, PluginKey, type Selection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { insertedKey } from '../layout-engine/inserted-text.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
 import { keepForcedCaret } from './forced-caret.js';
+import { type InsertedTexts, insertedTexts, NO_INSERTED } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
@@ -27,6 +29,8 @@ export interface ForcedLinesState {
   readonly drawn: ReadonlySet<number> | null;
   /** The page the caret is on, which is always drawn. */
   readonly caret: number;
+  /** The words other plugins insert in the blocks, which the lines were laid out with. */
+  readonly inserted: string;
 }
 
 /** The forced lines' plugin key. */
@@ -52,6 +56,7 @@ interface Builder {
   readonly skipped: ReadonlySet<number>;
   readonly blocks: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
   readonly containers: WeakMap<ProseMirrorNode, DecorationSet>;
+  readonly inserted: InsertedTexts;
 }
 
 /** Whether a block is a later part of a split block. */
@@ -63,20 +68,40 @@ function prefixOf(builder: Builder, node: ProseMirrorNode, pos: number): string 
   return builder.numbers.get(pos);
 }
 
+// A break, or an indent, drawn among the words inserted at a position, such as a comparison's
+// deleted words (DOCE-PAGINATION-11.11): an empty element between two of them.
+function breakWidget(
+  pos: number,
+  mark: { side: number; class: string; style?: string | undefined },
+) {
+  const key = `${mark.class}|${String(mark.side)}|${mark.style ?? ''}`;
+  return Decoration.widget(
+    pos,
+    (view) => {
+      const element = view.dom.ownerDocument.createElement('span');
+      element.className = mark.class;
+      if (mark.style) element.setAttribute('style', mark.style);
+      return element;
+    },
+    { side: mark.side, key },
+  );
+}
+
 // A forced block's own decorations, relative to its content, kept by node and number.
 function blockSet(
   builder: Builder,
   node: ProseMirrorNode,
-  drawn: { table: DrawnLines; key: string },
+  drawn: { table: DrawnLines; key: string; prefixed: boolean },
 ) {
-  const { table, key } = drawn;
+  const { table, key, prefixed } = drawn;
   const kept = builder.blocks.get(node);
   if (kept?.key === key) return kept.set;
   // An inner mark is an element of its own, and the view nests each later level around the one
   // before: the first other mark on an inner mark's range starts the element around it, which the
   // marks after it on that range join, as a static drawing nests them.
-  const marks = lineMarks(node, table, { prefixed: key !== '' });
-  const own = marks.map(({ from, to, inner, ...attrs }, index) => {
+  const marks = lineMarks(node, table, { prefixed });
+  const own = marks.map(({ from, to, inner, side, ...attrs }, index) => {
+    if (side !== undefined) return breakWidget(from, { side, ...attrs });
     const before = marks[index - 1];
     const around = !inner && before?.inner && before.from === from && before.to === to;
     return Decoration.inline(from, to, {
@@ -102,7 +127,8 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
     const pos = at.pos + 1 + offset;
     if (!FORCED_TYPES.has(child.type.name) || builder.skipped.has(pos)) return;
     const prefix = prefixOf(builder, child, pos);
-    const table = builder.engine.lines(child, { scope: at.name, prefix });
+    const inserted = builder.inserted.byBlock.get(child);
+    const table = builder.engine.lines(child, { scope: at.name, prefix, inserted });
     if (!table) return;
     const attrs: Record<string, string> = {
       class: 'de-forced-lines',
@@ -113,7 +139,8 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
     const indent = prefix ? firstLineIndent(table) : null;
     if (indent) attrs.style = indent;
     locals.push(Decoration.node(offset, offset + child.nodeSize, attrs));
-    const set = blockSet(builder, child, { table, key: prefix ?? '' });
+    const key = `${prefix ?? ''}|${insertedKey(inserted)}`;
+    const set = blockSet(builder, child, { table, key, prefixed: Boolean(prefix) });
     if (set !== DecorationSet.empty) children.push(offset, offset + child.nodeSize, set);
   });
   return locals.length || children.length ? new makeSet(locals, children) : DecorationSet.empty;
@@ -197,7 +224,7 @@ interface ForcedLinesSource {
 // those it was made with.
 function decorate(
   source: ForcedLinesSource,
-  state: { doc: ProseMirrorNode; drawn: Drawn },
+  state: { doc: ProseMirrorNode; drawn: Drawn; inserted: InsertedTexts },
   previous: Builder | null,
 ) {
   const { doc } = state;
@@ -216,7 +243,8 @@ function decorate(
     version: source.version(),
     skipped: numbering.paragraphs,
     blocks: same ? previous.blocks : new WeakMap(),
-    containers: same ? previous.containers : new WeakMap(),
+    containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
+    inserted: state.inserted,
   };
   return { builder, decorations: documentSet(builder, doc, state.drawn) };
 }
@@ -254,13 +282,35 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
   let pages: DrawnPages | null = null;
   // Whether every page is drawn on forced lines for now, as while a snapshot is taken.
   let all = false;
+  // The words other plugins insert in the blocks, as last read, and the decorations drawn with
+  // words read since the state was built.
+  let inserted = NO_INSERTED;
+  let redrawn: { value: ForcedLinesState; decorations: DecorationSet } | null = null;
   const build = (state: { doc: ProseMirrorNode; selection: Selection }): ForcedLinesState => {
     const near = all ? null : (pages?.drawn() ?? null);
     const drawn = { drawn: near, caret: pageAt(state.doc, state.selection.head) };
-    const made = decorate(source, { doc: state.doc, drawn }, builder);
+    const made = decorate(source, { doc: state.doc, drawn, inserted }, builder);
     builder = made.builder;
     const { engine, version } = source;
-    return { engine: engine(), version: version(), decorations: made.decorations, ...drawn };
+    const words = inserted.key;
+    return {
+      engine: engine(),
+      version: version(),
+      decorations: made.decorations,
+      ...drawn,
+      inserted: words,
+    };
+  };
+  // The decorations of a state, drawn again when other plugins insert other words in its blocks,
+  // such as a comparison that changed (DOCE-PAGINATION-11.11).
+  const decorationsOf = (state: EditorState, value: ForcedLinesState | undefined) => {
+    if (!value) return undefined;
+    const now = insertedTexts(state, [forcedLinesKey]);
+    if (now.key === value.inserted) return value.decorations;
+    if (redrawn?.value === value && now.key === inserted.key) return redrawn.decorations;
+    inserted = now;
+    redrawn = { value, decorations: build(state).decorations };
+    return redrawn.decorations;
   };
   return new Plugin<ForcedLinesState>({
     key: forcedLinesKey,
@@ -276,7 +326,7 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
       },
     },
     props: {
-      decorations: (state) => forcedLinesKey.getState(state)?.decorations,
+      decorations: (state) => decorationsOf(state, forcedLinesKey.getState(state)),
     },
     view(view) {
       // Draws the pages near the screen again, unless every page is drawn already. The view first

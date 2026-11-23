@@ -7,6 +7,7 @@ import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 import { footnoteMarkerItem } from './footnote-marker.js';
+import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
@@ -17,6 +18,7 @@ import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
   blockTypography,
+  captionLabelFont,
   firstFamily,
   fontString,
   type FontStyle,
@@ -73,6 +75,10 @@ export interface TextBlockPlace {
   readonly number?: ParagraphNumber | undefined;
   /** A footnote entry's number, drawn before its content in the template's marker style. */
   readonly footnoteNumber?: string | undefined;
+  /** Text drawn in the block that is not its content, such as a comparison's deleted words. */
+  readonly inserted?: readonly InsertedText[] | undefined;
+  /** A caption's label, number and separator, drawn before its text in the caption label font. */
+  readonly label?: string | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
@@ -90,7 +96,14 @@ interface TextLayout {
   readonly stats: () => CacheStats;
 }
 
-const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code_block', 'footnote_entry']);
+const TEXT_BLOCKS = new Set([
+  'paragraph',
+  'heading',
+  'code_block',
+  'footnote_entry',
+  'figure_caption',
+  'table_caption',
+]);
 
 function hasCode(node: ProseMirrorNode): boolean {
   let found = false;
@@ -111,14 +124,15 @@ function unservedFamily(
   return families.map(firstFamily).find((family) => !isFontServed(family)) ?? null;
 }
 
-// The clusters of a block's text items that take a reserved width; a template variable's text is
-// not the block's content, so it is left out.
+// The clusters of a block's text items that take a reserved width; inserted words and a template
+// variable's text are not the block's content, so they are left out.
 function reservedOf(runs: readonly TextRun[], reserve: ReserveCluster): ReservedBox[] {
   const boxes: ReservedBox[] = [];
   for (const run of runs)
     run.items.forEach((item, index) => {
       const offset = run.offsets[index] ?? -1;
-      if (offset < 0 || !('font' in item) || item.break === 'never') return;
+      const inserted = (run.sides[index] ?? null) !== null;
+      if (offset < 0 || inserted || !('font' in item) || item.break === 'never') return;
       boxes.push(...reservedBoxes(item.text, { offset, font: item.font, reserve }));
     });
   return boxes;
@@ -193,17 +207,28 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   };
   const typography = (node: ProseMirrorNode, scope?: string | null) =>
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
+  // What a block draws before its content in a font of its own: a footnote entry's number, or a
+  // caption's label.
+  const leadingItem = (node: ProseMirrorNode, style: BlockTypography, place: TextBlockPlace) => {
+    const source = { ...options, scope: place.scope };
+    if (place.footnoteNumber !== undefined)
+      return footnoteMarkerItem(place.footnoteNumber, style, source);
+    const font = place.label ? captionLabelFont(node, style, source) : null;
+    return font && place.label
+      ? { item: { text: place.label, font: fontString(font) }, family: font.family }
+      : null;
+  };
   return {
     typography,
     stats: cache.stats,
     layoutText(node, place) {
+      // A code caption waits for code figure geometry that matches the drawn box (DOCE-PAGINATION-9.11).
+      if (node.type.name === 'code_caption')
+        return { ok: false, reason: 'a code caption is left to its code figure in the DOM' };
       if (!TEXT_BLOCKS.has(node.type.name))
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
-      const marker =
-        place.footnoteNumber === undefined
-          ? null
-          : footnoteMarkerItem(place.footnoteNumber, style, { ...options, scope: place.scope });
+      const marker = leadingItem(node, style, place);
       const unserved = options.isFontServed
         ? unservedFamily(node, style, {
             isFontServed: options.isFontServed,
@@ -222,6 +247,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         scope: place.scope,
         textAtoms: options.textAtoms,
         boxOf: boxOf(style),
+        inserted: place.inserted,
       });
       if (!runs.ok) return runs;
       const table = layoutLines(cache, {

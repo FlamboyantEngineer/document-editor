@@ -24,6 +24,11 @@ export interface TextLine {
   readonly height: number;
   /** Whether the line wraps, ends at a hard break, or ends the block. */
   readonly end: TextLineEnd;
+  /**
+   * For a line that starts among text inserted at `from` (`InsertedText`), such as a deleted word
+   * a comparison draws: the side its break is drawn at, between the inserted elements there.
+   */
+  readonly side?: number | undefined;
 }
 
 /** A text block's lines at one width. Lines tile the content: each starts where the one before ends. */

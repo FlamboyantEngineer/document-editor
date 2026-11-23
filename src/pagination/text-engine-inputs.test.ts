@@ -149,12 +149,13 @@ describe('the pages engine and its inputs', () => {
       engine.destroy();
     }
     expect(laid).toBeGreaterThanOrEqual(721);
-    // Captions are laid out as text by thread G's next change; contents lists are the DOM's still,
-    // and blocks holding a template variable always are, since its value may be the page's own
-    // number (DOCE-PAGINATION-9.5).
+    // Code captions are left to their code figures in the DOM until the code figure's planned box
+    // matches the drawn one (DOCE-PAGINATION-9.11); contents lists are the DOM's still, and blocks
+    // holding a template variable always are, since its value may be the page's own number
+    // (DOCE-PAGINATION-9.5).
     const left = [...reasons].filter(
       (reason) =>
-        !/^not a text block: (table|figure|code)_caption$/.test(reason) &&
+        reason !== 'a code caption is left to its code figure in the DOM' &&
         reason !== 'toc_block is not laid out by the engine yet' &&
         reason !== 'template variable',
     );
