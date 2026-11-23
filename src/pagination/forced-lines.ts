@@ -13,8 +13,10 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Selection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import type { TextDirection } from '../layout-engine/direction.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
+import { continuedDirections, drawnDirection, isContinued } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
 import { keepForcedCaret } from './forced-caret.js';
 import { type InsertedTexts, insertedTexts, NO_INSERTED } from './inserted-texts.js';
@@ -54,13 +56,12 @@ interface Builder {
   readonly numbers: ReadonlyMap<number, string>;
   /** The numbered paragraphs, which the browser still draws on its own lines. */
   readonly skipped: ReadonlySet<number>;
+  /** The direction of each later part of a split block, by position. */
+  readonly directions: ReadonlyMap<number, TextDirection>;
   readonly blocks: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
   readonly containers: WeakMap<ProseMirrorNode, DecorationSet>;
   readonly inserted: InsertedTexts;
 }
-
-/** Whether a block is a later part of a split block. */
-export const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
 
 // The number a heading's part shows: only its first part carries it.
 function prefixOf(builder: Builder, node: ProseMirrorNode, pos: number): string | undefined {
@@ -135,6 +136,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       'data-lines': String(table.lines.length),
     };
     if (prefix) attrs['data-number'] = prefix;
+    attrs.dir = drawnDirection(builder.directions, { node: child, pos });
     // A number is drawn before the content, so its line's indent is the block's, before it.
     const indent = prefix ? firstLineIndent(table) : null;
     if (indent) attrs.style = indent;
@@ -232,16 +234,19 @@ function decorate(
   if (!engine) return { builder: null, decorations: DecorationSet.empty };
   const numbering = engine.numbering(doc);
   const numbers = numbering.headings;
+  const directions = continuedDirections(doc);
   const same =
     previous?.engine === engine &&
     previous.version === source.version() &&
     previous.skipped.size === numbering.paragraphs.size &&
-    sameValues(previous.numbers, numbers);
+    sameValues(previous.numbers, numbers) &&
+    sameValues(previous.directions, directions);
   const builder: Builder = {
     engine,
     numbers,
     version: source.version(),
     skipped: numbering.paragraphs,
+    directions,
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
     inserted: state.inserted,
@@ -250,7 +255,7 @@ function decorate(
 }
 
 // Whether two numberings show the same numbers in the same order.
-function sameValues(a: ReadonlyMap<number, string>, b: ReadonlyMap<number, string>): boolean {
+function sameValues<T>(a: ReadonlyMap<number, T>, b: ReadonlyMap<number, T>): boolean {
   if (a.size !== b.size) return false;
   const left = [...a.values()];
   return [...b.values()].every((value, index) => value === left[index]);

@@ -13,7 +13,7 @@ import { DEFAULT_CONTENTS_KINDS } from '../model/contents/contents-kinds.js';
 import { catalogDocument } from '../model/contents/document-catalog.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import { CAPTION_HOLDER_TYPES, isCaptionNode } from '../model/schema/caption-content.js';
-import { isContinued } from './forced-lines.js';
+import { isContinued } from './block-directions.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** A document's object numbers, found again in its pages by element id and order. */
