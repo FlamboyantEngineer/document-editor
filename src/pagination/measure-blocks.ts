@@ -26,6 +26,7 @@ import {
   type Placement,
   px,
 } from './measure-cache.js';
+import { unzoom } from './measure-scale.js';
 
 // Whether a block measures provisionally: an image in it still loads and its box is not fixed by
 // its size attributes or an aspect ratio, so its load may change the block's height. A lazy image
@@ -92,7 +93,7 @@ function countLines(rects: Iterable<DOMRect>): number {
 
 function measureRange(range: Range, scale: number): TextMeasure {
   return {
-    height: range.getBoundingClientRect().height / scale,
+    height: unzoom(range.getBoundingClientRect().height, scale),
     lines: countLines(range.getClientRects()),
   };
 }
@@ -163,8 +164,8 @@ function childLayouts(measuring: Measuring, node: ProseMirrorNode, relative: num
     const rect = element.getBoundingClientRect();
     origin ??= rect.top;
     layouts.push({
-      top: (rect.top - origin) / measuring.scale,
-      bottom: (rect.bottom - origin) / measuring.scale,
+      top: unzoom(rect.top - origin, measuring.scale),
+      bottom: unzoom(rect.bottom - origin, measuring.scale),
       measurement: measureContent(measuring, { node: child, relative: childRelative }),
     });
   });
@@ -185,8 +186,8 @@ function rowsMeasurement(measuring: Measuring, relative: number): RowsMeasuremen
   const rows = [...element.querySelectorAll('.de-contents__entry')].map((row) => {
     const rect = row.getBoundingClientRect();
     return {
-      top: (rect.top - top) / measuring.scale,
-      bottom: (rect.bottom - top) / measuring.scale,
+      top: unzoom(rect.top - top, measuring.scale),
+      bottom: unzoom(rect.bottom - top, measuring.scale),
     };
   });
   return { rows };
@@ -209,7 +210,10 @@ function overheadOf(measuring: Measuring, relative: number): number {
   const first = elementOf(view, placement.pos + relative + 1);
   const style = element?.ownerDocument.defaultView?.getComputedStyle(element);
   if (!element || !first || !style) return 0;
-  const above = (first.getBoundingClientRect().top - element.getBoundingClientRect().top) / scale;
+  const above = unzoom(
+    first.getBoundingClientRect().top - element.getBoundingClientRect().top,
+    scale,
+  );
   return Math.max(0, above) + px(style.paddingBottom) + px(style.borderBottomWidth);
 }
 
@@ -217,7 +221,7 @@ function overheadOf(measuring: Measuring, relative: number): number {
 function withCaption(measuring: Measuring, relative: number, measured: unknown): unknown {
   if (!isContainerMeasurement(measured)) return measured;
   const caption = elementOf(measuring.view, measuring.placement.pos + relative + 1);
-  const height = caption ? caption.getBoundingClientRect().height / measuring.scale : 0;
+  const height = caption ? unzoom(caption.getBoundingClientRect().height, measuring.scale) : 0;
   return height > 0 ? { ...measured, caption: height } : measured;
 }
 
@@ -251,7 +255,7 @@ function measureDrawn(view: EditorView, at: DrawnBlock, options: MeasureOptions)
   const provisional = isProvisional(element);
   const block: LayoutBlock = {
     node,
-    height: element.getBoundingClientRect().height / scale,
+    height: unzoom(element.getBoundingClientRect().height, scale),
     ...margins(element),
     measurement: measureContent(measuring, { node, relative: 0 }),
   };

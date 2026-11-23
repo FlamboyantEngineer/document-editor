@@ -112,8 +112,16 @@ export interface PagesTextEngine {
     scope: string | null,
     inserted?: InsertedTexts,
   ): LayoutBlock | null;
-  /** A section's page header, footer or footnote area, laid out; null when the DOM must measure it. */
-  measureRegion(node: ProseMirrorNode, scope: string | null): RegionRoom | null;
+  /**
+   * A section's page header, footer or footnote area, laid out with the text its template variables
+   * show (none when absent, so a region with one is left to the DOM); null when the DOM must
+   * measure it.
+   */
+  measureRegion(
+    node: ProseMirrorNode,
+    scope: string | null,
+    variables?: ReadonlyMap<string, string>,
+  ): RegionRoom | null;
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */
   lines(node: ProseMirrorNode, place: LinesPlace): DrawnLines | null;
   /**

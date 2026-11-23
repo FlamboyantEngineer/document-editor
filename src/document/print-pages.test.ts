@@ -56,6 +56,21 @@ describe('renderLayoutPrintPage', () => {
     expect(static_[0]?.querySelectorAll('.de-forced-lines__end')).toHaveLength(3);
   });
 
+  it('DOCE-PAGINATION-9.12 draws each forced block in the direction the pages view draws it', () => {
+    const doc = pagesDocument([
+      page([
+        paragraph([text('\u05e9\u05dc\u05d5\u05dd world')], { dataId: 'h' }),
+        paragraph([text('hello')], { dataId: 'l' }),
+      ]),
+      page([paragraph([text('later part')], { dataId: 'h', splitPartIndex: 1 })]),
+    ]);
+    const { view, printed } = bothDrawings(doc);
+    const directions = (root: ParentNode) =>
+      [...root.querySelectorAll<HTMLElement>('p.de-forced-lines')].map((each) => each.dir);
+    expect(directions(printed)).toEqual(['rtl', 'ltr', 'rtl']);
+    expect(directions(printed)).toEqual(directions(view));
+  });
+
   it('DOCE-PAGINATION-12.4 draws a reserved cluster in its box inside a line end, as the view does', () => {
     const doc = pagesDocument([page([paragraph([text('aaaa☃bb☃c')], { dataId: 'p1' })])]);
     const engine = stubEngine({ perLine: 5, reserved: new Set(['☃']) });

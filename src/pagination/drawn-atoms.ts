@@ -11,6 +11,7 @@ import type { EditorView } from 'prosemirror-view';
 import type { AtomMeasure, AtomMeasurer, AtomSize } from '../layout-engine/atoms.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { margins } from './measure-cache.js';
+import { measuredZoom, unzoom } from './measure-scale.js';
 
 /** Where the pages' atoms are measured. */
 interface DrawnAtomMeasurerOptions {
@@ -18,7 +19,10 @@ interface DrawnAtomMeasurerOptions {
   readonly view: () => EditorView | null;
   /** Where the copies are drawn: out of sight, styled as the measuring view is. */
   readonly host: HTMLElement;
-  /** How much the measuring view is scaled on screen; boxes are divided by it. */
+  /**
+   * How much the measuring view is scaled on screen, boxes being divided by it; by default the zoom
+   * the browser draws `host` at (`measuredZoom`), which is the measuring view's.
+   */
   readonly scale?: (() => number) | undefined;
 }
 
@@ -127,8 +131,8 @@ function readBlock(
   // Computed margins are not scaled by the zoom, as the box is.
   const { marginTop, marginBottom } = margins(drawn);
   return {
-    width: box.width / ratio(),
-    height: Math.max(0, height) / ratio(),
+    width: unzoom(box.width, ratio()),
+    height: unzoom(Math.max(0, height), ratio()),
     margins: { top: marginTop, bottom: marginBottom },
   };
 }
@@ -161,9 +165,9 @@ function readInline(
     const align = documentOf.defaultView?.getComputedStyle(made).verticalAlign;
     const box = drawn.getClientRects().length === 1 ? drawn.getBoundingClientRect() : copied;
     return {
-      width: box.width / ratio(),
-      height: box.height / ratio(),
-      baseline: (box.height - depth) / ratio(),
+      width: unzoom(box.width, ratio()),
+      height: unzoom(box.height, ratio()),
+      baseline: unzoom(box.height - depth, ratio()),
       ...(align === 'top' || align === 'bottom' ? { align } : {}),
     };
   };
@@ -234,7 +238,7 @@ function settle(
 export function createDrawnAtomMeasurer({
   view: viewOf,
   host,
-  scale = () => 1,
+  scale = () => measuredZoom(host),
 }: DrawnAtomMeasurerOptions): AtomMeasurer {
   const reading: Reading = { viewOf, host, ratio: () => (scale() > 0 ? scale() : 1) };
   return (node): AtomMeasure | null => {
