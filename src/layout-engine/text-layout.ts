@@ -90,6 +90,15 @@ export type TextBlockLayout =
 interface TextLayout {
   /** A text block's typography in a scope. */
   readonly typography: (node: ProseMirrorNode, scope?: string | null) => BlockTypography;
+  /**
+   * The clusters of a word drawn in a text block that is not its content, such as a comparison's
+   * deleted word, that take a reserved width in the block's font, by offset in the word.
+   */
+  readonly insertedReserved: (
+    node: ProseMirrorNode,
+    scope: string | null,
+    word: string,
+  ) => ReservedBox[];
   /** A text block's lines at a width. */
   readonly layoutText: (node: ProseMirrorNode, place: TextBlockPlace) => TextBlockLayout;
   /** How many text runs the engine found prepared, and how many it prepared. */
@@ -125,7 +134,8 @@ function unservedFamily(
 }
 
 // The clusters of a block's text items that take a reserved width; inserted words and a template
-// variable's text are not the block's content, so they are left out.
+// variable's text are not the block's content, so they are left out: an inserted word's element
+// draws its own boxes (`insertedReserved`, DOCE-PAGINATION-12.4).
 function reservedOf(runs: readonly TextRun[], reserve: ReserveCluster): ReservedBox[] {
   const boxes: ReservedBox[] = [];
   for (const run of runs)
@@ -220,6 +230,11 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   };
   return {
     typography,
+    insertedReserved: (node, scope, word) => {
+      const { reserve } = options;
+      const font = fontString(typography(node, scope).font);
+      return reserve ? reservedBoxes(word, { offset: 0, font, reserve }) : [];
+    },
     stats: cache.stats,
     layoutText(node, place) {
       // A code caption waits for code figure geometry that matches the drawn box (DOCE-PAGINATION-9.11).
