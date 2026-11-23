@@ -4,10 +4,12 @@
 import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
+import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
+import type { InsertedTexts } from './inserted-texts.js';
 
 /** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
 export type TextLayoutMode = 'dom' | 'pretext';
@@ -54,6 +56,8 @@ interface LinesPlace {
   readonly prefix?: string | undefined;
   /** A numbered paragraph's number, drawn in a box before its first line. */
   readonly number?: ParagraphNumber | undefined;
+  /** Words drawn in it that are not its content, such as a comparison's deleted words. */
+  readonly inserted?: readonly InsertedText[] | undefined;
 }
 
 /** A text block's lines as the pages draw them, and whether it justifies them. */
@@ -94,8 +98,15 @@ export interface PagesTextEngine {
   number(doc: ProseMirrorNode): void;
   /** A document's numbered headings and paragraphs, such as the pages'. */
   numbering(doc: ProseMirrorNode): DocumentNumbering;
-  /** A top-level block of a section's page content, laid out; null when the DOM must measure it. */
-  measureBlock(node: ProseMirrorNode, scope: string | null): LayoutBlock | null;
+  /**
+   * A top-level block of a section's page content, laid out with the words inserted in its text
+   * blocks; null when the DOM must measure it.
+   */
+  measureBlock(
+    node: ProseMirrorNode,
+    scope: string | null,
+    inserted?: InsertedTexts,
+  ): LayoutBlock | null;
   /** A section's page header, footer or footnote area, laid out; null when the DOM must measure it. */
   measureRegion(node: ProseMirrorNode, scope: string | null): RegionRoom | null;
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */

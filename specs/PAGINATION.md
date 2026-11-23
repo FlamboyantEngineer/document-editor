@@ -619,10 +619,10 @@ Verification: `src/layout-engine/typography.test.ts`, `src/layout-engine/text-la
 
 ### DOCE-PAGINATION-9.4 - White space and hard breaks
 
-Text shall be laid out as `white-space: pre-wrap` with `overflow-wrap: break-word`, as the pages draw it: runs of spaces and tabs kept, spaces hanging at a line's end, and a word longer than a line broken. Each hard break shall end a line, and a block that ends with one shall have an empty last line after it.
+Text shall be laid out as `white-space: pre-wrap` with `overflow-wrap: break-word`, as the pages draw it: runs of spaces and tabs kept, spaces hanging at a line's end, and a word longer than a line broken. Each hard break shall end a line, and a block that ends with one shall have an empty last line after it. Each identifier of a citation (DOCE-REFERENCES-1.13) shall be one unbreakable piece, laid out whole on one line, as the stylesheet keeps it.
 
-Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`
-Verification: `src/layout-engine/text-layout.test.ts`
+Implementation: `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/model/citation-identifiers.ts`
+Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ### DOCE-PAGINATION-9.5 - Prefixes and inline atoms
 
@@ -813,6 +813,13 @@ With the option on, each section's page header and footer shall take the room th
 
 Implementation: `src/pagination/text-engine.ts`, `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `labs/reference/document.css`
 Verification: `src/pagination/text-engine.test.ts`, `e2e/regression.spec.ts`
+
+### DOCE-PAGINATION-11.11 - Words drawn that are not the content
+
+With the option on, the words another plugin draws in a text block as widgets that are not its content, each widget naming its word in its spec (`insertedText`, the text it belongs to as `insertedGroup`, and `alone` for a deleted block's text), such as the deleted words a version comparison marks up in place (DOCE-VERSIONS-2.1), shall be laid out by the engine on the block's lines with its content, each word with the white space after it an item of its own in the block's font, so the block keeps the engine's lines and the height it measured. A line that starts among such words shall break between two of their widgets, by an empty widget of its own at the side between them that ends the line before and starts the line at its indent (`de-forced-lines__break`, or `de-forced-lines__indent` alone after a hard break). A deleted block's text shall be laid out on lines of its own, before the block's content or after it, broken from it as the comparison's break widget draws it. A top-level block holding such a word outside a text block shall be measured in the DOM, with the reason counted. The kept lines and measurements shall be laid out again when the words change.
+
+Implementation: `src/layout-engine/inserted-text.ts`, `src/layout-engine/runs.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/line-marks.ts`, `src/pagination/inserted-texts.ts`, `src/pagination/forced-lines.ts`, `src/pagination/text-engine.ts`, `src/pagination/layout-document.ts`, `src/pagination/text-lines.ts`, `src/engine/version-decorations.ts`, `labs/reference/document.css`
+Verification: `src/layout-engine/text-layout.test.ts`, `src/layout-engine/line-marks.test.ts`, `src/engine/version-compare.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ## DOCE-PAGINATION-12 - Widths from the font files
 
