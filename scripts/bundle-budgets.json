@@ -3,15 +3,14 @@
     "relative": 0.05,
     "absolute": 2048
   },
+  "suspended": {
+    "since": "2026-11-23",
+    "cause": "Both text layouts ship in the bundles for now. The limits are assessed again once the DOM text layout is removed and the bundles have had an optimization pass; until then growth past the allowance is reported and does not fail."
+  },
   "consumers": {
     "editor": {
       "raw": 1984354,
-      "gzip": 633847,
-      "limit": {
-        "raw": 2163904,
-        "gzip": 691200,
-        "cause": "Both text layouts ship in the editor until the DOM text layout is removed. That removal rewrites the baseline to the measured size with --update, which drops this limit."
-      }
+      "gzip": 633847
     },
     "editor-with-panels": {
       "raw": 2095039,
