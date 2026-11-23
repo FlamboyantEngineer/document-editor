@@ -40,4 +40,9 @@ export interface LayoutRequest {
   readonly scale?: number;
   readonly file?: ReturnType<typeof fixture>;
   readonly verify?: boolean;
+  /**
+   * The share of each page's content height the pages are packed into, for the oracle's negative
+   * control (DOCE-LABS-5.2): 1, the whole room, when not given.
+   */
+  readonly packedShare?: number;
 }

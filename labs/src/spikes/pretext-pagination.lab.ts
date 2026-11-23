@@ -1,3 +1,4 @@
+import type { Node } from 'prosemirror-model';
 import { writeDocumentFile } from '../../../src/model/format/document-format-write.js';
 import { afterPaint, baseline, mountedDom, timed } from './pretext/benchmark.js';
 import { fontsReady, PredictionWorker } from './pretext/client.js';
@@ -12,6 +13,7 @@ import {
 import { labLanguage } from './pretext/fonts.js';
 import { VirtualPages } from './pretext/html.js';
 import { blockId } from './pretext/prediction.js';
+import { type Boundary, divergence } from './pretext/reference-pages.js';
 import { applySettings, defaultWidth } from './pretext/settings.js';
 import type { FitCase } from './pretext/thresholds.js';
 
@@ -82,6 +84,7 @@ async function verify(
   workload: Workload = 'examples',
   width = defaultWidth,
   file = fixture(workload),
+  { packedShare }: { packedShare?: number } = {},
 ) {
   await fontsReady();
   const worker = new PredictionWorker();
@@ -89,7 +92,7 @@ async function verify(
     const doc = readFixture(file);
     const saved = JSON.stringify(writeDocumentFile(doc));
     const blocks = contentBlocks(doc);
-    const result = await worker.request({ file, width, verify: true });
+    const result = await worker.request({ file, width, verify: true, packedShare });
     if (!result.index || !result.measurements) throw new Error(result.issues.join(' · '));
     const oracle = await import('./pretext/oracle.js');
     const host = document.createElement('div');
@@ -193,27 +196,62 @@ async function compare(
   return { predicted: await experiment(), baseline: reference };
 }
 
+// A split just after a hard break keeps the break with the next fragment in the projection
+// (DOCE-PAGINATION-3.6), so a prediction's boundary there reads as the break's start.
+function projectedOffset(node: Node, offset: number) {
+  if (offset <= 0 || offset >= node.content.size) return offset;
+  const before = node.childBefore(offset);
+  const afterBreak =
+    before.node?.type.name === 'hard_break' && before.offset + before.node.nodeSize === offset;
+  return afterBreak && before.offset > 0 ? before.offset : offset;
+}
+
+// The production projection's pages against the prediction's: each page's fragments as
+// `[source, from, to]`, and at the first page that differs how full the projection drew that page
+// and the next. By default the projection lays its pages out by the prediction's rules, its
+// paragraphs split at the lines its own view drew (`predictedRules`); with `rules: 'production'`
+// by the production rules, as the editor without the layout engine does.
 async function compareProductionBoundaries(
-  workload: 'short' | 'long' = 'short',
+  workload: Workload = 'short',
   width = defaultWidth,
+  { rules = 'predicted' }: { rules?: 'predicted' | 'production' } = {},
 ) {
   await fontsReady();
   const file = fixture(workload);
-  const reference = baseline(root);
+  const reference = baseline(root, { predictedRules: rules === 'predicted' });
   const worker = new PredictionWorker();
   try {
     const nodes = contentBlocks(readFixture(file));
     const result = await worker.request({ file, width });
+    if (!result.index) throw new Error(result.issues.join(' · '));
     await reference.run(file, width, performance.now());
     const html = reference.boundaries();
-    const predicted = result.index?.pages.map((page) =>
-      page.map(({ block, from, to }) => [
-        blockId(requireValue(nodes[block], 'fragment source block')),
-        from,
-        to,
-      ]),
+    const predicted = result.index.pages.map((page) =>
+      page.map(({ block, from, to }): Boundary => {
+        const node = requireValue(nodes[block], 'fragment source block');
+        return [
+          blockId(node) ?? String(block),
+          projectedOffset(node, from),
+          projectedOffset(node, to),
+        ];
+      }),
     );
-    return { html, predicted };
+    const mismatches = Array.from(
+      { length: Math.max(html.length, predicted.length) },
+      (_, i) => i + 1,
+    ).filter((page) => JSON.stringify(html[page - 1]) !== JSON.stringify(predicted[page - 1]));
+    const first = divergence(predicted, html, mismatches[0]);
+    const fill = reference.fill();
+    return {
+      html,
+      predicted,
+      mismatches,
+      firstDivergence: first && {
+        ...first,
+        production: fill[first.page - 1],
+        nextPage: fill[first.page],
+      },
+    };
   } finally {
     reference.destroy();
     worker.close();
