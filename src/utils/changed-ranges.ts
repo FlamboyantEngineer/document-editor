@@ -3,7 +3,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
-import { ReplaceStep, type Step } from 'prosemirror-transform';
+import { ReplaceStep, type Step, type StepMap } from 'prosemirror-transform';
 
 /** A range of a document, from one position to another. */
 export interface ChangedRange {
@@ -26,19 +26,37 @@ function stepRanges(step: Step): ChangedRange[] {
   return pos === undefined ? [] : [{ from: pos, to: pos + 1 }];
 }
 
+// Whether a step's map moves no position: it has no range, as a mark's or an attribute's step, or
+// each of its ranges replaces at most one token by as many, as a node's type or attributes changed
+// with its markup do; mapping through it is the identity.
+function movesNothing(map: StepMap): boolean {
+  let moves = false;
+  map.forEach((...range: number[]) => {
+    const [oldStart = 0, oldEnd = 0, newStart = 0, newEnd = 0] = range;
+    if (oldEnd - oldStart > 1 || newEnd - newStart !== oldEnd - oldStart) moves = true;
+  });
+  return !moves;
+}
+
 /**
  * The ranges of the last transaction's document that a run of transactions changed: replaced,
  * inserted, marked or given attributes, one for each range a step changed, mapped through the steps
- * after it.
+ * after it that move positions, so a transaction of many attribute steps, as giving every element
+ * its id, is not mapped once per pair of steps.
  */
 export function changedRanges(transactions: readonly Transaction[]): ChangedRange[] {
   const steps = transactions.flatMap((tr) => tr.steps);
+  const moving = steps.flatMap((step, index) => {
+    const map = step.getMap();
+    return movesNothing(map) ? [] : [{ index, map }];
+  });
   return steps.flatMap((step, index) =>
     stepRanges(step).map((range) => {
       let { from, to } = range;
-      for (const later of steps.slice(index + 1)) {
-        from = later.getMap().map(from, -1);
-        to = later.getMap().map(to, 1);
+      for (const later of moving) {
+        if (later.index <= index) continue;
+        from = later.map.map(from, -1);
+        to = later.map.map(to, 1);
       }
       return { from, to: Math.max(from, to) };
     }),
