@@ -8,6 +8,8 @@ const ACCENTS = `q${'́'.repeat(40)}`;
 const FLAGS = '🇫🇷🇩🇪🇨🇦🇯🇵🇧🇷🇮🇹🇪🇸🇳🇴🇸🇪';
 const SUBDIVISION = '🏴󠁧󠁢󠁳󠁣󠁴󠁿';
 const CONJUNCT = 'क्‍ष'.repeat(6);
+// A conjunct carried through halfwidth voiced sound marks, extenders that are not marks.
+const HALFWIDTH = `क्${'\uFF9E'.repeat(20)}क`;
 
 const paragraph = (text: string) =>
   documentSchema.node('paragraph', null, [documentSchema.text(text)]);
@@ -33,7 +35,7 @@ describe('grapheme clusters of a block', () => {
   });
 
   it('DOCE-PAGINATION-7.11 agrees with the whole text at every boundary of mixed clusters', () => {
-    const pieces = [FAMILY, ACCENTS, FLAGS, SUBDIVISION, CONJUNCT, 'x', ' ', 'é', '😀'];
+    const pieces = [FAMILY, ACCENTS, FLAGS, SUBDIVISION, CONJUNCT, HALFWIDTH, 'x', ' ', 'é', '😀'];
     // A fixed pseudo-random sequence of pieces, so a failure repeats.
     let seed = 7;
     const next = () => (seed = (seed * 48271) % 2147483647);

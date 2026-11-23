@@ -13,25 +13,28 @@ const FIRST_WINDOW = 16;
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
-// Characters after which a boundary depends on text further back: a mark or other extender (an
-// Indic conjunct, GB9c), a joiner (an emoji sequence, GB11) and a regional indicator (a flag's
-// pair, GB12 and GB13). After any other character the boundary depends on that pair alone.
-const LOOKS_BACK = /[\p{M}‌‍\p{Emoji_Modifier}\p{Regional_Indicator}\u{E0020}-\u{E007F}]/u;
+// Characters after which a boundary depends on text further back: an extender (an Indic conjunct,
+// GB9c, also one carried through a halfwidth voiced sound mark), the zero width joiner (an emoji
+// sequence, GB11) and a regional indicator (a flag's pair, GB12 and GB13); marks and emoji
+// modifiers too, whatever the Unicode version. After any other character the boundary depends on
+// that pair alone.
+const LOOKS_BACK = /[\p{Grapheme_Extend}\p{M}\u200D\p{Emoji_Modifier}\p{Regional_Indicator}]/u;
 
 /**
  * The text of a block's content between two offsets, one character for each position: text as it
  * is, and each position of any other inline node as the object character.
  */
 export function positionText(block: ProseMirrorNode, from: number, to: number): string {
+  const { content } = block;
   let text = '';
-  block.forEach((child, offset) => {
-    const start = Math.max(from, offset);
-    const end = Math.min(to, offset + child.nodeSize);
-    if (end <= start) return;
-    text += child.isText
-      ? (child.text ?? '').slice(start - offset, end - offset)
-      : OBJECT_CHARACTER.repeat(end - start);
-  });
+  // Children are walked by their sizes alone up to the window, and none is read past it.
+  for (let index = 0, offset = 0; index < content.childCount && offset < to; index += 1) {
+    const child = content.child(index);
+    const [start, end] = [Math.max(from, offset), Math.min(to, offset + child.nodeSize)];
+    if (end > start && child.isText) text += (child.text ?? '').slice(start - offset, end - offset);
+    else if (end > start) text += OBJECT_CHARACTER.repeat(end - start);
+    offset += child.nodeSize;
+  }
   return text;
 }
 
