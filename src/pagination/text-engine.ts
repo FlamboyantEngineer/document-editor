@@ -32,12 +32,12 @@ import {
 } from '../model/index.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { createCounts } from './text-engine-counts.js';
 import type {
   DrawnLines,
   PagesTextEngine,
   RegionRoom,
   TextEngineOptions,
-  TextEngineStats,
 } from './text-engine-types.js';
 
 interface KeptBlock {
@@ -232,21 +232,6 @@ function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
   return view
     ? createDrawnAtomMeasurer({ view, host, scale: options.scale })
     : createDomAtomMeasurer({ host });
-}
-
-// The blocks laid out and left to the DOM so far, with why.
-function createCounts() {
-  const counts = { laid: 0, refused: 0, reasons: new Map<string, number>() };
-  return {
-    laid: () => {
-      counts.laid += 1;
-    },
-    refuse: (reason: string) => {
-      counts.refused += 1;
-      counts.reasons.set(reason, (counts.reasons.get(reason) ?? 0) + 1);
-    },
-    stats: (): TextEngineStats => ({ ...counts, reasons: new Map(counts.reasons) }),
-  };
 }
 
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
