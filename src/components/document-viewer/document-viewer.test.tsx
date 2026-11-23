@@ -156,4 +156,35 @@ describe('DocumentViewer', () => {
     expect(drawn(container)).toEqual([298, 299]);
     expect(sheets(container)[299]?.querySelector('h1')?.getAttribute('data-number')).toBe('300');
   });
+
+  it('DOCE-PAGINATION-13.8 adds the served faces to its document while it shows the pages', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const made: { family: string; descriptors: FontFaceDescriptors }[] = [];
+    class FakeFace {
+      constructor(family: string, _bytes: unknown, descriptors: FontFaceDescriptors) {
+        made.push({ family, descriptors });
+      }
+      load() {
+        return Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', FakeFace);
+    const added = new Set<unknown>();
+    const fonts = {
+      add: (face: unknown) => added.add(face),
+      delete: (face: unknown) => added.delete(face),
+    };
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    const bytes = new Uint8Array([0x77, 0x4f, 0x46, 0x46]);
+    const layout = {
+      ...tenPages(),
+      fonts: { faces: [{ family: 'Tinos', weight: 700, style: 'italic' as const, bytes }] },
+    };
+    const { unmount } = render(<DocumentViewer layout={layout} template={BASE_TEMPLATE} />);
+    expect(made).toEqual([{ family: 'Tinos', descriptors: { weight: '700', style: 'italic' } }]);
+    expect(added.size).toBe(1);
+    unmount();
+    expect(added.size).toBe(0);
+    Reflect.deleteProperty(document, 'fonts');
+  });
 });

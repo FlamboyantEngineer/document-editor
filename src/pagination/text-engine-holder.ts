@@ -108,6 +108,7 @@ export function holdTextEngine(options: {
         measureContext: fonts.measureContext,
         isFontServed: (family) => fonts?.phase === 'pretext' && fonts.isFontServed(family),
         reserve: fonts.reserve,
+        fonts: fonts.files,
       });
       return current;
     },

@@ -20,6 +20,7 @@ import { columnResizing } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
 import type { PagesLayout } from '../document/pages-layout.js';
 import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
+import type { FontFiles } from '../host/font-files.js';
 import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
 import {
@@ -209,6 +210,8 @@ export interface PagedProjection {
   textLines(): PageTextLines[];
   /** With `textLayout`, the pages' layout as data a viewer or a print draws (`pagesLayout`). */
   pagesLayout(): PagesLayout | null;
+  /** With `textLayout`, the served faces the pages are measured and drawn with; null without. */
+  servedFonts(): FontFiles | null;
   destroy(): void;
 }
 
@@ -391,6 +394,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       const settled = layoutSettled(live.pace.readiness.state(), options.measureIn);
       return pagesLayout(live.projection, { ...options, settled });
     },
+    servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {
       unlisten();
       live.cells.release();

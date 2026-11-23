@@ -14,6 +14,8 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
+import { servedTemplate } from '../pagination/served-template.js';
+import { fontFaceRules } from './font-faces.js';
 import {
   type PagesLayout,
   type PagesLayoutBlock,
@@ -158,6 +160,13 @@ function pageSheetRules(doc: ProseMirrorNode, template: TemplateFile): string {
 
 // A layout's document and its sections drawn with their pages, linked, numbered and allowed, as
 // every static drawing of the layout draws them.
+/**
+ * The template a layout's pages were drawn in: each generic family as the served family it stands
+ * for, as the editor's pages draw it (DOCE-PAGINATION-12.5).
+ */
+export const layoutTemplate = (layout: PagesLayout, template: TemplateFile): TemplateFile =>
+  servedTemplate(template, layout.fonts?.generics ?? {});
+
 function drawnLayout(layout: PagesLayout, template: TemplateFile, options: PrintPageOptions) {
   const doc = readPagesDocument(layout, createDocumentSchema(options.kit));
   const trees = pagesTrees(doc, layout, { template, draw: drawNode });
@@ -200,7 +209,7 @@ export function drawLayoutPages(
   template: TemplateFile,
   options: PrintPageOptions = {},
 ): LayoutDrawing {
-  const { doc, trees } = drawnLayout(layout, template, options);
+  const { doc, trees } = drawnLayout(layout, layoutTemplate(layout, template), options);
   const sections: LayoutSectionDrawing[] = [];
   doc.forEach((section, offset, index) => {
     const tree = trees[index];
@@ -230,7 +239,8 @@ export function renderLayoutPrintPage(
   template: TemplateFile,
   options: PrintPageOptions = {},
 ): string {
-  const { doc, trees } = drawnLayout(layout, template, options);
+  const drawn = layoutTemplate(layout, template);
+  const { doc, trees } = drawnLayout(layout, drawn, options);
   const markup = options.markup ?? 'all';
   const root = printElement(
     'div',
@@ -248,10 +258,12 @@ export function renderLayoutPrintPage(
   );
   return standalonePage(root, {
     ...options,
-    template,
+    template: drawn,
     bodyClass: 'de-static',
     rules: [
-      pageSheetRules(doc, template),
+      pageSheetRules(doc, drawn),
+      // The served faces the lines were broken in, so the print draws the same glyphs.
+      fontFaceRules(layout.fonts),
       '.pm-page { break-after: page; } .pm-section:last-child > .pm-page:last-child { break-after: auto; }',
       '@media print { body.de-static { margin: 0; } .de-static :is(.pm-section, .pm-page) { margin: 0 !important; gap: 0 !important; } }',
       '.de-static a[data-print-link] { color: inherit; text-decoration: inherit; }',
