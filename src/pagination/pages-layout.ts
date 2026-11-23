@@ -3,13 +3,17 @@
 // draws the same pages from it without measuring anything, so every output shows the layout's
 // lines and page breaks.
 
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type {
   PagesLayout,
   PagesLayoutBlock,
+  PagesLayoutMath,
   PagesLayoutNumber,
   PagesLayoutVariable,
 } from '../document/pages-layout.js';
+import { isMath, type TypesetMath } from '../engine/math-typeset.js';
+import { typesetMathOf } from '../engine/math-views.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
@@ -26,6 +30,11 @@ interface PagesLayoutOptions {
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
   /** Whether the pages are settled, with no font loading; the layout is provisional if not. */
   readonly settled?: boolean | undefined;
+  /**
+   * What a math node was typeset as, by the math views the pages draw with, which run on the
+   * canonical state; by default the pages' own state's.
+   */
+  readonly typesetOf?: ((node: ProseMirrorNode) => TypesetMath | null) | undefined;
 }
 
 // Each forced block of the pages, with the marks that draw its lines, whether the view draws them
@@ -80,6 +89,21 @@ function drawnNumbers(state: EditorState): PagesLayoutNumber[] {
   });
 }
 
+// Each math node's typeset MathML, or what it shows when invalid, as the pages draw it.
+function drawnMath(
+  state: EditorState,
+  typesetOf: (node: ProseMirrorNode) => TypesetMath | null,
+): PagesLayoutMath[] {
+  const math: PagesLayoutMath[] = [];
+  state.doc.descendants((node, pos) => {
+    if (!isMath(node)) return !node.isText;
+    const typeset = typesetOf(node);
+    if (typeset) math.push({ ...typeset, pos });
+    return false;
+  });
+  return math;
+}
+
 /**
  * Whether pages in a layout state are settled for good: laid out, and with no font loading in the
  * window they measure in, which may move their lines.
@@ -106,6 +130,7 @@ export function pagesLayout(
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
     numbers: drawnNumbers(state),
+    math: drawnMath(state, options.typesetOf ?? ((node) => typesetMathOf(state, node))),
     fonts: engine.fonts?.() ?? null,
     language: engine.language ?? '',
     provisional: options.settled === false || engine.provisional(),

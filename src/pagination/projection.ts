@@ -9,6 +9,7 @@
 // engine, renders `projection` with the `plugins` it carries, passes each of its transactions to
 // `receive`, and takes each new projection state from `onProjection`.
 
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   type Command,
   EditorState,
@@ -20,6 +21,7 @@ import { columnResizing } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
 import type { PagesLayout } from '../document/pages-layout.js';
 import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
+import { typesetMathOf } from '../engine/math-views.js';
 import type { FontFiles } from '../host/font-files.js';
 import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
@@ -384,7 +386,8 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     textLines: () => pageTextLines(live.projection),
     pagesLayout: () => {
       const settled = layoutSettled(live.pace.readiness.state(), options.measureIn);
-      return pagesLayout(live.projection, { ...options, settled });
+      const typesetOf = (node: ProseMirrorNode) => typesetMathOf(live.canonical, node);
+      return pagesLayout(live.projection, { ...options, settled, typesetOf });
     },
     servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {

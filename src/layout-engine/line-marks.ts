@@ -35,14 +35,31 @@ export interface JustifiedLines extends LineTable {
 
 const px = (value: number) => `${value.toFixed(3)}px`;
 
-// Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
-// pair, a joined emoji sequence, a flag or a letter with any number of combining marks.
-const lastCharacter = (node: ProseMirrorNode, line: TextLine) =>
-  clusterStart(node, line.to, line.from);
+// The inline node other than text that holds an offset of a block's content strictly inside it,
+// such as math, whose text a view never draws: a mark must take it whole.
+function atomAround(node: ProseMirrorNode, offset: number): { from: number; to: number } | null {
+  let around: { from: number; to: number } | null = null;
+  if (node.childCount === 1 && node.firstChild?.isText) return null;
+  node.forEach((child, start) => {
+    const to = start + child.nodeSize;
+    if (!child.isText && start < offset && offset < to) around = { from: start, to };
+  });
+  return around;
+}
 
-// Where a line's first grapheme cluster ends.
-const firstCharacterEnd = (node: ProseMirrorNode, line: TextLine) =>
-  clusterEnd(node, line.from, line.to);
+// Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
+// pair, a joined emoji sequence, a flag or a letter with any number of combining marks; or where
+// the inline node it ends with starts, such as math, which draws the mark on its own element.
+function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
+  const at = clusterStart(node, line.to, line.from);
+  return Math.max(line.from, atomAround(node, at)?.from ?? at);
+}
+
+// Where a line's first grapheme cluster ends, or the inline node it starts with.
+function firstCharacterEnd(node: ProseMirrorNode, line: TextLine): number {
+  const at = clusterEnd(node, line.from, line.to);
+  return Math.min(line.to, atomAround(node, at)?.to ?? at);
+}
 
 // The characters Chromium stretches by `word-spacing`: spaces and no-break spaces, not tabs.
 const spacesIn = (text: string) => (text.trimEnd().match(/[ \u00a0]/gu) ?? []).length;
