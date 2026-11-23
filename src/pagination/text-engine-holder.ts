@@ -122,7 +122,7 @@ export function holdTextEngine(options: {
       current?.destroy();
       version += 1;
       askFor(template);
-      current = made.createPagesTextEngine({
+      const engine = made.createPagesTextEngine({
         ...servedInputs(fonts),
         template,
         codeLineNumbers,
@@ -132,6 +132,8 @@ export function holdTextEngine(options: {
         view: options.view,
         hostViews: options.setting.hostViews,
       });
+      // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.9).
+      current = Object.assign(engine, { language });
       return current;
     },
     version: () => version,

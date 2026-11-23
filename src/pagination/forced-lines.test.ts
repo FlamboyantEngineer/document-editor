@@ -130,6 +130,18 @@ describe('forcedLines', () => {
     expect(directions).toEqual(['rtl', 'ltr', 'rtl']);
   });
 
+  it('DOCE-PAGINATION-9.12 draws a block, and its later part, in its first strong character’s Bidi_Class', () => {
+    const doc = pagesDoc([
+      [paragraph('\u2162 שלום', { dataId: 'n' }), paragraph('\u0640abc', { dataId: 't' })],
+      [paragraph('שלום again', { dataId: 'n', splitPartIndex: 1 })],
+    ]);
+    const state = stateWith(doc, stubEngine().engine);
+    const directions = drawn(state)
+      .filter((each) => each.class === 'de-forced-lines')
+      .map((each) => each.dir);
+    expect(directions).toEqual(['ltr', 'rtl', 'ltr']);
+  });
+
   it('DOCE-PAGINATION-9.12 keeps a block’s direction from its content, whatever words are deleted in it', () => {
     const doc = pagesDoc([[paragraph('שלום world', { dataId: 'h' })]]);
     const at = positionOf(doc, 'שלום world') + 1;

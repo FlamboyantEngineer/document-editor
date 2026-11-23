@@ -161,3 +161,32 @@ test.describe('print on the layout engine lines', () => {
     expect(numbers.layout).toEqual(numbers.shown);
   });
 });
+
+test('DOCE-PAGINATION-13.9 prints and views the layout in the language the editor laid it out in', async ({
+  page,
+}) => {
+  await open(page, 'page-breaks-and-rules');
+  // The editor in Turkish on a page in English: the engine is made again in Turkish at the next
+  // layout, which a keystroke asks for.
+  await page
+    .locator('.lab-document-editor')
+    .evaluate((editor) => editor.setAttribute('lang', 'tr'));
+  await page
+    .locator('.de-forced-lines')
+    .first()
+    .click({ position: { x: 1, y: 4 } });
+  await page.keyboard.type('i');
+  await page.evaluate(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return window.stressLab.whenSettled();
+  });
+  expect(await page.evaluate(() => window.regressionLab.layout()?.language)).toBe('tr');
+  const languageOf = (html: string) =>
+    /^<!doctype html><html(?: lang="([^"]*)")?>/u.exec(html)?.[1] ?? null;
+  expect(languageOf(await printOf(page, 'snapshot'))).toBe('tr');
+  expect(languageOf(await printOf(page, 'layoutPrint'))).toBe('tr');
+  expect(await page.evaluate(() => window.regressionLab.showViewer())).toBe(true);
+  const viewer = page.getByRole('document', { name: 'Viewed document' });
+  await expect(viewer).toHaveAttribute('lang', 'tr');
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
+});

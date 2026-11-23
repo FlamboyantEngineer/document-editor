@@ -182,6 +182,9 @@ export function DocumentViewer(props: DocumentViewerProps) {
         data: { mode: 'reading', markup: options?.markup ?? 'all', layout: 'page' },
       })}
       data-text-layout="pretext"
+      // The language the pages were laid out in, whatever the host's page is in; empty for none,
+      // as around the editor's pages (DOCE-PAGINATION-9.7).
+      lang={layout.language}
       role="document"
       aria-label={label}
       style={style}

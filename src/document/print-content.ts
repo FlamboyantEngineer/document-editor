@@ -193,6 +193,8 @@ interface StandalonePage {
   /** The render's own rules, before the marker rules every print carries. */
   readonly rules: readonly string[];
   readonly bodyClass: string;
+  /** The language the page is in, on its root element; none when empty or absent. */
+  readonly language?: string | undefined;
 }
 
 /** A static render's root as a standalone HTML page, in the template's properties. */
@@ -205,7 +207,8 @@ export function standalonePage(root: PrintElement, page: StandalonePage): string
     .join('');
   const styles = (page.styles ?? []).map((css) => `<style>${css}</style>`).join('');
   return [
-    '<!doctype html><html><head><meta charset="utf-8">',
+    `<!doctype html><html${page.language ? ` lang="${escapeHtml(page.language)}"` : ''}>`,
+    '<head><meta charset="utf-8">',
     `<title>${escapeHtml(page.title ?? '')}</title>`,
     `<style>${page.rules[0] ?? ''} :root { color-scheme: light; ${properties} } `,
     page.rules.slice(1).join(''),
