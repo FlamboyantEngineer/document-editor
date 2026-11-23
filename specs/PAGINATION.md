@@ -973,7 +973,7 @@ Verification: `src/document/font-faces.test.ts`, `src/document/print-pages.test.
 
 ### DOCE-PAGINATION-13.9 - Links to pages the viewer has not drawn
 
-A link inside the viewer's pages to an anchor of theirs (a reference to a heading or object, a footnote marker or its entry's number, an abbreviation) shall go to it whether or not its page is drawn: the page holding the anchor is drawn as a page in view is (DOCE-PAGINATION-13.6), the anchor is scrolled into view, and the host page's address is left as it was. Each page drawn from a layout (`drawLayoutPages`) names the anchors it holds.
+A link inside the viewer's pages to an anchor of theirs (a reference to a heading or object, a footnote marker or its entry's number, an abbreviation) shall go to it whether or not its page is drawn: the page holding the anchor is drawn as a page in view is (DOCE-PAGINATION-13.6), the anchor is scrolled into view, and the host page's address is left as it was. Each page drawn from a layout (`drawLayoutPages`) names the anchors it holds. Only a link's ordinary activation is taken over: the main button or Enter with no modifier key, on a click no one cancelled before; a click with Control, Meta, Shift or Alt, or with another button, is left to the browser. A fragment is read percent-decoded, and as written when it does not decode (a literal `%`), the first of the two that names an anchor of the pages.
 
 Implementation: `src/document/print-pages.ts`, `src/components/document-viewer/document-viewer.tsx`
 Verification: `src/components/document-viewer/document-viewer.test.tsx`, `e2e/document-viewer.spec.ts`
@@ -984,3 +984,10 @@ Under `textLayout: 'pretext'`, the pages' layout shall hold the language the pag
 
 Implementation: `src/pagination/text-engine-holder.ts`, `src/pagination/pages-layout.ts`, `src/document/pages-layout.ts`, `src/document/print-content.ts`, `src/document/print-pages.ts`, `src/components/document-viewer/document-viewer.tsx`
 Verification: `src/pagination/pages-layout.test.ts`, `src/document/print-pages.test.ts`, `src/components/document-viewer/document-viewer.test.tsx`, `e2e/print-lines.spec.ts`
+
+### DOCE-PAGINATION-13.11 - Footnotes drawn on more than one page
+
+A footnote marker the pages draw on more than one page, as a table's repeated header row draws it on each page it repeats on (DOCE-PAGINATION-4.5), shall be numbered in each static drawing of the layout (the print, the viewer) by the page each occurrence is on, under the template's footnote numbering, as the editor's pages number it, and its entry on each of those pages with it. Each page's first marker of the footnote shall link to the entry on its own page and that entry's number back to it: on the first page the footnote is drawn on under its canonical anchors (`fnref-<id>`, `fn-<id>`, DOCE-EDITOR-6.21), on the n-th page under `fnref-<id>~n` and `fn-<id>~n`, so a link goes to the page it is read on. A marker whose page holds no entry of its footnote links to the footnote's first entry; the part of an entry continued from the page before takes no anchor. A snapshot of the pages links them the same way. The footnote's id in the content is the same on every page.
+
+Implementation: `src/engine/footnote-anchors.ts`, `src/document/print-content.ts`, `src/engine/print-links.ts`
+Verification: `src/engine/footnote-anchors.test.ts`, `src/document/print-pages.test.ts`, `src/engine/print-links.test.ts`, `e2e/footnote-occurrences.spec.ts`
