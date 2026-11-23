@@ -66,7 +66,7 @@ export type {
 } from './pages-layout.js';
 export type { PrintPageOptions } from './print.js';
 export { renderPrintPage } from './print.js';
-export { renderLayoutPrintPage } from './print-pages.js';
+export { type LayoutPrintOptions, renderLayoutPrintPage } from './print-pages.js';
 export type {
   ScriptCaption,
   ScriptCell,

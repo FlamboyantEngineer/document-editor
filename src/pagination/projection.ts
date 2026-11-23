@@ -386,8 +386,9 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     textLines: () => pageTextLines(live.projection),
     pagesLayout: () => {
       const settled = layoutSettled(live.pace.readiness.state(), options.measureIn);
+      const markup = options.textLayout?.markup?.() ?? 'all';
       const typesetOf = (node: ProseMirrorNode) => typesetMathOf(live.canonical, node);
-      return pagesLayout(live.projection, { ...options, settled, typesetOf });
+      return pagesLayout(live.projection, { ...options, settled, markup, typesetOf });
     },
     servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {

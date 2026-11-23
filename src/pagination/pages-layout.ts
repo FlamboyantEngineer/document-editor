@@ -14,6 +14,7 @@ import type {
 } from '../document/pages-layout.js';
 import { isMath, type TypesetMath } from '../engine/math-typeset.js';
 import { typesetMathOf } from '../engine/math-views.js';
+import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
@@ -30,6 +31,8 @@ interface PagesLayoutOptions {
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
   /** Whether the pages are settled, with no font loading; the layout is provisional if not. */
   readonly settled?: boolean | undefined;
+  /** How the pages were laid out showing suggestions; all their markup when absent. */
+  readonly markup?: SuggestionMarkup | undefined;
   /**
    * What a math node was typeset as, by the math views the pages draw with, which run on the
    * canonical state; by default the pages' own state's.
@@ -127,6 +130,7 @@ export function pagesLayout(
     formatVersion: 1,
     doc: state.doc.toJSON() as Record<string, unknown>,
     footnoteNumbering: options.footnoteNumbering ?? 'document',
+    markup: options.markup ?? 'all',
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
     numbers: drawnNumbers(state),

@@ -10,6 +10,7 @@ import type { Plugin, PluginKey } from 'prosemirror-state';
 import type { RefObject } from 'react';
 import { proofingKey, searchKey, searchPaneKey } from '../../engine/index.js';
 import { codeLineNumbers } from '../../engine/object-views.js';
+import type { SuggestionMarkup } from '../../layout-engine/hidden-suggestions.js';
 import {
   createLayoutRules,
   findTemplateSection,
@@ -40,7 +41,14 @@ import type { PagedEditor } from './use-paged-projection.js';
 // What lays the pages out: a projection of the state.
 export type LayoutRunner = Pick<
   PagedProjection,
-  'whenSettled' | 'stats' | 'textLines' | 'pagesLayout' | 'servedFonts' | 'drawAllLines'
+  | 'whenSettled'
+  | 'stats'
+  | 'textLines'
+  | 'pagesLayout'
+  | 'servedFonts'
+  | 'drawAllLines'
+  | 'refresh'
+  | 'layout'
 >;
 
 // The height inside the page margins of a section's template scope.
@@ -141,13 +149,15 @@ interface PagingSettings {
   readonly textLayout: TextLayoutMode;
   /** The served fonts the layout engine measures with (DOCE-HOST-1.14.1). */
   readonly fonts: () => PromiseLike<PagesFonts> | null;
+  /** The markup the layout engine lays suggestions out in now (DOCE-PAGINATION-11.12). */
+  readonly markup: () => SuggestionMarkup;
 }
 
 // The layout engine lays the text out with the template the pages show now, measured with the
 // served fonts, which the pages wait for (DOCE-HOST-1.14.1), and code beside the gutter of line
 // numbers the state's object views draw.
 function textLayoutOf(
-  { textLayout, fonts: served }: PagingSettings,
+  { textLayout, fonts: served, markup }: PagingSettings,
   latest: RefObject<DocumentLayoutOptions>,
 ) {
   const fonts = textLayout === 'pretext' ? served() : null;
@@ -157,6 +167,7 @@ function textLayoutOf(
     template: () => latest.current.template,
     codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
     hostViews: Object.keys(latest.current.nodeViews ?? {}),
+    markup,
   };
 }
 

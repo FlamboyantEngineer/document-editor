@@ -16,7 +16,6 @@ import {
   type AutomationResult,
   commentAnchors,
   documentSnapshot,
-  documentSnapshotWhenReady,
   type EditAddress,
   isActive,
   type ReadySnapshotOptions,
@@ -29,7 +28,9 @@ import {
   snapshotOutline,
   type SnapshotOutlineEntry,
 } from '../../engine/index.js';
+import { snapshotOnceReady } from '../../engine/snapshot-ready.js';
 import type { ReferenceSourceAdapter, SelectionActionsAdapter } from '../../host/index.js';
+import type { SuggestionMarkup } from '../../layout-engine/hidden-suggestions.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { CitationHref } from '../../model/schema/reference-mark.js';
 import type { LayoutState, PageTextLines, PaginationStats } from '../../pagination/index.js';
@@ -42,7 +43,7 @@ import type {
 } from '../document-comments/document-comments.js';
 import type { EditorPanes, RevealPaneOptions } from '../document-panels/document-panels.js';
 import type { FindBarMode } from './document-find-bar.js';
-import type { LayoutProgress } from './use-document-layout.js';
+import type { LayoutProgress } from './layout-progress.js';
 import {
   measureVisibleElements,
   measureVisiblePages,
@@ -141,9 +142,10 @@ export interface DocumentEditorHandle {
   /**
    * With `textLayout: 'pretext'`, the pages' layout as data: the pages' document, each forced
    * block's line marks and the variables as shown, which `renderPrintPage` and a viewer draw
-   * without measuring (DOCE-PAGINATION-13.2); null otherwise.
+   * without measuring (DOCE-PAGINATION-13.2); null otherwise. Laid out in the editor's markup, or
+   * in `markup`, the suggestions it hides taking no room (DOCE-PAGINATION-11.12).
    */
-  pagesLayout(): PagesLayout | null;
+  pagesLayout(options?: PagesLayoutRequest): PagesLayout | null;
   /**
    * With `textLayout: 'pretext'`, draws every page on the layout engine's lines, as for printing or
    * checking every page, or, given false, only the pages near the screen again
@@ -240,6 +242,21 @@ function servedStyles(layout: LayoutProgress, styles: readonly string[] | undefi
   return faces ? [faces, ...(styles ?? [])] : styles;
 }
 
+/** What a layout handed over is laid out for. */
+export interface PagesLayoutRequest {
+  /**
+   * How it shows suggestions; by default as the editor shows them, its simple markup as `final`.
+   * The pages are laid out in it for that moment, the suggestions it hides taking no room.
+   */
+  readonly markup?: SuggestionMarkup | undefined;
+}
+
+// Takes something of the pages laid out in a markup, when one is asked for.
+const inMarkupOf =
+  <T>(layout: LayoutProgress, markup: SuggestionMarkup | undefined) =>
+  (take: () => T): T =>
+    markup ? layout.inMarkup(markup, take) : take();
+
 // The handle's snapshots of the view as it shows now.
 function snapshotMethods(
   view: EditorView | null,
@@ -256,27 +273,37 @@ function snapshotMethods(
   const citationHref = hrefOf(references);
   return {
     // Every page is drawn on the layout engine's lines while the snapshot is taken.
+    // In the snapshot's markup, its pages are laid out in it while it is taken.
     exportSnapshot: (options) =>
       view
         ? allLines(layout, () =>
-            documentSnapshot(view, {
-              citationHref,
-              ...options,
-              styles: servedStyles(layout, options?.styles),
-              template,
-            }),
+            inMarkupOf<string>(
+              layout,
+              options?.markup,
+            )(() =>
+              documentSnapshot(view, {
+                citationHref,
+                ...options,
+                styles: servedStyles(layout, options?.styles),
+                template,
+              }),
+            ),
           )
         : null,
     exportSnapshotAsync: async (options) =>
       view
         ? allLines(layout, () =>
-            documentSnapshotWhenReady(view, {
-              citationHref,
-              ...options,
-              styles: servedStyles(layout, options?.styles),
-              template,
-              whenSettled: layout.whenSettled,
-            }),
+            snapshotOnceReady(
+              view,
+              {
+                citationHref,
+                ...options,
+                styles: servedStyles(layout, options?.styles),
+                template,
+                whenSettled: layout.whenSettled,
+              },
+              inMarkupOf(layout, options?.markup),
+            ),
           )
         : null,
     snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
@@ -362,7 +389,8 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       textLines: layout.textLines,
-      pagesLayout: layout.pagesLayout,
+      pagesLayout: (options) =>
+        inMarkupOf<PagesLayout | null>(layout, options?.markup)(layout.pagesLayout),
       drawAllLines: layout.drawAllLines,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
       visiblePages: () => (view ? measureVisiblePages(view) : []),

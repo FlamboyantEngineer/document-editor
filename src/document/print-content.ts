@@ -200,6 +200,11 @@ function image(element: PrintElement, resolveImage: ResolveImage | undefined) {
   if (resolved !== null) element.attrs.set('src', resolved);
 }
 
+// Whether an element is a suggestion's: an insertion or deletion with an id, or with only its
+// comment thread's id, as the schema reads either (DOCE-EDITOR-6.16).
+const isSuggestion = ({ attrs }: PrintElement) =>
+  attrs.has('data-id') || attrs.has('data-comment-id');
+
 // The suggestions a markup leaves out, and those it shows as plain text.
 function suggestionTags(markup: PrintMarkup) {
   if (markup === 'final') return { dropped: 'del', kept: 'ins' };
@@ -211,7 +216,7 @@ function suggestionTags(markup: PrintMarkup) {
 // content, or keeps it.
 function allowing(tree: PrintElement, markup: PrintMarkup): 'drop' | 'unwrap' | 'keep' {
   const tags = suggestionTags(markup);
-  const suggestion = tree.attrs.has('data-id') ? tree.tag : '';
+  const suggestion = isSuggestion(tree) ? tree.tag : '';
   if (SNAPSHOT_DROPPED.has(tree.tag) || suggestion === tags?.dropped) return 'drop';
   if (!SNAPSHOT_ELEMENTS.has(tree.tag) || suggestion === tags?.kept) return 'unwrap';
   return 'keep';

@@ -206,10 +206,16 @@ function pageSheetRules(doc: ProseMirrorNode, template: TemplateFile): string {
 export const layoutTemplate = (layout: PagesLayout, template: TemplateFile): TemplateFile =>
   servedTemplate(template, layout.fonts?.generics ?? {});
 
+/**
+ * What a static drawing of a layout holds beside it: as a print's, but its suggestions show as the
+ * layout was laid out with them (`PagesLayout.markup`, DOCE-PAGINATION-11.12).
+ */
+export type LayoutPrintOptions = Omit<PrintPageOptions, 'markup'>;
+
 // A layout's document and its sections drawn with their pages, linked and numbered through the
 // whole document, as every static drawing of the layout draws them; their images and the
 // allow-list come after, page by page where a view draws only some (DOCE-PAGINATION-13.6).
-function linkedLayout(layout: PagesLayout, template: TemplateFile, options: PrintPageOptions) {
+function linkedLayout(layout: PagesLayout, template: TemplateFile, options: LayoutPrintOptions) {
   const doc = readPagesDocument(layout, createDocumentSchema(options.kit));
   const trees = pagesTrees(doc, layout, { template, draw: drawNode });
   numberFootnotes(trees, doc, layout.footnoteNumbering);
@@ -217,10 +223,15 @@ function linkedLayout(layout: PagesLayout, template: TemplateFile, options: Prin
   return { doc, trees };
 }
 
-// Trees with their images from the host's addresses, held to the allow-list.
-function finished(trees: PrintTree[], options: PrintPageOptions): PrintTree[] {
+// Trees with their images from the host's addresses, held to the allow-list as the layout's markup
+// shows its suggestions.
+function finished(
+  trees: PrintTree[],
+  layout: PagesLayout,
+  options: LayoutPrintOptions,
+): PrintTree[] {
   drawImages(trees, options.resolveImage);
-  return allow(trees, options.markup ?? 'all');
+  return allow(trees, layout.markup);
 }
 
 /** One page of a layout drawn on its own: where it is, its element's attributes, its content. */
@@ -265,10 +276,10 @@ function allowedAttrs(tree: PrintTree | undefined, markup: PrintMarkup) {
 export function drawLayoutPages(
   layout: PagesLayout,
   template: TemplateFile,
-  options: PrintPageOptions = {},
+  options: LayoutPrintOptions = {},
 ): LayoutDrawing {
   const { doc, trees } = linkedLayout(layout, layoutTemplate(layout, template), options);
-  const markup = options.markup ?? 'all';
+  const { markup } = layout;
   const sections: LayoutSectionDrawing[] = [];
   doc.forEach((section, offset, index) => {
     const tree = trees[index];
@@ -280,7 +291,7 @@ export function drawLayoutPages(
       pages.push({
         pos: offset + 1 + at,
         attrs: allowedAttrs(page, markup),
-        html: () => (html ??= printHtml(finished(page?.children ?? [], options))),
+        html: () => (html ??= printHtml(finished(page?.children ?? [], layout, options))),
         anchors: allowedIds(page?.children ?? [], markup),
       });
     });
@@ -298,11 +309,11 @@ export function drawLayoutPages(
 export function renderLayoutPrintPage(
   layout: PagesLayout,
   template: TemplateFile,
-  options: PrintPageOptions = {},
+  options: LayoutPrintOptions = {},
 ): string {
   const drawn = layoutTemplate(layout, template);
   const { doc, trees } = linkedLayout(layout, drawn, options);
-  const markup = options.markup ?? 'all';
+  const { markup } = layout;
   const root = printElement(
     'div',
     {
@@ -315,7 +326,7 @@ export function renderLayoutPrintPage(
     },
     // The pages' own element, with the classes the editor's view has, which the stylesheets style
     // and where their counters start.
-    [printElement('div', { class: VIEW_CLASSES }, finished(trees, options))],
+    [printElement('div', { class: VIEW_CLASSES }, finished(trees, layout, options))],
   );
   return standalonePage(root, {
     ...options,

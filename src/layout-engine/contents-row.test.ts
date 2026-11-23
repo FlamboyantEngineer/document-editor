@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { contentsTextTypography, contentsTypography } from './contents-typography.js';
 import { createTextLayout } from './text-layout.js';
-import { contentsTypography } from './typography.js';
 
 // The fake Canvas advances each character half the font's size and a space a quarter: at the
 // base template's 12px, a character is 6px and a space 3px.
@@ -115,6 +115,72 @@ describe('list of contents rows', () => {
   it('DOCE-PAGINATION-9.13 refuses a row whose level font is not served', () => {
     const engine = createTextLayout({ template: BASE_TEMPLATE, isFontServed: () => false });
     expect(engine.layoutContentsRow({ level: 1, text: 'a', page: '1' }, place)).toEqual({
+      ok: false,
+      reason: 'font not served: Arial',
+    });
+  });
+});
+
+describe('list of contents title and empty message', () => {
+  const titled: TemplateFile = {
+    ...BASE_TEMPLATE,
+    styles: {
+      ...BASE_TEMPLATE.styles,
+      paragraph: { ...BASE_TEMPLATE.styles?.paragraph, lineHeight: 1.25 },
+      contents: {
+        ...BASE_TEMPLATE.styles?.contents,
+        kinds: { toc: { title: { size: '20px', italic: true } } },
+      },
+    },
+  };
+
+  it('DOCE-PAGINATION-9.14 lays the title out in its kind’s title font, unset values 16px, bold and upright', () => {
+    expect(
+      contentsTextTypography({ kind: 'toc', role: 'title' }, { template: BASE_TEMPLATE }),
+    ).toMatchObject({
+      font: { family: 'Arial', size: 16, weight: 700, italic: false },
+      leading: 24,
+      align: 'left',
+    });
+    // The title's own size, at the paragraph's line height as the page content sets it.
+    expect(
+      contentsTextTypography({ kind: 'toc', role: 'title' }, { template: titled }),
+    ).toMatchObject({
+      font: { family: 'Arial', size: 20, weight: 700, italic: true },
+      leading: 25,
+    });
+    const engine = createTextLayout({ template: BASE_TEMPLATE });
+    // At 16px a character is 8px and a space 4px: "aaaa bbbb" is 72px, and " cccc" would pass 100px.
+    const layout = engine.layoutContentsText('aaaa bbbb cccc', {
+      width: 100,
+      kind: 'toc',
+      role: 'title',
+    });
+    if (!layout.ok) throw new Error(layout.reason);
+    expect(
+      layout.table.lines.map(({ from, to, left, height }) => ({ from, to, left, height })),
+    ).toEqual([
+      { from: 0, to: 10, left: 0, height: 24 },
+      { from: 10, to: 14, left: 0, height: 24 },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-9.14 lays the empty message out in the paragraph’s font, italic', () => {
+    const engine = createTextLayout({ template: titled });
+    const layout = engine.layoutContentsText('None', { width: 100, kind: 'toc', role: 'empty' });
+    expect(layout).toMatchObject({
+      ok: true,
+      font: { family: 'Arial', size: 12, weight: 400, italic: true },
+    });
+    if (!layout.ok) throw new Error(layout.reason);
+    expect(layout.table.lines).toMatchObject([{ from: 0, to: 4, height: 15 }]);
+  });
+
+  it('DOCE-PAGINATION-9.14 refuses a title whose font is not served', () => {
+    const engine = createTextLayout({ template: BASE_TEMPLATE, isFontServed: () => false });
+    expect(
+      engine.layoutContentsText('Contents', { width: 100, kind: 'toc', role: 'title' }),
+    ).toEqual({
       ok: false,
       reason: 'font not served: Arial',
     });

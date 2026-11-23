@@ -2,7 +2,7 @@
 // the page's `document` query parameter, in the document editor with its scrolling frame and
 // status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view; with
 // `compare`, the changes since it opened as change bars; with `zoom`, at that zoom in percent; with
-// `debug`, with the layout debugging shown. Its linked code resolves to sample lines.
+// `markup`, its suggestions shown in that markup; with `debug`, with the layout debugging shown. Its linked code resolves to sample lines.
 // The regression scenarios (`e2e/regression.spec.ts`) read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
@@ -103,6 +103,11 @@ const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 1
 const DEBUG = new URLSearchParams(window.location.search).has('debug')
   ? ({ pages: true, blocks: true } as const)
   : undefined;
+
+// How the editor shows suggestions (`markup`): all their markup by default, or `final`, `simple`
+// or `original`.
+const MARKUP_QUERY = new URLSearchParams(window.location.search).get('markup');
+const MARKUP = (['final', 'simple', 'original'] as const).find((each) => each === MARKUP_QUERY);
 
 // Whether the host draws quotes with a React view of its own (`hostViews`).
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
@@ -209,6 +214,7 @@ function RegressionLab() {
         onStateChange={setState}
         template={template}
         layout={LAYOUT}
+        markup={MARKUP}
         zoom={zoom}
         textLayout={TEXT_LAYOUT}
         fonts={ADAPTERS[fonts]}
