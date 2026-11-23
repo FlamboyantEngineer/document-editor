@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { findNode, parseMarkup } from '../../test/document-markup.js';
 import { type LayoutBlock, splitParagraph } from '../model/index.js';
+import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
 import { createPagesTextEngine } from './text-engine.js';
 import { holdTextEngine } from './text-engine-holder.js';
 
@@ -56,6 +58,71 @@ describe('createPagesTextEngine', () => {
     expect(engine.lines(node, { scope: null })).toBe(table);
     engine.destroy();
   });
+
+  it('DOCE-PAGINATION-10.9 lays blocks out with the numbers the stylesheet states where it measures', () => {
+    const measureIn = document.createElement('div');
+    measureIn.style.setProperty('--de-quote-spacing', '30px');
+    document.body.append(measureIn);
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn,
+      onAtomsSettled: () => undefined,
+    });
+    const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
+    if (!quote) throw new Error('no quote');
+    expect(engine.measureBlock(quote, null)).toMatchObject({ marginTop: 30, marginBottom: 30 });
+    engine.destroy();
+    measureIn.remove();
+  });
+});
+
+describe('the engine on page regions', () => {
+  const schema = createDocumentSchema();
+  const type = (name: string) => {
+    const found = schema.nodes[name];
+    if (!found) throw new Error(`no ${name}`);
+    return found;
+  };
+  const text = (value: string) => schema.text(value);
+  const engine = () =>
+    createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+    });
+
+  it('DOCE-PAGINATION-11.10 lays a header out with its gap, keeps it by node, and refuses a block', () => {
+    const pages = engine();
+    const header = type('page_header').create(null, [
+      type('paragraph').create(null, text('Header')),
+    ]);
+    const room = pages.measureRegion(header, null);
+    expect(room?.height).toBeGreaterThan(0);
+    expect(room?.children).toHaveLength(1);
+    expect(pages.measureRegion(header, null)).toBe(room);
+    expect(pages.measureRegion(type('page_header').create(), null)).toMatchObject({
+      height: 0,
+    });
+    expect(pages.measureRegion(paragraph(WORDS), null)).toBeNull();
+    pages.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.10 gives a footnote area the shape measured footnotes take', () => {
+    const pages = engine();
+    const entry = (id: string) =>
+      type('footnote_entry').create({ footnoteId: id }, text(`Note ${id}`));
+    const area = type('page_footnotes').create(null, [entry('a'), entry('b')]);
+    const room = pages.measureRegion(area, null);
+    if (!room) throw new Error('no room');
+    const [first, second] = room.children;
+    if (!first || !second) throw new Error('no entries');
+    const measured = footnoteAreaOf(area, room);
+    expect(measured.entries.get('a')).toBeCloseTo(second.top - first.top);
+    expect(measured.last?.get('b')).toBeCloseTo(second.bottom - second.top);
+    expect(measured.overhead).toBeCloseTo(room.height - (second.bottom - first.top));
+    expect(footnoteAreaHeight(measured, ['a', 'b'])).toBeCloseTo(room.height);
+    pages.destroy();
+  });
 });
 
 describe('holdTextEngine', () => {
@@ -77,6 +144,77 @@ describe('holdTextEngine', () => {
     expect(holder.version()).toBe(version + 1);
     holder.destroy();
     expect(holder.engine()).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-5.6 makes the engine again when font faces load, and tells it', async () => {
+    const fonts = new EventTarget();
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    try {
+      let changes = 0;
+      const holder = holdTextEngine({
+        setting: { template: () => BASE_TEMPLATE },
+        measureIn: document.createElement('div'),
+        changed: () => {
+          changes += 1;
+        },
+      });
+      await holder.loaded;
+      const first = holder.engine();
+      const version = holder.version();
+      fonts.dispatchEvent(new Event('loadingdone'));
+      expect(changes).toBe(1);
+      expect(holder.version()).toBe(version + 1);
+      const second = holder.engine();
+      expect(second).not.toBe(first);
+      expect(second?.measureBlock(paragraph(WORDS), null)?.height).toBeGreaterThan(0);
+      holder.destroy();
+      fonts.dispatchEvent(new Event('loadingdone'));
+      expect(changes).toBe(1);
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+    }
+  });
+  it('DOCE-PAGINATION-9.1 lays a kept node out again with the widths of faces that loaded later', async () => {
+    const fonts = new EventTarget();
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    let scale = 1;
+    class WideningContext {
+      font = '10px sans-serif';
+      letterSpacing = '0px';
+      textRendering = 'auto';
+      fontKerning = 'auto';
+      measureText(text: string) {
+        const size = Number(/(\d+(?:\.\d+)?)px/u.exec(this.font)?.[1] ?? 16);
+        return { width: [...text].length * (size / 2) * scale };
+      }
+    }
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class {
+        getContext() {
+          return new WideningContext();
+        }
+      },
+    );
+    try {
+      const holder = holdTextEngine({
+        setting: { template: () => BASE_TEMPLATE },
+        measureIn: document.createElement('div'),
+        changed: () => undefined,
+      });
+      await holder.loaded;
+      const node = paragraph(WORDS);
+      const before = holder.engine()?.measureBlock(node, null)?.height ?? 0;
+      // A wider face loads: the remade engine prepares the same node again, at its widths.
+      scale = 2;
+      fonts.dispatchEvent(new Event('loadingdone'));
+      const after = holder.engine()?.measureBlock(node, null)?.height ?? 0;
+      expect(before).toBeGreaterThan(0);
+      expect(after).toBeGreaterThan(before);
+      holder.destroy();
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+    }
   });
 });
 

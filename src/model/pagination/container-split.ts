@@ -23,6 +23,11 @@ export interface ContainerMeasurement {
    * its fragments takes again; 0 by default.
    */
   readonly overhead?: number | undefined;
+  /**
+   * For a table held with its caption, the caption's box, which a later part opening with a body
+   * row does not show; 0 by default.
+   */
+  readonly caption?: number | undefined;
 }
 
 /** Whether a layout block carries a container measurement. */

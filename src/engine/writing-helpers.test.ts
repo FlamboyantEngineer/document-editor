@@ -1,7 +1,8 @@
+import { undo } from 'prosemirror-history';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
 import { markRemote } from './transaction-kind.js';
 import { contentLimitOf, documentCounts } from './writing-helpers.js';
@@ -118,5 +119,56 @@ describe('the trailing paragraph', () => {
     );
     state = state.apply(state.tr.insertText('!'));
     expect(blocks(state).at(-1)).toBe('horizontal_rule');
+  });
+});
+
+describe('a paragraph in an emptied section', () => {
+  // Two sections, the second one paragraph: everything in it is deleted.
+  const twoSections = () =>
+    readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          { name: null, content: [paragraph('First')] },
+          { name: null, content: [paragraph('Second'), { type: 'rule' }] },
+        ],
+      },
+      documentSchema,
+    ).doc;
+  const emptied = (state: EditorState) => {
+    const page = state.doc.child(1).child(0);
+    const start = state.doc.child(0).nodeSize + 2 + (page.child(0).nodeSize ?? 0) + 1;
+    return state.tr.delete(start, start + (page.child(1).content.size ?? 0));
+  };
+  const second = (state: EditorState) => state.doc.child(1).child(0).child(1);
+
+  it('DOCE-EDITING-10.4 leaves one empty paragraph, as the stored form reads back, undone with the edit', () => {
+    const plugins = createDocumentEditing(documentSchema);
+    let state = EditorState.create({ doc: twoSections(), plugins });
+    const before = state.doc;
+    state = state.apply(emptied(state));
+    expect(second(state).childCount).toBe(1);
+    expect(second(state).firstChild?.type.name).toBe('paragraph');
+    expect(second(state).firstChild?.content.size).toBe(0);
+    const read = readDocumentFile(writeDocumentFile(state.doc), documentSchema).doc;
+    expect(second({ doc: read } as EditorState).childCount).toBe(1);
+    let undone = state;
+    undo(state, (tr) => (undone = state.apply(tr)));
+    // Element ids the first edit assigned stay; the blocks and their text come back.
+    const shape = (doc: typeof before) => {
+      const found: string[] = [];
+      second({ doc } as EditorState).forEach((node) =>
+        found.push(`${node.type.name}:${node.textContent}`),
+      );
+      return found;
+    };
+    expect(shape(undone.doc)).toEqual(shape(before));
+  });
+
+  it('DOCE-EDITING-10.4 adds none after a remote change', () => {
+    const plugins = createDocumentEditing(documentSchema);
+    let state = EditorState.create({ doc: twoSections(), plugins });
+    state = state.apply(markRemote(emptied(state)));
+    expect(second(state).childCount).toBe(0);
   });
 });

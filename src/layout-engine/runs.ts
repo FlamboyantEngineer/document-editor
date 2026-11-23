@@ -168,8 +168,8 @@ export function buildRuns(input: RunInput): TextRuns {
     } else if (child.isText) {
       addText(run, { item: textItem(child, typography), offset, box: textBox(child, input) });
     } else if (child.type.name === 'template_variable') {
-      const item = { ...textItem(child, typography), break: 'never' as const };
-      addText(run, { item, offset, box: textBox(child, input) });
+      // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
+      failure = 'template variable';
     } else {
       failure = addAtom(run, { child, offset, input });
     }

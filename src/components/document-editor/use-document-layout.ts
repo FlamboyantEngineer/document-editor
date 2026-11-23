@@ -56,6 +56,7 @@ import {
   type PaginationStats,
   type TextLayoutMode,
 } from '../../pagination/index.js';
+import { createAllLines } from './all-lines.js';
 import type { DocumentEditorDebug } from './document-editor.js';
 import { type EditorContentsOptions, lackedPlugins } from './editor-contents.js';
 import { layoutOwnPlugins } from './layout-own-plugins.js';
@@ -277,20 +278,23 @@ export interface LayoutProgress {
   pagesLayout(): PagesLayout | null;
   /** With the layout engine, draws every page on its lines, or only those near the screen again. */
   drawAllLines(all: boolean): void;
+  /** Draws every page on the engine's lines until the function it returns is called. */
+  holdAllLines(): () => void;
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
 function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgress {
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const allLines = createAllLines((all) => active.current?.drawAllLines(all));
+    return {
       whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
       stats: () => active.current?.stats() ?? null,
       textLines: () => active.current?.textLines() ?? [],
       pagesLayout: () => active.current?.pagesLayout() ?? null,
-      drawAllLines: (all) => active.current?.drawAllLines(all),
-    }),
-    [active],
-  );
+      drawAllLines: allLines.drawAll,
+      holdAllLines: allLines.hold,
+    };
+  }, [active]);
 }
 
 /**

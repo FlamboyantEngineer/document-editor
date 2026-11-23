@@ -1,5 +1,5 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -70,6 +70,29 @@ describe('followDocument', () => {
     ).doc;
     followDocument(view, one);
     expect(view.state.doc.eq(one)).toBe(true);
+    view.destroy();
+  });
+
+  it('DOCE-PAGINATION-5.13 holds exactly the document it follows, whatever its plugins append', () => {
+    // A plugin that rewrites the first paragraph after every writer's change, as a page region's
+    // reset does with a footer.
+    const rewrite = new Plugin({
+      appendTransaction: (transactions, _before, state) => {
+        if (!transactions.some((tr) => tr.docChanged)) return null;
+        const at = nodePos(state.doc, 'paragraph', 0) + 1;
+        const node = state.doc.nodeAt(at - 1);
+        if (!node || node.textContent === 'Kept') return null;
+        return state.tr.insertText('Kept', at, at + node.content.size);
+      },
+    });
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc: twoSections(), plugins: [rewrite] }),
+    });
+    const tr = view.state.tr;
+    tr.insertText('!', nodePos(tr.doc, 'paragraph', 0) + 2);
+    const changed = documentSchema.nodeFromJSON(tr.doc.toJSON());
+    followDocument(view, changed);
+    expect(view.state.doc.eq(changed)).toBe(true);
     view.destroy();
   });
 });

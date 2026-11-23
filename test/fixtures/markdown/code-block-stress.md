@@ -223,7 +223,7 @@ export const reading178 = sensor.read(178); // line 178
 export const reading179 = sensor.read(179); // line 179
 ```
 
-The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top. The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top. The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top. The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top. The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top. The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top.
+The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top. The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top. The block after this paragraph starts low on its page, so it splits in the middle of the page rather than at its top.
 
 ```typescript
 export const reading300 = sensor.read(300); // line 300

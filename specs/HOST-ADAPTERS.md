@@ -113,8 +113,8 @@ Verification: `src/layout-engine/font-files/measurer.test.ts`
 
 The faces shall be checked before they are read: a face with no bytes, a style other than `normal` or `italic`, a weight outside 1 to 1000, or a file that is not WOFF 1.0 or OpenType (such as WOFF2) shall be left out with a problem naming the face, and nothing shall throw. A weight or style the host does not serve is matched to the nearest served face as CSS matches it, and nothing is synthesised: the drawn pages turn `font-synthesis` off so drawing matches measuring.
 
-Implementation: `src/layout-engine/font-files/host-faces.ts`, `src/layout-engine/font-files/faces.ts`
-Verification: `src/layout-engine/font-files/host-faces.test.ts`, `src/layout-engine/font-files/measurer.test.ts`
+Implementation: `src/layout-engine/font-files/host-faces.ts`, `src/layout-engine/font-files/faces.ts`, `labs/reference/document.css`
+Verification: `src/layout-engine/font-files/host-faces.test.ts`, `src/layout-engine/font-files/measurer.test.ts`, `e2e/text-layout.spec.ts`
 
 #### DOCE-HOST-1.14.3 - Characters no served face has
 

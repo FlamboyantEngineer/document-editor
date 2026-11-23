@@ -22,16 +22,22 @@ export interface DrawnPages {
   readonly forced: readonly (readonly string[])[];
 }
 
-/** Where the pages are read: the editor's (by default), the read-only viewer's or a print's. */
-export type PagesIn = 'editor' | 'viewer' | 'print';
+/**
+ * Where the pages are read: the editor's (by default), the read-only viewer's, a print's, or those
+ * inside the elements a selector names, such as one editor of several on the page.
+ */
+export type PagesIn = 'editor' | 'viewer' | 'print' | { readonly within: string };
 
 // The pages of the editor's view, or of the viewer, whose content element is its root's child, or
 // of a print document, which holds nothing else.
-const PAGES: Record<PagesIn, string> = {
+const PAGES = {
   editor: ':not(.de-document-viewer) > .de-document-editor__content .pm-page',
   viewer: '.de-document-viewer > .de-document-editor__content .pm-page',
   print: '.pm-page',
-};
+} as const;
+
+const pagesSelector = (pagesIn: PagesIn) =>
+  typeof pagesIn === 'string' ? PAGES[pagesIn] : `${pagesIn.within} ${PAGES.editor}`;
 
 /** Draws on the page: the pages and the forced blocks they show, by `forcedSelector`. */
 export function readDrawnPages(
@@ -52,7 +58,7 @@ export function readDrawnPages(
         ),
       };
     },
-    [forcedSelector, PAGES[pagesIn]] as const,
+    [forcedSelector, pagesSelector(pagesIn)] as const,
   );
 }
 
@@ -68,7 +74,10 @@ export function readDrawnLines(
       const range = document.createRange();
       // Text the writer cannot edit is drawn beside the block's own: an atom's node view, a widget
       // inside the block. A block that is locked as a whole, such as a template's, is still read.
+      // A footnote marker's number is laid out on the line, as the computed lines read it.
       const ownText = (node: Node, block: Element) => {
+        if (node.parentElement?.closest('.footnote-reference, [data-footnote-reference]'))
+          return true;
         const beside = node.parentElement?.closest(
           '[contenteditable="false"], .ProseMirror-widget',
         );
@@ -136,7 +145,7 @@ export function readDrawnLines(
         return lines;
       });
     },
-    [blocks, PAGES[pagesIn]] as const,
+    [blocks, pagesSelector(pagesIn)] as const,
   );
 }
 

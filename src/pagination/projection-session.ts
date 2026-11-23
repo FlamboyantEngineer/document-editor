@@ -11,6 +11,7 @@ import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
 import { caretPlace, rememberCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
+import { redrawRefused } from './dropped-composition.js';
 import type { MeasuringView } from './ghost-view.js';
 import { wantsLayoutNow } from './layout-latency.js';
 import { markLayout } from './layout-marks.js';
@@ -145,7 +146,7 @@ function refuse(session: Session): void {
   session.counts.refused += 1;
   writeTrace(session.options.trace, 'refuse');
   setProjection(session, session.projection);
-  session.view?.updateState(session.projection);
+  redrawRefused(session.view, session.projection, () => requestLayout(session));
 }
 
 /** Has the attached view report the selection and changes the browser shows but has not yet. */
