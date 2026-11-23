@@ -145,15 +145,16 @@ jobs:
           fi
 
   font-files:
-    # The font-file widths and line breaks in Node on macOS and Windows (DOCE-PAGINATION-12.1), the
-    # fingerprints the Linux jobs pin, with no browser: the same files shall give the same result on
-    # every system.
+    # The font-file widths and line breaks in Node on Windows (DOCE-PAGINATION-12.1), the fingerprints
+    # the Linux jobs pin, with no browser: the same files shall give the same result on every system.
+    # macOS runs them weekly in the other-systems workflow, as its runners can be too scarce to hold a
+    # pull request on.
     needs: font-file-changes
     if: needs.font-file-changes.outputs.changed == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     name: font files (${{ matrix.os }})
