@@ -8,6 +8,9 @@ const executablePath = process.env.CHROMIUM_PATH;
 // The HTML-in-Canvas API, which pages painted into a canvas use (DOCE-EDITOR-1.9), is behind this
 // switch before Chromium 157 (Playwright's Chromium is 156); it changes nothing else.
 const HTML_IN_CANVAS = '--enable-blink-features=CanvasDrawElement';
+// The one-result invariant's page checks of each document at a zoom, and in a canvas (DOCE-LABS-8.1,
+// 8.9), which the `chromium-invariant` project runs at a device pixel ratio of 1.
+const INVARIANT_PAGES = /DOCE-LABS-8\.(1 [a-z-]+ at \d+%|9 [a-z-]+ at \d+% in a canvas)$/;
 
 // Chromium at a real device pixel ratio, which changes its layout unit. Playwright's emulated
 // `deviceScaleFactor` does not, so the browser is launched with the ratio and no emulated viewport.
@@ -61,6 +64,8 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
       testIgnore: [/\.performance\.spec\.ts$/, /\/performance\.spec\.ts$/],
+      // Left out, not skipped: a skipped test still takes its place when CI shards the list.
+      grepInvert: INVARIANT_PAGES,
     },
     // The one-result invariant's page checks at a device pixel ratio of 1, every zoom, and its pages
     // painted into a canvas (DOCE-LABS-8.1, 8.9): the heaviest tests, in a project of their own so CI
@@ -69,7 +74,7 @@ export default defineConfig({
       name: 'chromium-invariant',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /\/layout-invariant\.spec\.ts$/,
-      grep: /DOCE-LABS-8\.(1 [a-z-]+ at \d+%|9 [a-z-]+ at \d+% in a canvas)$/,
+      grep: INVARIANT_PAGES,
     },
     // How close the Pretext prediction is to the browser (DOCE-LABS-5.6), and that the editor draws
     // the lines it computed (DOCE-LABS-8), at real device pixel ratios.
