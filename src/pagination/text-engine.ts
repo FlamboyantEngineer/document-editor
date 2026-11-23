@@ -222,7 +222,7 @@ function keptLines(
 
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
-  const { template } = options;
+  const { template, markup } = options;
   let numbers = NO_NUMBERS;
   // The words inserted in the blocks being measured.
   let current = NO_INSERTED;
@@ -237,7 +237,6 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
-  const { markup } = options;
   const tables = keptLines(text, { widthOf, markup, numbers: () => numbers });
   const nested = createNestedLines({ geometry, recorder, widthOf, markup });
   const regions = createRegionLines({ geometry, recorder, widthOf, markup });
@@ -291,6 +290,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     },
     insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
     measureRegion: selecting(select, (...at) => regions.lay(...at).room),
+    regionLines: selecting(select, (...at) => regions.lay(...at).lines),
     lines: selecting(select, (node, place) => tables.lines(node, place)),
     nestedLines: selecting(select, (container, scope) =>
       nested.lines(container, { scope, footnoteOf: numbers.footnoteOf }),

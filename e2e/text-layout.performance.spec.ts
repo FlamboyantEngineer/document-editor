@@ -1,3 +1,4 @@
+import { appendFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import { caretAtEnd, keystrokeWork, openScale, percentile, SIZE } from './budgets.js';
 import { expect, test } from './fixtures.js';
@@ -111,6 +112,9 @@ test('DOCE-LABS-2.6 DOCE-PAGINATION-11.5 lays out, edits and types on 300 pages 
   // On CI, a workflow command: the readings become an annotation of the check run, read without its log.
   if (process.env.CI)
     console.log(`::notice title=DOCE-LABS-2.6 readings::${JSON.stringify(result)}`);
+  // And into the file CI prints as the timing job's last step, where a log's tail reaches them.
+  const readings = process.env.TIMING_READINGS;
+  if (readings) appendFileSync(readings, `DOCE-LABS-2.6 ${JSON.stringify(result)}\n`);
   const within = (key: (typeof keys)[number], budget: number) =>
     expect(result[key] ?? Number.NaN, `${key} (ms)`).toBeLessThanOrEqual(budget);
   within('firstSettle', FIRST_SETTLE_MS);

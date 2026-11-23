@@ -10,6 +10,8 @@ export interface BlockAt {
   readonly page: number;
   readonly elementId: string;
   readonly part: number;
+  /** A header's or footer's block, which has no element id: its region and its index in it. */
+  readonly region?: { readonly name: 'header' | 'footer'; readonly index: number } | undefined;
 }
 
 /** What one block fragment draws: the text of each of its lines, or null when it is not drawn. */
@@ -74,10 +76,13 @@ export function readDrawnLines(
       const range = document.createRange();
       // Text the writer cannot edit is drawn beside the block's own: an atom's node view, a widget
       // inside the block. A block that is locked as a whole, such as a template's, is still read.
-      // A footnote marker's number is laid out on the line, as the computed lines read it.
+      // A footnote marker's number and a template variable's value are laid out on the line, as
+      // the computed lines read them.
       const ownText = (node: Node, block: Element) => {
         if (node.parentElement?.closest('.footnote-reference, [data-footnote-reference]'))
           return true;
+        // So is a template variable's value, which the page variables draw inside it.
+        if (node.parentElement?.closest('[data-template-variable]')) return true;
         const beside = node.parentElement?.closest(
           '[contenteditable="false"], .ProseMirror-widget',
         );
@@ -93,6 +98,11 @@ export function readDrawnLines(
         return [...range.getClientRects()].find((each) => each.height > 0);
       };
       const find = (at: (typeof asked)[number]) => {
+        if (at.region) {
+          const area = pages[at.page]?.querySelector(`.pm-page-${at.region.name}`);
+          const blocks = area?.querySelectorAll(':is(p, h1, h2, h3, h4, h5, h6, pre)');
+          return blocks?.[at.region.index];
+        }
         const candidates = pages[at.page]?.querySelectorAll(
           `[data-id="${CSS.escape(at.elementId)}"]`,
         );
@@ -167,6 +177,26 @@ export interface LineMismatch {
 const plain = (text: string) => text.replaceAll('\u00a0', ' ');
 
 /**
+ * The blocks of the engine's result (`textLines()`) that the engine laid out, with their lines'
+ * text, to read on the pages: a header's or footer's by its region and its index in it.
+ */
+export function blocksToRead(
+  computed: readonly { readonly blocks: readonly TextBlockLines[] }[],
+): ComputedBlock[] {
+  return computed.flatMap(({ blocks }, index) => {
+    const inRegion = { header: 0, footer: 0 };
+    return blocks.flatMap((block) => {
+      const region = block.region
+        ? { name: block.region, index: (inRegion[block.region] += 1) - 1 }
+        : undefined;
+      if (!block.lines) return [];
+      const lines = block.lines.map((line) => plain(line.text));
+      return [{ page: index, elementId: block.elementId, part: block.part, region, lines }];
+    });
+  });
+}
+
+/**
  * The computed blocks of the engine's result (`textLines()`), with their lines' text, and those
  * the pages draw otherwise: each block whose drawn lines differ in count or text.
  */
@@ -175,20 +205,7 @@ export async function mismatchedLines(
   computed: readonly { readonly blocks: readonly TextBlockLines[] }[],
   pagesIn: PagesIn = 'editor',
 ): Promise<LineMismatch[]> {
-  const asked: ComputedBlock[] = computed.flatMap(({ blocks }, index) =>
-    blocks.flatMap((block) =>
-      block.lines
-        ? [
-            {
-              page: index,
-              elementId: block.elementId,
-              part: block.part,
-              lines: block.lines.map((line) => plain(line.text)),
-            },
-          ]
-        : [],
-    ),
-  );
+  const asked = blocksToRead(computed);
   const drawn = await readDrawnLines(page, asked, pagesIn);
   return asked.flatMap((block, index) => {
     const own = drawn[index]?.map(plain) ?? null;
@@ -213,5 +230,6 @@ export async function mismatchedLines(
 interface TextBlockLines {
   readonly elementId: string;
   readonly part: number;
+  readonly region?: 'header' | 'footer' | undefined;
   readonly lines: readonly { readonly text: string }[] | null;
 }

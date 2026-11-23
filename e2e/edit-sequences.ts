@@ -1,6 +1,6 @@
 import type { CDPSession, Page } from '@playwright/test';
 import type { PageTextLines } from '../src/pagination/index.js';
-import { type PagesIn, readDrawnLines, readDrawnPages } from './drawn-lines.js';
+import { blocksToRead, type PagesIn, readDrawnLines, readDrawnPages } from './drawn-lines.js';
 
 // Seeded edit sequences for the checks that edited pages equal a fresh layout (specs/LABS.md
 // DOCE-LABS-9): the steps a sequence draws from, each acting on an editor through its lab's probe
@@ -40,20 +40,7 @@ export async function lineMismatches(
   const problems: string[] = [];
   if (drawn.pages !== computed.length)
     problems.push(`pages drawn ${String(drawn.pages)}, computed ${String(computed.length)}`);
-  const asked = computed.flatMap(({ blocks }, index) =>
-    blocks.flatMap((block) =>
-      block.lines
-        ? [
-            {
-              page: index,
-              elementId: block.elementId,
-              part: block.part,
-              lines: block.lines.map((line) => line.text.replaceAll(' ', ' ')),
-            },
-          ]
-        : [],
-    ),
-  );
+  const asked = blocksToRead(computed);
   const lines = await readDrawnLines(page, asked, pagesIn);
   asked.forEach((block, index) => {
     const own = lines[index]?.map((text) => text.replaceAll(' ', ' ')) ?? null;

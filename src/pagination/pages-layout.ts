@@ -20,6 +20,7 @@ import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
 import { forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, sectionScope } from './forced-lines.js';
+import { FORCED_REGIONS, regionBlocksOf } from './forced-regions.js';
 import { NO_INSERTED } from './inserted-texts.js';
 import type { LayoutState } from './layout-readiness.js';
 import { pageVariablesKey } from './page-variables.js';
@@ -50,9 +51,13 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
   state.doc.descendants((node, pos, parent) => {
     const name = node.type.name;
     if (name === 'page_section') scope = sectionScope(node);
-    if (parent?.type.name !== 'page_content') return !node.isTextblock;
+    const region = FORCED_REGIONS.has(name);
+    if (!region && parent?.type.name !== 'page_content') return !node.isTextblock;
     const place = { pos, scope, headings, numbered: paragraphs, inserted: NO_INSERTED };
-    for (const { node: block, pos: at, table, prefix } of forcedBlocksOf(engine, node, place)) {
+    const forced = region
+      ? regionBlocksOf(engine, node, { pos, scope, shown: pageVariablesKey.getState(state) })
+      : forcedBlocksOf(engine, node, place);
+    for (const { node: block, pos: at, table, prefix } of forced) {
       if (!table) continue;
       const indent = prefix ? firstLineIndent(table) : null;
       const rtl = drawnDirection(directions, { node: block, pos: at }) === 'rtl';

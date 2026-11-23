@@ -607,14 +607,14 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '7edaabe9b848e668', heights: '685c13b50fa7abf4' },
-  'heading-keep-with-next': { lines: 'f336a222502648bb', heights: '7c217daccffd64de' },
+  'caption-numbering': { lines: '72862257c3f46bd0', heights: '685c13b50fa7abf4' },
+  'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7c217daccffd64de' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '88121f0c72c6b3f1', heights: 'f9afd020ec769c5d' },
-  'oversized-blocks': { lines: '88d3660c67c5d4e2', heights: 'f3be75ce06ce1c8d' },
-  'roman-numbering-stress': { lines: 'd24934809773ffdb', heights: '19718eeba63c6a81' },
+  'long-mixed': { lines: '3a7ad4da47d70f98', heights: 'f9afd020ec769c5d' },
+  'oversized-blocks': { lines: 'da3f869e9e7e0dca', heights: 'f3be75ce06ce1c8d' },
+  'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: '19718eeba63c6a81' },
 };
 
 const digest = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);

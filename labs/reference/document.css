@@ -567,7 +567,9 @@ div.de-host-view {
  * engine's never wraps a line on its own. A heading shows the engine's number, not a counter. The
  * block's `data-lines` makes these rules win over a custom style's alignment and margins.
  */
-:where(.de-document-editor) .pm-page-content .de-forced-lines[data-lines] {
+:where(.de-document-editor)
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  .de-forced-lines[data-lines] {
   text-align: start;
   margin-inline-end: -8px;
 }
@@ -603,11 +605,16 @@ div.de-host-view {
 
 /* A numbered heading's first line starts in before its number, which is drawn before the content;
    inline boxes inside it start their own lines at their edge. */
-:where(.de-document-editor) .pm-page-content .de-forced-lines {
+:where(.de-document-editor)
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  .de-forced-lines {
   text-indent: var(--de-first-indent, 0);
 }
 
-:where(.de-document-editor) .pm-page-content .de-forced-lines * {
+:where(.de-document-editor)
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  .de-forced-lines
+  * {
   text-indent: 0;
 }
 

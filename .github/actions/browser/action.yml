@@ -1,0 +1,42 @@
+name: Browser
+description: Playwright's Chromium with its system packages, and pdftotext, kept between runs.
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      run: |
+        echo "playwright=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+    # The browser build Playwright downloads, per Playwright version.
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.version.outputs.playwright }}
+    # The system packages' .deb files (Chromium's fonts and libraries, and poppler-utils), per runner
+    # image and Playwright version: the package mirror sometimes serves them at a few hundred kB/s.
+    # apt still reads its package lists and checks each file, and downloads one that no longer
+    # matches, so a kept file only saves the download.
+    - id: debs
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/debs
+        key: debs-${{ steps.version.outputs.image }}-${{ steps.version.outputs.playwright }}
+    # The print tests read each printed sheet's text with pdftotext.
+    - id: install
+      name: Chromium, its system packages and poppler-utils
+      shell: bash
+      env:
+        DEBS: ${{ runner.temp }}/debs
+      run: |
+        if [ -d "$DEBS" ]; then sudo cp "$DEBS"/*.deb /var/cache/apt/archives/; fi
+        npx playwright install --with-deps chromium
+        sudo apt-get install -y poppler-utils
+        mkdir -p "$DEBS"
+        cp /var/cache/apt/archives/*.deb "$DEBS"/ 2>/dev/null || true
+        echo "count=$(find "$DEBS" -name '*.deb' | wc -l)" >> "$GITHUB_OUTPUT"
+    - if: steps.debs.outputs.cache-hit != 'true' && steps.install.outputs.count != '0'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/debs
+        key: ${{ steps.debs.outputs.cache-primary-key }}

@@ -62,6 +62,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     pageDigits: () => 3,
     contentsDrawn: () => null,
     measureRegion: () => null,
+    regionLines: () => new Map(),
     nestedLines(container, scope) {
       const found = new Map<Node, DrawnLines>();
       container.descendants((child) => {
