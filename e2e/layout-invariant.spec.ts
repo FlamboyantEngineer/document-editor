@@ -426,6 +426,93 @@ test.describe('DOCE-LABS-8.6 grapheme clusters at forced line edges', () => {
   });
 });
 
+// Clusters longer than any fixed window: four people with skin tones (19 UTF-16 units) and a
+// letter with 40 accents (41).
+const TONED_FAMILY = '👨🏽‍👩🏾‍👧🏿‍👦🏻';
+const ACCENTS = `q${'\u0301'.repeat(40)}`;
+
+// Opens the regression lab on a document of the centered title and indented paragraphs given.
+async function openWith(page: Page, title: string, paragraphs: string[]) {
+  await open(page, 'long-mixed', 100);
+  await page.evaluate(
+    ({ title, paragraphs }) => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const content = [
+        {
+          type: 'heading',
+          attrs: { title: true, id: 'title' },
+          content: [{ type: 'text', text: title }],
+        },
+        ...paragraphs.map((text, index) => ({
+          type: 'paragraph',
+          attrs: { id: `p${String(index)}` },
+          content: [{ type: 'text', text }],
+        })),
+      ];
+      window.regressionLab.load({ ...file, sections: [{ ...section, content }] });
+    },
+    { title, paragraphs },
+  );
+  await waitForLab(page);
+  await page.evaluate(() => window.regressionLab.drawAllLines(true));
+  await settle(page);
+}
+
+// The text of each forced line start drawn in a block.
+const startsIn = (page: Page, selector: string) =>
+  page.locator(`${selector} .de-forced-lines__start`).allTextContents();
+
+test.describe('DOCE-LABS-8.6 grapheme clusters of any length', () => {
+  test('DOCE-LABS-8.6 a centered title and indented lines start and end on whole long clusters', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
+    const runs = [ACCENTS.repeat(90), TONED_FAMILY.repeat(40)].join(' ');
+    await openWith(page, `${ACCENTS} centered ${runs}`, [`Lines ${runs}`]);
+    await expectOneResult(page);
+    expect(await cutClusters(page), 'decorations that cut a grapheme cluster').toEqual([]);
+    // Each line of the centered title starts with its indent on one whole cluster, the first on the
+    // letter with its 40 accents.
+    const starts = await startsIn(page, '.de-document-editor__content h1');
+    expect(starts.length, 'centered title lines').toBeGreaterThan(2);
+    expect(starts[0]).toBe(ACCENTS);
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    expect(starts.map((text) => [...segmenter.segment(text)].length)).toEqual(starts.map(() => 1));
+  });
+
+  test('DOCE-PAGINATION-7.11 Backspace, Delete and the arrows take a long cluster whole', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
+    await openWith(page, 'Title', ['Before']);
+    const paragraph = page
+      .locator('.de-document-editor__content .pm-page-content p')
+      .filter({ hasText: 'Before' });
+    await paragraph.click();
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(` A${TONED_FAMILY}Z`);
+    await settle(page);
+    // The caret after the family: Backspace once deletes it whole.
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Backspace');
+    await settle(page);
+    await expect(paragraph).toHaveText('Before AZ');
+    // The caret before it, after an arrow steps back over it whole: Delete once deletes it whole.
+    await page.keyboard.insertText(`${TONED_FAMILY}${ACCENTS}`);
+    await settle(page);
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Delete');
+    await settle(page);
+    await expect(paragraph).toHaveText(`Before A${ACCENTS}Z`);
+    await page.keyboard.press('Delete');
+    await settle(page);
+    await expect(paragraph).toHaveText('Before AZ');
+  });
+});
+
 // The forced blocks on the pages in view, each drawing the lines it carries in `data-lines`.
 async function wrappedInView(page: Page) {
   const blocks = await page.evaluate(() => {
@@ -515,8 +602,8 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // and their text blocks' lines, `heights` each page's used and free room and each block's planned
 // top and height.
 // Recorded with Chromium's Canvas on Linux; the CI runner's fingerprints are the reference.
-// The paragraphs in tables' cells are on forced lines and counted too (DOCE-PAGINATION-11.2); the
-// top-level blocks' line fingerprints did not move.
+// The paragraphs in tables' cells and lists' items are on forced lines and counted too
+// (DOCE-PAGINATION-11.2); the top-level blocks' line fingerprints did not move.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
@@ -525,8 +612,8 @@ const PINNED: Readonly<
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '4ce5a16d5c62813b', heights: 'f9afd020ec769c5d' },
-  'oversized-blocks': { lines: '04f2d26ec8b3697c', heights: 'f3be75ce06ce1c8d' },
+  'long-mixed': { lines: '88121f0c72c6b3f1', heights: 'f9afd020ec769c5d' },
+  'oversized-blocks': { lines: '88d3660c67c5d4e2', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: 'd24934809773ffdb', heights: '19718eeba63c6a81' },
 };
 

@@ -4,6 +4,7 @@
 // ranges in the same hooks, so every output of a layout draws the same lines.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { clusterEnd, clusterStart } from './graphemes.js';
 import type { LineTable, TextLine } from './line-table.js';
 import type { ReservedBox } from './reserved-boxes.js';
 
@@ -34,28 +35,30 @@ export interface JustifiedLines extends LineTable {
 
 const px = (value: number) => `${value.toFixed(3)}px`;
 
-// How far a line's first or last grapheme cluster is looked for, in UTF-16 units: a family emoji
-// of four people with skin tones is 19, a flag of a subdivision 14.
-const CLUSTER_WINDOW = 32;
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-
-// The UTF-16 length of the first or last grapheme cluster of a text.
-function clusterLength(text: string, last: boolean): number {
-  const clusters = [...graphemes.segment(text)];
-  return (last ? clusters.at(-1) : clusters[0])?.segment.length ?? 1;
+// The inline node other than text that holds an offset of a block's content strictly inside it,
+// such as math, whose text a view never draws: a mark must take it whole.
+function atomAround(node: ProseMirrorNode, offset: number): { from: number; to: number } | null {
+  let around: { from: number; to: number } | null = null;
+  if (node.childCount === 1 && node.firstChild?.isText) return null;
+  node.forEach((child, start) => {
+    const to = start + child.nodeSize;
+    if (!child.isText && start < offset && offset < to) around = { from: start, to };
+  });
+  return around;
 }
 
 // Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
-// pair, a joined emoji sequence, a flag or a letter with its combining marks.
+// pair, a joined emoji sequence, a flag or a letter with any number of combining marks; or where
+// the inline node it ends with starts, such as math, which draws the mark on its own element.
 function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
-  const from = Math.max(line.from, line.to - CLUSTER_WINDOW);
-  return line.to - clusterLength(node.textBetween(from, line.to, '￼', '￼'), true);
+  const at = clusterStart(node, line.to, line.from);
+  return Math.max(line.from, atomAround(node, at)?.from ?? at);
 }
 
-// Where a line's first grapheme cluster ends.
+// Where a line's first grapheme cluster ends, or the inline node it starts with.
 function firstCharacterEnd(node: ProseMirrorNode, line: TextLine): number {
-  const to = Math.min(line.to, line.from + CLUSTER_WINDOW);
-  return line.from + clusterLength(node.textBetween(line.from, to, '￼', '￼'), false);
+  const at = clusterEnd(node, line.from, line.to);
+  return Math.min(line.to, atomAround(node, at)?.to ?? at);
 }
 
 // The characters Chromium stretches by `word-spacing`: spaces and no-break spaces, not tabs.

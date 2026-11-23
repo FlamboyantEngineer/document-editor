@@ -119,4 +119,61 @@ describe('createDrawnAtomMeasurer', () => {
     expect(cache.measureAtom(atom, { parent: paragraph })?.width).toBe(24);
     view.destroy();
   });
+
+  it('DOCE-PAGINATION-10.8 keeps math that typesets slowly provisional for as long as it is drawn', async () => {
+    vi.useFakeTimers();
+    stubBoxes();
+    const { view, host, views } = measuringView(
+      '<p>b <span data-inline-type="latex">x</span></p>',
+      { later: true },
+    );
+    const cache = createAtomCache({ measure: createDrawnAtomMeasurer({ view: () => view, host }) });
+    const listener = vi.fn();
+    cache.subscribe(listener);
+    const atom = findNode(view.state.doc, 'math_inline');
+    const paragraph = findNode(view.state.doc, 'paragraph');
+    const drawn = views[0];
+    if (!atom || !paragraph || !drawn) throw new Error('no math');
+    expect(cache.measureAtom(atom, { parent: paragraph })?.width).toBe(6);
+    // Longer than an image out of sight is waited for: the math is still typesetting.
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(listener).not.toHaveBeenCalled();
+    expect(cache.pending()).toBe(true);
+    drawn.textContent = 'xxxxxxxx';
+    drawn.dataset.state = 'ready';
+    drawn.dispatchEvent(new CustomEvent(REMEASURE_EVENT, { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(listener).toHaveBeenCalledWith([atom]);
+    expect(cache.pending()).toBe(false);
+    expect(cache.measureAtom(atom, { parent: paragraph })?.width).toBe(48);
+    vi.useRealTimers();
+    view.destroy();
+  });
+
+  it('DOCE-PAGINATION-10.8 stops waiting for math removed while it typesets', async () => {
+    vi.useFakeTimers();
+    stubBoxes();
+    const { view, host, views } = measuringView(
+      '<p>b <span data-inline-type="latex">x</span></p>',
+      { later: true },
+    );
+    const cache = createAtomCache({ measure: createDrawnAtomMeasurer({ view: () => view, host }) });
+    const listener = vi.fn();
+    cache.subscribe(listener);
+    const atom = findNode(view.state.doc, 'math_inline');
+    const paragraph = findNode(view.state.doc, 'paragraph');
+    if (!atom || !paragraph || !views[0]) throw new Error('no math');
+    cache.measureAtom(atom, { parent: paragraph });
+    let at = -1;
+    view.state.doc.descendants((node, nodePos) => {
+      if (node === atom) at = nodePos;
+    });
+    view.dispatch(view.state.tr.delete(at, at + atom.nodeSize));
+    expect(views[0].isConnected).toBe(false);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(listener).toHaveBeenCalledWith([atom]);
+    expect(cache.pending()).toBe(false);
+    vi.useRealTimers();
+    view.destroy();
+  });
 });
