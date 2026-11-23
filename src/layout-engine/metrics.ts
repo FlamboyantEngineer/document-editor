@@ -70,14 +70,15 @@ export function createStruts({ context = canvasContext, scale = 1 }: StrutSource
 }
 
 // A font's ascent and descent as Chromium's layout takes them: in whole device pixels at the
-// ratio `scale`, and, where Chromium positions glyphs at subpixels (at ratios other than 1), with a
-// pixel moved from the ascent to a descent that rounding shortened.
+// ratio `scale`, with a pixel moved from the ascent to a descent that rounding shortened, as
+// Chromium does where it positions glyphs at subpixels, which it does at every ratio for the
+// pages' fonts.
 function fontMetrics(perPixel: Strut | null, size: number, scale: number): Strut {
   const unit = perPixel ?? { ascent: FALLBACK_ASCENT, descent: 1 - FALLBACK_ASCENT };
   const exactDescent = unit.descent * size * scale;
   let ascent = Math.round(unit.ascent * size * scale);
   let descent = Math.round(exactDescent);
-  if (scale !== 1 && descent < exactDescent && ascent >= 1) {
+  if (descent < exactDescent && ascent >= 1) {
     ascent -= 1;
     descent += 1;
   }

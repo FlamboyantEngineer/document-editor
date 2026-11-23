@@ -34,4 +34,10 @@ describe('createStruts', () => {
     const atTwo = createStruts({ context, scale: 2 });
     expect(atTwo('14.6667px "Face"', 14.6667, 20.53125).ascent).toBe(15);
   });
+
+  it('DOCE-PAGINATION-9.5 moves a pixel from the ascent to a descent that rounding shortened, at every ratio', () => {
+    // 16px: an ascent of 14.4 rounds to 14 and a descent of 3.2 down to 3, so Chromium takes 13 and
+    // 4. Of the 5px leading left in a 22px line, 2 whole pixels go above: the baseline is at 15.
+    expect(createStruts({ context })('16px "Face"', 16, 22)).toEqual({ ascent: 15, descent: 7 });
+  });
 });

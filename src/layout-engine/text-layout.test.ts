@@ -206,10 +206,11 @@ describe('createTextLayout', () => {
       ok: false,
       reason: 'no size for inline math_inline',
     });
-    // The fake Canvas has no font metrics: a 12px font rises 10px and falls 2px, so an 18px line's
-    // strut is 13px above the baseline and 5px below.
+    // The fake Canvas has no font metrics: a 12px font rises 9.6px and falls 2.4px, rounded to 10
+    // and 2 with a pixel moved to the shortened descent, 9 and 3, so an 18px line's strut is 12px
+    // above the baseline and 6px below.
     const sized = table(math, 400, { measureAtom: () => ({ width: 30, height: 40 }) });
-    expect(sized.lines[0]).toMatchObject({ width: 6 * 4 + 30, height: 45 });
+    expect(sized.lines[0]).toMatchObject({ width: 6 * 4 + 30, height: 46 });
     const centred = table(math, 400, {
       measureAtom: () => ({ width: 30, height: 40, baseline: 30 }),
     });
