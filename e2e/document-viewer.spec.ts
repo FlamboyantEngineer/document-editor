@@ -206,7 +206,9 @@ test.describe('the read-only viewer', () => {
     page.on('pageerror', (error) => errors.push(error));
     await open(page, 'long-mixed');
     const computed = await page.evaluate(() => window.regressionLab.textLines());
-    const target = computed.at(-1)?.blocks.find((block) => (block.lines?.length ?? 0) > 0);
+    const target = computed
+      .at(-1)
+      ?.blocks.find((block) => !block.region && (block.lines?.length ?? 0) > 0);
     const at = pageOf(computed, target?.elementId ?? '');
     expect(at, 'the target on a late page').toBeGreaterThan(1);
     await showViewer(page, 0);
