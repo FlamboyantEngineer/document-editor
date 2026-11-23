@@ -684,7 +684,14 @@ Verification: `src/layout-engine/direction.test.ts`, `src/pagination/forced-line
 
 `layoutContentsRow(row, place)` shall lay a list of contents row out as the stylesheet's flex row draws it, in its kind's level font over the entries' in its scope (`resolveContentsList`), unset values the paragraph's family and size, a weight of 400 and upright, at a line height of 1.5. The place gives the row's width and, from the block geometry's metrics, the level's indentation, the gap after the number and the gaps around the leader. The number's box shall start at the indentation, as wide as the number's text up to the next layout unit, then the list's separator in a box of its own in place of the gap when the row has one, and the text after them on every line (at the indentation for a row without a number), wrapping in the room the number leaves and, with a page, a leader of at least the font's `0` down to its layout unit, its gaps and the page number's width. The leader and the page shall be on the text's last line: the page against the row's end, and the leader from the text's box (the room when the text wraps, its own width when not) and its gap to the gap before the page. A row without a page has neither; when the level draws no leader (`leaderGaps` null), the page follows the text's box with no gaps and the text's room leaves only the page. A group heading row (`heading`) is bold. `contentsTextWidth(text, level)` shall give a text's width in a level's font as the row sizes the page. A level family that is not served refuses the row.
 
-Implementation: `src/layout-engine/contents-row.ts`, `src/layout-engine/typography.ts`, `src/layout-engine/text-layout.ts`
+Implementation: `src/layout-engine/contents-layout.ts`, `src/layout-engine/contents-row.ts`, `src/layout-engine/contents-typography.ts`, `src/layout-engine/text-layout.ts`
+Verification: `src/layout-engine/contents-row.test.ts`
+
+### DOCE-PAGINATION-9.14 - List of contents title and empty message
+
+`layoutContentsText(text, { width, kind, scope, role })` shall lay a list of contents' title (`role: 'title'`) or the message it shows when it has no entries (`role: 'empty'`) out on lines at the width of the list's content box, wrapping as a paragraph does and left-aligned, at the paragraph's line height as the page content sets it, a ratio of the text's own size. The title shall take its kind's title font in its scope (`resolveContentsList(...).titleFont`), unset values the paragraph's family, 16px, a weight of 700 and upright; the empty message the paragraph's family, size and weight, italic. The space under the title is the block geometry's. A family that is not served refuses the text.
+
+Implementation: `src/layout-engine/contents-layout.ts`, `src/layout-engine/contents-row.ts`, `src/layout-engine/contents-typography.ts`, `src/layout-engine/text-layout.ts`
 Verification: `src/layout-engine/contents-row.test.ts`
 
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
