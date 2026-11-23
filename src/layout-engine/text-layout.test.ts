@@ -207,10 +207,11 @@ describe('createTextLayout', () => {
       ok: false,
       reason: 'no size for inline math_inline',
     });
-    // The fake Canvas has no font metrics: a 12px font rises 10px and falls 2px, so an 18px line's
-    // strut is 13px above the baseline and 5px below.
+    // The fake Canvas has no font metrics: a 12px font rises 9.6px and falls 2.4px, rounded to 10
+    // and 2 with a pixel moved to the shortened descent, 9 and 3, so an 18px line's strut is 12px
+    // above the baseline and 6px below.
     const sized = table(math, 400, { measureAtom: () => ({ width: 30, height: 40 }) });
-    expect(sized.lines[0]).toMatchObject({ width: 6 * 4 + 30, height: 45 });
+    expect(sized.lines[0]).toMatchObject({ width: 6 * 4 + 30, height: 46 });
     const centred = table(math, 400, {
       measureAtom: () => ({ width: 30, height: 40, baseline: 30 }),
     });
@@ -287,6 +288,32 @@ describe('createTextLayout', () => {
     expect(
       createTextLayout({ template: BASE_TEMPLATE }).layoutText(paragraph, { width: 60 }),
     ).toEqual({ ok: false, reason: 'template variable' });
+  });
+
+  it('DOCE-PAGINATION-9.5 lays a template variable out as the text it shows, unbroken, where its values are known', () => {
+    const variable = (key: string) =>
+      documentSchema.nodes.template_variable?.create({ variableKey: key });
+    const paragraph = (...children: ProseMirrorNode[]) => {
+      const node = documentSchema.nodes.paragraph?.create(null, children);
+      if (!node) throw new Error('schema has no paragraph');
+      return node;
+    };
+    const title = variable('document.title');
+    const empty = variable('page.total');
+    if (!title || !empty) throw new Error('schema has no template variable');
+    const layout = createTextLayout({ template: BASE_TEMPLATE });
+    const shown = layout.layoutText(paragraph(documentSchema.text('aaaa '), title, empty), {
+      width: 60,
+      variables: new Map([
+        ['document.title', 'bb cc'],
+        ['page.total', ''],
+      ]),
+    });
+    if (!shown.ok) throw new Error(shown.reason);
+    // The value stays on one line, as the page cannot break inside the variable.
+    const written = table(block('<p>aaaa bbcc</p>'), 60);
+    expect(shown.table.lines.length).toBe(written.lines.length);
+    expect(shown.table.height).toBe(written.height);
   });
 
   it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {

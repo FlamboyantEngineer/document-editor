@@ -266,6 +266,9 @@ div.de-host-view {
   top: 0;
   left: -100000px;
   width: calc(var(--doc-page-width) - var(--doc-page-margin-left) - var(--doc-page-margin-right));
+  /* Drawn at one device pixel per CSS pixel on every screen, so what it measures is the same on
+     every screen (DOCE-PAGINATION-10.10). */
+  zoom: var(--de-measure-zoom, 1);
 }
 
 /*
@@ -559,12 +562,13 @@ div.de-host-view {
  * Forced lines (`textLayout: 'pretext'`, DOCE-PAGINATION-11.2): a top-level paragraph or heading
  * drawn on the lines the layout engine computed. Each line ends after its last character, drawn as
  * a line feed; the engine's alignment is drawn from the room it left each line, so the block itself
- * aligns left. Its end overhangs by 8px, so a width the browser finds a little wider than the
+ * aligns to its start: the left, or the right in a block drawn right to left (`dir`,
+ * DOCE-PAGINATION-9.12). Its end overhangs by 8px, so a width the browser finds a little wider than the
  * engine's never wraps a line on its own. A heading shows the engine's number, not a counter. The
  * block's `data-lines` makes these rules win over a custom style's alignment and margins.
  */
 :where(.de-document-editor) .pm-page-content > .de-forced-lines[data-lines] {
-  text-align: left;
+  text-align: start;
   margin-inline-end: -8px;
 }
 
@@ -826,6 +830,12 @@ div.de-host-view {
   line-height: var(--doc-code-line-height, 1.4);
   text-align: var(--doc-code-text-align, left);
   white-space: pre-wrap;
+}
+
+/* A code block's text is in its block's font, not the browser's own `code` font, which the engine
+   never measured (DOCE-PAGINATION-12.5). */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre > code {
+  font: inherit;
 }
 
 /* A cell's content sits where the cell aligns it, across and down. */

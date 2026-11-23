@@ -6,14 +6,17 @@ import { expect, test } from './fixtures.js';
 // `textLayout=pretext`, the first layout, an Enter, a long insert as a paste gives, a range deleted,
 // and typing far down the document after a scroll, each the median of three rounds. The engine
 // becomes the only text layout, so each budget is a time of its own, not one against the DOM's
-// measuring: about twice the time on a developer machine, so CI's slower runners meet it.
+// measuring. Three CI runs on 23 November 2026 read first settle 4,195 / 5,855 / 6,078 ms, Enter
+// 99 / 118 / 131, paste 198 / 227 / 232, range delete 194 / 213 / 256 and far typing p95
+// 18.1 / 19.9 / 21.8 ms; each budget keeps the slowest reading at or under 60% of it, so a slow
+// runner still passes and a real slowdown fails.
 
 // From the lab opened to its pages first settled.
-const FIRST_SETTLE_MS = 12_000;
+const FIRST_SETTLE_MS = 11_000;
 // From the key to the pages settled with its change laid out.
-const ENTER_MS = 400;
-const PASTE_MS = 800;
-const RANGE_DELETE_MS = 1_100;
+const ENTER_MS = 250;
+const PASTE_MS = 400;
+const RANGE_DELETE_MS = 450;
 // Typing far down 300 pages answers each key within the 300-page typing budget (DOCE-LABS-2.3).
 const FAR_TYPING_MS = 32;
 const ROUNDS = 3;

@@ -4,6 +4,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { ChildLayout, LayoutBlock } from '../../model/index.js';
 import type { AtomCache } from '../atoms.js';
+import type { VariableTexts } from '../runs.js';
 import type { TextBlockLayout, TextBlockPlace } from '../text-layout.js';
 import type { BlockTypography } from '../typography.js';
 import type { BlockMetrics } from './metrics.js';
@@ -30,6 +31,8 @@ export interface BlockPlace {
   /** The template section it is in; null or none for the template's own scope. */
   readonly scope?: string | null | undefined;
   readonly region?: BlockRegion | undefined;
+  /** The text its template variables show, for a header or footer drawn with known values. */
+  readonly variables?: VariableTexts | undefined;
 }
 
 /** A block laid out without the DOM, in the shape the page layout reads. */

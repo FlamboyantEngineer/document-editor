@@ -16,6 +16,7 @@ import {
   type SectionReport,
 } from './layout-document.js';
 import type { MeasureCache } from './measure-cache.js';
+import { measuredZoom } from './measure-scale.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { nearAfter, projectionSelection } from './selection-mirror.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -67,6 +68,8 @@ export function layOutProjection(
     onPage: (page) => metrics.push(page),
     onSection,
     engine: options.engine,
+    // Drawn at one device pixel per CSS pixel on every screen (`holdMeasureScale`).
+    scale: measuredZoom(ghost.view.dom),
   });
   const target = projectDocument(ghost.view.state.doc, sections, options);
   const tr = projection.tr;

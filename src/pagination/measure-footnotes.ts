@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
+import { unzoom } from './measure-scale.js';
 
 /** A footnote area's measurements, in CSS pixels. */
 export interface FootnoteArea {
@@ -52,12 +53,12 @@ function areaOf(
     const next = placed[index + 1];
     const height = (next ? next.top : entry.bottom) - entry.top;
     if (entries.has(entry.id)) return;
-    entries.set(entry.id, Math.max(0, height) / ratio);
-    last.set(entry.id, Math.max(0, entry.bottom - entry.top) / ratio);
+    entries.set(entry.id, unzoom(Math.max(0, height), ratio));
+    last.set(entry.id, unzoom(Math.max(0, entry.bottom - entry.top), ratio));
   });
   const [first, end] = [placed[0], placed.at(-1)];
   if (!first || !end) return { overhead: 0, entries, last };
-  return { overhead: Math.max(0, overhead(first, end)) / ratio, entries, last };
+  return { overhead: unzoom(Math.max(0, overhead(first, end)), ratio), entries, last };
 }
 
 /** The footnote area at a position, measured; an area with no entries measures nothing. */

@@ -31,6 +31,7 @@ import {
 import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
 import { forcedLinesKey } from './forced-lines.js';
+import { remeasureGhost } from './ghost-measuring.js';
 import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
@@ -39,7 +40,7 @@ import {
 } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import type { LayoutTraceSink } from './layout-trace.js';
-import { awaitReady, followMeasuring, frameIn, settleEdits } from './layout-triggers.js';
+import { awaitReady, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-cache.js';
 import { pageChromeDecorations } from './page-chrome.js';
@@ -318,15 +319,6 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     cancelLayout: null,
     quiet: 0,
   };
-}
-
-// What the projection's measuring asks: measure the blocks that changed size again, and lay out.
-function remeasureGhost(live: Session): () => void {
-  return followMeasuring(live.options.measureIn, {
-    cache: live.cache,
-    view: () => live.ghost.view,
-    request: () => requestLayout(live),
-  });
 }
 
 /** Lays a canonical state out on pages, routing input on them back to it. */
