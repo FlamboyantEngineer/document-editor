@@ -41,7 +41,7 @@ const snapshotFiles = (page: Page) =>
 // The width of the text of the first forced block in a surface, which its font decides.
 const textWidth = (page: Page, surface: string) =>
   page.evaluate((selector) => {
-    const block = document.querySelector(`${selector} .pm-page .de-forced-lines`);
+    const block = document.querySelector(`${selector} .pm-page .pm-page-content .de-forced-lines`);
     if (!block) return null;
     const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
     const range = document.createRange();
