@@ -538,7 +538,7 @@ const PINNED: Readonly<
 // document's ratios here, and a ratio that starts to differ is a finding, not an entry to add.
 const DPR_HEIGHT_FAULTS: Readonly<Partial<Record<RegressionDocumentName, readonly number[]>>> = {
   'caption-numbering': [1.25, 1.5, 1.75, 2, 3],
-  'heading-keep-with-next': [1.25, 1.5, 1.75, 2],
+  'heading-keep-with-next': [1.25, 1.75, 2],
   'long-mixed': [1.25, 1.5, 1.75, 2, 3],
   'oversized-blocks': [1.25, 1.5, 1.75, 2, 3],
   'roman-numbering-stress': [1.25, 1.75, 2],
