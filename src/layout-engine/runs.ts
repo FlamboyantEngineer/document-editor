@@ -39,6 +39,9 @@ export interface TextRun {
   readonly atoms: readonly (InlineAtomSize | null)[];
 }
 
+/** The text template variables show, by their keys. */
+export type VariableTexts = ReadonlyMap<string, string>;
+
 /** A block's runs, or why its content cannot be laid out. */
 type TextRuns =
   | { readonly ok: true; readonly runs: readonly TextRun[] }
@@ -55,6 +58,11 @@ interface RunInput {
   readonly measureAtom?: MeasureAtom | undefined;
   /** The template section the block is in, which its atoms are measured in. */
   readonly scope?: string | null | undefined;
+  /**
+   * The text each template variable shows, by its key, where the block is drawn once with known
+   * values, such as a section's header or footer; a block with a variable is refused without it.
+   */
+  readonly variables?: VariableTexts | undefined;
   /** The inline atoms laid out as their text (`TEXT_ATOMS` by default), and their numbers. */
   readonly textAtoms?:
     (TextAtomSource & { readonly types?: ReadonlySet<string> | undefined }) | undefined;
@@ -133,6 +141,21 @@ function addAtom(
   return null;
 }
 
+// A template variable as the text it shows, unbroken as an atom is, in its marks' font; nothing
+// for one that shows none.
+function addVariable(
+  run: Builder,
+  { child, offset, input }: { child: ProseMirrorNode; offset: number; input: RunInput },
+): string | null {
+  if (!input.variables) return 'template variable';
+  const text = input.variables.get(String(child.attrs.variableKey ?? '')) ?? '';
+  const font = fontString(markedFont(input.typography, child.marks));
+  run.items.push(text ? { text, font, break: 'never' } : { width: 0 });
+  run.offsets.push(offset);
+  run.atoms.push(null);
+  return null;
+}
+
 // A fragment after the first of a split block.
 const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
 
@@ -169,7 +192,7 @@ export function buildRuns(input: RunInput): TextRuns {
       addText(run, { item: textItem(child, typography), offset, box: textBox(child, input) });
     } else if (child.type.name === 'template_variable') {
       // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
-      failure = 'template variable';
+      failure = addVariable(run, { child, offset, input });
     } else {
       failure = addAtom(run, { child, offset, input });
     }

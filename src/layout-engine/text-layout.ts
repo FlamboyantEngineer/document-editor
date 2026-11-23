@@ -12,7 +12,7 @@ import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
-import { buildRuns, type MeasureAtom, type TextRun } from './runs.js';
+import { buildRuns, type MeasureAtom, type TextRun, type VariableTexts } from './runs.js';
 import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
@@ -73,6 +73,8 @@ export interface TextBlockPlace {
   readonly number?: ParagraphNumber | undefined;
   /** A footnote entry's number, drawn before its content in the template's marker style. */
   readonly footnoteNumber?: string | undefined;
+  /** The text its template variables show, where it is drawn once with known values. */
+  readonly variables?: VariableTexts | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
@@ -221,6 +223,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         measureAtom: options.measureAtom,
         scope: place.scope,
         textAtoms: options.textAtoms,
+        variables: place.variables,
         boxOf: boxOf(style),
       });
       if (!runs.ok) return runs;

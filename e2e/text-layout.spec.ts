@@ -280,4 +280,33 @@ test.describe('served fonts', () => {
     expect(await family('p')).toBe('"Times New Roman"');
     expect(await family('pre')).toBe('"Courier New"');
   });
+
+  for (const name of ['long-mixed', 'code-blocks', 'table-rich-cells', 'footnotes-in-structures']) {
+    test(`DOCE-PAGINATION-12.5 draws every text of ${name}'s pages in a family the host serves`, async ({
+      page,
+    }) => {
+      await open(page, name, 'pretext');
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      // Each element that holds text and its first family, where that family has no served face;
+      // math is drawn by its renderer in its own fonts and measured as drawn (DOCE-PAGINATION-10.8).
+      const unserved = await page.evaluate(() => {
+        const served = new Set(
+          [...document.fonts].map((face) => face.family.replace(/^"|"$/gu, '')),
+        );
+        const found = new Set<string>();
+        const root = document.querySelector('.de-document-editor__content');
+        const walker = document.createTreeWalker(root ?? document.body, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const element = node.parentElement;
+          if (!element || !node.textContent?.trim() || element.closest('.katex')) continue;
+          if (!element.closest('.pm-page')) continue;
+          const first = getComputedStyle(element).fontFamily.split(',')[0]?.trim() ?? '';
+          const family = first.replace(/^"|"$/gu, '');
+          if (!served.has(family)) found.add(`${element.localName}: ${first}`);
+        }
+        return [...found].sort();
+      });
+      expect(unserved).toEqual([]);
+    });
+  }
 });

@@ -90,8 +90,16 @@ export interface PagesTextEngine {
   numbering(doc: ProseMirrorNode): DocumentNumbering;
   /** A top-level block of a section's page content, laid out; null when the DOM must measure it. */
   measureBlock(node: ProseMirrorNode, scope: string | null): LayoutBlock | null;
-  /** A section's page header, footer or footnote area, laid out; null when the DOM must measure it. */
-  measureRegion(node: ProseMirrorNode, scope: string | null): RegionRoom | null;
+  /**
+   * A section's page header, footer or footnote area, laid out with the text its template variables
+   * show (none when absent, so a region with one is left to the DOM); null when the DOM must
+   * measure it.
+   */
+  measureRegion(
+    node: ProseMirrorNode,
+    scope: string | null,
+    variables?: ReadonlyMap<string, string>,
+  ): RegionRoom | null;
   /** The lines of a top-level paragraph or heading on a page; null when the engine cannot. */
   lines(node: ProseMirrorNode, place: LinesPlace): DrawnLines | null;
   /**

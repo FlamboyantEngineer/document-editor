@@ -167,6 +167,16 @@ function sectionPlaces(doc: ProseMirrorNode): SectionPlace[] {
   return places;
 }
 
+// The text each template variable in a header or footer shows, as the view draws it
+// (`createPageVariables`): the engine lays the region out with these values.
+function variableTexts(region: HTMLElement): ReadonlyMap<string, string> {
+  const texts = new Map<string, string>();
+  for (const variable of region.querySelectorAll<HTMLElement>('[data-template-variable]')) {
+    texts.set(variable.dataset.templateVariable ?? '', variable.textContent);
+  }
+  return texts;
+}
+
 // The room a page header or footer takes, with its margins; one the view hides takes none. The
 // layout engine gives it when it lays the region out (`measureRegion`), the view's box otherwise.
 function regionHeight(view: EditorView, pos: number | null, at: RegionAt): number {
@@ -176,7 +186,7 @@ function regionHeight(view: EditorView, pos: number | null, at: RegionAt): numbe
   const { height } = element.getBoundingClientRect();
   if (!height) return 0;
   const node = pos === null ? null : view.state.doc.nodeAt(pos);
-  const room = node ? at.engine?.measureRegion(node, at.scope) : null;
+  const room = node ? at.engine?.measureRegion(node, at.scope, variableTexts(element)) : null;
   if (room) return room.height > 0 ? room.height + room.gap : 0;
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
   if (!style) return height / at.ratio;
