@@ -138,8 +138,12 @@ function hasCode(node: ProseMirrorNode): boolean {
 function unservedFamily(
   node: ProseMirrorNode,
   typography: BlockTypography,
-  { isFontServed, marker }: { isFontServed: (family: string) => boolean; marker?: string },
+  {
+    isFontServed,
+    marker,
+  }: { isFontServed: ((family: string) => boolean) | undefined; marker?: string | undefined },
 ): string | null {
+  if (!isFontServed) return null;
   const families = [typography.font.family];
   if (hasCode(node)) families.push(typography.codeFamily);
   if (marker) families.push(marker);
@@ -265,12 +269,10 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
       const marker = leadingItem(node, style, place);
-      const unserved = options.isFontServed
-        ? unservedFamily(node, style, {
-            isFontServed: options.isFontServed,
-            ...(marker ? { marker: marker.family } : {}),
-          })
-        : null;
+      const unserved = unservedFamily(node, style, {
+        isFontServed: options.isFontServed,
+        marker: marker?.family,
+      });
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
       const font = fontString(style.font);
       const starts = lineStarts(node, { style, place, codeLineNumbers: options.codeLineNumbers });
