@@ -1,7 +1,7 @@
 // Holds a projection's text layout engine behind the `textLayout: 'pretext'` option: the engine
 // module loads on first use, so an editor without the option never loads the layout engine, and
-// the engine is made again for each template the pages are laid out with, and when code's line
-// numbers are turned on or off.
+// the engine is made again for each template the pages are laid out with, when code's line
+// numbers are turned on or off, and when the language the pages are drawn in changes.
 
 import type { EditorView } from 'prosemirror-view';
 import type { TemplateFile } from '../model/index.js';
@@ -29,6 +29,10 @@ export interface TextEngineHolder {
   destroy(): void;
 }
 
+// The language an element's text is drawn in: its own or its nearest ancestor's `lang`, empty for
+// none, as the browser reads it.
+const languageOf = (element: Element) => element.closest('[lang]')?.getAttribute('lang') ?? '';
+
 interface EngineModule {
   readonly createPagesTextEngine: typeof createPagesTextEngine;
   readonly forgetFontWidths: typeof forgetFontWidths;
@@ -49,6 +53,7 @@ export function holdTextEngine(options: {
   let made: EngineModule | null = null;
   let current: PagesTextEngine | null = null;
   let numbered = false;
+  let spoken = '';
   let version = 0;
   let destroyed = false;
   const loaded = import('./text-engine.js').then((module) => {
@@ -72,13 +77,17 @@ export function holdTextEngine(options: {
       if (!made || destroyed) return null;
       const template = options.setting.template();
       const codeLineNumbers = options.setting.codeLineNumbers?.() ?? false;
-      if (current?.template === template && numbered === codeLineNumbers) return current;
+      const language = languageOf(options.measureIn);
+      if (current?.template === template && numbered === codeLineNumbers && language === spoken)
+        return current;
       numbered = codeLineNumbers;
+      spoken = language;
       current?.destroy();
       version += 1;
       current = made.createPagesTextEngine({
         template,
         codeLineNumbers,
+        language,
         measureIn: options.measureIn,
         onAtomsSettled: settled,
         view: options.view,

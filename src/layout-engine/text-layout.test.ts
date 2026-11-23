@@ -307,6 +307,17 @@ describe('createTextLayout', () => {
     expect(pretext.locales).toEqual(['ja']);
   });
 
+  it('DOCE-PAGINATION-9.7 sets the language only when text of another language prepares', () => {
+    const chinese = createTextLayout({ template: BASE_TEMPLATE, language: 'zh' });
+    chinese.layoutText(block('<p>aaaa</p>'), { width: 60 });
+    chinese.layoutText(block('<p>bbbb</p>'), { width: 60 });
+    chinese.layoutText(block('<p>aaaa</p>'), { width: 40 });
+    expect(pretext.locales).toEqual(['zh']);
+    table(block('<p>cccc</p>'), 60, { language: 'ko' });
+    chinese.layoutText(block('<p>dddd</p>'), { width: 60 });
+    expect(pretext.locales).toEqual(['zh', 'ko', 'zh']);
+  });
+
   it('DOCE-PAGINATION-9.8 measures ranges and splits a paragraph at a line start', () => {
     const lines = table(block(`<p>${WORDS} ffff gggg</p>`), 60);
     const measurement = lineTableMeasurement(lines);

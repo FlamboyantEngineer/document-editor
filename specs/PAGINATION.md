@@ -640,10 +640,10 @@ Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec
 
 ### DOCE-PAGINATION-9.7 - Served fonts and language
 
-Given `isFontServed`, a block whose font's first family, or whose inline code's, is not served shall not be laid out, with the reason, so no system font decides a line. Lines shall break by the rules of the document's `language`.
+Given `isFontServed`, a block whose font's first family, or whose inline code's, is not served shall not be laid out, with the reason, so no system font decides a line. Lines shall break, and text be shaped, by the rules of the document's `language`. The pages' engine shall take the language the pages are drawn in: the `lang` of the element they are in or its nearest ancestor with one, empty for none, which Chromium lays out under its default language; the engine shall be made again when that language changes. Pretext's language shall be set only when text of another language is prepared, since setting it drops Pretext's caches.
 
-Implementation: `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
-Verification: `src/layout-engine/text-layout.test.ts`
+Implementation: `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/text-engine.ts`
+Verification: `src/layout-engine/text-layout.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/font-widths.spec.ts`
 
 ### DOCE-PAGINATION-9.8 - Splitting at computed lines
 

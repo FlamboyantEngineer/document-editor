@@ -87,6 +87,16 @@ function walk(prepared: PreparedRichInline, widths: LineWidths): RunLine[] {
   }
 }
 
+// The language Pretext prepares under now. Setting it clears Pretext's caches, so it is set only
+// when a cache of another language prepares (DOCE-PAGINATION-9.7).
+let locale: { readonly language: string | undefined } | null = null;
+
+function prepareIn(language: string | undefined): void {
+  if (locale?.language === language) return;
+  setLocale(language);
+  locale = { language };
+}
+
 /** A cache of prepared runs for one language, laid out in Pretext's pre-wrap white space. */
 export function createLineCache(language: string | undefined): LineCache {
   const prepared = new Map<string, { run: PreparedRichInline; widths: Map<string, RunLine[]> }>();
@@ -95,7 +105,6 @@ export function createLineCache(language: string | undefined): LineCache {
   return {
     stats: () => ({ hits, misses }),
     lines(run, widths) {
-      setLocale(language);
       const key = JSON.stringify(run.items);
       let entry = prepared.get(key);
       if (entry) {
@@ -103,6 +112,7 @@ export function createLineCache(language: string | undefined): LineCache {
         prepared.delete(key);
       } else {
         misses += 1;
+        prepareIn(language);
         entry = {
           run: prepareRichInline([...run.items], { whiteSpace: 'pre-wrap' }),
           widths: new Map(),

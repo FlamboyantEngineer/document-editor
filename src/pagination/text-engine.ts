@@ -217,6 +217,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     template,
     measureContext: measureIn(options),
     codeLineNumbers: options.codeLineNumbers,
+    language: options.language ?? '',
     reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
