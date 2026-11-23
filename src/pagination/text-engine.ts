@@ -4,7 +4,12 @@
 // DOM measuring, with the reason counted. Results are kept by node, so a keystroke lays out only
 // the block it changed (DOCE-PAGINATION-11). This module is loaded only when the option is on.
 
-import { type MeasureContext, setLayoutScale, setMeasureContext } from '@chenglou/pretext';
+import {
+  clearCache,
+  type MeasureContext,
+  setLayoutScale,
+  setMeasureContext,
+} from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
@@ -47,6 +52,19 @@ function contentWidth(template: TemplateFile, scope: string | null): number {
   const section = findTemplateSection(template, scope);
   const { width, margins } = templatePageMetrics(template, section);
   return width - margins.left - margins.right;
+}
+
+// Each section's content width, computed once per scope.
+function contentWidths(template: TemplateFile): (scope: string | null) => number {
+  const widths = new Map<string | null, number>();
+  return (scope) => {
+    let width = widths.get(scope);
+    if (width === undefined) {
+      width = contentWidth(template, scope);
+      widths.set(scope, width);
+    }
+    return width;
+  };
 }
 
 // Where the engine measures its atoms: out of sight, beside the view that measures the pages, whose
@@ -181,6 +199,11 @@ function roomOf(result: RegionGeometry): RegionRoom | null {
   return result.ok ? { height: result.height, gap: result.gap, children: result.children } : null;
 }
 
+/** Forgets the widths the layout engine measured, as after font faces load. */
+export function forgetFontWidths(): void {
+  clearCache();
+}
+
 // The inline atoms laid out as their text: those the pages draw as the schema does, not a host's.
 function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
   const host = new Set(options.hostViews ?? []);
@@ -206,6 +229,7 @@ function engineLayouts(options: TextEngineOptions, numbers: () => NodeNumbers) {
     template,
     measureContext: measureIn(options),
     codeLineNumbers: options.codeLineNumbers,
+    reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
     textAtoms: {
       types: textAtomTypes(options),
@@ -232,15 +256,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
   let regions = new WeakMap<ProseMirrorNode, { key: string; room: RegionRoom | null }>();
   const counts = { laid: 0, refused: 0, reasons: new Map<string, number>() };
-  const widths = new Map<string | null, number>();
-  const widthOf = (scope: string | null) => {
-    let width = widths.get(scope);
-    if (width === undefined) {
-      width = contentWidth(template, scope);
-      widths.set(scope, width);
-    }
-    return width;
-  };
+  const widthOf = contentWidths(template);
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();

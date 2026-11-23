@@ -145,6 +145,35 @@ describe('holdTextEngine', () => {
     holder.destroy();
     expect(holder.engine()).toBeNull();
   });
+
+  it('DOCE-PAGINATION-5.6 makes the engine again when font faces load, and tells it', async () => {
+    const fonts = new EventTarget();
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    try {
+      let changes = 0;
+      const holder = holdTextEngine({
+        setting: { template: () => BASE_TEMPLATE },
+        measureIn: document.createElement('div'),
+        changed: () => {
+          changes += 1;
+        },
+      });
+      await holder.loaded;
+      const first = holder.engine();
+      const version = holder.version();
+      fonts.dispatchEvent(new Event('loadingdone'));
+      expect(changes).toBe(1);
+      expect(holder.version()).toBe(version + 1);
+      const second = holder.engine();
+      expect(second).not.toBe(first);
+      expect(second?.measureBlock(paragraph(WORDS), null)?.height).toBeGreaterThan(0);
+      holder.destroy();
+      fonts.dispatchEvent(new Event('loadingdone'));
+      expect(changes).toBe(1);
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+    }
+  });
 });
 
 function engineOf(measureContext?: () => MeasureContext) {

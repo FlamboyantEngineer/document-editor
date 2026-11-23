@@ -240,17 +240,42 @@ export interface TableEditingOptions {
   readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
 }
 
+// The tables a repair took on that hold no cell at all, such as one a delete across it left with an
+// empty row, each with the node holding it (its caption's holder when it has one): the repair can
+// only delete such a table, which its holder cannot lose, and the schema puts an empty table back
+// in its place, which the repair takes on again after every write, such as its element ids.
+function emptyTables(doc: ProseMirrorNode, repair: Transaction): { from: number; to: number }[] {
+  const found = new Map<number, number>();
+  for (const step of repair.steps) {
+    const { from } = step as { from?: number };
+    if (from === undefined || from > doc.content.size) continue;
+    const table = doc.nodeAt(from);
+    if (table?.type.spec.tableRole !== 'table' || TableMap.get(table).width > 0) continue;
+    const $at = doc.resolve(from);
+    const holder = $at.parent.type.name === 'table_figure' ? $at.depth : null;
+    const start = holder === null ? from : $at.before(holder);
+    found.set(start, holder === null ? from + table.nodeSize : $at.after(holder));
+  }
+  return [...found].map(([from, to]) => ({ from, to }));
+}
+
 // Cell selections, and the repair that keeps every row as wide as the table, which writes only
-// after a change of the writer's own: a remote change carries its sender's repair already.
+// after a change of the writer's own: a remote change carries its sender's repair already. A table
+// left with no cell is taken out whole, with its caption, rather than repaired.
 function localTableEditing(isRemote: (tr: Transaction) => boolean): Plugin {
   const plugin = tableEditing();
   const repair = plugin.spec.appendTransaction;
   return new Plugin({
     ...plugin.spec,
-    appendTransaction: (transactions, before, after) =>
-      transactions.some((tr) => !isRemote(tr))
-        ? (repair?.(transactions, before, after) ?? null)
-        : null,
+    appendTransaction: (transactions, before, after) => {
+      if (!transactions.some((tr) => !isRemote(tr))) return null;
+      const repaired = repair?.(transactions, before, after) ?? null;
+      const empty = repaired ? emptyTables(after.doc, repaired) : [];
+      if (!empty.length) return repaired;
+      const tr = after.tr;
+      for (const { from, to } of empty.toReversed()) tr.delete(from, to);
+      return tr;
+    },
   });
 }
 

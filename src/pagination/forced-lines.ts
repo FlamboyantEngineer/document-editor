@@ -72,9 +72,19 @@ function blockSet(
   const { table, key } = drawn;
   const kept = builder.blocks.get(node);
   if (kept?.key === key) return kept.set;
-  const own = lineMarks(node, table, { prefixed: key !== '' }).map(({ from, to, ...attrs }) =>
-    Decoration.inline(from, to, attrs.style ? attrs : { class: attrs.class }),
-  );
+  // An inner mark is an element of its own, and the view nests each later level around the one
+  // before: the first other mark on an inner mark's range starts the element around it, which the
+  // marks after it on that range join, as a static drawing nests them.
+  const marks = lineMarks(node, table, { prefixed: key !== '' });
+  const own = marks.map(({ from, to, inner, ...attrs }, index) => {
+    const before = marks[index - 1];
+    const around = !inner && before?.inner && before.from === from && before.to === to;
+    return Decoration.inline(from, to, {
+      ...(inner || around ? { nodeName: 'span' } : {}),
+      class: attrs.class,
+      ...(attrs.style ? { style: attrs.style } : {}),
+    });
+  });
   const set = own.length ? new makeSet(own, []) : DecorationSet.empty;
   builder.blocks.set(node, { key, set });
   return set;

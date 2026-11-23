@@ -257,3 +257,27 @@ describe('remote changes', () => {
     expect(rows(state.applyTransaction(removeLast()).state)[1]).toEqual(['A2', 'B2', '']);
   });
 });
+
+describe('a table left with no cell', () => {
+  it('DOCE-TABLES-1.7 takes out a table a delete left with no cell, with its caption, once', () => {
+    const doc = read(
+      { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+      table(row(cell('A1'))),
+    );
+    const plugins = createDocumentEditing(documentSchema);
+    const state = EditorState.create({ doc, plugins });
+    // The writer's delete takes the row's only cell, leaving an empty row.
+    const $a1 = state.doc.resolve(positionOf(state.doc, 'A1'));
+    const tr = state.tr.delete($a1.before($a1.depth - 1), $a1.after($a1.depth - 1));
+    const { state: after, transactions } = state.applyTransaction(tr);
+    expect(transactions.length).toBeLessThan(10);
+    const types: string[] = [];
+    after.doc.descendants((node) => {
+      types.push(node.type.name);
+      return true;
+    });
+    expect(types).not.toContain('table');
+    expect(types).not.toContain('table_figure');
+    expect(after.doc.textBetween(0, after.doc.content.size)).toBe('Before');
+  });
+});

@@ -56,6 +56,31 @@ describe('renderLayoutPrintPage', () => {
     expect(static_[0]?.querySelectorAll('.de-forced-lines__end')).toHaveLength(3);
   });
 
+  it('DOCE-PAGINATION-12.4 draws a reserved cluster in its box inside a line end, as the view does', () => {
+    const doc = pagesDocument([page([paragraph([text('aaaa☃bb☃c')], { dataId: 'p1' })])]);
+    const engine = stubEngine({ perLine: 5, reserved: new Set(['☃']) });
+    const { view, printed } = bothDrawings(doc, engine);
+    const drawn = view.querySelector('p');
+    expect(printed.querySelector('p')?.innerHTML).toBe(drawn?.innerHTML);
+    const boxes = [...(drawn?.querySelectorAll('.de-forced-lines__reserved') ?? [])];
+    expect(boxes.map((box) => [box.textContent, box.getAttribute('style')])).toEqual([
+      ['☃', '--de-reserved-width: 16.000px;'],
+      ['☃', '--de-reserved-width: 16.000px;'],
+    ]);
+    // The first ends its line: the line end's element holds the box, so its line feed is outside.
+    expect(boxes[0]?.parentElement?.className).toBe('de-forced-lines__end');
+    // Inside a justified line, with a line end and an indent beside it.
+    const justified = pagesDocument([page([paragraph([text('a ☃ b ☃ c☃')], { dataId: 'p2' })])]);
+    const both = bothDrawings(
+      justified,
+      stubEngine({ perLine: 4, left: 6, justify: true, reserved: new Set(['☃']) }),
+    );
+    const view2 = both.view.querySelector('p');
+    expect(both.printed.querySelector('p')?.innerHTML).toBe(view2?.innerHTML);
+    for (const box of view2?.querySelectorAll('.de-forced-lines__reserved') ?? [])
+      expect(box.childElementCount).toBe(0);
+  });
+
   it('DOCE-PAGINATION-13.3 draws numbered headings, indents and justified lines', () => {
     const heading = node('heading', { level: 1, dataId: 'h1' }, [text('Scope of the plan')]);
     const doc = pagesDocument([page([heading])]);

@@ -63,6 +63,33 @@ export interface RegressionProbe {
    * without the engine.
    */
   showViewer(overscan?: number): boolean;
+  /** With `textLayout=pretext`, the pages' layout as data (`pagesLayout()`), or null. */
+  layout(): PagesLayout | null;
+  /** Opens a stored document afresh, in a new editor, as if the page had just loaded it. */
+  load(file: DocumentFile): void;
+  /** Sets the document's zoom in percent while it shows. */
+  setZoom(percent: number): void;
+  /**
+   * Where each text block's content is in the document with its pages joined whole, as `[from, to]`,
+   * in order; continuation placeholders left out.
+   */
+  textRanges(): [number, number][];
+  /** Selects, focused, between two positions of the document with its pages joined whole. */
+  selectJoined(from: number, to: number): void;
+  /** Makes a change as another writer would: outside the writer's undo history. */
+  remote(change: RemoteChange): void;
+}
+
+/** A change another writer makes, at positions of the document with its pages joined whole. */
+export type RemoteChange =
+  | { readonly kind: 'insert'; readonly at: number; readonly text: string }
+  | { readonly kind: 'delete'; readonly from: number; readonly to: number };
+
+/** What the lab gives its probe besides the editor: how it opens a document and sets the zoom. */
+export interface RegressionLabControls {
+  readonly showViewer: ShowViewer;
+  readonly load: (file: DocumentFile) => void;
+  readonly setZoom: (percent: number) => void;
 }
 
 /** Shows a layout in the lab's viewer. */
@@ -181,11 +208,29 @@ function caretAtFragment(view: EditorView, type: string, edge: FragmentEdge): Fr
   return { elementId: typeof id === 'string' ? id : '', joined };
 }
 
+// Each text block's content range in a document, placeholders left out.
+function textRanges(doc: ProseMirrorNode): [number, number][] {
+  const ranges: [number, number][] = [];
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    if (!isPlaceholder(node)) ranges.push([pos + 1, pos + node.nodeSize - 1]);
+    return false;
+  });
+  return ranges;
+}
+
+function remoteChange(view: EditorView, change: RemoteChange) {
+  const { tr } = view.state;
+  if (change.kind === 'insert') tr.insertText(change.text, change.at);
+  else tr.delete(change.from, change.to);
+  view.dispatch(tr.setMeta('addToHistory', false));
+}
+
 /** Puts the probe on `window.regressionLab` while the lab shows. */
 export function useRegressionProbe(
   handle: RefObject<DocumentEditorHandle | null>,
   template: TemplateFile,
-  showViewer: ShowViewer,
+  { showViewer, load, setZoom }: RegressionLabControls,
 ) {
   useEffect(() => {
     const probe: RegressionProbe = {
@@ -216,7 +261,25 @@ export function useRegressionProbe(
         if (layout) showViewer(layout, overscan);
         return Boolean(layout);
       },
+      layout: () => handle.current?.pagesLayout() ?? null,
+      load,
+      setZoom,
+      textRanges: () => {
+        const view = handle.current?.view();
+        return view ? textRanges(view.state.doc) : [];
+      },
+      selectJoined: (from, to) => {
+        const view = handle.current?.view();
+        if (!view) return;
+        const { doc } = view.state;
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, from, to)));
+        view.focus();
+      },
+      remote: (change) => {
+        const view = handle.current?.view();
+        if (view) remoteChange(view, change);
+      },
     };
     Object.assign(window, { regressionLab: probe });
-  }, [handle, template, showViewer]);
+  }, [handle, template, showViewer, load, setZoom]);
 }

@@ -157,8 +157,9 @@ export interface WrappedBlock {
   readonly drawn: number;
 }
 
-// The boxes an element's content is drawn in: its text's, and each inline atom's own box, as an
-// atom such as typeset math draws parts of itself above and below its line.
+// The boxes an element's content is drawn in: its text's, each hard break's, so a line that holds
+// only a break counts, and each inline atom's own box, as an atom such as typeset math draws parts
+// of itself above and below its line.
 function contentBoxes(element: Element): DOMRect[] {
   const boxes: DOMRect[] = [];
   const range = element.ownerDocument.createRange();
@@ -169,7 +170,8 @@ function contentBoxes(element: Element): DOMRect[] {
         boxes.push(...range.getClientRects());
       } else if (child.nodeType === 1) {
         const inner = child as HTMLElement;
-        if (inner.contentEditable === 'false') boxes.push(...inner.getClientRects());
+        if (inner.contentEditable === 'false' || inner.tagName === 'BR')
+          boxes.push(...inner.getClientRects());
         else visit(inner);
       }
     }

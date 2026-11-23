@@ -130,9 +130,12 @@ export interface RegionEditingOptions {
 function applyEdits(
   tr: Transaction,
   value: RegionEditingState,
-  template: TemplateFile,
+  options: RegionEditingOptions,
 ): RegionEditingState {
-  if (isWriters(tr)) {
+  const template = options.template();
+  // A change in a read-only region, as an input method can make in the DOM, is no edit: the
+  // template's content is set back over it (`setPageRegions`).
+  if (isWriters(tr) && options.enabled()) {
     const edited = editedRegions(tr);
     if (!edited.size) return value;
     return { edits: new Map([...value.edits, ...edited]), changed: [...edited.keys()] };
@@ -160,7 +163,7 @@ export function createRegionEditing(options: RegionEditingOptions): Plugin<Regio
     enabled: options.enabled,
     state: {
       init: () => ({ edits: NO_EDITS, changed: [] }),
-      apply: (tr, value) => applyEdits(tr, value, options.template()),
+      apply: (tr, value) => applyEdits(tr, value, options),
     },
     // The other pages' copies of an edited region take its content.
     appendTransaction(transactions, _before, after) {

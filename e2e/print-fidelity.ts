@@ -150,10 +150,12 @@ export function pdfPageTexts(pdf: Buffer, pages: number): string[] {
 }
 
 // The text a page shows, in document order: each text node's text that is not clipped away by an
-// element around it that clips what overflows it.
+// element around it that clips what overflows it, nor drawn only for the writer, such as an empty
+// section's placeholder, which a snapshot leaves out (DOCE-EDITOR-6.15).
 function visibleText(page: Element): string {
   const clips = (element: Element) => getComputedStyle(element).overflow !== 'visible';
   const shows = (node: Text) => {
+    if (node.parentElement?.closest('[data-de-view-only="widget"]')) return false;
     const range = document.createRange();
     range.selectNodeContents(node);
     const box = range.getBoundingClientRect();
@@ -263,11 +265,13 @@ export async function expectPrintEqualsEditor(
 ): Promise<readonly PageComparison[]> {
   // The caret is hidden by a stylesheet: Playwright hides it by writing a style on each editable
   // element, which the editor takes for an edit of its pages and draws them again. So are the
-  // manual page break markers, which print leaves out (DOCE-EDITOR-6.33).
+  // manual page break markers, which print leaves out (DOCE-EDITOR-6.33), and the layout
+  // columns' boxes shown only while authoring (DOCE-LAYOUT-4.2), which move nothing.
   await page.addStyleTag({
     content: [
       '#lab-chrome { display: none !important; } * { caret-color: transparent !important; }',
       ':is(hr.manual-page-break, [data-page-break])::before, :is(hr.manual-page-break, [data-page-break])::after { display: none !important; }',
+      '.doc-layout-column { border-color: transparent !important; }',
     ].join(' '),
   });
   await page.mouse.move(0, 0);

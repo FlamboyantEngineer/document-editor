@@ -4,7 +4,7 @@
 // pin in `meta`, the threads in `comments`.
 
 import * as Y from '@y/y';
-import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { assignElementIds } from '../engine/element-ids.js';
 import {
@@ -17,7 +17,8 @@ import {
   type DocumentWriteOptions,
   writeDocumentFile,
 } from '../model/format/document-format-write.js';
-import type { TemplatePin } from '../model/format/template-format.js';
+import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
+import { setPageRegions } from '../model/templates/page-regions.js';
 import { readContent, writeContent } from './delta.js';
 import { diffNodes } from './diff.js';
 import { resolveRoomScope, type RoomScope } from './room-scope.js';
@@ -46,6 +47,14 @@ export interface RoomWriteOptions {
 export interface RoomUpdateOptions extends RoomWriteOptions {
   /** The Yjs transaction's origin, such as the host's own server origin; `null` by default. */
   origin?: unknown;
+  /**
+   * The template the written document's pin names. Given, a section whose page headers and footers
+   * the room cannot keep gets them from it, read-only, as a writer's editor shows them; without
+   * it, such a section's regions are as the stored document reads them, editable, until a writer's
+   * own change sets them again. A template whose id is not the pin's is not used; a template file
+   * carries no revision, so the host passes the pinned revision.
+   */
+  pageTemplate?: TemplateFile | undefined;
 }
 
 /** How a room's document is read back as a stored one. */
@@ -62,6 +71,63 @@ export interface RoomReadOptions {
 function withElementIds(node: ProseMirrorNode, newId: RoomWriteOptions['newId']): ProseMirrorNode {
   const tr = EditorState.create({ doc: node }).tr;
   return assignElementIds(tr, { newId }) ? tr.doc : node;
+}
+
+const REGIONS = new Set(['page_header', 'page_footer']);
+
+// The document with the page headers and footers the room holds kept where they still apply: the
+// same template, the same sections in the same order, each with its name and its own header and
+// footer settings unchanged. The writers' editors set those regions from the template, with
+// attributes such as `editable` that the stored format does not keep, and take a write that is not
+// theirs as a remote change, setting no region again. Without them, a server write would leave
+// every writer's headers and footers as a stored document reads them, editable.
+function withHeldRegions(
+  node: ProseMirrorNode,
+  held: ProseMirrorNode,
+  samePin: boolean,
+): ProseMirrorNode {
+  // What a section's regions show comes from its name, its own settings and the template; a write
+  // that adds, takes out or moves sections, or changes the template, keeps none.
+  const keeps = (section: ProseMirrorNode, index: number) => {
+    const before = held.child(index);
+    return (
+      before.type === section.type &&
+      before.attrs.sectionName === section.attrs.sectionName &&
+      JSON.stringify(before.attrs.pageHeader) === JSON.stringify(section.attrs.pageHeader) &&
+      JSON.stringify(before.attrs.pageFooter) === JSON.stringify(section.attrs.pageFooter)
+    );
+  };
+  if (!samePin || node.childCount !== held.childCount) return node;
+  const sections: ProseMirrorNode[] = [];
+  node.forEach((section, _offset, index) => {
+    const before = held.child(index);
+    if (!keeps(section, index)) {
+      sections.push(section);
+      return;
+    }
+    const pages: ProseMirrorNode[] = [];
+    section.forEach((page, _at, pageIndex) => {
+      const old = pageIndex < before.childCount ? before.child(pageIndex) : null;
+      const regions: ProseMirrorNode[] = [];
+      page.forEach((region, _place, regionIndex) => {
+        const kept = old && regionIndex < old.childCount ? old.child(regionIndex) : null;
+        regions.push(REGIONS.has(region.type.name) && kept?.type === region.type ? kept : region);
+      });
+      pages.push(page.copy(Fragment.from(regions)));
+    });
+    sections.push(section.copy(Fragment.from(pages)));
+  });
+  return node.copy(Fragment.from(sections));
+}
+
+// The document with each page's header and footer as a writer's editor shows them, read-only.
+function withTemplateRegions(
+  node: ProseMirrorNode,
+  template: TemplateFile | undefined,
+  pin: TemplatePin | null,
+) {
+  if (!template || (pin && pin.id !== template.id)) return node;
+  return setPageRegions(EditorState.create({ doc: node }).tr, template).doc;
 }
 
 // Refuses a room of another format version than the library reads and writes.
@@ -112,7 +178,16 @@ export function updateRoomDocument(
   const template = file.template ?? null;
   doc.transact(() => {
     if (!held) writeContent(content, node);
-    else if (!held.eq(node)) content.applyDelta(diffNodes(held, node) as never);
+    else {
+      const samePin =
+        JSON.stringify(meta.getAttr(TEMPLATE_KEY) ?? null) === JSON.stringify(template);
+      const kept = withHeldRegions(
+        withTemplateRegions(node, options.pageTemplate, template),
+        held,
+        samePin,
+      );
+      if (!held.eq(kept)) content.applyDelta(diffNodes(held, kept) as never);
+    }
     if (meta.getAttr(FORMAT_VERSION_KEY) !== DOCUMENT_FORMAT_VERSION)
       meta.setAttr(FORMAT_VERSION_KEY, DOCUMENT_FORMAT_VERSION);
     if (JSON.stringify(meta.getAttr(TEMPLATE_KEY) ?? null) !== JSON.stringify(template))

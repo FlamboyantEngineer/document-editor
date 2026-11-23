@@ -48,7 +48,7 @@ Verification: `src/engine/tables.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-1.7 - Remote changes
 
-The repair that keeps every row of a table as wide as the table, which comes with cell selections, shall write only after a change that is not remote (`isRemote`, `isRemoteTransaction` by default): a remote change carries its sender's repair already.
+The repair that keeps every row of a table as wide as the table, which comes with cell selections, shall write only after a change that is not remote (`isRemote`, `isRemoteTransaction` by default): a remote change carries its sender's repair already. A table a writer's change left with no cell, such as one a delete across it left with an empty row, which the repair can only delete while the node holding it with its caption needs a table, shall be taken out whole with its caption instead of repaired again after each write.
 
 Implementation: `src/engine/tables.ts`
 Verification: `src/engine/tables.test.ts`
