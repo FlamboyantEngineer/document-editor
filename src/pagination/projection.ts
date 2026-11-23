@@ -20,6 +20,7 @@ import { columnResizing } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
 import type { PagesLayout } from '../document/pages-layout.js';
 import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
+import type { FontFiles } from '../host/font-files.js';
 import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
 import {
@@ -30,6 +31,7 @@ import {
 import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
 import { forcedLinesKey } from './forced-lines.js';
+import { remeasureGhost } from './ghost-measuring.js';
 import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
@@ -38,7 +40,7 @@ import {
 } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import type { LayoutTraceSink } from './layout-trace.js';
-import { awaitReady, followMeasuring, frameIn, settleEdits } from './layout-triggers.js';
+import { awaitReady, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-cache.js';
 import { pageChromeDecorations } from './page-chrome.js';
@@ -209,6 +211,8 @@ export interface PagedProjection {
   textLines(): PageTextLines[];
   /** With `textLayout`, the pages' layout as data a viewer or a print draws (`pagesLayout`). */
   pagesLayout(): PagesLayout | null;
+  /** With `textLayout`, the served faces the pages are measured and drawn with; null without. */
+  servedFonts(): FontFiles | null;
   destroy(): void;
 }
 
@@ -317,15 +321,6 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
   };
 }
 
-// What the projection's measuring asks: measure the blocks that changed size again, and lay out.
-function remeasureGhost(live: Session): () => void {
-  return followMeasuring(live.options.measureIn, {
-    cache: live.cache,
-    view: () => live.ghost.view,
-    request: () => requestLayout(live),
-  });
-}
-
 /** Lays a canonical state out on pages, routing input on them back to it. */
 export function createPagedProjection(options: PagedProjectionOptions): PagedProjection {
   // The plugins' handlers run only once the session holds them.
@@ -391,6 +386,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       const settled = layoutSettled(live.pace.readiness.state(), options.measureIn);
       return pagesLayout(live.projection, { ...options, settled });
     },
+    servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {
       unlisten();
       live.cells.release();

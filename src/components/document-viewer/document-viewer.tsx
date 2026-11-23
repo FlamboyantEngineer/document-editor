@@ -5,11 +5,12 @@
 // elements, and every number is the one the engine laid the pages out with, whichever pages are
 // drawn.
 
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import type { PrintPageOptions } from '../../document/print.js';
-import { drawLayoutPages, VIEW_CLASSES } from '../../document/print-pages.js';
+import { drawLayoutPages, layoutTemplate, VIEW_CLASSES } from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
+import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { scrollerOf } from '../../utils/scroll-frame.js';
@@ -91,6 +92,30 @@ function wantedPages(visible: ReadonlySet<number>, overscan: number, total: numb
   return wanted;
 }
 
+// The served faces the pages were measured with, added to the viewer's document while it shows
+// them, so its pages draw the glyphs their lines were broken in (DOCE-PAGINATION-13.8).
+function useLayoutFaces(fonts: FontFiles | null, root: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const faces = root.current?.ownerDocument.fonts as FontFaceSet | undefined;
+    if (!fonts?.faces.length || !faces || typeof FontFace === 'undefined') return undefined;
+    const drawn = fonts.faces.map(
+      (face) =>
+        new FontFace(face.family, face.bytes, {
+          weight: String(face.weight),
+          style: face.style,
+          ...(face.unicodeRange ? { unicodeRange: face.unicodeRange } : {}),
+        }),
+    );
+    for (const face of drawn) {
+      faces.add(face);
+      face.load().catch(() => faces.delete(face));
+    }
+    return () => {
+      for (const face of drawn) faces.delete(face);
+    };
+  }, [fonts, root]);
+}
+
 /**
  * A document's laid-out pages, read-only (DOCE-PAGINATION-13.6): `de-document-viewer` beside the
  * editor's root class, in the template's properties, around an element with the classes of the
@@ -101,11 +126,15 @@ export function DocumentViewer(props: DocumentViewerProps) {
   const { layout, template, overscan = 1, label, className } = props;
   const options = useSameOptions(props.options);
   const content = useRef<HTMLDivElement>(null);
+  useLayoutFaces(layout.fonts, content);
   const drawing = useMemo(
     () => drawLayoutPages(layout, template, options),
     [layout, template, options],
   );
-  const style = useMemo(() => templateProperties(template) as CSSProperties, [template]);
+  const style = useMemo(
+    () => templateProperties(layoutTemplate(layout, template)) as CSSProperties,
+    [layout, template],
+  );
   useEffect(() => {
     const element = content.current;
     if (!element) return undefined;

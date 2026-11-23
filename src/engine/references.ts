@@ -13,6 +13,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { internalTargetId, type ReferenceAt, referencesIn } from '../model/citation-identifiers.js';
 import {
   readReferenceBaseline,
   type ReferenceBaseline,
@@ -31,31 +32,10 @@ import { touchesReferences } from './reference-updates.js';
 import { revealElement } from './reveal.js';
 import { isRemoteTransaction } from './transaction-kind.js';
 
+export type { ReferenceAt } from '../model/citation-identifiers.js';
+export { internalTargetId } from '../model/citation-identifiers.js';
 export type { ReferenceTarget } from './reference-targets.js';
 export { internalReferenceText, referenceTargets } from './reference-targets.js';
-
-/** A reference in the text: its range and its mark. */
-export interface ReferenceAt {
-  readonly from: number;
-  readonly to: number;
-  readonly mark: Mark;
-}
-
-// Each reference of a text block, as the runs of text carrying the same mark.
-function referencesIn(block: ProseMirrorNode, start: number): ReferenceAt[] {
-  const found: ReferenceAt[] = [];
-  let pos = start;
-  block.forEach((child) => {
-    const end = pos + child.nodeSize;
-    const mark = child.marks.find((each) => each.type.name === 'reference');
-    const last = found.at(-1);
-    if (mark && last && last.to === pos && last.mark.eq(mark)) {
-      found[found.length - 1] = { ...last, to: end };
-    } else if (mark) found.push({ from: pos, to: end, mark });
-    pos = end;
-  });
-  return found;
-}
 
 /** Every reference of a document, in reading order. */
 export function listReferences(doc: ProseMirrorNode): ReferenceAt[] {
@@ -175,13 +155,6 @@ export const removeReference: Command = (state, dispatch) => {
   dispatch?.(state.tr.removeMark(reference.from, reference.to, type));
   return true;
 };
-
-/** The element id an internal reference cites, or null for another reference. */
-export function internalTargetId(mark: Mark): string | null {
-  const type = String(mark.attrs.refType ?? '');
-  const id = mark.attrs.targetId as unknown;
-  return type.startsWith('internal-') && typeof id === 'string' && id ? id : null;
-}
 
 /** What a reference records of what it cites, or null: a citation, or an internal target. */
 export function referenceBaselineOf(mark: Mark): ReferenceBaseline | null {

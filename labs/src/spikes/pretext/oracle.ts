@@ -265,7 +265,7 @@ export function verify(
 ) {
   const column = pageContent();
   column.classList.add('pretext-oracle');
-  const elements = nodes.map(renderBlock);
+  const elements = nodes.map((node) => renderBlock(node));
   column.append(...elements);
   host.append(column);
   try {

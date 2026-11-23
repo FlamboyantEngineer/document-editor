@@ -25,6 +25,8 @@ export interface ServedFonts {
   readonly reserve: ReserveCluster;
   /** The served family each generic keyword stands for, as the pages draw it (`servedTemplate`). */
   readonly generics: Readonly<Record<string, string>>;
+  /** The faces the pages measure and draw with, and the family each generic stands for. */
+  files(): FontFiles;
   /** Asks the host for the families not asked for yet; true once some were added. */
   add(families: readonly string[]): Promise<boolean>;
   destroy(): void;
@@ -55,6 +57,7 @@ async function drawnFace(face: FontFaceFile): Promise<FontFace | null> {
 // The faces and families of a host's files, as the pages hold them.
 function createFaces(doc: Document) {
   const drawn: FontFace[] = [];
+  const served: FontFaceFile[] = [];
   const families = new Set<string>();
   const generics: Record<string, string> = {};
   const asked = new Set<string>();
@@ -62,8 +65,10 @@ function createFaces(doc: Document) {
     families,
     generics,
     asked,
+    served,
     async add(files: FontFiles, skipped: ReadonlySet<number>) {
       const faces = files.faces.filter((_face, index) => !skipped.has(index));
+      served.push(...faces);
       for (const face of faces) families.add(key(face.family));
       for (const [generic, family] of Object.entries(files.generics ?? {}))
         if (families.has(key(family))) generics[key(generic)] ??= family;
@@ -94,6 +99,7 @@ function servedFonts(
     reserve: measurer.reserve,
     isFontServed: (family) => faces.families.has(key(family)),
     generics: faces.generics,
+    files: () => ({ faces: [...faces.served], generics: { ...faces.generics } }),
     async add(families) {
       const wanted = families.filter((family) => !faces.asked.has(key(family)));
       for (const family of wanted) faces.asked.add(key(family));

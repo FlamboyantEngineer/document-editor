@@ -1,12 +1,16 @@
 import { DOMSerializer, type Node } from 'prosemirror-model';
+import { blockDirection } from '../../../../src/layout-engine/direction.js';
 import { requireValue, schema } from './fixtures.js';
 import type { LayoutIndex } from './protocol.js';
 import { applySettings, pageGap } from './settings.js';
 
 const serializer = DOMSerializer.fromSchema(schema);
 
-export function renderBlock(node: Node) {
+// A block drawn as the pages draw it: a text block with its direction from its first strong
+// letter, a part of a split block with the whole block's (DOCE-PAGINATION-9.12).
+export function renderBlock(node: Node, whole: Node = node) {
   const element = serializer.serializeNode(node) as HTMLElement;
+  if (whole.isTextblock) element.dir = blockDirection(whole);
   // Apply constraints declared by the stored table, independently of predicted row heights.
   for (const table of element.querySelectorAll('table')) {
     const columns = [
@@ -129,6 +133,7 @@ export class VirtualPages {
         const whole = fragment.from === 0 && fragment.to === node.content.size;
         const element = renderBlock(
           whole ? node : node.copy(node.content.cut(fragment.from, fragment.to)),
+          node,
         );
         element.dataset.sourceFrom = String(fragment.from);
         element.dataset.sourceTo = String(fragment.to);

@@ -75,7 +75,7 @@ function refusalsOf(file: DocumentFile): Refusals {
   return { laid, refused, reasons: Object.fromEntries([...reasons].sort()) };
 }
 
-// The blocks each document leaves to the DOM today, and why, over the whole set (822 laid, 60
+// The blocks each document leaves to the DOM today, and why, over the whole set (838 laid, 60
 // refused): code captions wait for code figure geometry that matches the drawn box and contents
 // lists for thread G, and a block with a template variable is left to the DOM since #323. A count
 // may only go down.

@@ -106,6 +106,47 @@ test.describe('the layout engine on the pages', () => {
     await expect(paragraph).toContainText('lines of this paragraph');
   });
 
+  test('DOCE-PAGINATION-9.12 draws a paragraph that starts right to left from the right, on the engine lines', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed', 'pretext');
+    const id = await page.evaluate(
+      () =>
+        window.regressionLab
+          .textLines()[0]
+          ?.blocks.find((each) => (each.lines?.length ?? 0) > 2 && each.part === 0)?.elementId,
+    );
+    if (!id) throw new Error('no paragraph of three lines on the first page');
+    const paragraph = page.locator(`.de-forced-lines[data-id="${id}"]`).first();
+    await expect(paragraph).toHaveAttribute('dir', 'ltr');
+    // Its first strong letter becomes Hebrew: the paragraph turns right to left.
+    await paragraph.click({ position: { x: 1, y: 4 } });
+    await page.keyboard.type('שלום עולם ');
+    await page.evaluate(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return window.stressLab.whenSettled();
+    });
+    await expect(paragraph).toHaveAttribute('dir', 'rtl');
+    const after = await readPages(page);
+    expect(after.wrapped).toEqual([]);
+    expect(after.mismatched).toEqual([]);
+    // Every line starts at the right edge: the rightmost box of each drawn line meets it.
+    const gaps = await paragraph.evaluate((element) => {
+      const right = element.getBoundingClientRect().right;
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const lines = new Map<number, number>();
+      for (const rect of range.getClientRects()) {
+        if (rect.width === 0) continue;
+        const top = Math.round(rect.top + rect.height / 2);
+        lines.set(top, Math.max(lines.get(top) ?? -Infinity, rect.right));
+      }
+      return [...lines.values()].map((edge) => Math.round(right - edge));
+    });
+    expect(gaps.length).toBeGreaterThan(2);
+    expect(gaps.every((gap) => Math.abs(gap) <= 1)).toBe(true);
+  });
+
   test('DOCE-PAGINATION-11.6 draws on forced lines only the pages near the screen', async ({
     page,
   }) => {
@@ -280,4 +321,41 @@ test.describe('served fonts', () => {
     expect(await family('p')).toBe('"Times New Roman"');
     expect(await family('pre')).toBe('"Courier New"');
   });
+
+  const documents: readonly RegressionDocumentName[] = [
+    'long-mixed',
+    'code-blocks',
+    'table-rich-cells',
+    'footnotes-in-structures',
+    'math',
+  ];
+  for (const name of documents) {
+    test(`DOCE-PAGINATION-12.5 draws every text of ${name}'s pages in a family the host serves`, async ({
+      page,
+    }) => {
+      await open(page, name, 'pretext');
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      // Each element that holds text and its first family, where that family has no served face.
+      // Not yet MathML, which the browser draws in its own `math` family and the engine measures as
+      // drawn (DOCE-PAGINATION-10.8); serving its font is the math atoms' open item (Q2).
+      const unserved = await page.evaluate(() => {
+        const served = new Set(
+          [...document.fonts].map((face) => face.family.replace(/^"|"$/gu, '')),
+        );
+        const found = new Set<string>();
+        const root = document.querySelector('.de-document-editor__content');
+        const walker = document.createTreeWalker(root ?? document.body, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const element = node.parentElement;
+          if (!element || !node.textContent?.trim() || element.closest('math')) continue;
+          if (!element.closest('.pm-page')) continue;
+          const first = getComputedStyle(element).fontFamily.split(',')[0]?.trim() ?? '';
+          const family = first.replace(/^"|"$/gu, '');
+          if (!served.has(family)) found.add(`${element.localName}: ${first}`);
+        }
+        return [...found].sort();
+      });
+      expect(unserved).toEqual([]);
+    });
+  }
 });

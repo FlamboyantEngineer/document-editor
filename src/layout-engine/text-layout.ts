@@ -7,12 +7,13 @@ import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 import { footnoteMarkerItem } from './footnote-marker.js';
+import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
-import { buildRuns, type MeasureAtom, type TextRun } from './runs.js';
+import { buildRuns, type MeasureAtom, type TextRun, type VariableTexts } from './runs.js';
 import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
@@ -80,6 +81,10 @@ export interface TextBlockPlace {
   readonly number?: ParagraphNumber | undefined;
   /** A footnote entry's number, drawn before its content in the template's marker style. */
   readonly footnoteNumber?: string | undefined;
+  /** The text its template variables show, where it is drawn once with known values. */
+  readonly variables?: VariableTexts | undefined;
+  /** Text drawn in the block that is not its content, such as a comparison's deleted words. */
+  readonly inserted?: readonly InsertedText[] | undefined;
   /** A caption's label, number and separator, drawn before its text in the caption label font. */
   readonly label?: string | undefined;
 }
@@ -127,14 +132,15 @@ function unservedFamily(
   return families.map(firstFamily).find((family) => !isFontServed(family)) ?? null;
 }
 
-// The clusters of a block's text items that take a reserved width; a template variable's text is
-// not the block's content, so it is left out.
+// The clusters of a block's text items that take a reserved width; inserted words and a template
+// variable's text are not the block's content, so they are left out.
 function reservedOf(runs: readonly TextRun[], reserve: ReserveCluster): ReservedBox[] {
   const boxes: ReservedBox[] = [];
   for (const run of runs)
     run.items.forEach((item, index) => {
       const offset = run.offsets[index] ?? -1;
-      if (offset < 0 || !('font' in item) || item.break === 'never') return;
+      const inserted = (run.sides[index] ?? null) !== null;
+      if (offset < 0 || inserted || !('font' in item) || item.break === 'never') return;
       boxes.push(...reservedBoxes(item.text, { offset, font: item.font, reserve }));
     });
   return boxes;
@@ -252,7 +258,9 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         measureAtom: options.measureAtom,
         scope: place.scope,
         textAtoms: options.textAtoms,
+        variables: place.variables,
         boxOf: boxOf(style),
+        inserted: place.inserted,
       });
       if (!runs.ok) return runs;
       const table = layoutLines(cache, {

@@ -10,11 +10,13 @@ import {
   type SectionPages,
   stackedHeight,
 } from '../model/index.js';
+import { forcedLinesKey } from './forced-lines.js';
 import {
   type IncrementalResult,
   layoutSectionIncrementally,
   type SectionLayout,
 } from './incremental-layout.js';
+import { insertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { measureChildBlocks } from './measure-blocks.js';
 import { blockMargin, type MeasureCache, measureCacheCounts } from './measure-cache.js';
 import {
@@ -23,6 +25,7 @@ import {
   footnoteAreaOf,
   measureFootnotes,
 } from './measure-footnotes.js';
+import { unzoom } from './measure-scale.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
@@ -167,6 +170,16 @@ function sectionPlaces(doc: ProseMirrorNode): SectionPlace[] {
   return places;
 }
 
+// The text each template variable in a header or footer shows, as the view draws it
+// (`createPageVariables`): the engine lays the region out with these values.
+function variableTexts(region: HTMLElement): ReadonlyMap<string, string> {
+  const texts = new Map<string, string>();
+  for (const variable of region.querySelectorAll<HTMLElement>('[data-template-variable]')) {
+    texts.set(variable.dataset.templateVariable ?? '', variable.textContent);
+  }
+  return texts;
+}
+
 // The room a page header or footer takes, with its margins; one the view hides takes none. The
 // layout engine gives it when it lays the region out (`measureRegion`), the view's box otherwise.
 function regionHeight(view: EditorView, pos: number | null, at: RegionAt): number {
@@ -176,13 +189,13 @@ function regionHeight(view: EditorView, pos: number | null, at: RegionAt): numbe
   const { height } = element.getBoundingClientRect();
   if (!height) return 0;
   const node = pos === null ? null : view.state.doc.nodeAt(pos);
-  const room = node ? at.engine?.measureRegion(node, at.scope) : null;
+  const room = node ? at.engine?.measureRegion(node, at.scope, variableTexts(element)) : null;
   if (room) return room.height > 0 ? room.height + room.gap : 0;
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  if (!style) return height / at.ratio;
+  if (!style) return unzoom(height, at.ratio);
   const margins =
     (parseFloat(blockMargin(style, 'start')) || 0) + (parseFloat(blockMargin(style, 'end')) || 0);
-  return height / at.ratio + margins;
+  return unzoom(height, at.ratio) + margins;
 }
 
 // Where a section's regions are measured: at the view's scale, or by the layout engine in a scope.
@@ -268,6 +281,8 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   const places = sectionPlaces(view.state.doc);
   const { engine } = options;
   engine?.number(view.state.doc);
+  // The words other plugins draw in its text blocks, such as a comparison's deleted words.
+  const inserted = engine ? insertedTexts(view.state, [forcedLinesKey]) : NO_INSERTED;
   const sections = places.map(({ section, content, footnotes, header, footer }, index) => {
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
@@ -280,7 +295,9 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const before = measuredSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const laid = engine ? (node: ProseMirrorNode) => engine.measureBlock(node, scope) : undefined;
+    const laid = engine
+      ? (node: ProseMirrorNode) => engine.measureBlock(node, scope, inserted)
+      : undefined;
     const blocks = measureChildBlocks(view, content, { scale, cache, rules, engine: laid });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnoteArea(view, footnotes, at);

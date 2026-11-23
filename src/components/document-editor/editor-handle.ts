@@ -6,6 +6,7 @@ import type { Attrs } from 'prosemirror-model';
 import { type Command, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type Ref, type RefObject, useImperativeHandle, useMemo, useRef } from 'react';
+import { fontFaceRules } from '../../document/font-faces.js';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import { type FoundElement, textRange } from '../../engine/automation-address.js';
 import {
@@ -231,6 +232,13 @@ export function useCommentRefs(): CommentRefs {
 const hrefOf = (references: ReferenceSourceAdapter | undefined): CitationHref | undefined =>
   references?.href ? (citation) => references.href?.(citation) ?? null : undefined;
 
+// A snapshot's stylesheets, after the served faces the pages were measured and drawn with, so it
+// prints in the glyphs its lines were broken in (DOCE-PAGINATION-13.8).
+function servedStyles(layout: LayoutProgress, styles: readonly string[] | undefined) {
+  const faces = fontFaceRules(layout.servedFonts());
+  return faces ? [faces, ...(styles ?? [])] : styles;
+}
+
 // The handle's snapshots of the view as it shows now.
 function snapshotMethods(
   view: EditorView | null,
@@ -249,7 +257,14 @@ function snapshotMethods(
     // Every page is drawn on the layout engine's lines while the snapshot is taken.
     exportSnapshot: (options) =>
       view
-        ? allLines(layout, () => documentSnapshot(view, { citationHref, ...options, template }))
+        ? allLines(layout, () =>
+            documentSnapshot(view, {
+              citationHref,
+              ...options,
+              styles: servedStyles(layout, options?.styles),
+              template,
+            }),
+          )
         : null,
     exportSnapshotAsync: async (options) =>
       view
@@ -257,6 +272,7 @@ function snapshotMethods(
             documentSnapshotWhenReady(view, {
               citationHref,
               ...options,
+              styles: servedStyles(layout, options?.styles),
               template,
               whenSettled: layout.whenSettled,
             }),

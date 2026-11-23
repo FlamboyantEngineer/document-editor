@@ -108,6 +108,23 @@ describe('the engine on page regions', () => {
     pages.destroy();
   });
 
+  it('DOCE-PAGINATION-11.10 lays a footer with a template variable out with the text it shows', () => {
+    const pages = engine();
+    const variable = type('template_variable').create({ variableKey: 'page.current' });
+    const footer = type('page_footer').create(null, [
+      type('paragraph').create(null, [text('Page '), variable]),
+    ]);
+    expect(pages.measureRegion(footer, null)).toBeNull();
+    const first = pages.measureRegion(footer, null, new Map([['page.current', '1']]));
+    expect(first?.height).toBeGreaterThan(0);
+    expect(pages.measureRegion(footer, null, new Map([['page.current', '1']]))).toBe(first);
+    // Another value lays the footer out again.
+    const next = pages.measureRegion(footer, null, new Map([['page.current', '12']]));
+    expect(next).not.toBe(first);
+    expect(next?.height).toBe(first?.height);
+    pages.destroy();
+  });
+
   it('DOCE-PAGINATION-11.10 gives a footnote area the shape measured footnotes take', () => {
     const pages = engine();
     const entry = (id: string) =>
@@ -134,6 +151,7 @@ function served(added: string[] = []): ServedFonts {
     isFontServed: () => true,
     generics: {},
     reserve: () => null,
+    files: () => ({ faces: [] }),
     add: (families) => {
       added.push(...families);
       return Promise.resolve(families.includes('Lab Serif'));
