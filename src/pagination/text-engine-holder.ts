@@ -75,13 +75,16 @@ export function holdTextEngine(options: {
     version += 1;
     options.changed();
   };
+  const drop = () => {
+    current?.destroy();
+    current = null;
+  };
   // The engine measures again once the faces of a family the template names newly arrive.
   const askFor = (template: TemplateFile) => {
     if (fonts?.phase !== 'pretext') return;
     void fonts.add(templateFontFamilies(template)).then((added) => {
       if (!added || destroyed) return;
-      current?.destroy();
-      current = null;
+      drop();
       settled();
     });
   };
@@ -90,8 +93,7 @@ export function holdTextEngine(options: {
   const faces = options.measureIn.ownerDocument.fonts as FontFaceSet | undefined;
   const onFonts = () => {
     if (!made || destroyed || !current) return;
-    current.destroy();
-    current = null;
+    drop();
     made.forgetFontWidths();
     settled();
   };
@@ -125,15 +127,11 @@ export function holdTextEngine(options: {
     },
     version: () => version,
     loaded,
-    remeasure() {
-      current?.destroy();
-      current = null;
-    },
+    remeasure: drop,
     destroy() {
       destroyed = true;
       faces?.removeEventListener('loadingdone', onFonts);
-      current?.destroy();
-      current = null;
+      drop();
     },
   };
 }
