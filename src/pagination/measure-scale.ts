@@ -15,6 +15,18 @@ export function measuredZoom(element: HTMLElement): number {
   return typeof zoom === 'number' && zoom > 0 ? zoom : 1;
 }
 
+// Chromium's layout unit, 1/64 of a CSS pixel, which a size measured at ratio 1 is a multiple of.
+const LAYOUT_UNIT = 64;
+
+/**
+ * A length measured in a view drawn at `zoom`, divided by it and snapped to Chromium's layout unit,
+ * so the floating-point remainder of dividing by an inexact zoom (1/1.25, 1/3) is not kept: the
+ * same size on every screen.
+ */
+export function unzoom(length: number, zoom: number): number {
+  return Math.round((length / zoom) * LAYOUT_UNIT) / LAYOUT_UNIT;
+}
+
 /**
  * Publishes the inverse of the measuring element's device pixel ratio as `--de-measure-zoom`, which
  * the reference stylesheet zooms it by, and tells `changed` when the ratio changes, as when the

@@ -521,28 +521,11 @@ const PINNED: Readonly<
   'caption-numbering': { lines: 'b7088b707c5b1f03', heights: '685c13b50fa7abf4' },
   'heading-keep-with-next': { lines: 'cde9efbfd0216fdd', heights: '7c217daccffd64de' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
-  // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5).
-  'long-mixed': { lines: 'a63acc7dc31961b5', heights: 'ece23bd6846470b0' },
+  // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
+  // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
+  'long-mixed': { lines: 'a63acc7dc31961b5', heights: 'f9afd020ec769c5d' },
   'oversized-blocks': { lines: '04f2d26ec8b3697c', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: 'd24934809773ffdb', heights: '19718eeba63c6a81' },
-};
-
-// Where the planned heights differ from those at ratio 1, by document: the ratios. Two causes, both
-// measured in the page, which Chromium rounds to device pixels:
-// - the blocks the engine does not lay out (tables, figures, code, display math, contents), so they,
-//   the blocks below them and page boundaries move; at 2, a figure of caption-numbering goes to the
-//   page before;
-// - each page's room beside its header and footer (in roman-numbering-stress, text only, the free
-//   room alone moves, 31.387 px at 1 against 31.399 at 1.25 and 31.402 at 2).
-// Expected failures, owned by the atoms thread (blocks, #349) and the engine thread (page room, #350).
-// A fix removes its document's ratios here, and a ratio that starts to differ is a finding, not an
-// entry to add.
-const DPR_HEIGHT_FAULTS: Readonly<Partial<Record<RegressionDocumentName, readonly number[]>>> = {
-  'caption-numbering': [1.25, 1.5, 1.75, 2, 3],
-  'heading-keep-with-next': [1.25, 1.75, 2],
-  'long-mixed': [1.25, 1.5, 1.75, 2, 3],
-  'oversized-blocks': [1.25, 1.5, 1.75, 2, 3],
-  'roman-numbering-stress': [1.25, 1.75, 2],
 };
 
 const digest = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
@@ -616,12 +599,6 @@ test.describe('DOCE-LABS-8.8 the computed result is the same on every device', (
         page,
       }, testInfo) => {
         await open(page, name, zoom, 'dom', '&debug');
-        // Expected failure where the heights differ from ratio 1 (DPR_HEIGHT_FAULTS).
-        const ratio = await page.evaluate(() => window.devicePixelRatio);
-        test.fail(
-          DPR_HEIGHT_FAULTS[name]?.includes(ratio) ?? false,
-          'DOM-measured block heights follow the device pixel ratio',
-        );
         const print = await heightsFingerprintOf(page);
         testInfo.annotations.push({
           type: 'fingerprint',

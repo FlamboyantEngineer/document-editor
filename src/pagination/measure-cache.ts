@@ -8,6 +8,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { LayoutBlock } from '../model/index.js';
+import { unzoom } from './measure-scale.js';
 
 /** Measured blocks kept by node, so a block that has not changed is not measured again. */
 export interface MeasureCache {
@@ -119,7 +120,7 @@ function holdersOf(view: EditorView, target: Node): (ProseMirrorNode | null | un
 }
 
 function heightNow(entry: CacheEntry): number {
-  return entry.element.getBoundingClientRect().height / entry.scale;
+  return unzoom(entry.element.getBoundingClientRect().height, entry.scale);
 }
 
 /**

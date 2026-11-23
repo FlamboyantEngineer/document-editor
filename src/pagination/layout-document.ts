@@ -25,6 +25,7 @@ import {
   footnoteAreaOf,
   measureFootnotes,
 } from './measure-footnotes.js';
+import { unzoom } from './measure-scale.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
@@ -181,10 +182,10 @@ function regionHeight(view: EditorView, pos: number | null, at: RegionAt): numbe
   const room = node ? at.engine?.measureRegion(node, at.scope) : null;
   if (room) return room.height > 0 ? room.height + room.gap : 0;
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  if (!style) return height / at.ratio;
+  if (!style) return unzoom(height, at.ratio);
   const margins =
     (parseFloat(blockMargin(style, 'start')) || 0) + (parseFloat(blockMargin(style, 'end')) || 0);
-  return height / at.ratio + margins;
+  return unzoom(height, at.ratio) + margins;
 }
 
 // Where a section's regions are measured: at the view's scale, or by the layout engine in a scope.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { holdMeasureScale, MEASURE_ZOOM_PROPERTY, measuredZoom } from './measure-scale.js';
+import { holdMeasureScale, MEASURE_ZOOM_PROPERTY, measuredZoom, unzoom } from './measure-scale.js';
 
 // A window's resolution query that a test can change, as moving to another screen does.
 function screens(ratio: number) {
@@ -46,5 +46,12 @@ describe('holdMeasureScale', () => {
     expect(measuredZoom(element)).toBe(1);
     Object.defineProperty(element, 'currentCSSZoom', { value: 0.5 });
     expect(measuredZoom(element)).toBe(0.5);
+  });
+
+  it('DOCE-PAGINATION-10.10 snaps a size divided by an inexact zoom to the layout unit', () => {
+    expect(708.425 / 0.8).not.toBe(885.53125);
+    expect(unzoom(708.425, 0.8)).toBe(885.53125);
+    expect(unzoom(295.177, 1 / 3)).toBe(885.53125);
+    expect(unzoom(41.0625, 1)).toBe(41.0625);
   });
 });
