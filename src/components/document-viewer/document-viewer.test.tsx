@@ -14,14 +14,24 @@ const paragraph = (value: string): Node =>
 const heading = (value: string): Node =>
   node('heading', { level: 1, dataId: value }, [documentSchema.text(value)]);
 
+const figure = (index: number): Node =>
+  node('figure', { dataId: `f${String(index)}`, src: `image-${String(index)}.png`, alt: '' });
+
 // Ten pages, each with a heading the engine numbers after its page and a paragraph drawn on lines
-// of four characters.
-function tenPages(count = 10) {
+// of four characters, and, `withImages`, a figure of an image of its own.
+function tenPages(count = 10, withImages = false) {
   const pages = Array.from({ length: count }, (_, index) =>
-    page([heading(`Part${String(index)}`), paragraph(`text${String(index)} more`)], {
-      pageNumber: index + 1,
-      totalPages: count,
-    }),
+    page(
+      [
+        heading(`Part${String(index)}`),
+        paragraph(`text${String(index)} more`),
+        ...(withImages ? [figure(index)] : []),
+      ],
+      {
+        pageNumber: index + 1,
+        totalPages: count,
+      },
+    ),
   );
   const doc = pagesDocument(pages);
   const headings = new Map<number, string>();
@@ -174,6 +184,35 @@ describe('DocumentViewer', () => {
     );
     // None around the editor's pages: none here either, rather than the host page's English.
     expect(screen.getByRole('document', { name: 'Unnamed' })).toHaveAttribute('lang', '');
+  });
+
+  it('DOCE-PAGINATION-13.6 draws a page’s content and asks for its images only as it comes into view', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const resolveImage = vi.fn((src: string) => `https://assets.example.test/${src}`);
+    const { container } = render(
+      <DocumentViewer
+        layout={tenPages(300, true)}
+        template={BASE_TEMPLATE}
+        options={{ resolveImage }}
+        overscan={0}
+      />,
+    );
+    // Open: every sheet, no page drawn and no image asked for.
+    expect(sheets(container)).toHaveLength(300);
+    expect(resolveImage).not.toHaveBeenCalled();
+    showInView([0]);
+    expect(resolveImage.mock.calls).toEqual([['image-0.png']]);
+    expect(container.querySelectorAll('img')).toHaveLength(1);
+    // A jump to page 150 draws it alone and asks for its image once.
+    showInView([150]);
+    expect(resolveImage.mock.calls).toEqual([['image-0.png'], ['image-150.png']]);
+    const images = [...container.querySelectorAll('img')];
+    expect(images.map((image) => image.getAttribute('src'))).toEqual([
+      'https://assets.example.test/image-150.png',
+    ]);
+    // Back to the first page: drawn again from what it drew before, without asking again.
+    showInView([0]);
+    expect(resolveImage).toHaveBeenCalledTimes(2);
   });
 
   it('DOCE-PAGINATION-13.8 adds the served faces to its document while it shows the pages', () => {

@@ -186,7 +186,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
           sheet.removeAttribute('data-drawn');
           return;
         }
-        sheet.innerHTML = page.html;
+        sheet.innerHTML = page.html();
         sheet.setAttribute('data-drawn', 'true');
       });
     };

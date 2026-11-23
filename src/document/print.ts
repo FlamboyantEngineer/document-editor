@@ -21,6 +21,7 @@ import {
 import {
   addLinks,
   allow,
+  drawImages,
   drawNode,
   numberFootnotes,
   type PrintLinkOptions,
@@ -87,6 +88,7 @@ export function renderPrintPage(
   doc.forEach((node, offset) => trees.push(...nodeTree(node, { draw: drawNode }, { at: offset })));
   numberFootnotes(trees, doc);
   addLinks(trees, elementNumbers(doc, template), options);
+  drawImages(trees, options.resolveImage);
   const markup = options.markup ?? 'all';
   const root = printElement(
     'div',

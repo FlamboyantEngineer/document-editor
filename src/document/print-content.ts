@@ -85,11 +85,11 @@ export function numberFootnotes(
 const keepsNumber = ({ attrs }: PrintElement) =>
   (attrs.get('class') ?? '').split(' ').includes('de-forced-lines') || attrs.has('data-number');
 
-// Anchors, numbers, links and images, as a print snapshot has them (DOCE-EDITOR-6.21, 6.22, 6.25).
+// Anchors, numbers and links, as a print snapshot has them (DOCE-EDITOR-6.21, 6.22).
 export function addLinks(
   trees: PrintTree[],
   numbers: ReadonlyMap<string, string>,
-  options: PrintLinkOptions,
+  options: Pick<PrintLinkOptions, 'citationHref'>,
 ) {
   const taken = new Set<string>();
   const anchor = (element: PrintElement, id: string) => {
@@ -112,9 +112,16 @@ export function addLinks(
       const number = element.children.find(isPrintElement);
       if (number) link(number, `#${footnoteMarkerAnchor(footnote)}`, 'footnote-back');
     }
-    if (element.tag === 'img') image(element, options.resolveImage);
   }
   linkAbbreviations(trees);
+}
+
+// Each image loading eagerly from the address `resolveImage` gives, as a print snapshot has it
+// (DOCE-EDITOR-6.25); before the allow-list, which checks the address.
+export function drawImages(trees: readonly PrintTree[], resolveImage: ResolveImage | undefined) {
+  for (const element of printElements(trees)) {
+    if (element.tag === 'img') image(element, resolveImage);
+  }
 }
 
 // Each abbreviation's link to a row the page holds, marked as a printed link; one whose list is
@@ -166,21 +173,43 @@ function suggestionTags(markup: PrintMarkup) {
   return null;
 }
 
+// What the allow-list does with an element: leaves it out with its content, keeps only its
+// content, or keeps it.
+function allowing(tree: PrintElement, markup: PrintMarkup): 'drop' | 'unwrap' | 'keep' {
+  const tags = suggestionTags(markup);
+  const suggestion = tree.attrs.has('data-id') ? tree.tag : '';
+  if (SNAPSHOT_DROPPED.has(tree.tag) || suggestion === tags?.dropped) return 'drop';
+  if (!SNAPSHOT_ELEMENTS.has(tree.tag) || suggestion === tags?.kept) return 'unwrap';
+  return 'keep';
+}
+
 // The tree held to the snapshot's allow-list (DOCE-EDITOR-6.23), its suggestions as the markup
 // shows them.
 export function allow(trees: readonly PrintTree[], markup: PrintMarkup): PrintTree[] {
-  const tags = suggestionTags(markup);
   return trees.flatMap((tree): PrintTree[] => {
     if (!isPrintElement(tree)) return [tree];
-    const suggestion = tree.attrs.has('data-id') ? tree.tag : '';
-    if (SNAPSHOT_DROPPED.has(tree.tag) || suggestion === tags?.dropped) return [];
+    const kept = allowing(tree, markup);
+    if (kept === 'drop') return [];
     const children = allow(tree.children, markup);
-    if (!SNAPSHOT_ELEMENTS.has(tree.tag) || suggestion === tags?.kept) return children;
+    if (kept === 'unwrap') return children;
     for (const [name, value] of [...tree.attrs]) {
       if (!isAllowedAttribute(name, value)) tree.attrs.delete(name);
     }
     tree.children = children;
     return [tree];
+  });
+}
+
+/** The ids the tree's elements keep once held to the allow-list, without holding it to it. */
+export function allowedIds(trees: readonly PrintTree[], markup: PrintMarkup): string[] {
+  return trees.flatMap((tree): string[] => {
+    if (!isPrintElement(tree)) return [];
+    const kept = allowing(tree, markup);
+    if (kept === 'drop') return [];
+    const inside = allowedIds(tree.children, markup);
+    const id = tree.attrs.get('id');
+    const own = kept === 'keep' && id !== undefined && isAllowedAttribute('id', id) ? [id] : [];
+    return [...own, ...inside];
   });
 }
 
