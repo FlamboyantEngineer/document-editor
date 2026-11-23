@@ -131,9 +131,32 @@ function useLayoutFaces(
 
 const sameFamily = (family: string) => family;
 
+// The anchor a link's fragment names: decoded, or as written when it does not decode (a literal
+// `%`), the first of the two that names an anchor of the pages.
+function fragmentTarget(href: string, pageOf: ReadonlyMap<string, number>) {
+  const raw = href.slice(1);
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    // Not percent-encoded: the fragment is its own text.
+  }
+  return [decoded, raw].find((id) => pageOf.has(id));
+}
+
+// Whether a click is the link's ordinary activation, which the viewer takes over: the main button
+// or Enter, no modifier asking the browser for a new tab or window, not cancelled before.
+const ordinary = (event: MouseEvent) =>
+  !event.defaultPrevented &&
+  event.button === 0 &&
+  !event.ctrlKey &&
+  !event.metaKey &&
+  !event.shiftKey &&
+  !event.altKey;
+
 // Follows each link inside the pages to an anchor of theirs (a reference, a footnote, a list of
 // contents row): the page holding it is drawn as if in view, though it was not drawn, and the
-// anchor scrolled to (DOCE-PAGINATION-13.9).
+// anchor scrolled to (DOCE-PAGINATION-13.9). A modified click is left to the browser.
 function followLinks(
   element: HTMLElement,
   pageOf: ReadonlyMap<string, number>,
@@ -141,9 +164,9 @@ function followLinks(
 ) {
   const follow = (event: MouseEvent) => {
     const link = isElement(event.target) ? event.target.closest('a[href^="#"]') : null;
-    if (!link || !element.contains(link)) return;
-    const id = decodeURIComponent((link.getAttribute('href') ?? '').slice(1));
-    const index = pageOf.get(id);
+    if (!link || !element.contains(link) || !ordinary(event)) return;
+    const id = fragmentTarget(link.getAttribute('href') ?? '', pageOf);
+    const index = id === undefined ? undefined : pageOf.get(id);
     if (index === undefined) return;
     event.preventDefault();
     show(index);

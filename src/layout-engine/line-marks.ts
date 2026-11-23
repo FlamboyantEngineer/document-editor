@@ -4,6 +4,7 @@
 // ranges in the same hooks, so every output of a layout draws the same lines.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { clusterEnd, clusterStart } from './graphemes.js';
 import type { LineTable, TextLine } from './line-table.js';
 import type { ReservedBox } from './reserved-boxes.js';
 
@@ -33,17 +34,6 @@ export interface JustifiedLines extends LineTable {
 }
 
 const px = (value: number) => `${value.toFixed(3)}px`;
-
-// How far a line's first or last grapheme cluster is looked for, in UTF-16 units: a family emoji
-// of four people with skin tones is 19, a flag of a subdivision 14.
-const CLUSTER_WINDOW = 32;
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-
-// The UTF-16 length of the first or last grapheme cluster of a text.
-function clusterLength(text: string, last: boolean): number {
-  const clusters = [...graphemes.segment(text)];
-  return (last ? clusters.at(-1) : clusters[0])?.segment.length ?? 1;
-}
 
 type Range = readonly [number, number];
 
@@ -83,17 +73,13 @@ function shownText(node: ProseMirrorNode, table: JustifiedLines, line: TextLine)
 }
 
 // Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
-// pair, a joined emoji sequence, a flag or a letter with its combining marks.
-function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
-  const from = Math.max(line.from, line.to - CLUSTER_WINDOW);
-  return line.to - clusterLength(node.textBetween(from, line.to, '￼', '￼'), true);
-}
+// pair, a joined emoji sequence, a flag or a letter with any number of combining marks.
+const lastCharacter = (node: ProseMirrorNode, line: TextLine) =>
+  clusterStart(node, line.to, line.from);
 
 // Where a line's first grapheme cluster ends.
-function firstCharacterEnd(node: ProseMirrorNode, line: TextLine): number {
-  const to = Math.min(line.to, line.from + CLUSTER_WINDOW);
-  return line.from + clusterLength(node.textBetween(line.from, to, '￼', '￼'), false);
-}
+const firstCharacterEnd = (node: ProseMirrorNode, line: TextLine) =>
+  clusterEnd(node, line.from, line.to);
 
 // The characters Chromium stretches by `word-spacing`: spaces and no-break spaces, not tabs.
 const spacesIn = (text: string) => (text.trimEnd().match(/[ \u00a0]/gu) ?? []).length;

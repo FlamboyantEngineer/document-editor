@@ -4,6 +4,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { scrollerOf } from '../utils/scroll-frame.js';
 import { keepCaretInPlace } from './caret.js';
 import { forcedLinesKey } from './forced-lines.js';
 import { isPaginationTransaction, pageMetrics } from './layout-marks.js';
@@ -71,12 +72,32 @@ type PageFilter = (index: number) => boolean;
 
 // The pages drawn on the layout engine's lines when only those near the screen are
 // (DOCE-PAGINATION-11.6): a page farther away keeps the browser's lines, which are not the ones it
-// was laid out with, and reading it would lay it out.
+// was laid out with, and reading it would lay it out. Until the pages near the screen are known,
+// as at the first layout, those whose own box is within half a screen of the view's frame: reading
+// what a page holds lays the page out, which a page far from the screen otherwise skips.
 function drawnOnly(view: EditorView): PageFilter | undefined {
   const forced = forcedLinesKey.getState(view.state);
-  const drawn = forced?.drawn;
-  if (!forced || !drawn) return undefined;
-  return (index) => drawn.has(index) || index === forced.caret;
+  if (!forced) return undefined;
+  const drawn = forced.drawn;
+  if (drawn) return (index) => drawn.has(index) || index === forced.caret;
+  return nearFrame(view, forced.caret);
+}
+
+// The pages whose own box is within half a screen of the view's frame, and the caret's page.
+function nearFrame(view: EditorView, caret: number): PageFilter {
+  const scroller = scrollerOf(view.dom);
+  const window = view.dom.ownerDocument.defaultView;
+  const frame =
+    !scroller || scroller === view.dom.ownerDocument.scrollingElement
+      ? { top: 0, bottom: window?.innerHeight ?? 0 }
+      : scroller.getBoundingClientRect();
+  const margin = (frame.bottom - frame.top) / 2;
+  const pages = pageElements(view);
+  return (index) => {
+    if (index === caret) return true;
+    const box = pages[index]?.getBoundingClientRect();
+    return Boolean(box && box.bottom >= frame.top - margin && box.top <= frame.bottom + margin);
+  };
 }
 
 /** What a projection does once its view draws a layout. */

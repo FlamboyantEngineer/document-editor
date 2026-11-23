@@ -1,12 +1,14 @@
 // Measures the initial code of a consumer bundle and compares it with its reviewed budget
 // (DOCE-ENTRY-2.1). The budgets live in `scripts/bundle-budgets.json`: each consumer's measured
-// baseline in bytes, raw and gzipped, and one allowance for growth over every baseline.
+// baseline in bytes, raw and gzipped, and one allowance for growth over every baseline. While the
+// file holds a suspension with its cause, growth past the allowance is reported and does not fail.
 
 import { gzipSync } from 'node:zlib';
 
 /**
  * @typedef {{ raw: number, gzip: number }} Sizes
- * @typedef {{ allowance: { relative: number, absolute: number }, consumers: Record<string, Sizes> }} Budgets
+ * @typedef {{ since: string, cause: string }} Suspension
+ * @typedef {{ allowance: { relative: number, absolute: number }, suspended?: Suspension, consumers: Record<string, Sizes> }} Budgets
  */
 
 /**
@@ -69,7 +71,8 @@ const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
 /**
  * Compares measurements with the budgets. Returns the problems, a consumer over its allowance or
  * without a baseline, and notes, a consumer that shrank by more than its allowance, so its baseline
- * can be lowered.
+ * can be lowered. While the budgets hold a suspension, a consumer over its allowance is no problem:
+ * it is returned as `suspended`, to report.
  * @param {Record<string, Sizes>} measured
  * @param {Budgets} budgets
  */
@@ -78,6 +81,9 @@ export function compareBudgets(measured, budgets) {
   const problems = [];
   /** @type {string[]} */
   const notes = [];
+  /** @type {string[]} */
+  const suspended = [];
+  const grown = budgets.suspended ? suspended : problems;
   for (const [consumer, sizes] of Object.entries(measured)) {
     const baseline = budgets.consumers[consumer];
     if (!baseline) {
@@ -88,19 +94,18 @@ export function compareBudgets(measured, budgets) {
       const allowed = allowedGrowth(baseline[kind], budgets.allowance);
       const growth = sizes[kind] - baseline[kind];
       const summary = `${consumer} ${kind} ${kb(sizes[kind])} against a ${kb(baseline[kind])} baseline`;
-      if (growth > allowed)
-        problems.push(`${summary} grew by ${kb(growth)} (allowed ${kb(allowed)})`);
+      if (growth > allowed) grown.push(`${summary} grew by ${kb(growth)} (allowed ${kb(allowed)})`);
       else if (-growth > allowed) notes.push(`${summary} shrank by ${kb(-growth)}`);
     }
   }
   for (const consumer of Object.keys(budgets.consumers)) {
     if (!(consumer in measured)) problems.push(`${consumer} has a budget but no consumer`);
   }
-  return { problems, notes };
+  return { problems, notes, suspended };
 }
 
 /**
- * Budgets holding the measurements as baselines, keeping the reviewed allowance.
+ * Budgets holding the measurements as baselines, keeping the reviewed allowance and a suspension.
  * @param {Record<string, Sizes>} measured
  * @param {Budgets} budgets
  * @returns {Budgets}
