@@ -6,6 +6,7 @@ import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inlin
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { citationIdentifiers } from '../model/citation-identifiers.js';
 import type { AtomPlace } from './atoms.js';
+import { isHidden } from './hidden-suggestions.js';
 import type { InsertedText } from './inserted-text.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
@@ -43,12 +44,20 @@ export interface TextRun {
   readonly sides: readonly (number | null)[];
 }
 
+/** A content range laid out as taking no room, `[from, to)`. */
+type HiddenRange = readonly [number, number];
+
 /** The text template variables show, by their keys. */
 export type VariableTexts = ReadonlyMap<string, string>;
 
 /** A block's runs, or why its content cannot be laid out. */
 type TextRuns =
-  | { readonly ok: true; readonly runs: readonly TextRun[] }
+  | {
+      readonly ok: true;
+      readonly runs: readonly TextRun[];
+      /** The content ranges hidden as suggestions the markup leaves out, in order. */
+      readonly hidden: readonly HiddenRange[];
+    }
   | { readonly ok: false; readonly reason: string };
 
 /** What a block's runs are built from. */
@@ -74,6 +83,8 @@ interface RunInput {
   readonly boxOf?: ((font: FontStyle) => InlineAtomSize | null) | undefined;
   /** Text drawn in the block that is not its content, such as a comparison's deleted words. */
   readonly inserted?: readonly InsertedText[] | undefined;
+  /** The suggestion mark the markup hides (`hiddenSuggestion`): its content takes no room. */
+  readonly hidden?: string | null | undefined;
 }
 
 /** The padding inline code takes on each side of each of its lines. */
@@ -258,8 +269,15 @@ export function buildRuns(input: RunInput): TextRuns {
     runs.push(finish(run, 0, true));
     run = startRun(0);
   }
+  const hidden: [number, number][] = [];
   node.forEach((child, offset) => {
     if (failure) return;
+    if (isHidden(child, input.hidden)) {
+      const last = hidden.at(-1);
+      if (last?.[1] === offset) last[1] = offset + child.nodeSize;
+      else hidden.push([offset, offset + child.nodeSize]);
+      return;
+    }
     if (child.type.name === 'hard_break') {
       // A fragment that continues a split paragraph starts with the break the line before it
       // ended on; the stylesheet hides it, so it starts no line (DOCE-PAGINATION-4.13).
@@ -294,5 +312,5 @@ export function buildRuns(input: RunInput): TextRuns {
     addInserted(run, after, typography);
   }
   runs.push(finish(run, size, false));
-  return { ok: true, runs };
+  return { ok: true, runs, hidden };
 }

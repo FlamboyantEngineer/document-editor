@@ -35,6 +35,38 @@ describe('lineMarks', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-11.12 ends and starts lines at shown text, past the hidden ranges', () => {
+    // `aaa` then a hidden `xxxx` ends the first line; the second starts with a hidden `yy`.
+    const node = paragraph('aaaxxxxyybbbb');
+    const lines = table(13, 7).lines.map((line) => ({ ...line, left: 5 }));
+    const hidden = [
+      [3, 7],
+      [7, 9],
+    ] as const;
+    const marks = lineMarks(node, { ...table(13, 7), lines, hidden, justify: true });
+    expect(marks).toEqual([
+      { from: 0, to: 1, class: 'de-forced-lines__start', style: '--de-line-indent: 5.000px' },
+      { from: 2, to: 3, class: 'de-forced-lines__end' },
+      { from: 9, to: 10, class: 'de-forced-lines__start', style: '--de-line-indent: 5.000px' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.12 counts only the shown spaces of a justified line', () => {
+    // The hidden range holds two spaces of the line's five; the shown three take its free room.
+    const node = paragraph('a b x y c d');
+    const lines = table(11, 11, { justify: true }).lines.map((line) => ({
+      ...line,
+      end: 'wrap' as const,
+    }));
+    const marks = lineMarks(node, { ...table(11, 11), lines, hidden: [[4, 8]], justify: true });
+    expect(marks).toContainEqual({
+      from: 0,
+      to: 11,
+      class: 'de-forced-lines__justified',
+      style: '--de-word-spacing: 30.000px',
+    });
+  });
+
   it('DOCE-PAGINATION-11.11 breaks a line among inserted words with a mark of its own', () => {
     const node = paragraph('aaaaabbbbb');
     const [first, second] = table(10, 5).lines;
@@ -63,6 +95,39 @@ describe('lineMarks', () => {
         side: -3,
         style: '--de-line-indent: 4.000px',
       },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-13.1 ends and starts a line at the edges of math, never inside it', () => {
+    const math = (latex: string) =>
+      documentSchema.node('math_inline', null, [documentSchema.text(latex)]);
+    // Inline math `a+b=c` takes offsets 0 to 7, then `xxx`; at 60px the math is a line of its own.
+    const node = documentSchema.node('paragraph', null, [
+      math('a+b=c'),
+      documentSchema.text('xxx'),
+    ]);
+    const lines: TextLine[] = [
+      { from: 0, to: 7, width: 40, left: 0, top: 0, height: 18, end: 'wrap' },
+      { from: 7, to: 10, width: 20, left: 0, top: 18, height: 18, end: 'end' },
+    ];
+    const drawn: JustifiedLines = { width: 60, lines, height: 36, overhead: 0, justify: false };
+    expect(lineMarks(node, drawn)).toEqual([{ from: 0, to: 7, class: 'de-forced-lines__end' }]);
+    // A centred line starting with math indents the math whole.
+    const after = documentSchema.node('paragraph', null, [
+      documentSchema.text('xxx'),
+      math('a+b=c'),
+    ]);
+    const centred: JustifiedLines = {
+      ...drawn,
+      lines: [
+        { from: 0, to: 3, width: 20, left: 20, top: 0, height: 18, end: 'wrap' },
+        { from: 3, to: 10, width: 40, left: 10, top: 18, height: 18, end: 'end' },
+      ],
+    };
+    expect(lineMarks(after, centred)).toEqual([
+      { from: 0, to: 1, class: 'de-forced-lines__start', style: '--de-line-indent: 20.000px' },
+      { from: 2, to: 3, class: 'de-forced-lines__end' },
+      { from: 3, to: 10, class: 'de-forced-lines__start', style: '--de-line-indent: 10.000px' },
     ]);
   });
 

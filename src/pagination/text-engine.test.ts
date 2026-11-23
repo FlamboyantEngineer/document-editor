@@ -41,6 +41,29 @@ describe('createPagesTextEngine', () => {
     expect(measureIn.querySelector('.de-atom-measure')).toBeNull();
   });
 
+  it('DOCE-PAGINATION-11.12 measures a block with a suggestion again in another markup', () => {
+    let markup: 'all' | 'final' | 'original' = 'all';
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      markup: () => markup,
+    });
+    const suggested = paragraph(`aaaa <del data-id="s1">${WORDS}</del>`);
+    const plain = paragraph(WORDS);
+    const all = engine.measureBlock(suggested, null);
+    const kept = engine.measureBlock(plain, null);
+    markup = 'final';
+    const final = engine.measureBlock(suggested, null);
+    expect(final?.height).toBeLessThan(all?.height ?? 0);
+    expect(engine.lines(suggested, { scope: null })?.lines).toHaveLength(1);
+    // A block without a suggestion keeps its measure in every markup.
+    expect(engine.measureBlock(plain, null)).toBe(kept);
+    markup = 'original';
+    expect(engine.measureBlock(suggested, null)?.height).toBe(all?.height);
+    engine.destroy();
+  });
+
   it('DOCE-PAGINATION-11.2 gives the lines it measured a paragraph with, tiling its content', () => {
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
@@ -243,6 +266,28 @@ describe('holdTextEngine', () => {
     expect(second).not.toBe(first);
     host.removeAttribute('lang');
     expect(holder.engine()).not.toBe(second);
+    holder.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.12 keeps the engine in another markup, its lines moved', async () => {
+    let markup: 'all' | 'final' | 'original' = 'all';
+    const holder = holdTextEngine({
+      setting: {
+        template: () => BASE_TEMPLATE,
+        fonts: Promise.resolve(served()),
+        markup: () => markup,
+      },
+      measureIn: document.createElement('div'),
+      changed: () => undefined,
+    });
+    await holder.loaded;
+    const engine = holder.engine();
+    const version = holder.version();
+    markup = 'final';
+    expect(holder.engine()).toBe(engine);
+    expect(holder.version()).toBe(version + 1);
+    expect(holder.engine()).toBe(engine);
+    expect(holder.version()).toBe(version + 1);
     holder.destroy();
   });
 

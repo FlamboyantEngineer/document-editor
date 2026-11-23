@@ -38,6 +38,7 @@ export type {
   HostDialogProps,
   MentionOptions,
   ObjectDialog,
+  PagesLayoutRequest,
   ReferenceKind,
   SelectionToolbarOptions,
   SlashMenuItem,

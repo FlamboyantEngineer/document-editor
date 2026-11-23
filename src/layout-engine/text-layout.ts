@@ -6,17 +6,11 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
-import {
-  ceilUnit,
-  type ContentsRow,
-  type ContentsRowPlace,
-  type ContentsRowTable,
-  layoutRow,
-} from './contents-row.js';
+import { type ContentsLayout, createContentsLayout } from './contents-layout.js';
 import { footnoteMarkerItem } from './footnote-marker.js';
 import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
-import { type CacheStats, createLineCache, layoutLines, type LineCache } from './lines.js';
+import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
@@ -26,7 +20,6 @@ import {
   type BlockTypography,
   blockTypography,
   captionLabelFont,
-  contentsTypography,
   firstFamily,
   fontString,
   type FontStyle,
@@ -72,6 +65,11 @@ export interface TextLayoutOptions {
    * the gutter takes the code's width in from its left.
    */
   readonly codeLineNumbers?: boolean | undefined;
+  /**
+   * The suggestion mark the pages' markup hides now (`hiddenSuggestion`), whose content takes no
+   * room (DOCE-PAGINATION-11.12); none hidden when absent.
+   */
+  readonly hidden?: (() => string | null) | undefined;
 }
 
 /** The inline atoms laid out as their text, and their numbers. */
@@ -102,20 +100,8 @@ export type TextBlockLayout =
   | { readonly ok: true; readonly table: LineTable }
   | { readonly ok: false; readonly reason: string };
 
-/** A list of contents row's lines and boxes, or why the engine cannot lay it out. */
-type ContentsRowLayout =
-  | ({ readonly ok: true; readonly font: FontStyle } & ContentsRowTable)
-  | { readonly ok: false; readonly reason: string };
-
-/** Which list of contents level's font a text is in. */
-interface ContentsLevel {
-  readonly kind: string;
-  readonly level: number;
-  readonly scope?: string | null | undefined;
-}
-
 /** A text layout engine for one template, language and set of fonts. */
-interface TextLayout {
+interface TextLayout extends ContentsLayout {
   /** A text block's typography in a scope. */
   readonly typography: (node: ProseMirrorNode, scope?: string | null) => BlockTypography;
   /**
@@ -129,10 +115,6 @@ interface TextLayout {
   ) => ReservedBox[];
   /** A text block's lines at a width. */
   readonly layoutText: (node: ProseMirrorNode, place: TextBlockPlace) => TextBlockLayout;
-  /** A list of contents row's lines, number, leader and page (DOCE-PAGINATION-9.13). */
-  readonly layoutContentsRow: (row: ContentsRow, place: ContentsRowPlace) => ContentsRowLayout;
-  /** A text's width in a list of contents level's font, as its row sizes it, such as a page's. */
-  readonly contentsTextWidth: (text: string, level: ContentsLevel) => number;
   /** How many text runs the engine found prepared, and how many it prepared. */
   readonly stats: () => CacheStats;
 }
@@ -157,8 +139,12 @@ function hasCode(node: ProseMirrorNode): boolean {
 function unservedFamily(
   node: ProseMirrorNode,
   typography: BlockTypography,
-  { isFontServed, marker }: { isFontServed: (family: string) => boolean; marker?: string },
+  {
+    isFontServed,
+    marker,
+  }: { isFontServed: ((family: string) => boolean) | undefined; marker?: string | undefined },
 ): string | null {
+  if (!isFontServed) return null;
   const families = [typography.font.family];
   if (hasCode(node)) families.push(typography.codeFamily);
   if (marker) families.push(marker);
@@ -237,32 +223,6 @@ const insertedReservedIn =
     return reserve ? reservedBoxes(word, { offset: 0, font, reserve }) : [];
   };
 
-// The engine's list of contents rows, in the same line cache and struts as its blocks.
-function contentsRows(
-  options: TextLayoutOptions,
-  { cache, strutOf }: { cache: LineCache; strutOf: ReturnType<typeof createStruts> },
-): Pick<TextLayout, 'layoutContentsRow' | 'contentsTextWidth'> {
-  const source = { template: options.template, fontStacks: options.fontStacks };
-  return {
-    contentsTextWidth: (text, level) =>
-      ceilUnit(textWidth(text, fontString(contentsTypography(level, source).font))),
-    layoutContentsRow(row, place) {
-      const level = contentsTypography({ ...place, level: row.level }, source);
-      // A group heading row is bold; its margin is the block geometry's.
-      const style = row.heading ? { ...level, font: { ...level.font, weight: 700 } } : level;
-      const family = firstFamily(style.font.family);
-      if (options.isFontServed && !options.isFontServed(family))
-        return { ok: false, reason: `font not served: ${family}` };
-      const strut = strutOf(fontString(style.font), style.font.size, style.leading);
-      return {
-        ok: true,
-        font: style.font,
-        ...layoutRow({ cache, typography: style, strut, measure: textWidth }, row, place),
-      };
-    },
-  };
-}
-
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
 export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const cache = createLineCache(options.language);
@@ -302,7 +262,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     typography,
     insertedReserved: insertedReservedIn(typography, options.reserve),
     stats: cache.stats,
-    ...contentsRows(options, { cache, strutOf }),
+    ...createContentsLayout({ ...options, cache, strutOf }),
     layoutText(node, place) {
       // A code caption waits for code figure geometry that matches the drawn box (DOCE-PAGINATION-9.11).
       if (node.type.name === 'code_caption')
@@ -311,12 +271,10 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);
       const marker = leadingItem(node, style, place);
-      const unserved = options.isFontServed
-        ? unservedFamily(node, style, {
-            isFontServed: options.isFontServed,
-            ...(marker ? { marker: marker.family } : {}),
-          })
-        : null;
+      const unserved = unservedFamily(node, style, {
+        isFontServed: options.isFontServed,
+        marker: marker?.family,
+      });
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
       const font = fontString(style.font);
       const starts = lineStarts(node, { style, place, codeLineNumbers: options.codeLineNumbers });
@@ -331,6 +289,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         variables: place.variables,
         boxOf: boxOf(style),
         inserted: place.inserted,
+        hidden: options.hidden?.(),
       });
       if (!runs.ok) return runs;
       const table = layoutLines(cache, {
@@ -344,7 +303,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         restStart: starts.restStart,
         block: node,
       });
-      return { ok: true, table: withReserved(table, runs.runs, options.reserve) };
+      const laid = runs.hidden.length ? { ...table, hidden: runs.hidden } : table;
+      return { ok: true, table: withReserved(laid, runs.runs, options.reserve) };
     },
   };
 }

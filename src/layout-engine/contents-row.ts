@@ -156,3 +156,19 @@ export function layoutRow(
       : tailBoxes({ textEnd, pageWidth, minLeader }, place)),
   };
 }
+
+/** A list of contents' title or empty message on lines at its width, wrapping as a paragraph does. */
+export function layoutContentsText(engine: RowEngine, text: string, width: number): LineTable {
+  return layoutLines(engine.cache, {
+    runs: [textRun(text, fontString(engine.typography.font))],
+    width: Math.max(1, width),
+    leading: engine.typography.leading,
+    strut: engine.strut,
+    align: engine.typography.align,
+    padding: 0,
+    firstStart: 0,
+    restStart: 0,
+    // Prepared by its text alone: the cache keeps recent runs for text a new owner repeats.
+    block: {},
+  });
+}

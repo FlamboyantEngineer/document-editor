@@ -7,8 +7,8 @@ import { useEditorPanes } from '../document-panels/document-panels.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { useFindBar } from './document-find-bar.js';
 import { type CommentRefs, useEditorHandle } from './editor-handle.js';
+import type { LayoutProgress } from './layout-progress.js';
 import { useDocumentExports } from './use-document-exports.js';
-import type { LayoutProgress } from './use-document-layout.js';
 import type { TransactionFeed } from './use-editor-engine.js';
 
 /** What the editor's find bar, handle and scope are built from. */
