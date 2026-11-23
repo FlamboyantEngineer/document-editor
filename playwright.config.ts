@@ -6,7 +6,7 @@ const origin = `http://${String(LABS_HOST)}:${String(LABS_PORT)}`;
 // A browser of the machine's own, when Playwright's is not installed.
 const executablePath = process.env.CHROMIUM_PATH;
 // The HTML-in-Canvas API, which pages painted into a canvas use (DOCE-EDITOR-1.9), is behind this
-// switch before Chromium 157 (Playwright's Chromium is 156); it changes nothing else.
+// switch before Chromium 157 (Playwright's Chromium is 159, which has it on); it changes nothing else.
 const HTML_IN_CANVAS = '--enable-blink-features=CanvasDrawElement';
 // The one-result invariant's page checks of each document at a zoom, and in a canvas (DOCE-LABS-8.1,
 // 8.9), which the `chromium-invariant` project runs at a device pixel ratio of 1.

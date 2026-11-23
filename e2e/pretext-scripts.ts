@@ -9,7 +9,30 @@ export interface ScriptKind {
   readonly words: readonly string[];
   /** What goes between words: a space, or nothing for scripts written without spaces. */
   readonly gap: string;
+  /** The language the lab lays the paragraphs out in (`&lang=`), English when not given. */
+  readonly language?: string;
 }
+
+// Small kana, the prolonged sound mark, an iteration mark, a wave dash, hyphens and dashes, whose
+// line breaks depend on the language: Chromium opens ICU's line_normal_cj for zh content and
+// line_normal otherwise, and laid out in the wrong one, 17 of these 240 paragraphs break
+// elsewhere (DOCE-PAGINATION-9.7).
+const breakBeforeWords = [
+  'コーヒー',
+  'ちょっと',
+  'キャッシュ',
+  '人々',
+  'ぁぃぅ',
+  '〜',
+  '‐',
+  '–',
+  '中文',
+  '测试',
+  '。',
+  '、',
+  'データ',
+  '天气预报',
+];
 
 export const scriptKinds: Record<string, ScriptKind> = {
   emoji: {
@@ -56,6 +79,8 @@ export const scriptKinds: Record<string, ScriptKind> = {
     ],
     gap: '',
   },
+  'kana and dashes in Chinese': { words: breakBeforeWords, gap: '', language: 'zh' },
+  'kana and dashes in Japanese': { words: breakBeforeWords, gap: '', language: 'ja' },
   arabic: {
     words: ['مرحبا', 'بالعالم', 'السلام', 'عليكم', 'كتاب', 'العربية', '١٢٣', '2026', 'word', 'لا'],
     gap: ' ',

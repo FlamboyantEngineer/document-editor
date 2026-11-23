@@ -108,7 +108,8 @@ for (const [name, kind] of Object.entries(scriptKinds)) {
     page,
   }, info) => {
     test.setTimeout(120_000);
-    await page.goto('/pretext-pagination.html?measure&measurer=font-files&scripts');
+    const language = kind.language ? `&lang=${kind.language}` : '';
+    await page.goto(`/pretext-pagination.html?measure&measurer=font-files&scripts${language}`);
     const { blocks, ...counts } = await countScriptDifferences(page, kind);
     await info.attach('Differences from Chromium', {
       body: JSON.stringify({ kind: name, blocks, ...counts }),

@@ -75,40 +75,28 @@ function refusalsOf(file: DocumentFile): Refusals {
   return { laid, refused, reasons: Object.fromEntries([...reasons].sort()) };
 }
 
-// The blocks each document leaves to the DOM today, and why, over the whole set (733 laid, 149
-// refused): captions and contents lists wait for thread G, and a block with a template variable
-// is left to the DOM since #323. A count may only go down.
+// The blocks each document leaves to the DOM today, and why, over the whole set (822 laid, 60
+// refused): code captions wait for code figure geometry that matches the drawn box and contents
+// lists for thread G, and a block with a template variable is left to the DOM since #323. A count
+// may only go down.
 const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {
-  'caption-numbering': 26,
+  'caption-numbering': 11,
   'code-block-stress': 7,
   'code-blocks': 4,
-  columns: 1,
-  'contents-lists': 7,
-  'cross-references': 3,
-  figures: 4,
-  'footnotes-in-structures': 1,
-  'heading-keep-with-next': 15,
+  'contents-lists': 5,
+  'cross-references': 1,
   'inline-geometry': 1,
   'linked-code': 2,
-  'long-mixed': 37,
-  'mixed-geometry': 2,
+  'long-mixed': 13,
   'oversized-blocks': 1,
   'roman-and-alpha-numbering': 1,
-  'roman-numbering-coverage': 26,
-  'table-both-header-modes': 2,
-  'table-long-repeated-header': 1,
-  'table-long-single-header': 1,
-  'table-merged-cells': 1,
-  'table-rich-cells': 3,
-  'table-simple': 1,
-  'table-wide': 1,
+  'roman-numbering-coverage': 12,
+  'table-rich-cells': 1,
   'template-blocks-and-variables': 1,
 };
 
 const REFUSED_BY_REASON: Readonly<Record<string, number>> = {
-  'not a text block: code_caption': 43,
-  'not a text block: figure_caption': 34,
-  'not a text block: table_caption': 55,
+  'a code caption is left to its code figure in the DOM': 43,
   'template variable': 1,
   'toc_block is not laid out by the engine yet': 16,
 };

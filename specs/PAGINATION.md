@@ -598,7 +598,7 @@ The text layout engine (`src/layout-engine/`) lays a text block's lines out from
 
 ### DOCE-PAGINATION-9.1 - The line table
 
-`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block or a footnote entry out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1. The engine shall count the text runs it found prepared and those it prepared (`stats()`). It shall keep a block's prepared runs for as long as the block's node lives, however many blocks the document has, so laying the whole document out again, as when atoms settle, prepares nothing that did not change; and it shall tell Pretext the document's language only when it differs from the last one told, since telling it forgets every width Pretext measured.
+`createTextLayout(options).layoutText(node, place)` shall lay a paragraph, a heading, a code block, a footnote entry or a caption out at the place's width and return its line table (`LineTable`): at least one line, an empty block's line as tall as its leading; each line's start and end as content offsets, which tile the content (a line ends where the next starts, the last at the content size); its width without the spaces that hang past its end, where it starts from the left content edge, its top and its height; and whether it wraps, ends at a hard break or ends the block. The table's height is its lines' together, and its `overhead` the block's padding above and below. Lengths are CSS pixels at a zoom of 1. The engine shall count the text runs it found prepared and those it prepared (`stats()`). It shall keep a block's prepared runs for as long as the block's node lives, however many blocks the document has, so laying the whole document out again, as when atoms settle, prepares nothing that did not change; and it shall tell Pretext the document's language only when it differs from the last one told, since telling it forgets every width Pretext measured.
 
 Implementation: `src/layout-engine/line-table.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
 Verification: `src/layout-engine/text-layout.test.ts`
@@ -640,10 +640,10 @@ Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec
 
 ### DOCE-PAGINATION-9.7 - Served fonts and language
 
-Given `isFontServed`, a block whose font's first family, or whose inline code's, is not served shall not be laid out, with the reason, so no system font decides a line. Lines shall break by the rules of the document's `language`.
+Given `isFontServed`, a block whose font's first family, or whose inline code's, is not served shall not be laid out, with the reason, so no system font decides a line. Lines shall break, and text be shaped, by the rules of the document's `language`. The pages' engine shall take the language the pages are drawn in: the `lang` of the element they are in or its nearest ancestor with one, empty for none, which Chromium lays out under its default language; the engine shall be made again when that language changes. Pretext's language shall be set only when text of another language is prepared, since setting it drops Pretext's caches.
 
-Implementation: `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
-Verification: `src/layout-engine/text-layout.test.ts`
+Implementation: `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/text-engine.ts`
+Verification: `src/layout-engine/text-layout.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/font-widths.spec.ts`
 
 ### DOCE-PAGINATION-9.8 - Splitting at computed lines
 
@@ -665,6 +665,13 @@ A footnote entry's typography shall be its scope's footnote text style (`resolve
 
 Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/footnote-marker.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/runs.ts`
 Verification: `src/layout-engine/footnote-marker.test.ts`
+
+### DOCE-PAGINATION-9.11 - Captions
+
+A figure, table or code caption's typography shall be its object's caption text font in its scope (`figure`, `table` or `codeBlock` caption settings), unset values the paragraph's, at the paragraph's line height and with no margins of its own (its place in the object is the block layout's); a table caption shall be aligned as its caption settings say, others left. A place's `label`, the caption's label, number and separator, shall be laid out before the text on the first line, in the caption label font, unset values the caption text's (`captionLabelFont`); a label family that is not served refuses the block. The renderer draws a caption's label and text in these fonts and at this line height, not in the page's inherited font. The engine shall lay figure and table captions out; a code caption it shall refuse for now, so its code figure is measured in the DOM until the code figure's planned box matches the drawn one.
+
+Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/text-layout.ts`
+Verification: `src/layout-engine/caption-typography.test.ts`
 
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
 
@@ -693,7 +700,7 @@ Verification: `src/layout-engine/blocks/containers.test.ts`, `src/layout-engine/
 
 ### DOCE-PAGINATION-10.4 - Figures, code, equations and rules
 
-A figure shall take the image box its stored size fixes (narrowed to the width at its own height, or scaled to the width when set to the page's width) or else its measured atom, and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with the stylesheet's caption gap either side of its caption rule, measured by its code's lines. Linked code shall be laid out as code with its caption, the caption derived from its address and the code its stored lines, and labelled as code. A display equation shall be a measured atom with the stylesheet's equation spacing as margins; a horizontal rule as tall as the stylesheet's rule height, with its rule spacing as margins; a page break no height; a kept block or a dynamic template a measured atom.
+A figure shall take the image box its stored size fixes (narrowed to the width at its own height, or scaled to the width when set to the page's width) or else its measured atom (the figure as drawn without its caption), and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with the stylesheet's caption gap either side of its caption rule, measured by its code's lines. Linked code shall be laid out as code with its caption, the caption derived from its address and the code its stored lines, and labelled as code. A display equation shall be a measured atom with the stylesheet's equation spacing as margins; a horizontal rule as tall as the stylesheet's rule height, with its rule spacing as margins; a page break no height; a kept block or a dynamic template a measured atom.
 
 Implementation: `src/layout-engine/blocks/objects.ts`
 Verification: `src/layout-engine/blocks/objects.test.ts`
