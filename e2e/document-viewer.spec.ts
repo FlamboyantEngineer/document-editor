@@ -154,25 +154,52 @@ test.describe('the read-only viewer', () => {
 
   // The regression documents link only within a page, so the test adds a link on the first page to
   // a block of the last, as a reference to it draws one.
-  test('DOCE-PAGINATION-13.9 follows a link to a page not drawn yet', async ({ page }) => {
-    await open(page, 'long-mixed');
-    const computed = await page.evaluate(() => window.regressionLab.textLines());
-    const target = computed.at(-1)?.blocks.find((block) => block.elementId)?.elementId ?? '';
-    expect(target, 'a block on the last page').not.toBe('');
-    await showViewer(page, 0);
-    const first = page.locator(SHEETS).first();
-    await first.scrollIntoViewIfNeeded();
-    await expect(first).toHaveAttribute('data-drawn', 'true');
-    await expect(page.locator(SHEETS).last()).not.toHaveAttribute('data-drawn');
-    await first.evaluate((sheet, id) => {
-      const link = sheet.ownerDocument.createElement('a');
-      link.href = `#${id}`;
-      link.textContent = 'To the last page';
-      sheet.querySelector('.pm-page-content')?.prepend(link);
-    }, target);
-    await page.getByRole('link', { name: 'To the last page' }).click();
-    await expect(page.locator(SHEETS).last()).toHaveAttribute('data-drawn', 'true');
-    await expect(page.locator(`${VIEWER} [id="${target}"]`)).toBeInViewport();
-    expect(new URL(page.url()).hash).toBe('');
-  });
+  // The page a block of the computed pages is on, by its element id.
+  const pageOf = (pages: ReturnType<RegressionProbe['textLines']>, id: string) =>
+    pages.findIndex((each) => each.blocks.some((block) => block.elementId === id));
+
+  for (const rtl of [false, true]) {
+    test(`DOCE-PAGINATION-13.9 follows a link to a ${rtl ? 'right-to-left paragraph on a ' : ''}page not drawn yet`, async ({
+      page,
+    }) => {
+      await open(page, 'long-mixed');
+      const computed = await page.evaluate(() => window.regressionLab.textLines());
+      const last = computed.at(-1)?.blocks.find((block) => (block.lines?.length ?? 0) > 0);
+      const target = last?.elementId ?? '';
+      expect(target, 'a paragraph on the last page').not.toBe('');
+      if (rtl) {
+        // Its first strong letter becomes Hebrew: the paragraph turns right to left (9.12).
+        const paragraph = page
+          .locator(`.de-document-editor__content [data-id="${target}"]`)
+          .first();
+        await paragraph.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+        await expect(paragraph).toBeInViewport();
+        await paragraph.click({ position: { x: 1, y: 4 } });
+        await page.keyboard.type('שלום עולם ');
+        await page.evaluate(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return window.stressLab.whenSettled();
+        });
+      }
+      const at = pageOf(await page.evaluate(() => window.regressionLab.textLines()), target);
+      expect(at, 'the target on a late page').toBeGreaterThan(1);
+      await showViewer(page, 0);
+      const first = page.locator(SHEETS).first();
+      await first.scrollIntoViewIfNeeded();
+      await expect(first).toHaveAttribute('data-drawn', 'true');
+      await expect(page.locator(SHEETS).nth(at)).not.toHaveAttribute('data-drawn');
+      await first.evaluate((sheet, id) => {
+        const link = sheet.ownerDocument.createElement('a');
+        link.href = `#${id}`;
+        link.textContent = 'To a late page';
+        sheet.querySelector('.pm-page-content')?.prepend(link);
+      }, target);
+      await page.getByRole('link', { name: 'To a late page' }).click();
+      await expect(page.locator(SHEETS).nth(at)).toHaveAttribute('data-drawn', 'true');
+      const anchor = page.locator(`${VIEWER} [id="${target}"]`);
+      await expect(anchor).toBeInViewport();
+      if (rtl) await expect(anchor).toHaveAttribute('dir', 'rtl');
+      expect(new URL(page.url()).hash).toBe('');
+    });
+  }
 });
