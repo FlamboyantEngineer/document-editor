@@ -72,9 +72,18 @@ const layoutPrint = (page: Page, markup: Markup) =>
     [markup, stylesheet(page)] as const,
   );
 
+// On a miss, the message quotes the text around the suggestions, to tell a leak from a bad break.
 const expectShown = (text: string, markup: Markup) => {
-  expect(text.includes('an insertion'), `${markup}: the insertion`).toBe(SHOWN[markup].insertion);
-  expect(text.includes('a deletion'), `${markup}: the deletion`).toBe(SHOWN[markup].deletion);
+  const around = text.slice(
+    Math.max(0, text.indexOf('Text with') - 40),
+    text.indexOf('Text with') + 120,
+  );
+  expect(text.includes('an insertion'), `${markup}: the insertion in "${around}"`).toBe(
+    SHOWN[markup].insertion,
+  );
+  expect(text.includes('a deletion'), `${markup}: the deletion in "${around}"`).toBe(
+    SHOWN[markup].deletion,
+  );
 };
 
 test.describe('DOCE-PAGINATION-11.12 suggestions as the markup shows them', () => {
