@@ -122,7 +122,11 @@ test.describe('DOCE-PAGINATION-11.12 suggestions as the markup shows them', () =
       await page.evaluate((shown) => window.regressionLab.showViewer(Infinity, shown), markup);
       const viewer = page.locator('.de-document-viewer');
       await expect(viewer).toHaveAttribute('data-markup', markup);
-      expectShown((await viewer.innerText()).replace(/\s+/gu, ' '), markup);
+      // The viewer draws its pages in an effect after it takes the new layout, so its text is read
+      // until it shows the new markup's.
+      await expect(async () => {
+        expectShown((await viewer.innerText()).replace(/\s+/gu, ' '), markup);
+      }).toPass({ timeout: 5_000 });
       const snapshot = await page.evaluate(
         ([shown, href]) =>
           window.regressionLab.snapshot({ markup: shown, stylesheets: [href] }) ?? '',

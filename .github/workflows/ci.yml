@@ -13,33 +13,82 @@ permissions:
   contents: read
 
 jobs:
-  gates:
+  reuse:
+    # On a push to dev or main: whether the pushed tree is exactly that of a merged pull request head
+    # whose `check` passed. A pull request may only merge when it is up to date with dev, so its last
+    # run tested this very tree; the push then runs no test again and only keeps the caches warm.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    outputs:
+      passed: ${{ steps.find.outputs.passed }}
+    steps:
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          tree=$(gh api "repos/$REPO/git/commits/$SHA" --jq .tree.sha)
+          for head in $(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[] | select(.merged_at) | .head.sha'); do
+            test "$(gh api "repos/$REPO/git/commits/$head" --jq .tree.sha)" = "$tree" || continue
+            conclusion=$(gh api "repos/$REPO/commits/$head/check-runs?check_name=check&filter=latest" \
+              --jq '[.check_runs[] | select(.app.slug == "github-actions")][0].conclusion')
+            if [ "$conclusion" = success ]; then
+              echo "Tree $tree passed check at $head, the head of its pull request."
+              echo passed=true >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No merged pull request head with this tree passed check: everything runs."
+          echo passed=false >> "$GITHUB_OUTPUT"
+
+  caches:
+    # When the tests are reused, the caches pull requests restore from dev are still kept current.
+    needs: reuse
+    if: needs.reuse.outputs.passed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: ./.github/actions/install
         with:
-          node-version-file: .nvmrc
-          cache: npm
-      # The base component library is a private git dependency. npm fetches GitHub dependencies over
-      # SSH first, so every GitHub URL form is rewritten to HTTPS with the read token, for the
-      # install alone: the rewrite lives in this step's environment and is never written to disk.
-      - name: Install, reading the base component library with the read token
-        env:
-          GIT_CONFIG_COUNT: 3
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
-          GIT_CONFIG_VALUE_0: https://github.com/FlamboyantEngineer/
-          GIT_CONFIG_KEY_1: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
-          GIT_CONFIG_VALUE_1: ssh://git@github.com/FlamboyantEngineer/
-          GIT_CONFIG_KEY_2: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
-          GIT_CONFIG_VALUE_2: git@github.com:FlamboyantEngineer/
-        run: npm ci
+          read-token: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
+      - uses: ./.github/actions/browser
+
+  gates:
+    needs: reuse
+    # A skipped `reuse` (every pull request) does not hold this job back.
+    if: ${{ !cancelled() && needs.reuse.outputs.passed != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+        with:
+          read-token: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
       # scripts/check.mjs is the one list of gates, shared with `npm run check` locally. The browser
-      # tests run in the labs jobs beside it.
+      # tests run in the labs jobs beside it, and the packed-consumer check in a job of its own.
       - name: Checks
         run: npm run check -- --skip test:labs --skip check:consumer --skip test:guard-budgets
-      # The packed-consumer check installs the pinned repositories again, with the read token.
+
+  consumer:
+    # The packed-consumer check: mostly installs, so it runs beside the gates rather than after them.
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.passed != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+        with:
+          read-token: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
+      - run: npm run build
+      # It installs the pinned repositories again, with the read token.
       - name: Packed consumer with the tested set
         env:
           GIT_CONFIG_COUNT: 3
@@ -54,24 +103,29 @@ jobs:
   labs:
     # The browser tests of `npm run test:labs`, split across runners: the Chromium lab tests in
     # shards, and the timing tests in a job of their own, so no other test shares their machine.
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.passed != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          # The one-result invariant's page checks at ratio 1, the heaviest tests, follow each shard,
-          # a third each; the display scaling ratios follow the last.
-          - name: chromium 1 of 3
-            args: --project=chromium --shard=1/3
-            then: --project=chromium-invariant --shard=1/3
-          - name: chromium 2 of 3
-            args: --project=chromium --shard=2/3
-            then: --project=chromium-invariant --shard=2/3
-          - name: chromium 3 of 3
-            args: --project=chromium --shard=3/3
-            then: --project=chromium-invariant --shard=3/3
-            after: --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
+          # The lab tests, the one-result invariant's page checks at ratio 1 and the invariant at the
+          # display scaling ratios 150, 175 and 300 percent, dealt into four shards by their recorded
+          # seconds (scripts/lab-shards.mjs, DOCE-LABS-10.1), so the shards end at about the same time.
+          - name: chromium 1 of 4
+            shard: 1
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
+          - name: chromium 2 of 4
+            shard: 2
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
+          - name: chromium 3 of 4
+            shard: 3
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
+          - name: chromium 4 of 4
+            shard: 4
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
           # The Pretext closeness tests and the one-result invariant at real device pixel ratios, but
           # for the pages painted into canvases (DOCE-EDITOR-1.9, DOCE-LABS-8.9), which the
           # performance job runs after its timing tests.
@@ -87,43 +141,39 @@ jobs:
     name: labs (${{ matrix.name }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: ./.github/actions/install
         with:
-          node-version-file: .nvmrc
-          cache: npm
-      # The base component library is a private git dependency, read with the token as in the gates job.
-      - name: Install, reading the base component library with the read token
-        env:
-          GIT_CONFIG_COUNT: 3
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
-          GIT_CONFIG_VALUE_0: https://github.com/FlamboyantEngineer/
-          GIT_CONFIG_KEY_1: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
-          GIT_CONFIG_VALUE_1: ssh://git@github.com/FlamboyantEngineer/
-          GIT_CONFIG_KEY_2: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
-          GIT_CONFIG_VALUE_2: git@github.com:FlamboyantEngineer/
-        run: npm ci
+          read-token: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
       # The browser tests need Playwright's own Chromium, which the runner image does not carry.
-      - run: npx playwright install --with-deps chromium
-      # The print tests read each printed sheet's text with pdftotext.
-      - run: sudo apt-get install -y poppler-utils
+      - uses: ./.github/actions/browser
       - run: npm run build:labs
+      - name: This shard's tests
+        if: matrix.shard
+        run: node scripts/lab-shards.mjs plan --shards 4 --shard ${{ matrix.shard }} --out "$RUNNER_TEMP/tests.txt" -- ${{ matrix.args }}
       # Guard timing shares only the dedicated performance runner, sequentially with browser budgets.
       - name: Guard functional cases and budgets
         if: matrix.name == 'performance'
         run: npm run test:guard-budgets
       - name: Lab browser tests (${{ matrix.name }})
         run: |
-          npx playwright test ${{ matrix.args }}
+          npx playwright test ${{ matrix.args }} ${{ matrix.shard && '--test-list "$RUNNER_TEMP/tests.txt"' || '' }}
           if [ -n "$THEN" ]; then npx playwright test $THEN; fi
           if [ -n "$AFTER" ]; then npx playwright test $AFTER; fi
         env:
           THEN: ${{ matrix.then }}
           AFTER: ${{ matrix.after }}
+          TIMING_READINGS: ${{ runner.temp }}/timing-readings.txt
+      # Last, so the readings are the last lines of the timing job's log, which its tail shows.
+      - name: Timing readings
+        if: always() && matrix.name == 'performance'
+        run: cat "$RUNNER_TEMP/timing-readings.txt" 2>/dev/null || echo "No timing readings were written."
 
   font-file-changes:
     # Whether the change reaches the font-file widths: the measurer and the layout engine, its test
     # helpers and fonts, the dependencies (the Pretext fork pin, HarfBuzz, the font packages) or this
     # workflow. A push to dev or main always counts.
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.passed != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -150,7 +200,8 @@ jobs:
     # macOS runs them weekly in the other-systems workflow, as its runners can be too scarce to hold a
     # pull request on.
     needs: font-file-changes
-    if: needs.font-file-changes.outputs.changed == 'true'
+    # A skipped `reuse` above does not skip this job.
+    if: ${{ !cancelled() && needs.font-file-changes.outputs.changed == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -197,19 +248,22 @@ jobs:
       - run: npx vitest run src/layout-engine/font-files/measurer.test.ts
 
   check:
-    # The status the dev branch rules require: it passes only when the gates and every browser test
-    # job passed, so a failed, cancelled or skipped job fails it. The font-file job may be skipped, when
-    # the change does not reach the font-file widths, but not fail.
+    # The status the dev branch rules require: it passes only when the gates, the packed consumer and
+    # every browser test job passed, so a failed, cancelled or skipped job fails it. The font-file job
+    # may be skipped, when the change does not reach the font-file widths, but not fail. On a push whose
+    # tree already passed in its pull request, nothing ran again.
     if: ${{ !cancelled() }}
-    needs: [gates, labs, font-file-changes, font-files]
+    needs: [reuse, gates, consumer, labs, font-file-changes, font-files]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Gates and browser tests passed
         env:
-          RESULTS: ${{ needs.gates.result }} ${{ needs.labs.result }} ${{ needs.font-file-changes.result }}
+          REUSED: ${{ needs.reuse.outputs.passed }}
+          RESULTS: ${{ needs.gates.result }} ${{ needs.consumer.result }} ${{ needs.labs.result }} ${{ needs.font-file-changes.result }}
           FONT_FILES: ${{ needs.font-files.result }}
           CHANGED: ${{ needs.font-file-changes.outputs.changed }}
         run: |
+          if [ "$REUSED" = true ]; then echo "This tree passed check in its pull request."; exit 0; fi
           for result in $RESULTS; do test "$result" = success || exit 1; done
           test "$FONT_FILES" = success || { test "$FONT_FILES" = skipped && test "$CHANGED" = false; }

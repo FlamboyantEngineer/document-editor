@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';
 import { engineNumbers } from './engine-numbers.js';
 import { forcedLines } from './forced-lines.js';
+import { forcedRegions } from './forced-regions.js';
 import type { TextEngineHolder } from './text-engine-holder.js';
 
 /** The engine's plugins on the pages' view. */
@@ -16,5 +17,6 @@ export function textLayoutPlugins(
   return [
     engineNumbers({ engine, canonical: source.canonical }),
     forcedLines({ engine, version: () => text.version(), redraw: source.redraw }),
+    forcedRegions(),
   ];
 }

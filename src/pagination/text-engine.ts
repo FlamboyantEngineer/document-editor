@@ -319,6 +319,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     },
     insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
     measureRegion: selecting(select, (...at) => regions.lay(...at).room),
+    regionLines: selecting(select, (...at) => regions.lay(...at).lines),
     lines(node, place) {
       select();
       const markers = markerKey(node, numbers.footnoteOf);
