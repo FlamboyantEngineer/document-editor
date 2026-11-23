@@ -6,7 +6,12 @@
   "consumers": {
     "editor": {
       "raw": 1984354,
-      "gzip": 633847
+      "gzip": 633847,
+      "limit": {
+        "raw": 2163904,
+        "gzip": 691200,
+        "cause": "Both text layouts ship in the editor until the DOM text layout is removed. That removal rewrites the baseline to the measured size with --update, which drops this limit."
+      }
     },
     "editor-with-panels": {
       "raw": 2095039,

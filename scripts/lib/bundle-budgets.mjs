@@ -1,12 +1,14 @@
 // Measures the initial code of a consumer bundle and compares it with its reviewed budget
 // (DOCE-ENTRY-2.1). The budgets live in `scripts/bundle-budgets.json`: each consumer's measured
-// baseline in bytes, raw and gzipped, and one allowance for growth over every baseline.
+// baseline in bytes, raw and gzipped, and one allowance for growth over every baseline. A consumer
+// may hold a reviewed limit with its cause, which stands in place of the allowance.
 
 import { gzipSync } from 'node:zlib';
 
 /**
  * @typedef {{ raw: number, gzip: number }} Sizes
- * @typedef {{ allowance: { relative: number, absolute: number }, consumers: Record<string, Sizes> }} Budgets
+ * @typedef {Sizes & { limit?: Sizes & { cause: string } }} Budget
+ * @typedef {{ allowance: { relative: number, absolute: number }, consumers: Record<string, Budget> }} Budgets
  */
 
 /**
@@ -63,6 +65,17 @@ export function allowedGrowth(baseline, allowance) {
   return Math.max(Math.ceil(baseline * allowance.relative), allowance.absolute);
 }
 
+/**
+ * The growth a consumer may take over its baseline: up to its reviewed limit when it holds one,
+ * else the allowance.
+ * @param {Budget} budget
+ * @param {'raw' | 'gzip'} kind
+ * @param {Budgets['allowance']} allowance
+ */
+function allowedOver(budget, kind, allowance) {
+  return budget.limit ? budget.limit[kind] - budget[kind] : allowedGrowth(budget[kind], allowance);
+}
+
 /** @param {number} bytes */
 const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
 
@@ -85,12 +98,13 @@ export function compareBudgets(measured, budgets) {
       continue;
     }
     for (const kind of /** @type {const} */ (['raw', 'gzip'])) {
-      const allowed = allowedGrowth(baseline[kind], budgets.allowance);
+      const allowed = allowedOver(baseline, kind, budgets.allowance);
       const growth = sizes[kind] - baseline[kind];
       const summary = `${consumer} ${kind} ${kb(sizes[kind])} against a ${kb(baseline[kind])} baseline`;
       if (growth > allowed)
         problems.push(`${summary} grew by ${kb(growth)} (allowed ${kb(allowed)})`);
-      else if (-growth > allowed) notes.push(`${summary} shrank by ${kb(-growth)}`);
+      else if (-growth > allowedGrowth(baseline[kind], budgets.allowance))
+        notes.push(`${summary} shrank by ${kb(-growth)}`);
     }
   }
   for (const consumer of Object.keys(budgets.consumers)) {
@@ -100,7 +114,8 @@ export function compareBudgets(measured, budgets) {
 }
 
 /**
- * Budgets holding the measurements as baselines, keeping the reviewed allowance.
+ * Budgets holding the measurements as baselines, keeping the reviewed allowance. A consumer's
+ * limit goes with the baseline it was reviewed against.
  * @param {Record<string, Sizes>} measured
  * @param {Budgets} budgets
  * @returns {Budgets}

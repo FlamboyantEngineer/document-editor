@@ -17,9 +17,13 @@ interface Sizes {
   gzip: number;
 }
 
+interface Budget extends Sizes {
+  limit?: Sizes & { cause: string };
+}
+
 interface Budgets {
   allowance: { relative: number; absolute: number };
-  consumers: Record<string, Sizes>;
+  consumers: Record<string, Budget>;
 }
 
 interface Comparison {
@@ -27,9 +31,10 @@ interface Comparison {
   notes: string[];
 }
 
+const EDITOR: Sizes = { raw: 100_000, gzip: 30_000 };
 const budgets: Budgets = {
   allowance: { relative: 0.05, absolute: 2048 },
-  consumers: { editor: { raw: 100_000, gzip: 30_000 } },
+  consumers: { editor: EDITOR },
 };
 
 const compare = compareBudgets as (measured: Record<string, Sizes>, budgets: Budgets) => Comparison;
@@ -46,6 +51,17 @@ describe('consumer bundle budgets', () => {
     expect(problems).toHaveLength(2);
     expect(problems[0]).toMatch(/^editor raw .* grew by/);
     expect(problems[1]).toMatch(/^editor gzip .* grew by/);
+  });
+
+  it('DOCE-ENTRY-2.1 lets a consumer grow to its reviewed limit in place of the allowance', () => {
+    const limit = { raw: 110_000, gzip: 33_000, cause: 'Two engines ship together for now.' };
+    const raised: Budgets = { ...budgets, consumers: { editor: { ...EDITOR, limit } } };
+    expect(compare({ editor: { raw: 110_000, gzip: 33_000 } }, raised).problems).toEqual([]);
+    const { problems } = compare({ editor: { raw: 110_001, gzip: 33_001 } }, raised);
+    expect(problems).toEqual([
+      expect.stringMatching(/^editor raw .* grew by 9\.8 KB \(allowed 9\.8 KB\)$/),
+      expect.stringMatching(/^editor gzip .* grew by 2\.9 KB \(allowed 2\.9 KB\)$/),
+    ]);
   });
 
   it('DOCE-ENTRY-2.1 notes a consumer that shrank, so its baseline can be lowered', () => {
@@ -65,6 +81,13 @@ describe('consumer bundle budgets', () => {
   it('DOCE-ENTRY-2.1 writes the measurements as baselines and keeps the allowance', () => {
     const measured = { editor: { raw: 1, gzip: 2 } };
     expect(updatedBudgets(measured, budgets)).toEqual({ ...budgets, consumers: measured });
+  });
+
+  it('DOCE-ENTRY-2.1 drops a reviewed limit with the baseline it was reviewed against', () => {
+    const limit = { raw: 110_000, gzip: 33_000, cause: 'Two engines ship together for now.' };
+    const raised: Budgets = { ...budgets, consumers: { editor: { ...EDITOR, limit } } };
+    const measured = { editor: { raw: 104_000, gzip: 31_000 } };
+    expect(updatedBudgets(measured, raised)).toEqual({ ...budgets, consumers: measured });
   });
 
   it('DOCE-ENTRY-2.1 measures each file gzipped on its own', () => {
@@ -113,5 +136,15 @@ describe('consumer bundle budgets', () => {
       'editor-with-panels',
       'template-workspace',
     ]);
+  });
+
+  it('DOCE-ENTRY-2.1 holds the editor at 675 KB gzipped while both text layouts ship', () => {
+    const file = JSON.parse(
+      readFileSync(new URL('../scripts/bundle-budgets.json', import.meta.url), 'utf8'),
+    ) as Budgets;
+    const limited = Object.entries(file.consumers).filter(([, budget]) => budget.limit);
+    expect(limited.map(([name]) => name)).toEqual(['editor']);
+    expect(file.consumers.editor?.limit?.gzip).toBe(675 * 1024);
+    expect(file.consumers.editor?.limit?.cause).toMatch(/DOM text layout is removed/);
   });
 });
