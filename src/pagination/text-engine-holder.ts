@@ -31,6 +31,8 @@ export interface TextEngineHolder {
   version(): number;
   /** Settles once the engine's module has loaded. */
   readonly loaded: Promise<unknown>;
+  /** Makes the engine again, so its atoms are measured again, as after the screen changed. */
+  remeasure(): void;
   destroy(): void;
 }
 
@@ -113,6 +115,10 @@ export function holdTextEngine(options: {
     },
     version: () => version,
     loaded,
+    remeasure() {
+      current?.destroy();
+      current = null;
+    },
     destroy() {
       destroyed = true;
       faces?.removeEventListener('loadingdone', onFonts);

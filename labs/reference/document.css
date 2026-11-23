@@ -266,6 +266,9 @@ div.de-host-view {
   top: 0;
   left: -100000px;
   width: calc(var(--doc-page-width) - var(--doc-page-margin-left) - var(--doc-page-margin-right));
+  /* Drawn at one device pixel per CSS pixel on every screen, so what it measures is the same on
+     every screen (DOCE-PAGINATION-10.10). */
+  zoom: var(--de-measure-zoom, 1);
 }
 
 /*
