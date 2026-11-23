@@ -112,10 +112,22 @@ describe('forcedLines', () => {
     const state = stateWith(doc, stubEngine().engine);
     const at = positionOf(doc, 'aaaaaaaaaabbbbbbbbbbcc');
     expect(drawn(state)).toEqual([
-      { from: at, to: at + 24, class: 'de-forced-lines', 'data-lines': '3' },
+      { from: at, to: at + 24, class: 'de-forced-lines', 'data-lines': '3', dir: 'ltr' },
       { from: at + 10, to: at + 11, class: 'de-forced-lines__end' },
       { from: at + 20, to: at + 21, class: 'de-forced-lines__end' },
     ]);
+  });
+
+  it('DOCE-PAGINATION-9.11 draws a block right to left from its text, and a later part as its first', () => {
+    const doc = pagesDoc([
+      [paragraph('שלום world', { dataId: 'h' }), paragraph('hello مرحبا', { dataId: 'l' })],
+      [paragraph('later part', { dataId: 'h', splitPartIndex: 1 })],
+    ]);
+    const state = stateWith(doc, stubEngine().engine);
+    const directions = drawn(state)
+      .filter((each) => each.class === 'de-forced-lines')
+      .map((each) => each.dir);
+    expect(directions).toEqual(['rtl', 'ltr', 'rtl']);
   });
 
   it('DOCE-PAGINATION-11.2 never cuts a character in two at a line end', () => {

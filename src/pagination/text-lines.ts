@@ -4,11 +4,11 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { footnoteNumberOf, footnoteNumbersKey } from '../engine/footnote-numbers.js';
+import { isContinued } from './block-directions.js';
 import {
   FORCED_TYPES,
   forcedLinesKey,
   type ForcedLinesState,
-  isContinued,
   sectionScope,
 } from './forced-lines.js';
 import type { PagesTextEngine } from './text-engine-types.js';

@@ -50,13 +50,14 @@ function sectionHooks(element: PrintElement, node: ProseMirrorNode, template: Te
   if (sectionRestartsNumbering(section)) element.attrs.set('data-numbering', 'restart');
 }
 
-// A forced block's hooks: how many lines it is drawn on, and a numbered heading's number and the
-// indent its first line starts with.
+// A forced block's hooks: how many lines it is drawn on, its direction, and a numbered heading's
+// number and the indent its first line starts with.
 function forcedHooks(element: PrintElement, block: PagesLayoutBlock) {
   const own = element.attrs.get('class');
   element.attrs.set('class', own ? `${own} de-forced-lines` : 'de-forced-lines');
   element.attrs.set('data-lines', String(block.lines));
   if (block.number) element.attrs.set('data-number', block.number);
+  element.attrs.set('dir', block.direction ?? 'ltr');
   if (block.style) {
     const style = element.attrs.get('style');
     element.attrs.set('style', style ? `${style}; ${block.style}` : block.style);

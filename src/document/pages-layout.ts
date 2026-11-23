@@ -20,6 +20,8 @@ export interface PagesLayoutBlock {
    * (`--de-first-indent`), drawn before its number.
    */
   readonly style?: string | undefined;
+  /** `rtl` when it is drawn right to left (DOCE-PAGINATION-9.11); absent when left to right. */
+  readonly direction?: 'rtl' | undefined;
   /** The marks that draw its lines, by offset in its content. */
   readonly marks: readonly LineMark[];
 }
