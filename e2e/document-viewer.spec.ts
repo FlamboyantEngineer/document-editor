@@ -7,7 +7,8 @@ import { expect, test, waitForLab } from './fixtures.js';
 
 // The read-only viewer (specs/PAGINATION.md DOCE-PAGINATION-13.6): the pages' layout drawn without
 // the editor shows every page the engine computed, each forced block on the engine's lines, draws
-// only the pages near the viewport, and numbers a page drawn on its own on from the pages before.
+// only the pages near the viewport, numbers a page drawn on its own on from the pages before, and
+// follows a link to a page it has not drawn (DOCE-PAGINATION-13.9).
 
 declare global {
   interface Window {
@@ -150,4 +151,28 @@ test.describe('the read-only viewer', () => {
       expect((await shoot()).equals(alone)).toBe(true);
     });
   }
+
+  // The regression documents link only within a page, so the test adds a link on the first page to
+  // a block of the last, as a reference to it draws one.
+  test('DOCE-PAGINATION-13.9 follows a link to a page not drawn yet', async ({ page }) => {
+    await open(page, 'long-mixed');
+    const computed = await page.evaluate(() => window.regressionLab.textLines());
+    const target = computed.at(-1)?.blocks.find((block) => block.elementId)?.elementId ?? '';
+    expect(target, 'a block on the last page').not.toBe('');
+    await showViewer(page, 0);
+    const first = page.locator(SHEETS).first();
+    await first.scrollIntoViewIfNeeded();
+    await expect(first).toHaveAttribute('data-drawn', 'true');
+    await expect(page.locator(SHEETS).last()).not.toHaveAttribute('data-drawn');
+    await first.evaluate((sheet, id) => {
+      const link = sheet.ownerDocument.createElement('a');
+      link.href = `#${id}`;
+      link.textContent = 'To the last page';
+      sheet.querySelector('.pm-page-content')?.prepend(link);
+    }, target);
+    await page.getByRole('link', { name: 'To the last page' }).click();
+    await expect(page.locator(SHEETS).last()).toHaveAttribute('data-drawn', 'true');
+    await expect(page.locator(`${VIEWER} [id="${target}"]`)).toBeInViewport();
+    expect(new URL(page.url()).hash).toBe('');
+  });
 });

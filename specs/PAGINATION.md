@@ -928,3 +928,10 @@ Under `textLayout: 'pretext'` with served fonts (DOCE-HOST-1.14.1), the pages' l
 
 Implementation: `src/pagination/served-fonts.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/pages-layout.ts`, `src/document/font-faces.ts`, `src/document/print-pages.ts`, `src/components/document-viewer/document-viewer.tsx`, `src/components/document-editor/editor-handle.ts`, `src/document/headless-print.ts`
 Verification: `src/document/font-faces.test.ts`, `src/document/print-pages.test.ts`, `src/components/document-viewer/document-viewer.test.tsx`, `e2e/print-lines.spec.ts`
+
+### DOCE-PAGINATION-13.9 - Links to pages the viewer has not drawn
+
+A link inside the viewer's pages to an anchor of theirs (a reference to a heading or object, a footnote marker or its entry's number, an abbreviation) shall go to it whether or not its page is drawn: the page holding the anchor is drawn as a page in view is (DOCE-PAGINATION-13.6), the anchor is scrolled into view, and the host page's address is left as it was. Each page drawn from a layout (`drawLayoutPages`) names the anchors it holds.
+
+Implementation: `src/document/print-pages.ts`, `src/components/document-viewer/document-viewer.tsx`
+Verification: `src/components/document-viewer/document-viewer.test.tsx`, `e2e/document-viewer.spec.ts`
