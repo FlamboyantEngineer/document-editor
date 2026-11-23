@@ -13,7 +13,7 @@ import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
-import { buildRuns, type MeasureAtom, type TextRun } from './runs.js';
+import { buildRuns, type MeasureAtom, type TextRun, type VariableTexts } from './runs.js';
 import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
@@ -75,6 +75,8 @@ export interface TextBlockPlace {
   readonly number?: ParagraphNumber | undefined;
   /** A footnote entry's number, drawn before its content in the template's marker style. */
   readonly footnoteNumber?: string | undefined;
+  /** The text its template variables show, where it is drawn once with known values. */
+  readonly variables?: VariableTexts | undefined;
   /** Text drawn in the block that is not its content, such as a comparison's deleted words. */
   readonly inserted?: readonly InsertedText[] | undefined;
   /** A caption's label, number and separator, drawn before its text in the caption label font. */
@@ -246,6 +248,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         measureAtom: options.measureAtom,
         scope: place.scope,
         textAtoms: options.textAtoms,
+        variables: place.variables,
         boxOf: boxOf(style),
         inserted: place.inserted,
       });

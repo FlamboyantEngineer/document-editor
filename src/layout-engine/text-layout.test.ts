@@ -289,6 +289,32 @@ describe('createTextLayout', () => {
     ).toEqual({ ok: false, reason: 'template variable' });
   });
 
+  it('DOCE-PAGINATION-9.5 lays a template variable out as the text it shows, unbroken, where its values are known', () => {
+    const variable = (key: string) =>
+      documentSchema.nodes.template_variable?.create({ variableKey: key });
+    const paragraph = (...children: ProseMirrorNode[]) => {
+      const node = documentSchema.nodes.paragraph?.create(null, children);
+      if (!node) throw new Error('schema has no paragraph');
+      return node;
+    };
+    const title = variable('document.title');
+    const empty = variable('page.total');
+    if (!title || !empty) throw new Error('schema has no template variable');
+    const layout = createTextLayout({ template: BASE_TEMPLATE });
+    const shown = layout.layoutText(paragraph(documentSchema.text('aaaa '), title, empty), {
+      width: 60,
+      variables: new Map([
+        ['document.title', 'bb cc'],
+        ['page.total', ''],
+      ]),
+    });
+    if (!shown.ok) throw new Error(shown.reason);
+    // The value stays on one line, as the page cannot break inside the variable.
+    const written = table(block('<p>aaaa bbcc</p>'), 60);
+    expect(shown.table.lines.length).toBe(written.lines.length);
+    expect(shown.table.height).toBe(written.height);
+  });
+
   it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {
     const centred: TemplateFile = {
       ...BASE_TEMPLATE,
