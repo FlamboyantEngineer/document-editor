@@ -282,6 +282,11 @@ export interface LayoutProgress {
   pagesLayout(): PagesLayout | null;
   /** The served faces the pages are measured and drawn with (`textLayout: 'pretext'`); null else. */
   servedFonts(): FontFiles | null;
+  /**
+   * The served faces as `servedFonts` gives them, and again under each family the pages draw under
+   * another (DOCE-PAGINATION-12.8), for a snapshot of the pages; null without the engine.
+   */
+  drawnFonts(): FontFiles | null;
   /** With the layout engine, draws every page on its lines, or only those near the screen again. */
   drawAllLines(all: boolean): void;
   /** Draws every page on the engine's lines until the function it returns is called. */
@@ -289,7 +294,10 @@ export interface LayoutProgress {
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
-function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgress {
+function useLayoutProgress(
+  active: RefObject<LayoutRunner | null>,
+  latest: RefObject<DocumentLayoutOptions>,
+): LayoutProgress {
   return useMemo(() => {
     const allLines = createAllLines((all) => active.current?.drawAllLines(all));
     return {
@@ -298,10 +306,11 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
       textLines: () => active.current?.textLines() ?? [],
       pagesLayout: () => active.current?.pagesLayout() ?? null,
       servedFonts: () => active.current?.servedFonts() ?? null,
+      drawnFonts: () => (active.current?.servedFonts() ? latest.current.text.drawnFiles() : null),
       drawAllLines: allLines.drawAll,
       holdAllLines: allLines.hold,
     };
-  }, [active]);
+  }, [active, latest]);
 }
 
 /**
@@ -386,6 +395,6 @@ export function useDocumentLayout(
     `${String(Boolean(options.onRegionChange))} ${String(Boolean(options.onTemplatePartChange))}`,
     options.onStateChange,
   );
-  const progress = useLayoutProgress(active);
+  const progress = useLayoutProgress(active, latest);
   return useMemo(() => ({ ...progress, paged, text }), [progress, paged, text]);
 }
