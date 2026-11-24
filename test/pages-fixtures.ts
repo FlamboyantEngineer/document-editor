@@ -3,8 +3,9 @@
 
 import type { Node } from 'prosemirror-model';
 import { EditorState, type Plugin } from 'prosemirror-state';
+import { PAGE_VARIABLES } from '../src/layout-engine/body-variables.js';
 import type { TextLine } from '../src/layout-engine/line-table.js';
-import { reservedBoxes } from '../src/layout-engine/reserved-boxes.js';
+import { type ReservedBox, reservedBoxes } from '../src/layout-engine/reserved-boxes.js';
 import { forcedLines } from '../src/pagination/forced-lines.js';
 import { createPageVariables } from '../src/pagination/page-variables.js';
 import type { DrawnLines, PagesTextEngine } from '../src/pagination/text-engine-types.js';
@@ -51,9 +52,22 @@ export interface StubEngineOptions {
   readonly headings?: ReadonlyMap<number, string>;
   /** Clusters given a reserved box 16px wide (DOCE-PAGINATION-12.4). */
   readonly reserved?: ReadonlySet<string>;
+  /** The width of the box each page variable in the text takes (DOCE-PAGINATION-11.13). */
+  readonly pageBox?: number;
 }
 
 /** An engine that breaks a block's content every `perLine` characters, each line 10px of 100px. */
+// The boxes of a block's page variables, each a width wide.
+function pageBoxes(block: Node, width: number | undefined): ReservedBox[] {
+  const boxes: ReservedBox[] = [];
+  block.forEach((child, from) => {
+    const key = String(child.attrs.variableKey ?? '');
+    if (width !== undefined && child.type.name === 'template_variable' && PAGE_VARIABLES.has(key))
+      boxes.push({ from, to: from + child.nodeSize, width });
+  });
+  return boxes;
+}
+
 export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
   const perLine = options.perLine ?? 10;
   return {
@@ -91,7 +105,8 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
         justify: options.justify ?? false,
       };
       const reserved = options.reserved;
-      if (!reserved) return table;
+      const boxes = pageBoxes(block, options.pageBox);
+      if (!reserved) return boxes.length ? { ...table, reserved: boxes } : table;
       const text = block.textBetween(0, size, '\ufffc', '\ufffc');
       const reserve = (cluster: string) => (reserved.has(cluster) ? 16 : null);
       return { ...table, reserved: reservedBoxes(text, { offset: 0, font: '', reserve }) };

@@ -26,6 +26,7 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../model/index.js';
+import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import { createDrawnAtomMeasurer } from './drawn-atoms.js';
@@ -138,6 +139,9 @@ function engineLayouts(
     contents: ContentsLists;
   },
 ) {
+  // What the body text's variables show, and the key a kept layout of a block holding some matches.
+  const body = bodyVariablesOf(options.variables, () => contents.digits());
+  const variablesKey = (node: ProseMirrorNode) => bodyVariablesKey(node, body);
   const { template } = options;
   const measureContext = options.measureContext ?? unhintedContext;
   const select = measuringWith(measureContext);
@@ -149,6 +153,7 @@ function engineLayouts(
   const text = createTextLayout({
     template,
     hidden: () => hiddenSuggestion(options.markup?.() ?? 'all'),
+    bodyVariables: body,
     measureContext,
     isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
@@ -170,7 +175,7 @@ function engineLayouts(
     contentsOf: (node) => contents.of(node, numbers().doc),
     pageDigits: () => contents.digits(),
   });
-  return { host, atoms, text, geometry, select, measureContext };
+  return { host, atoms, text, geometry, select, measureContext, variablesKey };
 }
 
 // A way into the engine that measures, setting Pretext's width source to the engine's own first
@@ -192,10 +197,12 @@ function keptLines(
     widthOf,
     numbers,
     markup,
+    variablesKey,
   }: {
     widthOf: (scope: string | null) => number;
     numbers: () => NodeNumbers;
     markup: TextEngineOptions['markup'];
+    variablesKey: (node: ProseMirrorNode) => string;
   },
 ) {
   let kept = new WeakMap<ProseMirrorNode, KeptLines>();
@@ -206,7 +213,7 @@ function keptLines(
     lines(node: ProseMirrorNode, place: Parameters<PagesTextEngine['lines']>[1]) {
       const markers = markerKey(node, numbers().footnoteOf);
       const words = insertedKey(place.inserted);
-      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}|${suggestionKey(node, markup)}`;
+      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}|${suggestionKey(node, markup)}${variablesKey(node)}`;
       const found = kept.get(node);
       if (found?.key === key) return found.table;
       const width = widthOf(place.scope);
@@ -228,18 +235,19 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let current = NO_INSERTED;
   const recorder: LinesRecorder = { lines: null };
   const contents = createContentsLists(template, options.view);
-  const { host, atoms, text, geometry, select, measureContext } = engineLayouts(options, {
+  const layouts = engineLayouts(options, {
     numbers: () => numbers,
     inserted: () => current,
     recorder,
     contents,
   });
+  const { host, atoms, text, geometry, select, measureContext, variablesKey } = layouts;
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
-  const tables = keptLines(text, { widthOf, markup, numbers: () => numbers });
+  const tables = keptLines(text, { widthOf, markup, numbers: () => numbers, variablesKey });
   const footnoteOf = (part: ProseMirrorNode) => numbers.footnoteOf(part);
-  const laying = { geometry, recorder, widthOf, footnoteOf, markup };
+  const laying = { geometry, recorder, widthOf, footnoteOf, markup, variablesKey };
   const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
@@ -274,7 +282,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
         counts.refuse('inserted words outside a text block');
         return null;
       }
-      const listed = contents.keyOf(node, numbers.doc);
+      const listed = contents.keyOf(node, numbers.doc) + variablesKey(node);
       const key = `${scope ?? ''}|${numbers.keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, options.markup)}${listed}`;
       const kept = blocks.get(node);
       if (kept?.key === key) return kept.block;

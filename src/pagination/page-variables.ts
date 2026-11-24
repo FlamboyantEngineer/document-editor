@@ -44,6 +44,15 @@ function dateFormat(locale: string | undefined): Intl.DateTimeFormat {
   return format;
 }
 
+/**
+ * The text a variable whose value is the same on every page shows, as the pages draw it; null for
+ * the page's own number and the page count.
+ */
+export function fixedVariableText(key: string, options: PageVariablesOptions): string | null {
+  if (key === 'page.current' || key === 'page.total') return null;
+  return variableText(key, { page: 0, pages: 0 }, options);
+}
+
 function variableText(key: string, place: Place, options: PageVariablesOptions) {
   if (key === 'page.current') return String(place.page);
   if (key === 'page.total') return String(place.pages);

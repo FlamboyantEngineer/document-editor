@@ -23,6 +23,8 @@ interface NestedSource {
   readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
   /** The markup the pages are laid out in, by which one holding a suggestion is kept too. */
   readonly markup?: (() => SuggestionMarkup) | undefined;
+  /** What the template variables anywhere in a node show, as a key (`bodyVariablesKey`). */
+  readonly variablesKey?: ((node: ProseMirrorNode) => string) | undefined;
 }
 
 /**
@@ -56,7 +58,7 @@ export function createNestedLines(source: NestedSource) {
       container: ProseMirrorNode,
       scope: string | null,
     ): ReadonlyMap<ProseMirrorNode, DrawnLines> {
-      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}`;
+      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}${source.variablesKey?.(container) ?? ''}`;
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
       const { geometry, recorder } = source;
