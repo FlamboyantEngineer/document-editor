@@ -5,16 +5,18 @@
 // and writes one shard's tests as a `--test-list` file, checked to select exactly those tests.
 //
 //   node scripts/lab-shards.mjs plan --shards 4 --shard 2 --out <file> -- --project=chromium ...
-//   node scripts/lab-shards.mjs record < <CI logs of every shard of one run>
+//   node scripts/lab-shards.mjs record [--average] < <CI logs of every shard of one run>
 //
 // `record` rewrites scripts/lab-durations.json from the list reporter's lines. A test it has no
-// time for counts as the median test, so a stale file only costs balance, never a test.
+// time for counts as the median test, so a stale file only costs balance, never a test. With
+// `--average`, each time is the mean of the recorded one and the new one, which evens out a run
+// whose heavy tests happened to share a runner.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { listedTests, planShards, recordDurations } from './lib/lab-shards.mjs';
+import { averageDurations, listedTests, planShards, recordDurations } from './lib/lab-shards.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const DURATIONS = fileURLToPath(new URL('lab-durations.json', import.meta.url));
@@ -54,21 +56,29 @@ function plan(values, projectArgs) {
   );
 }
 
-function record() {
-  const durations = recordDurations(readFileSync(0, 'utf8'));
-  if (Object.keys(durations).length === 0) throw new Error('the log holds no test results');
+function record(values) {
+  const recorded = recordDurations(readFileSync(0, 'utf8'));
+  if (Object.keys(recorded).length === 0) throw new Error('the log holds no test results');
+  const durations = values.average
+    ? averageDurations(JSON.parse(readFileSync(DURATIONS, 'utf8')), recorded)
+    : recorded;
   writeFileSync(DURATIONS, `${JSON.stringify(durations, null, 2)}\n`);
   console.log(`scripts/lab-durations.json: ${String(Object.keys(durations).length)} tests`);
 }
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
-  options: { shards: { type: 'string' }, shard: { type: 'string' }, out: { type: 'string' } },
+  options: {
+    shards: { type: 'string' },
+    shard: { type: 'string' },
+    out: { type: 'string' },
+    average: { type: 'boolean', default: false },
+  },
 });
 const [command, ...projectArgs] = positionals;
 if (command === 'plan') plan(values, projectArgs);
-else if (command === 'record') record();
+else if (command === 'record') record(values);
 else
   throw new Error(
-    'usage: lab-shards.mjs plan --shards <n> --shard <i> --out <file> -- <args> | record',
+    'usage: lab-shards.mjs plan --shards <n> --shard <i> --out <file> -- <args> | record [--average]',
   );
