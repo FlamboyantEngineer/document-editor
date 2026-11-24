@@ -5,6 +5,7 @@
 
 import * as delta from 'lib0/delta';
 import type { Fragment, Node } from 'prosemirror-model';
+import { diffFragments } from '../utils/fragment-diff.js';
 import { type AnyDelta, contentToDelta, deltaAttrs, nodeToDelta } from './delta.js';
 
 type Builder = delta.DeltaBuilderAny;
@@ -57,15 +58,9 @@ const unitAt = (content: Fragment, offset: number) =>
  * by UTF-16 unit and each inline leaf as one, as the shared text does.
  */
 function wholeCharacterChange(a: Fragment, b: Fragment) {
-  let start = a.findDiffStart(b);
-  const end = a.findDiffEnd(b);
-  if (start === null || !end) return null;
-  let { a: endA, b: endB } = end;
-  const overlap = start - Math.min(endA, endB);
-  if (overlap > 0) {
-    endA += overlap;
-    endB += overlap;
-  }
+  const diff = diffFragments(a, b);
+  if (!diff) return null;
+  let { start, endA, endB } = diff;
   if (isLow(unitAt(a, start)) || isLow(unitAt(b, start))) start -= 1;
   if (isLow(unitAt(a, endA))) {
     endA += 1;
