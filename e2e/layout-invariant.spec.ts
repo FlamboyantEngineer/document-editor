@@ -644,17 +644,21 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // The paragraphs in tables' cells, lists' items and quotes, and the text blocks of headers, footers and
 // footnote areas, are on forced lines and counted too (DOCE-PAGINATION-11.2); the top-level
 // blocks' line fingerprints did not move.
+// Code figures and their captions are planned by the engine, each part of a split code figure with
+// its caption (DOCE-PAGINATION-9.11), and margins are truncated to the layout unit as Chromium draws
+// them (8pt is 10.656px, not 10.672px; DOCE-PAGINATION-9.2): the planned heights moved, and the
+// oversized quote holding a code figure is on forced lines.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '685c13b50fa7abf4' },
-  'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7c217daccffd64de' },
+  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '5b4ca33a9e63f4d1' },
+  'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '3917f81eb2ce04de', heights: 'f9afd020ec769c5d' },
-  'oversized-blocks': { lines: 'fe559153854567b1', heights: 'f3be75ce06ce1c8d' },
-  'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: '19718eeba63c6a81' },
+  'long-mixed': { lines: '3917f81eb2ce04de', heights: 'fff1aac6498b64ce' },
+  'oversized-blocks': { lines: 'f99df5a739cff8f2', heights: 'f3be75ce06ce1c8d' },
+  'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: 'd40800e840119375' },
 };
 
 const digest = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);

@@ -70,12 +70,33 @@ describe('captions', () => {
     expect(laid.table.height).toBe(15);
   });
 
-  it('DOCE-PAGINATION-9.11 leaves a code caption to its code figure in the DOM', () => {
-    const engine = createTextLayout({ template: styled });
-    expect(engine.layoutText(caption('code_caption', 'aaaa'), { width: 400 })).toEqual({
-      ok: false,
-      reason: 'a code caption is left to its code figure in the DOM',
+  it('DOCE-PAGINATION-9.11 lays a code caption out in its caption font, at the left of its box', () => {
+    const coded: TemplateFile = {
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        codeBlock: {
+          ...BASE_TEMPLATE.styles?.codeBlock,
+          size: '9px',
+          caption: { alignment: 'right', text: { size: '10px' } },
+        },
+      },
+    };
+    const node = caption('code_caption', 'aaaa');
+    // The caption takes its own text font over the paragraph's, not the code's, and the stylesheet
+    // draws it at the left whatever its alignment.
+    expect(blockTypography(node, { template: coded })).toMatchObject({
+      font: { family: 'Arial', size: 10, weight: 400, italic: false },
+      leading: 15,
+      align: 'left',
     });
+    const laid = createTextLayout({ template: coded }).layoutText(node, {
+      width: 400,
+      label: '1 - ',
+    });
+    if (!laid.ok) throw new Error(laid.reason);
+    // "1 - " at 10px is two characters of 5px and two spaces of 2.5px; "aaaa" 20px.
+    expect(laid.table.lines).toMatchObject([{ from: 0, to: 4, width: 15 + 20, left: 0 }]);
   });
 
   it('DOCE-PAGINATION-9.11 refuses a caption whose label font is not served', () => {
