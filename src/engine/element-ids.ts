@@ -6,19 +6,13 @@
 import { Fragment, type Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep, type Step } from 'prosemirror-transform';
+import { createElementId, ELEMENT_ID_PATTERN } from '../model/element-id.js';
 import { isStructureNode, regionKind } from '../model/index.js';
 import { clearIdentityAttrs } from '../model/schema/element-attributes.js';
 import { markContributors } from './provenance.js';
 import { attributeSplits } from './split-authorship.js';
 
-/** What an element id looks like: eight lower-case hexadecimal digits. */
-export const ELEMENT_ID_PATTERN = /^[a-f0-9]{8}$/;
-
-/** A fresh random element id. */
-export function createElementId(): string {
-  const [value = 0] = crypto.getRandomValues(new Uint32Array(1));
-  return value.toString(16).padStart(8, '0');
-}
+export { createElementId, ELEMENT_ID_PATTERN } from '../model/element-id.js';
 
 /** How an editor identifies its elements. */
 export interface ElementIdsOptions {

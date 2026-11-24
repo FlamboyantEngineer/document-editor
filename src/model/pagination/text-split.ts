@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
+import { splitPartOf } from './split-part.js';
 
 /** The rendered height and line count of some text. */
 export interface TextMeasure {
@@ -220,11 +221,6 @@ export function planCodeSplit(input: TextSplitInput): TextSplitPlan | null {
   };
 }
 
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : 0;
-}
-
 function lineStart(value: unknown): number {
   const line = Number(value);
   return Number.isInteger(line) && line >= 1 ? line : 1;
@@ -235,7 +231,7 @@ export function splitTextNode(
   node: ProseMirrorNode,
   plan: TextSplitPlan,
 ): [ProseMirrorNode, ProseMirrorNode] {
-  const part = partIndex(node);
+  const part = splitPartOf(node) ?? 0;
   const head = node.type.create(
     { ...node.attrs, splitPartIndex: part },
     node.content.cut(0, plan.end),
@@ -257,7 +253,7 @@ export function splitLinkedCode(
   plan: TextSplitPlan,
 ): [ProseMirrorNode, ProseMirrorNode] {
   const code = String(node.attrs.code ?? '');
-  const part = partIndex(node);
+  const part = splitPartOf(node) ?? 0;
   const first = lineStart(node.attrs.startLine);
   const head = node.type.create(
     { ...node.attrs, code: code.slice(0, plan.end), splitPartIndex: part },
@@ -300,7 +296,7 @@ function splitBlock(
 
 // Whether a later fragment starts with the hard break a split moved there, which draws no line.
 function movedBreak(node: ProseMirrorNode): boolean {
-  return partIndex(node) > 0 && node.firstChild?.type.name === 'hard_break';
+  return (splitPartOf(node) ?? 0) > 0 && node.firstChild?.type.name === 'hard_break';
 }
 
 // A split after a hard break moves the break to the second fragment's start, where the stylesheet
