@@ -20,7 +20,7 @@ import {
 } from '../../engine/index.js';
 import type { VariablesAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
-import { DocumentEditor } from './document-editor.js';
+import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
 import type { StatusBarItem } from './document-status-bar.js';
 import { useDocumentEditor } from './editor-context.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
@@ -68,7 +68,7 @@ function Harness({
 }: {
   editable: boolean;
   layout: DocumentLayout;
-  webWidth?: 'fill' | 'page';
+  webWidth?: DocumentEditorProps['webWidth'];
   handleRef?: Ref<DocumentEditorHandle>;
 }) {
   const [state, setState] = useState(initial);
@@ -111,12 +111,14 @@ describe('DocumentEditor', () => {
     expect(container.querySelector('.de-document-editor__measure')).toBeNull();
   });
 
-  it('DOCE-LAYOUT-4.4 marks how wide the web layout shows the document', () => {
+  it('DOCE-LAYOUT-4.4 DOCE-LAYOUT-4.5 marks how wide the web layout shows the document', () => {
     const { container, rerender } = render(<Harness editable layout="web" />);
     const root = container.querySelector('.de-document-editor');
     expect(root).toHaveAttribute('data-web-width', 'fill');
     rerender(<Harness editable layout="web" webWidth="page" />);
     expect(root).toHaveAttribute('data-web-width', 'page');
+    rerender(<Harness editable layout="web" webWidth="sheet" />);
+    expect(root).toHaveAttribute('data-web-width', 'sheet');
   });
 
   it('DOCE-EDITOR-1.2 switches between reading and authoring, keeping the document', async () => {
