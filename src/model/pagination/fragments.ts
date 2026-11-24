@@ -11,6 +11,7 @@ import {
   Slice,
 } from 'prosemirror-model';
 import { ReplaceStep, Transform } from 'prosemirror-transform';
+import { splitPartOf } from './split-part.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -36,11 +37,6 @@ function ruleFor(rules: FragmentRules, name: string): FragmentRule | undefined {
   return Object.hasOwn(rules, name) ? rules[name] : undefined;
 }
 
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : -1;
-}
-
 /** Whether a node is a fragment of a split block under the rules. */
 export function isFragment(node: ProseMirrorNode, rules: FragmentRules = FRAGMENT_RULES): boolean {
   const rule = ruleFor(rules, node.type.name);
@@ -54,8 +50,8 @@ function sameSplitElement(previous: ProseMirrorNode, next: ProseMirrorNode, rule
   if (!isFragment(previous, rules) && !isFragment(next, rules)) return false;
   const id = previous.attrs.dataId as unknown;
   if (id && id === next.attrs.dataId) return true;
-  const index = partIndex(previous);
-  return index >= 0 && partIndex(next) === index + 1;
+  const index = splitPartOf(previous);
+  return index !== null && splitPartOf(next) === index + 1;
 }
 
 /** Whether `next` is the fragment that follows `previous`. */

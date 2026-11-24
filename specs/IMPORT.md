@@ -82,8 +82,8 @@ Verification: `src/import/docx/read-docx.test.ts`, `src/import/docx/read-docx-st
 
 An embedded PNG, JPEG, GIF, BMP, WebP or SVG picture shall be an image with its alternative text and size in pixels, or a figure when it is alone in its paragraph, its `src` the one `imageSource` gives, or a `data:` URL; `images` shall give each embedded picture's path, media type and bytes once. A picture in another format or a linked one shall be left out with an `image-left-out` warning; a chart, diagram, shape, text box, embedded object or embedded document with a `content-left-out` warning naming it, a text box keeping its text, its paragraphs parted by line breaks, an embedded object its preview picture, and alternative content its fallback picture when its first choice shows none, else a placeholder `[<kind>]` where it was, such as `[chart]`. A floating picture shall be read where it is anchored, as an inline one.
 
-Implementation: `src/import/docx/docx-drawing.ts`, `src/import/docx/docx-package.ts`, `src/import/docx/docx-inline.ts`
-Verification: `src/import/docx/read-docx.test.ts`, `src/import/docx/read-docx-structure.test.ts`
+Implementation: `src/import/docx/docx-drawing.ts`, `src/import/docx/docx-package.ts`, `src/import/docx/docx-inline.ts`, `src/utils/base64.ts`
+Verification: `src/import/docx/read-docx.test.ts`, `src/import/docx/read-docx-structure.test.ts`, `src/utils/base64.test.ts`
 
 ### DOCE-IMPORT-2.9 - Documents the editor reads
 

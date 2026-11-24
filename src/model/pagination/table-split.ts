@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type ChildLayout, isContainerMeasurement } from './container-split.js';
 import { splitHeldWith } from './held-split.js';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
+import { splitPartOf } from './split-part.js';
 
 function rowsOf(table: ProseMirrorNode): ProseMirrorNode[] {
   const rows: ProseMirrorNode[] = [];
@@ -27,11 +28,6 @@ export function leadingHeaderRows(table: ProseMirrorNode): number {
   const rows = rowsOf(table);
   const count = rows.findIndex((row) => !isHeaderRow(row));
   return count < 0 ? rows.length : count;
-}
-
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : 0;
 }
 
 function shift(layouts: readonly ChildLayout[], by: number): ChildLayout[] {
@@ -99,7 +95,7 @@ export function splitTableWith(repeatHeader: boolean) {
     const header = repeatHeader ? rows.slice(0, headerCount) : [];
     const headerLayouts = repeatHeader ? layouts.slice(0, headerCount) : [];
     const headerSpan = headerLayouts.at(-1)?.bottom ?? 0;
-    const part = partIndex(node);
+    const part = splitPartOf(node) ?? 0;
     const create = (index: number, content: ProseMirrorNode[]) =>
       node.type.create({ ...node.attrs, splitPartIndex: index }, content, node.marks);
     return {
