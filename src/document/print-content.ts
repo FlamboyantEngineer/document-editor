@@ -35,7 +35,7 @@ export interface PrintLinkOptions {
 /** How a static render shows suggestions. */
 export type PrintMarkup = 'all' | 'final' | 'original';
 
-export const escapeHtml = (value: string) =>
+const escapeHtml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // A signature draws from its stored vector, as the editor's view draws it.
