@@ -26,7 +26,7 @@ The package is ESM only. A CommonJS server on Node 22 can `require()` the server
 
 ## Tested set
 
-The library has no release yet, so a host installs it, the base component library and the collaboration tools from git, by commit. It is tested as one set: `npm run check:consumer` packs the built package and installs it into an empty consumer beside the packages below, with strict peers (`--strict-peer-deps`, no `--force`, `--legacy-peer-deps` or nested copies, and only the override below), then again with `npm ci`, and requires one copy each of React, ProseMirror, Yjs, `lib0`, KaTeX and the base component library. CI runs it on every pull request.
+The library has no release yet, so a host installs it, the base component library and the collaboration tools from git, by commit. It is tested as one set: `npm run check:consumer` packs the built package and installs it into an empty consumer beside the packages below, with strict peers (`--strict-peer-deps`, no `--force`, `--legacy-peer-deps`, overrides or nested copies), then again with `npm ci`, and requires one copy each of React, ProseMirror, Yjs, `lib0` and the base component library. CI runs it on every pull request.
 
 | Package                                   | Tested                              |
 | ----------------------------------------- | ----------------------------------- |
@@ -38,12 +38,6 @@ The library has no release yet, so a host installs it, the base component librar
 | `prosemirror-view`                        | 1.42.3                              |
 | `@y/y`                                    | 14.0.0-rc.23                        |
 | `lib0`                                    | 1.0.0-rc.22                         |
-
-Markdown import reads `$$` display math with `micromark-extension-math`, a dependency that also renders math with KaTeX 0.16, which the editor never loads. A host adds this override to its `package.json`, so that the package shares the host's KaTeX 0.19 instead of installing a second copy (without it, `npm ci` can refuse the lock):
-
-```json
-"overrides": { "micromark-extension-math": { "katex": "$katex" } }
-```
 
 The text layout engine behind `textLayout: 'pretext'` uses a fork of the Pretext layout library, `@chenglou/pretext`, a dependency pinned in `package.json` to a commit of FlamboyantEngineer/pretext, so it installs with the package at that commit, from that git repository, which a host needs read access to as for the other git pins; its module loads only when the option is on, but a host's bundler resolves it either way, and the check imports it from the consumer.
 
