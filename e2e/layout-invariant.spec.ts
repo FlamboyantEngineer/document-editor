@@ -635,7 +635,7 @@ const PINNED: Readonly<
   // Display equations are drawn, and measured as drawn, in the served STIX Two Math
   // (DOCE-PAGINATION-12.9): their planned heights moved, their lines did not. These are Linux's
   // heights: the browser still rounds MathML's layout per system (#352).
-  'caption-numbering': { lines: '73ff4f55af65f179', heights: 'REMEASURE' },
+  'caption-numbering': { lines: '73ff4f55af65f179', heights: '61f72d7abd5a9d9f' },
   'heading-keep-with-next': { lines: 'f3b2f4d0f58c7941', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
