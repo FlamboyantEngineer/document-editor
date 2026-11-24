@@ -41,6 +41,11 @@ export interface LineTable {
   readonly height: number;
   /** The height the block takes beyond its lines, such as a code block's padding. */
   readonly overhead: number;
+  /**
+   * The room before every line that the block's own box draws at its left content edge, such as a
+   * code block's gutter of line numbers, which each line's `left` includes; absent when none.
+   */
+  readonly inset?: number | undefined;
   /** The clusters drawn in a box of a fixed width (`reserved-boxes.ts`); absent when none are. */
   readonly reserved?: readonly ReservedBox[] | undefined;
   /**

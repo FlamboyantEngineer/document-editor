@@ -17,6 +17,9 @@ const ignorable = {
   test: (character: string) => zeroWidth.test(character) || selectorsAndTags.test(character),
 };
 
+// Control characters, such as a code block's line feeds and tabs.
+const CONTROL = /^\p{Cc}+$/u;
+
 function codePointsOf(cluster: string) {
   return [...cluster].flatMap((character) =>
     ignorable.test(character) ? [] : [character.codePointAt(0) ?? 0],
@@ -96,7 +99,8 @@ export function reserveUnserved(faceSet: FaceSet): ReserveCluster {
       matched = request ? { faces: faceSet.facesFor(request), size: request.size } : null;
       fonts.set(font, matched);
     }
-    if (!matched?.faces.length) return null;
+    // A line feed or a tab is white space the line lays out, not a glyph a face draws.
+    if (!matched?.faces.length || CONTROL.test(cluster)) return null;
     const key = `${font}\u0000${cluster}`;
     let reserved = answers.get(key);
     if (reserved === undefined) {

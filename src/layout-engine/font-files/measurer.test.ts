@@ -62,6 +62,14 @@ describe('DOCE-PAGINATION-12.2 Canvas words', () => {
     expect(ethiopic).toBe(36);
     expect(context.measureText('a \u1230').width).toBe(context.measureText('a ').width + 12);
   });
+
+  it('DOCE-PAGINATION-12.4 reserves nothing for a line feed or a tab, which lines lay out as white space', async () => {
+    const { createContext, reserve } = await measurer();
+    const context = createContext();
+    context.font = '400 12px "Lab Geist"';
+    expect(reserve('\n', context.font)).toBeNull();
+    expect(reserve('\t', context.font)).toBeNull();
+  });
 });
 
 // Geist and the Noto subsets of test/fixtures/fonts/, in the Pretext lab's order under `&scripts`.
