@@ -258,4 +258,13 @@ describe('lineMarks', () => {
     expect(firstLineIndent(centred)).toBe('--de-first-indent: 30.000px');
     expect(firstLineIndent(table(10, 5))).toBeNull();
   });
+
+  it('DOCE-PAGINATION-11.2 draws a code line from its gutter and leaves a line feed to the browser', () => {
+    const code = documentSchema.node('code_block', null, [documentSchema.text('aaaa\nbbbbbbcc')]);
+    // Lines of 5: `aaaa\n` ends at its line feed, `bbbbb` wraps, `bcc` ends the block; each line
+    // starts 32px in, beside the gutter its box draws, 8px past its padding.
+    const lines = table(13, 5, { overhead: 16, inset: 32 });
+    const beside = { ...lines, lines: lines.lines.map((line) => ({ ...line, left: 40 })) };
+    expect(lineMarks(code, beside)).toEqual([{ from: 9, to: 10, class: 'de-forced-lines__end' }]);
+  });
 });

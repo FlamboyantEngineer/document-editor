@@ -1,7 +1,7 @@
 import { userEvent } from '@testing-library/user-event';
 import { type Node as ProseMirrorNode, Schema } from 'prosemirror-model';
-import { EditorState, NodeSelection, type Plugin } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { EditorState, NodeSelection, Plugin } from 'prosemirror-state';
+import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
@@ -126,6 +126,40 @@ describe('line numbers', () => {
       ['1', 'let a = 1;'],
       ['2', ''],
       ['3', 'let b = 2;'],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.2 breaks the gutter where forced lines wrap the code, and nowhere else', () => {
+    const code = nodes.code_block?.create(null, documentSchema.text('abcdefgh\nij'));
+    if (!code) throw new Error('The schema has code blocks');
+    const doc = documentSchema.topNodeType.createAndFill(null, [held(code)]);
+    if (!doc) throw new Error('The document is valid');
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'code_block') at = pos;
+      return at < 0;
+    });
+    // `abcde` wraps, `fgh\n` ends at the line feed, `ij` ends the code.
+    const line = (from: number, to: number, end: 'wrap' | 'end') =>
+      ({ from, to, width: 10, left: 0, top: 0, height: 14, end }) as const;
+    const lines = [line(0, 5, 'wrap'), line(5, 9, 'wrap'), line(9, 11, 'end')];
+    const forcedLines = { width: 100, lines, height: 42, overhead: 16 };
+    const forced = new Plugin({
+      props: {
+        decorations: (state) =>
+          DecorationSet.create(state.doc, [
+            Decoration.node(at, at + code.nodeSize, {}, { forcedLines }),
+          ]),
+      },
+    });
+    view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: [createObjectViews(), forced] }),
+    });
+    const gutter = view.dom.querySelector('.de-code-gutter');
+    expect(gutter?.getAttribute('data-engine-lines')).toBe('true');
+    expect(gutterLines(view.dom.querySelector('pre'))).toEqual([
+      ['1', 'abcde\nfgh'],
+      ['2', 'ij'],
     ]);
   });
 

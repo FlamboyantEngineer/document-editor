@@ -10,6 +10,7 @@ import type { PageTextLines } from '../src/pagination/index.js';
 import {
   type LineMismatch,
   mismatchedLines,
+  misplacedLineNumbers,
   readDrawnLines,
   readDrawnPages,
 } from './drawn-lines.js';
@@ -122,6 +123,8 @@ test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () =>
         test.skip(!zoomRuns(testInfo, zoom), 'another project runs this zoom');
         await open(page, name, zoom);
         await expectOneResult(page);
+        // Each line number sits on its line of code's first row (DOCE-PAGINATION-11.2).
+        expect(await misplacedLineNumbers(page), 'code line numbers off their lines').toEqual([]);
       });
     }
   }
@@ -607,12 +610,12 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '72862257c3f46bd0', heights: '685c13b50fa7abf4' },
+  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '685c13b50fa7abf4' },
   'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7c217daccffd64de' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '3a7ad4da47d70f98', heights: 'f9afd020ec769c5d' },
+  'long-mixed': { lines: '4f1c40c4ebda1032', heights: 'f9afd020ec769c5d' },
   'oversized-blocks': { lines: 'da3f869e9e7e0dca', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: '19718eeba63c6a81' },
 };

@@ -249,6 +249,33 @@ describe('forcedLines', () => {
     ]);
   });
 
+  it("DOCE-PAGINATION-11.2 marks a code figure's code, laid out alone, with its lines for its view, and leaves its caption", () => {
+    const code = create('code_block', { dataId: 'k1' }, [documentSchema.text('abcdefghijklmnop')]);
+    const figure = create('code_figure', null, [
+      create('code_caption', null, [documentSchema.text('Listing')]),
+      code,
+    ]);
+    const { engine, calls } = stubEngine();
+    const nested = vi.spyOn(engine, 'nestedLines');
+    const doc = pagesDoc([[figure]]);
+    const state = stateWith(doc, engine);
+    const at = positionOf(doc, 'abcdefghijklmnop');
+    expect(nested).not.toHaveBeenCalled();
+    expect(calls.map(({ text }) => text)).toEqual(['abcdefghijklmnop']);
+    const block = decorations(state)
+      .find()
+      .find((each) => each.from === at);
+    expect(block?.spec).toEqual({ forcedLines: engine.lines(code, { scope: 'Body' }) });
+    expect(drawn(state)).toEqual([
+      { from: at, to: at + 18, class: 'de-forced-lines', 'data-lines': '2', dir: 'ltr' },
+      { from: at + 10, to: at + 11, class: 'de-forced-lines__end' },
+    ]);
+    const [page] = pageTextLines(state);
+    expect(
+      page?.blocks.map(({ elementId, type, nested: inside }) => ({ elementId, type, inside })),
+    ).toEqual([{ elementId: 'k1', type: 'code_block', inside: true }]);
+  });
+
   it('DOCE-PAGINATION-11.2 never cuts a character in two at a line end', () => {
     const doc = pagesDoc([[paragraph('aaaaaaaa😀bb')]]);
     const state = stateWith(doc, stubEngine().engine);

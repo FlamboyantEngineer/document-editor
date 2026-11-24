@@ -10,7 +10,7 @@ import type { InsertedTexts } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 
 /** The block types drawn on forced lines. */
-const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading']);
+const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading', 'code_block']);
 
 /** The top-level blocks whose text blocks are drawn on forced lines, laid out with them. */
 const NESTED_TYPES: ReadonlySet<string> = new Set([
@@ -18,6 +18,7 @@ const NESTED_TYPES: ReadonlySet<string> = new Set([
   'table',
   'bullet_list',
   'ordered_list',
+  'code_figure',
 ]);
 
 /** A text block of a page and the lines it is drawn on, or why the browser draws it. */
@@ -66,8 +67,17 @@ function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): str
   return at.inserted.byBlock.has(node) ? 'inserted words' : null;
 }
 
+// The lines of the text blocks in a container. A code figure's code is laid out alone, at the
+// content width its figure lays it out at, since its caption is left to the browser.
+function linesIn(engine: PagesTextEngine, container: ProseMirrorNode, scope: string | null) {
+  if (container.type.name !== 'code_figure') return engine.nestedLines(container, scope);
+  const code = container.lastChild;
+  const table = code?.type.name === 'code_block' ? engine.lines(code, { scope }) : null;
+  return new Map(code && table ? [[code, table]] : []);
+}
+
 function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedPlace) {
-  const lines = engine.nestedLines(container, at.scope);
+  const lines = linesIn(engine, container, at.scope);
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset) => {
     if (!FORCED_TYPES.has(node.type.name)) return !node.isTextblock;

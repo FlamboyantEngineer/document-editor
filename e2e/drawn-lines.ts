@@ -233,3 +233,59 @@ interface TextBlockLines {
   readonly region?: 'header' | 'footer' | undefined;
   readonly lines: readonly { readonly text: string }[] | null;
 }
+
+/**
+ * The code blocks of the editor's pages whose gutter of line numbers is not drawn on their lines:
+ * each number whose row is not the first row of its line of code, and each gutter that does not end
+ * where its code does, as `id: what`.
+ */
+export function misplacedLineNumbers(page: Page): Promise<string[]> {
+  return page.evaluate((pages) => {
+    const misplaced: string[] = [];
+    const range = document.createRange();
+    // The top of the first character of each line of code, or null for an empty line.
+    const lineTops = (code: Element) => {
+      const tops: (number | null)[] = [null];
+      const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.nodeValue ?? '';
+        for (let index = 0; index < text.length; index += 1) {
+          if (text[index] === '\n') {
+            tops.push(null);
+            continue;
+          }
+          if (tops.at(-1) !== null) continue;
+          range.setStart(node, index);
+          range.setEnd(node, index + 1);
+          const rect = [...range.getClientRects()].find((each) => each.height > 0);
+          tops[tops.length - 1] = rect ? rect.top : null;
+        }
+      }
+      return tops;
+    };
+    for (const pre of document.querySelectorAll(`${pages} pre:has(> .de-code-gutter)`)) {
+      const code = pre.querySelector(':scope > code');
+      if (!code) continue;
+      const id = pre.getAttribute('data-id') ?? '';
+      const tops = lineTops(code);
+      const numbers = [...pre.querySelectorAll('.de-code-gutter__number')];
+      numbers.forEach((number, index) => {
+        const top = tops[index];
+        const drawn = number.getBoundingClientRect().top;
+        if (typeof top === 'number' && Math.abs(drawn - top) > 1)
+          misplaced.push(
+            `${id}: number ${String(index + 1)} at ${drawn.toFixed(1)}, its line at ${top.toFixed(1)}`,
+          );
+      });
+      const last = pre.querySelector('.de-code-gutter__line:last-child');
+      const end =
+        code.getBoundingClientRect().bottom - parseFloat(getComputedStyle(code).paddingBottom);
+      const gutterEnd = last?.getBoundingClientRect().bottom ?? end;
+      if (Math.abs(gutterEnd - end) > 1)
+        misplaced.push(
+          `${id}: gutter ends at ${gutterEnd.toFixed(1)}, its code at ${end.toFixed(1)}`,
+        );
+    }
+    return misplaced;
+  }, PAGES.editor);
+}
