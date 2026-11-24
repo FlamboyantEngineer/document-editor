@@ -92,6 +92,11 @@ export function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     keyOf: (node) =>
       `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}`,
   };
-  const numbering = { headings, paragraphs: new Set(paragraphs.keys()) };
+  const numbering = {
+    headings,
+    paragraphs: new Set(paragraphs.keys()),
+    labelOf: byNode.labelOf,
+    labelsKey: labels.labelsKey,
+  };
   return { byNode, numbering };
 }

@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { blockDirection, type TextDirection } from '../layout-engine/direction.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
+import { isCaption } from './forced-blocks.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 
@@ -25,6 +26,9 @@ export interface Builder {
   readonly numbers: ReadonlyMap<number, string>;
   /** The numbered paragraphs, which the browser still draws on its own lines. */
   readonly skipped: ReadonlySet<number>;
+  /** The labels the pages' captions show, and all of them as one key. */
+  readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
+  readonly labels?: string | undefined;
   /** The direction of each later part of a split block, by position. */
   readonly directions: ReadonlyMap<number, TextDirection>;
   readonly blocks: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
@@ -97,11 +101,15 @@ export function blockSet(
   return set;
 }
 
-// The element attributes of a forced block: its line count, and a heading's number with its
-// line's indent, since a number is drawn before the content.
+// The element attributes of a forced block: its line count, and a heading's number, with the first
+// line's indent where generated content is drawn before the content (a number, a caption's label).
 export function blockAttrs(
   table: DrawnLines,
-  { prefix, dir }: { prefix?: string | undefined; dir: string },
+  {
+    prefix,
+    prefixed = Boolean(prefix),
+    dir,
+  }: { prefix?: string | undefined; prefixed?: boolean; dir: string },
 ): Record<string, string> {
   const attrs: Record<string, string> = {
     class: 'de-forced-lines',
@@ -109,7 +117,7 @@ export function blockAttrs(
     dir,
   };
   if (prefix) attrs['data-number'] = prefix;
-  const indent = prefix ? firstLineIndent(table) : null;
+  const indent = prefixed ? firstLineIndent(table) : null;
   if (indent) attrs.style = indent;
   return attrs;
 }
@@ -144,12 +152,15 @@ export function containerSet(
       const key = linesKey(table);
       keys.push(key);
       const dir = blockDirection(child);
+      // A caption is drawn after its label.
+      const prefixed = isCaption(child);
       // The lines go with the block's element too, for a node view that draws beside them, such
       // as a code block's gutter of line numbers.
-      locals.push(Decoration.node(offset, end, blockAttrs(table, { dir }), { forcedLines: table }));
+      const attrs = blockAttrs(table, { prefixed, dir });
+      locals.push(Decoration.node(offset, end, attrs, { forcedLines: table }));
       // An atom, such as linked code, draws its lines in its own view.
       if (child.isLeaf) return;
-      const set = blockSet(builder, child, { table, key, prefixed: false });
+      const set = blockSet(builder, child, { table, key, prefixed });
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;
     }

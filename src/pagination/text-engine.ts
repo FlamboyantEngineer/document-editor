@@ -165,7 +165,7 @@ function engineLayouts(
     text: numberedText(text, { numbers, inserted, recorder }),
     atoms,
     metrics: (scope) => blockMetrics(template, scope, sheet),
-    labelOf: (caption) => numbers().labelOf(caption),
+    labelOf: (caption) => (recorder.labelOf ?? numbers().labelOf)(caption),
     footnoteOf: (entry) => numbers().footnoteOf(entry),
     contentsOf: (node) => contents.of(node, numbers().doc),
     pageDigits: () => contents.digits(),
@@ -240,7 +240,8 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const tables = keptLines(text, { widthOf, markup, numbers: () => numbers });
   const footnoteOf = (part: ProseMirrorNode) => numbers.footnoteOf(part);
   const laying = { geometry, recorder, widthOf, footnoteOf, markup };
-  const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
+  const labelOf = (caption: ProseMirrorNode) => numbers.labelOf(caption);
+  const [nested, regions] = [createNestedLines({ ...laying, labelOf }), createRegionLines(laying)];
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     tables.forget();

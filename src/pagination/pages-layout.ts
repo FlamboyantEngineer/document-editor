@@ -44,7 +44,7 @@ interface PagesLayoutOptions {
 // Each forced block of the pages, with the marks that draw its lines, whether the view draws them
 // now or not: every page of the layout is drawn on its lines.
 function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutBlock[] {
-  const { headings, paragraphs } = engine.numbering(state.doc);
+  const { headings, paragraphs, labelOf } = engine.numbering(state.doc);
   const blocks: PagesLayoutBlock[] = [];
   const directions = continuedDirections(state.doc);
   let scope: string | null = null;
@@ -53,14 +53,14 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
     if (name === 'page_section') scope = sectionScope(node);
     const region = FORCED_REGIONS.has(name);
     if (!region && parent?.type.name !== 'page_content') return !node.isTextblock;
-    const place = { pos, scope, headings, numbered: paragraphs, inserted: NO_INSERTED };
+    const place = { pos, scope, headings, numbered: paragraphs, inserted: NO_INSERTED, labelOf };
     const forced = region
       ? regionBlocksOf(engine, node, { pos, scope, shown: pageVariablesKey.getState(state) })
       : forcedBlocksOf(engine, node, place);
-    for (const { node: block, pos: at, table, prefix, owner } of forced) {
+    for (const { node: block, pos: at, table, prefix, prefixed, owner } of forced) {
       // Linked code's lines are drawn by its view; a static drawing draws it from its markup.
       if (!table || owner) continue;
-      const indent = prefix ? firstLineIndent(table) : null;
+      const indent = prefixed ? firstLineIndent(table) : null;
       const rtl = drawnDirection(directions, { node: block, pos: at }) === 'rtl';
       blocks.push({
         pos: at,
@@ -68,7 +68,7 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
         ...(prefix ? { number: prefix } : {}),
         ...(indent ? { style: indent } : {}),
         ...(rtl ? { direction: 'rtl' as const } : {}),
-        marks: lineMarks(block, table, { prefixed: Boolean(prefix) }),
+        marks: lineMarks(block, table, { prefixed: Boolean(prefixed) }),
       });
     }
     return false;

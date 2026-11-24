@@ -210,6 +210,20 @@ describe('the engine on page regions', () => {
     pages.destroy();
   });
 
+  it("DOCE-PAGINATION-11.2 lays a container's captions out with the labels the pages show", () => {
+    const pages = engine();
+    const cell = type('table_cell').create(null, [type('paragraph').create(null, text('b'))]);
+    const table = type('table').create(null, [type('table_row').create(null, [cell])]);
+    const caption = type('table_caption').create(null, text('Table'));
+    const figure = type('table_figure').create(null, [caption, table]);
+    const bare = pages.nestedLines(figure, null).get(caption)?.lines[0]?.width ?? 0;
+    const labelOf = (node: ProseMirrorNode) => (node === caption ? 'Table 9 - ' : undefined);
+    const labelled = pages.nestedLines(figure, null, labelOf);
+    expect(labelled.get(caption)?.lines[0]?.width).toBeGreaterThan(bare);
+    expect(pages.nestedLines(figure, null, labelOf)).toBe(labelled);
+    pages.destroy();
+  });
+
   it("DOCE-PAGINATION-11.2 gives a layout section's column paragraphs the lines it lays them out on", () => {
     const pages = engine();
     const words = 'aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm';

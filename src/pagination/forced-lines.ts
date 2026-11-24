@@ -66,6 +66,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       headings: builder.numbers,
       numbered: builder.skipped,
       inserted: builder.inserted,
+      labelOf: builder.labelOf,
     };
     const forced = forcedBlocksOf(builder.engine, child, place);
     const [first] = forced;
@@ -184,6 +185,7 @@ function decorate(
     previous?.engine === engine &&
     previous.version === source.version() &&
     previous.skipped.size === numbering.paragraphs.size &&
+    previous.labels === numbering.labelsKey &&
     sameValues(previous.numbers, numbers) &&
     sameValues(previous.directions, directions);
   const builder: Builder = {
@@ -191,6 +193,8 @@ function decorate(
     numbers,
     version: source.version(),
     skipped: numbering.paragraphs,
+    labelOf: numbering.labelOf,
+    labels: numbering.labelsKey,
     directions,
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
