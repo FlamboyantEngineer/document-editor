@@ -198,7 +198,7 @@ function codeGutterWidth(node: ProseMirrorNode, font: string): number {
 function lineStarts(
   node: ProseMirrorNode,
   input: { style: BlockTypography; place: TextBlockPlace; codeLineNumbers: boolean | undefined },
-): { firstStart: number; restStart: number; lead?: number | undefined } {
+): { firstStart: number; restStart: number; lead?: number | undefined; inset?: number } {
   const { style, place } = input;
   const font = fontString(style.font);
   if (place.number) {
@@ -212,7 +212,7 @@ function lineStarts(
   }
   const gutter =
     input.codeLineNumbers && node.type.name === 'code_block' ? codeGutterWidth(node, font) : 0;
-  return { firstStart: gutter, restStart: gutter };
+  return { firstStart: gutter, restStart: gutter, inset: gutter };
 }
 
 // The reserved boxes of a word drawn in a text block that is not its content, in the block's font.
@@ -303,7 +303,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         restStart: starts.restStart,
         block: node,
       });
-      const laid = runs.hidden.length ? { ...table, hidden: runs.hidden } : table;
+      const inset = starts.inset ? { inset: starts.inset } : {};
+      const laid = { ...table, ...inset, ...(runs.hidden.length ? { hidden: runs.hidden } : {}) };
       return { ok: true, table: withReserved(laid, runs.runs, options.reserve) };
     },
   };
