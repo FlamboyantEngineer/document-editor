@@ -21,7 +21,7 @@ interface MirrorTarget {
 }
 
 /** A canonical change: from the document shown, to the new state, by `tr` when one made it. */
-export interface CanonicalChange {
+interface CanonicalChange {
   readonly from: ProseMirrorNode;
   readonly canonical: EditorState;
   readonly tr: Transform | null;

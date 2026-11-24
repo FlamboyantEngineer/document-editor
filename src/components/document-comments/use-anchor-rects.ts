@@ -14,7 +14,7 @@ import {
 import { placeMarkers, scrolledSideways } from './marker-placement.js';
 
 /** What the margin is measured for. */
-export interface Measured {
+interface Measured {
   /** Each anchor's rectangles. */
   readonly rects: ReadonlyMap<string, readonly AnnotationRect[]>;
   /** How far each card moves to sit beside its anchor's page. */

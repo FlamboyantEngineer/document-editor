@@ -38,7 +38,7 @@ function gridOf(rows: readonly StoredNode[]): number[] {
 }
 
 /** The kinds of object Word captions, each in its own paragraph and label styles. */
-export type CaptionKind = 'figure' | 'table' | 'codeBlock';
+type CaptionKind = 'figure' | 'table' | 'codeBlock';
 
 /** Each kind's caption paragraph style and label character style, all based on Word's caption. */
 const CAPTION_STYLES: Readonly<Record<CaptionKind, readonly [string, string]>> = {

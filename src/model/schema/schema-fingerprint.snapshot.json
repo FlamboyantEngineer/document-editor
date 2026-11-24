@@ -806,7 +806,8 @@
           "tag": "span[data-math-node=\"inline\"]",
           "preserveWhitespace": "full",
           "getAttrs": "function"
-        }
+        },
+        { "tag": "math", "getAttrs": "function", "getContent": "function" }
       ],
       "toDOM": {
         "defaults": "<span data-inline-type=\"latex\" data-inline-content=\"\"></span>",
@@ -837,7 +838,8 @@
           "tag": "div[data-math-node=\"display\"]",
           "preserveWhitespace": "full",
           "getAttrs": "function"
-        }
+        },
+        { "tag": "math", "getAttrs": "function", "getContent": "function" }
       ],
       "toDOM": {
         "defaults": "<div data-block-type=\"latex\" data-latex-content=\"\"></div>",
