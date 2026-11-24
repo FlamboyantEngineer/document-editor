@@ -18,6 +18,8 @@ const withContent = (type: string, content: StoredNode[], attrs?: Record<string,
 });
 
 const TASK_BOX = /^\[([ xX])\][ \t]/;
+const emptied = (content: StoredNode[]): StoredNode[] =>
+  content.length ? content : [{ type: 'paragraph' }];
 
 // A bulleted item whose first paragraph starts with a task list box, as a checked or unchecked
 // item without the box. A numbered item keeps its box as text: a checklist is a bulleted list.
@@ -77,10 +79,11 @@ function closed(frame: Open, boxed: WeakSet<StoredNode>): StoredNode[] {
       const level = Number(open.tag.slice(1));
       return [withContent('heading', content, level > 1 ? { level } : undefined)];
     }
+    // A quote or item the reader emptied, such as one holding only definitions, keeps a paragraph.
     case 'blockquote_open':
-      return [withContent('blockquote', withObjects(content))];
+      return [withContent('blockquote', withObjects(emptied(content)))];
     case 'list_item_open':
-      return [withContent('listItem', withObjects(content))];
+      return [withContent('listItem', withObjects(emptied(content)))];
     case 'bullet_list_open':
     case 'ordered_list_open':
       return [listOf(open, content, boxed)];
@@ -144,6 +147,7 @@ export function readBlocks(tokens: readonly Token[], context: InlineContext): St
   const boxed = new WeakSet<StoredNode>();
   const into = () => stack[stack.length - 1]?.content ?? root;
   for (const token of tokens) {
+    context.warnings.at(token.map?.[0]);
     if (token.nesting === 1) stack.push({ token, content: [], display: false, box: false });
     else if (token.nesting === -1) {
       const open = stack.pop();

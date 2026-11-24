@@ -82,7 +82,7 @@ Verification: `src/model/layout/layout-sections.test.ts`
 
 ### DOCE-LAYOUT-4.1 - Filling the surface
 
-A surface marked `data-layout="web"` shall show each section as one page that fills the surface's width and grows with its content, inset only by the template's page margins, on the page background (`--doc-page-background`), without the pages' headers and footers; a title shown above the content (`de-document-title`) shall line up with it. Layout sections shall show their columns side by side at their preset's widths.
+A surface marked `data-layout="web"` shall show each section as one page that fills the surface's width and grows with its content, inset only by the template's page margins, on the page background (`--doc-page-background`), without the pages' headers and footers; a title shown above the content (`de-document-title`) shall line up with it. Each margin shall take the value for its side, with an unset side taking zero independently of the other sides. Layout sections shall show their columns side by side at their preset's widths.
 
 Implementation: `labs/reference/document.css`, `labs/src/web-layout.lab.ts`
 Verification: `e2e/web-layout.spec.ts`, `e2e/document-editor.spec.ts`

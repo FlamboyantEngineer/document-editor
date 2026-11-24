@@ -152,6 +152,8 @@ export interface PlacedMath extends MathLayouts {
    * wider of the two; 0 without either.
    */
   readonly end: number;
+  /** How far a display equation's tag sits from its line's end, past its automatic number. */
+  readonly tagEnd?: number;
 }
 
 /** Told the math nodes laid out, with what they were laid out at. */

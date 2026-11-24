@@ -280,7 +280,7 @@ test.describe('table handles', () => {
       .evaluate((element) => element.getBoundingClientRect().width);
     const columns = await table
       .locator('col')
-      .evaluateAll((cols) => cols.map((col) => parseFloat((col as HTMLElement).style.width)));
+      .evaluateAll((cols) => cols.map((col) => col.getBoundingClientRect().width));
     const total = columns.reduce((sum, width) => sum + width, 0);
     expect(total).toBeLessThanOrEqual(region + 1);
     expect(total).toBeGreaterThan(region - 4);

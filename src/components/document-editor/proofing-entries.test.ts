@@ -3,7 +3,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { createProofing, listProofingIssues } from '../../engine/index.js';
+import { createEditLock, createProofing, listProofingIssues } from '../../engine/index.js';
 import { createWordListProofer } from '../../host/index.js';
 import { readDocumentFile } from '../../model/index.js';
 import { contextGroups } from './context-entries.js';
@@ -159,6 +159,35 @@ describe('proofing entries', () => {
           'Turn off this rule (disabled)',
         ],
       },
+    ]);
+  });
+
+  it('DOCE-PROOFING-3.2 offers Replace all while any matching occurrence is editable', async () => {
+    const view = await proofedView('teh teh');
+    const { state } = view;
+    const [first, second] = listProofingIssues(state);
+    if (!first || !second) throw new Error('Two issues are marked');
+    const entriesWithLocks = (...positions: number[]) => {
+      view.updateState(
+        state.reconfigure({
+          plugins: [
+            ...state.plugins,
+            createEditLock({ isLocked: (_doc, pos) => positions.includes(pos) }),
+          ],
+        }),
+      );
+      return shape(proofingEntries(view, { proofingIssue: first, proofingMark: true }, options));
+    };
+    expect(entriesWithLocks(first.from + 1)).toEqual([
+      {
+        Spelling: expect.arrayContaining([
+          { section: 'Spelling', items: ['the (disabled)', 'ten (disabled)'] },
+          { 'Replace all': ['the', 'ten'] },
+        ]),
+      },
+    ]);
+    expect(entriesWithLocks(first.from + 1, second.from + 1)).toEqual([
+      { Spelling: expect.arrayContaining(['Replace all (disabled)']) },
     ]);
   });
 

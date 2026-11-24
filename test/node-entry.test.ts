@@ -1,5 +1,13 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import manifest from '../package.json' with { type: 'json' };
+
+it('DOCE-ENTRY-2.7 requires the same UI commit in the peer and development manifests', () => {
+  const name = '@flamboyantengineer/ui-components';
+  const peer = manifest.peerDependencies[name];
+  expect(peer).toMatch(/^git\+https:\/\/.+#[0-9a-f]{40}$/u);
+  expect(peer).toBe(manifest.devDependencies[name]);
+});
 
 describe('server-safe entry points', () => {
   it('DOCE-ENTRY-1.2 loads ./model, ./document and ./host without DOM globals', async () => {

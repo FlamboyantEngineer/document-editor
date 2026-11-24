@@ -4,9 +4,10 @@
 // code, and `{{key}}` variables. Other HTML tags are left out with a warning, keeping their text.
 
 import type { Token } from 'markdown-it';
-import type { ImportWarnings } from '../../import/import-warnings.js';
 import { joinText, textNode, withMark } from '../../import/stored-inline.js';
 import type { StoredMark, StoredNode } from './document-format.js';
+import { deeperThanStored } from './markdown-read-depth.js';
+import type { SourceWarnings } from './markdown-read-warnings.js';
 
 /** What inline reading needs from the whole document. */
 export interface InlineContext {
@@ -14,7 +15,7 @@ export interface InlineContext {
   readonly notes: ReadonlyMap<number, readonly Token[]>;
   /** Each footnote's stored text once read, by the same id. */
   readonly noteText: Map<number, StoredNode[]>;
-  readonly warnings: ImportWarnings;
+  readonly warnings: SourceWarnings;
   /** Whether footnote references are read; not inside a footnote's own text. */
   readonly inNote?: boolean | undefined;
 }
@@ -79,20 +80,26 @@ const linkMark = (token: Token): StoredMark => {
 };
 
 // A footnote's text: its paragraphs' content, one space between them, and the text of any other
-// block it holds, since a footnote holds no blocks. Read once, however often it is referenced.
+// block it holds, since a footnote holds no blocks. Read once, where it is first cited, its
+// warnings given at the lines it is written on; each citation gets its own copy.
 function noteContent(id: number, context: InlineContext): StoredNode[] {
   const known = context.noteText.get(id);
-  if (known) return known;
+  if (known) return structuredClone(known);
   const inner = { ...context, inNote: true };
-  const parts = (context.notes.get(id) ?? []).flatMap((token) => {
+  const tokens = context.notes.get(id) ?? [];
+  const citedAt = context.warnings.at(tokens[0]?.map?.[0]);
+  if (deeperThanStored(tokens)) context.warnings.add('content-left-out', 'nesting');
+  const parts = tokens.flatMap((token) => {
+    context.warnings.at(token.map?.[0]);
     if (token.type === 'inline') return [readInline(token.children ?? [], inner)];
     if (token.type === 'fence' || token.type === 'code_block' || token.type === 'math_block')
       return [[textNode(token.content.trim(), [])]];
     return [];
   });
+  context.warnings.at(citedAt);
   const content = joinText(parts.flatMap((part, at) => (at ? [textNode(' ', []), ...part] : part)));
   context.noteText.set(id, content);
-  return content;
+  return structuredClone(content);
 }
 
 function footnoteOf(token: Token, marks: readonly StoredMark[], context: InlineContext) {

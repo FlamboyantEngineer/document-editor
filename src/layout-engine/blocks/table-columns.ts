@@ -4,12 +4,17 @@
 // (DOCE-PAGINATION-10.5).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { proportionColumns } from '../../model/layout/column-widths.js';
 import {
   TABLE_BORDER_1PX_CLASS,
   TABLE_BORDER_HORIZONTAL_CLASS,
   TABLE_BORDER_NONE_CLASS,
 } from '../../model/schema/dom-attributes.js';
-import { firstRowColumnWidths, parseObjectLayout } from '../../model/schema/object-layout.js';
+import {
+  ALIGNED_TABLE_COLUMN_WIDTH,
+  firstRowColumnWidths,
+  parseObjectLayout,
+} from '../../model/schema/object-layout.js';
 
 /** The width of a table's lines between columns and between rows. */
 export interface TableBorders {
@@ -22,9 +27,6 @@ interface TableColumns {
   readonly widths: readonly number[];
   readonly width: number;
 }
-
-// The width a column of an aligned table takes when it has none stored.
-const ALIGNED_COLUMN_WIDTH = 100;
 
 /** The lines a table draws: its class's, or the template's border on every side. */
 export function tableBorders(table: ProseMirrorNode, templateBorder: number): TableBorders {
@@ -40,11 +42,6 @@ export function tableBorders(table: ProseMirrorNode, templateBorder: number): Ta
   }
 }
 
-function scaled(widths: readonly number[], room: number): number[] {
-  const total = widths.reduce((sum, width) => sum + width, 0);
-  return total > 0 ? widths.map((width) => (width * room) / total) : widths.map(() => 0);
-}
-
 /**
  * A table's column widths in an available width. An aligned table's columns take their stored
  * width or a default, and one set to the page's width is scaled to it; an unaligned table spans
@@ -56,16 +53,14 @@ export function tableColumns(
   { available, borders, count }: { available: number; borders: TableBorders; count: number },
 ): TableColumns {
   const stored = firstRowColumnWidths(table);
-  const own = Array.from({ length: count }, (_, index) => {
-    const width = stored[index] ?? Number.NaN;
-    return Number.isFinite(width) && width > 0 ? width : 0;
-  });
+  const own = Array.from({ length: count }, (_, index) => stored[index] ?? 0);
   const layout = parseObjectLayout(table.attrs.objectLayout);
   const room = Math.max(0, available - borders.vertical);
   if (layout) {
-    const widths = own.map((width) => width || ALIGNED_COLUMN_WIDTH);
+    const widths = own.map((width) => width || ALIGNED_TABLE_COLUMN_WIDTH);
     const total = widths.reduce((sum, width) => sum + width, 0);
-    const fitted = layout === 'fit-page-width' || total > room ? scaled(widths, room) : widths;
+    const fitted =
+      layout === 'fit-page-width' || total > room ? proportionColumns(widths, room) : widths;
     return {
       widths: fitted,
       width: fitted.reduce((sum, width) => sum + width, 0) + borders.vertical,
@@ -74,7 +69,7 @@ export function tableColumns(
   const set = own.reduce((sum, width) => sum + width, 0);
   const unset = own.filter((width) => !width).length;
   if (!unset) {
-    const widths = set > room ? scaled(own, room) : own;
+    const widths = set > room ? proportionColumns(own, room) : own;
     return { widths, width: widths.reduce((sum, width) => sum + width, 0) + borders.vertical };
   }
   // A column without a width takes what the others leave, but never less than an equal share of
@@ -82,7 +77,7 @@ export function tableColumns(
   const least = room / count;
   const share = Math.max(0, room - set) / unset;
   if (share >= least) return { widths: own.map((width) => width || share), width: available };
-  const rest = scaled(own, Math.max(0, room - least * unset));
+  const rest = proportionColumns(own, Math.max(0, room - least * unset));
   const widths = own.map((width, index) => (width ? (rest[index] ?? 0) : least));
   return { widths, width: available };
 }

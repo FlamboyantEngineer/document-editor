@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.js';
+import { BASE_TEMPLATE_ID } from '../src/model/templates/base-template.js';
+import { expect, test, waitForLab } from './fixtures.js';
 
 const sections = (page: Page) => page.locator('.lab-content .doc-layout-section');
 
@@ -12,6 +13,40 @@ const columnBoxes = (page: Page) =>
   );
 
 test.describe('web layout lab', () => {
+  test('DOCE-LAYOUT-4.1 applies each configured web margin when other sides are unset', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?layout=web');
+    await waitForLab(page);
+    await page.evaluate((id) => {
+      const section = (name: string, text: string) => ({
+        name,
+        content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+      });
+      window.regressionLab.load(
+        {
+          formatVersion: 1,
+          sections: [section('body', 'Left margin'), section('aside', 'Inherited left margin')],
+        },
+        {
+          formatVersion: 1,
+          id,
+          page: { margins: { left: '24px' } },
+          sections: [{ name: 'aside', page: { margins: { right: '12px' } } }],
+        },
+      );
+    }, BASE_TEMPLATE_ID);
+    const pages = page.locator('.lab-document-editor .de-document-editor__content .pm-page');
+    const body = pages.filter({ has: page.getByText('Left margin', { exact: true }) });
+    const aside = pages.filter({ has: page.getByText('Inherited left margin', { exact: true }) });
+    await expect(body).toHaveCSS('padding-left', '24px');
+    await expect(body).toHaveCSS('padding-right', '0px');
+    await expect(aside).toHaveCSS('padding-left', '24px');
+    await expect(aside).toHaveCSS('padding-right', '12px');
+    await expect(aside).toHaveCSS('padding-top', '0px');
+    await expect(aside).toHaveCSS('padding-bottom', '0px');
+  });
+
   for (const width of [1600, 900]) {
     test(`DOCE-LAYOUT-4.1 fills the surface at ${String(width)} px, inset only by the margins, with columns at their preset widths`, async ({
       lab,

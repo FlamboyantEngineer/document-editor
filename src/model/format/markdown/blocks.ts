@@ -57,26 +57,62 @@ function figureOf(node: StoredNode, writing: Writing): string | null {
 const fenced = (code: string, language: unknown) =>
   codeFence(code, text(language) === 'plaintext' ? '' : text(language));
 
-// The tags of HTML that end a line of text.
-const BREAKING_TAGS = /<\/?(?:p|div|br|li|tr|h[1-6]|ul|ol|table|blockquote)\b[^>]*>/gi;
+const HTML_TAGS =
+  /<!--[\s\S]*?(?:-->|$)|<(?:\/?[a-z][\w:-]*(?=[\s/>])|!)(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+const BREAKING_TAG = /^<\/?(?:p|div|br|li|tr|h[1-6]|ul|ol|table|blockquote)(?=[\s/>])/i;
 const ENTITIES: Readonly<Record<string, string>> = {
   '&amp;': '&',
   '&lt;': '<',
   '&gt;': '>',
   '&quot;': '"',
-  '&#39;': "'",
+  '&apos;': "'",
   '&nbsp;': ' ',
+  '&lbrace;': '{',
+  '&lcub;': '{',
+  '&rbrace;': '}',
+  '&rcub;': '}',
 };
+
+const HTML_ENTITY =
+  /&#(?:[0-9]+|[xX][\da-fA-F]+);?|&(?:amp|lt|gt|quot|apos|nbsp|lbrace|lcub|rbrace|rcub);/g;
+
+function decodeTemplateEntity(entity: string): string {
+  if (!entity.startsWith('&#')) return ENTITIES[entity] ?? entity;
+  const hex = entity[2]?.toLowerCase() === 'x';
+  const code = Number.parseInt(entity.slice(hex ? 3 : 2), hex ? 16 : 10);
+  if (!code || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return '\uFFFD';
+  // HTML's numeric references in this range use the legacy Windows-1252 mapping.
+  if (code >= 0x80 && code <= 0x9f) {
+    return new TextDecoder('windows-1252').decode(Uint8Array.of(code));
+  }
+  return String.fromCodePoint(code);
+}
+
+// Keeps the source's text nodes separate until each has been checked for variables.
+function templateText(source: string): string[] {
+  const chunks: string[] = [];
+  let from = 0;
+  const decode = (value: string) => value.replace(HTML_ENTITY, decodeTemplateEntity);
+  for (const tag of source.matchAll(HTML_TAGS)) {
+    chunks.push(decode(source.slice(from, tag.index)));
+    if (BREAKING_TAG.test(tag[0])) chunks.push('\n');
+    from = tag.index + tag[0].length;
+  }
+  chunks.push(decode(source.slice(from)));
+  return chunks;
+}
 
 function writeTemplateValues(source: string, writing: Writing): string {
   const parts: string[] = [];
   let literal = '';
-  for (const [index, part] of source.split(/\{\{\s*([\w.-]+)\s*\}\}/g).entries()) {
-    const value = index % 2 === 0 ? part : writing.values.variable?.(part);
-    if (typeof value === 'string') literal += value;
-    else {
-      parts.push(escapeText(literal), `{{${part}}}`);
-      literal = '';
+  for (const chunk of templateText(source)) {
+    for (const [index, part] of chunk.split(/\{\{\s*([\w.-]+)\s*\}\}/g).entries()) {
+      const value = index % 2 === 0 ? part : writing.values.variable?.(part);
+      if (typeof value === 'string') literal += value;
+      else {
+        parts.push(escapeText(literal), `{{${part}}}`);
+        literal = '';
+      }
     }
   }
   return parts.join('') + escapeText(literal);
@@ -85,11 +121,7 @@ function writeTemplateValues(source: string, writing: Writing): string {
 // A template block as its text: its HTML source with each variable's value, without its tags; a
 // variable without one is written as its key in braces, which reads back as the variable.
 function templateBlockOf(node: StoredNode, writing: Writing): string | null {
-  const source = text(node.attrs?.source)
-    .replace(BREAKING_TAGS, '\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity] ?? entity);
-  const lines = writeTemplateValues(source, writing)
+  const lines = writeTemplateValues(text(node.attrs?.source), writing)
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)

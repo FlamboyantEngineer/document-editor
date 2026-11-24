@@ -186,12 +186,12 @@ test.describe('selecting in tables', () => {
     await menu('Split cell');
     await menu('Into two columns');
     await page.keyboard.type('Right');
-    await expect(table.locator('tr').nth(2)).toContainText('Right');
+    await expect(below.locator('xpath=following-sibling::td[1]')).toHaveText('Right');
     await below.click({ button: 'right' });
     await menu('Split cell');
     await menu('Into two rows');
     await page.keyboard.type('Under');
-    await expect(table).toContainText('Under');
+    await expect(table.locator('tr').nth(3).locator('td').first()).toHaveText('Under');
     await expect(below).toHaveText('Below');
     // The first column becomes a header column; the columns after it stay plain.
     const last = table.locator('tr').last();

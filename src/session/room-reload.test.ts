@@ -1,16 +1,20 @@
 import * as Y from '@y/y';
-import { type EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { positionOf } from '../../test/projection-fixtures.js';
 import { createSessionRooms, type SessionRooms } from '../../test/session-rooms.js';
 import { documentToYjs } from '../collab/convert.js';
-import { readContent } from '../collab/delta.js';
+import { readContent, writeContent } from '../collab/delta.js';
 import { openRoomChangeGuard } from '../collab/room-change-guard.js';
+import { createRoomScope } from '../collab/room-scope.js';
+import { READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
 import { createMemoryHost } from '../host/memory-host.js';
 import type { RoomReload } from '../host/session-adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
+import { readDocumentFile } from '../model/format/document-format-convert.js';
 import {
   createDocumentSession,
   type DocumentSession,
@@ -286,6 +290,243 @@ describe('a room that refuses a change for its merge', () => {
     });
     session.close();
     shared.destroy();
+  });
+
+  it.each(['failed', 'pending'] as const)(
+    'DOCE-SESSION-3.11 retries a replacement room after a peer repins it with its first load %s',
+    async (prior) => {
+      rooms = createSessionRooms({ documents: [{ id: 'doc', content: DOCUMENT }] });
+      const { adapter, reload } = replaceable(rooms);
+      const valid = { id: 'letter', revision: 'rev-1' };
+      const host = createMemoryHost({ templates: [{ formatVersion: 1, id: valid.id }] });
+      const load = host.templates.load.bind(host.templates);
+      const stalled = deferred<Awaited<ReturnType<typeof load>>>();
+      const missing = { ok: false, error: { kind: 'not-found' } } as const;
+      const notice = vi.fn();
+      host.templates.load = (...args) =>
+        args[0] === 'missing' && prior === 'pending' ? stalled.promise : load(...args);
+      const session = createDocumentSession({
+        host: { ...host, collaboration: adapter },
+        documentId: 'doc',
+        mode: 'room',
+        onRoomReload: notice,
+      });
+      sessions.push(session);
+      expect(await session.ready).toBe(true);
+      const shared = new Y.Doc();
+      Y.applyUpdate(
+        shared,
+        documentToYjs(
+          {
+            ...DOCUMENT,
+            template: { id: 'missing', revision: 'rev-1' },
+            sections: [{ content: [paragraph('a0000001', 'Replacement')] }],
+          },
+          { schema: documentSchema },
+        ),
+      );
+      try {
+        reload(shared);
+        if (prior === 'failed') {
+          await vi.waitFor(() => expect(session.status.get().save).toBe('error'));
+        }
+        expect(session.reloads.get()).toBeNull();
+        expect(session.document.get()?.editingMode).toBe('read');
+        expect(textOf(stateOf(session))).toBe('Intro One Two');
+
+        createRoomScope(shared).meta.setAttr('template', valid as never);
+        await vi.waitFor(() => expect(session.reloads.get()?.reason).toBe('conflict'));
+        stalled.resolve(missing);
+        await stalled.promise;
+        await Promise.resolve();
+        expect(session.document.get()).toMatchObject({ pin: valid, editingMode: 'edit' });
+        expect(session.status.get().error).toBeNull();
+        expect(textOf(stateOf(session))).toBe('Replacement');
+        expect(notice).toHaveBeenCalledTimes(1);
+      } finally {
+        stalled.resolve(missing);
+        session.close();
+        shared.destroy();
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'DOCE-SESSION-3.11 keeps the caret or backward selection in moved text on reload (range %s)',
+    async (range) => {
+      rooms = createSessionRooms({ documents: [{ id: 'doc', content: DOCUMENT }] });
+      const { adapter, reload } = replaceable(rooms);
+      const session = createDocumentSession({
+        host: { ...createMemoryHost(), collaboration: adapter },
+        documentId: 'doc',
+        mode: 'room',
+      });
+      sessions.push(session);
+      expect(await session.ready).toBe(true);
+      session.update((state) => {
+        const head = positionOf(state.doc, 'One') + 1;
+        const anchor = range ? positionOf(state.doc, 'Two') + 2 : head;
+        return state.apply(state.tr.setSelection(TextSelection.create(state.doc, anchor, head)));
+      });
+      const shared = new Y.Doc();
+      Y.applyUpdate(
+        shared,
+        documentToYjs(
+          {
+            ...DOCUMENT,
+            sections: [
+              {
+                content: [
+                  paragraph('a0000010', 'An unrelated paragraph before the selected text'),
+                  paragraph('a0000004', 'Before One'),
+                  paragraph('a0000006', 'Two'),
+                ],
+              },
+            ],
+          },
+          { schema: documentSchema },
+        ),
+      );
+      try {
+        reload(shared);
+        const { doc, selection } = stateOf(session);
+        const head = positionOf(doc, 'One') + 1;
+        const anchor = range ? positionOf(doc, 'Two') + 2 : head;
+        expect([selection.anchor, selection.head]).toEqual([anchor, head]);
+      } finally {
+        session.close();
+        shared.destroy();
+      }
+    },
+  );
+
+  it('DOCE-SESSION-3.11 keeps the caret in unique surviving text without an element id', async () => {
+    const anonymous = { type: 'paragraph', content: [{ type: 'text', text: 'Anonymous' }] };
+    const original = { ...DOCUMENT, sections: [{ content: [anonymous] }] };
+    rooms = createSessionRooms({ documents: [{ id: 'doc', content: original }] });
+    const { adapter, reload } = replaceable(rooms);
+    const session = createDocumentSession({
+      host: { ...createMemoryHost(), collaboration: adapter },
+      documentId: 'doc',
+      mode: 'room',
+    });
+    sessions.push(session);
+    expect(await session.ready).toBe(true);
+    const previous = new Y.Doc();
+    const shared = new Y.Doc();
+    const inserted = paragraph('a0000010', 'An unrelated paragraph before the selected text');
+    // Write an older room directly, before the stored-file conversion assigned missing IDs.
+    writeContent(createRoomScope(previous).content, readDocumentFile(original, documentSchema).doc);
+    const replacement = { ...original, sections: [{ content: [inserted, anonymous] }] };
+    writeContent(
+      createRoomScope(shared).content,
+      readDocumentFile(replacement, documentSchema).doc,
+    );
+    try {
+      reload(previous);
+      session.update((state) => {
+        const caret = positionOf(state.doc, 'Anonymous') + 4;
+        return state.apply(state.tr.setSelection(TextSelection.create(state.doc, caret)));
+      });
+      expect(stateOf(session).selection.$head.parent.attrs.dataId).toBeNull();
+      reload(shared);
+      const { doc, selection } = stateOf(session);
+      expect(selection.head).toBe(positionOf(doc, 'Anonymous') + 4);
+    } finally {
+      session.close();
+      previous.destroy();
+      shared.destroy();
+    }
+  });
+
+  it('DOCE-SESSION-3.11 keeps a newer reload locked when a reader starts it during publication', async () => {
+    rooms = createSessionRooms({ documents: [{ id: 'doc', content: DOCUMENT }] });
+    const { adapter, reload } = replaceable(rooms);
+    const pin = { id: 'letter', revision: 'rev-1' };
+    const host = createMemoryHost({ templates: [{ formatVersion: 1, id: pin.id }] });
+    const load = host.templates.load.bind(host.templates);
+    const finish = deferred<void>();
+    host.templates.load = async (...args) => {
+      if (args[0] === pin.id) await finish.promise;
+      return load(...args);
+    };
+    const notice = vi.fn();
+    const session = createDocumentSession({
+      host: { ...host, collaboration: adapter },
+      documentId: 'doc',
+      mode: 'room',
+      onRoomReload: notice,
+    });
+    sessions.push(session);
+    expect(await session.ready).toBe(true);
+    const first = new Y.Doc();
+    const second = new Y.Doc();
+    for (const [doc, text, template] of [
+      [first, 'First replacement', null],
+      [second, 'Second replacement', pin],
+    ] as const) {
+      const content = {
+        ...DOCUMENT,
+        template,
+        sections: [{ content: [paragraph('a0000001', text)] }],
+      };
+      Y.applyUpdate(doc, documentToYjs(content, { schema: documentSchema }));
+    }
+    const stop = session.document.subscribe((shown) => {
+      if (shown?.state.doc.textContent !== 'First replacement') return;
+      stop();
+      reload(second);
+    });
+    try {
+      reload(first);
+      expect(session.connection.get()?.gate).toEqual({ editable: false, locked: true });
+      expect(session.document.get()?.editingMode).toBe('read');
+      expect(session.reloads.get()).toBeNull();
+      expect(notice).not.toHaveBeenCalled();
+      finish.resolve(undefined);
+      await vi.waitFor(() => expect(session.reloads.get()?.reason).toBe('conflict'));
+      expect(textOf(stateOf(session))).toBe('Second replacement');
+      expect(session.document.get()).toMatchObject({ pin, editingMode: 'edit' });
+      expect(notice).toHaveBeenCalledTimes(1);
+    } finally {
+      stop();
+      finish.resolve(undefined);
+      session.close();
+      first.destroy();
+      second.destroy();
+    }
+  });
+
+  it('DOCE-SESSION-1.4 DOCE-SESSION-3.11 keeps capability changes during replacement state creation', async () => {
+    rooms = createSessionRooms({ documents: [{ id: 'doc', content: DOCUMENT }] });
+    const { adapter, reload } = replaceable(rooms);
+    const host = createMemoryHost();
+    const session = createDocumentSession({
+      host: { ...host, collaboration: adapter },
+      documentId: 'doc',
+      mode: 'room',
+      createState(doc, { room }) {
+        if (doc.textContent === 'Replacement') host.memory.setCapabilities(READ_ONLY_CAPABILITIES);
+        return EditorState.create({ doc, plugins: room?.plugins ?? [] });
+      },
+    });
+    sessions.push(session);
+    expect(await session.ready).toBe(true);
+    expect(session.document.get()?.editingMode).toBe('edit');
+    const shared = new Y.Doc();
+    const content = {
+      ...DOCUMENT,
+      sections: [{ content: [paragraph('a0000001', 'Replacement')] }],
+    };
+    Y.applyUpdate(shared, documentToYjs(content, { schema: documentSchema }));
+    try {
+      reload(shared);
+      expect(session.document.get()?.editingMode).toBe('read');
+      expect(textOf(stateOf(session))).toBe('Replacement');
+    } finally {
+      session.close();
+      shared.destroy();
+    }
   });
 
   it('DOCE-SESSION-3.11 DOCE-COLLAB-7.4 shows the room’s content again, keeps the caret and the connection, and tells the host', async () => {

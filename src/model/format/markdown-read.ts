@@ -4,7 +4,7 @@
 // gives tables, figures and captions. A document read this way has no template or element ids
 // yet; `composeDocumentFile` gives it both.
 
-import markdownIt, { type MarkdownIt, type Token } from 'markdown-it';
+import markdownIt, { type MarkdownIt, type StateCore, type Token } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import {
   createImportWarnings,
@@ -16,6 +16,7 @@ import { readBlocks } from './markdown-read-blocks.js';
 import { flattenDeepNesting } from './markdown-read-depth.js';
 import { math } from './markdown-read-math.js';
 import { variables } from './markdown-read-variables.js';
+import { createSourceWarnings } from './markdown-read-warnings.js';
 
 /** A stored document read from Markdown, and what the reading left out. */
 export interface MarkdownRead {
@@ -33,7 +34,25 @@ function markdownParser(): MarkdownIt {
   md.normalizeLinkText = (url) => url;
   md.use(footnote).use(math).use(variables);
   md.disable('footnote_inline');
+  md.core.ruler.before('footnote_tail', 'first_notes', firstNotes);
   return md;
+}
+
+// The first definition of each footnote label wins, as for links: the plugin keeps the last, so
+// a later definition of a label is dropped before it gathers them.
+function firstNotes(state: StateCore): void {
+  const seen = new Set<string>();
+  let dropping = 0;
+  state.tokens = state.tokens.filter((token) => {
+    if (token.type === 'footnote_reference_open') {
+      const label = String((token.meta as { label: string }).label);
+      if (dropping || seen.has(label)) dropping += 1;
+      seen.add(label);
+    }
+    const kept = dropping === 0;
+    if (token.type === 'footnote_reference_close' && dropping) dropping -= 1;
+    return kept;
+  });
 }
 
 // Each footnote definition's tokens, by id, and the tokens before the footnote list.
@@ -61,7 +80,9 @@ export function readMarkdown(markdown: string): MarkdownRead {
   const text = markdown.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
   const source = text.replace(/^---\n[\s\S]*?\n(?:---|\.\.\.)\n/, '');
   const { notes, body } = takeNotes(markdownParser().parse(source, {}));
-  const blocks = readBlocks(body, { notes, noteText: new Map(), warnings });
+  const met = createSourceWarnings();
+  const blocks = readBlocks(body, { notes, noteText: new Map(), warnings: met });
+  met.giveTo(warnings);
   const content = flattenDeepNesting(blocks, warnings);
   return {
     file: { formatVersion: DOCUMENT_FORMAT_VERSION, sections: [{ content }] },

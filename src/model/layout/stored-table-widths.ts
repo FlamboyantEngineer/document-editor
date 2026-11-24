@@ -60,7 +60,7 @@ export function fitStoredTables(
 ): StoredNode[] {
   return content.map((node) => {
     if (node.type === 'text' || !node.content) return node;
-    const children = fitStoredTables(node.content, max, fill && node.type !== 'table');
+    const children = fitStoredTables(node.content, max);
     const same = children.every((child, index) => child === node.content?.[index]);
     const inner = same ? node : { ...node, content: children };
     if (node.type !== 'table') return inner;
