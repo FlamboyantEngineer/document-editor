@@ -1,6 +1,7 @@
 // The host's exports as File > Export runs them: each one at most once at a time, given the
 // document as stored and its print snapshot once the pages are ready, the reader told through the
-// host's feedback when it starts and how it ends, and every run aborted when the editor unmounts.
+// host's feedback when it starts and how it ends. Hiding the editor with an Activity or unmounting
+// it aborts every active run.
 
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -102,8 +103,12 @@ export function useDocumentExports(
   useEffect(() => {
     const active = started.current;
     return () => {
-      for (const controller of active.values()) controller.abort();
+      if (active.size === 0) return;
+      const controllers = [...active.values()];
       active.clear();
+      // Activity hides the editor by cleaning up effects while preserving its state.
+      setRunning(new Set());
+      for (const controller of controllers) controller.abort();
     };
   }, []);
   const exports = props.exports;

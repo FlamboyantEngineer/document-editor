@@ -6,6 +6,7 @@ import { installEditorDom } from '../../test/editor-dom.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { createEditLock } from './edit-lock.js';
 import { setObjectLayout } from './figure-commands.js';
+import { createObjectViews } from './object-views.js';
 import { createColumnResize, resizeColumns, setColumnWidths } from './table-resize.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
 import { markRemote } from './transaction-kind.js';
@@ -222,9 +223,10 @@ describe('dragging a column border', () => {
   });
 
   it('DOCE-TABLES-2.4 keeps no widths, and shows those the table had, when a column was added meanwhile', () => {
-    const view = tableView();
-    const before = shownWidths(view);
+    const view = tableView({}, [createObjectViews()]);
+    setColumnWidths(tableAt(view), [100, 100])(view.state, view.dispatch);
     dragBorderOf(view, 'Pump');
+    expect(shownWidths(view)).toEqual(['130px', '70px']);
     const { schema } = view.state;
     const empty = schema.nodes.table_cell?.createAndFill();
     const tr = view.state.tr;
@@ -232,9 +234,14 @@ describe('dragging a column border', () => {
       if (node.type.name === 'table_row' && empty) tr.insert(tr.mapping.map(pos + 1), empty);
     });
     view.dispatch(markRemote(tr));
+    expect(view.dom.querySelector('table')).toHaveAttribute('data-table-columns', 'mixed');
+    const current = shownWidths(view);
+    expect(current).toHaveLength(3);
+    document.dispatchEvent(pointer('mousemove', 138));
     document.dispatchEvent(pointer('mouseup', 128));
-    expect(cellWidths(view)).toEqual([null, null, null, null, null, null]);
-    expect(shownWidths(view)).toEqual(before);
+    expect(cellWidths(view)).toEqual([null, [100], [100], null, [100], [100]]);
+    expect(shownWidths(view)).toEqual(current);
+    expect(view.dom.querySelector('table')?.style.width).toBe('');
     view.destroy();
   });
 

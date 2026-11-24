@@ -6,7 +6,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { isTextMeasurement } from '../../model/pagination/text-split.js';
 import { parseObjectLayout } from '../../model/schema/object-layout.js';
-import { placeMath } from '../math-atoms.js';
+import { type MathLayouts, placeMath } from '../math-atoms.js';
 import { type BlockContext, type Laid, laid, notLaid } from './context.js';
 import { linkedCodeFigure } from './linked-code.js';
 import { layTextBlock } from './text-blocks.js';
@@ -147,7 +147,7 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
     context.place.scope,
   );
   if (!size?.math) return atomBlock(context, node, margins);
-  const placed = placeMath(size.math, context.place.width, numberWidth(context, node));
+  const placed = placeMath(size.math, context.place.width, endRoom(context, node, size.math));
   context.options.onMath?.(node, placed);
   const { ascent, descent } = placed.box;
   const tag = size.math.tag;
@@ -165,11 +165,20 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
   );
 }
 
-// The width of a display equation's automatic number, in its font; 0 without one.
-function numberWidth({ options, place }: BlockContext, node: ProseMirrorNode): number {
+// The room a display equation's line keeps at its end: the wider of its tag and its automatic
+// number, in its font, and an em between it and the equation; 0 without either.
+function endRoom(
+  { options, place }: BlockContext,
+  node: ProseMirrorNode,
+  math: MathLayouts,
+): number {
+  const width = (text: string) => options.text.textWidth?.(text, node, place.scope) ?? 0;
   const number = options.equationOf?.(node);
-  return number ? (options.text.textWidth?.(number, node, place.scope) ?? 0) : 0;
+  const end = Math.max(math.tag?.width ?? 0, number ? width(number) : 0);
+  return end ? end + width(EM_SPACE) : 0;
 }
+
+const EM_SPACE = '\u2003';
 
 /** A horizontal rule: its borders, with the stylesheet's margins. */
 export function layRule(context: BlockContext, node: ProseMirrorNode): Laid {

@@ -36,21 +36,29 @@ export function objectLayoutCss(value: unknown): string {
     : `margin-left:${style.marginLeft};margin-right:${style.marginRight}`;
 }
 
+function storedColumnWidth(value: unknown): number {
+  const width = Number(value);
+  return Number.isFinite(width) && width > 0 ? width : 0;
+}
+
 /** The table's first-row widths, or the source table's widths when this is a continuation. */
 export function firstRowColumnWidths(node: ProseMirrorNode): number[] {
   const projected: unknown = node.attrs.projectedColumnWidths;
-  if (Array.isArray(projected)) return projected.map((width) => Number(width) || 0);
+  if (Array.isArray(projected)) return projected.map(storedColumnWidth);
   const widths: number[] = [];
   node.firstChild?.forEach((cell) => {
     for (let index = 0; index < (Number(cell.attrs.colspan) || 1); index += 1) {
-      widths.push(Number(cell.attrs.colwidth?.[index]));
+      widths.push(storedColumnWidth(cell.attrs.colwidth?.[index]));
     }
   });
   return widths;
 }
 
+/** The width of an unset column in an aligned table. */
+export const ALIGNED_TABLE_COLUMN_WIDTH = 100;
+
 export function tableObjectColumnWidths(node: ProseMirrorNode): number[] {
-  return firstRowColumnWidths(node).map((width) => width || 100);
+  return firstRowColumnWidths(node).map((width) => width || ALIGNED_TABLE_COLUMN_WIDTH);
 }
 
 /** Collapsed borders add one outer border to the sum of fixed column widths. */

@@ -158,14 +158,14 @@ export interface PlacedMath extends MathLayouts {
 export type MathRecorder = (node: ProseMirrorNode, placed: PlacedMath) => void;
 
 /**
- * Places an equation in `available` room less what its line's end keeps for its tag or for an
- * automatic number `number` wide, the wider of the two: inline math only shrinks when wider than
- * its whole line.
+ * Places an equation in `available` room less what its line's end keeps (`end`): its tag, or the
+ * room a display equation's block keeps for its tag or automatic number and the gap before it,
+ * the wider of the two. Inline math only shrinks when wider than its whole line.
  */
-export function placeMath(laid: MathLayouts, available: number, number = 0): PlacedMath {
-  const end = upToUnit(Math.max(laid.tag?.width ?? 0, number));
-  const scale = fitScale(laid.math.width, downToUnit(available - end));
-  return { ...laid, box: scaledBox(laid.math, scale), end };
+export function placeMath(laid: MathLayouts, available: number, end = 0): PlacedMath {
+  const kept = upToUnit(Math.max(laid.tag?.width ?? 0, end));
+  const scale = fitScale(laid.math.width, downToUnit(available - kept));
+  return { ...laid, box: scaledBox(laid.math, scale), end: kept };
 }
 
 /** Whether a node is math. */

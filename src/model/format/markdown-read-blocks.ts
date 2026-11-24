@@ -1,294 +1,132 @@
-// Markdown's blocks read into stored blocks: paragraphs and setext and ATX headings, fenced and
-// indented code, `$$` display math, quotes, lists, GitHub tables, rules, and the figures and
-// captions the library's writer gives. HTML blocks are left out with a warning.
+// Markdown's blocks, as mdast gives them, read into stored blocks: headings, paragraphs, quotes,
+// lists with their start number and checked items, fenced and indented code with its language, `$$`
+// display math, rules and GitHub tables with their alignment. HTML blocks are left out with a
+// warning; figures and captions are taken in afterwards, as the library's writer places them.
 
-import { storedCaption } from '../schema/caption-content.js';
+import type { BlockContent, DefinitionContent, List, RootContent, Table } from 'mdast';
+import type { Math as MathNode } from 'mdast-util-math';
+import { joinText } from '../../import/stored-inline.js';
 import type { StoredNode } from './document-format.js';
-import { type Definitions, isDefinition, takeDefinition } from './markdown-read-definitions.js';
-import { closesFence, openingFence } from './markdown-read-fence.js';
-import type { InlineContext } from './markdown-read-inline.js';
+import { withObjects } from './markdown-read-captions.js';
+import { type InlineContext, readInline } from './markdown-read-inline.js';
 
-interface Lines {
-  readonly lines: readonly string[];
-  at: number;
+/** What block reading needs: the inline context and the Markdown read, for `$$` in a paragraph. */
+export interface BlockContext extends InlineContext {
+  readonly source: string;
 }
 
-/** Block parsing collects definitions before inline links and footnotes are resolved. */
-export interface BlockContext extends Definitions, Pick<InlineContext, 'warnings'> {
-  readonly inlineSource: WeakMap<StoredNode, string>;
-}
+const withContent = (type: string, content: StoredNode[], attrs?: Record<string, unknown>) => ({
+  type,
+  ...(attrs ? { attrs } : {}),
+  ...(content.length ? { content } : {}),
+});
 
-type BlockReader = (lines: Lines, context: BlockContext) => StoredNode[] | null;
+const blocksOrParagraph = (content: StoredNode[]): StoredNode[] =>
+  content.length ? content : [{ type: 'paragraph' }];
 
-const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
-const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-const QUOTE = /^ {0,3}> ?/;
-const ITEM = /^( {0,3})([-*+]|\d{1,9}[.)])(?:([ \t]+)(.*)|$)/;
-const DELIMITER_ROW = /^ *\|? *:?-+:? *(?:\| *:?-+:? *)*\|? *$/;
-const HTML_BLOCK =
-  /^ {0,3}<(?:!--|\/?(?:div|p|table|pre|section|details|figure|ul|ol|h[1-6]|script|style)\b)/i;
-
-const isBlank = (line: string | undefined) => line === undefined || line.trim() === '';
-
-function withInlineSource(node: StoredNode, text: string, context: BlockContext): StoredNode {
-  context.inlineSource.set(node, text.trim());
-  return node;
-}
-
-const headingOf = (text: string, level: number, context: BlockContext) =>
-  withInlineSource({ type: 'heading', ...(level > 1 ? { attrs: { level } } : {}) }, text, context);
-
-// Fenced code, with its language; a block with no lines is left empty.
-const fenced: BlockReader = (lines) => {
-  const open = openingFence(lines.lines[lines.at] ?? '');
-  if (!open) return null;
-  const code: string[] = [];
-  lines.at += 1;
-  while (lines.at < lines.lines.length) {
-    const line = lines.lines[lines.at] ?? '';
-    lines.at += 1;
-    if (closesFence(line, open)) break;
-    code.push(line);
-  }
-  const text = code.join('\n');
-  return [
-    {
-      type: 'codeBlock',
-      ...(open.language ? { attrs: { language: open.language } } : {}),
-      ...(text ? { content: [{ type: 'text', text }] } : {}),
-    },
-  ];
-};
-
-const displayMath: BlockReader = (lines) => {
-  const first = (lines.lines[lines.at] ?? '').trim();
-  if (!first.startsWith('$$')) return null;
-  const single = /^\$\$(.+)\$\$$/.exec(first);
-  if (single) {
-    lines.at += 1;
-    return [{ type: 'mathBlock', attrs: { source: (single[1] ?? '').trim() } }];
-  }
-  if (first !== '$$') return null;
-  const end = lines.lines.findIndex((line, index) => index > lines.at && line.trim() === '$$');
-  if (end === -1) return null;
-  const source = lines.lines.slice(lines.at + 1, end).join('\n');
-  lines.at = end + 1;
-  return [{ type: 'mathBlock', ...(source ? { attrs: { source } } : {}) }];
-};
-
-const heading: BlockReader = (lines, context) => {
-  const match = HEADING.exec(lines.lines[lines.at] ?? '');
-  if (!match) return null;
-  lines.at += 1;
-  const level = (match[1] ?? '#').length;
-  return [headingOf(match[2] ?? '', level, context)];
-};
-
-const rule: BlockReader = (lines) => {
-  if (!RULE.test(lines.lines[lines.at] ?? '')) return null;
-  lines.at += 1;
-  return [{ type: 'rule' }];
-};
-
-const quote: BlockReader = (lines, context) => {
-  if (!QUOTE.test(lines.lines[lines.at] ?? '')) return null;
-  const inner: string[] = [];
-  while (lines.at < lines.lines.length && QUOTE.test(lines.lines[lines.at] ?? '')) {
-    inner.push((lines.lines[lines.at] ?? '').replace(QUOTE, ''));
-    lines.at += 1;
-  }
-  const content = readBlocks(inner, context);
-  return [{ type: 'blockquote', content: content.length ? content : [{ type: 'paragraph' }] }];
-};
-
-const htmlBlock: BlockReader = (lines, context) => {
-  if (!HTML_BLOCK.test(lines.lines[lines.at] ?? '')) return null;
-  while (lines.at < lines.lines.length && !isBlank(lines.lines[lines.at])) lines.at += 1;
-  context.warnings.add('content-left-out', 'HTML block');
-  return [];
-};
-
-const leadOf = (line: string | undefined) => /^ */.exec(line ?? '')?.[0].length ?? 0;
-
-// Whether the blank lines at `at` are inside a list item: the line after them is indented at least
-// as far as its text.
-function blanksContinue(lines: Lines, indent: number): boolean {
-  let next = lines.at;
-  while (next < lines.lines.length && isBlank(lines.lines[next])) next += 1;
-  return next < lines.lines.length && leadOf(lines.lines[next]) >= indent;
-}
-
-// A list item's lines with the item's indent taken off: its first line, then each line indented at
-// least as far as its text, the blank lines between, and lazy lines that continue its paragraph.
-function itemLines(lines: Lines, indent: number, first: string): string[] {
-  const own = [first];
-  lines.at += 1;
-  while (lines.at < lines.lines.length) {
-    const line = lines.lines[lines.at] ?? '';
-    const lead = leadOf(line);
-    if (isBlank(line)) {
-      if (!blanksContinue(lines, indent)) break;
-      own.push('');
-    } else if (lead >= indent) own.push(line.slice(indent));
-    else if (!isBlank(own[own.length - 1]) && !startsBlock(line)) own.push(line.trim());
-    else break;
-    lines.at += 1;
-  }
-  return own;
-}
-
-// One list item at the cursor, when it is of the list's kind.
-function listItem(lines: Lines, context: BlockContext, ordered: boolean): StoredNode | null {
-  const item = ITEM.exec(lines.lines[lines.at] ?? '');
-  if (!item || /\d/.test(item[2] ?? '') !== ordered) return null;
-  const [, lead = '', marker = '', space = ' ', first = ''] = item;
-  const indent = lead.length + marker.length + Math.min(4, Math.max(1, space.length));
-  // A task list item's box, `[ ] ` or `[x] `, makes it a checklist item.
-  const box = ordered ? null : /^\[([ xX])\](?:\s+|$)/.exec(first);
-  const text = box ? first.slice(box[0].length) : first;
-  const content = readBlocks(itemLines(lines, indent, text), context);
+function list(node: List, context: BlockContext): StoredNode {
+  const start = node.ordered && node.start !== null && node.start !== undefined && node.start !== 1;
   return {
-    type: 'listItem',
-    ...(box ? { attrs: { checked: box[1] !== ' ' } } : {}),
-    content: content.length ? content : [{ type: 'paragraph' }],
+    type: node.ordered ? 'orderedList' : 'bulletList',
+    ...(start ? { attrs: { start: node.start } } : {}),
+    content: node.children.map((item) => {
+      const checked = typeof item.checked === 'boolean' ? item.checked : null;
+      const content = blocksOrParagraph(readBlocks(item.children, context));
+      // A checklist is a bulleted list: a numbered item keeps its box as text.
+      if (node.ordered && checked !== null) return withContent('listItem', boxed(content, checked));
+      return withContent('listItem', content, checked === null ? undefined : { checked });
+    }),
   };
 }
 
-const list: BlockReader = (lines, context) => {
-  const first = ITEM.exec(lines.lines[lines.at] ?? '');
-  if (!first) return null;
-  const ordered = /\d/.test(first[2] ?? '');
-  const items: StoredNode[] = [];
-  for (
-    let item = listItem(lines, context, ordered);
-    item;
-    item = listItem(lines, context, ordered)
-  ) {
-    items.push(item);
-    while (isBlank(lines.lines[lines.at]) && ITEM.test(lines.lines[lines.at + 1] ?? ''))
-      lines.at += 1;
-  }
-  const start = ordered ? Number.parseInt(first[2] ?? '1', 10) : 1;
-  return [
-    {
-      type: ordered ? 'orderedList' : 'bulletList',
-      ...(start !== 1 ? { attrs: { start } } : {}),
-      content: items,
-    },
-  ];
-};
-
-const cellsOf = (line: string) =>
-  line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/(?<!\\)\|$/, '')
-    .split(/(?<!\\)\|/)
-    .map((cell) => cell.trim().replace(/\\\|/g, '|'));
-
-const table: BlockReader = (lines, context) => {
-  const head = lines.lines[lines.at] ?? '';
-  const delimiter = lines.lines[lines.at + 1] ?? '';
-  if (!head.includes('|') || !DELIMITER_ROW.test(delimiter) || !delimiter.includes('-'))
-    return null;
-  const aligns = cellsOf(delimiter).map((cell) =>
-    cell.endsWith(':') ? (cell.startsWith(':') ? 'center' : 'right') : null,
-  );
-  const width = aligns.length;
-  const rowOf = (cells: readonly string[], type: string): StoredNode => ({
-    type: 'tableRow',
-    content: Array.from({ length: width }, (_, index) => ({
-      type,
-      ...(aligns[index] ? { attrs: { align: aligns[index] } } : {}),
-      content: [withInlineSource({ type: 'paragraph' }, cells[index] ?? '', context)],
-    })),
-  });
-  const rows = [rowOf(cellsOf(head), 'tableHeader')];
-  lines.at += 2;
-  while (
-    lines.at < lines.lines.length &&
-    !isBlank(lines.lines[lines.at]) &&
-    (lines.lines[lines.at] ?? '').includes('|')
-  ) {
-    rows.push(rowOf(cellsOf(lines.lines[lines.at] ?? ''), 'tableCell'));
-    lines.at += 1;
-  }
-  return [{ type: 'table', content: [storedCaption(''), ...rows] }];
-};
-
-const indentedCode: BlockReader = (lines) => {
-  if (!/^( {4}|\t)/.test(lines.lines[lines.at] ?? '')) return null;
-  const code: string[] = [];
-  while (
-    lines.at < lines.lines.length &&
-    (/^( {4}|\t)/.test(lines.lines[lines.at] ?? '') || isBlank(lines.lines[lines.at]))
-  ) {
-    code.push((lines.lines[lines.at] ?? '').replace(/^( {4}|\t)/, ''));
-    lines.at += 1;
-  }
-  while (isBlank(code[code.length - 1]) && code.length) code.pop();
-  return [{ type: 'codeBlock', content: [{ type: 'text', text: code.join('\n') }] }];
-};
-
-const BLOCK_STARTS: readonly BlockReader[] = [
-  fenced,
-  displayMath,
-  heading,
-  rule,
-  quote,
-  htmlBlock,
-  list,
-];
-
-// Whether a line starts a block other than a paragraph, ending the paragraph before it.
-function startsBlock(line: string): boolean {
-  return (
-    openingFence(line) !== null ||
-    [HEADING, RULE, QUOTE, HTML_BLOCK].some((pattern) => pattern.test(line)) ||
-    line.trim() === '$$' ||
-    isDefinition(line) ||
-    ITEM.test(line)
-  );
+// Content whose first paragraph starts with a task list box again, as text.
+function boxed(content: StoredNode[], checked: boolean): StoredNode[] {
+  const [first, ...rest] = content;
+  const box: StoredNode = { type: 'text', text: checked ? '[x] ' : '[ ] ' };
+  if (first?.type !== 'paragraph') return [{ type: 'paragraph', content: [box] }, ...content];
+  return [{ ...first, content: joinText([box, ...(first.content ?? [])]) }, ...rest];
 }
 
-// A paragraph's lines up to a blank line or another block; a setext underline makes it a heading.
-const paragraph: BlockReader = (lines, context) => {
-  const text: string[] = [lines.lines[lines.at] ?? ''];
-  lines.at += 1;
-  while (lines.at < lines.lines.length) {
-    const line = lines.lines[lines.at] ?? '';
-    const setext = /^ {0,3}(=+|-+)[ \t]*$/.exec(line);
-    if (setext) {
-      lines.at += 1;
-      const level = setext[1]?.startsWith('=') ? 1 : 2;
-      return [headingOf(text.join('\n'), level, context)];
-    }
-    if (isBlank(line) || startsBlock(line)) break;
-    text.push(line);
-    lines.at += 1;
-  }
-  return [withInlineSource({ type: 'paragraph' }, text.join('\n'), context)];
-};
+function table(node: Table, context: BlockContext): StoredNode {
+  const width = node.children[0]?.children.length ?? 0;
+  const rows = node.children.map((row, index) => ({
+    type: 'tableRow',
+    content: row.children.slice(0, width).map((cell, column) => {
+      const align = node.align?.[column];
+      const content = readInline(cell.children, context);
+      return {
+        type: index === 0 ? 'tableHeader' : 'tableCell',
+        ...(align === 'center' || align === 'right' ? { attrs: { align } } : {}),
+        content: [withContent('paragraph', content)],
+      };
+    }),
+  }));
+  return { type: 'table', content: [{ type: 'caption' }, ...rows] };
+}
 
-const READERS: readonly BlockReader[] = [...BLOCK_STARTS, table, indentedCode, paragraph];
+// A paragraph holding only `$$` math, which is display math written on one line.
+function displayMath(node: RootContent, source: string): StoredNode | null {
+  const [only] = node.type === 'paragraph' && node.children.length === 1 ? node.children : [];
+  if (only?.type !== 'inlineMath') return null;
+  if (!source.startsWith('$$', only.position?.start.offset ?? -1)) return null;
+  return withContent('mathBlock', [], only.value ? { source: only.value } : undefined);
+}
 
-/** Markdown lines as stored blocks. */
-export function readBlocks(source: readonly string[], context: BlockContext): StoredNode[] {
-  const lines: Lines = { lines: source, at: 0 };
-  const blocks: StoredNode[] = [];
-  while (lines.at < source.length) {
-    if (isBlank(source[lines.at])) {
-      lines.at += 1;
-      continue;
-    }
-    if (takeDefinition(lines, context)) continue;
-    for (const reader of READERS) {
-      const read = reader(lines, context);
-      if (read) {
-        blocks.push(...read);
-        break;
-      }
-    }
+// Fenced `$$` math; text after the opening signs is the block's label, which an equation does not
+// hold.
+function mathBlock(node: MathNode, context: BlockContext): StoredNode {
+  if (node.meta) context.warn(node, 'math label');
+  return withContent('mathBlock', [], node.value ? { source: node.value } : undefined);
+}
+
+function readBlock(
+  node: RootContent | BlockContent | DefinitionContent,
+  context: BlockContext,
+): StoredNode[] {
+  switch (node.type) {
+    case 'heading':
+      return [
+        withContent(
+          'heading',
+          readInline(node.children, context),
+          node.depth > 1 ? { level: node.depth } : undefined,
+        ),
+      ];
+    case 'paragraph':
+      return [
+        displayMath(node, context.source) ??
+          withContent('paragraph', readInline(node.children, context)),
+      ];
+    case 'blockquote':
+      return [withContent('blockquote', blocksOrParagraph(readBlocks(node.children, context)))];
+    case 'list':
+      return [list(node, context)];
+    case 'code':
+      return [
+        withContent(
+          'codeBlock',
+          node.value ? [{ type: 'text', text: node.value }] : [],
+          node.lang ? { language: node.lang } : undefined,
+        ),
+      ];
+    case 'math':
+      return [mathBlock(node, context)];
+    case 'thematicBreak':
+      return [{ type: 'rule' }];
+    case 'table':
+      return [table(node, context)];
+    case 'html':
+      context.warn(node, 'HTML block');
+      return [];
+    default:
+      return [];
   }
-  return blocks;
+}
+
+/** mdast blocks as stored blocks, with figures and captions as the writer places them. */
+export function readBlocks(
+  nodes: readonly (RootContent | BlockContent | DefinitionContent)[],
+  context: BlockContext,
+): StoredNode[] {
+  return withObjects(nodes.flatMap((node) => readBlock(node, context)));
 }

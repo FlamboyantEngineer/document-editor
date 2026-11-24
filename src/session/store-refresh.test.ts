@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { DocumentStoreAdapter, EditorHost } from '../host/adapters.js';
 import { createMemoryHost } from '../host/memory-host.js';
 import type { DocumentFile, StoredNode } from '../model/format/document-format.js';
+import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { createDocumentSession, type DocumentSession } from './document-session.js';
 
 const paragraph = (id: string, text: string): StoredNode => ({
@@ -101,6 +102,47 @@ const storedText = async (host: EditorHost) => {
 };
 
 describe('store-mode merges', () => {
+  it('DOCE-SESSION-4.1 saves both quotes after concurrent moves would nest each inside the other', async () => {
+    const file = (...content: StoredNode[]): DocumentFile => ({
+      formatVersion: 1,
+      sections: [{ id: 's0000001', content }],
+    });
+    const first = (text: string, ...children: StoredNode[]): StoredNode => ({
+      type: 'blockquote',
+      attrs: { id: 'b0000001' },
+      content: [paragraph('a0000001', text), ...children],
+    });
+    const second = (text: string, ...children: StoredNode[]): StoredNode => ({
+      type: 'blockquote',
+      attrs: { id: 'b0000002' },
+      content: [paragraph('a0000002', text), ...children],
+    });
+    const host = hostWithoutFeed(file(first('First'), second('Second')));
+    const session = open(host);
+    try {
+      expect(await session.ready).toBe(true);
+      const mine = file(second('Second', first('First, mine')));
+      session.update((state) => {
+        const { doc } = readDocumentFile(mine, state.schema);
+        return state.apply(state.tr.replaceWith(0, state.doc.content.size, doc.content));
+      });
+      const theirs = file(first('First', second('Second, theirs')));
+      expect(
+        await host.documents.save('doc', { content: theirs, baseRevision: 'rev-1' }),
+      ).toMatchObject({ ok: true });
+
+      expect(await session.flush()).toBe(true);
+      expect(session.conflicts.get()).toEqual([]);
+      expect(paragraphs(session)).toEqual(['Second, theirs', 'First, mine']);
+      expect(await host.documents.load('doc')).toMatchObject({
+        ok: true,
+        value: { content: file(second('Second, theirs', first('First, mine'))) },
+      });
+    } finally {
+      session.close();
+    }
+  });
+
   it('DOCE-SESSION-4.1 saves the reader’s edit inside the new section another writer moved it to', async () => {
     const host = hostWithoutFeed();
     const session = open(host);

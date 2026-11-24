@@ -16,6 +16,7 @@ import {
 import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import type { LineTable } from '../layout-engine/line-table.js';
 import { normalizeSignatureVector } from '../model/index.js';
+import { firstRowColumnWidths } from '../model/schema/object-layout.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
 import { firstCodeLine, gutterText } from './code-drawing.js';
@@ -82,18 +83,47 @@ function codeView(
   };
 }
 
-// A table as its markup draws it. Only its rows are the document's: the drag of a column border
-// draws widths on the table and its column group, which the view leaves as they are.
+function sameTableColumns(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
+  if (previous.firstChild === next.firstChild) return true;
+  const widths = firstRowColumnWidths(previous);
+  const latest = firstRowColumnWidths(next);
+  return widths.length === latest.length && widths.every((width, index) => width === latest[index]);
+}
+
+// Updates the sizing drawn outside the rows, which must keep their DOM for the caret.
+function updateTableColumns(table: HTMLTableElement, sized: HTMLTableElement): void {
+  table.style.width = sized.style.width;
+  table.style.maxWidth = sized.style.maxWidth;
+  const sizing = sized.getAttribute('data-table-columns');
+  if (sizing === null) table.removeAttribute('data-table-columns');
+  else table.setAttribute('data-table-columns', sizing);
+  const columns = sized.querySelector(':scope > colgroup');
+  if (columns) table.querySelector(':scope > colgroup')?.replaceWith(columns);
+}
+
+// A table as its markup draws it, with its kept widths refreshed after any drag preview.
 function tableView(node: ProseMirrorNode, view: EditorView): NodeView {
-  const spec = node.type.spec.toDOM?.(node);
-  if (!spec) throw new Error(`${node.type.name} has no markup`);
-  const { dom, contentDOM } = DOMSerializer.renderSpec(view.dom.ownerDocument, spec);
+  const { toDOM } = node.type.spec;
+  if (!toDOM) throw new Error(`${node.type.name} has no markup`);
+  const owner = view.dom.ownerDocument;
+  const { dom, contentDOM } = DOMSerializer.renderSpec(owner, toDOM(node));
   let current = node;
   return {
     dom,
     contentDOM: contentDOM ?? undefined,
     update(next) {
       if (next.type !== current.type || !sameAttrs(next, current)) return false;
+      if (!sameTableColumns(current, next)) {
+        const { dom: sized } = DOMSerializer.renderSpec(owner, toDOM(next));
+        if (
+          !isElement(dom) ||
+          dom.tagName !== 'TABLE' ||
+          !isElement(sized) ||
+          sized.tagName !== 'TABLE'
+        )
+          return false;
+        updateTableColumns(dom as HTMLTableElement, sized as HTMLTableElement);
+      }
       current = next;
       return true;
     },

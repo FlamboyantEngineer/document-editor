@@ -238,4 +238,65 @@ describe('new and composed documents', () => {
     expect(widthsIn('summary')).toEqual([321, 321]);
     expect(widthsIn('wide')).toEqual([485, 485]);
   });
+
+  it('DOCE-IMPORT-3.3 fills section tables and only shrinks tables inside other blocks', () => {
+    const captionedTable = (name: string, ...widths: number[]): StoredNode => ({
+      type: 'table',
+      content: [
+        { type: 'caption', content: [{ type: 'text', text: name }] },
+        {
+          type: 'tableRow',
+          content: widths.map((width) => ({
+            type: 'tableCell',
+            attrs: { colwidth: [width] },
+            content: [paragraph('Cell')],
+          })),
+        },
+      ],
+    });
+    const file = composeDocumentFile(
+      [
+        captionedTable('Section table', 60, 140),
+        {
+          type: 'blockquote',
+          content: [
+            captionedTable('Narrow table', 60, 140),
+            captionedTable('Wide table', 600, 200),
+          ],
+        },
+        {
+          type: 'columns',
+          attrs: { preset: 'single' },
+          content: [{ type: 'column', content: [captionedTable('Column table', 100, 100)] }],
+        },
+      ],
+      {
+        template: {
+          formatVersion: 1,
+          id: 'fill-tables',
+          page: { size: 'US Letter', margins: { left: '208px', right: '208px' } },
+        },
+        tables: 'fill',
+        newId: counter(),
+      },
+    );
+    const [top, quote, columns] = file.sections[0]?.content ?? [];
+    const captionAndWidths = (table: StoredNode | undefined) => ({
+      name: table?.content?.[0]?.content?.[0]?.text,
+      widths: table?.content?.[1]?.content?.map((cell) => cell.attrs?.colwidth),
+    });
+    expect(captionAndWidths(top)).toEqual({ name: 'Section table', widths: [[120], [280]] });
+    expect(captionAndWidths(quote?.content?.[0])).toEqual({
+      name: 'Narrow table',
+      widths: [[60], [140]],
+    });
+    expect(captionAndWidths(quote?.content?.[1])).toEqual({
+      name: 'Wide table',
+      widths: [[300], [100]],
+    });
+    expect(captionAndWidths(columns?.content?.[0]?.content?.[0])).toEqual({
+      name: 'Column table',
+      widths: [[100], [100]],
+    });
+  });
 });

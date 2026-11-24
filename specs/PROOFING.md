@@ -71,7 +71,7 @@ Verification: `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-2.1 - Correcting
 
-`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it. An empty replacement deletes the issue's text. The command is refused once the issue's text is no longer there. On pages, an issue in a later part of a paragraph split across them shall be drawn and corrected there as in the whole paragraph.
+`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it. An empty replacement deletes the issue's text. The command is refused once the issue's text is no longer there, when any part of its range is locked (DOCE-EDITING-4.1), or when it belongs to host-owned content. On pages, an issue in a later part of a paragraph split across them shall be drawn and corrected there as in the whole paragraph.
 
 Implementation: `src/engine/proofing-commands.ts`
 Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
@@ -92,7 +92,7 @@ Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.t
 
 ### DOCE-PROOFING-2.4 - Replacing all
 
-`replaceAllProofingIssues(issue, replacement)` shall replace the marked issues with the same text and rule, or the same text and kind without a rule, as one change. A range is replaced once even if several proofers report it. When ranges overlap, the first range in document order is replaced and the overlapping ones are skipped. An empty replacement deletes the chosen ranges. `countAlikeIssues` counts the ranges the command would replace.
+`replaceAllProofingIssues(issue, replacement)` shall replace the editable marked issues with the same text and rule, or the same text and kind without a rule, as one change. Locked ranges and host-owned content stay marked. The command is refused when no editable range is left and skips any range the host locks during the batch. A range is replaced once even if several proofers report it. When editable ranges overlap, the first range in document order is replaced and the overlapping ones are skipped. An empty replacement deletes the chosen ranges. `countAlikeIssues` counts matching non-overlapping ranges before checking whether they are editable.
 
 Implementation: `src/engine/proofing-commands.ts`
 Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.ts`, `e2e/proofing.spec.ts`
@@ -136,7 +136,7 @@ Verification: `e2e/proofing.spec.ts`, `src/components/document-editor/proofing-s
 
 ### DOCE-PROOFING-3.2 - The context menu
 
-In an editable document, the context menu opened on an issue's mark the view draws, or from the keyboard with the caret in an issue, shall lead with a submenu (`proofingMenu`) holding a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`); a submenu (`replaceAll`) replacing every issue like it with one of those suggestions; Ignore, for this issue alone; Ignore all, for its word; Add to dictionary; and turning its rule off. Empty suggestions use the editor's Delete label in both menus. An entry that does not apply, Replace all with no other range to replace or no suggestion, Add to dictionary for a proofer without a dictionary, turning the rule off for an issue without one, is disabled rather than left out. Opened on text without a mark, the menu has no proofing submenu, even where the state holds an issue the view does not draw; opened on a mark the state no longer holds, the submenu shows `noSuggestions` with every entry disabled. The menu's other groups, a table cell's among them, follow it. The labels are the host's to replace (`DocumentEditorLabels`).
+In an editable document, the context menu opened on an issue's mark the view draws, or from the keyboard with the caret in an issue, shall lead with a submenu (`proofingMenu`) holding a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`); a submenu (`replaceAll`) replacing every issue like it with one of those suggestions; Ignore, for this issue alone; Ignore all, for its word; Add to dictionary; and turning its rule off. Empty suggestions use the editor's Delete label in both menus. An entry that does not apply, Replace all with fewer than two matching ranges, no editable range or no suggestion, Add to dictionary for a proofer without a dictionary, turning the rule off for an issue without one, is disabled rather than left out. Opened on text without a mark, the menu has no proofing submenu, even where the state holds an issue the view does not draw; opened on a mark the state no longer holds, the submenu shows `noSuggestions` with every entry disabled. The menu's other groups, a table cell's among them, follow it. The labels are the host's to replace (`DocumentEditorLabels`).
 
 Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-editor/proofing-entries.ts`, `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/context-target.ts`
 Verification: `e2e/proofing.spec.ts`, `src/components/document-editor/proofing-entries.test.ts`
