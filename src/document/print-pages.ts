@@ -160,7 +160,7 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
       node.forEach((child, offset) => {
         children.push(...nodeTree(child, drawing, { at: pos + 1 + offset }));
       });
-      return [{ text: value }, ...children];
+      return [printElement('span', {}, [{ text: value }]), ...children];
     },
   };
   return drawing;

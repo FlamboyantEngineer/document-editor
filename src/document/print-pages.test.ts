@@ -210,6 +210,30 @@ describe('renderLayoutPrintPage', () => {
     expect(plain.querySelectorAll('pre .de-code-token').length).toBeGreaterThan(0);
   });
 
+  it('DOCE-PAGINATION-11.13 draws a page variable in the text in its box, with its line end, as the view does', () => {
+    const variable = (key: string) => node('template_variable', { variableKey: key });
+    const doc = pagesDocument([
+      page([
+        paragraph([text('Page '), variable('page.current'), text(' of '), variable('page.total')], {
+          dataId: 'p1',
+        }),
+      ]),
+    ]);
+    // The first line ends at the page's number.
+    const { view, printed } = bothDrawings(doc, stubEngine({ perLine: 7, pageBox: 24 }));
+    const hooks = (root: ParentNode) =>
+      [...root.querySelectorAll('p [data-template-variable]')].map((each) => [
+        each.className,
+        each.getAttribute('style'),
+        each.firstElementChild?.textContent,
+      ]);
+    expect(hooks(view)).toEqual([
+      ['de-forced-lines__reserved de-forced-lines__end', '--de-reserved-width: 24.000px;', '1'],
+      ['de-forced-lines__reserved', '--de-reserved-width: 24.000px;', '1'],
+    ]);
+    expect(hooks(printed)).toEqual(hooks(view));
+  });
+
   it('DOCE-PAGINATION-13.3 draws numbered headings, indents and justified lines', () => {
     const heading = node('heading', { level: 1, dataId: 'h1' }, [text('Scope of the plan')]);
     const doc = pagesDocument([page([heading])]);

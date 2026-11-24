@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
+import type { BodyVariables } from './body-variables.js';
 import { type ContentsLayout, createContentsLayout } from './contents-layout.js';
 import { footnoteMarkerItem } from './footnote-marker.js';
 import type { InsertedText } from './inserted-text.js';
@@ -70,6 +71,11 @@ export interface TextLayoutOptions {
    * room (DOCE-PAGINATION-11.12); none hidden when absent.
    */
   readonly hidden?: (() => string | null) | undefined;
+  /**
+   * What the template variables of a block in a page's body show (DOCE-PAGINATION-11.13); such a
+   * block is refused without it, unless its place gives the variables' texts.
+   */
+  readonly bodyVariables?: BodyVariables | undefined;
 }
 
 /** The inline atoms laid out as their text, and their numbers. */
@@ -89,6 +95,11 @@ export interface TextBlockPlace {
   readonly footnoteNumber?: string | undefined;
   /** The text its template variables show, where it is drawn once with known values. */
   readonly variables?: VariableTexts | undefined;
+  /**
+   * Whether it is in a page's header or footer, whose variables show the page's own values: only
+   * `variables` gives them, and it is refused without them.
+   */
+  readonly inRegion?: boolean | undefined;
   /** Text drawn in the block that is not its content, such as a comparison's deleted words. */
   readonly inserted?: readonly InsertedText[] | undefined;
   /** A caption's label, number and separator, drawn before its text in the caption label font. */
@@ -168,12 +179,14 @@ function reservedOf(runs: readonly TextRun[], reserve: ReserveCluster): Reserved
 }
 
 // A line table with the reserved clusters of its runs, when the measurer reserves any.
+// A line table with the boxes its page variables are drawn in, too (DOCE-PAGINATION-11.13).
 function withReserved(
   table: LineTable,
-  runs: readonly TextRun[],
+  { runs, boxes }: { runs: readonly TextRun[]; boxes: readonly ReservedBox[] },
   reserve: ReserveCluster | undefined,
 ): LineTable {
-  const reserved = reserve ? reservedOf(runs, reserve) : [];
+  const clusters = reserve ? reservedOf(runs, reserve) : [];
+  const reserved = [...boxes, ...clusters].sort((a, b) => a.from - b.from);
   return reserved.length ? { ...table, reserved } : table;
 }
 
@@ -224,18 +237,11 @@ const insertedReservedIn =
     return reserve ? reservedBoxes(word, { offset: 0, font, reserve }) : [];
   };
 
-/** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
-export function createTextLayout(options: TextLayoutOptions): TextLayout {
-  const cache = createLineCache(options.language);
-  const strutOf = createStruts({
-    context: options.measureContext,
-    scale: options.scale,
-    hinted: options.hinted,
-  });
+// Text in another font takes its own font's box at the line height it inherits, as an inline box
+// in Chromium's line does; the line grows to hold the tallest. The boxes are kept by font.
+function fontBoxes(strutOf: ReturnType<typeof createStruts>) {
   const boxes = new Map<string, { width: number; height: number; baseline: number }>();
-  // Text in another font takes its own font's box at the line height it inherits, as an inline
-  // box in Chromium's line does; the line grows to hold the tallest.
-  const boxOf = (style: BlockTypography) => (font: FontStyle) => {
+  return (style: BlockTypography) => (font: FontStyle) => {
     const leading = snapLeading(font.size * style.lineHeight);
     const key = `${fontString(font)} ${String(leading)}`;
     let box = boxes.get(key);
@@ -246,6 +252,17 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     }
     return box;
   };
+}
+
+/** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
+export function createTextLayout(options: TextLayoutOptions): TextLayout {
+  const cache = createLineCache(options.language);
+  const strutOf = createStruts({
+    context: options.measureContext,
+    scale: options.scale,
+    hinted: options.hinted,
+  });
+  const boxOf = fontBoxes(strutOf);
   const typography = (node: ProseMirrorNode, scope?: string | null) =>
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
   // What a block draws before its content in a font of its own: a footnote entry's number, or a
@@ -285,6 +302,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         scope: place.scope,
         textAtoms: options.textAtoms,
         variables: place.variables,
+        bodyVariables: place.inRegion ? undefined : options.bodyVariables,
         boxOf: boxOf(style),
         inserted: place.inserted,
         hidden: options.hidden?.(),
@@ -303,7 +321,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       });
       const inset = starts.inset ? { inset: starts.inset } : {};
       const laid = { ...table, ...inset, ...(runs.hidden.length ? { hidden: runs.hidden } : {}) };
-      return { ok: true, table: withReserved(laid, runs.runs, options.reserve) };
+      return { ok: true, table: withReserved(laid, runs, options.reserve) };
     },
   };
 }

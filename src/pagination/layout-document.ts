@@ -11,6 +11,7 @@ import {
   type SectionPages,
   stackedHeight,
 } from '../model/index.js';
+import { hasBodyPageVariable } from './body-variables.js';
 import { forcedLinesKey } from './forced-lines.js';
 import {
   type IncrementalResult,
@@ -311,25 +312,28 @@ function settlePasses(fills: SectionFills, options: DocumentLayoutOptions) {
   return { pass, laidOut, layouts, pages };
 }
 
-// Passes at most this many times over a document with a list of contents, each time with room for
-// one more digit in its rows' page numbers, as long as the pages it comes to need more.
+// Passes at most this many times over a document with a list of contents or a page variable in its
+// text, each time with room for one more digit in their page numbers, as long as the pages it comes
+// to need more.
 const DIGIT_PASSES = 3;
 
-// The document laid out with its lists of contents' page boxes keeping room for the digits of the
-// page count it comes to (DOCE-PAGINATION-10.11). Every layout starts from the least room, so the
-// pages are the same whatever was laid out before, and the room only grows.
+// The document laid out with its lists of contents' page boxes and its text's page variables'
+// boxes keeping room for the digits of the page count it comes to (DOCE-PAGINATION-10.11, 11.13).
+// Every layout starts from the least room, so the pages are the same whatever was laid out before,
+// and the room only grows.
 function settleDigits(view: EditorView, options: DocumentLayoutOptions) {
   const { engine } = options;
   let digits = engine?.pageDigits(0) ?? 0;
   let fills = sectionFills(view, options);
   let settled = settlePasses(fills, options);
-  if (!engine || !hasContents(view.state.doc)) return { fills, settled };
+  const { doc } = view.state;
+  if (!engine || !(hasContents(doc) || hasBodyPageVariable(doc))) return { fills, settled };
   for (let count = 1; ; count += 1) {
     const needed = engine.pageDigits(Math.max(settled.pass.counted, 10 ** (digits - 1)));
     if (needed === digits) break;
     if (count >= DIGIT_PASSES) {
       options.onUnsettled?.(
-        `list of contents page numbers need ${String(needed)} digits after ${String(count)} passes`,
+        `page numbers need ${String(needed)} digits after ${String(count)} passes`,
       );
       engine.pageDigits(10 ** (digits - 1));
       break;
