@@ -13,10 +13,11 @@ import {
   PluginKey,
   TextSelection,
 } from 'prosemirror-state';
-import type { EditorView, NodeView } from 'prosemirror-view';
+import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
+import { drawGutter, forcedLinesIn } from './code-gutter.js';
 import { codeTokenAttrs, highlightCode, paintCodeHighlights } from './code-highlighting.js';
 
 /** The line numbers of a code text, from its first line's number, one per line. */
@@ -57,39 +58,14 @@ function drawLinkedCode(code: HTMLElement, node: ProseMirrorNode): void {
   code.replaceChildren(...parts);
 }
 
-// The gutter's lines, one per line of code: its number, then a hidden copy of the line's text,
-// which the stylesheet lays out as wide as the code so a wrapped line keeps its rows blank after
-// its number. A line whose number and text stay keeps its element.
-function drawGutter(gutter: HTMLElement, text: string, first: number): void {
-  const owner = gutter.ownerDocument;
-  const lines = text.split('\n');
-  const kept = [...gutter.children] as HTMLElement[];
-  lines.forEach((line, index) => {
-    const number = String(first + index);
-    const existing = kept[index];
-    if (existing?.dataset.lineNumber === number && existing.lastChild?.textContent === line) return;
-    const row = owner.createElement('span');
-    row.className = 'de-code-gutter__line';
-    row.dataset.lineNumber = number;
-    const label = owner.createElement('span');
-    label.className = 'de-code-gutter__number';
-    label.textContent = number;
-    const copy = owner.createElement('span');
-    copy.className = 'de-code-gutter__text';
-    copy.textContent = line;
-    row.append(label, copy);
-    if (existing) existing.replaceWith(row);
-    else gutter.appendChild(row);
-  });
-  for (const extra of kept.slice(lines.length)) extra.remove();
-  // The digits of the highest number, at least three, from which the stylesheet sizes the gutter.
-  const digits = Math.max(3, String(first + lines.length - 1).length);
-  gutter.parentElement?.style.setProperty('--de-code-gutter-digits', String(digits));
-}
-
 // A code block as its markup draws it, with a gutter of line numbers before its code when asked,
 // and linked code's text highlighted.
-function codeView(node: ProseMirrorNode, view: EditorView, numbered: boolean): NodeView {
+function codeView(
+  node: ProseMirrorNode,
+  view: EditorView,
+  drawing: { numbered: boolean; decorations: readonly Decoration[] },
+): NodeView {
+  const { numbered } = drawing;
   const owner = view.dom.ownerDocument;
   const spec = node.type.spec.toDOM?.(node);
   if (!spec) throw new Error(`${node.type.name} has no markup`);
@@ -104,18 +80,19 @@ function codeView(node: ProseMirrorNode, view: EditorView, numbered: boolean): N
   if (numbered && pre && code) pre.insertBefore(gutter, code);
   if (code && node.type.name === 'linked_code_block') drawLinkedCode(code, node);
   let current = node;
-  const draw = (next: ProseMirrorNode) => {
+  const draw = (next: ProseMirrorNode, decorations: readonly Decoration[]) => {
     current = next;
-    if (numbered) drawGutter(gutter, codeText(next), firstLine(next));
+    const lines = forcedLinesIn(decorations);
+    if (numbered) drawGutter(gutter, codeText(next), { first: firstLine(next), lines });
   };
-  draw(node);
+  draw(node, drawing.decorations);
   return {
     dom,
     contentDOM: contentDOM ?? undefined,
-    update(next) {
+    update(next, decorations) {
       // Another type, or other attributes such as another language, draws the block again.
       if (next.type !== current.type || !sameAttrs(next, current)) return false;
-      draw(next);
+      draw(next, decorations);
       return true;
     },
     // Only the code's own text is the document's; the gutter and the caption line are drawn.
@@ -290,10 +267,13 @@ export const editCaption: Command = editCaptionText;
 export function createObjectViews({
   lineNumbers: numbered = 'all',
 }: ObjectViewsOptions = {}): Plugin {
-  const code = (node: ProseMirrorNode, view: EditorView) =>
-    codeView(node, view, numbered === 'all');
-  const linked = (node: ProseMirrorNode, view: EditorView) =>
-    codeView(node, view, numbered !== 'none');
+  // A code view, given the decorations its element is drawn with, which carry its forced lines.
+  const codeViews =
+    (lined: boolean): NodeViewConstructor =>
+    (...[node, view, , decorations]) =>
+      codeView(node, view, { numbered: lined, decorations });
+  const code = codeViews(numbered === 'all');
+  const linked = codeViews(numbered !== 'none');
   return new Plugin({
     key: objectViewsKey,
     lineNumbers: numbered,

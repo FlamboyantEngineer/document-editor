@@ -129,7 +129,12 @@ export function layPlainContainer(context: BlockContext, node: ProseMirrorNode):
 function columnTracks(node: ProseMirrorNode): number[] {
   const preset = String(node.attrs.preset ?? '');
   const own = PRESET_TRACKS.has(preset) ? (findDocumentLayoutPreset(preset)?.widths ?? []) : [];
-  return Array.from({ length: node.childCount }, (_, index) => own[index] ?? 1);
+  // A preset's tracks stand, and share the width, even when fewer columns fill them, as the
+  // stylesheet's grid template keeps them; a column past them takes an equal share.
+  return Array.from(
+    { length: Math.max(own.length, node.childCount) },
+    (_, index) => own[index] ?? 1,
+  );
 }
 
 function layColumn(context: BlockContext, column: ProseMirrorNode, width: number): Laid {

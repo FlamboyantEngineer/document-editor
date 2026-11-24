@@ -104,8 +104,10 @@ const spacesIn = (text: string) => (text.trimEnd().match(/[ \u00a0]/gu) ?? []).l
 // A soft hyphen, which the browser draws as a hyphen only at a break it chose itself.
 const SOFT_HYPHEN = '\u00ad';
 
-// How far a line starts in from the content edge.
-const indentOf = (table: JustifiedLines, line: TextLine) => line.left - table.overhead / 2;
+// How far a line starts in from where the block's box draws its text: the content edge, past a
+// code block's gutter.
+const indentOf = (table: JustifiedLines, line: TextLine) =>
+  line.left - table.overhead / 2 - (table.inset ?? 0);
 
 /** How a block's lines are drawn besides their table. */
 interface LineMarksOptions {
@@ -158,7 +160,8 @@ function marksOfLine(
     const end = line.to - (text.length - text.trimEnd().length);
     marks.push({ from: line.from, to: end, class: 'de-forced-lines__justified', style });
   }
-  if (next?.side !== undefined) return marks;
+  // A line that ends at a line feed, as a code block's lines do, is broken there by the browser.
+  if (next?.side !== undefined || text.endsWith('\n')) return marks;
   // A line that ends at a soft hyphen draws its hyphen, as the engine counted it.
   const end = text.endsWith(SOFT_HYPHEN)
     ? 'de-forced-lines__end de-forced-lines__hyphen'
