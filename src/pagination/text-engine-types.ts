@@ -13,6 +13,7 @@ import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
+import type { PageVariablesOptions } from './page-variables.js';
 
 /** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
 export type TextLayoutMode = 'dom' | 'pretext';
@@ -56,6 +57,12 @@ export interface TextEngineOptions {
    * (DOCE-PAGINATION-11.12). All shown when absent.
    */
   readonly markup?: (() => SuggestionMarkup) | undefined;
+  /**
+   * Where the template variables in the pages' text get their values, as the page variables draw
+   * them (`createPageVariables`): a variable whose value is the same on every page is laid out as
+   * its text; one with no value shows none (DOCE-PAGINATION-11.13).
+   */
+  readonly variables?: PageVariablesOptions | undefined;
 }
 
 /** A text block's place on the pages. */

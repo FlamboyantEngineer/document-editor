@@ -9,6 +9,7 @@ import type { EditorView } from 'prosemirror-view';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
+import type { PageVariablesOptions } from './page-variables.js';
 import type { PagesFonts, ServedFonts } from './served-fonts.js';
 import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -28,6 +29,8 @@ export interface TextLayoutSetting {
    * shown when not given.
    */
   readonly markup?: (() => SuggestionMarkup) | undefined;
+  /** Where the template variables get their values, as the page variables draw them. */
+  readonly variables?: PageVariablesOptions | undefined;
 }
 
 /** A projection's text layout engine, once loaded. */
@@ -63,8 +66,13 @@ function servedInputs(fonts: ServedFonts) {
   };
 }
 
-// What the engine takes from the setting beside its template: the host's views and the markup.
-const settingInputs = ({ hostViews, markup }: TextLayoutSetting) => ({ hostViews, markup });
+// What the engine takes from the setting beside its template: the host's views, the markup and
+// the variables' values.
+const settingInputs = ({ hostViews, markup, variables }: TextLayoutSetting) => ({
+  hostViews,
+  markup,
+  variables,
+});
 
 // How many times the markup the pages are laid out in has changed, as it is read.
 function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => number {

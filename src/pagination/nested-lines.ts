@@ -27,6 +27,8 @@ interface NestedSource {
   readonly markup?: (() => SuggestionMarkup) | undefined;
   /** A caption's label in the measured document, whose width the caption's lines follow. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
+  /** What the template variables anywhere in a node show, as a key (`bodyVariablesKey`). */
+  readonly variablesKey?: ((node: ProseMirrorNode) => string) | undefined;
 }
 
 /**
@@ -77,7 +79,7 @@ export function createNestedLines(source: NestedSource) {
     ): ReadonlyMap<ProseMirrorNode, DrawnLines> {
       const labels = labelOf ?? source.labelOf;
       const shown = labels ? labelsKey(container, labels) : '';
-      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}|${shown}`;
+      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}${source.variablesKey?.(container) ?? ''}|${shown}`;
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
       const { geometry, recorder } = source;

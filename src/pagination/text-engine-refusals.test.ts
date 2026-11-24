@@ -75,15 +75,12 @@ function refusalsOf(file: DocumentFile): Refusals {
   return { laid, refused, reasons: Object.fromEntries([...reasons].sort()) };
 }
 
-// The blocks each document leaves to the DOM today, and why, over the whole set: a block with a
-// template variable is left to the DOM since #323. A count may only go down.
-const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {
-  'template-blocks-and-variables': 1,
-};
+// The blocks each document leaves to the DOM today, and why, over the whole set (898 laid): none,
+// since template variables in the text are laid out too (DOCE-PAGINATION-11.13). A count may only
+// go down, so a change that refuses a block fails.
+const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {};
 
-const REFUSED_BY_REASON: Readonly<Record<string, number>> = {
-  'template variable': 1,
-};
+const REFUSED_BY_REASON: Readonly<Record<string, number>> = {};
 
 beforeEach(() => {
   installFakeCanvas();

@@ -84,8 +84,9 @@ export function blockSet(
     const before = marks[index - 1];
     const around = !inner && before?.inner && before.from === from && before.to === to;
     // A mark on an inline node other than text, such as math, is drawn on the node's own element:
-    // a view draws an inline decoration only on text.
-    if (!inner && !around && isWholeAtom(node, { from, to }))
+    // a view draws an inline decoration only on text. A box on one, such as a page variable's, is
+    // drawn on it too, with the marks on its range: the stylesheet draws its value in the box.
+    if (isWholeAtom(node, { from, to }))
       return Decoration.node(from, to, {
         class: attrs.class,
         ...(attrs.style ? { style: attrs.style } : {}),

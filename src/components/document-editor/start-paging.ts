@@ -168,6 +168,8 @@ function textLayoutOf(
     codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
     hostViews: Object.keys(latest.current.nodeViews ?? {}),
     markup,
+    // The values the page variables draw (`ownPlugins`), which the text's variables are laid out in.
+    variables: { value: (key: string) => latest.current.variables?.value(key) },
   };
 }
 
