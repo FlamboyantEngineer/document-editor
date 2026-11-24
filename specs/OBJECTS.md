@@ -83,6 +83,13 @@ On a figure the context menu shall offer, after editing it, `Resize…` (`resize
 Implementation: `src/engine/figure-commands.ts`, `src/engine/figure-measure.ts`, `src/engine/object-commands.ts`, `src/components/document-editor/figure-resize-dialog.tsx`, `src/components/document-editor/figure-size.ts`, `src/components/document-editor/element-entries.ts`
 Verification: `src/engine/figure-commands.test.ts`, `src/components/document-editor/figure-size.test.ts`, `src/components/document-editor/figure-resize-dialog.test.tsx`, `e2e/objects.spec.ts`
 
+### DOCE-OBJECTS-1.12 - Copying math
+
+On inline or display math, selected or holding the selection, the context menu shall offer, right after Copy and whether or not the document is editable, `Copy equation` (`copyEquation`), which copies its typeset MathML with its LaTeX as the TeX annotation, as both HTML and plain text (the base library's `copyMath`), so word processors that read MathML paste an equation; `Copy equation's LaTeX` (`copyEquationLatex`), which copies its source as text; and `Copy equation as image` (`copyEquationImage`), which copies the drawing its layout made (`de-math__drawing`, DOCE-PAGINATION-12.11) as a PNG in black ink on a transparent ground at twice its size, the size it has before it is scaled to fit its line (`--de-math-scale`), with an HTML image at that size whose text alternative is the source (`copyMathImage`). Copy equation needs the typeset MathML and Copy equation as image the drawing; until then they are disabled. Pasted MathML whose `annotation` is `application/x-tex`, as copied equations and typeset web pages carry it, becomes math with that LaTeX: display math for `<math display="block">`, inline math otherwise.
+
+Implementation: `src/components/document-editor/math-copy-entries.ts`, `src/components/document-editor/context-entries.ts`, `src/model/schema/math-nodes.ts`
+Verification: `src/components/document-editor/math-copy-entries.test.ts`, `e2e/math-copy.spec.ts`
+
 ## DOCE-OBJECTS-2 - Captions
 
 ### DOCE-OBJECTS-2.1 - A caption's text

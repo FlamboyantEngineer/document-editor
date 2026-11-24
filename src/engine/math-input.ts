@@ -126,7 +126,7 @@ function enterDisplayMath(key: PluginKey<MathInputState>): Command {
 }
 
 /** Edits the math selected in place. */
-export function editMath(key: PluginKey<MathInputState>): Command {
+function editMath(key: PluginKey<MathInputState>): Command {
   return (state, dispatch) => {
     const { selection } = state;
     if (!(selection instanceof NodeSelection) || !isMath(selection.node)) return false;

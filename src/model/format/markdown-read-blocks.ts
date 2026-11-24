@@ -11,7 +11,7 @@ import { withObjects } from './markdown-read-captions.js';
 import { type InlineContext, readInline } from './markdown-read-inline.js';
 
 /** What block reading needs: the inline context and the Markdown read, for `$$` in a paragraph. */
-export interface BlockContext extends InlineContext {
+interface BlockContext extends InlineContext {
   readonly source: string;
 }
 

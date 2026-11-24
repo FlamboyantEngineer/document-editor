@@ -63,6 +63,12 @@ export interface DocumentEditorLabels
   readonly copy: string;
   readonly paste: string;
   readonly pasteAsText: string;
+  /** Copies the math at the selection as an equation other editors paste as math. */
+  readonly copyEquation: string;
+  /** Copies the math's LaTeX source as text. */
+  readonly copyEquationLatex: string;
+  /** Copies the math's drawing as a picture. */
+  readonly copyEquationImage: string;
   readonly addComment: string;
   readonly copyLink: string;
   readonly clearFormatting: string;
@@ -194,6 +200,9 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   copy: 'Copy',
   paste: 'Paste',
   pasteAsText: 'Paste as plain text',
+  copyEquation: 'Copy equation',
+  copyEquationLatex: "Copy equation's LaTeX",
+  copyEquationImage: 'Copy equation as image',
   addComment: 'Comment',
   copyLink: 'Copy link',
   clearFormatting: 'Clear formatting',
