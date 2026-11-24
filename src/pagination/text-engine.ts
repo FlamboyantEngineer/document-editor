@@ -15,11 +15,10 @@ import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
-import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
-import { createTextLayout } from '../layout-engine/text-layout.js';
+import { createTextLayout, type TextLayout } from '../layout-engine/text-layout.js';
 import {
   findTemplateSection,
   type LayoutBlock,
@@ -29,12 +28,12 @@ import {
 import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
-import { createDrawnAtomMeasurer } from './drawn-atoms.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { markerKey, NO_NUMBERS, type NodeNumbers, numbersByNode } from './node-numbers.js';
 import { numberedText } from './numbered-text.js';
 import { createRegionLines } from './region-lines.js';
+import { atomMeasurer, mathPlaces } from './text-engine-atoms.js';
 import { createCounts } from './text-engine-counts.js';
 import type { DrawnLines, PagesTextEngine, TextEngineOptions } from './text-engine-types.js';
 
@@ -116,14 +115,6 @@ function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
   return new Set([...TEXT_ATOMS].filter((type) => !host.has(type)));
 }
 
-// Measures atoms as the pages' measuring view draws them, or, without one, in a host of its own.
-function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
-  const { view } = options;
-  return view
-    ? createDrawnAtomMeasurer({ view, host, scale: options.scale })
-    : createDomAtomMeasurer({ host });
-}
-
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
 function engineLayouts(
   options: TextEngineOptions,
@@ -147,7 +138,14 @@ function engineLayouts(
   const select = measuringWith(measureContext);
   select();
   const host = atomHost(options.measureIn, Boolean(options.view));
-  const atoms = createAtomCache({ measure: atomMeasurer(options, host) });
+  const math = mathPlaces();
+  // The text layout is made after the atom cache it measures atoms with.
+  let laying: TextLayout | null = null;
+  const typography = () => {
+    if (!laying) throw new Error('The text layout is not made yet');
+    return laying.typography;
+  };
+  const atoms = createAtomCache({ measure: atomMeasurer(options, { host, typography }) });
   // The stylesheet's own block numbers, read where the pages' content is drawn.
   const sheet = readSheetNumbers(host);
   const text = createTextLayout({
@@ -160,6 +158,7 @@ function engineLayouts(
     language: options.language ?? '',
     reserve: options.reserve,
     measureAtom: (node, place) => atoms.measureAtom(node, place),
+    onMath: math.record,
     textAtoms: {
       types: textAtomTypes(options),
       footnoteOf: (marker) => numbers().footnoteOf(marker),
@@ -174,9 +173,12 @@ function engineLayouts(
     footnoteOf: (entry) => numbers().footnoteOf(entry),
     contentsOf: (node) => contents.of(node, numbers().doc),
     pageDigits: () => contents.digits(),
+    onMath: math.record,
   });
+  laying = text;
+  atoms.subscribe(math.forget);
   const labelOf = (caption: ProseMirrorNode) => numbers().labelOf(caption);
-  return { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf };
+  return { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf, math };
 }
 
 // A way into the engine that measures, setting Pretext's width source to the engine's own first
@@ -303,7 +305,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     lines: selecting(select, (node, place) => tables.lines(node, place)),
     nestedLines: selecting(select, (...at) => nested.lines(...at)),
     provisional: atoms.pending,
-    stats: counts.stats,
+    ...layouts.math.reading(counts.stats),
     destroy() {
       unsubscribe();
       host.remove();

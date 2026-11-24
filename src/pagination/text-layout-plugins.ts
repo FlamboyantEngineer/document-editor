@@ -3,6 +3,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';
+import { engineMath } from './engine-math.js';
 import { engineNumbers } from './engine-numbers.js';
 import { forcedLines } from './forced-lines.js';
 import { forcedRegions } from './forced-regions.js';
@@ -16,6 +17,7 @@ export function textLayoutPlugins(
   const engine = () => text.engine();
   return [
     engineNumbers({ engine, canonical: source.canonical }),
+    engineMath({ engine, version: () => text.version() }),
     forcedLines({ engine, version: () => text.version(), redraw: source.redraw }),
     forcedRegions(),
   ];

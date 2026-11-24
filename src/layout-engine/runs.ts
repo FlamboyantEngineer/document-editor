@@ -9,6 +9,7 @@ import type { AtomPlace } from './atoms.js';
 import { type BodyVariables, PAGE_VARIABLES } from './body-variables.js';
 import { isHidden } from './hidden-suggestions.js';
 import type { InsertedText } from './inserted-text.js';
+import { type MathLayouts, type MathRecorder, placeMath } from './math-atoms.js';
 import { pageBoxWidth } from './page-box.js';
 import type { ReservedBox } from './reserved-boxes.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
@@ -22,6 +23,8 @@ interface InlineAtomSize {
   readonly baseline?: number | undefined;
   /** Whether it is aligned to its line's top or bottom rather than on the baseline. */
   readonly align?: 'top' | 'bottom' | undefined;
+  /** Math sized from its layout, unscaled, which the line may scale down (DOCE-PAGINATION-12.10). */
+  readonly math?: MathLayouts | undefined;
 }
 
 /**
@@ -74,6 +77,10 @@ interface RunInput {
   /** The width of a box drawn before the content, such as a paragraph's number. */
   readonly lead?: number | undefined;
   readonly measureAtom?: MeasureAtom | undefined;
+  /** The width of the block's lines, which inline math wider than it is scaled down to. */
+  readonly lineWidth?: number | undefined;
+  /** Told each math node laid out from its layout, with its box and scale. */
+  readonly onMath?: MathRecorder | undefined;
   /** The template section the block is in, which its atoms are measured in. */
   readonly scope?: string | null | undefined;
   /**
@@ -188,10 +195,19 @@ function addAtom(
   } else {
     size = input.measureAtom?.(child, { parent: input.node, scope: input.scope }) ?? null;
     if (!size) return `no size for inline ${name}`;
+    if (size.math) size = placedInline(child, size.math, input);
     item = { width: size.width };
   }
   addText(run, { item, offset, box: size });
   return null;
+}
+
+// Inline math at the scale its line gives it: shrunk only when wider than the whole line.
+function placedInline(child: ProseMirrorNode, math: MathLayouts, input: RunInput): InlineAtomSize {
+  const placed = placeMath(math, input.lineWidth ?? Number.POSITIVE_INFINITY);
+  input.onMath?.(child, placed);
+  const { width, ascent, descent } = placed.box;
+  return { width, height: ascent + descent, baseline: ascent };
 }
 
 // A template variable as the text it shows, unbroken as an atom is, in its marks' font; nothing

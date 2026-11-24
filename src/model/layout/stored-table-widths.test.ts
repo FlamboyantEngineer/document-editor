@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { StoredNode } from '../format/document-format.js';
 import { fitStoredTables } from './stored-table-widths.js';
 
-const cell = (colwidth: number[] | null, colspan = 1): StoredNode => ({
+const cell = (colwidth: number[] | null, colspan = 1, rowspan = 1): StoredNode => ({
   type: 'tableCell',
-  attrs: { ...(colspan > 1 ? { colspan } : {}), ...(colwidth ? { colwidth } : {}) },
+  attrs: {
+    ...(colspan > 1 ? { colspan } : {}),
+    ...(rowspan > 1 ? { rowspan } : {}),
+    ...(colwidth ? { colwidth } : {}),
+  },
   content: [{ type: 'paragraph' }],
 });
 
@@ -24,6 +28,16 @@ describe('fitting stored tables', () => {
       [[150], [150], [300]],
       [[150, 150], [300]],
     ]);
+  });
+
+  it('DOCE-IMPORT-3.3 gives a cell beside one spanning rows the width of its own column', () => {
+    const wide = table(
+      [cell([300], 1, 2), cell([300]), cell([600])],
+      [cell([300, 600], 2)],
+      [cell([300]), cell([300]), cell([600])],
+    );
+    const [fitted] = fitStoredTables([wide], 600);
+    expect(widths(fitted)).toEqual([[[150], [150], [300]], [[150, 300]], [[150], [150], [300]]]);
   });
 
   it('DOCE-IMPORT-3.3 fits tables nested in other blocks and leaves narrow ones as they are', () => {
