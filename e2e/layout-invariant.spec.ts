@@ -139,6 +139,42 @@ test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () =>
     const [first] = mismatches;
     expect(first?.drawn?.length ?? 0).toBeGreaterThan(first?.computed.length ?? 0);
   });
+
+  test('DOCE-LABS-8.1 linked code whose lines the engine wraps', async ({ page }) => {
+    for (const zoom of [50, 100, 175]) {
+      await open(page, 'linked-code', zoom);
+      // Long lines, highlighted, one with an emoji no served font draws, from line 998 so the
+      // gutter widens to four digits.
+      const code = [
+        `export const readings = [${Array.from({ length: 40 }, (_, at) => String(at)).join(', ')}];`,
+        'const short = 1;',
+        `// ${'station 🛰 '.repeat(14)}`,
+        '',
+        `const text = "${'wrapped words '.repeat(12)}";\n`,
+      ].join('\n');
+      await page.evaluate(
+        (linked) => {
+          const file = window.regressionLab.stored();
+          const section = file?.sections[0];
+          if (!file || !section) throw new Error('The regression lab holds no document');
+          const content = section.content.map((block) =>
+            block.type === 'linkedCode'
+              ? { ...block, attrs: { ...block.attrs, ...linked } }
+              : block,
+          );
+          window.regressionLab.load({ ...file, sections: [{ ...section, content }] });
+        },
+        { code, language: 'typescript', startLine: 998 },
+      );
+      await waitForLab(page);
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      await settle(page);
+      const wraps = page.locator('.linked-code-block.de-forced-lines code .de-forced-lines__end');
+      expect(await wraps.count(), 'lines the engine wrapped in linked code').toBeGreaterThan(4);
+      await expectOneResult(page);
+      expect(await misplacedLineNumbers(page), 'code line numbers off their lines').toEqual([]);
+    }
+  });
 });
 
 // The pages of the editor, and those of them painted into a canvas (DOCE-EDITOR-1.9).
@@ -608,17 +644,21 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // The paragraphs in tables' cells, lists' items and quotes, and the text blocks of headers, footers and
 // footnote areas, are on forced lines and counted too (DOCE-PAGINATION-11.2); the top-level
 // blocks' line fingerprints did not move.
+// Code figures and their captions are planned by the engine, each part of a split code figure with
+// its caption (DOCE-PAGINATION-9.11), and margins are truncated to the layout unit as Chromium draws
+// them (8pt is 10.656px, not 10.672px; DOCE-PAGINATION-9.2): the planned heights moved, and the
+// oversized quote holding a code figure is on forced lines.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '685c13b50fa7abf4' },
-  'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7c217daccffd64de' },
+  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '5b4ca33a9e63f4d1' },
+  'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '3917f81eb2ce04de', heights: 'f9afd020ec769c5d' },
-  'oversized-blocks': { lines: 'fe559153854567b1', heights: 'f3be75ce06ce1c8d' },
-  'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: '19718eeba63c6a81' },
+  'long-mixed': { lines: '3917f81eb2ce04de', heights: 'fff1aac6498b64ce' },
+  'oversized-blocks': { lines: 'f99df5a739cff8f2', heights: 'f3be75ce06ce1c8d' },
+  'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: 'd40800e840119375' },
 };
 
 const digest = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);

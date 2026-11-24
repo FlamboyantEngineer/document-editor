@@ -45,6 +45,17 @@ describe('pagesLayout', () => {
     }
   });
 
+  it('DOCE-PAGINATION-13.2 leaves linked code, which a static drawing draws from its markup, out of the blocks', () => {
+    const doc = pagesDocument([
+      page([
+        paragraph('aaaaaaaaaabb', { dataId: 'p1' }),
+        node('linked_code_block', { dataId: 'lk', code: 'abcdefghijklmn' }),
+      ]),
+    ]);
+    const layout = pagesLayout(pagesState(doc, stubEngine()));
+    expect(layout?.blocks.map(({ pos }) => doc.nodeAt(pos)?.type.name)).toEqual(['paragraph']);
+  });
+
   it('DOCE-PAGINATION-13.2 holds the pages document and each variable as the pages show it', () => {
     const footer = [
       node('paragraph', null, [

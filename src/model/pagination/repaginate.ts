@@ -25,14 +25,28 @@ export function sameStructure(left: ProseMirrorNode, right: ProseMirrorNode): bo
   return true;
 }
 
-// Gives the node at `pos` and its descendants the attributes of `target`'s, which has its structure.
-function copyAttrs(tr: Transform, pos: number, target: ProseMirrorNode) {
-  const node = tr.doc.nodeAt(pos);
-  if (!node || node === target || node.isText) return;
+// Gives `node`, at `pos` in the transform's document, and its descendants the attributes of
+// `target`'s, which has its structure. Attribute steps move no position, so the walk reads `node`
+// rather than looking each descendant up again.
+function copyAttrsOf(
+  tr: Transform,
+  pos: number,
+  pair: { node: ProseMirrorNode; target: ProseMirrorNode },
+) {
+  const { node, target } = pair;
+  if (node === target || node.isText) return;
   for (const [name, value] of Object.entries(target.attrs)) {
     if (!sameValue(node.attrs[name], value)) tr.setNodeAttribute(pos, name, value);
   }
-  node.forEach((_child, offset, index) => copyAttrs(tr, pos + 1 + offset, target.child(index)));
+  node.forEach((child, offset, index) =>
+    copyAttrsOf(tr, pos + 1 + offset, { node: child, target: target.child(index) }),
+  );
+}
+
+// Gives the node at `pos` and its descendants the attributes of `target`'s, which has its structure.
+function copyAttrs(tr: Transform, pos: number, target: ProseMirrorNode) {
+  const node = tr.doc.nodeAt(pos);
+  if (node) copyAttrsOf(tr, pos, { node, target });
 }
 
 // A repagination in progress: the transform, the document it moves onto, and the fragment rules.

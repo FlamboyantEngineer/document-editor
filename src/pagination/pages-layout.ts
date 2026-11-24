@@ -57,8 +57,9 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
     const forced = region
       ? regionBlocksOf(engine, node, { pos, scope, shown: pageVariablesKey.getState(state) })
       : forcedBlocksOf(engine, node, place);
-    for (const { node: block, pos: at, table, prefix } of forced) {
-      if (!table) continue;
+    for (const { node: block, pos: at, table, prefix, owner } of forced) {
+      // Linked code's lines are drawn by its view; a static drawing draws it from its markup.
+      if (!table || owner) continue;
       const indent = prefix ? firstLineIndent(table) : null;
       const rtl = drawnDirection(directions, { node: block, pos: at }) === 'rtl';
       blocks.push({

@@ -8,7 +8,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { LayoutBlock } from '../model/index.js';
-import { unzoom } from './measure-scale.js';
+import { layoutMargin, unzoom } from './measure-scale.js';
 
 /** Measured blocks kept by node, so a block that has not changed is not measured again. */
 export interface MeasureCache {
@@ -233,8 +233,8 @@ function passedMargin(style: CSSStyleDeclaration, element: Element, side: 'top' 
 export function margins(element: HTMLElement): { marginTop: number; marginBottom: number } {
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
   const own = {
-    marginTop: px(blockMargin(style, 'start')),
-    marginBottom: px(blockMargin(style, 'end')),
+    marginTop: layoutMargin(px(blockMargin(style, 'start'))),
+    marginBottom: layoutMargin(px(blockMargin(style, 'end'))),
   };
   if (!style) return own;
   return {
