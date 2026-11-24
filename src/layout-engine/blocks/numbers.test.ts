@@ -9,7 +9,6 @@ import { captionNumbers } from './numbers.js';
 const schema = createDocumentSchema();
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
-const paragraph = (value: string): StoredNode => ({ type: 'paragraph', content: [text(value)] });
 
 function documentOf(content: StoredNode[]): ProseMirrorNode {
   return readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, schema).doc;
