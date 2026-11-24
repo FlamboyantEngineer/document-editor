@@ -3,10 +3,8 @@
 // text it shows. One whose value is its page's own, the page's number or the page count, would
 // make a block's height depend on the page it lands on, so it takes a box of a fixed width: room
 // for as many of its font's zeros as the page count has digits, at least three, which the pages
-// draw its number in, right-aligned.
-
-import { ceilUnit } from './contents-row.js';
-import { textWidth } from './metrics.js';
+// draw its number in, right-aligned (`pageBoxWidth`). This module measures nothing, so the pages'
+// main bundle can read it without the engine.
 
 /** What the template variables of a page's body text show, for the engine to lay them out. */
 export interface BodyVariables {
@@ -18,8 +16,3 @@ export interface BodyVariables {
 
 /** The variables whose value is their page's own: its number and the page count. */
 export const PAGE_VARIABLES: ReadonlySet<string> = new Set(['page.current', 'page.total']);
-
-/** The width of the box a page variable is drawn in: its digits' zeros, to the layout unit. */
-export function pageBoxWidth(digits: number, font: string): number {
-  return ceilUnit(Math.max(1, Math.floor(digits)) * textWidth('0', font));
-}

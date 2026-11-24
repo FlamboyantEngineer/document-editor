@@ -6,9 +6,10 @@ import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inlin
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { citationIdentifiers } from '../model/citation-identifiers.js';
 import type { AtomPlace } from './atoms.js';
-import { type BodyVariables, PAGE_VARIABLES, pageBoxWidth } from './body-variables.js';
+import { type BodyVariables, PAGE_VARIABLES } from './body-variables.js';
 import { isHidden } from './hidden-suggestions.js';
 import type { InsertedText } from './inserted-text.js';
+import { pageBoxWidth } from './page-box.js';
 import type { ReservedBox } from './reserved-boxes.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';

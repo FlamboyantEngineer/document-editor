@@ -7,9 +7,9 @@ import { documentSchema, findNode, parseMarkup } from '../../test/document-marku
 import type { TemplateFile } from '../model/format/template-format.js';
 import { planParagraphSplit } from '../model/pagination/text-split.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
-import { pageBoxWidth } from './body-variables.js';
 import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
+import { pageBoxWidth } from './page-box.js';
 import { createTextLayout, lineTableMeasurement, type TextLayoutOptions } from './text-layout.js';
 import { fontString } from './typography.js';
 
