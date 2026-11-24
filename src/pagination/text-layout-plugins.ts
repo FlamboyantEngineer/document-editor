@@ -17,8 +17,9 @@ export function textLayoutPlugins(
   const engine = () => text.engine();
   return [
     engineNumbers({ engine, canonical: source.canonical }),
-    engineMath({ engine, version: () => text.version() }),
     forcedLines({ engine, version: () => text.version(), redraw: source.redraw }),
     forcedRegions(),
+    // After the forced lines, whose lines lay their blocks out and so place their math.
+    engineMath({ engine, version: () => text.version() }),
   ];
 }

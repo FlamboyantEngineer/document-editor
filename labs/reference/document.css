@@ -1966,8 +1966,9 @@ a.de-contents__entry {
 /* Math the engine placed (DOCE-PAGINATION-12.10, 12.12) takes exactly its box: `--de-math-width`
    wide, `--de-math-ascent` above the baseline and `--de-math-descent` below it, the scale to fit
    already applied. Drawn from its layout (`laid`), its SVG fills the box and its MathML is hidden
-   from sight but kept for screen readers, copy and find; a display equation's SVG is centred and
-   its tag sits at the line's end on the same baseline. In the reserved box (`reserved`), the
+   from sight but kept for screen readers, copy and find; a display equation's SVG is centred, or
+   moved towards the line's start as far as it must to keep clear of the room `--de-math-end` its
+   tag or automatic number takes at the line's end, and its tag sits there on the same baseline. In the reserved box (`reserved`), the
    MathML is centred in the box and may reach past it without moving anything. */
 .de-math[data-math-layout] {
   position: relative;
@@ -1994,7 +1995,13 @@ a.de-contents__entry {
 
 .de-math[data-math-layout][data-display='display'] > .de-math__drawing {
   margin-block-start: calc(var(--de-math-top) - var(--de-math-ascent));
-  margin-inline: auto;
+  margin-inline-start: max(
+    0px,
+    min(
+      calc((100% - var(--de-math-width)) / 2),
+      calc(100% - var(--de-math-end, 0px) - var(--de-math-width))
+    )
+  );
 }
 
 .de-math[data-math-layout] > .de-math__tag {

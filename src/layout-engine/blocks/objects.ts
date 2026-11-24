@@ -147,7 +147,7 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
     context.place.scope,
   );
   if (!size?.math) return atomBlock(context, node, margins);
-  const placed = placeMath(size.math, context.place.width);
+  const placed = placeMath(size.math, context.place.width, numberWidth(context, node));
   context.options.onMath?.(node, placed);
   const { ascent, descent } = placed.box;
   const tag = size.math.tag;
@@ -163,6 +163,12 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
     },
     size.provisional,
   );
+}
+
+// The width of a display equation's automatic number, in its font; 0 without one.
+function numberWidth({ options, place }: BlockContext, node: ProseMirrorNode): number {
+  const number = options.equationOf?.(node);
+  return number ? (options.text.textWidth?.(number, node, place.scope) ?? 0) : 0;
 }
 
 /** A horizontal rule: its borders, with the stylesheet's margins. */
