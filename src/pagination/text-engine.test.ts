@@ -210,6 +210,38 @@ describe('the engine on page regions', () => {
     pages.destroy();
   });
 
+  it("DOCE-PAGINATION-11.2 gives a layout section's column paragraphs the lines it lays them out on", () => {
+    const pages = engine();
+    const words = 'aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm';
+    const column = (value: string) =>
+      type('layout_column').create(null, [type('paragraph').create(null, text(value))]);
+    const item = type('list_item').create(null, [type('paragraph').create(null, text('b'))]);
+    const list = type('bullet_list').create(null, [item]);
+    const listed = type('layout_column').create(null, [list]);
+    const section = type('layout_section').create({ preset: 'thirds' }, [
+      column(words),
+      listed,
+      column(words),
+    ]);
+    const lines = pages.nestedLines(section, null);
+    const paragraphs: ProseMirrorNode[] = [];
+    section.descendants((node) => {
+      if (node.type.name === 'paragraph') paragraphs.push(node);
+      return true;
+    });
+    // A list's item paragraph in a column too.
+    expect(paragraphs.map((node) => lines.has(node))).toEqual([true, true, true]);
+    // Laid out in its column's width, a third of the page's less the gaps.
+    const [first] = paragraphs;
+    if (!first) throw new Error('no paragraph');
+    const drawn = lines.get(first);
+    const own = pages.lines(first, { scope: null });
+    expect(drawn?.width).toBeLessThan((own?.width ?? 0) / 3);
+    expect(drawn?.lines.length).toBeGreaterThan(own?.lines.length ?? 0);
+    expect(pages.nestedLines(section, null)).toBe(lines);
+    pages.destroy();
+  });
+
   it('DOCE-PAGINATION-11.10 gives a footnote area the shape measured footnotes take', () => {
     const pages = engine();
     const entry = (id: string) =>
