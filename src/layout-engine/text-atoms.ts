@@ -23,7 +23,7 @@ export const REFUSED_TEXT_ATOMS: ReadonlyMap<string, string> = new Map<string, s
 
 /** What a text atom's text comes from. */
 export interface TextAtomSource {
-  /** A footnote marker's number (`blockNumbers`); a marker without one draws nothing. */
+  /** A footnote marker's number (`numbersByNode`); a marker without one draws nothing. */
   readonly footnoteOf?: ((marker: ProseMirrorNode) => string | undefined) | undefined;
   /** Text atoms not laid out, with why (`REFUSED_TEXT_ATOMS`); none by default. */
   readonly refused?: ReadonlyMap<string, string> | undefined;
