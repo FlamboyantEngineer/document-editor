@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { holdMeasureScale, MEASURE_ZOOM_PROPERTY, measuredZoom, unzoom } from './measure-scale.js';
+import {
+  holdMeasureScale,
+  layoutMargin,
+  MEASURE_ZOOM_PROPERTY,
+  measuredZoom,
+  unzoom,
+} from './measure-scale.js';
 
 // A window's resolution query that a test can change, as moving to another screen does.
 function screens(ratio: number) {
@@ -53,5 +59,14 @@ describe('holdMeasureScale', () => {
     expect(unzoom(708.425, 0.8)).toBe(885.53125);
     expect(unzoom(295.177, 1 / 3)).toBe(885.53125);
     expect(unzoom(41.0625, 1)).toBe(41.0625);
+  });
+
+  it('DOCE-PAGINATION-2.2 truncates a computed margin to the layout unit, as Chromium lays it out', () => {
+    expect(layoutMargin(9.33333)).toBe(9.328125);
+    expect(layoutMargin(18.6667)).toBe(18.65625);
+    expect(layoutMargin(10.65625)).toBe(10.65625);
+    expect(layoutMargin(8)).toBe(8);
+    expect(layoutMargin(-9.33333)).toBe(-9.328125);
+    expect(layoutMargin(0)).toBe(0);
   });
 });
