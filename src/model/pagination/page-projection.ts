@@ -24,12 +24,6 @@ interface SectionParts {
   readonly entries: ReadonlyMap<string, ProseMirrorNode>;
 }
 
-function childrenOf(node: ProseMirrorNode | undefined): ProseMirrorNode[] {
-  const nodes: ProseMirrorNode[] = [];
-  node?.forEach((child) => nodes.push(child));
-  return nodes;
-}
-
 function footnoteId(node: ProseMirrorNode): string | null {
   const id = node.attrs.footnoteId as unknown;
   return typeof id === 'string' && id ? id : null;
@@ -39,12 +33,12 @@ function footnoteId(node: ProseMirrorNode): string | null {
 function sectionParts(section: ProseMirrorNode): SectionParts | null {
   const page = section.firstChild;
   if (page?.type.name !== 'page') return null;
-  const regions = new Map(childrenOf(page).map((region) => [region.type.name, region]));
+  const regions = new Map(page.children.map((region) => [region.type.name, region]));
   const blocks: ProseMirrorNode[] = [];
   const entries = new Map<string, ProseMirrorNode>();
   section.forEach((each) => {
     each.forEach((region) => {
-      if (region.type.name === 'page_content') blocks.push(...childrenOf(region));
+      if (region.type.name === 'page_content') blocks.push(...region.children);
       if (region.type.name !== 'page_footnotes') return;
       region.forEach((entry) => {
         const id = footnoteId(entry);
@@ -94,7 +88,7 @@ function projectPage(parts: SectionParts, blocks: readonly ProseMirrorNode[], pl
   const ids = citedFootnotes(blocks).filter((id) => !placing.placed.has(id));
   for (const id of ids) placing.placed.add(id);
   const pageNumbers = { pageNumber: placing.page, totalPages: placing.totalPages };
-  const regions = childrenOf(parts.page).map((region) => {
+  const regions = parts.page.children.map((region) => {
     const name = region.type.name;
     if (name === 'page_header' || name === 'page_footer') return withAttrs(region, pageNumbers);
     const content = name === 'page_content' ? blocks : footnoteEntries(parts, ids);
@@ -128,7 +122,7 @@ export function projectDocument(
     totalPages,
   };
   let sectionIndex = 0;
-  const content = childrenOf(whole).map((child) => {
+  const content = whole.children.map((child) => {
     if (child.type.name !== 'page_section') return child;
     const index = sectionIndex;
     sectionIndex += 1;

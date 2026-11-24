@@ -2,7 +2,7 @@
 // block or the mark they stand for, and plain typography becomes its typeset character. Backspace
 // right after one takes it back to what was typed. Code keeps what is typed.
 
-import { ellipsis, InputRule, inputRules, smartQuotes } from 'prosemirror-inputrules';
+import { ellipsis, emDash, InputRule, inputRules, smartQuotes } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import type {
   Attrs,
@@ -207,7 +207,7 @@ export const TYPOGRAPHY_RULES: readonly InputRule[] = [
   ...smartQuotes,
   ellipsis,
   // `--` becomes an em dash; a third `-` alone in a paragraph then makes a rule.
-  replace(/--$/, '—'),
+  emDash,
   replace(/->$/, '→'),
   replace(/<-$/, '←'),
   // `<-` became a left arrow; a `>` typed after it makes the arrow both ways.

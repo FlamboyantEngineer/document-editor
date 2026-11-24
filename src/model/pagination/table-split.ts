@@ -8,12 +8,6 @@ import { splitHeldWith } from './held-split.js';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
 import { splitPartOf } from './split-part.js';
 
-function rowsOf(table: ProseMirrorNode): ProseMirrorNode[] {
-  const rows: ProseMirrorNode[] = [];
-  table.forEach((row) => rows.push(row));
-  return rows;
-}
-
 /** Whether every cell of a row is a header cell. */
 export function isHeaderRow(row: ProseMirrorNode): boolean {
   let header = row.childCount > 0;
@@ -25,7 +19,7 @@ export function isHeaderRow(row: ProseMirrorNode): boolean {
 
 /** How many of a table's rows lead it as header rows. */
 export function leadingHeaderRows(table: ProseMirrorNode): number {
-  const rows = rowsOf(table);
+  const rows = table.children;
   const count = rows.findIndex((row) => !isHeaderRow(row));
   return count < 0 ? rows.length : count;
 }
@@ -82,7 +76,7 @@ interface Fit {
 export function splitTableWith(repeatHeader: boolean) {
   return (block: LayoutBlock, fitting: number): SplitBlock | null => {
     const { node } = block;
-    const rows = rowsOf(node);
+    const rows = node.children;
     if (!isContainerMeasurement(block.measurement)) return null;
     const layouts = block.measurement.children;
     const headerCount = leadingHeaderRows(node);

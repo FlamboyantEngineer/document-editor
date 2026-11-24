@@ -65,12 +65,6 @@ function mergeIntoPrevious(tr: Transform, sectionPos: number, index: number): nu
   return contentEnd;
 }
 
-function children(node: ProseMirrorNode | null | undefined): ProseMirrorNode[] {
-  const nodes: ProseMirrorNode[] = [];
-  node?.forEach((child) => nodes.push(child));
-  return nodes;
-}
-
 // The pages from `from` through `last` join in pairs, round after round, so each block is copied
 // into a joined page a number of times that grows with the log of the pages rather than with the
 // pages. Within a round the later pairs join first, so the earlier pages stay put. Each merge is
@@ -211,7 +205,11 @@ export function joinSectionPages(
   const page = pageAt(tr, sectionPos, from);
   const contentPos = page ? regionStarts(page.page, page.pos).get('page_content') : undefined;
   if (contentPos === undefined) return;
-  joinBlocks(tr, { from: contentPos + 1, blocks: children(tr.doc.nodeAt(contentPos)) }, rules);
+  joinBlocks(
+    tr,
+    { from: contentPos + 1, blocks: tr.doc.nodeAt(contentPos)?.children ?? [] },
+    rules,
+  );
 }
 
 /**
