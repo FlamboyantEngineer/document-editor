@@ -249,6 +249,29 @@ describe('forcedLines', () => {
     ]);
   });
 
+  it("DOCE-PAGINATION-11.2 marks each paragraph in a layout section's columns, and in their lists", () => {
+    const column = (blocks: Node[]) => create('layout_column', null, blocks);
+    const item = create('list_item', null, [paragraph('bb', { dataId: 'l1' })]);
+    const section = create('layout_section', { preset: 'halves' }, [
+      column([paragraph('aaaaaaaaaaa', { dataId: 'c1' })]),
+      column([create('bullet_list', null, [item])]),
+    ]);
+    const doc = pagesDoc([[section]]);
+    const first = positionOf(doc, 'aaaaaaaaaaa');
+    const second = positionOf(doc, 'bb');
+    const state = stateWith(doc, stubEngine().engine);
+    expect(drawn(state)).toEqual([
+      { from: first, to: first + 13, class: 'de-forced-lines', 'data-lines': '2', dir: 'ltr' },
+      { from: first + 10, to: first + 11, class: 'de-forced-lines__end' },
+      { from: second, to: second + 4, class: 'de-forced-lines', 'data-lines': '1', dir: 'ltr' },
+    ]);
+    const [page] = pageTextLines(state);
+    expect(page?.blocks.map(({ elementId, nested }) => ({ elementId, nested }))).toEqual([
+      { elementId: 'c1', nested: true },
+      { elementId: 'l1', nested: true },
+    ]);
+  });
+
   it('DOCE-PAGINATION-11.2 marks each paragraph in a quote', () => {
     const quote = create('blockquote', null, [paragraph('qq', { dataId: 'q1' })]);
     const doc = pagesDoc([[quote]]);

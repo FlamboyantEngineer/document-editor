@@ -128,6 +128,7 @@ const DOCUMENTS: readonly RegressionDocumentName[] = [
   'list-split-stress',
   'caption-numbering',
   'mixed-geometry',
+  'columns',
 ];
 
 const SEEDS = Number(process.env.EDIT_LAYOUT_SEEDS ?? 2);

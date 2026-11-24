@@ -85,6 +85,18 @@ describe('atom cache', () => {
     expect(measure).toHaveBeenCalledTimes(2);
   });
 
+  it('DOCE-PAGINATION-10.1 keys a figure without its caption, which the engine lays out as text', () => {
+    const figure = (caption: string) =>
+      schema.node('figure', { src: 'https://example.org/a.png' }, [
+        schema.node('figure_caption', null, caption ? schema.text(caption) : undefined),
+      ]);
+    expect(atomKey(figure('Before'), 300)).toBe(atomKey(figure('After typing'), 300));
+    const other = schema.node('figure', { src: 'https://example.org/b.png' }, [
+      schema.node('figure_caption'),
+    ]);
+    expect(atomKey(other, 300)).not.toBe(atomKey(figure(''), 300));
+  });
+
   it('DOCE-PAGINATION-10.1 keys block atoms by their width to the layout unit', () => {
     const node = equation('a + b');
     expect(atomKey(node, 300)).toBe(atomKey(node, 300.001));

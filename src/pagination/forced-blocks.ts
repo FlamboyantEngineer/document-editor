@@ -19,6 +19,7 @@ const NESTED_TYPES: ReadonlySet<string> = new Set([
   'bullet_list',
   'ordered_list',
   'blockquote',
+  'layout_section',
 ]);
 
 /** A text block of a page and the lines it is drawn on, or why the browser draws it. */

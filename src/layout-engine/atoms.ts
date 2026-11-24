@@ -101,6 +101,9 @@ const INLINE_WIDTH = 0;
 // Widths are kept to Chromium's layout unit, so a width that differs below it shares an entry.
 const LAYOUT_UNITS_PER_PX = 64;
 
+// The atoms whose content the engine lays out as text, not part of their box: a figure's caption.
+const TEXT_CONTENT_ATOMS: ReadonlySet<string> = new Set(['figure']);
+
 function contentAttrs(node: ProseMirrorNode): Record<string, unknown> {
   const attrs: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(node.attrs)) {
@@ -110,8 +113,8 @@ function contentAttrs(node: ProseMirrorNode): Record<string, unknown> {
 }
 
 /**
- * The key an atom is cached by: its type, the attributes that show, its marks and its content, the
- * width it is laid out in, the text a view draws in it, if any, and where it is drawn: its scope
+ * The key an atom is cached by: its type, the attributes that show, its marks and its content (but
+ * not a figure's caption, which the engine lays out as text), the width it is laid out in, the text a view draws in it, if any, and where it is drawn: its scope
  * and the type and shown attributes of the text block holding it, whose font it takes. Two atoms
  * with the same key draw the same box.
  */
@@ -122,7 +125,7 @@ export function atomKey(node: ProseMirrorNode, width: number, drawing: AtomDrawi
     node.type.name,
     contentAttrs(node),
     node.marks.map((mark) => mark.toJSON() as unknown),
-    node.content.toJSON() as unknown,
+    TEXT_CONTENT_ATOMS.has(node.type.name) ? null : (node.content.toJSON() as unknown),
     units,
     place.scope ?? null,
     place.parent ? [place.parent.type.name, contentAttrs(place.parent)] : null,
