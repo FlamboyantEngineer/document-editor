@@ -22,7 +22,7 @@ export interface ExportRequest {
   readonly content: DocumentFile;
   /** The document's print snapshot, once its pages have settled and their images and fonts loaded. */
   snapshot(options?: ExportSnapshotOptions): Promise<string>;
-  /** Aborted when the editor unmounts. */
+  /** Aborted when the editor unmounts or a React Activity hides it. */
   readonly signal: AbortSignal;
 }
 

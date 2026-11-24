@@ -78,10 +78,12 @@ Verification: `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-2.4 - Column widths
 
-While the pointer is on a cell's side border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers (DOCE-EDITING) offers no border. Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. On release the widths are kept in every cell of the whole table (`setColumnWidths`), each cell taking the widths of the columns the table's grid places it in, so a cell beside one spanning rows from above takes its own column's width; a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags, on every part of a table the pages split, found by the table's id.
+While the pointer is on a cell's side border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers (DOCE-EDITING) offers no border. Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. On release the widths are kept in every cell of the whole table (`setColumnWidths`), each cell taking the widths of the columns the table's grid places it in, so a cell beside one spanning rows from above takes its own column's width; a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags, on every part of a table the pages split, found by the table's id. On release the preview widths shall be cleared and the table shall draw from its committed widths, fitted to the available space under Pretext (DOCE-PAGINATION-10.5).
 
-Implementation: `src/engine/table-resize.ts`, `src/engine/table-border-hover.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
-Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`, `e2e/regression.spec.ts`
+When an edit redraws a column group during a drag, moving the pointer and clearing the preview on release shall preserve the newly drawn sizing.
+
+Implementation: `src/engine/table-resize.ts`, `src/engine/table-border-hover.ts`, `src/engine/object-views.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
+Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`, `e2e/table-widths.spec.ts`, `e2e/regression.spec.ts`
 
 ## DOCE-TABLES-3 - Formatting tables
 
@@ -143,9 +145,9 @@ Verification: `src/engine/table-headers.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.9 - Splitting a cell
 
-`splitTableCell(axis)` shall split the cell holding the caret, or the one cell selected: a merged cell back into the cells it covers, and any other in two, side by side (`column`, the column's width halved and the column's other cells spanning both) or one above the other (`row`, a row below whose other cells span both), with the caret in the new cell, on the whole table. Several selected cells are refused. The context menu's `Split cell` entry offers both.
+`splitTableCell(axis)` shall split the cell holding the caret, or the one cell selected: a merged cell back into the cells it covers, and any other in two, side by side (`column`, the column's width halved and the column's other cells spanning both) or one above the other (`row`, a row below whose other cells span both), with the caret in the new cell, on the whole table. Several selected cells are refused. The context menu's `Split cell` entry offers both. The updated column sizing shall keep the caret in the added cell so the writer can type into it immediately after choosing the action.
 
-Implementation: `src/engine/table-split.ts`, `src/components/document-editor/table-actions.ts`
+Implementation: `src/engine/table-split.ts`, `src/engine/object-views.ts`, `src/components/document-editor/table-actions.ts`
 Verification: `src/engine/table-split.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.10 - Equal rows

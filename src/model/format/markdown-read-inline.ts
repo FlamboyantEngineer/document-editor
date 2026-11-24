@@ -13,9 +13,11 @@ import type {
   RootContent,
   Strong,
 } from 'mdast';
-import type { ImportWarnings } from '../../import/import-warnings.js';
 import { joinText, textNode, withMark } from '../../import/stored-inline.js';
+import { cloneJson } from '../clone-json.js';
 import type { StoredMark, StoredNode } from './document-format.js';
+import type { MarkdownWarning } from './markdown-read.js';
+import { flattenDeepNesting } from './markdown-read-depth.js';
 
 /** What inline reading needs from the whole document. */
 export interface InlineContext {
@@ -23,7 +25,8 @@ export interface InlineContext {
   readonly links: ReadonlyMap<string, Definition>;
   /** Footnote definitions, by identifier. */
   readonly notes: ReadonlyMap<string, FootnoteDefinition>;
-  readonly warnings: ImportWarnings;
+  readonly noteContents: WeakMap<FootnoteDefinition, StoredNode[]>;
+  readonly warn: MarkdownWarning;
   /** Whether footnote references are read; not inside a footnote's own text. */
   readonly inNote?: boolean | undefined;
 }
@@ -86,13 +89,20 @@ const image = (src: string, alt: string | null | undefined): StoredNode => ({
 
 // A footnote's text: its paragraphs' content, one space between them.
 function noteContent(definition: FootnoteDefinition, context: InlineContext): StoredNode[] {
+  const cached = context.noteContents.get(definition);
+  if (cached) return cloneJson(cached);
+  flattenDeepNesting(definition, context.warn);
   const inner = { ...context, inNote: true };
   const parts = definition.children.map((block) =>
     block.type === 'paragraph'
       ? readInline(block.children, inner)
       : [textNode(plainText(block), [])],
   );
-  return joinText(parts.flatMap((part, index) => (index ? [textNode(' ', []), ...part] : part)));
+  const content = joinText(
+    parts.flatMap((part, index) => (index ? [textNode(' ', []), ...part] : part)),
+  );
+  context.noteContents.set(definition, content);
+  return content;
 }
 
 /** The text a block holds, for a footnote's text, which holds no blocks. */
@@ -146,7 +156,7 @@ const READERS: { readonly [T in PhrasingContent['type']]: Reader<T> } = {
   html: (node, _marks, context) => {
     const tag = tagOf(node);
     if (tag?.name === 'br') return [{ type: 'lineBreak' }];
-    context.warnings.add('content-left-out', tag ? `<${tag.name}>` : 'HTML');
+    context.warn(node, tag ? `<${tag.name}>` : 'HTML');
     return [];
   },
 };

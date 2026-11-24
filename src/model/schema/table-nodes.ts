@@ -4,10 +4,12 @@
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
+import { proportionColumns } from '../layout/column-widths.js';
 import { type DomAttributes, TABLE_BORDER_CLASSES } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 import {
   firstRowColumnWidths,
+  type ObjectLayout,
   objectLayoutCss,
   parseObjectLayout,
   tableColumnTotalCss,
@@ -16,6 +18,7 @@ import {
 
 type OutputSpec = ReturnType<NonNullable<NodeSpec['toDOM']>>;
 type CellName = 'table_cell' | 'table_header';
+type ColumnSizing = 'fixed' | 'mixed' | 'fit' | null;
 
 // `(paragraph | block)+` admits exactly what `block+` does, but lists `paragraph` first, so a new
 // row, column or split cell gets an empty paragraph rather than the first block type in order.
@@ -58,12 +61,13 @@ function readTableAttrs(dom: HTMLElement) {
  * The column group that sizes a table's columns: an aligned table's columns always, an unaligned
  * table's columns that have a width. Every table has one, as column resizing expects.
  */
-function columnGroup(widths: readonly number[], fitted: boolean, mixed: boolean) {
+function columnGroup(widths: readonly number[], sizing: ColumnSizing) {
   const total = widths.reduce((sum, width) => sum + (width || 0), 0);
-  const fixed = mixed ? widths.filter((width) => width > 0).length : 0;
-  const columns = widths.map((width) => {
+  const fixed = sizing === 'mixed' ? widths.filter((width) => width > 0).length : 0;
+  const proportions = sizing === 'fixed' || sizing === 'fit' ? proportionColumns(widths, 100) : [];
+  const columns = widths.map((width, index) => {
     if (!width) return ['col'];
-    if (mixed) {
+    if (sizing === 'mixed') {
       // Limit fixed columns proportionally, leaving an equal share for each unset column.
       const share = (width * fixed) / (total * widths.length);
       const cap = `calc(var(--doc-table-column-room) * ${String(share)})`;
@@ -74,33 +78,40 @@ function columnGroup(widths: readonly number[], fitted: boolean, mixed: boolean)
         },
       ];
     }
+    const proportion = `${String(proportions[index])}%`;
+    if (sizing === 'fit') return ['col', { style: `width:${proportion}` }];
     return [
       'col',
-      { style: `width:${fitted ? `${String((100 * width) / total)}%` : `${String(width)}px`}` },
+      {
+        style: `width:var(--doc-table-column-width, ${String(width)}px);--doc-table-column-proportion:${proportion}`,
+      },
     ];
   });
   return ['colgroup', ...columns];
+}
+
+function columnSizing(layout: ObjectLayout | null, widths: readonly number[]): ColumnSizing {
+  if (layout === 'fit-page-width') return 'fit';
+  if (widths.length && widths.every((width) => width > 0)) return 'fixed';
+  return widths.some((width) => width > 0) ? 'mixed' : null;
 }
 
 function renderTable(node: ProseMirrorNode) {
   const attrs: DomAttributes = {};
   const layout = parseObjectLayout(node.attrs.objectLayout);
   const widths = layout ? tableObjectColumnWidths(node) : firstRowColumnWidths(node);
-  const mixed = !layout && widths.some((width) => width > 0) && widths.some((width) => !width);
-  if (layout) {
-    const total = widths.reduce((sum, width) => sum + width, 0);
-    attrs['data-object-layout'] = layout;
-    const width = layout === 'fit-page-width' ? '100%' : `${String(total)}px`;
-    attrs.style = `${objectLayoutCss(layout)};width:${width};max-width:100%`;
-  } else if (widths.length && widths.every((width) => width > 0)) {
-    // An unaligned table renders at its column total once every column has a width.
-    attrs.style = `width:${tableColumnTotalCss(widths, node)};max-width:100%`;
+  const sizing = columnSizing(layout, widths);
+  if (layout) attrs['data-object-layout'] = layout;
+  if (sizing === 'fit' || sizing === 'fixed') {
+    const alignment = layout ? `${objectLayoutCss(layout)};` : '';
+    const width = sizing === 'fit' ? '100%' : tableColumnTotalCss(widths, node);
+    attrs.style = `${alignment}width:${width};max-width:100%`;
   }
-  if (mixed) attrs['data-table-columns'] = 'mixed';
+  if (sizing === 'fixed' || sizing === 'mixed') attrs['data-table-columns'] = sizing;
   if (node.attrs.captionEnabled === false) attrs['data-caption-enabled'] = 'false';
   const borderClass = String(node.attrs.tableBorderClass || '');
   if (TABLE_BORDER_CLASSES.has(borderClass)) attrs.class = borderClass;
-  return ['table', attrs, columnGroup(widths, layout === 'fit-page-width', mixed), ['tbody', 0]];
+  return ['table', attrs, columnGroup(widths, sizing), ['tbody', 0]];
 }
 
 // A table sits in its `table_figure`, after its caption, so it is in no group of its own.

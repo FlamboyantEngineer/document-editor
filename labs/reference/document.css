@@ -174,8 +174,8 @@ div.de-host-view {
   box-sizing: border-box;
   width: var(--doc-page-width);
   height: var(--doc-page-height);
-  padding: var(--doc-page-margin-top) var(--doc-page-margin-right) var(--doc-page-margin-bottom)
-    var(--doc-page-margin-left);
+  padding: var(--doc-page-margin-top, 0px) var(--doc-page-margin-right, 0px)
+    var(--doc-page-margin-bottom, 0px) var(--doc-page-margin-left, 0px);
   /* Pages are paper in every theme: dark text on white, whatever the page around them. */
   background: var(--doc-page-background, #fff);
   color: #111827;
@@ -557,6 +557,10 @@ div.de-host-view {
 :where(.de-document-editor[data-text-layout='pretext'])
   :is(.pm-page-content, .pm-page-header, .pm-page-footer)
   table {
+  --doc-table-outer-border: var(--doc-table-border-width, 1px);
+  --doc-table-horizontal-border: var(--doc-table-border-width, 1px);
+  width: 100%;
+  border-collapse: collapse;
   table-layout: fixed;
 }
 
@@ -569,35 +573,31 @@ div.de-host-view {
 :where(.de-document-editor[data-text-layout='pretext'])
   :is(.pm-page-content, .pm-page-header, .pm-page-footer)
   table[data-table-columns='mixed'] {
-  --doc-table-outer-border: var(--doc-table-border-width, 1px);
-  --doc-table-horizontal-border: var(--doc-table-border-width, 1px);
   --doc-table-column-room: max(0px, 100cqw - var(--doc-table-outer-border));
-  width: 100%;
-  border-collapse: collapse;
 }
 
 :where(.de-document-editor[data-text-layout='pretext'])
   :is(.pm-page-content, .pm-page-header, .pm-page-footer)
-  table[data-table-columns='mixed']:is(.table-border-none, .table-border-horizontal) {
+  table:is(.table-border-none, .table-border-horizontal) {
   --doc-table-outer-border: 0px;
 }
 
 :where(.de-document-editor[data-text-layout='pretext'])
   :is(.pm-page-content, .pm-page-header, .pm-page-footer)
-  table[data-table-columns='mixed'].table-border-1px {
+  table.table-border-1px {
   --doc-table-outer-border: 1px;
   --doc-table-horizontal-border: 1px;
 }
 
 :where(.de-document-editor[data-text-layout='pretext'])
   :is(.pm-page-header, .pm-page-footer)
-  table[data-table-columns='mixed'].table-border-none {
+  table.table-border-none {
   --doc-table-horizontal-border: 0px;
 }
 
 :where(.de-document-editor[data-text-layout='pretext'])
   :is(.pm-page-header, .pm-page-footer)
-  table[data-table-columns='mixed']
+  table
   > tbody
   > tr
   > :is(td, th) {
@@ -612,6 +612,14 @@ div.de-host-view {
   > colgroup
   > col[style] {
   --doc-table-column-width: var(--doc-table-column-cap);
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  table[data-table-columns='fixed']
+  > colgroup
+  > col {
+  --doc-table-column-width: var(--doc-table-column-proportion);
 }
 
 /*
@@ -1032,9 +1040,15 @@ div.de-host-view {
  * or below it. A table across the content width takes all of it; one its columns or its layout
  * size, its own width, which its caption's text wraps within rather than widening it.
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-table-figure {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-table-figure,
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-header, .pm-page-footer)
+  .doc-table-figure {
   display: flex;
   flex-direction: column;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-table-figure {
   margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
 }
 
@@ -1047,6 +1061,9 @@ div.de-host-view {
 
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
+  .doc-table-figure:has(> table[style*='width:']:not([data-object-layout='fit-page-width'])),
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-header, .pm-page-footer)
   .doc-table-figure:has(> table[style*='width:']:not([data-object-layout='fit-page-width'])) {
   width: fit-content;
   max-width: 100%;
@@ -1054,12 +1071,18 @@ div.de-host-view {
 
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
+  .doc-table-figure:has(> table[data-object-layout='center']),
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-header, .pm-page-footer)
   .doc-table-figure:has(> table[data-object-layout='center']) {
   margin-inline: auto;
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
+  .doc-table-figure:has(> table[data-object-layout='right']),
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-header, .pm-page-footer)
   .doc-table-figure:has(> table[data-object-layout='right']) {
   margin-left: auto;
 }

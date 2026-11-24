@@ -28,6 +28,11 @@ export interface PickedAsset {
 
 type Upload = { readonly file: File; readonly error?: string | undefined; readonly done: boolean };
 
+function uploadError(reason: unknown, fallback: string): string {
+  const message = reason instanceof Error ? reason.message : reason;
+  return typeof message === 'string' && message.trim() ? message : fallback;
+}
+
 /**
  * Uploads a chosen image through the host's assets, naming the figure's current asset, and hands
  * the stored asset on. A file larger than the host takes is refused before any request.
@@ -57,24 +62,34 @@ export function useFigureUpload(
     const controller = new AbortController();
     running.current = controller;
     setUpload({ file, done: false });
-    const failed = (message?: string) => {
+    const failed = (reason: unknown) => {
       if (!controller.signal.aborted) {
         running.current = null;
-        setUpload({ file, done: true, error: message ?? labels.uploadFailed });
+        setUpload({ file, done: true, error: uploadError(reason, labels.uploadFailed) });
       }
     };
     const options = current
       ? { current: { assetId: current.fileAssetId, snapshotId: current.snapshotId } }
       : {};
-    assets.upload(file, controller.signal, options).then((result) => {
-      if (controller.signal.aborted) return undefined;
-      if (!result.ok) return failed(result.error.message);
+    const store = async () => {
+      let result: Awaited<ReturnType<AssetAdapter['upload']>>;
+      try {
+        result = await assets.upload(file, controller.signal, options);
+      } catch (reason) {
+        failed(reason);
+        return;
+      }
+      if (controller.signal.aborted) return;
+      if (!result.ok) {
+        failed(result.error.message);
+        return;
+      }
       const { id, snapshotId } = result.value;
       running.current = null;
       onStored({ fileAssetId: id, snapshotId: snapshotId ?? id });
       setUpload({ file, done: true });
-      return undefined;
-    }, failed);
+    };
+    void store();
     return undefined;
   };
   return { upload, choose, refuse, cancel, max, pending: upload !== null && !upload.done };

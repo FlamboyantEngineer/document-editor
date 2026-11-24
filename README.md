@@ -26,11 +26,11 @@ The package is ESM only. A CommonJS server on Node 22 can `require()` the server
 
 ## Tested set
 
-The library has no release yet, so a host installs it, the base component library and the collaboration tools from git, by commit. It is tested as one set: `npm run check:consumer` packs the built package and installs it into an empty consumer beside the packages below, with strict peers (`--strict-peer-deps`, no `--force`, `--legacy-peer-deps` or nested copies, and only the override below), then again with `npm ci`, and requires one copy each of React, ProseMirror, Yjs, `lib0`, KaTeX and the base component library. CI runs it on every pull request.
+The library has no release yet, so a host installs it, the base component library and the collaboration tools from Git, by commit. `npm run check:consumer` packs the built package and installs it into an empty consumer beside the packages below with strict peers, using the KaTeX override below, then installs again with `npm ci`. The check imports the packed client and server entries and requires one copy each of React, ProseMirror, Yjs, `lib0`, KaTeX and the base component library. CI runs it on every pull request.
 
 | Package                                   | Tested                              |
 | ----------------------------------------- | ----------------------------------- |
-| `@flamboyantengineer/ui-components`       | the commit pinned in `package.json` |
+| `@flamboyantengineer/ui-components`       | the peer commit in `package.json`   |
 | `@flamboyantengineer/collaboration-tools` | the commit pinned in `package.json` |
 | `react`, `react-dom`                      | 19.2.7                              |
 | `react-reconciler`                        | 0.33.0                              |
@@ -49,9 +49,9 @@ The text layout engine behind `textLayout: 'pretext'` uses a fork of the Pretext
 
 Equations on the engine's pages are laid out by MathJax 4 with the STIX Two font data (`@mathjax/src` and `@mathjax/mathjax-stix2-font`, dependencies that install with the package, Apache-2.0; the STIX Two outlines are under the SIL Open Font License 1.1). Their modules load only when equations are laid out, but a host's bundler resolves them either way. A host's bundler should map MathJax's `#default-font` import to `@mathjax/mathjax-stix2-font/mjs` (DOCE-HOST-1.14.4), since MathJax's SVG output imports its default font through it and no package setting can redirect it; without the mapping the build still works and the equations are the same, but MathJax's default font (New Computer Modern) is bundled beside STIX Two in the chunk loaded with the first equation (DOCE-PAGINATION-12.12).
 
-`scripts/tested-set.json` holds the same set for the check. Peers follow one rule: a release candidate and `prosemirror-view` are exact, since the React binding and the base component library accept only `prosemirror-view` 1.42.3; the base component library is a peer within its `0.x` minor (`~0.1.0`), since before `1.0.0` every minor may break; other peers are caret ranges. `prosemirror-view` stays at 1.42.3 until the binding publishes a release that accepts a newer one.
+`scripts/tested-set.json` holds the same set for the check. The editor requires the base component library at the exact Git commit in `peerDependencies`. Use that Git dependency in the host as well, since earlier UI commits report the same package version and may lack the clipboard, resize and confirmation APIs the editor uses. Release candidates and `prosemirror-view` use exact versions. The React binding and the base component library currently require `prosemirror-view` 1.42.3. Other peers use caret ranges.
 
-The git pins move by hand, in the pull request that needs a newer sibling library: change the commit in `package.json`, run `npm install --strict-peer-deps`, then `npm run check:consumer`.
+To update a Git pin, change its commit in `package.json`. Keep the base component library's peer and development pins identical. Run `npm install --strict-peer-deps`, then `npm run check:consumer`.
 
 ## Develop
 

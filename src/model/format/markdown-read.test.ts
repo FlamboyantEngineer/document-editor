@@ -223,6 +223,114 @@ describe('reading Markdown', () => {
     expect(readMarkdown('').file).toEqual({ formatVersion: 1, sections: [{ content: [] }] });
   });
 
+  it('DOCE-IMPORT-4.1 DOCE-IMPORT-4.2 uses the first definitions even when they are in nested blocks', () => {
+    const read = readMarkdown(
+      [
+        'Read [the link][ref] and [^nested] with <samp>context</samp>.',
+        '',
+        '- [^nested]: Note <kbd>inside a list</kbd>.',
+        '',
+        '> [ref]: https://example.test/first',
+        '',
+        '[^nested]: <abbr>Duplicate definition</abbr>',
+        '',
+        '[ref]: https://example.test/second',
+        '',
+        '<div>Last block</div>',
+      ].join('\n'),
+    );
+    expect(read.file.sections[0]?.content[0]?.content).toEqual([
+      text('Read '),
+      {
+        type: 'text',
+        text: 'the link',
+        marks: [{ type: 'link', attrs: { href: 'https://example.test/first' } }],
+      },
+      text(' and '),
+      { type: 'footnote', content: [text('Note inside a list.')] },
+      text(' with context.'),
+    ]);
+    expect(read.warnings).toEqual([
+      warning('content-left-out', '<samp>', 2),
+      warning('content-left-out', '<kbd>', 2),
+      warning('content-left-out', 'HTML block', 1),
+    ]);
+    expect(() => readDocumentFile(read.file, createDocumentSchema())).not.toThrow();
+  });
+
+  it('DOCE-IMPORT-4.2 reports omitted inline and block HTML in source order', () => {
+    const read = readMarkdown(
+      [
+        '> Before *<span>one</span>* and [a link][ref].',
+        '> <div>omitted</div>',
+        '',
+        '| Heading |',
+        '| ------- |',
+        '| <kbd>two</kbd> <span>three</span> |',
+        '',
+        '<div>also omitted</div>',
+        '',
+        '[ref]: https://example.test',
+      ].join('\n'),
+    );
+    expect(read.warnings).toEqual([
+      warning('content-left-out', '<span>', 4),
+      warning('content-left-out', 'HTML block', 2),
+      warning('content-left-out', '<kbd>', 2),
+    ]);
+    expect(read.file.sections[0]?.content[0]?.content?.[0]?.content).toContainEqual({
+      type: 'text',
+      text: 'a link',
+      marks: [{ type: 'link', attrs: { href: 'https://example.test' } }],
+    });
+  });
+
+  it('DOCE-IMPORT-4.2 reports warnings where each used footnote is defined once', () => {
+    const read = readMarkdown(
+      [
+        '[^early]: <small>Earlier definition</small>',
+        '',
+        '- First [^late] and <kbd>inline</kbd>.',
+        '',
+        '  <div>omitted</div>',
+        '',
+        'Late again [^late], early [^early].',
+        '',
+        '[^late]: <span>Later definition</span>',
+        '',
+        '[^unused]: Text <abbr>Unused definition</abbr>',
+      ].join('\n'),
+    );
+    expect(read.warnings).toEqual([
+      warning('content-left-out', '<small>', 2),
+      warning('content-left-out', '<kbd>', 2),
+      warning('content-left-out', 'HTML block', 1),
+      warning('content-left-out', '<span>', 2),
+    ]);
+    const [list, last] = read.file.sections[0]?.content ?? [];
+    const firstNote = list?.content?.[0]?.content?.[0]?.content?.[1];
+    const repeatNote = last?.content?.[1];
+    expect(firstNote).toEqual({ type: 'footnote', content: [text('Later definition')] });
+    expect(repeatNote).toEqual(firstNote);
+    expect(repeatNote?.content?.[0]).not.toBe(firstNote?.content?.[0]);
+  });
+
+  it('DOCE-IMPORT-4.2 DOCE-IMPORT-4.4 applies the nesting limit only to notes read by a citation', () => {
+    const definition = `[^deep]:\n    ${'>'.repeat(40)} Deep definition`;
+    expect(readMarkdown(definition).warnings).toEqual([]);
+    const read = readMarkdown(`Cited[^deep] and cited again[^deep].\n\n${definition}`);
+    expect(read.warnings).toEqual([warning('content-left-out', 'nesting', 1)]);
+    const notes = read.file.sections[0]?.content[0]?.content?.filter(
+      (node) => node.type === 'footnote',
+    );
+    expect(notes).toEqual(
+      Array.from({ length: 2 }, () => ({
+        type: 'footnote',
+        content: [text('Deep definition')],
+      })),
+    );
+  });
+
   // Reading the whole regression set, about 320,000 characters, three times, takes mdast a few
   // seconds on a busy runner: more than a test's default five.
   it(
