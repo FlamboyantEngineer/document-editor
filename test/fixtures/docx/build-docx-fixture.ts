@@ -1,9 +1,8 @@
 // Builds generic word processing documents for the import tests and the export-then-import test:
 // the XML parts a test gives, wrapped in the package parts every document has, zipped with each
-// part deflated, as word processors write them. Only Node may run it (it deflates with `node:zlib`).
+// part deflated, as word processors write them.
 
-import { deflateRawSync } from 'node:zlib';
-import { crc32 } from '../../../src/model/format/zip.js';
+import { zipSync } from 'fflate';
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -54,47 +53,11 @@ const PARTS: readonly (readonly [keyof DocxFixture, string, string])[] = [
 const relationship = (id: string, type: string, target: string, external = false) =>
   `<Relationship Id="${id}" Type="${type.startsWith('http') ? type : `${R}/${type}`}" Target="${target}"${external ? ' TargetMode="External"' : ''}/>`;
 
-function zip(files: readonly { path: string; data: Uint8Array }[], stored: boolean): Uint8Array {
-  const encoder = new TextEncoder();
-  const chunks: Buffer[] = [];
-  const central: Buffer[] = [];
-  let offset = 0;
-  for (const file of files) {
-    const name = encoder.encode(file.path);
-    const data = stored ? file.data : deflateRawSync(file.data);
-    const header = Buffer.alloc(30);
-    header.writeUInt32LE(0x04034b50, 0);
-    header.writeUInt16LE(20, 4);
-    header.writeUInt16LE(0x0800, 6);
-    header.writeUInt16LE(stored ? 0 : 8, 8);
-    header.writeUInt32LE(crc32(file.data), 14);
-    header.writeUInt32LE(data.length, 18);
-    header.writeUInt32LE(file.data.length, 22);
-    header.writeUInt16LE(name.length, 26);
-    const entry = Buffer.alloc(46);
-    entry.writeUInt32LE(0x02014b50, 0);
-    entry.writeUInt16LE(20, 4);
-    entry.writeUInt16LE(20, 6);
-    entry.writeUInt16LE(0x0800, 8);
-    entry.writeUInt16LE(stored ? 0 : 8, 10);
-    entry.writeUInt32LE(crc32(file.data), 16);
-    entry.writeUInt32LE(data.length, 20);
-    entry.writeUInt32LE(file.data.length, 24);
-    entry.writeUInt16LE(name.length, 28);
-    entry.writeUInt32LE(offset, 42);
-    chunks.push(header, Buffer.from(name), Buffer.from(data));
-    central.push(entry, Buffer.from(name));
-    offset += 30 + name.length + data.length;
-  }
-  const directory = Buffer.concat(central);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(files.length, 8);
-  end.writeUInt16LE(files.length, 10);
-  end.writeUInt32LE(directory.length, 12);
-  end.writeUInt32LE(offset, 16);
-  return new Uint8Array(Buffer.concat([...chunks, directory, end]));
-}
+// The files zipped in order, each deflated unless `stored`.
+const zip = (files: readonly { path: string; data: Uint8Array }[], stored: boolean): Uint8Array =>
+  zipSync(Object.fromEntries(files.map((file) => [file.path, file.data])), {
+    level: stored ? 0 : 6,
+  });
 
 /** A fixture's parts as the bytes of a `.docx`. */
 export function buildDocx(fixture: DocxFixture): Uint8Array {

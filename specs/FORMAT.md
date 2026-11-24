@@ -189,7 +189,7 @@ Verification: `src/model/format/markdown.test.ts`
 
 ### DOCE-FORMAT-5.1 - Archives
 
-`writeZip(entries)` shall store files in a zip archive without compression, each with its CRC-32 (`crc32`), followed by the central directory, the same files always making the same archive.
+`writeZip(entries)` shall write the files, in order, to a zip archive with each file deflated and its CRC-32, followed by the central directory, the same files always making the same archive whatever the time zone. fflate writes it (`zipSync`), with a fixed date of 1 January 1980.
 
 Implementation: `src/model/format/zip.ts`
 Verification: `src/model/format/docx.test.ts`

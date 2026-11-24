@@ -79,4 +79,4 @@ export {
 export type { WriterAsset, WriterValues } from './writer-values.js';
 export { assetAddress, variableText } from './writer-values.js';
 export type { ZipEntry } from './zip.js';
-export { crc32, writeZip } from './zip.js';
+export { writeZip } from './zip.js';
