@@ -110,9 +110,10 @@ describe('equations, rules and markup', () => {
     expect(measure).toHaveBeenCalledTimes(1);
   });
 
-  it('DOCE-PAGINATION-12.10 scales a display equation wider than its line less its tag down to fit', () => {
+  it('DOCE-PAGINATION-12.10 scales a display equation wider than its line less its tag and an em down to fit', () => {
     const svg = { tag: 'svg', attrs: {}, children: [] };
-    const tag = { width: 40, ascent: 10, descent: 3, svg, missing: '' };
+    // 30px of tag and the stand-in's 10px em.
+    const tag = { width: 30, ascent: 10, descent: 3, svg, missing: '' };
     const math = { math: { width: 1120, ascent: 30, descent: 12, svg, missing: '' }, tag };
     const placed = vi.fn();
     const { layout } = standInBlockLayout({
@@ -120,7 +121,7 @@ describe('equations, rules and markup', () => {
       onMath: placed,
     });
     const equation = node('math_display', null, [schema.text('x')]);
-    // 560px for the equation beside its tag: half its size, 15px above its baseline and 6px below.
+    // 560px for the equation beside its tag and the em: half its size, 15px above its baseline and 6px below.
     expect(blockOf(layout.layoutBlock(equation, place))).toMatchObject({
       height: 21,
       marginTop: 6,
@@ -133,7 +134,7 @@ describe('equations, rules and markup', () => {
     });
   });
 
-  it('DOCE-PAGINATION-12.10 fits a display equation into its line less its automatic number', () => {
+  it('DOCE-PAGINATION-12.10 fits a display equation into its line less its automatic number and an em', () => {
     const svg = { tag: 'svg', attrs: {}, children: [] };
     const math = { math: { width: 1120, ascent: 30, descent: 12, svg, missing: '' } };
     const placed = vi.fn();
@@ -144,10 +145,10 @@ describe('equations, rules and markup', () => {
       equationOf: (of) => (of === equation ? '(4)' : undefined),
     });
     layout.layoutBlock(equation, place);
-    // The number takes 30px at the stand-in's ten a character: 570px are left.
+    // The number and the em before it take 40px at the stand-in's ten a character: 560px are left.
     expect(placed).toHaveBeenCalledWith(
       equation,
-      expect.objectContaining({ box: expect.objectContaining({ width: 570 }) as unknown, end: 30 }),
+      expect.objectContaining({ box: expect.objectContaining({ width: 560 }) as unknown, end: 40 }),
     );
   });
 
