@@ -651,8 +651,9 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  // Display equations are drawn, and measured as drawn, in the served STIX Two Math, the same on
-  // every system (DOCE-PAGINATION-12.9): their planned heights moved, their lines did not.
+  // Display equations are drawn, and measured as drawn, in the served STIX Two Math
+  // (DOCE-PAGINATION-12.9): their planned heights moved, their lines did not. These are Linux's
+  // heights: the browser still rounds MathML's layout per system (#352).
   'caption-numbering': { lines: '6de13d262fa01cc3', heights: '61f72d7abd5a9d9f' },
   'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
