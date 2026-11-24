@@ -152,6 +152,30 @@ describe('equations, rules and markup', () => {
     );
   });
 
+  it('DOCE-PAGINATION-12.10 sets a tag and an automatic number side by side, the equation fitted in what is left', () => {
+    const svg = { tag: 'svg', attrs: {}, children: [] };
+    const tag = { width: 30, ascent: 10, descent: 3, svg, missing: '' };
+    const math = { math: { width: 1080, ascent: 30, descent: 12, svg, missing: '' }, tag };
+    const placed = vi.fn();
+    const equation = node('math_display', null, [schema.text('x')]);
+    const { layout } = standInBlockLayout({
+      measure: () => ({ size: { width: 1110, height: 42, math } }),
+      onMath: placed,
+      equationOf: () => '(4)',
+    });
+    layout.layoutBlock(equation, place);
+    // The tag, an em, the number and an em before the equation: 30 + 10 + 30 + 10, so 520px are
+    // left; the tag sits 40px from the line's end, past the number and its em.
+    expect(placed).toHaveBeenCalledWith(
+      equation,
+      expect.objectContaining({
+        box: expect.objectContaining({ width: 520 }) as unknown,
+        end: 80,
+        tagEnd: 40,
+      }),
+    );
+  });
+
   it('DOCE-PAGINATION-10.4 gives a rule its border, half its text size (12px) above and below, and a page break no height', () => {
     const { layout } = standInBlockLayout();
     expect(blockOf(layout.layoutBlock(node('horizontal_rule', null), place))).toMatchObject({
