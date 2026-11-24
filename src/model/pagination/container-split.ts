@@ -57,12 +57,6 @@ interface ChildrenSplit {
   tailHeight: number;
 }
 
-function childrenOf(node: ProseMirrorNode): ProseMirrorNode[] {
-  const children: ProseMirrorNode[] = [];
-  node.forEach((child) => children.push(child));
-  return children;
-}
-
 function shift(layouts: readonly ChildLayout[], by: number): ChildLayout[] {
   return layouts.map((layout) => ({ ...layout, top: layout.top - by, bottom: layout.bottom - by }));
 }
@@ -91,7 +85,7 @@ interface SplitRequest {
 
 // Splits through the child that crosses the page's foot, keeping its first fragment on the page.
 function splitThroughChild(request: SplitRequest, index: number, splitChild: ChildSplit) {
-  const children = childrenOf(request.block.node);
+  const children = request.block.node.children;
   const layouts = (request.block.measurement as ContainerMeasurement).children;
   const child = children[index];
   const layout = layouts[index];
@@ -125,7 +119,7 @@ function splitThroughChild(request: SplitRequest, index: number, splitChild: Chi
 
 function splitChildren(request: SplitRequest, splitChild: ChildSplit): ChildrenSplit | null {
   const { block, fitting } = request;
-  const children = childrenOf(block.node);
+  const children = block.node.children;
   if (!isContainerMeasurement(block.measurement)) return null;
   const layouts = block.measurement.children;
   if (layouts.length !== children.length) return null;

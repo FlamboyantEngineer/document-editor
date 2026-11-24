@@ -1,10 +1,11 @@
 // The hidden view that measures a whole document follows it by the smallest replacements, so the
 // blocks around a change keep their nodes, their rendering and their cached measurements.
 
-import type { Fragment, Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
 import { type EditorProps, EditorView } from 'prosemirror-view';
 import { markRemote } from '../engine/transaction-kind.js';
+import { diffFragments } from '../utils/fragment-diff.js';
 
 // A node of the view's document and where its content starts.
 interface Placed {
@@ -14,18 +15,9 @@ interface Placed {
 
 // Replaces the range of a node's content that differs from the target's content.
 function replaceDifference(tr: Transaction, from: Placed, to: ProseMirrorNode) {
-  const a: Fragment = from.node.content;
-  const b: Fragment = to.content;
-  const start = a.findDiffStart(b);
-  if (start === null) return;
-  const end = a.findDiffEnd(b);
-  let endA = end?.a ?? a.size;
-  let endB = end?.b ?? b.size;
-  const overlap = start - Math.min(endA, endB);
-  if (overlap > 0) {
-    endA += overlap;
-    endB += overlap;
-  }
+  const diff = diffFragments(from.node.content, to.content);
+  if (!diff) return;
+  const { start, endA, endB } = diff;
   tr.replace(from.pos + start, from.pos + endA, to.slice(start, endB));
 }
 

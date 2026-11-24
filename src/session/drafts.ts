@@ -8,6 +8,7 @@ import type { DocumentDraft } from '../host/session-adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
+import { createTrailingTimer } from '../utils/trailing-timer.js';
 import { storedContentKey } from './dirty.js';
 import type { SessionDocument } from './document-session.js';
 import { readStored, samePin } from './open-document.js';
@@ -49,17 +50,12 @@ function createStoreDrafts(context: StoreDraftsContext) {
   const { host, documentId } = context;
   const adapter = host.drafts;
   const now = context.now ?? (() => new Date());
-  let timer: ReturnType<typeof setTimeout> | null = null;
   // Whether the adapter may hold a draft of this document.
   let kept = false;
   // While a draft is offered, no other replaces it.
   let held = false;
   let closed = false;
 
-  const cancel = () => {
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-  };
   const keepNow = () => {
     cancel();
     const content = context.content();
@@ -73,6 +69,7 @@ function createStoreDrafts(context: StoreDraftsContext) {
     };
     void adapter.put(documentId, draft);
   };
+  const { schedule, cancel } = createTrailingTimer(context.delay, keepNow);
   const clear = () => {
     cancel();
     if (!adapter || !kept || held || closed) return;
@@ -112,8 +109,7 @@ function createStoreDrafts(context: StoreDraftsContext) {
         return;
       }
       if (!adapter || held || closed) return;
-      cancel();
-      timer = setTimeout(keepNow, context.delay);
+      schedule();
     },
     /** Keeps the content at once when it is unsaved, such as when the page goes away. */
     keepNow: (dirty: boolean) => {

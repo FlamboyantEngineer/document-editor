@@ -27,12 +27,6 @@ interface ColumnSplit {
   readonly tail: ColumnPart | null;
 }
 
-function childrenOf(node: ProseMirrorNode): ProseMirrorNode[] {
-  const children: ProseMirrorNode[] = [];
-  node.forEach((child) => children.push(child));
-  return children;
-}
-
 // A column's own height: its blocks' span and its padding, not the height a grid stretched it to
 // beside a taller column.
 function columnHeight({ top, bottom, measurement }: ChildLayout): number {
@@ -42,14 +36,14 @@ function columnHeight({ top, bottom, measurement }: ChildLayout): number {
 
 function whole(column: ProseMirrorNode, layout: ChildLayout): ColumnPart {
   return {
-    content: childrenOf(column),
+    content: column.children,
     height: columnHeight(layout),
     measurement: layout.measurement,
   };
 }
 
 function part(block: LayoutBlock): ColumnPart {
-  return { content: childrenOf(block.node), height: block.height, measurement: block.measurement };
+  return { content: block.node.children, height: block.height, measurement: block.measurement };
 }
 
 // A column split at the height the section has: whole on the first page when it fits, through its
@@ -126,7 +120,7 @@ export function splitLayoutSection(
 ): SplitBlock | null {
   const { node, measurement } = block;
   if (!isContainerMeasurement(measurement)) return null;
-  const columns = childrenOf(node);
+  const columns = node.children;
   if (!columns.length || measurement.children.length !== columns.length) return null;
   const room = fitting - containerOverhead(measurement);
   const splits = columns.map((column, index) => {
