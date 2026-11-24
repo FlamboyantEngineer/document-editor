@@ -129,12 +129,6 @@ export function joinBlocks(
   }
 }
 
-function children(node: ProseMirrorNode): ProseMirrorNode[] {
-  const nodes: ProseMirrorNode[] = [];
-  node.forEach((child) => nodes.push(child));
-  return nodes;
-}
-
 // A node type that holds the blocks, for the transform that joins them: the document, or for
 // blocks that only go inside another, such as list items, one that holds them.
 function containerFor(blocks: readonly ProseMirrorNode[], { schema }: NodeType): NodeType {
@@ -155,7 +149,8 @@ export function joinFragments(
   if (!first) return [];
   const tr = new Transform(containerFor(blocks, first.type).create(null, blocks));
   joinBlocks(tr, { from: 0, blocks }, rules);
-  return children(tr.doc);
+  // A copy: callers own the blocks they get back.
+  return [...tr.doc.children];
 }
 
 // After two containers join at `pos`, their facing children meet one position inside.
@@ -215,7 +210,7 @@ function joinLayoutSections(tr: Transform, pos: number, rules: FragmentRules) {
   const start = pos - previous.nodeSize;
   tr.delete(pos, pos + next.nodeSize);
   let columnPos = start + 1;
-  children(next).forEach((extra, index) => {
+  next.children.forEach((extra, index) => {
     const column = index < previous.childCount ? tr.doc.nodeAt(columnPos) : null;
     if (!column) {
       tr.insert(columnPos, extra);
@@ -234,11 +229,11 @@ function joinLayoutSections(tr: Transform, pos: number, rules: FragmentRules) {
 }
 
 function isHeaderRow(row: ProseMirrorNode): boolean {
-  return row.childCount > 0 && children(row).every((cell) => cell.type.name === 'table_header');
+  return row.childCount > 0 && row.children.every((cell) => cell.type.name === 'table_header');
 }
 
 function headerRows(table: ProseMirrorNode): ProseMirrorNode[] {
-  const rows = children(table);
+  const rows = table.children;
   const count = rows.findIndex((row) => !isHeaderRow(row));
   return rows.slice(0, count < 0 ? rows.length : count);
 }
@@ -249,7 +244,7 @@ function joinTables(tr: Transform, pos: number) {
   const { nodeBefore: previous, nodeAfter: next } = $pos;
   if (!previous || !next) return;
   const header = headerRows(previous);
-  const rows = children(next);
+  const rows = next.children;
   const repeats =
     header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
   tr.join(pos);
@@ -267,7 +262,7 @@ function joinTableFigures(tr: Transform, pos: number, rules: FragmentRules) {
   const later = next?.lastChild;
   if (!previous || !first || !repeated || !later || next.childCount !== 2) return;
   const header = headerRows(first);
-  const rows = children(later);
+  const rows = later.children;
   const repeats =
     header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
   // Inside the first table after its rows, to inside the later one before its rows.
