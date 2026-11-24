@@ -10,6 +10,7 @@ import { registerFaces } from '../../document/font-registry.js';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import {
   drawLayoutPages,
+  layoutMathFamily,
   type LayoutPrintOptions,
   layoutTemplate,
   VIEW_CLASSES,
@@ -17,6 +18,7 @@ import {
 import { printElement, printHtml } from '../../document/print-tree.js';
 import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
+import { resolveFontStack } from '../../model/templates/template-css-values.js';
 import { renameTemplateFonts } from '../../pagination/served-template.js';
 import { createHooks } from '../../utils/hooks.js';
 import { isElement } from '../../utils/is-element.js';
@@ -177,6 +179,26 @@ function followLinks(
   return () => element.removeEventListener('click', follow);
 }
 
+// The viewer root's style, the template's properties and the family MathML is drawn in, as the
+// viewer draws it, and whether a face for MathML is served (DOCE-PAGINATION-12.9).
+function useViewerStyle(
+  layout: PagesLayout,
+  drawn: TemplateFile,
+  drawnFamily: (family: string) => string,
+) {
+  const math = layoutMathFamily(layout.fonts);
+  const mathFamily = math ? resolveFontStack(drawnFamily(math)) : '';
+  const style = useMemo(
+    () =>
+      ({
+        ...templateProperties(drawn),
+        ...(mathFamily ? { '--de-math-font-family': mathFamily } : {}),
+      }) as CSSProperties,
+    [drawn, mathFamily],
+  );
+  return { style, mathFont: math ? 'served' : 'unserved' };
+}
+
 /**
  * A document's laid-out pages, read-only (DOCE-PAGINATION-13.6): `de-document-viewer` beside the
  * editor's root class, in the template's properties, around an element with the classes of the
@@ -194,7 +216,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
     [layout, template, drawnFamily],
   );
   const drawing = useMemo(() => drawLayoutPages(layout, drawn, options), [layout, drawn, options]);
-  const style = useMemo(() => templateProperties(drawn) as CSSProperties, [drawn]);
+  const { style, mathFont } = useViewerStyle(layout, drawn, drawnFamily);
   useEffect(() => {
     const element = content.current;
     if (!element) return undefined;
@@ -248,6 +270,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
         data: { mode: 'reading', markup: layout.markup, layout: 'page' },
       })}
       data-text-layout="pretext"
+      data-math-font={mathFont}
       // The language the pages were laid out in, whatever the host's page is in; empty for none,
       // as around the editor's pages (DOCE-PAGINATION-9.7).
       lang={layout.language}

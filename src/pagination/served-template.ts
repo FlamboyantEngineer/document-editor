@@ -6,10 +6,21 @@
 
 import type { TemplateFile } from '../model/index.js';
 
-const GENERICS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
+const GENERICS = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'math',
+]);
 
-/** The generic keywords the pages ask the host for, as the stylesheet's fallbacks and templates use them. */
-export const PAGE_GENERICS: readonly string[] = ['serif', 'sans-serif', 'monospace'];
+/**
+ * The generic keywords the pages ask the host for, as the stylesheet's fallbacks and templates use
+ * them, and `math`, which MathML is drawn in (`--de-math-font-family`).
+ */
+export const PAGE_GENERICS: readonly string[] = ['serif', 'sans-serif', 'monospace', 'math'];
 
 const genericOf = (font: string) =>
   font

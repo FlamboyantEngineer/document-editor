@@ -12,6 +12,7 @@ import {
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
+import { clusterCount, mathDrawnText } from '../utils/math-text.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import {
   cancelMath,
@@ -28,6 +29,9 @@ import {
   type MathTypesets,
   type TypesetMath,
 } from './math-typeset.js';
+
+// The clusters typeset math draws, which its reserved box is as many ems wide as.
+const MATH_CLUSTERS = '--de-math-clusters';
 
 // What a math view draws with: the renderer, what invalid math shows, and where it keeps what it
 // typeset.
@@ -57,8 +61,12 @@ function mathView(
   // Shows what the source typeset as, or what invalid math shows and why, and asks the pages to
   // measure it again.
   const show = (result: { ok: true; element: Element } | { ok: false; message: string }) => {
-    if (result.ok) dom.replaceChildren(result.element);
-    else {
+    if (result.ok) {
+      dom.replaceChildren(result.element);
+      // The box it takes where no face for MathML is served (DOCE-PAGINATION-12.9).
+      dom.style.setProperty(MATH_CLUSTERS, String(clusterCount(mathDrawnText(result.element))));
+    } else {
+      dom.style.removeProperty(MATH_CLUSTERS);
       dom.textContent = display ? invalid.display : invalid.inline;
       dom.title = result.message;
     }

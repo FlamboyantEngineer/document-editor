@@ -9,6 +9,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { AtomMeasure, AtomMeasurer, AtomSize } from '../layout-engine/atoms.js';
+import { mathDrawnText } from '../utils/math-text.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { margins } from './measure-cache.js';
 import { measuredZoom, unzoom } from './measure-scale.js';
@@ -24,7 +25,14 @@ interface DrawnAtomMeasurerOptions {
    * the browser draws `host` at (`measuredZoom`), which is the measuring view's.
    */
   readonly scale?: (() => number) | undefined;
+  /** Told the characters of math drawn with no served face for MathML (DOCE-PAGINATION-12.9). */
+  readonly missing?: ((text: string) => void) | undefined;
 }
+
+// Math drawn where the host serves no face for MathML, in its reserved box: what it draws comes
+// from a system font.
+const unservedMath = (drawn: HTMLElement) =>
+  drawn.classList.contains('de-math') && drawn.closest('[data-math-font="unserved"]') !== null;
 
 // How often an atom still drawn is checked for having left the view, in milliseconds, and how many
 // checks its images are waited for at most, as an image out of sight that loads lazily may never
@@ -257,12 +265,14 @@ export function createDrawnAtomMeasurer({
   view: viewOf,
   host,
   scale = () => measuredZoom(host),
+  missing,
 }: DrawnAtomMeasurerOptions): AtomMeasurer {
   const reading: Reading = { viewOf, host, ratio: () => (scale() > 0 ? scale() : 1) };
   return (node): AtomMeasure | null => {
     const view = reading.viewOf();
     const drawn = view ? drawnElement(view, node) : null;
     if (!view || !drawn) return null;
+    if (missing && unservedMath(drawn)) missing(mathDrawnText(drawn));
     const still = isPending(drawn) || stillLoading(drawn).length > 0;
     if (!node.isInline) {
       const size = readBlock(reading, { view, node, drawn });

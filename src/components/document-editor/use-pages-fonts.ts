@@ -33,6 +33,11 @@ export interface PagesFontsState {
   readonly fonts: () => PromiseLike<PagesFonts> | null;
   /** The faces under the families the pages draw them in, for a snapshot of the pages. */
   readonly drawnFiles: () => FontFiles | null;
+  /**
+   * The served family MathML is drawn in, the one the host says the generic `math` stands for,
+   * under the family the pages draw it in; null while none is served.
+   */
+  readonly mathFamily: string | null;
 }
 
 interface PagesFontsProps {
@@ -115,9 +120,11 @@ function usePagesFonts(
     return current && current.fonts === fonts ? current.promise : null;
   }, [fonts]);
   const drawnFiles = useCallback(() => drawn.fonts?.drawnFiles() ?? null, [drawn]);
+  const math = drawn.generics.math;
+  const mathFamily = math && drawn.fonts ? drawn.fonts.drawnFamily(math) : null;
   const text = useMemo(
-    () => ({ textLayout, reason: shown, fonts: read, drawnFiles }),
-    [textLayout, shown, read, drawnFiles],
+    () => ({ textLayout, reason: shown, fonts: read, drawnFiles, mathFamily }),
+    [textLayout, shown, read, drawnFiles, mathFamily],
   );
   return { text, template };
 }

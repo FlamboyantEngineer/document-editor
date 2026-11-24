@@ -118,9 +118,9 @@ export type ShowViewer = (
 
 /**
  * The fonts adapter the lab gives its editor: none, the lab's, Cousine's files under every family,
- * or the lab's a second late.
+ * the lab's a second late, or the lab's without a face for MathML.
  */
-export type LabFonts = 'none' | 'lab' | 'cousine' | 'slow';
+export type LabFonts = 'none' | 'lab' | 'cousine' | 'slow' | 'no-math';
 
 /** A markup the editor lays its pages out in for a layout it hands over (`pagesLayout`). */
 type LayoutMarkup = 'all' | 'final' | 'original';

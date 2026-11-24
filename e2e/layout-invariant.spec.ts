@@ -651,7 +651,9 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '5b4ca33a9e63f4d1' },
+  // Display equations are drawn, and measured as drawn, in the served STIX Two Math, the same on
+  // every system (DOCE-PAGINATION-12.9): their planned heights moved, their lines did not.
+  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '61f72d7abd5a9d9f' },
   'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are

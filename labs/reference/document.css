@@ -1901,6 +1901,41 @@ a.de-contents__entry {
   color: #b91c1c;
 }
 
+/* MathML in the face the host serves for the generic `math` (`--de-math-font-family`), so it is
+   drawn, and measured as drawn, the same on every system; the browser's own `math` family without
+   one (DOCE-PAGINATION-12.9). */
+.de-math math {
+  font-family: var(--de-math-font-family, math);
+}
+
+/* Typeset math with no served face for MathML takes a reserved box, which the engine and every
+   drawing agree on (DOCE-PAGINATION-12.9): one em per cluster it draws (`--de-math-clusters`), one
+   em tall, its bottom 0.2em below the baseline, and a display equation two ems tall across the
+   line. Its MathML, drawn in a system font, is centred in the box and may reach past it without
+   moving anything. */
+.de-document-editor[data-math-font='unserved'] .de-math[data-state='ready'] {
+  position: relative;
+  display: inline-block;
+  inline-size: calc(var(--de-math-clusters, 1) * 1em);
+  block-size: 1em;
+  vertical-align: -0.2em;
+}
+
+.de-document-editor[data-math-font='unserved']
+  .de-math[data-state='ready'][data-display='display'] {
+  display: block;
+  inline-size: auto;
+  block-size: 2em;
+}
+
+.de-document-editor[data-math-font='unserved'] .de-math[data-state='ready'] > math {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+}
+
 /* Math under the pointer, inline or a block, takes the selection's highlight. */
 .de-document-editor .de-math:hover {
   background: var(--doc-math-hover-background, color-mix(in srgb, #2563eb 18%, transparent));

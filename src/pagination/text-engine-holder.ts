@@ -56,12 +56,13 @@ interface EngineModule {
 }
 
 // What the engine takes from the host's served fonts: its widths, which families are served, the
-// room it keeps for unserved glyphs and the font files.
+// room it keeps for unserved glyphs, where it reports them, and the font files.
 function servedInputs(fonts: ServedFonts) {
   return {
     measureContext: fonts.measureContext,
     isFontServed: (family: string) => fonts.isFontServed(family),
     reserve: fonts.reserve,
+    missing: (text: string) => fonts.missing(text),
     fonts: fonts.files,
   };
 }

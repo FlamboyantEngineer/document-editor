@@ -100,6 +100,48 @@ describe('renderLayoutPrintPage', () => {
     expect(first?.classList.contains('de-forced-lines__end')).toBe(true);
   });
 
+  it('DOCE-PAGINATION-12.9 says whether a face for MathML is served, and the clusters math draws', () => {
+    const doc = pagesDocument([
+      page([
+        paragraph([node('math_inline', null, [documentSchema.text('x+1')])], { dataId: 'p1' }),
+      ]),
+    ]);
+    const state = pagesState(doc, stubEngine({ perLine: 3 }));
+    const typeset = {
+      tag: 'math',
+      attrs: {},
+      children: [
+        { tag: 'mi', attrs: {}, children: ['x'] },
+        { tag: 'mo', attrs: {}, children: ['+'] },
+        { tag: 'mn', attrs: {}, children: ['1'] },
+      ],
+    };
+    const layout = pagesLayout(state, { typesetOf: () => ({ state: 'ready', math: typeset }) });
+    if (!layout) throw new Error('no layout');
+    const printed = (fonts: typeof layout.fonts) =>
+      new DOMParser().parseFromString(
+        renderLayoutPrintPage({ ...layout, fonts }, BASE_TEMPLATE),
+        'text/html',
+      );
+    const unserved = printed(null);
+    expect(unserved.querySelector<HTMLElement>('.de-document-editor')?.dataset.mathFont).toBe(
+      'unserved',
+    );
+    expect(
+      unserved.querySelector<HTMLElement>('.de-math')?.style.getPropertyValue('--de-math-clusters'),
+    ).toBe('3');
+    const face = {
+      family: 'Lab Math',
+      weight: 400,
+      style: 'normal' as const,
+      bytes: new Uint8Array(4),
+    };
+    const served = printed({ faces: [face], generics: { math: 'Lab Math' } });
+    const root = served.querySelector<HTMLElement>('.de-document-editor');
+    expect(root?.dataset.mathFont).toBe('served');
+    expect(root?.style.getPropertyValue('--de-math-font-family')).toBe('"Lab Math"');
+  });
+
   it('DOCE-PAGINATION-9.12 draws each forced block in the direction the pages view draws it', () => {
     const doc = pagesDocument([
       page([

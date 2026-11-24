@@ -28,7 +28,7 @@ import {
   type TemplateFile,
 } from '../../../src/model/index.js';
 import { markReadyWhenSettled } from '../lab-ready.js';
-import { COUSINE_FONTS, LAB_FONTS, SLOW_LAB_FONTS } from '../served-fonts.js';
+import { COUSINE_FONTS, LAB_FONTS, NO_MATH_FONTS, SLOW_LAB_FONTS } from '../served-fonts.js';
 import { useStressProbe } from '../stress/stress-probe.js';
 import { HOST_VIEWS } from './host-quote-view.js';
 import { REGRESSION_CODE } from './regression-code.js';
@@ -72,13 +72,14 @@ const TEXT_LAYOUT =
 
 // With the layout engine, the lab serves its font files and HarfBuzz (DOCE-HOST-1.14.1); with
 // `fonts=none` it serves neither, and the pages keep the browser's layout; with `fonts=cousine` it
-// serves Cousine's files under every family (DOCE-PAGINATION-12.7).
+// serves Cousine's files under every family (DOCE-PAGINATION-12.7); with `fonts=no-math` it serves
+// no face for MathML (DOCE-PAGINATION-12.9).
 const FONTS_QUERY = new URLSearchParams(window.location.search).get('fonts');
 const FONTS: LabFonts =
   TEXT_LAYOUT !== 'pretext' || FONTS_QUERY === 'none'
     ? 'none'
-    : FONTS_QUERY === 'cousine'
-      ? 'cousine'
+    : FONTS_QUERY === 'cousine' || FONTS_QUERY === 'no-math'
+      ? FONTS_QUERY
       : 'lab';
 
 const ADAPTERS: Readonly<Record<LabFonts, FontsAdapter | undefined>> = {
@@ -86,6 +87,7 @@ const ADAPTERS: Readonly<Record<LabFonts, FontsAdapter | undefined>> = {
   lab: LAB_FONTS,
   cousine: COUSINE_FONTS,
   slow: SLOW_LAB_FONTS,
+  'no-math': NO_MATH_FONTS,
 };
 
 // How the pages are painted: as HTML, or each into a canvas (`rendering=html-canvas`,
