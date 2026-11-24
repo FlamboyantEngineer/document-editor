@@ -3,6 +3,7 @@
 // canonical state (`createPagedProjection`).
 
 import { EditorView } from 'prosemirror-view';
+import { keepInputAfterFocus } from '../utils/dom-selection.js';
 import {
   createPagedProjection,
   type PagedProjection,
@@ -32,6 +33,8 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     state: projection.projection,
     nodeViews: options.nodeViews ?? {},
     dispatchTransaction: (tr) => projection.receive(tr),
+    // A key right after focus keeps its selection on a busy page (DOCE-PAGINATION-7.22).
+    handleDOMEvents: keepInputAfterFocus(undefined),
   });
   view = shown;
   const detach = projection.attach(shown);
