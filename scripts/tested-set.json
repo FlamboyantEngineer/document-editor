@@ -19,6 +19,7 @@
     "prosemirror-view",
     "@y/y",
     "lib0",
+    "katex",
     "@flamboyantengineer/ui-components"
   ]
 }

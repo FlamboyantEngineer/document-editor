@@ -196,6 +196,7 @@ describe('reading Markdown', () => {
         '',
         '[^n]: The *note*',
         '  goes on.',
+        '',
         '[ref]: https://example.test',
       ].join('\n'),
     );
