@@ -8,7 +8,7 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { TypesetMath } from '../engine/math-typeset.js';
 import type { FontFiles } from '../host/font-files.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
-import type { LineMark } from '../layout-engine/line-marks.js';
+import type { LabelPart, LineMark } from '../layout-engine/line-marks.js';
 import type { PlacedMath } from '../layout-engine/math-atoms.js';
 
 /**
@@ -29,8 +29,15 @@ export interface PagesLayoutBlock {
   readonly style?: string | undefined;
   /** `rtl` when it is drawn right to left (DOCE-PAGINATION-9.12); absent when left to right. */
   readonly direction?: 'rtl' | undefined;
-  /** The marks that draw its lines, by offset in its content, or in linked code's code. */
+  /**
+   * The marks that draw its lines, by offset in its content, or in linked code's code, or in the
+   * text a later part's caption shows (`text`).
+   */
   readonly marks: readonly LineMark[];
+  /** The text a later part's caption shows, which it does not hold (DOCE-PAGINATION-11.2). */
+  readonly text?: string | undefined;
+  /** A caption's label in the parts its lines start, where a line breaks inside or after it. */
+  readonly label?: readonly LabelPart[] | undefined;
   /**
    * Whether code, a code block or linked code, is drawn with its gutter of line numbers beside its
    * lines, as the pages drew it (DOCE-OBJECTS-3.1); absent otherwise.

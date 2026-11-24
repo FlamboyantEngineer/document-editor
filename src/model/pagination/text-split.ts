@@ -26,6 +26,12 @@ export interface TextMeasurement {
   readonly measure: (from: number, to: number) => TextMeasure;
   /** The height the block takes beyond its text, which each code fragment repeats. */
   readonly overhead?: number | undefined;
+  /**
+   * For an object held with its caption, how much taller a later part's caption is, showing the
+   * caption's text and the continued suffix, than the caption: the room a later part takes beyond
+   * the first's (DOCE-PAGINATION-11.2); 0 by default.
+   */
+  readonly continuedCaption?: number | undefined;
   /** The block's computed lines; a paragraph then splits exactly at a line's start. */
   readonly lines?: MeasuredLines | undefined;
 }

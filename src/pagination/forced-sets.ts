@@ -4,8 +4,16 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { shownTrees } from '../document/print-lines.js';
+import { printNodes, type PrintTree } from '../document/print-tree.js';
 import { blockDirection, type TextDirection } from '../layout-engine/direction.js';
-import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
+import {
+  drawnBlock,
+  firstLineIndent,
+  labelParts,
+  type LineMark,
+  lineMarks,
+} from '../layout-engine/line-marks.js';
 import { isCaption } from './forced-blocks.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
@@ -57,6 +65,27 @@ function breakWidget(
   );
 }
 
+// What a caption draws before its content that the stylesheet would draw otherwise
+// (`shownTrees`): its label on the lines its parts start, and a later part's shown text, each a
+// widget at the content's start, the label first.
+function shownWidgets(
+  table: DrawnLines,
+  { marks, key }: { marks: readonly LineMark[]; key: string },
+): Decoration[] {
+  const label = labelParts(table);
+  const text = table.text === undefined ? undefined : { text: table.text, marks };
+  return [...(label ? [shownTrees({ label })] : []), ...(text ? [shownTrees({ text })] : [])].map(
+    (trees: PrintTree[], index, all) =>
+      Decoration.widget(
+        0,
+        (view) =>
+          printNodes(view.dom.ownerDocument, trees)[0] ??
+          view.dom.ownerDocument.createElement('span'),
+        { side: index - all.length, key: `shown|${String(index)}|${key}`, ignoreSelection: true },
+      ),
+  );
+}
+
 // Whether a range of a block's content is exactly one inline node other than text.
 function isWholeAtom(node: ProseMirrorNode, { from, to }: { from: number; to: number }): boolean {
   let whole = false;
@@ -78,10 +107,13 @@ export function blockSet(
   // An inner mark is an element of its own, and the view nests each later level around the one
   // before: the first other mark on an inner mark's range starts the element around it, which the
   // marks after it on that range join, as a static drawing nests them.
-  const marks = lineMarks(node, table, { prefixed });
-  const own = marks.map(({ from, to, inner, side, ...attrs }, index) => {
+  // A later part's caption draws its lines over the text it shows (`LineTable.text`).
+  const marks = lineMarks(drawnBlock(node, table), table, { prefixed });
+  const shown = shownWidgets(table, { marks, key });
+  const content = table.text === undefined ? marks : [];
+  const own = content.map(({ from, to, inner, side, ...attrs }, index) => {
     if (side !== undefined) return breakWidget(from, { side, ...attrs });
-    const before = marks[index - 1];
+    const before = content[index - 1];
     const around = !inner && before?.inner && before.from === from && before.to === to;
     // A mark on an inline node other than text, such as math, is drawn on the node's own element:
     // a view draws an inline decoration only on text. A box on one, such as a page variable's, is
@@ -97,7 +129,8 @@ export function blockSet(
       ...(attrs.style ? { style: attrs.style } : {}),
     });
   });
-  const set = own.length ? new makeSet(own, []) : DecorationSet.empty;
+  const decorations = [...shown, ...own];
+  const set = decorations.length ? new makeSet(decorations, []) : DecorationSet.empty;
   builder.blocks.set(node, { key, set });
   return set;
 }
@@ -131,7 +164,9 @@ function linesKey(table: DrawnLines): string {
       `${String(line.from)}-${String(line.to)}:${String(line.width)}@${String(line.left)}${line.end}`,
   );
   const reserved = table.reserved ? JSON.stringify(table.reserved) : '';
-  return `${String(table.width)}${table.justify ? 'j' : ''}|${lines.join(',')}|${reserved}`;
+  // What a caption shows that it does not hold, its label's parts and a later part's text.
+  const shown = `${table.label ?? ''}|${table.text ?? ''}`;
+  return `${String(table.width)}${table.justify ? 'j' : ''}|${lines.join(',')}|${reserved}|${shown}`;
 }
 
 // A container's set, such as a table's, a row's or a cell's, kept by node and by the lines of the

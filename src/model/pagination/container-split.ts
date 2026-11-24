@@ -29,6 +29,12 @@ export interface ContainerMeasurement {
    * row does not show; 0 by default.
    */
   readonly caption?: number | undefined;
+  /**
+   * For an object held with its caption, how much taller a later part's caption is, showing the
+   * caption's text and the continued suffix, than the caption: the room a later part takes beyond
+   * the first's (DOCE-PAGINATION-11.2); 0 by default.
+   */
+  readonly continuedCaption?: number | undefined;
   /** A continuation's actual repeated header rows, including zero when it repeats none. */
   readonly tableHeaderRows?: number | undefined;
 }

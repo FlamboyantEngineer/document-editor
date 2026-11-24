@@ -106,7 +106,7 @@ const SOFT_HYPHEN = '\u00ad';
 
 // How far a line starts in from where the block's box draws its text: the content edge, past a
 // code block's gutter.
-const indentOf = (table: JustifiedLines, line: TextLine) =>
+const indentOf = (table: LineTable, line: TextLine) =>
   line.left - table.overhead / 2 - (table.inset ?? 0);
 
 /** How a block's lines are drawn besides their table. */
@@ -217,10 +217,12 @@ export function lineMarks(
   { prefixed = false }: LineMarksOptions = {},
 ): LineMark[] {
   const boxes = table.reserved ?? [];
+  // The lines that start in a caption's label start with its part (`labelParts`), not the content.
+  const labelled = labelPartTexts(table)?.length ?? 1;
   let marks = table.lines.flatMap((line, index) => {
     const own = marksOfLine(node, table, {
       line,
-      prefixed: prefixed && index === 0,
+      prefixed: prefixed && index < labelled,
       next: table.lines[index + 1],
     });
     if (line.side === undefined) return own;
@@ -232,4 +234,50 @@ export function lineMarks(
   return [...marks, ...boxes.map(reservedMark)].sort(
     (a, b) => a.from - b.from || a.to - b.to || Number(!!b.inner) - Number(!!a.inner),
   );
+}
+
+/** A part of a caption's label that starts a line (`LineTable.label`), as it is drawn. */
+export interface LabelPart {
+  readonly text: string;
+  /** Its line's indent, for a part after the first, as `--de-line-indent`. */
+  readonly style?: string | undefined;
+  /** Whether its line ends after it, before the content. */
+  readonly breaks: boolean;
+}
+
+// The label's text on each line it starts.
+function labelPartTexts(table: LineTable): string[] | null {
+  if (table.label === undefined) return null;
+  const parts = table.label.split('\n');
+  return table.label.endsWith('\n') ? parts.slice(0, -1) : parts;
+}
+
+/**
+ * The parts of a caption's label on the lines they start, where a line breaks inside the label or
+ * right after it (DOCE-PAGINATION-11.2): what the pages draw instead of the label alone, each part
+ * after the first starting its line at its indent; null when the content starts on the label's
+ * line.
+ */
+export function labelParts(table: LineTable): LabelPart[] | null {
+  const texts = labelPartTexts(table);
+  if (!texts) return null;
+  const ends = table.label?.endsWith('\n') ?? false;
+  return texts.map((text, index) => {
+    const line = table.lines[index];
+    const indent = index > 0 && line ? indentOf(table, line) : 0;
+    return {
+      text,
+      ...(indent > 0.001 ? { style: `--de-line-indent: ${px(indent)}` } : {}),
+      breaks: ends || index < texts.length - 1,
+    };
+  });
+}
+
+/**
+ * The block a table's lines are drawn over: the block itself, or, for one that shows text it does
+ * not hold (`LineTable.text`), as a later part's caption does, a block of its type holding that text.
+ */
+export function drawnBlock(node: ProseMirrorNode, table: LineTable): ProseMirrorNode {
+  if (table.text === undefined) return node;
+  return node.type.create(null, table.text ? node.type.schema.text(table.text) : null);
 }

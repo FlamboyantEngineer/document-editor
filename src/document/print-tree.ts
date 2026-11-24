@@ -153,3 +153,15 @@ export function printHtml(trees: readonly PrintTree[]): string {
     })
     .join('');
 }
+
+/** A rendered tree as nodes of a document, for a view that draws what a static drawing draws. */
+export function printNodes(doc: Document, trees: readonly PrintTree[]): Node[] {
+  return trees.map((tree) => {
+    if ('text' in tree) return doc.createTextNode(tree.text);
+    if ('markup' in tree) return doc.createRange().createContextualFragment(tree.markup);
+    const element = doc.createElement(tree.tag);
+    for (const [name, value] of tree.attrs) element.setAttribute(name, value);
+    element.append(...printNodes(doc, tree.children));
+    return element;
+  });
+}

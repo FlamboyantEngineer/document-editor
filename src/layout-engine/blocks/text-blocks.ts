@@ -43,3 +43,22 @@ export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid
     measurement: lineTableMeasurement(table),
   });
 }
+
+/**
+ * How much taller a later part's caption is than the caption itself, `height` tall: it shows the
+ * caption's text and its kind's continued suffix after the same label, at the same width
+ * (DOCE-PAGINATION-11.2); 0 for a caption that is already a later part's.
+ */
+export function continuedCaptionGrowth(
+  context: BlockContext,
+  caption: ProseMirrorNode,
+  height: number,
+): number {
+  if (typeof caption.attrs.continuedText === 'string') return 0;
+  const continued = caption.type.create({ ...caption.attrs, continuedText: caption.textContent });
+  const label = context.options.labelOf?.(caption);
+  const labelOf = (node: ProseMirrorNode) =>
+    node === continued ? label : context.options.labelOf?.(node);
+  const result = layTextBlock({ ...context, options: { ...context.options, labelOf } }, continued);
+  return result.ok ? result.block.height - height : 0;
+}

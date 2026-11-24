@@ -282,6 +282,33 @@ describe('container splits', () => {
     expect(again?.tail[0]?.height).toBe(5 + 20);
   });
 
+  it("DOCE-PAGINATION-11.2 takes a later part's taller caption, with the continued suffix, in its height", () => {
+    const row = (cell: string, text: string) =>
+      node('table_row', null, [node(cell, null, [paragraph(text)])]);
+    const caption = node('table_caption', null, [documentSchema.text('Totals')]);
+    const table = node('table', null, [
+      row('table_header', 'Name'),
+      row('table_cell', 'One'),
+      row('table_cell', 'Two'),
+      row('table_cell', 'Three'),
+    ]);
+    const figure = node('table_figure', null, [caption, table]);
+    const layouts = [{ top: 0, bottom: 10 }, ...rows(3, 20, 10)];
+    // A 12px caption, whose later part's copy wraps to 20px more.
+    const block = {
+      ...measured(figure, 87, layouts),
+      measurement: { children: layouts, caption: 12, continuedCaption: 20 },
+    };
+    const split = splitTableFigureWith(true)(block, 52);
+    expect(split?.head.height).toBe(17 + 30);
+    expect(split?.tail[0]?.height).toBe(17 + 20 + 10 + 40);
+    // Its own later part has the same caption: it takes no more.
+    const again = split?.tail[0] ? splitTableFigureWith(true)(split.tail[0], 70) : null;
+    expect(again?.tail[0]?.height).toBe(17 + 20 + 10 + 20);
+    // A later part that opens with a body row shows no caption, so none of it.
+    expect(splitTableFigureWith(false)(block, 52)?.tail[0]?.height).toBe(5 + 40);
+  });
+
   it('DOCE-PAGINATION-4.5 splits a table only between rows no cell spans', () => {
     const cell = (text: string, rowspan = 1) => node('table_cell', { rowspan }, [paragraph(text)]);
     const table = node('table', { dataId: 't1' }, [

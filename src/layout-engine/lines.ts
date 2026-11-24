@@ -63,6 +63,8 @@ interface LineLayoutInput {
   readonly restStart: number;
   /** The block the runs are of, which keeps them prepared while it lives. */
   readonly block: object;
+  /** A caption's label: its item in the first run, and its text. */
+  readonly label?: { readonly item: number; readonly text: string } | undefined;
 }
 
 /**
@@ -188,6 +190,8 @@ interface Placed {
   readonly start: number;
   readonly lastOfRun: boolean;
   readonly run: TextRun;
+  /** Where in the label a line after the first starts, for one that starts inside it. */
+  readonly labelStart?: number | undefined;
 }
 
 function runLines(
@@ -205,7 +209,9 @@ function runLines(
   }
   return lines.map((line, index) => {
     const offset = run.offsets[line.item] ?? -1;
+    const inLabel = first && index > 0 && line.item === input.label?.item;
     return {
+      ...(inLabel ? { labelStart: line.sourceStart } : {}),
       // A run's first line starts at the run, before any hidden content its first item follows.
       from: offset < 0 || index === 0 ? run.start : offset + line.sourceStart,
       side: insertedSide(run, line),
@@ -230,6 +236,20 @@ function insertedSide(run: TextRun, line: RunLine): number | undefined {
     : undefined;
 }
 
+// A caption's label as its lines draw it (`LineTable.label`), when a line starts inside it or the
+// content starts on a line after it; null when the content starts on the label's line.
+function drawnLabel(input: LineLayoutInput, placed: readonly Placed[]): string | null {
+  if (!input.label) return null;
+  const starts = placed.flatMap((line) => (line.labelStart === undefined ? [] : [line.labelStart]));
+  // The line after the label's last starts at the content, so the label ends its line.
+  const ends = placed[starts.length + 1]?.from === input.runs[0]?.start;
+  if (!starts.length && !ends) return null;
+  const { text } = input.label;
+  const edges = [0, ...starts, text.length];
+  const parts = edges.slice(1).map((end, index) => text.slice(edges[index] ?? 0, end));
+  return parts.join('\n') + (ends ? '\n' : '');
+}
+
 /** The line table of a block's runs. */
 export function layoutLines(cache: LineCache, input: LineLayoutInput): LineTable {
   const placed = input.runs.flatMap((run, index) =>
@@ -252,10 +272,12 @@ export function layoutLines(cache: LineCache, input: LineLayoutInput): LineTable
     });
     top += line.height;
   });
+  const label = drawnLabel(input, placed);
   return {
     width: input.width + 2 * input.padding,
     lines,
     height: top,
     overhead: 2 * input.padding,
+    ...(label === null ? {} : { label }),
   };
 }

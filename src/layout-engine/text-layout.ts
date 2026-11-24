@@ -8,6 +8,7 @@ import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 import type { BodyVariables } from './body-variables.js';
 import { type ContentsLayout, createContentsLayout } from './contents-layout.js';
+import { continuedCaption } from './continued-caption.js';
 import { footnoteMarkerItem } from './footnote-marker.js';
 import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
@@ -257,6 +258,34 @@ function fontBoxes(strutOf: ReturnType<typeof createStruts>) {
   };
 }
 
+// A caption's label, the item in the first run before which only a numbered paragraph's box is.
+function labelInput(
+  marker: unknown,
+  place: TextBlockPlace,
+  starts: { readonly lead?: number | undefined },
+): { label?: { item: number; text: string } } {
+  if (!marker || !place.label || place.footnoteNumber !== undefined) return {};
+  return { label: { item: starts.lead ? 1 : 0, text: place.label } };
+}
+
+// What a line table holds besides its lines: a code block's gutter, the ranges hidden as
+// suggestions, and the text a later part's caption shows.
+function laidExtras({
+  starts,
+  hidden,
+  continued,
+}: {
+  starts: { readonly inset?: number | undefined };
+  hidden: readonly (readonly [number, number])[];
+  continued: { readonly text: string } | null;
+}): Partial<LineTable> {
+  return {
+    ...(starts.inset ? { inset: starts.inset } : {}),
+    ...(hidden.length ? { hidden } : {}),
+    ...(continued ? { text: continued.text } : {}),
+  };
+}
+
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
 export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const cache = createLineCache(options.language);
@@ -284,9 +313,11 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     insertedReserved: insertedReservedIn(typography, options.reserve),
     stats: cache.stats,
     ...createContentsLayout({ ...options, cache, strutOf }),
-    layoutText(node, place) {
-      if (!TEXT_BLOCKS.has(node.type.name))
-        return { ok: false, reason: `not a text block: ${node.type.name}` };
+    layoutText(given, place) {
+      if (!TEXT_BLOCKS.has(given.type.name))
+        return { ok: false, reason: `not a text block: ${given.type.name}` };
+      const continued = continuedCaption(given, { template: options.template, scope: place.scope });
+      const node = continued?.node ?? given;
       const style = typography(node, place.scope);
       const marker = leadingItem(node, style, place);
       const unserved = unservedFamily(node, style, {
@@ -324,9 +355,9 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         firstStart: starts.firstStart,
         restStart: starts.restStart,
         block: node,
+        ...labelInput(marker, place, starts),
       });
-      const inset = starts.inset ? { inset: starts.inset } : {};
-      const laid = { ...table, ...inset, ...(runs.hidden.length ? { hidden: runs.hidden } : {}) };
+      const laid = { ...table, ...laidExtras({ starts, hidden: runs.hidden, continued }) };
       return { ok: true, table: withReserved(laid, runs, options.reserve) };
     },
   };

@@ -54,4 +54,17 @@ export interface LineTable {
    * ranges inside them; what draws a line starts and ends it at its first and last shown character.
    */
   readonly hidden?: readonly (readonly [number, number])[] | undefined;
+  /**
+   * The text the lines are laid out over when the block shows text it does not hold, as a later
+   * part's caption shows the first part's text and the continued suffix: the lines' offsets are in
+   * it (DOCE-PAGINATION-11.2); absent when the lines are of the block's content.
+   */
+  readonly text?: string | undefined;
+  /**
+   * A caption's label as the lines draw it when a line breaks inside it or right after it: the
+   * label's part on each line it starts, each ending in a line feed but a last one that shares its
+   * line with the content (DOCE-PAGINATION-11.2); absent when the content starts on the label's
+   * line.
+   */
+  readonly label?: string | undefined;
 }

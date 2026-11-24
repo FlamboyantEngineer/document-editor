@@ -4,11 +4,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
+import type { TextLine } from '../layout-engine/line-table.js';
 import { placeMath } from '../layout-engine/math-atoms.js';
 import { BASE_TEMPLATE, type TemplateFile } from '../model/index.js';
 import { engineMath } from '../pagination/engine-math.js';
 import { engineNumbers } from '../pagination/engine-numbers.js';
 import { pagesLayout } from '../pagination/pages-layout.js';
+import type { DrawnLines } from '../pagination/text-engine-types.js';
 import { drawLayoutPages, renderLayoutPrintPage } from './print-pages.js';
 
 const text = (value: string, marks: string[] = []) =>
@@ -381,6 +383,71 @@ describe('drawLayoutPages', () => {
 });
 
 describe("the engine's numbers in static pages", () => {
+  it("DOCE-PAGINATION-13.3 draws a later part's caption and a label in parts as the pages view draws them", () => {
+    const later = node('code_caption', { continuedText: 'Listing' });
+    const code = node('code_figure', null, [
+      later,
+      node('code_block', { codeBlockContinued: true }, [text('ee')]),
+    ]);
+    const label = node('table_caption', null, [text('ff')]);
+    const table = node('table_figure', null, [
+      label,
+      node('table', null, [
+        node('table_row', null, [node('table_cell', null, [paragraph([text('gg')])])]),
+      ]),
+    ]);
+    const line = (from: number, to: number, left = 0): TextLine => ({
+      from,
+      to,
+      width: 10,
+      left,
+      top: 0,
+      height: 20,
+      end: 'wrap',
+    });
+    const shown = new Map<Node, DrawnLines>([
+      [
+        later,
+        {
+          width: 100,
+          lines: [line(0, 8), { ...line(8, 19), end: 'end' }],
+          height: 40,
+          overhead: 0,
+          justify: false,
+          text: 'Listing (continued)',
+        },
+      ],
+      [
+        label,
+        {
+          width: 100,
+          lines: [line(0, 0), { ...line(0, 2, 4), end: 'end' }],
+          height: 40,
+          overhead: 0,
+          justify: false,
+          label: 'Table \n1 - ',
+        },
+      ],
+    ]);
+    const engine = stubEngine();
+    const own = engine.nestedLines.bind(engine);
+    engine.nestedLines = (container, scope) => new Map([...own(container, scope), ...shown]);
+    const { view, printed } = bothDrawings(pagesDocument([page([code, table])]), engine);
+    const parts = (root: ParentNode) =>
+      [...root.querySelectorAll('.doc-caption-text > [class^="de-forced-lines__"]')].map((each) => [
+        each.className.replace(' ProseMirror-widget', ''),
+        each.innerHTML,
+      ]);
+    expect(parts(printed)).toEqual(parts(view));
+    expect(parts(printed)).toEqual([
+      ['de-forced-lines__text', 'Listing<span class="de-forced-lines__end"> </span>(continued)'],
+      [
+        'de-forced-lines__label',
+        'Table <br><span class="de-forced-lines__start" style="--de-line-indent: 4.000px;">1 - </span>',
+      ],
+    ]);
+  });
+
   it('DOCE-PAGINATION-13.7 draws the numbers the engine laid the pages out with', () => {
     const heading = node('heading', { level: 1, dataId: 'h1' }, [text('Scope')]);
     const equation = node('math_display', { dataId: 'eq1' }, [documentSchema.text('a^2')]);

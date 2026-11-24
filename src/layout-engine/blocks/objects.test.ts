@@ -1,9 +1,14 @@
+import type { Node } from 'prosemirror-model';
 import { describe, expect, it, vi } from 'vitest';
-import { blockBuilders, standInBlockLayout } from '../../../test/layout-engine-fixtures.js';
+import {
+  blockBuilders,
+  standInBlockLayout,
+  standInTextLayout,
+} from '../../../test/layout-engine-fixtures.js';
 import { isTextMeasurement, type LayoutBlock } from '../../model/index.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
 import { fixedImageBox } from './objects.js';
-import type { BlockGeometry } from './types.js';
+import type { BlockGeometry, BlockTextLayout } from './types.js';
 
 const schema = createDocumentSchema();
 const { node, code, caption } = blockBuilders(schema);
@@ -74,6 +79,38 @@ describe('code', () => {
     // The 17-character label and 90 characters of caption need two lines of 97.
     const held = node('code_figure', null, [caption('code_caption', 90), code(10)]);
     expect(blockOf(layout.layoutBlock(held, place)).height).toBe(32 + 9 + 15 + 16);
+  });
+});
+
+describe('later parts of code', () => {
+  it("DOCE-PAGINATION-11.2 measures how much taller a later part's caption, with the continued suffix, is", () => {
+    const standIn = standInTextLayout();
+    // A later part's caption shows its text and " (continued)": as the stand-in counts them.
+    const text: BlockTextLayout = {
+      ...standIn,
+      layoutText: (line, at) => {
+        const shown: unknown = line.attrs.continuedText;
+        if (typeof shown !== 'string') return standIn.layoutText(line, at);
+        const copy = line.type.create(null, schema.text(`${shown} (continued)`));
+        return standIn.layoutText(copy, at);
+      },
+    };
+    const labelOf = (line: Node) =>
+      line.type.name === 'code_caption' ? 'Code Block 1.1 - ' : undefined;
+    const { layout } = standInBlockLayout({ text, labelOf });
+    // The 17-character label and 80 characters fill a line of 97; " (continued)" takes another.
+    const held = node('code_figure', null, [caption('code_caption', 80), code(10)]);
+    const block = blockOf(layout.layoutBlock(held, place));
+    expect(block.height).toBe(16 + 9 + 15 + 16);
+    expect(block.measurement).toMatchObject({ continuedCaption: 16 });
+    // A later part's own caption is already the continued one.
+    const later = node('code_figure', null, [
+      node('code_caption', { continuedText: 'c'.repeat(80) }),
+      code(10, { codeBlockContinued: true }),
+    ]);
+    const part = blockOf(layout.layoutBlock(later, place));
+    expect(part.height).toBe(32 + 9 + 15 + 16);
+    expect(part.measurement).not.toHaveProperty('continuedCaption');
   });
 });
 
