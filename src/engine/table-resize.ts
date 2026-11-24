@@ -165,18 +165,28 @@ function wholeTable(doc: ProseMirrorNode, pos: number, id: unknown) {
   return found;
 }
 
-/** Writes column widths on each cell of the table at `table` in a transaction's document. */
+/**
+ * Writes column widths on each cell of the table at `table` in a transaction's document: each cell
+ * takes the widths of the columns it spans from where the table's grid places it, so a cell beside
+ * one spanning rows from above takes its own column's width. Cells whose widths are already those
+ * are left as they are; widths for another number of columns than the table has change nothing.
+ */
 export function writeColumnWidths(tr: Transaction, table: number, widths: readonly number[]): void {
   const node = tr.doc.nodeAt(table);
-  if (!node || TableMap.get(node).width !== widths.length) return;
-  node.forEach((row, rowOffset) => {
-    let column = 0;
-    row.forEach((cell, cellOffset) => {
-      const span = Number(cell.attrs.colspan) || 1;
-      const colwidth = widths.slice(column, column + span);
-      column += span;
-      tr.setNodeMarkup(table + 2 + rowOffset + cellOffset, undefined, { ...cell.attrs, colwidth });
-    });
+  if (!node) return;
+  const map = TableMap.get(node);
+  if (map.width !== widths.length) return;
+  const written = new Set<number>();
+  // The grid lists each cell first at its top left corner, which names the column it starts in.
+  map.map.forEach((offset, index) => {
+    if (written.has(offset)) return;
+    written.add(offset);
+    const cell = node.nodeAt(offset);
+    if (!cell) return;
+    const column = index % map.width;
+    const colwidth = widths.slice(column, column + (Number(cell.attrs.colspan) || 1));
+    if (JSON.stringify(colwidth) === JSON.stringify(cell.attrs.colwidth)) return;
+    tr.setNodeMarkup(table + 1 + offset, undefined, { ...cell.attrs, colwidth });
   });
 }
 
