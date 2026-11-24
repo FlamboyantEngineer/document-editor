@@ -219,6 +219,25 @@ describe('tables under the pointer', () => {
     );
     expect(cells(state).map((attrs) => attrs.colwidth)).toEqual([[100], [350], [100], [350]]);
   });
+
+  it('DOCE-TABLES-3.7 narrows the column a cell beside one spanning rows sits in', () => {
+    let state = EditorState.create({
+      doc: read(
+        table(
+          row(cell('A1', { rowspan: 2, colwidth: [100] }), cell('B1', { colwidth: [300] })),
+          row(cell('B2', { colwidth: [300] })),
+        ),
+      ),
+      plugins: [createTableWidth({ maxWidth: () => 450 })],
+    });
+    const cellPos = positionOf(state.doc, 'B1') - 2;
+    const b1 = state.doc.nodeAt(cellPos);
+    state = state.apply(
+      state.tr.setNodeMarkup(cellPos, undefined, { ...b1?.attrs, colwidth: [500] }),
+    );
+    // B2 starts in the second column: it takes that column's width, not the first's.
+    expect(cells(state).map((attrs) => attrs.colwidth)).toEqual([[100], [350], [350]]);
+  });
 });
 
 describe('the cells a menu acts on', () => {

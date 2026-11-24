@@ -7,6 +7,7 @@ import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Mapping } from 'prosemirror-transform';
 import { fitColumns } from '../model/layout/column-widths.js';
 import { changedNodes } from '../utils/changed-ranges.js';
+import { writeColumnWidths } from './table-resize.js';
 import { isRemoteTransaction } from './transaction-kind.js';
 
 export { fitColumns };
@@ -22,27 +23,6 @@ function widthsOf(table: ProseMirrorNode): number[] | null {
     widths.push(...colwidth);
   }
   return widths;
-}
-
-// Sets a table's column widths on each of its cells.
-function setWidths(
-  tr: Transaction,
-  { pos, table }: { pos: number; table: ProseMirrorNode },
-  widths: readonly number[],
-) {
-  table.forEach((row, rowOffset) => {
-    let column = 0;
-    row.forEach((cell, cellOffset) => {
-      const span = Number(cell.attrs.colspan) || 1;
-      const colwidth = widths.slice(column, column + span);
-      column += span;
-      if (JSON.stringify(colwidth) === JSON.stringify(cell.attrs.colwidth)) return;
-      tr.setNodeMarkup(pos + 1 + rowOffset + 1 + cellOffset, undefined, {
-        ...cell.attrs,
-        colwidth,
-      });
-    });
-  });
 }
 
 /** How wide tables may be. */
@@ -78,7 +58,7 @@ export function createTableWidth({
         const previous = (old?.type.spec.tableRole === 'table' && widthsOf(old)) || [];
         const fitted = fitColumns(widths, previous, max);
         if (fitted.some((width, index) => width !== widths[index]))
-          setWidths(tr, { pos, table: node }, fitted);
+          writeColumnWidths(tr, pos, fitted);
         return false;
       });
       return tr.docChanged ? tr.setMeta('addToHistory', false) : null;
