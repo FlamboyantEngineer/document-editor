@@ -115,23 +115,29 @@ describe('reading Markdown edge cases', () => {
     expect(read.warnings.map((warning) => warning.detail)).toEqual(['<constructor>', '<tostring>']);
   });
 
-  it('DOCE-IMPORT-4.4 reads unclosed emphasis, math and tags in time that grows with the text', () => {
-    // The fastest of three reads, so a pause elsewhere does not count.
-    const time = (markdown: string) => {
-      let best = Infinity;
-      for (let run = 0; run < 3; run += 1) {
-        const start = performance.now();
-        readMarkdown(markdown);
-        best = Math.min(best, performance.now() - start);
+  // About twenty reads of up to 40,000 characters take more than a test's default five seconds on a
+  // busy runner.
+  it(
+    'DOCE-IMPORT-4.4 reads unclosed emphasis, math and tags in time that grows with the text',
+    { timeout: 30_000 },
+    () => {
+      // The fastest of three reads, so a pause elsewhere does not count.
+      const time = (markdown: string) => {
+        let best = Infinity;
+        for (let run = 0; run < 3; run += 1) {
+          const start = performance.now();
+          readMarkdown(markdown);
+          best = Math.min(best, performance.now() - start);
+        }
+        return best;
+      };
+      for (const unit of ['*a ', '$a ', '<u>a ']) {
+        expect(blocksOf(unit.repeat(10))).toHaveLength(1);
+        // Four times the text: about four times the time, where rescanning to the end gave sixteen.
+        expect(time(unit.repeat(8000)), unit).toBeLessThan(time(unit.repeat(2000)) * 9 + 5);
       }
-      return best;
-    };
-    for (const unit of ['*a ', '$a ', '<u>a ']) {
-      expect(blocksOf(unit.repeat(10))).toHaveLength(1);
-      // Four times the text: about four times the time, where rescanning to the end gave sixteen.
-      expect(time(unit.repeat(8000)), unit).toBeLessThan(time(unit.repeat(2000)) * 9 + 5);
-    }
-  });
+    },
+  );
 
   it('DOCE-IMPORT-4.4 flattens nesting deeper than a document holds, with a warning', () => {
     const read = readMarkdown(`${'>'.repeat(5000)} deep`);
