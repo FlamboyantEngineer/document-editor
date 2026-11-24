@@ -524,17 +524,25 @@ function counter() {
 }
 
 describe('the template preview compared with its older version', () => {
-  it('DOCE-TEMPLATES-8.8 shows a change of each kind', () => {
-    const template = { formatVersion: 1 as const, id: 'preview' };
-    const shown = assignStoredIds(templatePreviewDocument(template), { newId: counter() });
-    const newer = readDocumentFile(shown, documentSchema).doc;
-    const older = readDocumentFile(templatePreviewPrevious(shown), documentSchema).doc;
-    const kinds = compareWithOlder(readOlderVersion(older), newer).map((change) => change.kind);
-    expect([...new Set(kinds)].sort()).toEqual([
-      'deletion',
-      'formatting',
-      'insertion',
-      'modification',
-    ]);
-  });
+  it.each([null, 'cover'])(
+    'DOCE-TEMPLATES-8.8 shows a change of each kind in scope %s',
+    (scope) => {
+      const template = { formatVersion: 1 as const, id: 'preview', sections: [{ name: 'cover' }] };
+      const shown = assignStoredIds(
+        templatePreviewDocument(template, undefined, { scope, parts: true }),
+        {
+          newId: counter(),
+        },
+      );
+      const newer = readDocumentFile(shown, documentSchema).doc;
+      const older = readDocumentFile(templatePreviewPrevious(shown), documentSchema).doc;
+      const kinds = compareWithOlder(readOlderVersion(older), newer).map((change) => change.kind);
+      expect([...new Set(kinds)].sort()).toEqual([
+        'deletion',
+        'formatting',
+        'insertion',
+        'modification',
+      ]);
+    },
+  );
 });

@@ -90,9 +90,8 @@ export function documentCounts(doc: ProseMirrorNode): DocumentCounts {
   return { words, characters };
 }
 
-const isOver = (counts: DocumentCounts, limit: ContentLimit) =>
-  (limit.words !== undefined && counts.words > limit.words) ||
-  (limit.characters !== undefined && counts.characters > limit.characters);
+const exceedsLimit = (after: number, limit: number | undefined) =>
+  limit !== undefined && after > limit;
 
 /** The content limit a state's editing keeps, or null when it keeps none. */
 export const contentLimitKey = new PluginKey<ContentLimit>('content-limit');
@@ -103,7 +102,7 @@ export const contentLimitOf = (state: EditorState): ContentLimit | null =>
 
 /**
  * Keeps the document's body within a limit of words or characters: a local change that would take
- * it past the limit, or further past it, is refused; a change that shortens it always applies.
+ * it past the limit, or further past it, is refused.
  */
 export function createContentLimit(
   limit: ContentLimit,
@@ -114,11 +113,15 @@ export function createContentLimit(
     state: { init: () => limit, apply: (_tr, value) => value },
     filterTransaction(tr, state) {
       if (!tr.docChanged || isRemote(tr)) return true;
-      if (tr.doc.content.size <= state.doc.content.size) return true;
       const after = documentCounts(tr.doc);
-      if (!isOver(after, limit)) return true;
+      const wordsOver = exceedsLimit(after.words, limit.words);
+      const charactersOver = exceedsLimit(after.characters, limit.characters);
+      if (!wordsOver && !charactersOver) return true;
       const before = documentCounts(state.doc);
-      return after.words <= before.words && after.characters <= before.characters;
+      return (
+        !(wordsOver && after.words > before.words) &&
+        !(charactersOver && after.characters > before.characters)
+      );
     },
   });
 }

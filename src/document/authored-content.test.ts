@@ -78,6 +78,8 @@ describe('authoredContent', () => {
     expect(one.missing).toEqual(['ffffffff']);
     expect(one.content).toContain('Still in one.');
     expect(one.content).not.toContain('In two.');
+    const both = authoredContent(file, { headings: ['a0000003', 'a0000001', 'ffffffff'] });
+    expect(both).toEqual(one);
     const changedTwo = fileOf(
       ...(file.sections[0]?.content.slice(0, 5) ?? []),
       paragraph('a0000006', [text('Changed.')]),

@@ -5,7 +5,7 @@ import type { EditorState } from 'prosemirror-state';
 import type { TemplateFile } from '../model/index.js';
 import { documentOutline } from './outline.js';
 import { isMatchReplaceable, type SearchScope, searchState } from './search.js';
-import { searchedText } from './search-text.js';
+import { searchedText, type SearchMatch } from './search-text.js';
 
 /** A match as a results list shows it: the text of its block, where it is, and whether it may change. */
 export interface SearchResult {
@@ -27,6 +27,27 @@ export interface SearchResultsOptions {
   readonly template?: TemplateFile | undefined;
 }
 
+function resultBlock(state: EditorState, pos: number) {
+  const $pos = state.doc.resolve(pos);
+  return {
+    ...searchedText($pos.parent, $pos.before()),
+    limit: $pos.end(),
+    start: 0,
+    end: 0,
+  };
+}
+
+// Matches and the ranges of the displayed characters both advance in document order.
+function advanceOffsets(block: ReturnType<typeof resultBlock>, match: SearchMatch) {
+  const { spans } = block;
+  for (let span = spans[block.start]; span && span.from < match.from; span = spans[block.start]) {
+    block.start += 1;
+  }
+  for (let span = spans[block.end]; span && span.to <= match.to; span = spans[block.end]) {
+    block.end += 1;
+  }
+}
+
 /**
  * A search's matches as results, the find bar's by default: each in the text of its block, under
  * the heading it is under, numbered by the template when it is given. Matches and headings both
@@ -41,20 +62,19 @@ export function searchResults(
   const headings = documentOutline(state, template);
   let next = 0;
   let heading: string | null = null;
+  let block: ReturnType<typeof resultBlock> | undefined;
   return search.matches.map((match, index) => {
     for (let at = headings[next]; at && at.pos <= match.from; at = headings[next]) {
       heading = [at.number, at.text].filter(Boolean).join(' ');
       next += 1;
     }
-    const $from = state.doc.resolve(match.from);
-    const { text, spans } = searchedText($from.parent, $from.before());
-    const start = spans.findIndex((span) => span.from >= match.from);
-    const end = spans.findLastIndex((span) => span.to <= match.to) + 1;
+    if (!block || match.to > block.limit) block = resultBlock(state, match.from);
+    advanceOffsets(block, match);
     return {
       index,
-      source: text,
-      start,
-      end,
+      source: block.text,
+      start: block.start,
+      end: block.end,
       heading,
       replaceable: isMatchReplaceable(state, match),
     };

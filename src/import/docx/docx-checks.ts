@@ -3,8 +3,8 @@
 // size of each XML part, how deep its elements nest, and the size of the document read.
 
 import { importError } from '../import-error.js';
-import { childElements, readXml } from '../xml-read.js';
-import { DEFAULT_ZIP_LIMITS, type ZipArchive, type ZipLimits } from '../zip-read.js';
+import { childElements, type XmlElement } from '../xml-read.js';
+import { DEFAULT_ZIP_LIMITS, type ZipLimits } from '../zip-read.js';
 
 /** How much a word processing document may hold. */
 export interface DocxLimits extends ZipLimits {
@@ -30,34 +30,40 @@ export const DEFAULT_DOCX_LIMITS: DocxLimits = Object.freeze({
 const MACRO_PART = /(^|\/)vba(project|data)[^/]*$/i;
 const MACRO_TYPE = /macroenabled|vbaproject|vbadata/i;
 
-// Whether an XML text names a macro type in a content type or relationship type.
-const namesMacroType = (text: string, tag: string, attribute: string) =>
-  childElements(readXml(text), tag).some((element) =>
-    MACRO_TYPE.test(element.attrs[attribute] ?? ''),
-  );
+/** The entries of a package metadata part, whose tags may have prefixes. */
+export function packageElements(
+  root: XmlElement | null,
+  name: 'Types' | 'Relationships',
+  tag: string,
+): XmlElement[] {
+  const prefix = name === 'Types' ? 'opc-types' : 'opc-rels';
+  if (root && root.name !== name && root.name !== `${prefix}:${name}`)
+    throw importError('damaged', `The ${name} part is invalid.`);
+  return childElements(root, root?.name === name ? tag : `${prefix}:${tag}`);
+}
+
+const namesMacroType = (elements: XmlElement[], attribute: string) =>
+  elements.some((element) => MACRO_TYPE.test(element.attrs[attribute] ?? ''));
 
 /**
  * Refuses a package with macros: a part named `vbaProject` or `vbaData`, a macro-enabled or VBA
  * content type, or a relationship of a VBA type, whatever its file is called.
  */
-export async function refuseMacros(archive: ZipArchive): Promise<void> {
+export async function refuseMacros(
+  paths: readonly string[],
+  read: (path: string) => Promise<XmlElement | null>,
+): Promise<void> {
   const refuse = () => {
     throw importError('refused', 'The document holds macros.');
   };
-  if (archive.paths.some((path) => MACRO_PART.test(path))) refuse();
-  const types = await archive.read('[Content_Types].xml');
-  const decoder = new TextDecoder();
-  if (types) {
-    const text = decoder.decode(types);
-    if (
-      namesMacroType(text, 'Default', 'ContentType') ||
-      namesMacroType(text, 'Override', 'ContentType')
-    )
-      refuse();
-  }
-  for (const path of archive.paths.filter((each) => each.endsWith('.rels'))) {
-    const bytes = await archive.read(path);
-    if (bytes && namesMacroType(decoder.decode(bytes), 'Relationship', 'Type')) refuse();
+  if (paths.some((path) => MACRO_PART.test(path))) refuse();
+  const types = await read('[Content_Types].xml');
+  const defaults = packageElements(types, 'Types', 'Default');
+  const overrides = packageElements(types, 'Types', 'Override');
+  if (namesMacroType(defaults, 'ContentType') || namesMacroType(overrides, 'ContentType')) refuse();
+  for (const path of paths.filter((each) => each.endsWith('.rels'))) {
+    const relationships = packageElements(await read(path), 'Relationships', 'Relationship');
+    if (namesMacroType(relationships, 'Type')) refuse();
   }
 }
 

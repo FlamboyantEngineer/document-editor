@@ -5,12 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
-import {
-  type Decoration,
-  DecorationSet,
-  type EditorView,
-  type NodeViewConstructor,
-} from 'prosemirror-view';
+import type { Decoration, DecorationSet, EditorView, NodeViewConstructor } from 'prosemirror-view';
 import type { ContentsList } from '../layout-engine/blocks/types.js';
 import {
   abbreviationTargetId,
@@ -76,13 +71,24 @@ export const contentsKey = new PluginKey<ContentsState>('contents');
 
 // The rows a plugin state draws, each entry on the page the layout shows it on, once for each
 // state and layout: the catalog counts a section as one page, the layout knows where pages break.
-const onLayout = new WeakMap<ContentsState, { map: PageMap; set: DecorationSet }>();
+const onLayout = new WeakMap<ContentsState, WeakMap<PageMap, DecorationSet>>();
 
-function pagedDecorations(state: EditorState, value: ContentsState, kinds: Kinds): DecorationSet {
-  if (!hasContents(state.doc)) return DecorationSet.empty;
-  const map = pageMap(state);
-  const cached = onLayout.get(value);
-  if (cached?.map === map) return cached.set;
+type ContentsDecorations = (state: EditorState, map?: PageMap) => DecorationSet | null;
+
+/** The contents plugin's decorations with page numbers from the view that is drawing them. */
+export function contentsDecorations(state: EditorState, map: PageMap): DecorationSet | null {
+  const spec = contentsKey.get(state)?.spec as { decorationsFor?: ContentsDecorations } | undefined;
+  return spec?.decorationsFor?.(state, map) ?? null;
+}
+
+function pagedDecorations(
+  state: EditorState,
+  { value, kinds }: { readonly value: ContentsState; readonly kinds: Kinds },
+  map: PageMap,
+): DecorationSet {
+  const layouts = onLayout.get(value) ?? new WeakMap<PageMap, DecorationSet>();
+  const cached = layouts.get(map);
+  if (cached) return cached;
   const { listing } = value as InnerState;
   const catalog = Object.fromEntries(
     Object.entries(listing.catalog).map(([key, entries]) => [
@@ -91,7 +97,8 @@ function pagedDecorations(state: EditorState, value: ContentsState, kinds: Kinds
     ]),
   );
   const set = decorate(state.doc, { catalog, lists: listing.lists }, kinds);
-  onLayout.set(value, { map, set });
+  layouts.set(map, set);
+  onLayout.set(value, layouts);
   return set;
 }
 
@@ -227,8 +234,14 @@ export function createContents({
     };
   };
   const counter = { builds: 0 };
+  const decorationsFor: ContentsDecorations = (state, map) => {
+    const value = contentsKey.getState(state);
+    if (!value || !hasContents(state.doc)) return null;
+    return pagedDecorations(state, { value, kinds }, map ?? pageMap(state));
+  };
   return new Plugin<ContentsState>({
     key: contentsKey,
+    decorationsFor,
     groups: ((state, node) => {
       const value = contentsKey.getState(state);
       return value ? listGroups(value, node, kinds) : [];
@@ -249,10 +262,7 @@ export function createContents({
       },
     },
     props: {
-      decorations(state) {
-        const value = contentsKey.getState(state);
-        return value ? pagedDecorations(state, value, kinds) : null;
-      },
+      decorations: decorationsFor,
       nodeViews: { toc_block: view },
       handleClickOn: (...[editor, , node, , event]) => followAnchor(editor, node, event),
       handleDOMEvents: { copy: copyRows },

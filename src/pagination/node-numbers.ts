@@ -24,7 +24,7 @@ export interface NodeNumbers {
 }
 
 /** No numbers, before a document is numbered. */
-export const NO_NUMBERS: NodeNumbers = {
+const NO_NUMBERS: NodeNumbers = {
   doc: null,
   prefixes: new Map(),
   paragraphs: new Map(),
@@ -64,39 +64,61 @@ export function markerKey(node: ProseMirrorNode, footnoteOf: NodeNumbers['footno
 }
 
 /** A document's numbers by node, and its numbered headings and paragraphs. */
-export function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
+function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const { headings, paragraphs } = documentNumbers(doc, template);
-  const prefixes = new Map<ProseMirrorNode, string>();
-  const numbered = new Map<ProseMirrorNode, ParagraphNumber>();
-  for (const [pos, prefix] of headings) {
-    const node = doc.nodeAt(pos);
-    if (node) prefixes.set(node, prefix);
-  }
-  for (const [pos, number] of paragraphs) {
-    const node = doc.nodeAt(pos);
-    if (node) numbered.set(node, number);
-  }
   const labels = captionNumbers(doc, template);
-  const footnotes = footnotesOf(doc);
-  const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
-  // Read when a block is laid out, not for the numbering the pages draw on every change.
-  let captions: ReadonlyMap<ProseMirrorNode, string> | null = null;
-  const captionKey = (node: ProseMirrorNode) =>
-    (captions ??= captionLabelKeys(doc, (caption) => labels.labelOf(caption))).get(node) ?? '';
-  const byNode: NodeNumbers = {
-    doc,
-    prefixes,
-    paragraphs: numbered,
-    labelOf: (caption) => labels.labelOf(caption),
-    footnoteOf,
-    keyOf: (node) =>
-      `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}`,
+  const byNode = (): NodeNumbers => {
+    const prefixes = new Map<ProseMirrorNode, string>();
+    const numbered = new Map<ProseMirrorNode, ParagraphNumber>();
+    for (const [pos, prefix] of headings) {
+      const node = doc.nodeAt(pos);
+      if (node) prefixes.set(node, prefix);
+    }
+    for (const [pos, number] of paragraphs) {
+      const node = doc.nodeAt(pos);
+      if (node) numbered.set(node, number);
+    }
+    const footnotes = footnotesOf(doc);
+    const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
+    // Read when a block is laid out, not for the numbering the pages draw on every change.
+    let captions: ReadonlyMap<ProseMirrorNode, string> | null = null;
+    const captionKey = (node: ProseMirrorNode) =>
+      (captions ??= captionLabelKeys(doc, (caption) => labels.labelOf(caption))).get(node) ?? '';
+    return {
+      doc,
+      prefixes,
+      paragraphs: numbered,
+      labelOf: (caption) => labels.labelOf(caption),
+      footnoteOf,
+      keyOf: (node) =>
+        `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}`,
+    };
   };
   const numbering = {
     headings,
     paragraphs: new Set(paragraphs.keys()),
-    labelOf: byNode.labelOf,
+    labelOf: labels.labelOf,
     labelsKey: labels.labelsKey,
   };
   return { byNode, numbering };
+}
+
+/** The measured document's numbers and the draw-only numbering of its projections. */
+export function holdNodeNumbers(template: TemplateFile) {
+  let numbers = NO_NUMBERS;
+  const drawn = new WeakMap<ProseMirrorNode, ReturnType<typeof numbersByNode>['numbering']>();
+  return {
+    current: () => numbers,
+    number(doc: ProseMirrorNode) {
+      if (numbers.doc === doc) return;
+      const found = numbersByNode(doc, template);
+      numbers = found.byNode();
+      drawn.set(doc, found.numbering);
+    },
+    numbering(doc: ProseMirrorNode) {
+      const numbering = drawn.get(doc) ?? numbersByNode(doc, template).numbering;
+      drawn.set(doc, numbering);
+      return numbering;
+    },
+  };
 }

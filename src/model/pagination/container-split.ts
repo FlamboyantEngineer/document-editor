@@ -29,6 +29,8 @@ export interface ContainerMeasurement {
    * row does not show; 0 by default.
    */
   readonly caption?: number | undefined;
+  /** A continuation's actual repeated header rows, including zero when it repeats none. */
+  readonly tableHeaderRows?: number | undefined;
 }
 
 /** Whether a layout block carries a container measurement. */

@@ -9,7 +9,7 @@ import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { type CommentThread, createMemoryHost } from '../../host/index.js';
 import { FRAGMENT_RULES, readDocumentFile, type TemplateFile } from '../../model/index.js';
-import { showOnPages } from '../../pagination/page-map.js';
+import { bindPageMaps, createPageMapScope } from '../../pagination/page-map.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
 import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
@@ -147,8 +147,9 @@ describe('DocumentSidePanel', () => {
     const { rerender } = render(<Harness handleRef={handle} panel={panel} />);
     const pages = () => within(details()).getByText('Pages').closest('[role="row"], div, dt');
     await waitFor(() => expect(pages()?.parentElement).toHaveTextContent('1'));
-    const doc = handle.current?.view()?.state.doc;
-    if (!doc) throw new Error('The editor should show a document.');
+    const view = handle.current?.view();
+    if (!view) throw new Error('The editor should show a document.');
+    const { doc } = view.state;
     // The layout shows the same document on three pages.
     const content = doc.child(0).child(0);
     const shown = doc.type.create(null, [
@@ -160,9 +161,12 @@ describe('DocumentSidePanel', () => {
           content.copy(content.content),
         ]),
     ]);
-    showOnPages(doc, { pages: shown, rules: FRAGMENT_RULES });
+    const scope = createPageMapScope();
+    scope.show(doc, { pages: shown, rules: FRAGMENT_RULES });
+    const unbind = bindPageMaps(view, scope.read);
     rerender(<Harness handleRef={handle} panel={{ ...panel }} />);
     await waitFor(() => expect(pages()?.parentElement).toHaveTextContent('3'));
+    unbind();
   });
 
   it('DOCE-EDITOR-8.1 holds its pane and expanded state when uncontrolled', async () => {

@@ -29,6 +29,8 @@ export interface FigurePasteOptions {
   readonly tooLarge: (maxBytes: number) => string;
   /** Asks the reader to paste again: the document changed while the images uploaded. */
   readonly pasteAgain: string;
+  /** Whether the context menu's original paste target still applies after an upload. */
+  readonly isCurrent?: (() => boolean) | undefined;
 }
 
 /** What pasting images needs, from the editor's props; null while the host stores no assets. */
@@ -93,7 +95,7 @@ async function insertFigures(
   options: FigurePasteOptions,
 ) {
   const stored = await uploadAll(files, options);
-  if (!stored || !canTake(view)) return;
+  if (!stored || !canTake(view) || options.isCurrent?.() === false) return;
   let place = at;
   stored.forEach((asset, index) => {
     place = insertFigureAt(view, place, { ...asset, alt: files[index]?.name ?? '' });
@@ -131,6 +133,7 @@ async function pasteWithImages(
     options.feedback?.notify({ tone: 'error', text: options.pasteAgain });
     return;
   }
+  if (options.isCurrent?.() === false) return;
   let pasted = html;
   images.forEach((image, index) => {
     const asset = stored[index];

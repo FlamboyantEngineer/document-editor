@@ -8,7 +8,7 @@
 // id and their place, so a rerun gives the same ids. The output is the script's: the writer cannot
 // edit it.
 
-import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   type Command,
   type EditorState,
@@ -18,12 +18,13 @@ import {
 } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { ScriptRunnerAdapter, ScriptRunPurpose } from '../host/index.js';
-import { readStoredContent, writeDocumentFile } from '../model/index.js';
+import { writeDocumentFile } from '../model/index.js';
 import { changedNodes } from '../utils/changed-ranges.js';
 import { isWritersChange } from './edit-lock.js';
 import {
   listScriptBlocks,
   putScriptOutputs,
+  readScriptOutput,
   sameOutputContent,
   type ScriptBlockAt,
   type ScriptOutput,
@@ -186,7 +187,7 @@ async function produce(
     const result = await runner.run(request, signal);
     if (!result.ok) return failure(result.error.message ?? '');
     const { content, provenance, signatures } = result.value;
-    const read = Fragment.from(readStoredContent(content, view.state.schema));
+    const read = readScriptOutput(content, block.node);
     return { ok: true, output: { script, content: read, provenance, signatures, inputs } };
   } catch (error) {
     signal?.throwIfAborted();

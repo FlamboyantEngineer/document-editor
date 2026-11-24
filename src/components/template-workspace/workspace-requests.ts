@@ -32,6 +32,7 @@ export interface WorkspaceCore {
   setProblem: (problem: WorkspaceProblem | null) => void;
   /** Opens a stored template, or none; again for the same id, it drops the draft. */
   request: (templateId: string | null, options?: { announce?: boolean }) => void;
+  beginNavigation: () => AbortSignal;
   relist: () => void;
   onTemplateIdChange?: ((templateId: string | null) => void) | undefined;
   onRevisionChange?: ((revision: string | null) => void) | undefined;
@@ -61,10 +62,11 @@ function settle(core: WorkspaceCore, saved: Saved, isCurrent: () => boolean) {
   core.opened.update(
     (open) => open && { saved: state, stored, draft: open.draft === before ? stored : open.draft },
   );
-  clear(core);
+  core.setConflict(false);
+  core.setProblem(null);
 }
 
-function report(core: WorkspaceCore, error: unknown) {
+export function report(core: Pick<WorkspaceCore, 'setProblem'>, error: unknown) {
   core.setProblem({
     kind: 'failed',
     message: error instanceof Error ? error.message : String(error),
@@ -72,8 +74,11 @@ function report(core: WorkspaceCore, error: unknown) {
 }
 
 // The value of a store request; a failure is reported while its template is open, and rethrown.
-async function reported<T>(core: WorkspaceCore, request: Promise<HostResult<T>>) {
-  const isCurrent = core.opened.tag();
+async function reported<T>(
+  core: WorkspaceCore,
+  request: Promise<HostResult<T>>,
+  isCurrent = core.opened.tag(),
+) {
   try {
     return await valueOf(request);
   } catch (error) {
@@ -85,13 +90,22 @@ async function reported<T>(core: WorkspaceCore, request: Promise<HostResult<T>>)
 // Stores a draft as a new template under its own id: the open one on its first save, or a copy,
 // which it opens. Rejects when the store refuses.
 async function create(core: WorkspaceCore, draft: TemplateFile, { copy }: { copy: boolean }) {
-  const isCurrent = core.opened.tag();
+  const navigation = copy ? core.beginNavigation() : undefined;
+  const sameTemplate = core.opened.tag();
+  const isCurrent = () => !navigation?.aborted && sameTemplate();
   const before = core.opened.current()?.draft;
   try {
     const state = await valueOf(core.store.create(draft));
-    if (copy && isCurrent()) core.opened.replace({ saved: state, stored: draft, draft });
-    settle(core, { state, stored: draft, before }, isCurrent);
-    if (isCurrent()) core.onTemplateIdChange?.(draft.id);
+    if (copy) {
+      core.relist();
+      if (!isCurrent()) return;
+      core.opened.replace({ saved: state, stored: draft, draft });
+      clear(core);
+      core.onTemplateIdChange?.(draft.id);
+    } else {
+      settle(core, { state, stored: draft, before }, isCurrent);
+      if (isCurrent()) core.onTemplateIdChange?.(draft.id);
+    }
   } catch (error) {
     if (isCurrent() && isFailure(error, 'conflict')) {
       core.setProblem({ kind: 'id-taken', id: draft.id });
@@ -116,19 +130,32 @@ async function saveOn(core: WorkspaceCore, draft: TemplateFile, baseRevision: st
 
 // Shows a saved version of the open template, or the template again with null; of these requests
 // only the latest one's answer applies.
-async function view(core: WorkspaceCore, version: TemplateVersion | null) {
-  const isCurrent = core.opened.tag('view');
+export async function showVersion(
+  core: Omit<WorkspaceCore, 'request'>,
+  version: TemplateVersion | null,
+  isCurrent: () => boolean,
+) {
+  if (!isCurrent()) return;
   const open = core.opened.current();
   if (!open || !version) {
+    core.setProblem(null);
     core.setViewing(null);
     core.onRevisionChange?.(null);
     return;
   }
-  const load = core.store.load(open.draft.id, { revision: version.revision });
-  const { template } = await reported(core, load).catch(() => ({ template: null }));
-  if (!template || !isCurrent()) return;
-  core.setViewing({ version, template });
-  core.onRevisionChange?.(version.revision);
+  const sameTemplate = core.opened.tag();
+  const canShow = () => isCurrent() && sameTemplate();
+  try {
+    const { template } = await valueOf(
+      core.store.load(open.draft.id, { revision: version.revision }),
+    );
+    if (!canShow()) return;
+    core.setProblem(null);
+    core.setViewing({ version, template });
+    core.onRevisionChange?.(version.revision);
+  } catch (error) {
+    if (canShow()) report(core, error);
+  }
 }
 
 /** The requests the workspace's controls make, on the open template as it is when each is made. */
@@ -151,8 +178,10 @@ export function workspaceRequests(core: WorkspaceCore) {
     remove: async () => {
       const open = opened.current();
       if (!open) return;
-      const isCurrent = opened.tag();
-      const removed = await reported(core, store.remove(open.draft.id)).then(
+      const navigation = core.beginNavigation();
+      const sameTemplate = opened.tag();
+      const isCurrent = () => !navigation.aborted && sameTemplate();
+      const removed = await reported(core, store.remove(open.draft.id), isCurrent).then(
         () => true,
         () => false,
       );
@@ -163,7 +192,10 @@ export function workspaceRequests(core: WorkspaceCore) {
       clear(core);
       core.onTemplateIdChange?.(null);
     },
-    view: (version: TemplateVersion | null) => view(core, version),
+    view: (version: TemplateVersion | null) => {
+      const navigation = core.beginNavigation();
+      return showVersion(core, version, () => !navigation.aborted);
+    },
     /**
      * Stages a version's settings as the draft, unsaved, so Save stores them as the template's
      * newest revision.
@@ -171,9 +203,16 @@ export function workspaceRequests(core: WorkspaceCore) {
     restore: async (revision: string) => {
       const id = opened.current()?.draft.id;
       if (id === undefined) return;
-      const isCurrent = opened.tag();
-      const { template } = await reported(core, store.load(id, { revision }));
-      if (!isCurrent()) return;
+      const navigation = core.beginNavigation();
+      const sameTemplate = opened.tag();
+      const isCurrent = () => !navigation.aborted && sameTemplate();
+      const { template } = await reported(core, store.load(id, { revision }), isCurrent).catch(
+        (error: unknown) => {
+          if (isCurrent()) throw error;
+          return { template: null };
+        },
+      );
+      if (!template || !isCurrent()) return;
       opened.update((open) => open && { ...open, draft: { ...template, id } });
       clear(core);
       core.onRevisionChange?.(null);

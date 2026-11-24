@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
+import type { StoredNode } from '../src/model/index.js';
 import tablesTemplate from '../test/fixtures/documents/templates/regression-tables.json' with { type: 'json' };
 import { expect, test, waitForLab } from './fixtures.js';
 
@@ -56,6 +57,41 @@ async function openNotes(page: Page) {
   });
 }
 
+async function openEditableNotes(page: Page) {
+  await page.goto('regression.html?document=minimal-paragraph');
+  await waitForLab(page);
+  await page.evaluate((template) => {
+    const text = (value: string) => ({ type: 'text', text: value });
+    const row = (cell: string, content: StoredNode[]) => ({
+      type: 'tableRow',
+      content: [{ type: cell, content: [{ type: 'paragraph', content }] }],
+    });
+    const header = row('tableHeader', [
+      text('Heading '),
+      {
+        type: 'footnote',
+        attrs: { id: 'head' },
+        content: [text('In the header.')],
+      },
+    ]);
+    const body = Array.from({ length: 18 }, (_, index) =>
+      row('tableCell', [text(`Row ${String(index + 1)}`)]),
+    );
+    window.regressionLab.load(
+      {
+        formatVersion: 1,
+        sections: [{ name: 'repeated', content: [{ type: 'table', content: [header, ...body] }] }],
+      },
+      {
+        ...template,
+        id: 'editable-page-notes',
+        page: { size: 'A7', margins: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } },
+        footnotes: { numbering: 'page' },
+      } as Parameters<RegressionProbe['load']>[1],
+    );
+  }, tablesTemplate);
+}
+
 // Each page's footnote markers' numbers, in order.
 const markerNumbers = (root: string) =>
   [...document.querySelectorAll(`${root} .pm-page`)].map((sheet) =>
@@ -87,6 +123,45 @@ test.describe('a footnote in a repeated table header', () => {
     expect(await page.evaluate(() => window.regressionLab.showViewer())).toBe(true);
     await expect(page.locator(`${VIEWER} .pm-page[data-drawn]`)).toHaveCount(editor.length);
     expect(await page.evaluate(markerNumbers, VIEWER)).toEqual(editor);
+  });
+
+  test('DOCE-PAGINATION-7.9 edits the shared note from its second visual occurrence', async ({
+    page,
+  }) => {
+    await openEditableNotes(page);
+    const copies = page.locator(
+      `${EDITOR} .pm-footnote-entry[data-footnote-id="head"] .pm-footnote-entry-content`,
+    );
+    const first = copies.first();
+    const second = copies.nth(1);
+    await second.scrollIntoViewIfNeeded();
+    await second.click();
+    await page.keyboard.press('End');
+    const caretInSecond = () =>
+      second.evaluate((node) =>
+        node.contains(node.ownerDocument.getSelection()?.anchorNode ?? null),
+      );
+    await expect.poll(caretInSecond).toBe(true);
+    await page.keyboard.insertText(' Extra.');
+    await expect(first).toHaveText('In the header. Extra.');
+    await expect(second).toHaveText('In the header. Extra.');
+    await expect.poll(caretInSecond).toBe(true);
+    const persisted = () => page.evaluate(() => JSON.stringify(window.regressionLab.stored()));
+    await expect.poll(persisted).toContain('In the header. Extra.');
+    expect((await persisted()).match(/In the header\. Extra\./g)).toHaveLength(1);
+    await page.keyboard.press('Shift+Home');
+    const selected = () => page.evaluate(() => document.getSelection()?.toString());
+    const before = await selected();
+    expect(before).toContain('In the header. Extra.');
+    await page.evaluate(async () => {
+      window.regressionLab.setZoom(110);
+      return window.stressLab.whenSettled();
+    });
+    await expect.poll(caretInSecond).toBe(true);
+    await expect.poll(selected).toBe(before);
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(' Again.');
+    await expect.poll(persisted).toContain('In the header. Extra. Again.');
   });
 
   test('DOCE-PAGINATION-13.11 links each page’s marker to that page’s entry and back in the viewer', async ({

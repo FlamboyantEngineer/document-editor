@@ -244,6 +244,7 @@ export function composeDocumentFile(
 function fitted(section: StoredSection, options: ComposeDocumentOptions): StoredSection {
   if (isLocked(section)) return section;
   const width = contentWidth(options.template, section.name) - (options.tableInset ?? 0);
+  if (width <= 0) return section;
   return {
     ...section,
     content: fitStoredTables(section.content, width, options.tables === 'fill'),

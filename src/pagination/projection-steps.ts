@@ -14,6 +14,8 @@ import {
   type Step,
 } from 'prosemirror-transform';
 import { leadingHeaderRows } from '../model/index.js';
+import { isTableHeaderCopy } from '../model/pagination/table-header-copies.js';
+import { footnoteAt, footnoteCopies } from './footnote-positions.js';
 import type { MapDirection } from './page-positions.js';
 import type { Mirrored, ProjectionMap } from './projection-map.js';
 
@@ -129,39 +131,61 @@ function headerEdit(step: RangeStep, doc: ProseMirrorNode) {
     if (typeof id !== 'string' || !id || table.attrs.splitPartIndex !== 0) return null;
     const row = $from.index(depth);
     if (depth === $from.depth || row >= leadingHeaderRows(table)) return null;
-    const rowStart = $from.posAtIndex(row, depth);
-    if (step.to > rowStart + table.child(row).nodeSize) return null;
-    return { id, row, offset: step.from - rowStart };
+    const start = $from.posAtIndex(row, depth);
+    const original = table.child(row);
+    if (step.to > start + original.nodeSize) return null;
+    return { id, row, start, original, offset: step.from - start };
   }
   return null;
 }
 
-// Where each repeated copy of a header row starts, in the document after the edit.
-function copyStarts(doc: ProseMirrorNode, edit: { readonly id: string; readonly row: number }) {
+// Positions before the edit, where every actual copy of the original row starts.
+function copyStarts(map: ProjectionMap, edit: NonNullable<ReturnType<typeof headerEdit>>) {
   const starts: number[] = [];
-  doc.descendants((node, pos) => {
+  const original = map.toCanonical(edit.start + 1, 1);
+  map.projection.descendants((node, pos) => {
     if (node.type.name !== 'table') return !node.isTextblock;
-    const part = node.attrs.splitPartIndex as unknown;
+    const part: unknown = node.attrs.splitPartIndex;
     if (node.attrs.dataId !== edit.id || typeof part !== 'number' || part < 1) return false;
-    if (edit.row < leadingHeaderRows(node) && edit.row < node.childCount - 1) {
-      let rowStart = pos + 1;
-      for (let index = 0; index < edit.row; index += 1) rowStart += node.child(index).nodeSize;
-      starts.push(rowStart);
-    }
+    const copy = node.maybeChild(edit.row);
+    if (!copy || edit.row >= leadingHeaderRows(node)) return false;
+    let from = pos + 1;
+    for (let index = 0; index < edit.row; index += 1) from += node.child(index).nodeSize;
+    // Editing an anonymous copy may replace the shared row node. Its mapped position still
+    // identifies the original, unlike a distinct body row that happens to use header cells.
+    const samePosition = original !== null && map.toCanonical(from + 1, 1) === original;
+    if (isTableHeaderCopy(edit.original, copy) || samePosition) starts.push(from);
     return false;
   });
   return starts;
 }
 
+// Every visual copy of a footnote entry takes the same text or mark edit.
+function noteCopyStarts(step: RangeStep, before: ProseMirrorNode, after: ProseMirrorNode) {
+  const entry = footnoteAt(before.resolve(step.from));
+  if (!entry || step.to > entry.from + entry.size) return null;
+  const starts = footnoteCopies(after, entry.id)
+    .filter(({ from }) => from !== entry.from)
+    .map(({ from }) => from);
+  return { starts, offset: entry.offset };
+}
+
 // The same edit on each repeated copy of the header row a step changed, in the document after it.
-function headerCopies(step: Step, before: ProseMirrorNode, after: ProseMirrorNode): Step[] {
+function repeatedCopies(step: Step, map: ProjectionMap, after: ProseMirrorNode): Step[] {
   if (!isRangeStep(step)) return [];
-  const edit = headerEdit(step, before);
+  const note = noteCopyStarts(step, map.projection, after);
+  const header = note ? null : headerEdit(step, map.projection);
+  const edit =
+    note ??
+    (header && {
+      starts: copyStarts(map, header).map((from) => step.getMap().map(from)),
+      offset: header.offset,
+    });
   if (!edit) return [];
   // Each copy is placed in the document after the copies before it.
   let growth = 0;
-  return copyStarts(after, edit).map((rowStart) => {
-    const by = rowStart + growth + edit.offset - step.from;
+  return edit.starts.map((start) => {
+    const by = start + growth + edit.offset - step.from;
     const copy = placed(step, step.from + by, step.to + by);
     copy.getMap().forEach((...ends) => {
       growth += ends[3] - ends[2] - (ends[1] - ends[0]);
@@ -193,7 +217,7 @@ export function mirrorStep(
     canonicalStep: step,
     canonical: edit.canonical,
   });
-  for (const copy of headerCopies(primary, map.projection, projection)) {
+  for (const copy of repeatedCopies(primary, map, projection)) {
     const result = copy.apply(projection);
     if (!result.doc) continue;
     projection = result.doc;

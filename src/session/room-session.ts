@@ -2,13 +2,9 @@
 // adapter and kept by the room, which every writer edits at once. The session never saves the
 // document itself: its status follows the room's, and saving waits for the room to store it.
 
-import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
-import { type EditorState, Selection, TextSelection } from 'prosemirror-state';
+import type { Schema } from 'prosemirror-model';
 import { movedDocument } from '../engine/template-move.js';
-import { markRemote } from '../engine/transaction-kind.js';
 import type { HostResult, SavedState } from '../host/adapters.js';
-import { type EditorCapabilities, READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
-import type { RoomReload } from '../host/session-adapters.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import type {
@@ -18,10 +14,19 @@ import type {
   SessionDocument,
 } from './document-session.js';
 import type { DraftOffer } from './drafts.js';
-import { loadPinnedTemplate } from './open-document.js';
+import { loadPinnedTemplate, samePin } from './open-document.js';
+import type { RoomBinding } from './room-binding.js';
 import { createRoomDrafts } from './room-drafts.js';
 import { followConnection, readConnection } from './room-follow.js';
-import { type OpenedRoom, openRoom, type RoomDraft, roomFailure, whenKept } from './room-open.js';
+import {
+  type OpenedRoom,
+  openRoom,
+  roomContent,
+  type RoomDraft,
+  roomFailure,
+  whenKept,
+} from './room-open.js';
+import { reloadRoom } from './room-reload.js';
 import { followSession, withCapabilities } from './session-follow.js';
 import {
   changeTemplate,
@@ -44,31 +49,29 @@ const NO_DRAFT_OFFER: Pick<DocumentSession, 'draft' | 'restoreDraft' | 'discardD
   discardDraft: () => undefined,
 };
 
-// The content the room holds, or why the schema cannot read it, such as a block of a newer schema.
-function roomContent({ binding }: OpenedRoom): HostResult<ProseMirrorNode | null> {
-  try {
-    return { ok: true, value: binding.content() };
-  } catch (error) {
-    return { ok: false, error: roomFailure(error) };
-  }
-}
-
 // The document the room holds, read for the editor with the room's plugins.
 async function readRoom(
   room: OpenedRoom,
   options: DocumentSessionOptions & { schema: Schema; stores: SessionStores; signal: AbortSignal },
 ): Promise<HostResult<{ document: SessionDocument; saved: SavedState | null }>> {
-  const { binding, connection, capabilities } = room;
+  const { connection, capabilities } = room;
+  const shared = connection.doc;
+  if (room.binding.shared !== shared) room.binding = room.rebind(shared);
+  const { binding } = room;
   const pin = binding.pin();
   const template = await loadPinnedTemplate(options.host, pin, options.signal);
+  if (!options.signal.aborted && (shared !== connection.doc || !samePin(pin, binding.pin()))) {
+    return readRoom(room, options);
+  }
   if (!template.ok) return template;
-  options.stores.setLoaded(template.value.template);
-  const content = roomContent(room);
+  const content = roomContent(binding);
   if (!content.ok) return content;
   const doc = content.value ?? options.schema.topNodeType.createAndFill();
   if (!doc) throw new Error('The schema cannot make an empty document.');
   const create = options.createState ?? defaultState(options.schema);
-  const state = create(doc, { ...options.stores.context, room: { plugins: binding.plugins } });
+  const state = options.stores.withTemplate(template.value.template, () =>
+    create(doc, { ...options.stores.context, room: { plugins: binding.plugins } }),
+  );
   const shown = { state, template: template.value.template, pin, templateUpdate: null };
   const cached = room.draft !== null;
   const { gate } = readConnection(connection, { cached, hasSynced: !cached });
@@ -80,26 +83,21 @@ async function readRoom(
   return { ok: true, value: { document, saved: template.value.saved } };
 }
 
-// A selection at the places `kept` was, as near as `state`'s document has them.
-function keptSelection(state: EditorState, kept: Selection): EditorState {
-  const { doc } = state;
-  const near = (pos: number) => Selection.near(doc.resolve(Math.min(pos, doc.content.size)));
-  const head = near(kept.head);
-  const selection = kept.empty ? head : TextSelection.between(near(kept.anchor).$from, head.$from);
-  return state.apply(markRemote(state.tr.setSelection(selection)).setMeta('addToHistory', false));
-}
-
 // What a room session runs on: its stores, its drafts and the room it is connected to now.
-interface RoomRun {
+export interface RoomRun {
   options: DocumentSessionOptions & { schema: Schema };
   signal: AbortSignal;
   stores: SessionStores;
   drafts: ReturnType<typeof createRoomDrafts>;
   follow: ReturnType<typeof followSession>;
-  showPin: (pin: TemplatePin | null) => Promise<boolean>;
-  current: { room: OpenedRoom | null; stops: (() => void)[] };
-  /** The capabilities the host grants the reader, before the connection's gate narrows them. */
-  granted: EditorCapabilities;
+  showPin: (pin: TemplatePin | null, binding: RoomBinding) => Promise<boolean>;
+  current: { room: OpenedRoom | null; stops: (() => void)[]; stopPin: () => void };
+}
+
+/** Follows the pin of the binding whose state the session is now showing. */
+export function watchRoomPin(run: RoomRun, binding: RoomBinding) {
+  run.current.stopPin();
+  run.current.stopPin = binding.followPin((pin) => void run.showPin(pin, binding));
 }
 
 // Leaves the room the session is connected to. The session holds no room by the time the
@@ -107,41 +105,24 @@ interface RoomRun {
 function leaveRoom({ drafts, current }: RoomRun) {
   drafts.stop();
   for (const stop of current.stops.splice(0)) stop();
+  current.stopPin();
   const { room } = current;
   current.room = null;
   room?.connection.close();
 }
 
-// Opens the room; on a draft of an older generation, again without it, merging it in
-// (DOCE-SESSION-6.10).
-async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<boolean> {
-  const { options, signal, stores, current } = run;
-  const { host, documentId, schema } = options;
-  const { status, document } = stores;
-  const syncing = () => status.set({ ...status.get(), load: 'syncing' });
-  const skipDraft = merged !== null;
-  const opened = await openRoom(
-    host,
-    { documentId, schema, signal, skipDraft, fieldKey: options.fieldKey },
-    syncing,
-  );
-  const read = opened.ok ? await readRoom(opened.value, { ...options, stores, signal }) : opened;
-  if (signal.aborted || !opened.ok || !read.ok) {
-    if (opened.ok) opened.value.connection.close();
-    if (!signal.aborted) {
-      status.set({ ...status.get(), load: 'failed', error: read.ok ? null : read.error });
-    }
-    return false;
-  }
-  const room = opened.value;
+// Publishes the room's initial state and follows that connection until it is left.
+function followRoom(run: RoomRun, room: OpenedRoom, shown: SessionDocument) {
+  const { current, signal, stores } = run;
+  const { document, status } = stores;
+  const { connection, unreadable, reloading } = room;
   current.room = room;
-  run.granted = room.capabilities;
-  document.set(read.value.document);
-  const { unreadable } = room;
-  const following = { cached: room.draft !== null, granted: () => run.granted, unreadable };
-  current.stops.push(followConnection(room.connection, stores, following));
-  current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
-  const stopReload = room.connection.onReload?.((reload) => reloadRoom(run, room, reload));
+  const granted = () => run.follow.granted(room.capabilities);
+  const following = { cached: room.draft !== null, granted, unreadable, reloading };
+  current.stops.push(followConnection(connection, stores, following));
+  document.set(withCapabilities(shown, granted(), stores.connection.get()?.gate));
+  watchRoomPin(run, room.binding);
+  const stopReload = connection.onReload?.((reload) => reloadRoom(run, room, reload));
   if (stopReload) current.stops.push(stopReload);
   // The session may have closed, or left this room, by the time the refused draft was read. A
   // connection that fails to close does not keep the room from opening again, and a room that
@@ -158,37 +139,47 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
     }
   };
   current.stops.push(run.drafts.follow(room, reopen));
-  run.follow.followTemplate(read.value.document.pin, read.value.saved);
-  await run.drafts.start(room, merged);
-  status.set({ ...status.get(), load: 'ready' });
-  return true;
 }
 
-// The room refused one of the reader's changes for its merge and the connection reloaded its
-// document from the room (DOCE-SESSION-3.11): the session binds the new document, shows the room's
-// content with the caret where it was as near as it can, keeps the new document's draft, and tells
-// the reader and the host, with the document the reader had.
-function reloadRoom(run: RoomRun, room: OpenedRoom, reload: RoomReload) {
-  const { options, stores, current } = run;
-  const shown = stores.document.get();
-  if (run.signal.aborted || current.room !== room || !shown) return;
-  room.binding = room.rebind(reload.doc);
-  const content = roomContent(room);
-  if (!content.ok) {
-    room.unreadable.set(content.error);
-    return;
+// Opens the room; on a draft of an older generation, again without it, merging it in
+// (DOCE-SESSION-6.10).
+async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<boolean> {
+  const { options, signal, stores, current } = run;
+  const { host, documentId, schema } = options;
+  const { status } = stores;
+  const syncing = () => status.set({ ...status.get(), load: 'syncing' });
+  const skipDraft = merged !== null;
+  const opened = await openRoom(
+    host,
+    { documentId, schema, signal, skipDraft, fieldKey: options.fieldKey },
+    syncing,
+  );
+  const opening = { ...options, stores, signal };
+  let read = opened.ok ? await readRoom(opened.value, opening) : opened;
+  // The connection can replace its document again before the completed read is published.
+  while (
+    opened.ok &&
+    !signal.aborted &&
+    opened.value.binding.shared !== opened.value.connection.doc
+  ) {
+    read = await readRoom(opened.value, opening);
   }
-  const doc = content.value ?? options.schema.topNodeType.createAndFill();
-  if (!doc) return;
-  const create = options.createState ?? defaultState(options.schema);
-  const made = create(doc, { ...stores.context, room: { plugins: room.binding.plugins } });
-  stores.document.set({ ...shown, state: keptSelection(made, shown.state.selection) });
-  current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
-  run.drafts.stop();
-  void run.drafts.start(room, null);
-  const notice = { reason: reload.reason, previous: shown.state.doc };
-  stores.reloads.set(notice);
-  options.onRoomReload?.(notice);
+  if (signal.aborted || !opened.ok || !read.ok) {
+    if (opened.ok) opened.value.connection.close();
+    if (!signal.aborted) {
+      status.set({ ...status.get(), load: 'failed', error: read.ok ? null : read.error });
+    }
+    return false;
+  }
+  const room = opened.value;
+  followRoom(run, room, read.value.document);
+  run.follow.followTemplate(read.value.document.pin, read.value.saved);
+  const pin = room.binding.pin();
+  if (!samePin(pin, read.value.document.pin)) await run.showPin(pin, room.binding);
+  await run.drafts.start(room, merged);
+  if (signal.aborted || current.room !== room) return false;
+  status.set({ ...status.get(), load: 'ready' });
+  return true;
 }
 
 // With no editor bound nothing keeps the state and the room the same: the change is made on what
@@ -205,7 +196,7 @@ function roomUpdate(run: RoomRun): DocumentSession['update'] {
     const whole = typeof update !== 'function';
     const state = whole ? update : update(held);
     if (state === shown.state) return;
-    if (!whole || held === shown.state) binding?.write(state);
+    if (state.doc !== held.doc && (!whole || held === shown.state)) binding?.write(state);
     document.set({ ...shown, state });
   };
 }
@@ -255,12 +246,10 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     document,
     onLeave: () => void flush(),
     gate: () => stores.connection.get()?.gate ?? null,
-    onGranted: (capabilities) => {
-      run.granted = capabilities;
-    },
   });
-  const showPin = async (pin: TemplatePin | null) => {
-    const changed = await changeTemplate({ host, signal }, stores, pin);
+  const showPin = async (pin: TemplatePin | null, binding: RoomBinding) => {
+    const isCurrent = () => run.current.room?.binding === binding;
+    const changed = await changeTemplate({ host, signal, isCurrent }, stores, pin);
     if (changed) follow.followTemplate(pin, changed.saved);
     return changed !== null;
   };
@@ -271,13 +260,13 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     drafts: createRoomDrafts({ host, documentId, schema, stores }),
     follow,
     showPin,
-    current: { room: null, stops: [] },
-    granted: READ_ONLY_CAPABILITIES,
+    current: { room: null, stops: [], stopPin: () => undefined },
   };
   const room = () => run.current.room;
   const pause = createRoomPause(run, flush);
   const close = () => {
     options.signal?.removeEventListener('abort', close);
+    if (!signal.aborted) stores.pending.commit();
     controller.abort();
     follow.stop();
     run.drafts.close();
@@ -301,11 +290,12 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     setTemplate: async (pin) => {
       const opened = room();
       if (!opened || document.get()?.editingMode !== 'edit') return false;
-      const shown = await showPin(pin);
+      const binding = opened.binding;
+      const shown = await showPin(pin, binding);
       // The pin and the content moved to the template reach the room in one change.
       const template = document.get()?.template;
-      if (shown && template) {
-        opened.binding.setPin(pin, (held) => movedDocument(held, template));
+      if (shown && template && opened.binding === binding && room() === opened) {
+        binding.setPin(pin, (held) => movedDocument(held, template));
       }
       return shown;
     },

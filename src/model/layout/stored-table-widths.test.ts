@@ -52,4 +52,17 @@ describe('fitting stored tables', () => {
     const unset = table([cell(null), cell([900])]);
     expect(fitStoredTables([unset], 400)).toEqual([unset]);
   });
+
+  it('DOCE-IMPORT-3.3 fits a captioned table and respects the column beside a rowspan', () => {
+    const spanning = { ...cell([400]), attrs: { colwidth: [400], rowspan: 2 } };
+    const grid = table([spanning, cell([800])], [cell([800])]);
+    const caption: StoredNode = { type: 'caption', content: [{ type: 'text', text: 'Totals' }] };
+    const [fitted] = fitStoredTables(
+      [{ ...grid, content: [caption, ...(grid.content ?? [])] }],
+      600,
+    );
+    expect(fitted?.content?.[0]).toBe(caption);
+    expect(widths(fitted)?.slice(1)).toEqual([[[200], [400]], [[400]]]);
+    expect(fitted?.content?.[1]?.content?.[0]?.attrs?.rowspan).toBe(2);
+  });
 });

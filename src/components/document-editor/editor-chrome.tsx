@@ -228,6 +228,8 @@ export function EditorContextMenu({
   return (
     <DocumentContextMenu
       view={view}
+      documentState={props.state}
+      session={props.session}
       labels={context.labels}
       editable={editable}
       suggestionPolicy={editorSuggestionPolicy(props)}

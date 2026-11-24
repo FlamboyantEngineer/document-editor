@@ -31,8 +31,15 @@ export const escapeHeadingEnd = (value: string): string =>
   value.replace(/(\s)(#+)(\s*)$/, '$1\\$2$3');
 
 // The longest run of backticks in a value.
-const longestBackticks = (value: string) =>
-  Math.max(0, ...(value.match(/`+/g) ?? []).map((run) => run.length));
+function longestBackticks(value: string): number {
+  let longest = 0;
+  let run = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    run = value[index] === '`' ? run + 1 : 0;
+    longest = Math.max(longest, run);
+  }
+  return longest;
+}
 
 /** Code as an inline code span: fenced by one backtick more than its longest run. */
 export function codeSpan(value: string): string {

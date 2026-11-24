@@ -100,7 +100,24 @@ test.describe('surfaces drawing other files under one family', () => {
   test('DOCE-PAGINATION-12.8 keeps each surface in its own files through mount and unmount', async ({
     page,
   }) => {
-    await open(page);
+    await page.goto('regression.html?textLayout=pretext');
+    await waitForLab(page);
+    await page.evaluate(() => {
+      const text = 'The widths of these letters differ between the two served faces.';
+      window.regressionLab.load(
+        {
+          formatVersion: 1,
+          sections: [{ content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }],
+        },
+        {
+          formatVersion: 1,
+          id: 'stacked-families',
+          styles: { paragraph: { font: 'Arial, serif' } },
+        },
+      );
+    });
+    const paragraph = '.lab-document-editor .pm-page-content p.de-forced-lines';
+    await expect(page.locator(paragraph)).toHaveText(/widths of these letters/u);
     await page.evaluate(() => window.regressionLab.drawAllLines(true));
     expect(await page.evaluate(() => window.regressionLab.showViewer())).toBe(true);
     const viewer = '[aria-label="Viewed document"]';
@@ -114,6 +131,13 @@ test.describe('surfaces drawing other files under one family', () => {
     expect(await page.evaluate(() => window.regressionLab.showTwoViewers())).toBe(true);
     await expect(page.locator(`${second} .pm-page[data-drawn]`).first()).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
+    const familyOf = (surface: string) =>
+      page
+        .locator(`${surface} .pm-page-content p.de-forced-lines`)
+        .first()
+        .evaluate((element) => getComputedStyle(element).fontFamily);
+    expect(await familyOf(viewer)).toMatch(/Arial,.*Times New Roman/u);
+    expect(await familyOf(second)).toMatch(/Arial de-\d+.*,.*Times New Roman de-\d+/u);
     // The second viewer draws Cousine; the editor and the first viewer keep their own files.
     await expect
       .poll(async () => Math.abs(((await textWidth(page, second)) ?? 0) - (alone.viewer ?? 0)))

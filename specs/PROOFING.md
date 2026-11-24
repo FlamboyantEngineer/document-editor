@@ -13,7 +13,7 @@ Verification: `src/engine/proofing.test.ts`, `src/engine/host-domain-recipe.test
 
 ### DOCE-PROOFING-1.2 - Results and marks
 
-A short while after the document changes, and as long after it starts (`delay`, 500 milliseconds by default), the plugin shall hand the proofer the texts it has not checked yet, at most `batch` (50) at a time and one check at a time, with a signal that aborts once the document changes again. It shall keep each text's issues by its text, so a block the pages move or split back, or a text typed back, is not checked again, and drop those of texts the document no longer holds. Each issue is marked by an inline decoration carrying `data-proofing-issue` with its kind (`spelling`, `grammar` or `style`), `data-proofing-category` with the proofer's finer category (such as `punctuation`, `capitalization` or `repeated-word`), or its kind without one, and `data-proofing-rule` with the id of the rule that found it, when it has one. `listProofingIssues(state)` lists the marked issues in document order, by where they start, then end, so issues over the same text stay apart, and `proofingIssueAt(state, pos)` the one at a position; `isProofingPending(state)` is true while some text waits to be checked. A check that fails marks nothing in its texts, which count as checked. The editor's hidden measuring view does not proof.
+A short while after the document changes, and as long after it starts (`delay`, 500 milliseconds by default), the plugin shall hand the proofers the texts it has not checked yet, one batch at a time, with a signal that aborts once the document changes again. It shall keep results by text and effective language while the document uses them. Identical paragraphs in the same language share a provider result and display their own issue marks. Each issue is marked by an inline decoration carrying `data-proofing-issue` with its kind (`spelling`, `grammar` or `style`), `data-proofing-category` with the proofer's finer category (such as `punctuation`, `capitalization` or `repeated-word`), or its kind without one, and `data-proofing-rule` with the id of the rule that found it, when it has one. `listProofingIssues(state)` lists the marked issues in document order, by where they start, then end, so issues over the same text stay apart, and `proofingIssueAt(state, pos)` the one at a position. `isProofingPending(state)` is true while some text waits to be checked. A check that fails marks nothing in its texts, which count as checked. The editor's hidden measuring view does not proof.
 
 Implementation: `src/engine/proofing.ts`, `src/engine/proofing-commands.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`, `src/engine/proofing-options.test.ts`
@@ -27,16 +27,16 @@ Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-PROOFING-1.4 - Committing results
 
-The plugin shall dispatch its results as transactions holding nothing else, one per check. Results that come back while a pointer button is down on the editor wait for its release (a mouseup, the end of a native drag or drop, or the window losing focus), so they never redraw the selection a drag is making. `proofingUpdate(tr)` shall return, for such a transaction, the update that commits it on the latest state, and null for any other; the document editor commits them so, since its view may still show a state the writer has since typed past.
+The plugin shall dispatch its results as transactions holding nothing else, after completing all requests for a group of blocks. Results that come back while a pointer button is down on the editor wait for its release (a mouseup, the end of a native drag or drop, or the window losing focus), so they never redraw the selection a drag is making. `proofingUpdate(tr)` shall return, for such a transaction, the update that commits it on the latest state, and null for any other. A result from before an explicit recheck or language change is dropped.
 
 Implementation: `src/engine/proofing.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-PROOFING-1.5 - Batches and segments
 
-A check shall take at most `batch` texts (50) and `batchLength` characters (6000), and at least one block; a block longer than `textLength` (2000) is checked in segments ending after a sentence or, failing one, a space (`segmentsOf`), whose issues are placed back at their offsets in the block's text. Each text goes with its language: the block's own, or the document's (`language`).
+A provider call shall take at most `batch` texts (50) and `batchLength` characters (6000) after segmentation. A block longer than `textLength` (2000) or `batchLength` is checked in segments, ending after a sentence or a space when possible (`segmentsOf`). Issues are placed back at their offsets in the block's text. Each text goes with its language: the block's own, or the document's (`language`).
 
-Implementation: `src/engine/proofing-text.ts`, `src/engine/proofing-view.ts`
+Implementation: `src/engine/proofing-text.ts`, `src/engine/proofing-view.ts`, `src/engine/proofing-batches.ts`
 Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-1.6 - Several proofers and their status
@@ -71,7 +71,7 @@ Verification: `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-2.1 - Correcting
 
-`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it; it is refused once the issue's text is no longer there. On pages, an issue in a later part of a paragraph split across them shall be drawn and corrected there as in the whole paragraph.
+`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it. An empty replacement deletes the issue's text. The command is refused once the issue's text is no longer there. On pages, an issue in a later part of a paragraph split across them shall be drawn and corrected there as in the whole paragraph.
 
 Implementation: `src/engine/proofing-commands.ts`
 Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
@@ -92,17 +92,17 @@ Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.t
 
 ### DOCE-PROOFING-2.4 - Replacing all
 
-`replaceAllProofingIssues(issue, replacement)` shall put the replacement in place of every marked issue like it, the same text found by the same rule or of the same kind without one, as one change; `countAlikeIssues` counts them.
+`replaceAllProofingIssues(issue, replacement)` shall replace the marked issues with the same text and rule, or the same text and kind without a rule, as one change. A range is replaced once even if several proofers report it. When ranges overlap, the first range in document order is replaced and the overlapping ones are skipped. An empty replacement deletes the chosen ranges. `countAlikeIssues` counts the ranges the command would replace.
 
 Implementation: `src/engine/proofing-commands.ts`
-Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
+Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.ts`, `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-2.5 - Ignoring once
 
-`ignoreProofingOnce(issue)` shall stop marking that one issue, by its block's text and its offsets there, for as long as the editor is open, leaving the issues like it marked.
+`ignoreProofingOnce(issue)` shall stop marking one provider's issue at one occurrence while the editor is open. Other issues stay marked, including the same issue in identical paragraphs and the issues other providers report at the same range. An ignored occurrence follows edits that move its range.
 
-Implementation: `src/engine/proofing-commands.ts`, `src/engine/proofing.ts`
-Verification: `src/engine/proofing.test.ts`
+Implementation: `src/engine/proofing-commands.ts`, `src/engine/proofing.ts`, `src/engine/proofing-ranges.ts`
+Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-2.6 - Turning a rule off
 
@@ -136,7 +136,7 @@ Verification: `e2e/proofing.spec.ts`, `src/components/document-editor/proofing-s
 
 ### DOCE-PROOFING-3.2 - The context menu
 
-In an editable document, the context menu opened on an issue's mark the view draws, or from the keyboard with the caret in an issue, shall lead with a submenu (`proofingMenu`) holding a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`); a submenu (`replaceAll`) replacing every issue like it with one of those suggestions; Ignore, for this issue alone; Ignore all, for its word; Add to dictionary; and turning its rule off. An entry that does not apply, Replace all with no other issue like it or no suggestion, Add to dictionary for a proofer without a dictionary, turning the rule off for an issue without one, is disabled rather than left out. Opened on text without a mark, the menu has no proofing submenu, even where the state holds an issue the view does not draw; opened on a mark the state no longer holds, the submenu shows `noSuggestions` with every entry disabled. The menu's other groups, a table cell's among them, follow it. The labels are the host's to replace (`DocumentEditorLabels`).
+In an editable document, the context menu opened on an issue's mark the view draws, or from the keyboard with the caret in an issue, shall lead with a submenu (`proofingMenu`) holding a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`); a submenu (`replaceAll`) replacing every issue like it with one of those suggestions; Ignore, for this issue alone; Ignore all, for its word; Add to dictionary; and turning its rule off. Empty suggestions use the editor's Delete label in both menus. An entry that does not apply, Replace all with no other range to replace or no suggestion, Add to dictionary for a proofer without a dictionary, turning the rule off for an issue without one, is disabled rather than left out. Opened on text without a mark, the menu has no proofing submenu, even where the state holds an issue the view does not draw; opened on a mark the state no longer holds, the submenu shows `noSuggestions` with every entry disabled. The menu's other groups, a table cell's among them, follow it. The labels are the host's to replace (`DocumentEditorLabels`).
 
 Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-editor/proofing-entries.ts`, `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/context-target.ts`
 Verification: `e2e/proofing.spec.ts`, `src/components/document-editor/proofing-entries.test.ts`

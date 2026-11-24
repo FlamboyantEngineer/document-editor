@@ -3,6 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../../test/deferred.js';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { scriptState } from '../../../test/script-blocks.js';
@@ -80,6 +81,47 @@ async function openMenu(user: ReturnType<typeof userEvent.setup>, at?: string) {
 installEditorDom();
 
 describe('DocumentContextMenu', () => {
+  it('DOCE-EDITOR-3.2 cancels a cut once the host switches to a state sharing the same document node', async () => {
+    const user = userEvent.setup();
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Keep both' }] }],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const start = TextSelection.atStart(doc).from;
+    const selection = TextSelection.create(doc, start, start + 4);
+    const first = EditorState.create({ doc, selection });
+    const second = EditorState.create({ doc, selection });
+    const stateChanged = vi.fn();
+    const written = deferred<void>();
+    const writeText = vi.fn(() => written.promise);
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    try {
+      const { rerender } = render(<Harness state={first} onStateChange={stateChanged} />);
+      screen.getByRole('textbox', { name: 'Report' }).focus();
+      await user.keyboard('{Shift>}{F10}{/Shift}');
+      await user.click(await screen.findByRole('menuitem', { name: /^Cut/ }));
+      expect(writeText).toHaveBeenCalledWith('Keep');
+
+      rerender(<Harness state={second} onStateChange={stateChanged} />);
+      stateChanged.mockClear();
+      await act(async () => written.resolve());
+      expect(stateChanged).not.toHaveBeenCalled();
+      expect(screen.getByText('Keep both')).toBeVisible();
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    }
+  });
+
   it('DOCE-EDITOR-3.6 DOCE-EDITOR-4.4 hands a provider the editor as it is: its mode, markup, layout and zoom', async () => {
     const user = userEvent.setup();
     const seen = vi.fn<(context: EditorContext) => void>();

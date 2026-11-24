@@ -79,6 +79,38 @@ describe('edit lock', () => {
     expect(textOf(typed)).toBe('OpenFixedAlso open');
   });
 
+  it('DOCE-EDITING-4.1 checks the middle of a text run and an inline object inside a selection', () => {
+    const doc = stateOf([
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Open' },
+          { type: 'mention', attrs: { person: 'u-1', label: 'Ana' } },
+          { type: 'text', text: ' after' },
+        ],
+      },
+    ]).doc;
+    const middle = EditorState.create({
+      doc,
+      plugins: [createEditLock({ isLocked: (node, pos) => node.resolve(pos).textOffset === 2 })],
+    });
+    const start = positionOf(middle, 'Open');
+    expect(middle.apply(middle.tr.delete(start, start + 4)).doc).toBe(doc);
+    expect(
+      middle.apply(middle.tr.addMark(start, start + 4, middle.schema.mark('strong'))).doc,
+    ).toBe(doc);
+
+    const inline = EditorState.create({
+      doc,
+      plugins: [
+        createEditLock({ isLocked: (node, pos) => node.nodeAt(pos)?.type.name === 'mention' }),
+      ],
+    });
+    const end = positionOf(inline, ' after') + 6;
+    expect(inline.apply(inline.tr.insertText('New text', start, end)).doc).toBe(doc);
+    expect(textOf(inline.apply(inline.tr.delete(start, start + 4)))).toBe(' after');
+  });
+
   it('DOCE-EDITING-4.1 refuses marks and attributes set on locked content, but takes comments', () => {
     const state = stateOf();
     const fixed = positionOf(state, 'Fixed');

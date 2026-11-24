@@ -1426,3 +1426,56 @@ test.describe('mixed geometry', () => {
     expect(widths).toBe('1px');
   });
 });
+
+test('DOCE-PAGINATION-1.8 selects, edits and undoes in both columns on a continuation page', async ({
+  page,
+}) => {
+  await openDocument(page, 'minimal-paragraph');
+  await page.evaluate(() => {
+    const column = (side: string) => ({
+      type: 'column',
+      content: Array.from({ length: 52 }, (_, index) => ({
+        type: 'paragraph',
+        content: [{ type: 'text', text: `${side} column paragraph ${String(index + 1)}.` }],
+      })),
+    });
+    window.regressionLab.load({
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'columns',
+              attrs: { preset: 'halves' },
+              content: [column('Left'), column('Right')],
+            },
+          ],
+        },
+      ],
+    });
+  });
+  const continuation = page.locator(
+    '.de-document-editor__content .doc-layout-section[data-split-part-index="1"]',
+  );
+  const stored = () => page.evaluate(() => JSON.stringify(window.regressionLab.stored()));
+  await expect(continuation.locator('.doc-layout-column')).toHaveCount(2);
+  await expect.poll(stored).toContain('Left column paragraph 1.');
+  const before = await stored();
+  for (const side of ['Left', 'Right']) {
+    const line = continuation
+      .getByText(new RegExp(String.raw`^${side} column paragraph \d+\.$`))
+      .first();
+    await line.scrollIntoViewIfNeeded();
+    await line.click({ position: { x: 8, y: 8 } });
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect
+      .poll(() => line.evaluate((node) => node.ownerDocument.getSelection()?.toString()))
+      .toBe(side[0]);
+    await page.keyboard.insertText('X');
+    await expect.poll(stored).toContain(`X${side.slice(1)} column paragraph`);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(stored).toBe(before);
+  }
+});

@@ -83,7 +83,9 @@ function usePagesFonts(
     const doc = measureIn.current?.ownerDocument;
     if (!asked || !doc) return undefined;
     const controller = new AbortController();
-    const families = [...templateFontFamilies(latestTemplate.current), ...PAGE_GENERICS];
+    const families = [
+      ...new Set([...templateFontFamilies(latestTemplate.current), ...PAGE_GENERICS]),
+    ];
     const promise = loadPagesFonts(fonts, families, { doc, signal: controller.signal });
     const current = { fonts, promise };
     loading.current = current;

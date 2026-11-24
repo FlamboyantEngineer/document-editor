@@ -6,6 +6,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { FRAGMENT_RULES, type FragmentRules, joinDocumentPages } from '../model/index.js';
 import { mapPosition, type PagePositions, textSide } from './page-positions.js';
 
@@ -144,39 +145,44 @@ export function createPageMap(
   };
 }
 
-// The pages a projection shows each canonical document on, made once asked for.
-const shownOnPages = new WeakMap<ProseMirrorNode, () => PageMap>();
+interface ShownPages {
+  readonly pages: ProseMirrorNode;
+  readonly rules: FragmentRules;
+  readonly positions?: PagePositionMap | undefined;
+}
 
-/**
- * Records the pages a projection shows a canonical document on, for `pageMap`; with the positions
- * the projection keeps between them, when it has them. Without them, a document already recorded
- * keeps the pages it was shown on with their positions, as those pages still show it.
- */
-export function showOnPages(
-  canonical: ProseMirrorNode,
-  {
-    pages,
-    rules,
-    positions,
-  }: {
-    readonly pages: ProseMirrorNode;
-    readonly rules: FragmentRules;
-    readonly positions?: PagePositionMap | undefined;
-  },
-): void {
-  if (!positions && shownOnPages.has(canonical)) return;
-  let map: PageMap | null = null;
-  shownOnPages.set(canonical, () => (map ??= createPageMap(pages, rules, positions)));
+type ReadPageMap = (state: EditorState) => PageMap;
+
+/** The layouts one projection shows, including its most recent layout of a deferred document. */
+export function createPageMapScope() {
+  const shown = new WeakMap<ProseMirrorNode, () => PageMap>();
+  return {
+    show(canonical: ProseMirrorNode, { pages, rules, positions }: ShownPages) {
+      if (!positions && shown.has(canonical)) return;
+      let map: PageMap | null = null;
+      shown.set(canonical, () => (map ??= createPageMap(pages, rules, positions)));
+    },
+    read: (state: EditorState): PageMap => shown.get(state.doc)?.() ?? pageMap(state),
+  };
+}
+
+const viewPages = new WeakMap<EditorView, ReadPageMap>();
+
+/** Associates the layout of a projection with its view for as long as the view renders it. */
+export function bindPageMaps(view: EditorView, read: ReadPageMap): () => void {
+  viewPages.set(view, read);
+  return () => {
+    if (viewPages.get(view) === read) viewPages.delete(view);
+  };
 }
 
 /**
- * The layout of the document a state shows: for a canonical document a projection shows, the
- * layout of the projection's pages (DOCE-PAGINATION-7.17); otherwise the document's own pages,
- * joined by `FRAGMENT_RULES`. Made once for each document.
+ * The layout of the document a state shows. With the view of a projection, returns the pages
+ * that view shows for the canonical state. Otherwise it reads the document's own pages.
  */
-export function pageMap(state: EditorState): PageMap {
-  const onPages = shownOnPages.get(state.doc);
-  if (onPages) return onPages();
+export function pageMap(state: EditorState, view?: EditorView | null): PageMap {
+  const forView = view && viewPages.get(view);
+  if (forView) return forView(state);
   const cached = maps.get(state.doc);
   if (cached) return cached;
   const map = createPageMap(state.doc, FRAGMENT_RULES);

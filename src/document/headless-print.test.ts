@@ -1,14 +1,14 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { type HeadlessPage, printSnapshot } from './headless-print.js';
 
 // A headless page that records what it is asked, whose readiness check answers as told.
-function fakePage(ready: () => Promise<unknown>) {
+function fakePage(ready: () => Promise<unknown>, load = () => Promise.resolve()) {
   const calls: string[] = [];
   const page: HeadlessPage = {
     setContent: (html, options) => {
       calls.push(`setContent ${html} ${options.waitUntil}`);
-      return Promise.resolve();
+      return load();
     },
     evaluate: <T>() => {
       calls.push('evaluate');
@@ -44,5 +44,35 @@ describe('printSnapshot', () => {
       reason: 'timeout',
     });
     expect(calls).not.toContain('pdf true true');
+  });
+  it('DOCE-EDITOR-6.26 times out a load and never starts readiness or prints afterward', async () => {
+    let finishLoad = () => {};
+    const { page, calls } = fakePage(
+      () => Promise.resolve({ failed: [] }),
+      () => new Promise<void>((resolve) => (finishLoad = resolve)),
+    );
+    await expect(printSnapshot(page, '<p>Hi</p>', { timeout: 5 })).resolves.toEqual({
+      ok: false,
+      reason: 'timeout',
+    });
+    finishLoad();
+    await Promise.resolve();
+    expect(calls).toEqual(['setContent <p>Hi</p> load']);
+  });
+
+  it('DOCE-EDITOR-6.26 shares one deadline across loading and resource readiness', async () => {
+    vi.useFakeTimers();
+    try {
+      const { page, calls } = fakePage(
+        () => new Promise((resolve) => setTimeout(() => resolve({ failed: [] }), 6)),
+        () => new Promise<void>((resolve) => setTimeout(resolve, 6)),
+      );
+      const print = printSnapshot(page, '<p>Hi</p>', { timeout: 10 });
+      await vi.advanceTimersByTimeAsync(10);
+      await expect(print).resolves.toEqual({ ok: false, reason: 'timeout' });
+      expect(calls).toEqual(['setContent <p>Hi</p> load', 'evaluate']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -52,7 +52,7 @@ The Testing Library and jest-dom plugins lint every test. These rules are off on
 
 ## Browser tests
 
-**T15. Open labs through the `lab` fixture** from `e2e/fixtures.ts`: `await lab.open('<name>')` waits until the lab has rendered and its stylesheet has loaded, `await lab.expectAccessible(selector)` runs axe on that part of the page, and any page or console error fails the test. Locate cases by their state matrix cell (`[data-lab-cell="state=pending size=md"]`) or demo (`[data-lab-demo="…"]`), then by role.
+**T15. Open labs through the `lab` fixture** from `e2e/fixtures.ts`: `await lab.open('<name>')` waits until the lab has rendered and its stylesheet has loaded, `await lab.expectAccessible(selector)` runs axe on that part of the page, and the automatic error fixture fails the test on any page or console error, including when the test navigates directly. Locate cases by their state matrix cell (`[data-lab-cell="state=pending size=md"]`) or demo (`[data-lab-demo="…"]`), then by role.
 
 **T16. Retry values that settle with `toPass`.** Scroll positions, measured sizes and anything that follows animation frames are checked inside `await expect(async () => { … }).toPass()` rather than read once.
 

@@ -36,8 +36,10 @@ export function objectLayoutCss(value: unknown): string {
     : `margin-left:${style.marginLeft};margin-right:${style.marginRight}`;
 }
 
-/** Per-column widths of the first row as stored (NaN or 0 when a column has none). */
+/** The table's first-row widths, or the source table's widths when this is a continuation. */
 export function firstRowColumnWidths(node: ProseMirrorNode): number[] {
+  const projected: unknown = node.attrs.projectedColumnWidths;
+  if (Array.isArray(projected)) return projected.map((width) => Number(width) || 0);
   const widths: number[] = [];
   node.firstChild?.forEach((cell) => {
     for (let index = 0; index < (Number(cell.attrs.colspan) || 1); index += 1) {

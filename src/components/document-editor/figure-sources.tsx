@@ -38,28 +38,46 @@ export function useFigureUpload(
   { current, onStored }: { current: FigureAsset | null; onStored: (asset: FigureAsset) => void },
 ) {
   const [upload, setUpload] = useState<Upload | null>(null);
+  const running = useRef<AbortController | null>(null);
+  useEffect(() => () => running.current?.abort(), []);
   const max = assets?.maxUploadBytes;
-  const refuse = (file: File) =>
+  const cancel = () => {
+    running.current?.abort();
+    running.current = null;
+    setUpload(null);
+  };
+  const refuse = (file: File) => {
+    cancel();
     setUpload({ file, done: true, error: labels.uploadTooLarge(max ?? 0) });
+  };
   const choose = ([file]: File[]) => {
     if (!file || !assets) return;
     if (max !== undefined && file.size > max) return refuse(file);
+    running.current?.abort();
+    const controller = new AbortController();
+    running.current = controller;
     setUpload({ file, done: false });
-    const failed = (message?: string) =>
-      setUpload({ file, done: true, error: message ?? labels.uploadFailed });
+    const failed = (message?: string) => {
+      if (!controller.signal.aborted) {
+        running.current = null;
+        setUpload({ file, done: true, error: message ?? labels.uploadFailed });
+      }
+    };
     const options = current
       ? { current: { assetId: current.fileAssetId, snapshotId: current.snapshotId } }
       : {};
-    assets.upload(file, undefined, options).then((result) => {
+    assets.upload(file, controller.signal, options).then((result) => {
+      if (controller.signal.aborted) return undefined;
       if (!result.ok) return failed(result.error.message);
       const { id, snapshotId } = result.value;
+      running.current = null;
       onStored({ fileAssetId: id, snapshotId: snapshotId ?? id });
       setUpload({ file, done: true });
       return undefined;
     }, failed);
     return undefined;
   };
-  return { upload, choose, refuse, max, pending: upload !== null && !upload.done };
+  return { upload, choose, refuse, cancel, max, pending: upload !== null && !upload.done };
 }
 
 type FigureUpload = ReturnType<typeof useFigureUpload>;
@@ -106,7 +124,7 @@ function AssetBrowser({
 export function ImageSource({
   assets,
   labels,
-  uploading: { upload, choose, refuse, max },
+  uploading: { upload, choose, refuse, cancel, max },
   src,
   onPick,
   onAddress,
@@ -139,13 +157,25 @@ export function ImageSource({
           }
         />
       ) : null}
-      {search ? <AssetBrowser search={search} labels={labels} onPick={onPick} /> : null}
+      {search ? (
+        <AssetBrowser
+          search={search}
+          labels={labels}
+          onPick={(asset) => {
+            cancel();
+            onPick(asset);
+          }}
+        />
+      ) : null}
       <TextField
         label={labels.figureAddress}
         type="url"
         tracksChanges={false}
         value={src}
-        onChange={onAddress}
+        onChange={(address) => {
+          cancel();
+          onAddress(address);
+        }}
       />
     </>
   );

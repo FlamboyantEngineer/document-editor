@@ -90,6 +90,89 @@ describe('store-mode drafts', () => {
     expect(JSON.stringify(await keptDraft(host))).toContain('HOh ello');
   });
 
+  it('DOCE-SESSION-6.1 keeps and restores a template pin changed without typing', async () => {
+    vi.useFakeTimers();
+    const pin = { id: 'letter', revision: 'rev-1' };
+    const host = createMemoryHost({
+      documents: [{ id: 'doc', content: DOCUMENT }],
+      templates: [{ formatVersion: 1, id: pin.id, page: { size: 'US Letter' } }],
+    });
+    const session = open(host);
+    await session.ready;
+    expect(await session.setTemplate(pin)).toBe(true);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await keptDraft(host)).toMatchObject({ mode: 'store', content: { template: pin } });
+
+    session.close();
+    const reopened = open(host);
+    await reopened.ready;
+    expect(await reopened.restoreDraft()).toBe(true);
+    expect(reopened.document.get()?.pin).toEqual(pin);
+    expect(text(reopened)).toBe('Hello');
+    reopened.close();
+  });
+
+  it('DOCE-SESSION-6.1 DOCE-SESSION-6.6 keeps the latest draft when a prior write is slow', async () => {
+    vi.useFakeTimers();
+    const host = hostWith();
+    const adapter = host.drafts;
+    if (!adapter) throw new Error('The host has no drafts.');
+    const put = adapter.put.bind(adapter);
+    const held: (() => void)[] = [];
+    const writes = vi.spyOn(adapter, 'put').mockImplementation(async (...args) => {
+      if (held.length === 0) await new Promise<void>((resolve) => held.push(resolve));
+      return put(...args);
+    });
+    const session = open(host);
+    await session.ready;
+    typeText(session, 'First ');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(held).toHaveLength(1);
+    typeText(session, 'Second ');
+    host.memory.failNext('documents.save', { kind: 'unavailable' });
+    host.memory.emitLifecycle('hidden');
+    session.close();
+    expect(writes).toHaveBeenCalledTimes(1);
+
+    const reopened = open(host);
+    held[0]?.();
+    expect(await reopened.ready).toBe(true);
+    expect(await reopened.restoreDraft()).toBe(true);
+    expect(text(reopened)).toBe('HSecond First ello');
+    reopened.close();
+  });
+
+  it('DOCE-SESSION-6.1 clears a pending draft after the document is saved', async () => {
+    vi.useFakeTimers();
+    const host = hostWith();
+    const adapter = host.drafts;
+    if (!adapter) throw new Error('The host has no drafts.');
+    const put = adapter.put.bind(adapter);
+    const held: (() => void)[] = [];
+    vi.spyOn(adapter, 'put').mockImplementation(async (...args) => {
+      await new Promise<void>((resolve) => held.push(resolve));
+      return put(...args);
+    });
+    const clear = vi.spyOn(adapter, 'clear');
+    const session = open(host);
+    await session.ready;
+    typeText(session, 'Draft ');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(held).toHaveLength(1);
+    await session.save();
+    expect(clear).not.toHaveBeenCalled();
+    session.close();
+
+    const reopened = open(host);
+    held[0]?.();
+    expect(await reopened.ready).toBe(true);
+    expect(clear).toHaveBeenCalledWith('doc', 'store');
+    expect(reopened.draft.get()).toBeNull();
+    expect(await keptDraft(host)).toBeNull();
+    expect(text(reopened)).toBe('HDraft ello');
+    reopened.close();
+  });
+
   it('DOCE-SESSION-6.1 removes the draft once a save leaves nothing unsaved', async () => {
     vi.useFakeTimers();
     const host = hostWith();

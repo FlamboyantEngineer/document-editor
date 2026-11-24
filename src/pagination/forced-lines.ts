@@ -11,11 +11,19 @@
 // part out alone gives the whole block's lines from there.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type EditorState, Plugin, PluginKey, type Selection } from 'prosemirror-state';
+import {
+  type EditorState,
+  Plugin,
+  PluginKey,
+  type Selection,
+  type Transaction,
+} from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { keepsNumbering } from '../engine/paragraph-numbering.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
+import { keepsAllNumbers } from './engine-numbers.js';
 import { forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
 import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
@@ -168,17 +176,47 @@ interface ForcedLinesSource {
   readonly redraw?: (() => void) | undefined;
 }
 
+type ContentBuilder = Builder & { readonly doc: ProseMirrorNode };
+
+// An ordinary text edit leaves the headings, numbered paragraph eligibility and caption nodes
+// as they were. Only their positions have moved.
+function numberingFor(
+  engine: PagesTextEngine,
+  { doc, tr }: { readonly doc: ProseMirrorNode; readonly tr?: Transaction | undefined },
+  previous: ContentBuilder | null,
+): ReturnType<PagesTextEngine['numbering']> {
+  if (previous?.engine !== engine) return engine.numbering(doc);
+  const { numbers, skipped, labelOf, labels } = previous;
+  if (previous.doc === doc) {
+    return { headings: numbers, paragraphs: skipped, labelOf, labelsKey: labels };
+  }
+  if (!tr || previous.doc !== tr.before || !keepsAllNumbers(tr) || !keepsNumbering(tr)) {
+    return engine.numbering(doc);
+  }
+  return {
+    headings: new Map([...numbers].map(([pos, text]) => [tr.mapping.map(pos), text])),
+    paragraphs: new Set([...skipped].map((pos) => tr.mapping.map(pos))),
+    labelOf,
+    labelsKey: labels,
+  };
+}
+
 // The decorations of a document, with the builder's kept sets when the engine and the numbers are
 // those it was made with.
 function decorate(
   source: ForcedLinesSource,
-  state: { doc: ProseMirrorNode; drawn: Drawn; inserted: InsertedTexts },
-  previous: Builder | null,
+  state: {
+    doc: ProseMirrorNode;
+    drawn: Drawn;
+    inserted: InsertedTexts;
+    tr?: Transaction | undefined;
+  },
+  previous: ContentBuilder | null,
 ) {
   const { doc } = state;
   const engine = source.engine();
   if (!engine) return { builder: null, decorations: DecorationSet.empty };
-  const numbering = engine.numbering(doc);
+  const numbering = numberingFor(engine, state, previous);
   const numbers = numbering.headings;
   const directions = continuedDirections(doc);
   const same =
@@ -188,10 +226,11 @@ function decorate(
     previous.labels === numbering.labelsKey &&
     sameValues(previous.numbers, numbers) &&
     sameValues(previous.directions, directions);
-  const builder: Builder = {
+  const builder: ContentBuilder = {
     engine,
     numbers,
     version: source.version(),
+    doc,
     skipped: numbering.paragraphs,
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
@@ -233,7 +272,7 @@ const isDrawAll = (meta: unknown): meta is DrawAllPages =>
  * its decorations while its node and number do.
  */
 export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState> {
-  let builder: Builder | null = null;
+  let builder: ContentBuilder | null = null;
   let pages: DrawnPages | null = null;
   // Whether every page is drawn on forced lines for now, as while a snapshot is taken.
   let all = false;
@@ -241,10 +280,13 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
   // words read since the state was built.
   let inserted = NO_INSERTED;
   let redrawn: { value: ForcedLinesState; decorations: DecorationSet } | null = null;
-  const build = (state: { doc: ProseMirrorNode; selection: Selection }): ForcedLinesState => {
+  const build = (
+    state: { doc: ProseMirrorNode; selection: Selection },
+    tr?: Transaction,
+  ): ForcedLinesState => {
     const near = all ? null : (pages?.drawn() ?? null);
     const drawn = { drawn: near, caret: pageAt(state.doc, state.selection.head) };
-    const made = decorate(source, { doc: state.doc, drawn, inserted }, builder);
+    const made = decorate(source, { doc: state.doc, drawn, inserted, tr }, builder);
     builder = made.builder;
     const { engine, version } = source;
     const words = inserted.key;
@@ -277,7 +319,7 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
         const redrawn = meta !== undefined;
         if (isDrawAll(meta)) all = meta.drawAll;
         const moved = tr.selectionSet && pageAt(tr.doc, tr.selection.head) !== value.caret;
-        return tr.docChanged || fresh || redrawn || moved ? build(tr) : value;
+        return tr.docChanged || fresh || redrawn || moved ? build(tr, tr) : value;
       },
     },
     props: {

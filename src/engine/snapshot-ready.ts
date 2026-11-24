@@ -50,9 +50,11 @@ export async function snapshotOnceReady(
   { whenSettled, resolveImage, ...options }: ReadySnapshotOptions,
   around: (take: () => string) => string,
 ): Promise<string> {
-  await whenSettled();
+  if ((await whenSettled()) === 'failed' || view.isDestroyed)
+    throw new Error('The document layout is unavailable.');
   await view.dom.ownerDocument.fonts?.ready;
   const images = resolveImage ? await resolveImages(view, resolveImage) : null;
+  if (view.isDestroyed) throw new Error('The document layout is unavailable.');
   return around(() =>
     documentSnapshot(view, {
       ...options,

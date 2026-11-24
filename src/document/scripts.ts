@@ -2,17 +2,18 @@
 // stored file show, as the editor's run does (DOCE-OBJECTS-4.2), and writes the file back, and
 // finds the blocks whose output is stale.
 
-import { Fragment, type Schema } from 'prosemirror-model';
+import type { Schema } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
-import { listScriptBlocks, putScriptOutputs, type ScriptOutput } from '../engine/script-output.js';
+import {
+  listScriptBlocks,
+  putScriptOutputs,
+  readScriptOutput,
+  type ScriptBlockAt,
+  type ScriptOutput,
+} from '../engine/script-output.js';
 import { findStaleScripts } from '../engine/script-staleness.js';
 import type { ScriptRunnerAdapter } from '../host/index.js';
-import {
-  type DocumentFile,
-  readDocumentFile,
-  readStoredContent,
-  writeDocumentFile,
-} from '../model/index.js';
+import { type DocumentFile, readDocumentFile, writeDocumentFile } from '../model/index.js';
 
 /** How `runStoredScripts` runs a stored document's scripts. */
 export interface StoredScriptsOptions {
@@ -41,15 +42,20 @@ type Produced = { ok: true; output: ScriptOutput } | { ok: false; message: strin
 // Runs one script against the stored document and reads what it produced; the runner failing,
 // throwing, or giving content the schema cannot read is the script's failure, not the run's.
 async function produce(
-  request: { blockId: string; source: string; document: DocumentFile },
-  { schema, runner, signal }: StoredScriptsOptions,
+  block: ScriptBlockAt,
+  document: DocumentFile,
+  { runner, signal }: StoredScriptsOptions,
 ): Promise<Produced> {
+  const source = String(block.node.attrs.script ?? '');
   try {
-    const result = await runner.run({ purpose: 'stored', ...request }, signal);
+    const result = await runner.run(
+      { purpose: 'stored', blockId: block.id, source, document },
+      signal,
+    );
     if (!result.ok) return { ok: false, message: result.error.message ?? '' };
     const { content, provenance, signatures } = result.value;
-    const read = Fragment.from(readStoredContent(content, schema));
-    return { ok: true, output: { script: request.source, content: read, provenance, signatures } };
+    const read = readScriptOutput(content, block.node);
+    return { ok: true, output: { script: source, content: read, provenance, signatures } };
   } catch (error) {
     signal?.throwIfAborted();
     return { ok: false, message: error instanceof Error ? error.message : '' };
@@ -75,8 +81,7 @@ export async function runStoredScripts(
   const failed = new Map<string, string>();
   for (const block of blocks) {
     if (ids && !ids.includes(block.id)) continue;
-    const script = String(block.node.attrs.script ?? '');
-    const produced = await produce({ blockId: block.id, source: script, document: file }, options);
+    const produced = await produce(block, file, options);
     signal?.throwIfAborted();
     if (produced.ok) outputs.set(block.id, produced.output);
     else failed.set(block.id, produced.message);

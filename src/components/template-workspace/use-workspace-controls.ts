@@ -39,22 +39,27 @@ export function useRoute(props: TemplateWorkspaceProps, workspace: TemplateWorks
   useEffect(() => {
     latest.current = { props, workspace, confirmLeave };
   });
-  const { templateId, revision } = props;
+  const { templateId, revision, store } = props;
+  const previousStore = useRef(store);
   useEffect(() => {
     const now = latest.current;
+    const changedStore = previousStore.current !== store;
+    previousStore.current = store;
     if (templateId === undefined) return;
+    const signal = now.workspace.beginNavigation();
     const open = now.workspace.open;
     const openId = open?.saved ? open.draft.id : null;
     const shown = now.workspace.viewing?.version.revision ?? null;
-    if (templateId === openId) {
+    if (templateId === openId && !changedStore) {
       if (revision !== undefined && revision !== shown) void now.workspace.viewRevision(revision);
       return;
     }
-    void now.confirmLeave().then((left) => {
+    void now.confirmLeave({ signal }).then((left) => {
+      if (signal.aborted) return;
       if (left) now.workspace.openTemplate(templateId, revision);
       else now.props.onTemplateIdChange?.(openId);
     });
-  }, [templateId, revision]);
+  }, [templateId, revision, store]);
 }
 
 // Saves the open template, or shows at its field what keeps it from being saved; a settings field

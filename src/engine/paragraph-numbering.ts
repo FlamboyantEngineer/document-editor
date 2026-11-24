@@ -219,7 +219,7 @@ function decorate(doc: ProseMirrorNode, template: TemplateFile): DecorationSet {
  * Whether a change only types or deletes text and leaves every block it types in earning a number
  * as before (DOCE-NUMBERING-3.3): the numbers stay, so the plugin skips its walk over the document.
  */
-function keepsNumbering(tr: Transaction): boolean {
+export function keepsNumbering(tr: Transaction): boolean {
   if (!isInlineTextOnly(tr)) return false;
   return tr.steps.every((step, index) => {
     const before = tr.docs[index];

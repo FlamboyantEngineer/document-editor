@@ -95,17 +95,22 @@ export function useDocumentExports(
   const [running, setRunning] = useState<ReadonlySet<string>>(() => new Set());
   // Read when a run starts: an export runs on the editor as it is then.
   const sources = useRef<ExportSources>({ props, view, progress });
-  const started = useRef(new Set<string>());
-  const [controller] = useState(() => new AbortController());
+  const started = useRef(new Map<string, AbortController>());
   useEffect(() => {
     sources.current = { props, view, progress };
   });
-  useEffect(() => () => controller.abort(), [controller]);
+  useEffect(() => {
+    const active = started.current;
+    return () => {
+      for (const controller of active.values()) controller.abort();
+      active.clear();
+    };
+  }, []);
   const exports = props.exports;
   return useMemo(() => {
-    const done = (id: string) => {
+    const done = (id: string, controller: AbortController) => {
+      if (started.current.get(id) !== controller) return;
       started.current.delete(id);
-      if (controller.signal.aborted) return;
       setRunning((current) => new Set([...current].filter((each) => each !== id)));
     };
     return {
@@ -118,12 +123,14 @@ export function useDocumentExports(
         const entry = exports?.entries.find((each) => each.id === id);
         // The guard holds from the click itself, before the running state renders.
         if (!entry || started.current.has(id)) return;
-        started.current.add(id);
-        setRunning((current) => new Set([...current, id]));
+        const controller = new AbortController();
         const request = exportRequest(sources.current, controller.signal);
         const feedback = sources.current.props.feedback;
-        void runExport(entry, request, { feedback, labels }).finally(() => done(id));
+        started.current.set(id, controller);
+        setRunning((current) => new Set([...current, id]));
+        const finish = () => done(id, controller);
+        void runExport(entry, request, { feedback, labels }).then(finish, finish);
       },
     };
-  }, [exports, running, controller]);
+  }, [exports, running]);
 }

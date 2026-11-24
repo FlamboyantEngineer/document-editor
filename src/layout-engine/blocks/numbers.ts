@@ -47,10 +47,24 @@ function captionLabels(doc: ProseMirrorNode, template: TemplateFile) {
 }
 
 /**
- * The caption labels of a document under its template, each section by its own scope. Nodes are
- * found by identity, so ask with the nodes of this `doc`.
+ * The caption labels of a document under its template, each section by its own scope. Repeated
+ * captions can be found by element id when editing a header row gives its copies different node
+ * identities.
  */
 export function captionNumbers(doc: ProseMirrorNode, template: TemplateFile): CaptionNumbers {
   const labels = captionLabels(doc, template);
-  return { labelOf: (caption) => labels.get(caption), labelsKey: [...labels.values()].join('|') };
+  const ids = new Map<string, string>();
+  for (const [caption, label] of labels) {
+    const id: unknown = caption.attrs.dataId;
+    if (typeof id === 'string' && id) ids.set(id, label);
+  }
+  return {
+    labelOf: (caption) => {
+      const label = labels.get(caption);
+      if (label !== undefined) return label;
+      const id: unknown = caption.attrs.dataId;
+      return typeof id === 'string' ? ids.get(id) : undefined;
+    },
+    labelsKey: [...labels.values()].join('|'),
+  };
 }

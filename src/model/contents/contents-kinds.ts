@@ -18,7 +18,8 @@ import {
 
 /**
  * One kind of list: the nodes or marks it lists and how it shows them. For a mark, each run of text
- * that carries it is one entry, and the callbacks get the run's first text node and the mark.
+ * that carries it is one entry. The callbacks get the run's first node and the mark, and the
+ * callbacks for text, identity and order also get the whole run's text.
  */
 export interface ContentsKind {
   /** The node type names it lists. */
@@ -27,8 +28,8 @@ export interface ContentsKind {
   readonly marks?: readonly string[] | undefined;
   /** Whether it lists a node or mark of those types; every one by default. */
   readonly include?: ((node: ProseMirrorNode, mark?: Mark) => boolean) | undefined;
-  /** An entry's text: a node's caption, or its text, or a mark's text, by default. */
-  readonly text?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
+  /** An entry's text: a node's caption, or its text, or a mark run's text, by default. */
+  readonly text?: ((node: ProseMirrorNode, mark?: Mark, runText?: string) => string) | undefined;
   /**
    * An entry's level, which a list's depth limits: a heading's level by default, and 0, which
    * every depth shows, for other nodes.
@@ -53,7 +54,8 @@ export interface ContentsKind {
    */
   readonly unique?: boolean | undefined;
   /** What makes two entries one for `unique`: their number and text by default. */
-  readonly identity?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
+  readonly identity?:
+    ((node: ProseMirrorNode, mark?: Mark, runText?: string) => string) | undefined;
   /**
    * Leaves out the entries another entry of the list already says more about, before `unique`,
    * such as a citation that recorded no document number beside one of the same document that did.
@@ -67,7 +69,8 @@ export interface ContentsKind {
   /** The order of the groups; others follow, in the order of their names. */
   readonly groups?: readonly string[] | undefined;
   /** What an entry sorts by, part by part, for `sort` (`compareOrder`); none by default. */
-  readonly order?: ((node: ProseMirrorNode, mark?: Mark) => readonly string[]) | undefined;
+  readonly order?:
+    ((node: ProseMirrorNode, mark?: Mark, runText?: string) => readonly string[]) | undefined;
   /**
    * The attributes of the citation an entry stands for: its row opens where the host links the
    * citation, in a new tab, or is plain text when the host links it nowhere.
@@ -104,7 +107,7 @@ export function compareOrder(a: CatalogEntry, b: CatalogEntry): number {
     });
     if (delta !== 0) return delta;
   }
-  return a.pos - b.pos;
+  return 0;
 }
 
 const byAbbreviation = (a: CatalogEntry, b: CatalogEntry) =>
@@ -219,13 +222,14 @@ export interface CatalogEntry {
 export function entryParts(
   kind: ContentsKind,
   node: ProseMirrorNode,
-  mark?: Mark,
+  run?: { readonly mark: Mark; readonly text: string },
 ): Pick<CatalogEntry, 'anchor' | 'identity' | 'group' | 'order' | 'cites'> {
+  const { mark, text } = run ?? {};
   return {
     ...(kind.anchor ? { anchor: kind.anchor(node, mark) } : {}),
-    ...(kind.identity ? { identity: kind.identity(node, mark) } : {}),
+    ...(kind.identity ? { identity: kind.identity(node, mark, text) } : {}),
     ...(kind.group ? { group: kind.group(node, mark) } : {}),
-    ...(kind.order ? { order: kind.order(node, mark) } : {}),
+    ...(kind.order ? { order: kind.order(node, mark, text) } : {}),
     ...(kind.cites ? { cites: kind.cites(node, mark) } : {}),
   };
 }

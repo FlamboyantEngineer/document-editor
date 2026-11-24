@@ -1,3 +1,4 @@
+import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import {
@@ -120,6 +121,54 @@ describe('document catalog', () => {
       'Table 2.1|Signals|1',
       'Table A.1|Terms|2',
     ]);
+  });
+
+  it('DOCE-CONTENTS-1.2 counts top-level tables once, even when a page repeats their caption', () => {
+    const nested: StoredNode = {
+      type: 'bulletList',
+      content: [{ type: 'listItem', content: [paragraph('Item'), table('Nested')] }],
+    };
+    const original = readDocumentFile(
+      { formatVersion: 1, sections: [{ content: [table('First'), nested, table('Last')] }] },
+      documentSchema,
+    ).doc;
+    const section = original.firstChild;
+    const page = section?.firstChild;
+    const body = page?.child(1);
+    const first = body?.child(0);
+    if (!section || !page || !body || !first) throw new Error('Expected a captioned table');
+    const repeatedCaption = first.child(0).type.create({ continuedText: 'First' });
+    const repeat = first.type.create({ ...first.attrs, splitPartIndex: 1 }, [
+      repeatedCaption,
+      first.child(1),
+    ]);
+    const withBody = (content: ProseMirrorNode[]) =>
+      page.copy(
+        Fragment.fromArray([
+          page.child(0),
+          body.copy(Fragment.fromArray(content)),
+          page.child(2),
+          page.child(3),
+        ]),
+      );
+    const paginated = original.copy(
+      Fragment.from(
+        section.copy(
+          Fragment.fromArray([withBody([first]), withBody([repeat, body.child(1), body.child(2)])]),
+        ),
+      ),
+    );
+    expect(brief(catalogDocument(original, BASE_TEMPLATE).tables)).toEqual([
+      'Table 1|First|1',
+      'Table 2|Last|1',
+    ]);
+    expect(brief(catalogDocument(paginated, BASE_TEMPLATE).tables)).toEqual([
+      'Table 1|First|1',
+      'Table 2|Last|2',
+    ]);
+    expect(
+      numberingCountersAt(paginated, BASE_TEMPLATE, paginated.content.size).objects.table,
+    ).toBe(2);
   });
 
   it('DOCE-CONTENTS-1.2 neither numbers nor lists a figure or code block whose caption is hidden', () => {
@@ -341,6 +390,60 @@ describe('document catalog', () => {
       'RAM|Random access memory',
     ]);
     expect(used.nodeAt(abbreviations?.[1]?.pos ?? 0)?.attrs.abbr).toBe('RAM');
+  });
+
+  it('DOCE-CONTENTS-1.5 DOCE-CONTENTS-1.6 lists footnotes in the order of their markers', () => {
+    const citation = (value: string, target: string): StoredNode => ({
+      type: 'text',
+      text: value,
+      marks: [{ type: 'reference', attrs: { referenceType: 'external-document', target } }],
+    });
+    const notes = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'footnote', content: [citation('Before contents', 'front')] }],
+              },
+              { type: 'contents', attrs: { kind: 'toc' } },
+              {
+                type: 'paragraph',
+                content: [
+                  text('With footnote'),
+                  {
+                    type: 'footnote',
+                    content: [
+                      citation('Note names the document', 'work'),
+                      text(' and '),
+                      {
+                        type: 'abbreviation',
+                        attrs: {
+                          entry: 'ram',
+                          abbreviation: 'RAM',
+                          expansion: 'Random access memory',
+                        },
+                      },
+                    ],
+                  },
+                  text(' and later '),
+                  citation('A later citation of it', 'work'),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const { references, abbreviations } = catalogDocument(notes, BASE_TEMPLATE);
+    expect(references?.map((entry) => entry.text)).toEqual(['Note names the document']);
+    expect(abbreviations?.map(({ number, text: value }) => [number, value])).toEqual([
+      ['RAM', 'Random access memory'],
+    ]);
+    expect(notes.nodeAt(abbreviations?.[0]?.pos ?? 0)?.type.name).toBe('abbreviation_reference');
   });
 
   it('DOCE-CONTENTS-1.7 gives the counters a position is under, as the stylesheet counts them', () => {

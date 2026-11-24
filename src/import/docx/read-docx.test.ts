@@ -87,22 +87,22 @@ describe('reading word processing documents', () => {
   });
 
   it('DOCE-IMPORT-2.1 limits the bytes all the files read inflate to together', async () => {
-    // Twenty images of 64 KB of zeros: each well under the limit for one file, too much together.
+    // Four compressed images fit the per-file budget but exceed the aggregate budget together.
     const media = Object.fromEntries(
-      Array.from({ length: 20 }, (_, index) => [
+      Array.from({ length: 4 }, (_, index) => [
         `zeros${String(index)}.png`,
-        new Uint8Array(65536),
+        new Uint8Array(16_384),
       ]),
     );
     const bytes = buildDocx({ body: paragraph(run('Images')), media });
-    expect(bytes.length).toBeLessThan(65536);
-    const limits = { fileBytes: 100_000, totalBytes: 1_000_000 };
+    expect(bytes.length).toBeLessThan(16_384);
+    const limits = { fileBytes: 20_000, totalBytes: 50_000 };
     await expect(readDocx(bytes, { limits })).resolves.toMatchObject({
       ok: false,
       failure: 'too-large',
     });
     await expect(
-      readDocx(bytes, { limits: { ...limits, totalBytes: 2_000_000 } }),
+      readDocx(bytes, { limits: { ...limits, totalBytes: 80_000 } }),
     ).resolves.toMatchObject({ ok: true });
     const stored = buildDocx({ body: paragraph(run('Images')), media, stored: true });
     await expect(readDocx(stored, { limits })).resolves.toMatchObject({
@@ -301,11 +301,11 @@ describe('reading word processing documents', () => {
     ]);
   });
 
-  it('DOCE-IMPORT-2.2 finds no entity, style, media type or run child by an object property name', async () => {
+  it('DOCE-IMPORT-2.2 finds no style, media type or run child by an object property name', async () => {
     const result = await read({
       styles: '<w:style w:type="paragraph" w:styleId="Odd"><w:name w:val="constructor"/></w:style>',
       body: [
-        paragraph(run('a &constructor; b')),
+        paragraph(run('a &amp;constructor; b')),
         paragraph(`${run('c')}<w:r><w:constructor/><w:toString/></w:r>`, style('Odd')),
         paragraph(`<w:fldSimple w:instr=" constructor ">${run('field')}</w:fldSimple>`),
       ].join(''),

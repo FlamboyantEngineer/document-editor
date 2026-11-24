@@ -19,7 +19,7 @@ export interface HeadlessPage {
 
 /** How long a headless print waits. */
 export interface HeadlessPrintOptions {
-  /** How long it waits for the fonts and images, in milliseconds. Defaults to 30 seconds. */
+  /** How long it waits for the page, fonts and images, in milliseconds. Defaults to 30 seconds. */
   readonly timeout?: number | undefined;
 }
 
@@ -65,20 +65,25 @@ export type HeadlessPrintResult =
  * Prints a snapshot (`exportSnapshot`, `exportSnapshotAsync`) to PDF in a headless browser's page:
  * loads it, waits for its fonts and images, and prints each page on its section's sheet with its
  * colours and backgrounds, naming the images that failed to load. Fails, printing nothing, when
- * the fonts and images are not ready in time.
+ * the page, fonts and images are not ready in time.
  */
 export async function printSnapshot(
   page: HeadlessPage,
   html: string,
   { timeout = 30_000 }: HeadlessPrintOptions = {},
 ): Promise<HeadlessPrintResult> {
-  await page.setContent(html, { waitUntil: 'load' });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<null>((resolve) => {
     timer = setTimeout(() => resolve(null), timeout);
   });
-  const ready = await Promise.race([page.evaluate(waitForPrintReadiness), late]);
-  clearTimeout(timer);
+  let ready: Readiness | null = null;
+  try {
+    const loaded = page.setContent(html, { waitUntil: 'load' }).then(() => true);
+    if (await Promise.race([loaded, late]))
+      ready = await Promise.race([page.evaluate(waitForPrintReadiness), late]);
+  } finally {
+    clearTimeout(timer);
+  }
   if (!ready) return { ok: false, reason: 'timeout' };
   const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
   return { ok: true, pdf, failedImages: ready.failed };

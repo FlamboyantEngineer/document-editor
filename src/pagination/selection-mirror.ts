@@ -17,6 +17,7 @@ import {
 } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { footnoteCopyNear, sameFootnoteIn } from './footnote-positions.js';
 import { characterWidth } from './graphemes.js';
 import { regionCopyNear, sameRegionIn } from './page-positions.js';
 import type { ProjectionMap } from './projection-map.js';
@@ -25,7 +26,9 @@ import type { ProjectionMap } from './projection-map.js';
 // and in the copy of a page header or footer it is in.
 function nearest(map: ProjectionMap, pos: number, near: number): number | null {
   const at = nearestSide(map, pos, near);
-  return at === null ? null : regionCopyNear(map.projection, at, near);
+  if (at === null) return null;
+  const { projection } = map;
+  return footnoteCopyNear(projection, regionCopyNear(projection, at, near), near);
 }
 
 // The projection position of a canonical one on the side of a page break nearer `near`. A side
@@ -42,11 +45,24 @@ function nearestSide(map: ProjectionMap, pos: number, near: number): number | nu
   return Math.abs(before - near) <= Math.abs(after - near) ? before : after;
 }
 
+/** A selection in the same visual footnote occurrence of another projection, if still present. */
+export function footnoteSelectionIn(selection: Selection, doc: ProseMirrorNode): Selection | null {
+  const anchor = sameFootnoteIn(selection.$anchor, doc);
+  const head = sameFootnoteIn(selection.$head, doc);
+  if (anchor === null || head === null) return null;
+  if (selection instanceof NodeSelection && doc.nodeAt(anchor)?.type === selection.node.type) {
+    return NodeSelection.create(doc, anchor);
+  }
+  return TextSelection.between(doc.resolve(anchor), doc.resolve(head));
+}
+
 /**
  * A projection selection on the pages a transaction lays out again: mapped through it, or, in a
  * page's header or footer, which the new pages draw again, in the same page's copy of it.
  */
 export function nearAfter(selection: Selection, tr: Transaction): Selection {
+  const note = footnoteSelectionIn(selection, tr.doc);
+  if (note) return note;
   const start = sameRegionIn(selection.$head, tr.doc);
   return start === null
     ? selection.map(tr.doc, tr.mapping)

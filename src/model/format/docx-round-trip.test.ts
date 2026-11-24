@@ -141,3 +141,71 @@ describe('a caption through Word and back', () => {
     expect(content[2]?.content?.[0]?.text?.trim()).toBe('Measured.');
   });
 });
+
+async function roundTrip(content: StoredNode[], suggestions?: 'accepted' | 'rejected') {
+  const file: DocumentFile = { formatVersion: 1, sections: [{ content }] };
+  const read = await readDocx(writeDocx(file, { suggestions }));
+  if (!read.ok) throw new Error(read.message);
+  return read.file.sections[0]?.content ?? [];
+}
+
+const paragraphWith = (text: string): StoredNode => ({
+  type: 'paragraph',
+  content: [{ type: 'text', text }],
+});
+
+const cellWith = (text: string, attrs?: Record<string, unknown>): StoredNode => ({
+  type: 'tableCell',
+  attrs,
+  content: [paragraphWith(text)],
+});
+
+const rowWith = (...content: StoredNode[]): StoredNode => ({ type: 'tableRow', content });
+
+const itemWith = (text: string, nested?: StoredNode): StoredNode => ({
+  type: 'listItem',
+  content: [paragraphWith(text), ...(nested ? [nested] : [])],
+});
+
+const listWith = (start: number, ...content: StoredNode[]): StoredNode => ({
+  type: 'orderedList',
+  attrs: { start },
+  content,
+});
+
+describe('round trips of individual blocks', () => {
+  it('DOCE-FORMAT-5.8 keeps both spans of a merged cell without adding cells', async () => {
+    const wide = cellWith('Merged', { colspan: 2, rowspan: 2, colwidth: [90, 130] });
+    const first = cellWith('First row', { colwidth: [140] });
+    const second = cellWith('Second row', { colwidth: [140] });
+    const table: StoredNode = { type: 'table', content: [rowWith(wide, first), rowWith(second)] };
+    const [read] = await roundTrip([table]);
+    expect(read?.content?.filter((node) => node.type === 'tableRow')).toEqual(table.content);
+  });
+
+  it('DOCE-FORMAT-5.8 keeps the independent starts of nested ordered lists', async () => {
+    const nested = listWith(7, itemWith('Seven'), itemWith('Eight'));
+    const later = listWith(3, itemWith('Three'));
+    const list = listWith(4, itemWith('Four', nested), itemWith('Five', later));
+    expect(await roundTrip([list])).toEqual([list]);
+  });
+
+  it('DOCE-FORMAT-5.8 restores the prior formats and link when rejecting a change', async () => {
+    const before = [
+      { type: 'italic' },
+      { type: 'link', attrs: { href: 'https://example.com/old' } },
+    ];
+    const after = [{ type: 'bold' }, { type: 'link', attrs: { href: 'https://example.com/new' } }];
+    const run = {
+      type: 'text',
+      text: 'Styled',
+      marks: [...after, { type: 'formatChange', attrs: { before } }],
+    };
+    const paragraph = { type: 'paragraph', content: [run] };
+    const accepted = await roundTrip([paragraph]);
+    const rejected = await roundTrip([paragraph], 'rejected');
+    expect(accepted[0]?.content?.[0]?.marks).toEqual(expect.arrayContaining(after));
+    expect(rejected[0]?.content?.[0]?.marks).toEqual(expect.arrayContaining(before));
+    expect(rejected[0]?.content?.[0]?.marks).toHaveLength(before.length);
+  });
+});

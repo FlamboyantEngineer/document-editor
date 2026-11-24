@@ -6,31 +6,12 @@
 
 import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import type { Mapping } from 'prosemirror-transform';
-import { leadingHeaderRows } from '../model/index.js';
+import { isHeaderRow } from '../model/index.js';
+import { isTableHeaderCopy } from '../model/pagination/table-header-copies.js';
+import { footnoteAt, footnoteCopies } from './footnote-positions.js';
 
 /** Which way a position is mapped: from the paged projection to the canonical document, or back. */
 export type MapDirection = 'toCanonical' | 'toProjection';
-
-function footnoteEntryAt($pos: ResolvedPos): { id: string; offset: number } | null {
-  for (let depth = $pos.depth; depth > 0; depth -= 1) {
-    const node = $pos.node(depth);
-    if (node.type.name !== 'footnote_entry') continue;
-    const id = node.attrs.footnoteId as unknown;
-    return typeof id === 'string' && id ? { id, offset: $pos.pos - $pos.start(depth) } : null;
-  }
-  return null;
-}
-
-// Where the content of a document's first entry of footnote `id` starts.
-function findFootnoteEntry(doc: ProseMirrorNode, id: string): number | null {
-  let found: number | null = null;
-  doc.descendants((node, pos) => {
-    if (found !== null) return false;
-    if (node.type.name === 'footnote_entry' && node.attrs.footnoteId === id) found = pos + 1;
-    return node.isBlock && !node.isTextblock;
-  });
-  return found;
-}
 
 // Where row `row` of the table whose content starts at `start` starts.
 function rowStart(table: ProseMirrorNode, start: number, row: number): number {
@@ -40,7 +21,7 @@ function rowStart(table: ProseMirrorNode, start: number, row: number): number {
 }
 
 // A position inside a header row a table continuation repeats: the row, the offset into it, and
-// where the continuation's first body row starts.
+// where the continuation's final body row starts.
 function repeatedHeaderAt($pos: ResolvedPos) {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
     const table = $pos.node(depth);
@@ -48,25 +29,28 @@ function repeatedHeaderAt($pos: ResolvedPos) {
     const part = table.attrs.splitPartIndex as unknown;
     if (typeof part !== 'number' || part < 1 || depth === $pos.depth) return null;
     const row = $pos.index(depth);
-    const headers = leadingHeaderRows(table);
-    if (row >= headers || headers >= table.childCount) return null;
+    const copy = table.maybeChild(row);
+    const last = table.childCount - 1;
+    if (!copy || !isHeaderRow(copy) || row >= last) return null;
     const start = $pos.start(depth);
     return {
       row,
+      copy,
       offset: $pos.pos - rowStart(table, start, row),
-      bodyStart: rowStart(table, start, headers),
+      bodyStart: rowStart(table, start, last),
     };
   }
   return null;
 }
 
-// The start of row `row` in the table around `pos`.
-function rowStartAround(doc: ProseMirrorNode, pos: number, row: number): number | null {
+// Row `row` in the table around `pos` and where it starts.
+function rowAround(doc: ProseMirrorNode, pos: number, row: number) {
   const $pos = doc.resolve(pos);
   for (let depth = $pos.depth; depth >= 0; depth -= 1) {
     const table = $pos.node(depth);
     if (table.type.name !== 'table') continue;
-    return row < table.childCount ? rowStart(table, $pos.start(depth), row) : null;
+    const node = table.maybeChild(row);
+    return node ? { node, start: rowStart(table, $pos.start(depth), row) } : null;
   }
   return null;
 }
@@ -79,23 +63,18 @@ interface Redirect {
   readonly forward: Mapping;
 }
 
-// A position the page transform moved or dropped, found again: in the footnote entry of the same
-// id, or, from the projection, in the canonical header row a continuation repeats. Null when it is
-// in neither.
+// A header row a table continuation repeats maps through its canonical row.
 function redirectPosition({ $pos, to, direction, forward }: Redirect): number | null {
-  const entry = footnoteEntryAt($pos);
-  if (entry) {
-    const start = findFootnoteEntry(to, entry.id);
-    if (start === null) return null;
-    return start + Math.min(entry.offset, to.resolve(start).parent.content.size);
-  }
   if (direction !== 'toCanonical') return null;
   const header = repeatedHeaderAt($pos);
   if (!header) return null;
   const body = forward.mapResult(header.bodyStart + 1, 1);
   if (body.deletedAcross) return null;
-  const start = rowStartAround(to, body.pos, header.row);
-  return start === null ? null : start + header.offset;
+  const original = rowAround(to, body.pos, header.row);
+  if (!original) return null;
+  // Legacy anonymous copies already removed by the join may have equal contents and distinct nodes.
+  const same = isTableHeaderCopy(original.node, header.copy) || original.node.eq(header.copy);
+  return same ? original.start + header.offset : null;
 }
 
 const PAGE_REGIONS = new Set(['page_header', 'page_footer']);
@@ -211,12 +190,19 @@ export function mapPosition(
 ): number | null {
   const { projection, canonical, forward, backward } = positions;
   const toCanonical = direction === 'toCanonical';
+  const [from, to] = toCanonical ? [projection, canonical] : [canonical, projection];
   const result = (toCanonical ? forward : backward).mapResult(at.pos, at.assoc);
   if (!result.deletedAcross) return result.pos;
-  const kept = toCanonical ? keptRegionPlace(projection.resolve(at.pos)) : null;
+  // Joining the pages keeps one entry per note. An occurrence the join drops still points at it.
+  const $pos = from.resolve(at.pos);
+  const entry = footnoteAt($pos);
+  if (entry) {
+    const [first] = footnoteCopies(to, entry.id);
+    return first ? first.from + Math.min(entry.offset, first.size) : null;
+  }
+  const kept = toCanonical ? keptRegionPlace($pos) : null;
   if (kept !== null) return mapPosition(positions, { pos: kept, assoc: at.assoc }, direction);
-  const [from, to] = toCanonical ? [projection, canonical] : [canonical, projection];
-  return redirectPosition({ $pos: from.resolve(at.pos), to, direction, forward });
+  return redirectPosition({ $pos, to, direction, forward });
 }
 
 /** -1 at the end of a textblock, so the position keeps to the text before it; otherwise 1. */

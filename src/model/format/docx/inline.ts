@@ -3,8 +3,8 @@
 // ranges of the comments that mark it. Suggestions are left out by the writers' rule.
 
 import { safeHref } from '../../schema/dom-attributes.js';
-import { storedMathSource, type StoredNode } from '../document-format.js';
-import { isLeftOut } from '../left-out.js';
+import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
+import { isLeftOut, type SuggestionsMode } from '../left-out.js';
 import { variableText } from '../writer-values.js';
 import { commentEnds, commentStarts } from './comments.js';
 import { escapeXml } from './word-xml.js';
@@ -31,8 +31,8 @@ export const run = (value: string, properties = ''): string =>
 export const styledRun = (value: string, style: string): string =>
   run(value, `<w:rStyle w:val="${style}"/>`);
 
-function markProperties(node: StoredNode, style = ''): string {
-  const types = new Set((node.marks ?? []).map((mark) => mark.type));
+function markProperties(marks: readonly StoredMark[], style = ''): string {
+  const types = new Set(marks.map((mark) => mark.type));
   const own = MARK_PROPERTIES.filter(([type]) => types.has(type)).map(([, xml]) => xml);
   // A subscript and a superscript cannot both apply; the first in the order wins.
   const shift = own.findIndex((xml) => xml.startsWith('<w:vertAlign'));
@@ -40,12 +40,26 @@ function markProperties(node: StoredNode, style = ''): string {
   return (style ? `<w:rStyle w:val="${style}"/>` : '') + kept.join('');
 }
 
+const isStoredMark = (value: unknown): value is StoredMark =>
+  typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string';
+
+function marksOf(node: StoredNode, suggestions: SuggestionsMode): readonly StoredMark[] {
+  const marks = node.marks ?? [];
+  if (suggestions === 'accepted') return marks;
+  const change = marks.find((mark) => mark.type === 'formatChange');
+  if (!change) return marks;
+  // Review and reference marks live on the node itself. Only run formats use the original marks.
+  const before = change.attrs?.before;
+  return Array.isArray(before) ? before.filter(isStoredMark) : [];
+}
+
 // A text node's run, in a hyperlink when it links to an address a link may hold.
 function textRun(node: StoredNode, writing: Writing): string {
-  const href = safeHref(node.marks?.find((mark) => mark.type === 'link')?.attrs?.href);
-  if (href === null) return run(text(node.text), markProperties(node));
+  const marks = marksOf(node, writing.suggestions);
+  const href = safeHref(marks.find((mark) => mark.type === 'link')?.attrs?.href);
+  if (href === null) return run(text(node.text), markProperties(marks));
   writing.links.push(href);
-  const shown = run(text(node.text), markProperties(node, 'Hyperlink'));
+  const shown = run(text(node.text), markProperties(marks, 'Hyperlink'));
   return `<w:hyperlink r:id="${linkId(writing.links.length)}">${shown}</w:hyperlink>`;
 }
 

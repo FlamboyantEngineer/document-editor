@@ -48,25 +48,14 @@ interface Range {
  */
 export const editLockKey = new PluginKey<EditLockState>('edit-lock');
 
-// Whether the writer may not change anything in a range: its first and last position, or the
-// point it is at when empty, and the inside of every block and inline node it covers, so a step
-// spanning a locked block between two open ones is caught.
-function isRangeLocked(
-  doc: ProseMirrorNode,
-  range: { from: number; to: number },
-  isLocked: Locked,
-) {
+// A host can lock an individual character or an inline object. A block's opening token
+// also changes that block when a structural step touches only the token.
+function isRangeLocked(doc: ProseMirrorNode, range: Range, isLocked: Locked): boolean {
   const { from, to } = range;
-  if (from >= to) return isLocked(doc, from);
-  if (isLocked(doc, from) || isLocked(doc, to - 1)) return true;
-  let locked = false;
-  doc.nodesBetween(from, to, (node, pos) => {
-    if (locked) return false;
-    if (!node.isTextblock && !node.isLeaf) return true;
-    locked = isLocked(doc, Math.max(from, node.isLeaf ? pos : pos + 1));
-    return false;
-  });
-  return locked;
+  for (let pos = from; pos < Math.max(from + 1, to); pos += 1) {
+    if (isLocked(doc, pos)) return true;
+  }
+  return from < to && doc.nodeAt(to - 1)?.isTextblock === true && isLocked(doc, to);
 }
 
 // Comments may be added to locked content: only their highlight changes it.
@@ -165,4 +154,10 @@ export function isPositionLocked(state: EditorState, pos: number): boolean {
   if (!lock) return false;
   const at = Math.max(0, Math.min(pos, state.doc.content.size));
   return lock.isLocked(state.doc, at);
+}
+
+/** Whether the edit lock protects any part of a range. */
+export function isEditRangeLocked(state: EditorState, range: Range, doc = state.doc): boolean {
+  const lock = editLockKey.getState(state);
+  return lock !== undefined && isRangeLocked(doc, range, lock.isLocked);
 }

@@ -1,6 +1,7 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../../test/deferred.js';
 import { documentSchema } from '../../../test/document-markup.js';
 import type { AssetAdapter } from '../../host/index.js';
 import { readDocumentFile } from '../../model/index.js';
@@ -25,40 +26,50 @@ const clipboardItem = (flavours: Record<string, string>) => ({
 // Puts items on the clipboard the menu reads; `refused` is a clipboard the browser will not read.
 function stubClipboard(items: readonly ReturnType<typeof clipboardItem>[] | 'refused', text = '') {
   const refused = () => Promise.reject(new Error('The clipboard may not be read.'));
+  setClipboard(
+    items === 'refused'
+      ? { read: refused, readText: refused }
+      : { read: () => Promise.resolve(items), readText: () => Promise.resolve(text) },
+  );
+}
+
+function setClipboard(value: object) {
   Object.defineProperty(window.navigator, 'clipboard', {
     configurable: true,
-    value:
-      items === 'refused'
-        ? { read: refused, readText: refused }
-        : { read: () => Promise.resolve(items), readText: () => Promise.resolve(text) },
+    value,
   });
 }
 
-// The menu's clipboard entries on a document of one paragraph, "Before", the caret at its end, with
-// the host's uploads; jsdom has no clipboard events, so a plain event stands in for a paste's.
-function setUp() {
-  vi.stubGlobal('ClipboardEvent', class extends Event {});
+function makeState(text: string) {
   const doc = readDocumentFile(
     {
       formatVersion: 1,
       sections: [
         {
           name: null,
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Before' }] }],
+          content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
         },
       ],
     },
     documentSchema,
   ).doc;
   const state = EditorState.create({ doc });
+  return state.apply(state.tr.setSelection(TextSelection.atEnd(doc)));
+}
+
+// The menu's clipboard entries on a document of one paragraph, "Before", the caret at its end, with
+// the host's uploads; jsdom has no clipboard events, so a plain event stands in for a paste's.
+function setUp(text = 'Before', upload?: AssetAdapter['upload']) {
+  vi.stubGlobal('ClipboardEvent', class extends Event {});
   const shown = new EditorView(document.createElement('div'), {
-    state: state.apply(state.tr.setSelection(TextSelection.atEnd(doc))),
+    state: makeState(text),
   });
   view = shown;
   const uploaded: File[] = [];
   const assets: AssetAdapter = {
     upload: (file) => {
       uploaded.push(file);
+      if (upload) return upload(file);
       const id = `asset-${String(uploaded.length)}`;
       return Promise.resolve({
         ok: true,
@@ -120,6 +131,18 @@ describe('the context menu clipboard entries', () => {
     expect(uploaded.map((file) => file.type)).toEqual(['image/png']);
   });
 
+  it('DOCE-EDITOR-3.2 leaves a replacement document untouched when a pasted image finishes uploading', async () => {
+    stubClipboard([clipboardItem({ 'image/png': 'image' })]);
+    const stored = deferred<Awaited<ReturnType<AssetAdapter['upload']>>>();
+    const { shown, uploaded, press } = setUp('Before', () => stored.promise);
+    press('paste');
+    await vi.waitFor(() => expect(uploaded).toHaveLength(1));
+    shown.updateState(makeState('Another document'));
+    stored.resolve({ ok: true, value: { id: 'image', url: '', name: '', mediaType: 'image/png' } });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(blocks(shown)).toEqual(['Another document']);
+  });
+
   it('DOCE-EDITOR-3.2 DOCE-EDITING-5.5 uploads the images that come with pasted HTML', async () => {
     const html = '<p>, and<img src="data:image/png;base64,iVBORw==" alt="Chart"></p>';
     stubClipboard([clipboardItem({ 'text/html': html, 'text/plain': ', and' })]);
@@ -168,10 +191,7 @@ describe('the context menu clipboard entries', () => {
       written.push({ 'text/plain': text });
       return Promise.resolve();
     };
-    Object.defineProperty(window.navigator, 'clipboard', {
-      configurable: true,
-      value: { write, writeText },
-    });
+    setClipboard({ write, writeText });
     return written;
   }
 
@@ -230,6 +250,57 @@ describe('the context menu clipboard entries', () => {
     await settle();
     expect(written).toEqual([{ 'text/plain': 'Before' }]);
     expect(shown.state.doc).toBe(before);
+  });
+
+  it.each([false, true])(
+    'DOCE-EDITOR-3.2 deletes the copied range only while it remains selected (selection moved: %s)',
+    async (moved) => {
+      const written = deferred<void>();
+      const writeText = vi.fn(() => written.promise);
+      setClipboard({ writeText });
+      const { shown, press } = setUp('Before After');
+      const start = TextSelection.atStart(shown.state.doc).from;
+      const select = (from: number, to: number) =>
+        shown.dispatch(
+          shown.state.tr.setSelection(
+            TextSelection.create(shown.state.doc, start + from, start + to),
+          ),
+        );
+      select(0, 6);
+      press('cut');
+      expect(writeText).toHaveBeenCalledWith('Before');
+      if (moved) select(7, 12);
+      written.resolve();
+      await settle();
+      expect(blocks(shown)).toEqual([moved ? 'Before After' : ' After']);
+      if (moved) expect(shown.state.selection.from).toBe(start + 7);
+    },
+  );
+
+  it.each([
+    ['paste', 'document'],
+    ['paste', 'read-only'],
+    ['paste', 'selection'],
+    ['paste-text', 'document'],
+    ['paste-text', 'read-only'],
+    ['paste-text', 'selection'],
+  ])('DOCE-EDITOR-3.2 stops a pending %s after a %s change', async (action, change) => {
+    const rich = deferred<readonly ReturnType<typeof clipboardItem>[]>();
+    const plain = deferred<string>();
+    setClipboard({ read: () => rich.promise, readText: () => plain.promise });
+    const { shown, press } = setUp();
+    press(action);
+    if (change === 'read-only') shown.setProps({ editable: () => false });
+    if (change === 'document') shown.updateState(makeState('Another document'));
+    if (change === 'selection') {
+      const { doc, tr } = shown.state;
+      shown.dispatch(tr.setSelection(TextSelection.atStart(doc)));
+    }
+    const before = shown.state;
+    plain.resolve(', plain');
+    rich.resolve([clipboardItem({ 'text/html': '<p><strong>, rich</strong></p>' })]);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(shown.state).toBe(before);
   });
 
   it("DOCE-EDITOR-3.6 gives the editor's groups the ids CONTEXT_MENU_GROUPS names, in order", () => {

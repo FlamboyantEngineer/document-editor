@@ -4,16 +4,21 @@
 
 import { storedCaption } from '../schema/caption-content.js';
 import type { StoredNode } from './document-format.js';
-import { withObjects } from './markdown-read-captions.js';
+import { type Definitions, isDefinition, takeDefinition } from './markdown-read-definitions.js';
 import { closesFence, openingFence } from './markdown-read-fence.js';
-import { type InlineContext, readInline } from './markdown-read-inline.js';
+import type { InlineContext } from './markdown-read-inline.js';
 
 interface Lines {
   readonly lines: readonly string[];
   at: number;
 }
 
-type BlockReader = (lines: Lines, context: InlineContext) => StoredNode[] | null;
+/** Block parsing collects definitions before inline links and footnotes are resolved. */
+export interface BlockContext extends Definitions, Pick<InlineContext, 'warnings'> {
+  readonly inlineSource: WeakMap<StoredNode, string>;
+}
+
+type BlockReader = (lines: Lines, context: BlockContext) => StoredNode[] | null;
 
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
@@ -25,10 +30,13 @@ const HTML_BLOCK =
 
 const isBlank = (line: string | undefined) => line === undefined || line.trim() === '';
 
-const paragraphOf = (text: string, context: InlineContext): StoredNode => {
-  const content = readInline(text.trim(), context);
-  return content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
-};
+function withInlineSource(node: StoredNode, text: string, context: BlockContext): StoredNode {
+  context.inlineSource.set(node, text.trim());
+  return node;
+}
+
+const headingOf = (text: string, level: number, context: BlockContext) =>
+  withInlineSource({ type: 'heading', ...(level > 1 ? { attrs: { level } } : {}) }, text, context);
 
 // Fenced code, with its language; a block with no lines is left empty.
 const fenced: BlockReader = (lines) => {
@@ -73,14 +81,7 @@ const heading: BlockReader = (lines, context) => {
   if (!match) return null;
   lines.at += 1;
   const level = (match[1] ?? '#').length;
-  const content = readInline(match[2] ?? '', context);
-  return [
-    {
-      type: 'heading',
-      ...(level > 1 ? { attrs: { level } } : {}),
-      ...(content.length ? { content } : {}),
-    },
-  ];
+  return [headingOf(match[2] ?? '', level, context)];
 };
 
 const rule: BlockReader = (lines) => {
@@ -137,7 +138,7 @@ function itemLines(lines: Lines, indent: number, first: string): string[] {
 }
 
 // One list item at the cursor, when it is of the list's kind.
-function listItem(lines: Lines, context: InlineContext, ordered: boolean): StoredNode | null {
+function listItem(lines: Lines, context: BlockContext, ordered: boolean): StoredNode | null {
   const item = ITEM.exec(lines.lines[lines.at] ?? '');
   if (!item || /\d/.test(item[2] ?? '') !== ordered) return null;
   const [, lead = '', marker = '', space = ' ', first = ''] = item;
@@ -194,22 +195,22 @@ const table: BlockReader = (lines, context) => {
     cell.endsWith(':') ? (cell.startsWith(':') ? 'center' : 'right') : null,
   );
   const width = aligns.length;
-  const rowOf = (line: string, type: string): StoredNode => ({
+  const rowOf = (cells: readonly string[], type: string): StoredNode => ({
     type: 'tableRow',
     content: Array.from({ length: width }, (_, index) => ({
       type,
       ...(aligns[index] ? { attrs: { align: aligns[index] } } : {}),
-      content: [paragraphOf(cellsOf(line)[index] ?? '', context)],
+      content: [withInlineSource({ type: 'paragraph' }, cells[index] ?? '', context)],
     })),
   });
-  const rows = [rowOf(head, 'tableHeader')];
+  const rows = [rowOf(cellsOf(head), 'tableHeader')];
   lines.at += 2;
   while (
     lines.at < lines.lines.length &&
     !isBlank(lines.lines[lines.at]) &&
     (lines.lines[lines.at] ?? '').includes('|')
   ) {
-    rows.push(rowOf(lines.lines[lines.at] ?? '', 'tableCell'));
+    rows.push(rowOf(cellsOf(lines.lines[lines.at] ?? ''), 'tableCell'));
     lines.at += 1;
   }
   return [{ type: 'table', content: [storedCaption(''), ...rows] }];
@@ -245,6 +246,7 @@ function startsBlock(line: string): boolean {
     openingFence(line) !== null ||
     [HEADING, RULE, QUOTE, HTML_BLOCK].some((pattern) => pattern.test(line)) ||
     line.trim() === '$$' ||
+    isDefinition(line) ||
     ITEM.test(line)
   );
 }
@@ -259,26 +261,19 @@ const paragraph: BlockReader = (lines, context) => {
     if (setext) {
       lines.at += 1;
       const level = setext[1]?.startsWith('=') ? 1 : 2;
-      const content = readInline(text.join('\n').trim(), context);
-      return [
-        {
-          type: 'heading',
-          ...(level > 1 ? { attrs: { level } } : {}),
-          ...(content.length ? { content } : {}),
-        },
-      ];
+      return [headingOf(text.join('\n'), level, context)];
     }
     if (isBlank(line) || startsBlock(line)) break;
     text.push(line);
     lines.at += 1;
   }
-  return [paragraphOf(text.join('\n'), context)];
+  return [withInlineSource({ type: 'paragraph' }, text.join('\n'), context)];
 };
 
 const READERS: readonly BlockReader[] = [...BLOCK_STARTS, table, indentedCode, paragraph];
 
 /** Markdown lines as stored blocks. */
-export function readBlocks(source: readonly string[], context: InlineContext): StoredNode[] {
+export function readBlocks(source: readonly string[], context: BlockContext): StoredNode[] {
   const lines: Lines = { lines: source, at: 0 };
   const blocks: StoredNode[] = [];
   while (lines.at < source.length) {
@@ -286,6 +281,7 @@ export function readBlocks(source: readonly string[], context: InlineContext): S
       lines.at += 1;
       continue;
     }
+    if (takeDefinition(lines, context)) continue;
     for (const reader of READERS) {
       const read = reader(lines, context);
       if (read) {
@@ -294,5 +290,5 @@ export function readBlocks(source: readonly string[], context: InlineContext): S
       }
     }
   }
-  return withObjects(blocks);
+  return blocks;
 }

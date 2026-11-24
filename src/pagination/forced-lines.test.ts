@@ -141,6 +141,36 @@ describe('forcedLines', () => {
     ]);
   });
 
+  it.each([10, 100])(
+    'DOCE-PAGINATION-11.6 keeps numbering through text edits on a %i-page projection',
+    (count) => {
+      const heading = create('heading', { level: 1 }, [documentSchema.text('Next heading')]);
+      const pages = Array.from({ length: count }, (_, page) =>
+        Array.from({ length: 10 }, (_, row) => paragraph(`Text ${page}/${row}`)),
+      );
+      pages[0]?.push(heading);
+      const doc = pagesDoc(pages);
+      const { engine } = stubEngine();
+      let visits = 0;
+      vi.spyOn(engine, 'numbering').mockImplementation((numbered) => {
+        const headings = new Map<number, string>();
+        numbered.descendants((node, pos) => {
+          visits += 1;
+          if (node.type.name === 'heading') headings.set(pos, '1. ');
+        });
+        return { headings, paragraphs: new Set() };
+      });
+      const initial = stateWith(doc, engine);
+      const prepared = visits;
+      expect(prepared).toBeGreaterThan(count * 10);
+      const at = positionOf(doc, 'Text 0/0') + 2;
+      const edited = initial.apply(initial.tr.insertText('typed ', at));
+      expect(visits).toBe(prepared);
+      const prefix = drawn(edited).find(({ 'data-number': number }) => number === '1. ');
+      expect(prefix?.from).toBe(positionOf(edited.doc, 'Next heading'));
+    },
+  );
+
   it('DOCE-PAGINATION-9.12 draws a block right to left from its text, and a later part as its first', () => {
     const doc = pagesDoc([
       [paragraph('שלום world', { dataId: 'h' }), paragraph('hello مرحبا', { dataId: 'l' })],

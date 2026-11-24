@@ -90,7 +90,7 @@ Verification: `src/engine/comment-targets.test.ts`, `src/components/document-com
 
 ### DOCE-COMMENTS-1.13 - Review-only changes
 
-`reviewChangeOf(tr)` shall find a change review-only when every step adds or removes a comment anchor or a suggestion's mark and the content, with anchors and the threads suggestions name set aside, is unchanged, as anchoring, resolving, reopening or removing a thread and naming a suggestion's thread are, and give the threads and suggestions it touched; any other change is not (`isReviewOnlyChange`). Comments may be anchored on locked content, and suggestions there are refused (D19).
+`reviewChangeOf(tr)` shall find a change review-only when every step adds or removes a comment anchor or a suggestion's mark and the content, with anchors and the threads suggestions name set aside, is unchanged, as anchoring, resolving, reopening or removing a thread and naming a suggestion's thread are, and give the threads and suggestions it touched; any other change is not (`isReviewOnlyChange`). The comparison shall rebuild its fragments in work proportional to their child count. Comments may be anchored on locked content, and suggestions there are refused (D19).
 
 Implementation: `src/engine/review-changes.ts`, `src/engine/edit-lock.ts`
 Verification: `src/engine/review-changes.test.ts`

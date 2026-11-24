@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import stored from '../../test/fixtures/documents/scripts.json' with { type: 'json' };
 import type { ScriptRunnerAdapter } from '../host/index.js';
 import { createDocumentSchema, type DocumentFile, type StoredContent } from '../model/index.js';
-import { buildScriptParagraph } from './script-output.js';
+import { buildScriptParagraph, buildScriptTable } from './script-output.js';
 import { findStaleStoredScripts, runStoredScripts } from './scripts.js';
 
 const schema = createDocumentSchema();
@@ -100,6 +100,39 @@ describe('runStoredScripts', () => {
     expect(run.failed.get('b0000000')).toBe('Broken');
     expect(run.failed.get('b0000001')).toBe('Thrown');
     expect(blocksOf(run.file).map((block) => block.content?.length ?? 0)).toEqual([0, 0, 0, 1]);
+  });
+
+  it('DOCE-OBJECTS-4.4 preserves stored output when returned content cannot fit a script block', async () => {
+    const table = buildScriptTable([['Good']]);
+    const row = table.content?.find((node) => node.type === 'tableRow');
+    if (!row) throw new Error('Missing table row');
+    const good = runnerOf({ one: [table] });
+    const first = await runStoredScripts(withSources(['one']), {
+      schema,
+      runner: good.runner,
+      now,
+    });
+    const bad = runnerOf({ one: [row] });
+    const second = await runStoredScripts(first.file, { schema, runner: bad.runner, now });
+    expect(second.file).toBe(first.file);
+    expect(second.failed.get('b0000000')).toContain('its block cannot hold');
+  });
+
+  it('DOCE-OBJECTS-4.4 keeps the timestamp for equivalent tables with new width arrays', async () => {
+    const table = () => buildScriptTable([['First', 'Second']], { widths: [100, 130] });
+    const first = await runStoredScripts(withSources(['one']), {
+      schema,
+      runner: runnerOf({ one: [table()] }).runner,
+      now,
+    });
+    const second = await runStoredScripts(first.file, {
+      schema,
+      runner: runnerOf({ one: [table()] }).runner,
+      now: () => new Date('2026-11-14T12:00:00.000Z'),
+    });
+    expect(second.failed.size).toBe(0);
+    expect(second.file).toBe(first.file);
+    expect(blocksOf(second.file)[0]?.attrs?.renderedAt).toBe(now().toISOString());
   });
 
   it('DOCE-OBJECTS-4.4 stops when the signal aborts, rejecting with its reason', async () => {

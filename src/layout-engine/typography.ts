@@ -94,10 +94,7 @@ export function fontString(style: FontStyle): string {
   return `${style.italic ? 'italic ' : ''}${String(style.weight)} ${String(style.size)}px ${style.family}`;
 }
 
-/** The first family of a font stack, unquoted. */
-export function firstFamily(family: string): string {
-  return (family.split(',')[0] ?? '').trim().replace(/^["']|["']$/g, '');
-}
+export { firstFamily } from '../model/templates/template-css-values.js';
 
 // CSS's `bolder`: what strong text takes from the weight around it.
 function bolder(weight: number): number {

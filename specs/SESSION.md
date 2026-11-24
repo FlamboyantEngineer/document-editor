@@ -27,17 +27,17 @@ Verification: `src/session/document-session.test.ts`, `src/session/room-session.
 
 ### DOCE-SESSION-1.4 - Live capabilities
 
-When the host tells the session of new capabilities (`permissions.subscribe`), the session's document shall take them and the editing mode they give (`resolveEditingMode`).
+When the host tells the session of new capabilities (`permissions.subscribe`), the session's document shall take them and the editing mode they give (`resolveEditingMode`). When the session is still opening, the latest capability event takes precedence over the initial lookup, in store and room mode.
 
-Implementation: `src/session/session-follow.ts`
-Verification: `src/session/document-session.test.ts`
+Implementation: `src/session/session-follow.ts`, `src/session/store-session.ts`, `src/session/room-session.ts`
+Verification: `src/session/document-session.test.ts`, `src/session/room-session.test.ts`
 
 ### DOCE-SESSION-1.5 - Template changes
 
-When the host saves a revision of the pinned template newer than the pinned one (`templates.subscribe`), the session's document shall name it (`templateUpdate`), so the reader may move to it. `setTemplate(pin)` shall load and resolve another template or revision, show it, and count the new pin as a change to save. Of changes asked for in quick succession, as a reader's choice and another writer's pin, the last asked for shows, whichever load ends last; the others resolve false.
+When the host saves a revision of the pinned template newer than the pinned one (`templates.subscribe`), the session's document shall name it (`templateUpdate`), so the reader may move to it. `setTemplate(pin)` shall load and resolve another template or revision, show it, and count the new pin as a change to save. Of changes asked for in quick succession, as a reader's choice and another writer's pin, the last asked for shows, whichever load ends last; the others resolve false. When a store refresh or room reload changes the pin, the session shall show the resolved template with the new pin, reset the update notice and follow saves of the newly pinned template.
 
-Implementation: `src/session/session-follow.ts`, `src/session/store-session.ts`
-Verification: `src/session/document-session.test.ts`
+Implementation: `src/session/session-follow.ts`, `src/session/store-session.ts`, `src/session/store-refresh.ts`, `src/session/room-reload.ts`
+Verification: `src/session/document-session.test.ts`, `src/session/store-refresh.test.ts`, `src/session/room-reload.test.ts`
 
 ### DOCE-SESSION-1.6 - Sessions in React
 
@@ -101,10 +101,10 @@ Verification: `src/session/store-bundle.test.ts`
 
 ### DOCE-SESSION-3.2 - Opening a document in its room
 
-A room-mode session shall connect the document's room through the host's `collaboration` adapter, loading the realtime library only then, with the reader's room draft (`drafts`) when there is one, and the reader's capabilities. Its status shall go from `connecting` to `syncing` and, once the connection first synced, to `ready`; with a draft it shall be ready at once, without waiting for the sync. Its `document` store shall hold the content the room holds, the template the room's `meta` type pins, and an editor state that runs the room's sync plugin with no undo history of its own, so every reader of the room edits the same document. A change made through `update` while no editor is bound to the state shall be made on the content the room holds by then and written to the room, as a bound editor's changes are; a whole state given then is written only while the room still holds the content the session showed. A host without rooms, a refused connection, a template that cannot load or a room whose content the schema cannot read shall make the status `failed` with the error, and `ready` resolve false.
+A room-mode session shall connect the document's room through the host's `collaboration` adapter, loading the realtime library only then, with the reader's room draft (`drafts`) when there is one, and the reader's capabilities. Its status shall go from `connecting` to `syncing` and, once the connection first synced, to `ready`; with a draft it shall be ready at once, without waiting for the sync. Its `document` store shall hold the content the room holds, the template the room's `meta` type pins, and an editor state that runs the room's sync plugin with no undo history of its own, so every reader of the room edits the same document. If the connection replaces its shared document while the template is loading, the session shall open with the replacement's content, template pin and binding. A change made through `update` while no editor is bound to the state shall be made on the content the room holds by then and written to the room, as a bound editor's changes are; the first content written into an empty room is sent as a local change, and a whole state given then is written only while the room still holds the content the session showed. A host without rooms, a refused connection, a template that cannot load or a room whose content the schema cannot read shall make the status `failed` with the error, and `ready` resolve false.
 
 Implementation: `src/session/room-session.ts`, `src/session/room-open.ts`, `src/session/room-binding.ts`, `src/session/store-session.ts`
-Verification: `src/session/room-session.test.ts`
+Verification: `src/session/room-session.test.ts`, `src/session/room-reload.test.ts`
 
 ### DOCE-SESSION-3.3 - The room's status
 
@@ -164,9 +164,9 @@ Verification: `src/session/room-session.test.ts`
 
 ### DOCE-SESSION-3.11 - Reloading after a refused change
 
-When the room refuses a local change because it does not merge with what the room holds (DOCE-COLLAB-7.4), the connection reports a reload (`RoomConnection.onReload`, from collaboration-tools' `RoomProvider.onReload`) with the reason, the room's document and the writer's previous one, and keeps its socket. The session shall bind the editor to the room's document, show its content with the caret and selection kept where their text still is, and otherwise at the nearest place, keep the room's draft from the new document, and tell the writer: its `reloads` store holds the notice (`reason`, and the `previous` content) and the host's `onRoomReload` receives it, and the editor shows the `roomChangeRefused` label as a warning through its feedback. Keys typed between the refused change and the reload reach the new document as later changes of their own: what lies beside the refused change is kept and sent, and what lies inside its refused content is dropped with it. A key typed in the frame between the reload and the editor showing the room's document goes to the document the reader had and is dropped too; the notice holds that document as it was when the reload came, the writer's previous content, so nothing is lost silently. The connection stays open and the writer keeps writing on it.
+When the room refuses a local change because it does not merge with what the room holds (DOCE-COLLAB-7.4), the connection reports a reload (`RoomConnection.onReload`, from collaboration-tools' `RoomProvider.onReload`) with the reason, the room's document and the writer's previous one, and keeps its socket. The session shall bind the editor to the room's document, show its content under the template its replacement document pins, with the caret and selection kept where their text still is, and otherwise at the nearest place. A reload waiting for a different template shall pause editing until the content and template can be shown together. The session shall keep the room's draft from the new document, and tell the writer: its `reloads` store holds the notice (`reason`, and the `previous` content) and the host's `onRoomReload` receives it, and the editor shows the `roomChangeRefused` label as a warning through its feedback. Keys typed between the refused change and the reload reach the new document as later changes of their own: what lies beside the refused change is kept and sent, and what lies inside its refused content is dropped with it. A key typed in the frame between the reload and the editor showing the room's document goes to the document the reader had and is dropped too; the notice holds that document as it was when the reload came, the writer's previous content, so nothing is lost silently. The connection stays open and the writer keeps writing on it.
 
-Implementation: `src/session/room-session.ts`, `src/session/room-open.ts`, `src/collab/room-connection.ts`, `src/components/document-editor/save-status-item.tsx`
+Implementation: `src/session/room-session.ts`, `src/session/room-reload.ts`, `src/session/room-open.ts`, `src/collab/room-connection.ts`, `src/components/document-editor/save-status-item.tsx`
 Verification: `src/session/room-reload.test.ts`, `src/components/document-editor/save-status-item.test.tsx`
 
 ## DOCE-SESSION-4 - Merging another writer's saves
@@ -175,9 +175,9 @@ In store mode two readers can edit the same stored document. When a save is refu
 
 ### DOCE-SESSION-4.1 - Three-way merge by element id
 
-`mergeDocuments({ base, mine, theirs })` shall merge two stored documents edited from the same base by element id: a block only one side changed, inserted or deleted takes that side's change; a container both sides changed, such as a section, a list or a table, merges its own settings and then its children the same way; blocks either side inserted are placed after the block before them on that side; and the order follows the side that moved blocks, the reader's when both did. A block one side moved to another container, such as another section or list item, is merged once, where that side put it, the reader's place when both moved it, with what the other side changed in it; one the other side deleted stays where it was moved. The template pin merges the same way, the reader's winning when both changed it. Blocks without an element id are identified first, since each editor that opens a document stored without ids gives its blocks ids of its own: a block the base holds without one is paired with each side's block of the same content, or the one changed in its place, and the versions of one block take one id, the stored side's, else the reader's, else a new one (`newId`); the writer an editor named with the id is no change. When a save conflicts (`HostError.current`, or the stored document loaded again when the host gives none), the session shall show the merged document, take the stored document as its new baseline and save the merge against it, with no prompt when no block conflicts. The caret and the blocks that did not change stay as they were (DOCE-SESSION-7.2).
+`mergeDocuments({ base, mine, theirs })` shall merge two stored documents edited from the same base by element id: a block only one side changed, inserted or deleted takes that side's change; a container both sides changed, such as a section, a list or a table, merges its own settings and then its children the same way; blocks either side inserted are placed after the block before them on that side; and the order follows the side that moved blocks, the reader's when both did. Ordering shall use keyed anchors with work proportional to the number of sibling blocks. A block one side moved to another container, including a newly created section or nested list item, is merged once, where that side put it, the reader's place when both moved it, with what the other side changed in it; one the other side deleted stays where it was moved. If sorting the moves empties a container, the merge keeps required cell and column structure and removes empty quotes or lists. A conflict over a source container omits its separately moved children from both choices. The template pin merges the same way, the reader's winning when both changed it. Blocks without an element id are identified first, since each editor that opens a document stored without ids gives its blocks ids of its own: a block the base holds without one is paired with each side's block of the same content, or the one changed in its place, and the versions of one block take one id, the stored side's, else the reader's, else a new one (`newId`); the writer an editor named with the id is no change. When a save conflicts (`HostError.current`, or the stored document loaded again when the host gives none), the session shall show the merged document, take the stored document as its new baseline and save the merge against it, with no prompt when no block conflicts. The caret and the blocks that did not change stay as they were (DOCE-SESSION-7.2).
 
-Implementation: `src/session/merge.ts`, `src/session/merge-identity.ts`, `src/session/stored-elements.ts`, `src/session/stored-equality.ts`, `src/session/store-refresh.ts`, `src/session/store-saving.ts`
+Implementation: `src/session/merge.ts`, `src/session/merge-children.ts`, `src/session/merge-identity.ts`, `src/session/merge-order.ts`, `src/session/stored-elements.ts`, `src/session/stored-equality.ts`, `src/session/store-refresh.ts`, `src/session/store-saving.ts`
 Verification: `src/session/merge.test.ts`, `src/session/merge-identity.test.ts`, `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-4.2 - Conflicts
@@ -214,9 +214,9 @@ Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-6.1 - Keeping store-mode drafts
 
-In store mode, while the document has unsaved changes, the session shall keep its content in the stored format, with its template pin and the revision it was edited from, through the host's `drafts` adapter once changes pause for `draftDelay` milliseconds (300 by default), so a reload or a crash does not lose it. Once a save leaves nothing unsaved, the session shall remove the draft.
+In store mode, while the document has unsaved changes, the session shall keep its content in the stored format, with its template pin and the revision it was edited from, through the host's `drafts` adapter once changes pause for `draftDelay` milliseconds (300 by default), so a reload or a crash does not lose it. A change to the template pin alone also schedules a draft. Once a save leaves nothing unsaved, the session shall remove the draft. The session shall apply puts and clears in the order they were requested for a document and read after any outstanding writes from a previous session.
 
-Implementation: `src/session/drafts.ts`, `src/session/store-session.ts`, `src/utils/trailing-timer.ts`
+Implementation: `src/session/drafts.ts`, `src/session/draft-access.ts`, `src/session/store-session.ts`, `src/utils/trailing-timer.ts`
 Verification: `src/session/drafts.test.ts`, `src/utils/trailing-timer.test.ts`
 
 ### DOCE-SESSION-6.2 - Offering a draft
@@ -249,16 +249,16 @@ Verification: `src/session/drafts.test.ts`, `e2e/offline.spec.ts`
 
 ### DOCE-SESSION-6.6 - Drafts when the page goes away
 
-When the host's `lifecycle` adapter says the page is hidden or being left, the session shall keep its draft at once, before it flushes, so a save that fails then still leaves the draft.
+When the host's `lifecycle` adapter says the page is hidden or being left, the session shall keep its draft at once, before it flushes, so a save that fails then still leaves the draft. Closing a session also keeps its latest unsaved changes immediately.
 
 Implementation: `src/session/store-session.ts`, `src/session/drafts.ts`
 Verification: `src/session/drafts.test.ts`
 
 ### DOCE-SESSION-6.7 - Keeping room-mode drafts
 
-In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left or when it is stopped with a draft still waiting: the document's state, the changes the room has not confirmed, one update each, the last state the room had confirmed all of (`confirmed`), and the room's generation. The confirmed state shall be taken when a draft is kept with no change unconfirmed, and at once when the connection is lost with none unconfirmed, so edits made offline before the next draft merge from it; it is not taken at each confirmation, which would read the whole document for every change the room echoes.
+In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left or when it is stopped with a draft still waiting: the document's state, the changes the room has not confirmed, one update each, the last state the room had confirmed all of (`confirmed`), and the room's generation. Draft writes for a document shall run in request order, including lifecycle saves and stop. The confirmed state shall be taken when a draft is kept with no change unconfirmed, and at once when the connection is lost with none unconfirmed, so edits made offline before the next draft merge from it; it is not taken at each confirmation, which would read the whole document for every change the room echoes.
 
-Implementation: `src/collab/offline.ts`, `src/utils/trailing-timer.ts`
+Implementation: `src/collab/offline.ts`, `src/session/draft-access.ts`, `src/utils/trailing-timer.ts`
 Verification: `src/collab/offline.test.ts`, `src/utils/trailing-timer.test.ts`
 
 ### DOCE-SESSION-6.8 - Replaying room-mode drafts
@@ -277,7 +277,7 @@ Verification: `src/collab/offline.test.ts`
 
 ### DOCE-SESSION-6.10 - Room-mode drafts in a session
 
-A room-mode session shall open on the room's draft when the host keeps one, so the reader edits with no connection, and send the draft's unconfirmed changes once it connects. While connected, it shall keep the room's draft (DOCE-SESSION-6.7) and stop keeping it when closed, after the draft still waiting then. When the room refuses the draft for belonging to an older generation, the session shall take the draft of the document as it is by then, with what the reader changed since it opened, keep it, open the room again without it and merge that draft into the new generation's document (DOCE-SESSION-6.9), sending the merge to the room, through the editor when one is bound; its leftovers are the session's `conflicts`, and the draft stays kept until they are settled. When the room cannot be opened again, the status shall be `failed` with the error and the draft stay kept. `resolveConflict` settles a leftover in the room's document: `mine` puts the draft's version in its place, `theirs` keeps the room's, and `both` keeps the room's with the draft's after it under new ids. The offline module, and with it the realtime library, loads only when the session needs it (DOCE-SESSION-3.1).
+A room-mode session shall open on the room's draft when the host keeps one, so the reader edits with no connection, and send the draft's unconfirmed changes once it connects. While connected, it shall keep the room's draft (DOCE-SESSION-6.7) and stop keeping it when closed, after committing held edits and keeping the draft still waiting then. When the room refuses the draft for belonging to an older generation, the session shall take the draft of the document as it is by then, with what the reader changed since it opened, keep it, open the room again without it and merge that draft into the new generation's document (DOCE-SESSION-6.9), sending the merge to the room, through the editor when one is bound; its leftovers are the session's `conflicts`, and the draft stays kept until they are settled. When the room cannot be opened again, the status shall be `failed` with the error and the draft stay kept. `resolveConflict` settles a leftover in the room's document: `mine` puts the draft's version in its place, `theirs` keeps the room's, and `both` keeps the room's with the draft's after it under new ids. The offline module, and with it the realtime library, loads only when the session needs it (DOCE-SESSION-3.1).
 
 Implementation: `src/session/room-drafts.ts`, `src/session/room-session.ts`, `src/session/room-open.ts`
 Verification: `src/session/room-drafts.test.ts`, `e2e/offline.spec.ts`
@@ -286,10 +286,10 @@ Verification: `src/session/room-drafts.test.ts`, `e2e/offline.spec.ts`
 
 ### DOCE-SESSION-7.1 - Following the store's saves
 
-When the host's document store tells of a save (`documents.subscribe`) newer than the one the session holds, the session shall wait for its own save in flight, load the stored document and take it in: shown as it is when the reader has no unsaved changes, merged with them otherwise (DOCE-SESSION-4), and taken as the new baseline. The merge shown is of the document as it is by then: what the reader types while the template that save pins loads is merged too. Its own saves are not taken in again.
+When the host's document store tells of a save (`documents.subscribe`) newer than the one the session holds, the session shall wait for its own save in flight, load the stored document and take it in: shown as it is when the reader has no unsaved changes, merged with them otherwise (DOCE-SESSION-4), and taken as the new baseline. The merge shown is of the document as it is by then: what the reader types while the template that save pins loads is merged too. The session shall observe saves before loading its first snapshot and take in newer saves received during initialization before it is ready. Its own saves are not taken in again.
 
-Implementation: `src/session/store-refresh.ts`
-Verification: `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
+Implementation: `src/session/store-refresh.ts`, `src/session/open-document.ts`, `src/session/store-session.ts`
+Verification: `src/session/document-session.test.ts`, `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-7.2 - Replacing the content in place
 
