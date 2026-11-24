@@ -17,6 +17,8 @@ const engineMathKey = new PluginKey<EngineMathState>('engine-math');
 interface EngineMathState {
   readonly engine: PagesTextEngine | null;
   readonly version: number;
+  /** The engine's math version the decorations were read at (`mathVersion`). */
+  readonly placed: number;
   readonly decorations: DecorationSet;
 }
 
@@ -67,25 +69,43 @@ function keepsMath(tr: Transaction, index: number): boolean {
   return inline && doc.resolve(from).parent.isTextblock && !holdsMath(doc, from, to);
 }
 
-/** Draws each equation at the box and scale the engine placed it at. */
+const placedVersion = (engine: PagesTextEngine | null) => engine?.mathVersion?.() ?? 0;
+
+/**
+ * Draws each equation at the box and scale the engine placed it at. The engine places math as it
+ * lays the pages out, after a transaction is applied, so the decorations are read again when the
+ * view draws a state whose placements moved since (`mathVersion`).
+ */
 export function engineMath(source: EngineMathSource): Plugin<EngineMathState> {
   const build = (doc: ProseMirrorNode): EngineMathState => {
     const engine = source.engine();
-    return { engine, version: source.version(), decorations: mathDecorations(doc, engine) };
+    const placed = placedVersion(engine);
+    return { engine, version: source.version(), placed, decorations: mathDecorations(doc, engine) };
+  };
+  // The decorations of a state, read again once for placements made after it was built.
+  let reread: { value: EngineMathState; state: EngineMathState } | null = null;
+  const decorationsOf = (doc: ProseMirrorNode, value: EngineMathState | undefined) => {
+    if (!value || value.placed === placedVersion(value.engine)) return value?.decorations;
+    if (reread?.value !== value || reread.state.placed !== placedVersion(value.engine))
+      reread = { value, state: build(doc) };
+    return reread.state.decorations;
   };
   return new Plugin<EngineMathState>({
     key: engineMathKey,
     state: {
       init: (_config, state) => build(state.doc),
       apply: (tr, value) => {
-        const fresh = value.engine !== source.engine() || value.version !== source.version();
+        const fresh =
+          value.engine !== source.engine() ||
+          value.version !== source.version() ||
+          value.placed !== placedVersion(value.engine);
         if (fresh) return build(tr.doc);
         if (!tr.docChanged) return value;
         if (!tr.steps.every((_step, index) => keepsMath(tr, index))) return build(tr.doc);
         return { ...value, decorations: value.decorations.map(tr.mapping, tr.doc) };
       },
     },
-    props: { decorations: (state) => engineMathKey.getState(state)?.decorations },
+    props: { decorations: (state) => decorationsOf(state.doc, engineMathKey.getState(state)) },
   });
 }
 

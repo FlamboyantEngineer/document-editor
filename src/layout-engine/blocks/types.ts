@@ -24,6 +24,8 @@ export interface BlockTextLayout {
   layoutText(node: ProseMirrorNode, place: TextBlockPlace): TextBlockLayout;
   /** A list of contents row's lines and boxes; a list is left to the DOM without it. */
   layoutContentsRow?(row: ContentsRow, place: ContentsRowPlace): ContentsRowLayout;
+  /** A text's width in a block's font, such as a display equation's automatic number. */
+  textWidth?(text: string, node: ProseMirrorNode, scope?: string | null): number;
   /** A text's width in a list of contents level's font, as its row sizes it. */
   contentsTextWidth?(text: string, level: ContentsTextLevel): number;
   /** A list of contents' title or empty message on lines; a list is left to the DOM without it. */
@@ -149,6 +151,11 @@ export interface BlockLayoutOptions {
    * every row's page box is this many of its font's `0`, whatever its page reads; 3 by default.
    */
   readonly pageDigits?: (() => number) | undefined;
+  /**
+   * A display equation's automatic number, such as `(3)`, drawn at its line's end; the equation
+   * is fitted into its line less the number's width (DOCE-PAGINATION-12.10).
+   */
+  readonly equationOf?: ((equation: ProseMirrorNode) => string | undefined) | undefined;
   /** Told each display equation laid out from its layout, with its box and scale. */
   readonly onMath?: MathRecorder | undefined;
 }
