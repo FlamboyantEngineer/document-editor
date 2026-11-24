@@ -87,6 +87,9 @@ export interface ContentsDrawn {
   readonly pageWidths: readonly (number | null)[];
   /** Where each row's text starts each of its lines, by offset in its text. */
   readonly rows: readonly (readonly number[])[];
+  /** Where the title, and the message shown when the list lists nothing, start each line. */
+  readonly title?: readonly number[] | undefined;
+  readonly empty?: readonly number[] | undefined;
 }
 
 /** Which part of a page a block is laid out in; a header's and a footer's blocks take no margins. */

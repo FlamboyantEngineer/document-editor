@@ -1565,7 +1565,9 @@ div.de-host-view {
   text-align: right;
 }
 
-.de-contents__text[data-engine-lines] {
+.de-contents__text[data-engine-lines],
+.de-contents__title[data-engine-lines],
+.de-contents__empty[data-engine-lines] {
   white-space: nowrap;
 }
 

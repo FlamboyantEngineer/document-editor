@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import type { CatalogEntry } from '../model/index.js';
-import { type ContentsRows, partRows } from './contents-view.js';
+import { type ContentsRows, draw, type Drawing, partRows } from './contents-view.js';
 
 const entry = (index: number): CatalogEntry => ({
   kind: 'heading',
@@ -42,5 +42,37 @@ describe('partRows', () => {
   it('DOCE-CONTENTS-2.2 keeps the rows drawn for a part as they are', () => {
     const part = { ...whole, entries: whole.entries.slice(2, 4), whole: false };
     expect(partRows(part, list({ entryStart: 2, entryEnd: 4 }))).toBe(part);
+  });
+});
+
+describe('draw', () => {
+  const drawing = (drawn: Drawing['drawn']): Drawing => ({
+    rows: { entries: [], empty: true, showPage: true, separator: '' },
+    labels: { title: 'Table of contents', empty: 'Nothing listed yet' },
+    leaders: [],
+    properties: { list: {}, levels: [] },
+    showPage: true,
+    navigate: () => undefined,
+    href: () => null,
+    drawn,
+  });
+
+  it('DOCE-PAGINATION-10.11 draws the title and the empty message on the engine lines', () => {
+    const dom = document.createElement('div');
+    draw(dom, list({}), drawing({ pageWidths: [], rows: [], title: [0, 9], empty: [0] }));
+    const title = dom.querySelector<HTMLElement>('.de-contents__title');
+    const empty = dom.querySelector<HTMLElement>('.de-contents__empty');
+    expect(title?.dataset.engineLines).toBe('true');
+    expect(title?.innerHTML).toBe('Table of <br>contents');
+    expect(empty?.dataset.engineLines).toBe('true');
+    expect(empty?.innerHTML).toBe('Nothing listed yet');
+  });
+
+  it('DOCE-PAGINATION-10.11 leaves the title to the browser without the engine', () => {
+    const dom = document.createElement('div');
+    draw(dom, list({}), drawing(null));
+    const title = dom.querySelector<HTMLElement>('.de-contents__title');
+    expect(title?.dataset.engineLines).toBeUndefined();
+    expect(title?.textContent).toBe('Table of contents');
   });
 });
