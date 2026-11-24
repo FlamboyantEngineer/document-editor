@@ -97,7 +97,7 @@
     "test:guard-budgets": "vitest run --config vitest.guard.config.ts"
   },
   "peerDependencies": {
-    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#9b38b15f4459f200cbbd98beebf2b1a01f8c50d6",
+    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#468cff24792299961752acc2d4ad84f0b06b3ecc",
     "@handlewithcare/react-prosemirror": "^3.3.0",
     "@y/y": "14.0.0-rc.23",
     "katex": "^0.19.1",
