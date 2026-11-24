@@ -9,22 +9,23 @@ import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
-import { catalogDocument } from '../model/contents/document-catalog.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import { trackTableHeaderCopies } from '../model/pagination/table-header-copies.js';
 import { CAPTION_HOLDER_TYPES, isCaptionNode } from '../model/schema/caption-content.js';
 import { isContinued } from './block-directions.js';
+import { equationNumbers } from './equation-numbers.js';
+import type { ProjectionMap } from './projection-map.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
-/** A document's object numbers, found again in its pages by element id and order. */
+/** A document's object numbers, found again in its pages by element id or position. */
 interface ObjectNumbers {
   /** Each shown caption's label with its separator, by the id of the object it captions. */
   readonly captions: ReadonlyMap<string, string>;
-  /** Each display equation's number, in document order. */
-  readonly equations: readonly string[];
+  /** Each display equation's number by its position in the canonical document. */
+  readonly equations: ReadonlyMap<number, string>;
+  /** A uniquely matching equation's number or blank number, without walking the page map. */
+  readonly equationFor: (node: ProseMirrorNode) => string | undefined;
 }
-
-const EQUATIONS = { equations: { nodes: ['math_display'] } };
 
 const idOf = (node: ProseMirrorNode | null | undefined) => {
   const id = node?.attrs.dataId as unknown;
@@ -43,43 +44,42 @@ function captionKey(node: ProseMirrorNode, parent: ProseMirrorNode | null): stri
 export function objectNumbers(doc: ProseMirrorNode, template: TemplateFile): ObjectNumbers {
   const numbers = captionNumbers(doc, template);
   const captions = new Map<string, string>();
+  const equations = equationNumbers(doc, template);
   doc.descendants((node, _pos, parent) => {
     const label = numbers.labelOf(node);
     const key = label === undefined ? null : captionKey(node, parent);
     if (key && label !== undefined && !captions.has(key)) captions.set(key, label);
-    return true;
+    return !node.isTextblock;
   });
-  const entries = catalogDocument(doc, template, EQUATIONS).equations ?? [];
-  const equations = entries.map((entry) => entry.number);
-  return { captions, equations };
+  return {
+    captions,
+    equations: equations.positions,
+    equationFor: equations.of,
+  };
 }
 
 const css = (value: string) => `"${value.replace(/["\\]/gu, (char) => `\\${char}`)}"`;
 
-const unnumberedRegions = new Set(['page_header', 'page_footer', 'page_footnotes']);
-
-// Only the occurrence in the body takes a number. A repeated row draws that same number at its
-// corresponding offset and does not consume the next equation's number.
-function drawingEquations(doc: ProseMirrorNode, equations: readonly string[]) {
+// Map from inside each equation. In a repeated header use the original row's position, even if
+// the equation is itself inside a nested table in that header.
+function drawEquationNumbers(map: ProjectionMap, { equations, equationFor }: ObjectNumbers) {
   const headerCopy = trackTableHeaderCopies();
-  const originals = new Map<number, string>();
-  let repeated: { start: number; end: number; original: number } | null = null;
-  let equation = 0;
+  let copy: { start: number; end: number; original: number } | null = null;
   return (node: ProseMirrorNode, pos: number, parent: ProseMirrorNode | null) => {
-    if (repeated && pos >= repeated.end) repeated = null;
-    if (!repeated) {
+    if (copy && pos >= copy.end) copy = null;
+    if (!copy) {
       const original = headerCopy(node, parent, pos);
-      if (original !== null) repeated = { start: pos, end: pos + node.nodeSize, original };
+      if (original !== null) copy = { start: pos, end: pos + node.nodeSize, original };
     }
     if (node.type.name !== 'math_display') return undefined;
-    if (repeated) return originals.get(repeated.original + pos - repeated.start);
-    const at = doc.resolve(pos);
-    for (let depth = at.depth; depth > 0; depth -= 1) {
-      if (unnumberedRegions.has(at.node(depth).type.name)) return undefined;
+    const found = equationFor(node);
+    if (found !== undefined) return found;
+    const inside = map.toCanonical(pos + 1, 1);
+    if (inside === null && copy) {
+      const original = map.toCanonical(copy.original + pos - copy.start + 1, 1);
+      return original === null ? undefined : equations.get(original - 1);
     }
-    const value = equations[equation++];
-    if (value) originals.set(pos, value);
-    return value;
+    return inside === null ? undefined : equations.get(inside - 1);
   };
 }
 
@@ -89,10 +89,10 @@ function drawingEquations(doc: ProseMirrorNode, equations: readonly string[]) {
 function numberDecorations(
   doc: ProseMirrorNode,
   headings: ReadonlyMap<number, string>,
-  objects: ObjectNumbers,
+  { objects, map }: { objects: ObjectNumbers; map: ProjectionMap },
 ): DecorationSet {
   const found: Decoration[] = [];
-  const equation = drawingEquations(doc, objects.equations);
+  const equation = drawEquationNumbers(map, objects);
   const number = (pos: number, node: ProseMirrorNode, value: string) =>
     found.push(
       Decoration.node(
@@ -153,10 +153,10 @@ export const keepsAllNumbers = (tr: Transaction) =>
 /** The engine numbers' key: its state is the decorations drawing them. */
 export const engineNumbersKey = new PluginKey<DecorationSet>('engine-numbers');
 
-/** What the numbers are read from: the engine, once loaded, and the canonical document. */
+/** What the numbers are read from: the engine, once loaded, and the pages' canonical positions. */
 interface EngineNumbersSource {
   readonly engine: () => PagesTextEngine | null;
-  readonly canonical: () => ProseMirrorNode;
+  readonly map: () => ProjectionMap;
 }
 
 /** Draws the engine's heading, caption and equation numbers on every page. */
@@ -165,8 +165,9 @@ export function engineNumbers(source: EngineNumbersSource): Plugin<DecorationSet
   const build = (doc: ProseMirrorNode) => {
     engine = source.engine();
     if (!engine) return DecorationSet.empty;
-    const objects = objectNumbers(source.canonical(), engine.template);
-    return numberDecorations(doc, engine.numbering(doc).headings, objects);
+    const map = source.map();
+    const objects = objectNumbers(map.canonical, engine.template);
+    return numberDecorations(doc, engine.numbering(doc).headings, { objects, map });
   };
   return new Plugin<DecorationSet>({
     key: engineNumbersKey,

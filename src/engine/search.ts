@@ -16,6 +16,7 @@ import {
 import { DecorationSet, type EditorView } from 'prosemirror-view';
 import { viewOnlyInline } from '../utils/view-only-decorations.js';
 import { isEditRangeLocked } from './edit-lock.js';
+import { replaceMarkedText } from './replace-text.js';
 import {
   findMatches,
   findMatchesInBlocks,
@@ -294,14 +295,6 @@ export function revealMatchAt(index: number, scope: SearchScope = 'find'): Comma
   };
 }
 
-// The match replaced: the replacement with the marks of the text it replaces.
-function replaceIn(tr: Transaction, match: SearchMatch, replacement: string) {
-  const marks = tr.doc.resolve(match.from + 1).marks();
-  if (replacement)
-    tr.replaceWith(match.from, match.to, tr.doc.type.schema.text(replacement, marks));
-  else tr.delete(match.from, match.to);
-}
-
 /**
  * Replaces a search's current match, refused when the writer may not replace it
  * (`isMatchReplaceable`). The find bar then puts the caret after the replacement; the pane leaves
@@ -313,8 +306,7 @@ export function replaceMatch(replacement: string, scope: SearchScope = 'find'): 
     const match = search?.matches[search.current];
     if (!match || !isMatchReplaceable(state, match)) return false;
     if (dispatch) {
-      const tr = state.tr;
-      replaceIn(tr, match, replacement);
+      const tr = replaceMarkedText(state.tr, match, replacement);
       closeHistory(tr);
       const meta: SearchMeta = { after: match.from + replacement.length };
       tr.setMeta(keys[scope], meta);
@@ -337,7 +329,7 @@ export function replaceAllMatches(replacement: string, scope: SearchScope = 'fin
       if (!isMatchReplaceable(state, match)) continue;
       // A host policy may depend on content changed by a preceding replacement.
       if (tr.doc !== state.doc && isEditRangeLocked(state, match, tr.doc)) continue;
-      replaceIn(tr, match, replacement);
+      replaceMarkedText(tr, match, replacement);
     }
     if (!tr.docChanged) return false;
     closeHistory(tr);

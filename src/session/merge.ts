@@ -13,17 +13,17 @@ import {
   type Place,
   type PlacementVersions,
 } from './merge-placements.js';
-import { elementIdOf } from './stored-elements.js';
+import { elementIdOf, sectionKey } from './stored-elements.js';
 import { sameStored as same } from './stored-equality.js';
 
-/** A block both sides changed differently, or one side changed and the other deleted. */
+/** A block or section both sides changed differently, or one side changed and the other deleted. */
 export interface MergeConflict {
-  /** The block's element id. */
+  /** The block's element id or the section's merge key. */
   readonly id: string;
   /** The reader's version, or null when the reader deleted it. */
-  readonly mine: StoredNode | null;
+  readonly mine: StoredNode | StoredSection | null;
   /** The stored version, or null when the other writer deleted it. */
-  readonly theirs: StoredNode | null;
+  readonly theirs: StoredNode | StoredSection | null;
 }
 
 /** A merged document, with its conflicts showing the reader's version, or the edited one. */
@@ -69,9 +69,6 @@ function nodeElement(node: StoredNode): Element {
   const key = elementIdOf(node) ?? '';
   return { key, own: children ? own : node, children, value: node, section: false };
 }
-
-// A section is found in each version by its id, or by its place when it has none.
-const sectionKey = (section: StoredSection, index: number) => section.id ?? `#${String(index)}`;
 
 function sectionElement(section: StoredSection, index: number): Element {
   const { content, ...own } = section;
@@ -134,8 +131,8 @@ function mergeOneSided({ base, mine, theirs }: Versions, context: MergeContext):
   if (base && value) {
     context.conflicts.push({
       id: kept.key,
-      mine: mine ? (value as StoredNode) : null,
-      theirs: theirs ? (value as StoredNode) : null,
+      mine: mine ? value : null,
+      theirs: theirs ? value : null,
     });
   }
   return value;
@@ -158,7 +155,7 @@ function mergeBothChanged(
   const kept = withoutMoved(mine, context);
   const other = withoutMoved(theirs, context);
   if (kept || other) {
-    context.conflicts.push({ id: mine.key, mine: kept as StoredNode, theirs: other as StoredNode });
+    context.conflicts.push({ id: mine.key, mine: kept, theirs: other });
   }
   return kept ?? other;
 }

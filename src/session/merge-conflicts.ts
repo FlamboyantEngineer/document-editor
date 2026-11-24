@@ -1,13 +1,19 @@
-// Settling a merge's conflicts block by block: the reader keeps their version, takes the stored
-// one, or, for text, keeps both, the stored one after theirs with new ids.
+// Settling a merge's conflicts: the reader keeps their version, takes the stored one, or, for
+// text blocks, keeps both, the stored one after theirs with new ids.
 
 import { cloneJson } from '../model/clone-json.js';
-import type { DocumentFile, StoredNode } from '../model/format/document-format.js';
+import type { DocumentFile, StoredNode, StoredSection } from '../model/format/document-format.js';
 import type { MergeConflict } from './merge.js';
-import { elementIdKey } from './stored-elements.js';
+import { elementIdKey, elementIdOf } from './stored-elements.js';
+import { sameStored } from './stored-equality.js';
 
 /** How the reader settles a conflict. */
 export type MergeChoice = 'mine' | 'theirs' | 'both';
+type ConflictVersion = MergeConflict['mine'];
+
+const isBlock = (value: ConflictVersion): value is StoredNode => value !== null && 'type' in value;
+
+const asSection = (value: ConflictVersion): StoredSection | null => (isBlock(value) ? null : value);
 
 const hasText = (node: StoredNode): boolean =>
   node.type === 'text' ? Boolean(node.text) : (node.content ?? []).some(hasText);
@@ -15,7 +21,10 @@ const hasText = (node: StoredNode): boolean =>
 /** Whether a conflict may keep both versions: both sides hold the block, and both hold text. */
 export function canKeepBoth(conflict: MergeConflict): boolean {
   return Boolean(
-    conflict.mine && conflict.theirs && hasText(conflict.mine) && hasText(conflict.theirs),
+    isBlock(conflict.mine) &&
+    isBlock(conflict.theirs) &&
+    hasText(conflict.mine) &&
+    hasText(conflict.theirs),
   );
 }
 
@@ -53,8 +62,7 @@ function replaceElement(
   );
 }
 
-/** The element with an id, wherever the document holds it; null when it holds none. */
-export function findElement(content: DocumentFile, id: string): StoredNode | null {
+function findElement(content: DocumentFile, id: string): StoredNode | null {
   const within = (nodes: readonly StoredNode[]): StoredNode | null => {
     for (const node of nodes) {
       if (node.type === 'text') continue;
@@ -71,36 +79,78 @@ export function findElement(content: DocumentFile, id: string): StoredNode | nul
   return null;
 }
 
-// What a choice puts where the merged block is: it shows the reader's version, or the edited one
-// over a deletion.
-function settled(
-  conflict: MergeConflict,
-  { choice, newId }: { choice: MergeChoice; newId: () => string },
-): (node: StoredNode) => StoredNode[] {
-  if (choice === 'both' && conflict.theirs && canKeepBoth(conflict)) {
-    const theirs = withNewIds(conflict.theirs, newId);
-    return (node) => [node, theirs];
+function sectionIndex(content: DocumentFile, held: StoredSection): number {
+  if (held.id != null) return content.sections.findIndex((section) => section.id === held.id);
+  // An earlier settlement can move an anonymous section away from its merge position.
+  const ids = new Set(held.content.map(elementIdOf).filter((id) => id !== null));
+  let found = -1;
+  for (const [index, section] of content.sections.entries()) {
+    if (section.id != null) continue;
+    const sharesBlock = section.content.some((node) => {
+      const id = elementIdOf(node);
+      return id !== null && ids.has(id);
+    });
+    if (!sharesBlock && !sameStored(section, held)) continue;
+    if (found !== -1) return -1;
+    found = index;
   }
+  return found;
+}
+
+/** A stored conflict's current version, null when absent or undefined when it cannot be matched. */
+export function findConflictVersion(
+  content: DocumentFile,
+  conflict: MergeConflict,
+): ConflictVersion | undefined {
+  const section = asSection(conflict.theirs ?? conflict.mine);
+  if (!section) return findElement(content, conflict.id);
+  const at = content.sections[sectionIndex(content, section)];
+  return at ?? (section.id != null ? null : undefined);
+}
+
+function resolveSection(
+  content: DocumentFile,
+  conflict: MergeConflict,
+  { choice, section }: { choice: Exclude<MergeChoice, 'both'>; section: StoredSection },
+): DocumentFile {
   const kept = choice === 'theirs' ? conflict.theirs : conflict.mine;
-  if (!kept) return () => [];
-  // The reader's own block stays as it is now, with what they changed since the merge.
-  return choice === 'mine' ? (node) => [node] : () => [cloneJson(kept)];
+  if (isBlock(kept)) return content;
+  const index = sectionIndex(content, section);
+  if (index < 0) return section.id != null && kept === null ? cloneJson(content) : content;
+  if (!kept && content.sections.length === 1) return content;
+  const copy = cloneJson(content);
+  if (!kept) copy.sections.splice(index, 1);
+  else if (choice === 'theirs') copy.sections[index] = cloneJson(kept);
+  return copy;
 }
 
 /**
- * The document with a conflict settled by the reader's choice (DOCE-SESSION-4.2): `mine` keeps
- * the reader's block, `theirs` puts the stored one in its place, a deletion on either side removing
- * it, and `both` keeps the reader's block with the stored one after it, under new ids.
+ * A copy with the conflict settled (DOCE-SESSION-4.2), or the original document when the choice
+ * cannot be applied. Keeping a present reader version preserves subsequent edits.
  */
 export function resolveMergeConflict(
   content: DocumentFile,
   conflict: MergeConflict,
   options: { choice: MergeChoice; newId: () => string },
 ): DocumentFile {
-  const copy = cloneJson(content);
-  const replace = settled(conflict, options);
-  for (const section of copy.sections) {
-    if (replaceElement(section.content, conflict.id, replace)) break;
+  const { choice, newId } = options;
+  const section = asSection(conflict.mine ?? conflict.theirs);
+  if (section) {
+    return choice === 'both' ? content : resolveSection(content, conflict, { choice, section });
   }
-  return copy;
+  if ((!conflict.mine && !conflict.theirs) || (choice === 'both' && !canKeepBoth(conflict)))
+    return content;
+  const kept = choice === 'theirs' ? conflict.theirs : conflict.mine;
+  if (kept && !isBlock(kept)) return content;
+  const replace = (node: StoredNode) => {
+    if (choice === 'both' && isBlock(conflict.theirs))
+      return [node, withNewIds(conflict.theirs, newId)];
+    if (!kept) return [];
+    return choice === 'mine' ? [node] : [cloneJson(kept)];
+  };
+  const copy = cloneJson(content);
+  for (const section of copy.sections) {
+    if (replaceElement(section.content, conflict.id, replace)) return copy;
+  }
+  return kept === null ? copy : content;
 }

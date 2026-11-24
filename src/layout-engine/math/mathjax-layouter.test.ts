@@ -1,11 +1,16 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { liteAdaptor } from '@mathjax/src/js/adaptors/liteAdaptor.js';
+import { HTMLHandler } from '@mathjax/src/js/handlers/html/HTMLHandler.js';
+import { mathjax } from '@mathjax/src/js/mathjax.js';
+import { SVG } from '@mathjax/src/js/output/svg.js';
+import { asyncLoad } from '@mathjax/src/js/util/AsyncLoad.js';
+import { describe, expect, it, vi } from 'vitest';
 import { fingerprintLayouts, katexTree, mathCases } from '../../../test/math-layouts.js';
 import type { MathLayouter } from '../math-atoms.js';
 import { createMathJaxLayouter, mathMarkup } from './mathjax-layouter.js';
 
 // The fingerprint DOCE-LABS-7.4 pins in a page on Linux, Windows and macOS; Node gives the same.
-const LAYOUTS_FINGERPRINT = '12f43504';
+const LAYOUTS_FINGERPRINT = 'a68b7f24';
 
 async function layouter(): Promise<MathLayouter> {
   const created = await createMathJaxLayouter();
@@ -72,6 +77,42 @@ describe('DOCE-PAGINATION-12.12 equations laid out and drawn by MathJax', () => 
     for (const { tree, display } of cases)
       expect(other.layout(tree, display, 13)).toEqual(one.layout(tree, display, 13));
     expect(one.key).toMatch(/^mathjax-4\.\d+\.\d+-stix2-/u);
+  });
+
+  it('keeps the host’s loader and handlers intact while concurrent layouters load STIX2 ranges', async () => {
+    const host = mathjax.handlers.register(new HTMLHandler(liteAdaptor()));
+    const handlers = [...mathjax.handlers];
+    const { asyncLoad: previousLoad, asyncIsSynchronous } = mathjax;
+    const genericFont = Object.getOwnPropertyDescriptor(SVG, 'genericFont');
+    const loaded = { host: true };
+    const hostLoad = vi.fn(() => loaded);
+    mathjax.asyncLoad = hostLoad;
+    mathjax.asyncIsSynchronous = true;
+    try {
+      expect(await asyncLoad('host/start.js')).toBe(loaded);
+      const [one, other] = await Promise.all([layouter(), layouter()]);
+      const tree = katexTree('\\text{Ж}', false);
+      const second = katexTree('\\text{Ж} + 1', false);
+      await Promise.all([one.prepare([tree, second]), other.prepare([tree])]);
+      expect(one.layout(tree, false, 16)).toMatchObject({ missing: '' });
+      expect(one.layout(second, false, 16)).toMatchObject({ missing: '' });
+      expect(other.layout(tree, false, 16)).toEqual(one.layout(tree, false, 16));
+      expect(await asyncLoad('host/later.js')).toBe(loaded);
+      expect(hostLoad.mock.calls).toEqual([['host/start.js'], ['host/later.js']]);
+      expect(mathjax.asyncLoad).toBe(hostLoad);
+      expect(mathjax.asyncIsSynchronous).toBe(true);
+      expect([...mathjax.handlers]).toEqual(handlers);
+      expect(Object.getOwnPropertyDescriptor(SVG, 'genericFont')).toEqual(genericFont);
+    } finally {
+      mathjax.asyncLoad = previousLoad;
+      mathjax.asyncIsSynchronous = asyncIsSynchronous;
+      for (const handler of [...mathjax.handlers]) {
+        if (!handlers.includes(handler)) mathjax.handlers.unregister(handler.item);
+      }
+      mathjax.handlers.unregister(host);
+      if (genericFont) Object.defineProperty(SVG, 'genericFont', genericFont);
+      else Reflect.deleteProperty(SVG, 'genericFont');
+    }
   });
 
   it('writes a math tree as MathML markup', () => {

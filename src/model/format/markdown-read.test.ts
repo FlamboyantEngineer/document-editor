@@ -2,7 +2,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TableMap } from 'prosemirror-tables';
 import { describe, expect, it } from 'vitest';
+import { findNode } from '../../../test/document-markup.js';
 import { importWarningGroup } from '../../import/import-warnings.js';
 import { storedCaption } from '../schema/caption-content.js';
 import { createDocumentSchema } from '../schema/document-schema.js';
@@ -187,6 +189,26 @@ describe('reading Markdown', () => {
       attrs: { src: 'bare.png', alt: 'Bare', captionEnabled: false },
       content: [{ type: 'caption' }],
     });
+  });
+
+  it('DOCE-IMPORT-4.1 completes short table rows at the width and alignment of the header', () => {
+    const { file } = readMarkdown(
+      ['| A | B | C |', '| --- | :---: | ---: |', '| One |', '| Two | | Three | Ignored |'].join(
+        '\n',
+      ),
+    );
+    const rows = file.sections[0]?.content[0]?.content?.slice(1);
+    expect(rows?.map((row) => row.content?.length)).toEqual([3, 3, 3]);
+    expect(rows?.[1]?.content).toEqual([
+      { type: 'tableCell', content: [paragraph(text('One'))] },
+      { type: 'tableCell', attrs: { align: 'center' }, content: [{ type: 'paragraph' }] },
+      { type: 'tableCell', attrs: { align: 'right' }, content: [{ type: 'paragraph' }] },
+    ]);
+    expect(rows?.[2]?.content?.[2]?.content).toEqual([paragraph(text('Three'))]);
+    const { doc } = readDocumentFile(file, createDocumentSchema());
+    const table = findNode(doc, 'table');
+    if (!table) throw new Error('The imported document has no table');
+    expect(TableMap.get(table)).toMatchObject({ width: 3, height: 3, problems: null });
   });
 
   it('DOCE-IMPORT-4.1 reads footnotes and reference links where they are cited', () => {

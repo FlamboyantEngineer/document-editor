@@ -400,6 +400,49 @@ describe('a room that refuses a change for its merge', () => {
     },
   );
 
+  it.each([
+    { kind: 'caret', before: 'before KEEP CARET after', after: 'BEFORE KEEP CARET after addition' },
+    { kind: 'backward range', before: 'old KEEP CARET xy end', after: 'longer KEEP CARET end' },
+  ])(
+    'DOCE-SESSION-3.11 keeps a $kind in text between separate edits on reload',
+    async ({ kind, before, after }) => {
+      const content = (text: string): DocumentFile => ({
+        ...DOCUMENT,
+        sections: [{ content: [paragraph('a0000001', text)] }],
+      });
+      rooms = createSessionRooms({ documents: [{ id: 'doc', content: content(before) }] });
+      const { adapter, reload } = replaceable(rooms);
+      const session = createDocumentSession({
+        host: { ...createMemoryHost(), collaboration: adapter },
+        documentId: 'doc',
+        mode: 'room',
+      });
+      sessions.push(session);
+      expect(await session.ready).toBe(true);
+      const endpoints = (doc: EditorState['doc']) => {
+        const head = positionOf(doc, 'KEEP') + 3;
+        const anchor = kind === 'caret' ? head : positionOf(doc, 'CARET') + 3;
+        return [anchor, head] as const;
+      };
+      session.update((state) =>
+        state.apply(
+          state.tr.setSelection(TextSelection.create(state.doc, ...endpoints(state.doc))),
+        ),
+      );
+      const shared = new Y.Doc();
+      Y.applyUpdate(shared, documentToYjs(content(after), { schema: documentSchema }));
+      try {
+        reload(shared);
+        const { doc, selection } = stateOf(session);
+        expect(textOf(stateOf(session))).toBe(after);
+        expect([selection.anchor, selection.head]).toEqual(endpoints(doc));
+      } finally {
+        session.close();
+        shared.destroy();
+      }
+    },
+  );
+
   it('DOCE-SESSION-3.11 keeps the caret in unique surviving text without an element id', async () => {
     const anonymous = { type: 'paragraph', content: [{ type: 'text', text: 'Anonymous' }] };
     const original = { ...DOCUMENT, sections: [{ content: [anonymous] }] };

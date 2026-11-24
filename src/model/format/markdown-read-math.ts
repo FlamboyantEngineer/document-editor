@@ -5,10 +5,9 @@
 // math too, and display math when it is all its paragraph holds. Display math also sits on lines
 // of its own between `$$` fences; text after the opening signs is the block's label.
 //
-// Whether a dollar sign closes math depends only on the characters beside it, never on where the
-// math opened: an escaped sign never opens math, since markdown-it's escape rule reads it first.
-// So once an opening finds no closing up to the end of its text, no later opening in that text
-// looks again, and reading takes work in proportion to the text.
+// The first unescaped sign must be a valid closing sign. Skipping an invalid sign can swallow
+// prose and the start of another formula. Once an opening finds no sign up to the end of its text,
+// no later opening in that text looks again, and reading takes work in proportion to the text.
 
 import type { MarkdownIt, StateBlock, StateInline } from 'markdown-it';
 
@@ -25,17 +24,12 @@ interface Unclosed {
   double: number;
 }
 
-// The index of the dollar sign closing single-dollar math opened at `start`, or -1.
-function closingSingle(src: string, start: number, max: number): number {
+// The index of the first unescaped dollar sign after `start`, or -1.
+function nextSingleDollar(src: string, start: number, max: number): number {
   for (let at = start + 1; at < max; at += 1) {
     const code = src.charCodeAt(at);
     if (code === BACKSLASH) at += 1;
-    else if (
-      code === DOLLAR &&
-      !isSpace(src.charCodeAt(at - 1)) &&
-      !isDigit(src.charCodeAt(at + 1))
-    )
-      return at;
+    else if (code === DOLLAR) return at;
   }
   return -1;
 }
@@ -50,10 +44,10 @@ function closingOf(state: StateInline, unclosed: Unclosed): number {
     return end === pos + 2 ? -1 : end;
   }
   if (pos >= unclosed.single || isSpace(src.charCodeAt(pos + 1))) return -1;
-  const end = closingSingle(src, pos, max);
+  const end = nextSingleDollar(src, pos, max);
   // A link's text is read with a shorter end: only a search to the text's end tells later ones.
   if (end < 0 && max === src.length) unclosed.single = pos;
-  return end;
+  return end < 0 || isSpace(src.charCodeAt(end - 1)) || isDigit(src.charCodeAt(end + 1)) ? -1 : end;
 }
 
 function inlineMath(state: StateInline, silent: boolean, unclosed: Unclosed): boolean {

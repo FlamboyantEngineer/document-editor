@@ -283,7 +283,6 @@ test.describe('caret keys across pages', () => {
     await expect(pages(page)).toHaveCount(1);
     await expect(root).toHaveAttribute('data-layout-state', 'settled');
     const paragraph = content(page).locator('p', { hasText: 'Each requirement' }).last();
-    await paragraph.scrollIntoViewIfNeeded();
     await paragraph.click();
     await page.keyboard.press('ControlOrMeta+End');
     await page.keyboard.press('ControlOrMeta+Shift+Home');

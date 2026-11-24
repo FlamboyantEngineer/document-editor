@@ -71,9 +71,9 @@ Verification: `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-2.1 - Correcting
 
-`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it. An empty replacement deletes the issue's text. The command is refused once the issue's text is no longer there, when any part of its range is locked (DOCE-EDITING-4.1), or when it belongs to host-owned content. On pages, an issue in a later part of a paragraph split across them shall be drawn and corrected there as in the whole paragraph.
+`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping the marks on its first character, including a non-inclusive comment anchor, and leave the caret after it. An empty replacement deletes the issue's text. The command is refused once the issue's text is no longer there, when any part of its range is locked (DOCE-EDITING-4.1), or when it belongs to host-owned content. On pages, an issue in a later part of a paragraph split across them shall be drawn and corrected there as in the whole paragraph.
 
-Implementation: `src/engine/proofing-commands.ts`
+Implementation: `src/engine/proofing-commands.ts`, `src/engine/replace-text.ts`
 Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-2.2 - Ignoring and the dictionary
@@ -92,9 +92,9 @@ Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.t
 
 ### DOCE-PROOFING-2.4 - Replacing all
 
-`replaceAllProofingIssues(issue, replacement)` shall replace the editable marked issues with the same text and rule, or the same text and kind without a rule, as one change. Locked ranges and host-owned content stay marked. The command is refused when no editable range is left and skips any range the host locks during the batch. A range is replaced once even if several proofers report it. When editable ranges overlap, the first range in document order is replaced and the overlapping ones are skipped. An empty replacement deletes the chosen ranges. `countAlikeIssues` counts matching non-overlapping ranges before checking whether they are editable.
+`replaceAllProofingIssues(issue, replacement)` shall replace the editable marked issues with the same text and rule, or the same text and kind without a rule, as one change. Locked ranges and host-owned content stay marked. The command is refused when no editable range is left and skips any range the host locks during the batch. A range is replaced once even if several proofers report it. When editable ranges overlap, the first range in document order is replaced and the overlapping ones are skipped. Each replacement keeps the marks on its range’s first character (DOCE-PROOFING-2.1). An empty replacement deletes the chosen ranges. `countAlikeIssues` counts matching non-overlapping ranges before checking whether they are editable.
 
-Implementation: `src/engine/proofing-commands.ts`
+Implementation: `src/engine/proofing-commands.ts`, `src/engine/replace-text.ts`
 Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.ts`, `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-2.5 - Ignoring once

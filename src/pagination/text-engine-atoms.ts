@@ -67,28 +67,39 @@ function liveIn(doc: ProseMirrorNode | null, nodes: Set<ProseMirrorNode>): numbe
   return live.size;
 }
 
+interface MathPlacement {
+  readonly at: PlacedMath;
+  readonly number: string | undefined;
+}
+
 // Where each math node laid out from its layout was placed, and those scaled below the reported
 // scale (`MATH_MIN_REPORTED_SCALE`), counted in the document the engine numbers last: math edited
 // or deleted since it was laid out is not. A node the pages hold is found by its element id when it
 // is not the node the engine laid out but equals it, as math edited inside is: the pages and the
 // canonical state each make their own copy of it.
-export function mathPlaces() {
-  let placed = new WeakMap<ProseMirrorNode, PlacedMath>();
-  const byId = new Map<unknown, { node: ProseMirrorNode; at: PlacedMath }>();
+export function mathPlaces(
+  equationOf: (node: ProseMirrorNode) => string | undefined = () => undefined,
+) {
+  let placed = new WeakMap<ProseMirrorNode, MathPlacement>();
+  const byId = new Map<unknown, MathPlacement & { node: ProseMirrorNode }>();
   const small = new Set<ProseMirrorNode>();
   const find = (node: ProseMirrorNode): PlacedMath | null => {
     const kept = placed.get(node);
-    if (kept) return kept;
+    const number = equationOf(node);
+    if (kept && kept.number === number) return kept.at;
+    // Kept pages can still hold an edited copy after the canonical equation is renumbered.
     const same = node.attrs.dataId ? byId.get(node.attrs.dataId) : undefined;
-    return same?.node.eq(node) ? same.at : null;
+    if (same?.node.eq(node) && (!kept || same.number === number)) return same.at;
+    return kept?.at ?? null;
   };
   // Moves when a node is placed anew, so what draws the placements knows to read them again.
   let version = 0;
   return {
     record(node: ProseMirrorNode, at: PlacedMath) {
-      if (!samePlace(placed.get(node), at)) version += 1;
-      placed.set(node, at);
-      if (node.attrs.dataId) byId.set(node.attrs.dataId, { node, at });
+      const number = equationOf(node);
+      if (!samePlace(placed.get(node)?.at, at)) version += 1;
+      placed.set(node, { at, number });
+      if (node.attrs.dataId) byId.set(node.attrs.dataId, { node, at, number });
       if (at.box.scale < MATH_MIN_REPORTED_SCALE) small.add(node);
       else small.delete(node);
     },

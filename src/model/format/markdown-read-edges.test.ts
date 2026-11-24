@@ -58,6 +58,14 @@ describe('reading Markdown edge cases', () => {
     ]);
   });
 
+  it('DOCE-IMPORT-4.4 keeps prices and prose before a separate formula literal', () => {
+    for (const prose of ['Prices $5-$10. Formula ', 'Price $5. Formula ']) {
+      expect(blocksOf(`${prose}$x$.`)).toEqual([
+        paragraph(text(prose), { type: 'math', attrs: { source: 'x' } }, text('.')),
+      ]);
+    }
+  });
+
   it('DOCE-IMPORT-4.4 reads nested emphasis, character references and lazy quote lines as CommonMark does', () => {
     expect(blocksOf('*a **b** c*')).toEqual([
       paragraph(
