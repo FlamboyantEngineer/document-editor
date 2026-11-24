@@ -171,6 +171,7 @@
   },
   "dependencies": {
     "@chenglou/pretext": "github:FlamboyantEngineer/pretext#8be6407a4f81c6e170530c00c9d7e8353d358a6a",
+    "fflate": "^0.8.3",
     "prosemirror-gapcursor": "^1.4.1",
     "prosemirror-schema-basic": "^1.2.5",
     "prosemirror-schema-list": "^1.6.1"

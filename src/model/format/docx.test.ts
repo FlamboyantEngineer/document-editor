@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
+import { readZipParts } from '../../../test/docx-parts.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
 import { readDocumentFile } from './document-format-convert.js';
 import { writeDocumentFile } from './document-format-write.js';
 import { writeDocx } from './docx.js';
-import { crc32, writeZip } from './zip.js';
+import { writeZip } from './zip.js';
 
 const text = (value: string, ...marks: string[]): StoredNode => ({
   type: 'text',
@@ -12,40 +13,27 @@ const text = (value: string, ...marks: string[]): StoredNode => ({
   ...(marks.length ? { marks: marks.map((type) => ({ type })) } : {}),
 });
 
-// The files of a stored archive, read back from its local headers.
-function readStored(bytes: Uint8Array): Map<string, string> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const decoder = new TextDecoder();
-  const files = new Map<string, string>();
-  let at = 0;
-  while (view.getUint32(at, true) === 0x04034b50) {
-    const crc = view.getUint32(at + 14, true);
-    const size = view.getUint32(at + 18, true);
-    const nameLength = view.getUint16(at + 26, true);
-    const name = decoder.decode(bytes.subarray(at + 30, at + 30 + nameLength));
-    const data = bytes.subarray(at + 30 + nameLength, at + 30 + nameLength + size);
-    expect(crc32(data)).toBe(crc);
-    files.set(name, decoder.decode(data));
-    at += 30 + nameLength + size;
-  }
-  return files;
-}
-
 describe('writeZip', () => {
-  it('DOCE-FORMAT-5.1 stores files with their checksums and a central directory', () => {
-    expect(crc32(new TextEncoder().encode('The quick brown fox jumps over the lazy dog'))).toBe(
-      0x414fa339,
-    );
+  it('DOCE-FORMAT-5.1 deflates each file, in order, with a central directory', () => {
     const archive = writeZip([
-      { path: 'a.txt', data: 'Alpha' },
-      { path: 'dir/b.txt', data: 'Beta' },
+      { path: 'a.txt', data: 'Alpha '.repeat(50) },
+      { path: 'dir/b.txt', data: new TextEncoder().encode('Beta') },
     ]);
-    expect([...readStored(archive)]).toEqual([
-      ['a.txt', 'Alpha'],
+    expect([...readZipParts(archive)]).toEqual([
+      ['a.txt', 'Alpha '.repeat(50)],
       ['dir/b.txt', 'Beta'],
     ]);
-    const end = new DataView(archive.buffer).getUint32(archive.length - 22, true);
-    expect(end).toBe(0x06054b50);
+    const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
+    expect(view.getUint32(0, true)).toBe(0x04034b50);
+    // Compression method 8, deflate, and less than the 300 bytes of text it holds.
+    expect(view.getUint16(8, true)).toBe(8);
+    expect(view.getUint32(18, true)).toBeLessThan(300);
+    expect(view.getUint32(archive.length - 22, true)).toBe(0x06054b50);
+  });
+
+  it('DOCE-FORMAT-5.1 writes the same archive for the same files', () => {
+    const entries = [{ path: 'word/document.xml', data: '<w:document/>' }];
+    expect(writeZip(entries)).toEqual(writeZip(entries));
   });
 });
 
@@ -68,7 +56,7 @@ function storedMath(): DocumentFile {
 
 describe('writeDocx', () => {
   it('DOCE-FORMAT-5.2 writes the source of the math a stored document holds', () => {
-    const document = readStored(writeDocx(storedMath())).get('word/document.xml') ?? '';
+    const document = readZipParts(writeDocx(storedMath())).get('word/document.xml') ?? '';
     expect(document).toContain('a^2');
     expect(document).toContain('b_1');
   });
@@ -95,7 +83,7 @@ describe('writeDocx', () => {
         },
       ],
     };
-    const document = readStored(writeDocx(file)).get('word/document.xml') ?? '';
+    const document = readZipParts(writeDocx(file)).get('word/document.xml') ?? '';
     expect(document).toMatch(/<w:b\/>.*<w:t[^>]*>42<\/w:t>/);
   });
 
@@ -146,7 +134,7 @@ describe('writeDocx', () => {
         },
       ],
     };
-    const files = readStored(
+    const files = readZipParts(
       writeDocx(file, {
         template: { formatVersion: 1, id: 't', page: { orientation: 'landscape' } },
       }),
@@ -227,7 +215,7 @@ describe('writeDocx', () => {
     const threads = [
       { id: 't1', state: 'open' as const, entries: [{ author: 'p1', text: 'Which year?' }] },
     ];
-    const parts = readStored(writeDocx(file, { comments: { threads } }));
+    const parts = readZipParts(writeDocx(file, { comments: { threads } }));
     const document = parts.get('word/document.xml') ?? '';
     const paragraphs = document.match(/<w:p>.*?<\/w:p>/g) ?? [];
     const figure = paragraphs.find((each) => each.includes('w:val="Caption"')) ?? '';
@@ -245,7 +233,7 @@ describe('writeDocx', () => {
     for (const id of ['TableCaption', 'CodeCaption', 'TableCaptionLabel', 'CodeCaptionLabel'])
       expect(styles).toContain(`w:styleId="${id}"`);
     expect(styles).toMatch(/w:styleId="TableCaption">.*?<w:basedOn w:val="Caption"\/>/);
-    const rejected = readStored(writeDocx(file, { suggestions: 'rejected' })).get(
+    const rejected = readZipParts(writeDocx(file, { suggestions: 'rejected' })).get(
       'word/document.xml',
     );
     expect(rejected).not.toContain(' draft');
@@ -262,7 +250,7 @@ describe('writeDocx', () => {
       attrs: { id: 'n1' },
       content: [text('See '), linked('https://example.com/note')],
     };
-    const files = readStored(
+    const files = readZipParts(
       writeDocx({
         formatVersion: 1,
         sections: [
@@ -284,7 +272,7 @@ describe('writeDocx', () => {
   });
 
   it('DOCE-FORMAT-5.2 leaves out the characters XML cannot hold', () => {
-    const files = readStored(
+    const files = readZipParts(
       writeDocx({
         formatVersion: 1,
         sections: [
@@ -309,7 +297,7 @@ describe('writeDocx', () => {
       text: 'site',
       marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }],
     };
-    const files = readStored(
+    const files = readZipParts(
       writeDocx({
         formatVersion: 1,
         sections: [{ name: null, content: [{ type: 'paragraph', content: [linked] }] }],
@@ -342,19 +330,19 @@ describe('writeDocx', () => {
       ],
     };
     const values = { variable: (key: string) => (key === 'document.title' ? 'Field notes' : null) };
-    const accepted = readStored(writeDocx(file, { values })).get('word/document.xml') ?? '';
+    const accepted = readZipParts(writeDocx(file, { values })).get('word/document.xml') ?? '';
     expect(accepted).toContain('[Pond]');
     expect(accepted).not.toContain('Gone paragraph');
     expect(accepted).toContain('>Field notes</w:t>');
     const rejected =
-      readStored(writeDocx(file, { suggestions: 'rejected' })).get('word/document.xml') ?? '';
+      readZipParts(writeDocx(file, { suggestions: 'rejected' })).get('word/document.xml') ?? '';
     expect(rejected).not.toContain('[Pond]');
     expect(rejected).toContain('Gone paragraph');
     expect(rejected).toContain('>{{document.title}}</w:t>');
   });
 
   it('DOCE-FORMAT-5.5 leaves an unnumbered heading without a number, restarting paragraphs', () => {
-    const files = readStored(
+    const files = readZipParts(
       writeDocx({
         formatVersion: 1,
         sections: [
