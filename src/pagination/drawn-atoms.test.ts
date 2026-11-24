@@ -176,40 +176,4 @@ describe('createDrawnAtomMeasurer', () => {
     vi.useRealTimers();
     view.destroy();
   });
-
-  it('DOCE-PAGINATION-12.9 reports what math draws where no face for MathML is served', () => {
-    stubBoxes();
-    const element = document.createElement('div');
-    element.dataset.mathFont = 'unserved';
-    document.body.append(element);
-    const math = (): NodeView => {
-      const dom = document.createElement('span');
-      dom.className = 'de-math';
-      dom.dataset.state = 'ready';
-      dom.innerHTML =
-        '<math><semantics><mrow><mi>x</mi><mo>≤</mo><mn>2</mn></mrow><annotation>x \\le 2</annotation></semantics></math>';
-      return { dom, ignoreMutation: () => true };
-    };
-    const view = new EditorView(element, {
-      state: EditorState.create({
-        doc: parseMarkup('<p>a <span data-inline-type="latex">x \\le 2</span></p>'),
-      }),
-      editable: () => false,
-      nodeViews: { math_inline: math },
-    });
-    const host = document.createElement('div');
-    element.append(host);
-    const missing = vi.fn();
-    const measure = createDrawnAtomMeasurer({ view: () => view, host, scale: () => 1, missing });
-    const node = findNode(view.state.doc, 'math_inline');
-    if (!node) throw new Error('no math');
-    measure(node, 0);
-    expect(missing).toHaveBeenCalledWith('x≤2');
-    // Where a face for MathML is served, nothing is reported.
-    element.dataset.mathFont = 'served';
-    missing.mockClear();
-    measure(node, 0);
-    expect(missing).not.toHaveBeenCalled();
-    view.destroy();
-  });
 });

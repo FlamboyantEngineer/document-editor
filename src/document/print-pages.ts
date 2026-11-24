@@ -15,9 +15,7 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
-import { resolveFontStack } from '../model/templates/template-css-values.js';
 import { servedTemplate } from '../pagination/served-template.js';
-import { clusterCount, mathTreeText } from '../utils/math-text.js';
 import { fontFaceRules } from './font-faces.js';
 import {
   type PagesLayout,
@@ -108,11 +106,8 @@ function mathHooks(
   element.attrs.set('class', own ? `${own} de-math` : 'de-math');
   element.attrs.set('data-display', node.type.name === 'math_display' ? 'display' : 'inline');
   element.attrs.set('data-state', math?.state ?? 'pending');
-  if (math?.state === 'ready') {
-    element.children = [mathElement(math.math)];
-    // The box it takes where no face for MathML is served (DOCE-PAGINATION-12.9).
-    addStyle(element, `--de-math-clusters: ${String(clusterCount(mathTreeText(math.math)))}`);
-  } else if (math?.state === 'invalid') element.children = [{ text: math.text }];
+  if (math?.state === 'ready') element.children = [mathElement(math.math)];
+  else if (math?.state === 'invalid') element.children = [{ text: math.text }];
 }
 
 // A typeset MathML element as a rendered tree, which the snapshot's allow-list then holds to.
@@ -309,24 +304,6 @@ export function drawLayoutPages(
 }
 
 /**
- * The family a layout's served files draw MathML in, the one the host serves as `math`
- * (DOCE-PAGINATION-12.9); null when they hold no face of it.
- */
-export function layoutMathFamily(fonts: PagesLayout['fonts']): string | null {
-  const family = fonts?.generics?.math;
-  return family && fonts.faces.some((face) => face.family === family) ? family : null;
-}
-
-// The root's MathML hooks: whether a face for it is served, and its family.
-function mathFontHooks(family: string | null): Record<string, string> {
-  if (!family) return { 'data-math-font': 'unserved' };
-  return {
-    'data-math-font': 'served',
-    style: `--de-math-font-family: ${resolveFontStack(family)}`,
-  };
-}
-
-/**
  * A document's pages as the editor laid them out on the text layout engine's lines, as a
  * standalone HTML page drawn without an editor or a DOM: every page on its section's sheet with
  * its own header, footer and footnotes, each forced block on its computed lines, with the links,
@@ -349,7 +326,6 @@ export function renderLayoutPrintPage(
       'data-print': 'true',
       'data-layout': 'page',
       'data-text-layout': 'pretext',
-      ...mathFontHooks(layoutMathFamily(layout.fonts)),
     },
     // The pages' own element, with the classes the editor's view has, which the stylesheets style
     // and where their counters start.

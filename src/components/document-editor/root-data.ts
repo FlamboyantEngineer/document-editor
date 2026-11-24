@@ -1,7 +1,5 @@
 // The editor root's data attributes: how it shows the document, and what its debugging shows.
 
-import type { CSSProperties } from 'react';
-import { resolveFontStack } from '../../model/templates/template-css-values.js';
 import type { LayoutState } from '../../pagination/index.js';
 import type { DocumentEditorDebug, DocumentEditorProps } from './document-editor.js';
 import type { PagesFontsState } from './use-pages-fonts.js';
@@ -22,30 +20,20 @@ function debugData(props: DocumentEditorProps) {
   };
 }
 
-// How the root lays its text out. Only the pages lay text out with the engine, and only with the
-// fonts the host serves; the web layout keeps the browser's lines, and the reason says why the
-// browser lays them out. Under the engine, whether the host serves a face MathML is drawn in
-// (DOCE-PAGINATION-12.9).
-function textData(pretext: boolean, text: Pick<PagesFontsState, 'reason' | 'mathFamily'>) {
-  return {
-    textLayout: pretext ? 'pretext' : 'dom',
-    textLayoutReason: text.reason ?? undefined,
-    mathFont: pretext ? (text.mathFamily ? 'served' : 'unserved') : undefined,
-  };
-}
-
 /** The editor root's hook values. */
 export function rootData(
   props: DocumentEditorProps,
   layoutState: LayoutState,
-  text: Pick<PagesFontsState, 'textLayout' | 'reason' | 'mathFamily'>,
+  text: Pick<PagesFontsState, 'textLayout' | 'reason'>,
 ) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
-  const pretext = layout === 'page' && text.textLayout === 'pretext';
   return {
-    ...textData(pretext, text),
     markup: props.markup ?? 'all',
     layout,
+    // Only the pages lay text out with the engine; the web layout keeps the browser's lines.
+    // and only with the fonts the host serves; the reason says why the browser lays them out.
+    textLayout: layout === 'page' ? text.textLayout : 'dom',
+    textLayoutReason: text.reason ?? undefined,
     webWidth: props.webWidth ?? 'fill',
     mode: editable ? 'authoring' : 'reading',
     suggesting: editable && suggesting,
@@ -56,22 +44,4 @@ export function rootData(
     formattingMarks: props.formattingMarks ?? false,
     layoutState,
   };
-}
-
-/**
- * The root's style: the template's properties, the zoom (`--de-zoom`) and the served family MathML
- * is drawn in (`--de-math-font-family`, DOCE-PAGINATION-12.9), none while no face for `math` is
- * served.
- */
-export function rootStyle(
-  template: Readonly<Record<string, string>>,
-  zoom: number | undefined,
-  mathFamily: string | null,
-): CSSProperties {
-  const stack = mathFamily ? resolveFontStack(mathFamily) : '';
-  return {
-    ...template,
-    '--de-zoom': String((zoom ?? 100) / 100),
-    ...(stack ? { '--de-math-font-family': stack } : {}),
-  } as CSSProperties;
 }

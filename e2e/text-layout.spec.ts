@@ -345,38 +345,6 @@ test.describe('served fonts', () => {
     expect(await family('pre')).toBe('"Courier New"');
   });
 
-  test('DOCE-PAGINATION-12.9 draws math in the served math face, or in a reserved box without one', async ({
-    page,
-  }) => {
-    await open(page, 'math', 'pretext');
-    const root = page.locator('.de-document-editor').first();
-    await expect(root).toHaveAttribute('data-math-font', 'served');
-    const first = page.locator('.de-document-editor__content .pm-page .de-math math').first();
-    expect(await first.evaluate((math) => getComputedStyle(math).fontFamily)).toBe(
-      '"Lab STIX Two Math"',
-    );
-    await page.goto('regression.html?document=math&textLayout=pretext&fonts=no-math&debug');
-    await waitForLab(page);
-    await expect(root).toHaveAttribute('data-math-font', 'unserved');
-    // Each typeset math is a box of one em per cluster it draws: one em tall inline, two displayed.
-    const boxes = await page
-      .locator('.de-document-editor__content .pm-page .de-math[data-state="ready"]')
-      .evaluateAll((maths) =>
-        maths.map((math) => {
-          const { width, height } = math.getBoundingClientRect();
-          const em = parseFloat(getComputedStyle(math).fontSize);
-          const clusters = Number(math.style.getPropertyValue('--de-math-clusters'));
-          const display = math.getAttribute('data-display') === 'display';
-          return {
-            width: display || Math.abs(width - clusters * em) < 0.02,
-            height: Math.abs(height - (display ? 2 : 1) * em) < 0.02,
-          };
-        }),
-      );
-    expect(boxes.length).toBeGreaterThan(0);
-    expect(boxes.every((box) => box.width && box.height)).toBe(true);
-  });
-
   const documents: readonly RegressionDocumentName[] = [
     'long-mixed',
     'code-blocks',
@@ -390,8 +358,9 @@ test.describe('served fonts', () => {
     }) => {
       await open(page, name, 'pretext');
       await page.evaluate(() => window.regressionLab.drawAllLines(true));
-      // Each element that holds text and its first family, where that family has no served face:
-      // MathML too, drawn in the family the host serves as `math` (DOCE-PAGINATION-12.9).
+      // Each element that holds text and its first family, where that family has no served face.
+      // Not yet MathML, which the browser draws in its own `math` family and the engine measures as
+      // drawn (DOCE-PAGINATION-10.8); serving its font is the math atoms' open item (Q2).
       const unserved = await page.evaluate(() => {
         const served = new Set(
           [...document.fonts].map((face) => face.family.replace(/^"|"$/gu, '')),
@@ -401,7 +370,7 @@ test.describe('served fonts', () => {
         const walker = document.createTreeWalker(root ?? document.body, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
           const element = node.parentElement;
-          if (!element || !node.textContent?.trim()) continue;
+          if (!element || !node.textContent?.trim() || element.closest('math')) continue;
           if (!element.closest('.pm-page')) continue;
           const first = getComputedStyle(element).fontFamily.split(',')[0]?.trim() ?? '';
           const family = first.replace(/^"|"$/gu, '');

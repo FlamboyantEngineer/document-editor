@@ -284,7 +284,6 @@ function served(added: string[] = []): ServedFonts {
     reserve: () => null,
     files: () => ({ faces: [] }),
     drawnFamily: (family) => family,
-    missing: () => undefined,
     drawnFiles: () => ({ faces: [] }),
     add: (families) => {
       added.push(...families);

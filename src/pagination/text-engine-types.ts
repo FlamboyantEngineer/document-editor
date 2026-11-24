@@ -31,8 +31,6 @@ export interface TextEngineOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
   readonly reserve?: ReserveCluster | undefined;
-  /** Told the characters of an atom drawn in no served face, such as math with none for MathML. */
-  readonly missing?: ((text: string) => void) | undefined;
   /** The served faces the widths come from, which every drawing of the pages draws with. */
   readonly fonts?: (() => FontFiles) | undefined;
   /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */

@@ -23,8 +23,8 @@ const labs = listLabSources();
 rmSync(outdir, { recursive: true, force: true });
 
 // Geist and Geist Mono, and Arimo and Cousine, which the labs serve as Arial and Courier New with
-// the same metrics (Latin, WOFF), STIX Two Math for MathML, four KaTeX faces, the script fonts and
-// HarfBuzz, as files the labs fetch.
+// the same metrics (Latin, WOFF), four KaTeX faces, the script fonts and HarfBuzz, as files the
+// labs fetch.
 const require = createRequire(import.meta.url);
 const fontsDir = join(outdir, 'fonts');
 mkdirSync(fontsDir, { recursive: true });
@@ -36,15 +36,6 @@ for (const name of ['geist', 'geist-mono', 'arimo', 'cousine', 'tinos'].map(
   for (const file of readdirSync(files).filter(served))
     copyFileSync(join(files, file), join(fontsDir, file));
 }
-// STIX Two Math, with its OpenType MATH table, which the labs serve as the generic `math`.
-copyFileSync(
-  join(
-    dirname(require.resolve('@fontsource/stix-two-math/package.json')),
-    'files',
-    'stix-two-math-latin-400-normal.woff',
-  ),
-  join(fontsDir, 'stix-two-math-latin-400-normal.woff'),
-);
 const katexFonts = join(dirname(require.resolve('katex/package.json')), 'dist', 'fonts');
 for (const face of ['Main-Regular', 'Main-Bold', 'Main-Italic', 'SansSerif-Regular'])
   copyFileSync(join(katexFonts, `KaTeX_${face}.woff`), join(fontsDir, `KaTeX_${face}.woff`));

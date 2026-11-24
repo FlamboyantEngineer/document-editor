@@ -120,7 +120,7 @@ function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
 function atomMeasurer(options: TextEngineOptions, host: HTMLElement) {
   const { view } = options;
   return view
-    ? createDrawnAtomMeasurer({ view, host, scale: options.scale, missing: options.missing })
+    ? createDrawnAtomMeasurer({ view, host, scale: options.scale })
     : createDomAtomMeasurer({ host });
 }
 
