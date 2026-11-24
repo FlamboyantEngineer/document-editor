@@ -30,6 +30,7 @@ import type { ObjectDialog, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { alignEntry, CODE_LANGUAGES, elementEntries } from './element-entries.js';
 import type { FigurePasteOptions } from './figure-paste.js';
+import { mathCopyEntries } from './math-copy-entries.js';
 import { proofingEntries } from './proofing-entries.js';
 import { scriptEntries } from './script-entries.js';
 import {
@@ -180,6 +181,12 @@ function objectGroups(view: EditorView, { labels, editable }: ContextEntriesOpti
   };
 }
 
+// The clipboard entries with the math copies right after Copy.
+function withMathCopies(entries: MenuEntry[], copies: MenuEntry[]): MenuEntry[] {
+  const at = entries.findIndex((entry) => entry.id === 'copy') + 1;
+  return [...entries.slice(0, at), ...copies, ...entries.slice(at)];
+}
+
 /** A run of the context menu's entries between separators. */
 export interface ContextMenuGroup {
   readonly id: string;
@@ -218,7 +225,13 @@ export function contextGroups(
   return [
     { id: 'proofing', entries: proofingEntries(view, target, options) },
     { id: 'suggestion', entries: suggestionEntries(view, options) },
-    { id: 'clipboard', entries: clipboardEntries(view, options) },
+    {
+      id: 'clipboard',
+      entries: withMathCopies(
+        clipboardEntries(view, options),
+        mathCopyEntries(view, options.labels),
+      ),
+    },
     { id: 'editing', entries: editingEntries(view, options) },
     {
       id: 'element',

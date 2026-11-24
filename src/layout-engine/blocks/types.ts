@@ -33,7 +33,7 @@ export interface BlockTextLayout {
 }
 
 /** A list of contents row laid out, or why it cannot be. */
-export type ContentsRowLayout =
+type ContentsRowLayout =
   ({ readonly ok: true } & ContentsRowTable) | { readonly ok: false; readonly reason: string };
 
 /** Which list of contents level's font a text is in. */
@@ -44,7 +44,7 @@ interface ContentsTextLevel {
 }
 
 /** Where a list of contents' title or empty message is laid out. */
-export interface ContentsTextPlace {
+interface ContentsTextPlace {
   readonly width: number;
   readonly kind: string;
   readonly scope?: string | null | undefined;
@@ -52,7 +52,7 @@ export interface ContentsTextPlace {
 }
 
 /** A list of contents' title or empty message on lines, or why it cannot be. */
-export type ContentsTextLayout =
+type ContentsTextLayout =
   | { readonly ok: true; readonly table: LineTable }
   | { readonly ok: false; readonly reason: string };
 

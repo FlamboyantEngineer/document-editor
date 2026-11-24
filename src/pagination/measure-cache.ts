@@ -274,7 +274,7 @@ export function cachedBlock(cache: MeasureCache | undefined, at: DrawnBlock) {
 }
 
 /** How a block was just measured: its measurement, where it is, and whether it is provisional. */
-export interface Measured {
+interface Measured {
   readonly block: LayoutBlock;
   readonly placement: Placement;
   readonly scale: number;
