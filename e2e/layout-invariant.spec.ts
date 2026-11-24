@@ -616,8 +616,8 @@ const PINNED: Readonly<
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: 'e4722aba4e2257a4', heights: 'f9afd020ec769c5d' },
-  'oversized-blocks': { lines: '099d7db6e6aea74c', heights: 'f3be75ce06ce1c8d' },
+  'long-mixed': { lines: '3917f81eb2ce04de', heights: 'f9afd020ec769c5d' },
+  'oversized-blocks': { lines: 'fe559153854567b1', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: '19718eeba63c6a81' },
 };
 

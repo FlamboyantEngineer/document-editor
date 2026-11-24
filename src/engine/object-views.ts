@@ -14,10 +14,10 @@ import {
   TextSelection,
 } from 'prosemirror-state';
 import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
-import type { LineTable } from '../layout-engine/line-table.js';
 import { normalizeSignatureVector } from '../model/index.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
+import { drawGutter, forcedLinesIn } from './code-gutter.js';
 import { codeTokenAttrs, highlightCode, paintCodeHighlights } from './code-highlighting.js';
 
 /** The line numbers of a code text, from its first line's number, one per line. */
@@ -56,83 +56,6 @@ function drawLinkedCode(code: HTMLElement, node: ProseMirrorNode): void {
   }
   if (offset < text.length) parts.push(owner.createTextNode(text.slice(offset)));
   code.replaceChildren(...parts);
-}
-
-/**
- * The lines the pages draw a block on, which forced lines hand its element's view with its
- * decorations (DOCE-PAGINATION-11.2); null when the browser chooses its lines.
- */
-function forcedLinesIn(decorations: readonly Decoration[]): LineTable | null {
-  for (const decoration of decorations) {
-    const lines = (decoration.spec as { forcedLines?: LineTable }).forcedLines;
-    if (lines) return lines;
-  }
-  return null;
-}
-
-// Where a code text's lines wrap on the lines it is drawn on: each line's end that is not at a line
-// feed or the text's end.
-function wrapsOf(text: string, table: LineTable): ReadonlySet<number> {
-  const wraps = table.lines
-    .slice(0, -1)
-    .map((line) => line.to)
-    .filter((to) => text[to - 1] !== '\n');
-  return new Set(wraps);
-}
-
-// Each line of a code text, with a line feed where the lines it is drawn on wrap it.
-function rowsOf(text: string, table: LineTable | null): string[] {
-  const lines = text.split('\n');
-  if (!table) return lines;
-  const wraps = wrapsOf(text, table);
-  let start = 0;
-  return lines.map((line) => {
-    let rows = '';
-    for (let index = 0; index < line.length; index += 1) {
-      if (index > 0 && wraps.has(start + index)) rows += '\n';
-      rows += line.charAt(index);
-    }
-    start += line.length + 1;
-    return rows;
-  });
-}
-
-// The gutter's lines, one per line of code: its number, then a hidden copy of the line's text,
-// which the stylesheet lays out as wide as the code so a wrapped line keeps its rows blank after
-// its number. On forced lines the copy breaks where the code's line does and wraps nowhere else
-// (`data-engine-lines`). A line whose number and text stay keeps its element.
-function drawGutter(
-  gutter: HTMLElement,
-  text: string,
-  at: { first: number; lines: LineTable | null },
-) {
-  const owner = gutter.ownerDocument;
-  const { first } = at;
-  const lines = rowsOf(text, at.lines);
-  if (at.lines) gutter.dataset.engineLines = 'true';
-  else delete gutter.dataset.engineLines;
-  const kept = [...gutter.children] as HTMLElement[];
-  lines.forEach((line, index) => {
-    const number = String(first + index);
-    const existing = kept[index];
-    if (existing?.dataset.lineNumber === number && existing.lastChild?.textContent === line) return;
-    const row = owner.createElement('span');
-    row.className = 'de-code-gutter__line';
-    row.dataset.lineNumber = number;
-    const label = owner.createElement('span');
-    label.className = 'de-code-gutter__number';
-    label.textContent = number;
-    const copy = owner.createElement('span');
-    copy.className = 'de-code-gutter__text';
-    copy.textContent = line;
-    row.append(label, copy);
-    if (existing) existing.replaceWith(row);
-    else gutter.appendChild(row);
-  });
-  for (const extra of kept.slice(lines.length)) extra.remove();
-  // The digits of the highest number, at least three, from which the stylesheet sizes the gutter.
-  const digits = Math.max(3, String(first + lines.length - 1).length);
-  gutter.parentElement?.style.setProperty('--de-code-gutter-digits', String(digits));
 }
 
 // A code block as its markup draws it, with a gutter of line numbers before its code when asked,

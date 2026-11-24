@@ -1934,7 +1934,7 @@ a.de-contents__entry {
 
 /* On forced lines the copy breaks where the engine wraps the code's line and nowhere else
    (DOCE-PAGINATION-11.2). */
-.de-code-gutter[data-engine-lines] .de-code-gutter__text {
+.de-code-gutter__line[data-engine-lines] .de-code-gutter__text {
   white-space: pre;
   overflow: hidden;
 }

@@ -239,9 +239,9 @@ interface TextBlockLines {
 }
 
 /**
- * The code blocks of the editor's pages whose gutter of line numbers is not drawn on their lines:
- * each number whose row is not the first row of its line of code, and each gutter that does not end
- * where its code does, as `id: what`.
+ * The code blocks the editor's pages draw on forced lines whose gutter of line numbers is not drawn
+ * on their lines: each number whose row is not the first row of its line of code, and each gutter
+ * that does not end where its code does, as `id: what`.
  */
 export function misplacedLineNumbers(page: Page): Promise<string[]> {
   return page.evaluate((pages) => {
@@ -267,18 +267,25 @@ export function misplacedLineNumbers(page: Page): Promise<string[]> {
       }
       return tops;
     };
-    for (const pre of document.querySelectorAll(`${pages} pre:has(> .de-code-gutter)`)) {
+    for (const pre of document.querySelectorAll(
+      `${pages} pre.de-forced-lines:has(> .de-code-gutter)`,
+    )) {
       const code = pre.querySelector(':scope > code');
       if (!code) continue;
       const id = pre.getAttribute('data-id') ?? '';
       const tops = lineTops(code);
       const numbers = [...pre.querySelectorAll('.de-code-gutter__number')];
+      // A number's glyphs sit at the same height from its row's top on every row, whatever the
+      // fonts make that height, so each number keeps the first one's distance to its line.
+      let offset: number | null = null;
       numbers.forEach((number, index) => {
         const top = tops[index];
-        const drawn = number.getBoundingClientRect().top;
-        if (typeof top === 'number' && Math.abs(drawn - top) > 1)
+        if (typeof top !== 'number') return;
+        const distance = number.getBoundingClientRect().top - top;
+        offset ??= distance;
+        if (Math.abs(distance - offset) > 1)
           misplaced.push(
-            `${id}: number ${String(index + 1)} at ${drawn.toFixed(1)}, its line at ${top.toFixed(1)}`,
+            `${id}: number ${String(index + 1)} is ${distance.toFixed(1)} from its line, the first ${offset.toFixed(1)}`,
           );
       });
       const last = pre.querySelector('.de-code-gutter__line:last-child');

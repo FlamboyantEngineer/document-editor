@@ -155,11 +155,12 @@ describe('line numbers', () => {
     view = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc, plugins: [createObjectViews(), forced] }),
     });
-    const gutter = view.dom.querySelector('.de-code-gutter');
-    expect(gutter?.getAttribute('data-engine-lines')).toBe('true');
-    expect(gutterLines(view.dom.querySelector('pre'))).toEqual([
-      ['1', 'abcde\nfgh'],
-      ['2', 'ij'],
+    const rows = [...view.dom.querySelectorAll('.de-code-gutter__line')];
+    expect(rows.map((row) => row.getAttribute('data-engine-lines'))).toEqual(['true', 'true']);
+    // Each copy holds its line's pieces with a break between them.
+    expect(rows.map((row) => row.querySelector('.de-code-gutter__text')?.innerHTML)).toEqual([
+      'abcde<br>fgh',
+      'ij',
     ]);
   });
 
