@@ -152,6 +152,8 @@ const ATTRIBUTES = [
   'stroke-width',
   'stroke-linecap',
   'stroke-linejoin',
+  'stroke-dasharray',
+  'overflow',
   'transform',
   'x',
   'y',

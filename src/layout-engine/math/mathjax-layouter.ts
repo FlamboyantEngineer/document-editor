@@ -2,8 +2,8 @@
 // MathML the math renderer typeset goes through MathJax's MathML input and SVG output, with its
 // STIX2 glyph data, in MathJax's own DOM-free document (the lite adaptor), so nothing is measured
 // by a browser or a system font. Each equation gives its box in CSS pixels and its drawing as an
-// SVG tree of paths and rules. MathJax and its STIX2 font are optional peers, loaded with the
-// first equation; without them there is no layouter and math takes the reserved box.
+// SVG tree of paths and rules. MathJax and its STIX2 font load with the first equation; when
+// they cannot load there is no layouter and math takes the reserved box.
 
 import type { MathTree } from '../../engine/math-typeset.js';
 import {
