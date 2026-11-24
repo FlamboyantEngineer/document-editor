@@ -44,18 +44,39 @@ const readPages = async (page: Page) => ({
   overflow: await overflowingPages(page),
 });
 
+// A header's, footer's or footnote area's block has no element id: it is named by its page, its
+// region and its index in it.
 const readLines = (page: Page) =>
   page.evaluate(() => {
     const key = (id: string, part: number) => `${id}#${String(part)}`;
+    const regionKey = (page: number, region: string, index: number) =>
+      `${String(page)}:${region}:${String(index)}`;
     const computed = new Map(
-      window.regressionLab
-        .textLines()
-        .flatMap((each) => each.blocks)
-        .map((block) => [key(block.elementId, block.part), block.lines?.length ?? null]),
+      window.regressionLab.textLines().flatMap((each, page) => {
+        const inRegion = new Map<string, number>();
+        return each.blocks.map((block) => {
+          const lines = block.lines?.length ?? null;
+          if (!block.region) return [key(block.elementId, block.part), lines] as const;
+          const index = inRegion.get(block.region) ?? 0;
+          inRegion.set(block.region, index + 1);
+          return [regionKey(page, block.region, index), lines] as const;
+        });
+      }),
     );
+    const pages = [...document.querySelectorAll('.de-document-editor__content .pm-page')];
+    const regions = ['header', 'footer', 'footnotes'];
+    const idOf = (block: HTMLElement) => {
+      const region = regions.find((name) => block.closest(`.pm-page-${name}`));
+      if (!region) return key(block.dataset.id ?? '', Number(block.dataset.splitPartIndex ?? 0));
+      const page = pages.findIndex((each) => each.contains(block));
+      const area = pages[page]?.querySelector(`.pm-page-${region}`);
+      const blocks = area?.querySelectorAll(':is(p, h1, h2, h3, h4, h5, h6, pre)');
+      const index = [...(blocks ?? [])].indexOf(block);
+      return regionKey(page, region, index);
+    };
     // Only the pages near the screen are drawn on forced lines (DOCE-PAGINATION-11.6).
     const forced = [...document.querySelectorAll<HTMLElement>('.de-forced-lines')].map((block) => {
-      const id = key(block.dataset.id ?? '', Number(block.dataset.splitPartIndex ?? 0));
+      const id = idOf(block);
       return { id, drawn: Number(block.dataset.lines), computed: computed.get(id) };
     });
     return {

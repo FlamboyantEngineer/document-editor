@@ -1,6 +1,6 @@
 // The text blocks a page draws on forced lines (DOCE-PAGINATION-11.2): each paragraph and heading
-// directly in its content, and each paragraph and heading in a table's cells, on the lines the
-// engine laid it out on with its table. The pages' decorations, the computed lines a test compares
+// directly in its content, and each paragraph and heading in a table's cells, a list or a quote,
+// on the lines the engine laid it out on with its container. The pages' decorations, the computed lines a test compares
 // with, and the layout handed to a viewer or a print all read them from here.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -18,6 +18,7 @@ const NESTED_TYPES: ReadonlySet<string> = new Set([
   'table',
   'bullet_list',
   'ordered_list',
+  'blockquote',
   'layout_section',
 ]);
 

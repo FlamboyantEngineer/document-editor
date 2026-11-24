@@ -8,8 +8,10 @@ runs:
       run: |
         echo "playwright=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
         echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
-    # The browser build Playwright downloads, per Playwright version.
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    # The browser build Playwright downloads, per Playwright version. Saved right after the install,
+    # so that nothing the job logs after its tests comes from the cache.
+    - id: browser
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.version.outputs.playwright }}
@@ -40,3 +42,8 @@ runs:
       with:
         path: ${{ runner.temp }}/debs
         key: ${{ steps.debs.outputs.cache-primary-key }}
+    - if: steps.browser.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ steps.browser.outputs.cache-primary-key }}

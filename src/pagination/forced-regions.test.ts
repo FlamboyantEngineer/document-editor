@@ -90,4 +90,20 @@ describe('forcedRegions', () => {
     const line = (text: string) => ({ region: 'footer', lines: [{ from: 0, to: 7, text }] });
     expect(footers).toEqual([[line('Page 1')], [line('Page 2')]]);
   });
+
+  it('DOCE-PAGINATION-11.2 DOCE-PAGINATION-11.3 draws a footnote area on its lines and gives them as the footnotes region', () => {
+    const { engine } = regionEngine();
+    const entry = node('footnote_entry', { footnoteId: 'n1' }, [documentSchema.text('A note')]);
+    const doc = pagesDocument(
+      [page([node('paragraph', null, [documentSchema.text('Body')])], { footnotes: [entry] })],
+      'Body',
+    );
+    const state = stateWith(doc, engine);
+    const blocks = regionAttrs(state).filter((attrs) => attrs.class === 'de-forced-lines');
+    expect(blocks.map((attrs) => attrs['data-lines'])).toEqual(['1']);
+    const notes = pageTextLines(state)[0]?.blocks.filter((block) => block.region);
+    expect(notes?.map(({ region, lines }) => ({ region, lines }))).toEqual([
+      { region: 'footnotes', lines: [{ from: 0, to: 6, text: 'A note' }] },
+    ]);
+  });
 });
