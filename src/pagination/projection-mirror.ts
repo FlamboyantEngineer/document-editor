@@ -8,6 +8,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import type { FragmentRules } from '../model/index.js';
+import { diffFragments } from '../utils/fragment-diff.js';
 import { touchesBreak } from './projection-input.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { canonicalSelection, projectionSelection } from './selection-mirror.js';
@@ -29,16 +30,9 @@ export interface CanonicalChange {
 // The smallest replacement from one document to another, as a transform.
 function difference(from: ProseMirrorNode, to: ProseMirrorNode): Transform | null {
   const tr = new Transform(from);
-  const start = from.content.findDiffStart(to.content);
-  if (start === null) return tr;
-  const end = from.content.findDiffEnd(to.content);
-  let endA = end?.a ?? from.content.size;
-  let endB = end?.b ?? to.content.size;
-  const overlap = start - Math.min(endA, endB);
-  if (overlap > 0) {
-    endA += overlap;
-    endB += overlap;
-  }
+  const diff = diffFragments(from.content, to.content);
+  if (!diff) return tr;
+  const { start, endA, endB } = diff;
   tr.replace(start, endA, to.slice(start, endB));
   return tr.doc.eq(to) ? tr : null;
 }

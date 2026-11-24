@@ -6,6 +6,7 @@
 import { Fragment, type Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { regionKind } from '../model/schema/document-structure.js';
+import { diffFragments } from '../utils/fragment-diff.js';
 import { commonSubsequence } from './common-subsequence.js';
 import { markSystemChange } from './transaction-kind.js';
 
@@ -54,16 +55,11 @@ function outOfInlineNode(block: ProseMirrorNode, pos: number, side: 'start' | 'e
 // The least change of a textblock's inline content: one run from the first difference to the last,
 // of whole inline nodes.
 function textChange({ old, next, start }: Pair): Change | null {
-  const first = old.content.findDiffStart(next.content);
-  if (first === null) return null;
-  const end = old.content.findDiffEnd(next.content) ?? {
-    a: old.content.size,
-    b: next.content.size,
-  };
-  const overlap = Math.max(0, first - Math.min(end.a, end.b));
-  const from = outOfInlineNode(old, first, 'start');
-  const endA = outOfInlineNode(old, end.a + overlap, 'end');
-  const endB = outOfInlineNode(next, end.b + overlap, 'end');
+  const diff = diffFragments(old.content, next.content);
+  if (!diff) return null;
+  const from = outOfInlineNode(old, diff.start, 'start');
+  const endA = outOfInlineNode(old, diff.endA, 'end');
+  const endB = outOfInlineNode(next, diff.endB, 'end');
   const slice = new Slice(next.content.cut(from, endB), 0, 0);
   return { kind: 'replace', from: start + from, to: start + endA, slice };
 }

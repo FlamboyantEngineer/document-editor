@@ -8,6 +8,7 @@ import type { EditorHost, StoredDocument } from '../host/adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
+import { createTrailingTimer } from '../utils/trailing-timer.js';
 import { contentKey, storedContentKey } from './dirty.js';
 import { samePin } from './open-document.js';
 import type { SessionStatus } from './status.js';
@@ -79,23 +80,6 @@ function isEmptyDocument(doc: ProseMirrorNode): boolean {
 
 // How many saves a flush makes while other writers' saves keep refusing its own.
 const flushAttempts = 3;
-
-// Runs `run` once `delay` milliseconds pass with no new `schedule`.
-function createPause(delay: number, run: () => void) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const cancel = () => {
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-  };
-  const schedule = () => {
-    cancel();
-    timer = setTimeout(() => {
-      timer = null;
-      run();
-    }, delay);
-  };
-  return { schedule, cancel };
-}
 
 // What saving keeps between saves.
 interface SavingState {
@@ -180,7 +164,7 @@ function remeasure({ context, state, schedule }: Saver) {
 export function createStoreSaving(context: StoreSavingContext, initial: StoreBaseline) {
   const state: SavingState = { baseline: initial, dirty: false, closed: false, held: false };
   let saving: Promise<void> | null = null;
-  const pause = createPause(context.autosaveDelay, () => void saveAutomatically());
+  const pause = createTrailingTimer(context.autosaveDelay, () => void saveAutomatically());
   const cancelTimer = pause.cancel;
   const saver: Saver = {
     context,
