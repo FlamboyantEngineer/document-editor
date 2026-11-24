@@ -24,6 +24,7 @@ import {
   canonicalSelection,
   footnoteSelectionIn,
   projectionSelection,
+  repeatedHeaderSelectionIn,
 } from './selection-mirror.js';
 
 /** The two documents an input reads: the canonical state, the projection's state and their map. */
@@ -158,7 +159,9 @@ function routedSelection(tr: Transaction, target: RoutedEdit, browser: Projectio
     const note = footnoteSelectionIn(tr.selection, ptr.doc);
     if (note) return note;
     const selected = canonicalSelection(browser, tr.selection, canonical.doc);
-    return selected ? projectionSelection(map, selected, ptr.selection) : ptr.selection;
+    if (!selected) return ptr.selection;
+    const near = repeatedHeaderSelectionIn(tr.selection, ptr.doc) ?? ptr.selection;
+    return projectionSelection(map, selected, near);
   }
   return TextSelection.between(
     ptr.doc.resolve(tr.selection.anchor),

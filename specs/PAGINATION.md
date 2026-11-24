@@ -15,8 +15,10 @@ Verification: `src/model/pagination/fragments.test.ts`, `src/model/pagination/sp
 
 `joinFragments(blocks)` shall join each run of fragments into one whole block, in order, by the steps `joinBlocks` and `joinAt` add to a transform. A node shall continue the block before it (`continuesFragment`) when both have the same type, at least one is a fragment, and they share an id or their part numbers follow on. Two whole blocks that share an id shall stay apart. A fragment whose other parts are missing shall become whole on its own. Paragraph fragments shall join their content.
 
+Captioned code and table figures shall identify their fragments by the enclosed code block's or table's id, including when nested in another split block. When an enclosed id is missing, two fragments with consecutive part numbers shall join.
+
 Implementation: `src/model/pagination/fragments.ts`
-Verification: `src/model/pagination/fragments.test.ts`
+Verification: `src/model/pagination/fragments.test.ts`, `src/model/pagination/page-projection.test.ts`
 
 ### DOCE-PAGINATION-1.3 - Code
 
@@ -431,10 +433,10 @@ Verification: `src/pagination/page-map.test.ts`
 
 ### DOCE-PAGINATION-7.9 - Positions kept exact between layouts
 
-The projection map (`ProjectionMap`) shall map positions between a projection and its canonical document as DOCE-PAGINATION-7.8 does, and stay exact as both change between layouts. An edit made on both documents shall extend it by the projection step inverted and the canonical step, paired as mirrors, so positions inside newly inserted content map across. A canonical step mirrored onto the projection shall be placed by its ends; a replacement inside one textblock whose range crosses a page break shall be mirrored page by page, so the pages between keep their footnotes, header and footer; and an edit to a header row a split table repeats or to a footnote drawn on more than one page shall be made on every copy. A body row made of header cells shall keep its own position and shall take no mirrored edit from the original header. A selection set by the browser after its edit shall keep its position in the edited content when the mirror takes different steps. Selecting or typing in a later footnote copy shall keep the caret there when it survives repagination. On generated documents and layouts, every character shall map both ways, and keep doing so through generated edits made on either side and mirrored onto the other.
+The projection map (`ProjectionMap`) shall map positions between a projection and its canonical document as DOCE-PAGINATION-7.8 does, and stay exact as both change between layouts. An edit made on both documents shall extend it by the projection step inverted and the canonical step, paired as mirrors, so positions inside newly inserted content map across. A canonical step mirrored onto the projection shall be placed by its ends; a replacement inside one textblock whose range crosses a page break shall be mirrored page by page, so the pages between keep their footnotes, header and footer; and an edit to a header row a split table repeats or to a footnote drawn on more than one page shall be made on every copy. A body row made of header cells shall keep its own position and shall take no mirrored edit from the original header. A selection set by the browser after its edit shall keep its position in the edited content when the mirror takes different steps. Typing or selecting in a later repeated table header or footnote shall keep the selection in that visual occurrence while it survives, including through repagination. Undoing an edit in a later repeated table header shall restore both endpoints of the prior selection in that copy while it survives. On generated documents and layouts, every character shall map both ways, and keep doing so through generated edits made on either side and mirrored onto the other.
 
-Implementation: `src/pagination/projection-map.ts`, `src/pagination/projection-input.ts`, `src/pagination/projection-steps.ts`, `src/pagination/page-positions.ts`, `src/pagination/footnote-positions.ts`
-Verification: `src/pagination/projection-map.test.ts`, `e2e/footnote-occurrences.spec.ts`
+Implementation: `src/pagination/projection-map.ts`, `src/pagination/projection-input.ts`, `src/pagination/projection-steps.ts`, `src/pagination/page-positions.ts`, `src/pagination/footnote-positions.ts`, `src/pagination/selection-mirror.ts`
+Verification: `src/pagination/projection-map.test.ts`, `e2e/footnote-occurrences.spec.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-PAGINATION-7.10 - The paged projection
 

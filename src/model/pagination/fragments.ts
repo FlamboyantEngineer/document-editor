@@ -45,10 +45,20 @@ export function isFragment(node: ProseMirrorNode, rules: FragmentRules = FRAGMEN
   return Object.entries(rule.whole).some(([name, value]) => (node.attrs[name] ?? null) !== value);
 }
 
+// A captioned code block or table owns the stable ID on the object inside its figure.
+function heldObjectId(node: ProseMirrorNode): unknown {
+  return node.type.name === 'code_figure' || node.type.name === 'table_figure'
+    ? node.lastChild?.attrs.dataId
+    : null;
+}
+
 // Two nodes of one type, one of them a fragment, that are the same element: they share an id, or
 // their part numbers follow on.
 function sameSplitElement(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
   if (!isFragment(previous, rules) && !isFragment(next, rules)) return false;
+  const previousObjectId = heldObjectId(previous);
+  const nextObjectId = heldObjectId(next);
+  if (previousObjectId && nextObjectId) return previousObjectId === nextObjectId;
   const id = previous.attrs.dataId as unknown;
   if (id && id === next.attrs.dataId) return true;
   const index = splitPartOf(previous);

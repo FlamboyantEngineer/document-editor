@@ -5,7 +5,7 @@
 // projection's selection was. A cell selection may span the parts of a split table, which are
 // separate tables on the projection, so it lives on the canonical state and is drawn on every part.
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import {
   AllSelection,
   type EditorState,
@@ -19,12 +19,19 @@ import { CellSelection } from 'prosemirror-tables';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { footnoteCopyNear, sameFootnoteIn } from './footnote-positions.js';
 import { characterWidth } from './graphemes.js';
-import { regionCopyNear, sameRegionIn } from './page-positions.js';
+import {
+  regionCopyNear,
+  repeatedHeaderNear,
+  sameRegionIn,
+  sameRepeatedHeaderIn,
+} from './page-positions.js';
 import type { ProjectionMap } from './projection-map.js';
 
-// The projection position of a canonical one nearest `near`: on the side of a page break nearer it,
-// and in the copy of a page header or footer it is in.
-function nearest(map: ProjectionMap, pos: number, near: number): number | null {
+// The position on the page-break side or in the visual copy the selection was in.
+function nearest(map: ProjectionMap, pos: number, $near: ResolvedPos): number | null {
+  const copy = repeatedHeaderNear($near, pos, map.toCanonical);
+  if (copy !== null) return copy;
+  const near = $near.pos;
   const at = nearestSide(map, pos, near);
   if (at === null) return null;
   const { projection } = map;
@@ -45,10 +52,13 @@ function nearestSide(map: ProjectionMap, pos: number, near: number): number | nu
   return Math.abs(before - near) <= Math.abs(after - near) ? before : after;
 }
 
-/** A selection in the same visual footnote occurrence of another projection, if still present. */
-export function footnoteSelectionIn(selection: Selection, doc: ProseMirrorNode): Selection | null {
-  const anchor = sameFootnoteIn(selection.$anchor, doc);
-  const head = sameFootnoteIn(selection.$head, doc);
+function selectionInCopy(
+  selection: Selection,
+  doc: ProseMirrorNode,
+  find: (pos: ResolvedPos, doc: ProseMirrorNode) => number | null,
+): Selection | null {
+  const anchor = find(selection.$anchor, doc);
+  const head = selection.empty ? anchor : find(selection.$head, doc);
   if (anchor === null || head === null) return null;
   if (selection instanceof NodeSelection && doc.nodeAt(anchor)?.type === selection.node.type) {
     return NodeSelection.create(doc, anchor);
@@ -56,13 +66,27 @@ export function footnoteSelectionIn(selection: Selection, doc: ProseMirrorNode):
   return TextSelection.between(doc.resolve(anchor), doc.resolve(head));
 }
 
+/** A selection in the same visual footnote occurrence of another projection, if still present. */
+export function footnoteSelectionIn(selection: Selection, doc: ProseMirrorNode): Selection | null {
+  return selectionInCopy(selection, doc, sameFootnoteIn);
+}
+
+/** A selection in the same repeated table header of another projection, if still present. */
+export function repeatedHeaderSelectionIn(
+  selection: Selection,
+  doc: ProseMirrorNode,
+): Selection | null {
+  return selectionInCopy(selection, doc, sameRepeatedHeaderIn);
+}
+
 /**
  * A projection selection on the pages a transaction lays out again: mapped through it, or, in a
  * page's header or footer, which the new pages draw again, in the same page's copy of it.
  */
 export function nearAfter(selection: Selection, tr: Transaction): Selection {
-  const note = footnoteSelectionIn(selection, tr.doc);
-  if (note) return note;
+  const copy =
+    footnoteSelectionIn(selection, tr.doc) ?? repeatedHeaderSelectionIn(selection, tr.doc);
+  if (copy) return copy;
   const start = sameRegionIn(selection.$head, tr.doc);
   return start === null
     ? selection.map(tr.doc, tr.mapping)
@@ -99,8 +123,8 @@ export function projectionSelection(
       return NodeSelection.create(doc, at);
     }
   }
-  const anchor = nearest(map, selection.anchor, near.anchor);
-  const head = nearest(map, selection.head, near.head);
+  const anchor = nearest(map, selection.anchor, near.$anchor);
+  const head = nearest(map, selection.head, near.$head);
   if (anchor === null || head === null) return TextSelection.near(doc.resolve(near.head));
   return TextSelection.between(doc.resolve(anchor), doc.resolve(head));
 }

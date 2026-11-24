@@ -1,5 +1,6 @@
+import { history, undo } from 'prosemirror-history';
 import type { Node } from 'prosemirror-model';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -7,6 +8,7 @@ import { positionOf, textOf } from '../../test/projection-fixtures.js';
 import {
   type ContainerMeasurement,
   createLayoutRules,
+  FRAGMENT_RULES,
   joinDocumentPages,
   type LayoutBlock,
   layoutPages,
@@ -19,6 +21,7 @@ import { splitTableFigureWith } from '../model/pagination/table-split.js';
 import { footnoteCopies } from './footnote-positions.js';
 import { routeDomChange } from './projection-input.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
+import { mirrorChange } from './projection-mirror.js';
 import { canonicalSelection, nearAfter, projectionSelection } from './selection-mirror.js';
 
 type Attrs = Record<string, unknown>;
@@ -241,6 +244,46 @@ function secondNote(doc: Node) {
   return copy;
 }
 
+function repeatedHeaderPages() {
+  const row = (type: string, text: string) =>
+    create('table_row', null, [create(type, null, [create('paragraph', null, text)])]);
+  const header = row('table_header', 'Header');
+  const part = (index: number, text: string) =>
+    create('table_figure', { splitPartIndex: index }, [
+      create('table_caption', null),
+      create('table', { dataId: 'table', splitPartIndex: index }, [
+        header,
+        row('table_cell', text),
+      ]),
+    ]);
+  const first = part(0, 'First body row');
+  const second = part(1, 'Second body row');
+  const intro = create('paragraph', null, 'Introduction');
+  const page = (blocks: Node[]) =>
+    create('page', null, [
+      create('page_header', null),
+      create('page_content', null, blocks),
+      create('page_footnotes', null),
+      create('page_footer', null),
+    ]);
+  const doc = (pages: Node[][]) =>
+    create('doc', null, [create('page_section', null, pages.map(page))]);
+  return {
+    separate: doc([[intro], [first], [second]]),
+    combined: doc([[intro, first], [second]]),
+  };
+}
+
+function secondHeader(doc: Node, text: string): number {
+  const starts: number[] = [];
+  doc.descendants((node, pos) => {
+    if (node.isText && node.text === text) starts.push(pos);
+  });
+  const second = starts[1];
+  if (second === undefined) throw new Error('The repeated header is missing.');
+  return second;
+}
+
 // The property tests walk every character of generated documents after each edit: under a second
 // each here, but several times slower on CI's runners beside the other test files, so they get 30 s.
 describe('projection map', { timeout: 30_000 }, () => {
@@ -280,6 +323,82 @@ describe('projection map', { timeout: 30_000 }, () => {
       expect(routed.canonical.selection.head).toBe(selected(routed.canonical.doc));
     },
   );
+
+  it.each([0, 2])(
+    'DOCE-PAGINATION-7.9 keeps a selection of length %i in the edited repeated table header',
+    (length) => {
+      const { combined: doc } = repeatedHeaderPages();
+      const map = createProjectionMap(doc);
+      const from = secondHeader(doc, 'Header');
+      const projection = EditorState.create({
+        doc,
+        selection: TextSelection.create(doc, from + 2),
+      });
+      const canonical = EditorState.create({
+        doc: map.canonical,
+        selection: TextSelection.create(map.canonical, positionOf(map.canonical, 'Header') + 2),
+      });
+      const tr = projection.tr.insertText('Z', from + 2);
+      tr.setSelection(TextSelection.create(tr.doc, from + 3, from + 3 - length));
+      const routed = routeDomChange(tr, { map, canonical, projection });
+      if (!routed) throw new Error('The header edit should route.');
+      expect(routed.projection.steps).toHaveLength(2);
+      const repeated = secondHeader(routed.projection.doc, 'HeZader');
+      expect(routed.projection.selection.anchor).toBe(repeated + 3);
+      expect(routed.projection.selection.head).toBe(repeated + 3 - length);
+      const original = positionOf(routed.canonical.doc, 'HeZader');
+      expect(routed.canonical.selection.anchor).toBe(original + 3);
+      expect(routed.canonical.selection.head).toBe(original + 3 - length);
+    },
+  );
+
+  it('DOCE-PAGINATION-7.9 restores both ends of the repeated table header selection on undo', () => {
+    const { combined: doc } = repeatedHeaderPages();
+    const map = createProjectionMap(doc);
+    const from = secondHeader(doc, 'Header');
+    const selection = TextSelection.create(doc, from + 1, from + 4);
+    const projection = EditorState.create({ doc, selection });
+    const selected = canonicalSelection(map, selection, map.canonical);
+    if (!selected) throw new Error('The header selection should map.');
+    const canonical = EditorState.create({
+      doc: map.canonical,
+      selection: selected,
+      plugins: [history()],
+    });
+    const routed = routeDomChange(projection.tr.insertText('XZ'), { map, canonical, projection });
+    if (!routed) throw new Error('The header replacement should route.');
+    const edited = canonical.apply(routed.canonical);
+    const transactions: Transaction[] = [];
+    expect(undo(edited, (tr) => transactions.push(tr))).toBe(true);
+    const [tr] = transactions;
+    if (!tr) throw new Error('The replacement should be undone.');
+    const mirrored = mirrorChange(
+      { projection: projection.apply(routed.projection), map: routed.map, rules: FRAGMENT_RULES },
+      { from: edited.doc, canonical: edited.apply(tr), tr },
+    );
+    if (!mirrored) throw new Error('The header undo should mirror.');
+    const restored = secondHeader(mirrored.tr.doc, 'Header');
+    expect([mirrored.tr.selection.anchor, mirrored.tr.selection.head]).toEqual([
+      restored + 1,
+      restored + 4,
+    ]);
+  });
+
+  it('DOCE-PAGINATION-7.9 keeps a selection in the repeated table header after repagination', () => {
+    const { separate: doc, combined } = repeatedHeaderPages();
+    const map = createProjectionMap(doc);
+    const from = secondHeader(doc, 'Header');
+    const selection = TextSelection.create(doc, from + 1, from + 5);
+    const canonical = canonicalSelection(map, selection, map.canonical);
+    if (!canonical) throw new Error('The header selection should map.');
+    const tr = EditorState.create({ doc, selection }).tr;
+    repaginate(tr, combined);
+    expect(tr.doc.eq(combined)).toBe(true);
+    const reflowed = createProjectionMap(tr.doc);
+    const shown = projectionSelection(reflowed, canonical, nearAfter(selection, tr));
+    const repeated = secondHeader(tr.doc, 'Header');
+    expect([shown.anchor, shown.head]).toEqual([repeated + 1, repeated + 5]);
+  });
 
   it('DOCE-PAGINATION-1.8 preserves positions in both columns through joining and repagination', () => {
     const column = (id: string, part: number, value: string) =>

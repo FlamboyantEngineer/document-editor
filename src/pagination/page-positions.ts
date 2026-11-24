@@ -34,6 +34,8 @@ function repeatedHeaderAt($pos: ResolvedPos) {
     if (!copy || !isHeaderRow(copy) || row >= last) return null;
     const start = $pos.start(depth);
     return {
+      tableId: table.attrs.dataId as unknown,
+      part,
       row,
       copy,
       offset: $pos.pos - rowStart(table, start, row),
@@ -41,6 +43,47 @@ function repeatedHeaderAt($pos: ResolvedPos) {
     };
   }
   return null;
+}
+
+/** The canonical position in the nearby table header copy, when that row also holds it. */
+export function repeatedHeaderNear(
+  $near: ResolvedPos,
+  pos: number,
+  toCanonical: (pos: number) => number | null,
+): number | null {
+  const header = repeatedHeaderAt($near);
+  if (!header) return null;
+  const original = toCanonical($near.pos);
+  if (original === null) return null;
+  if (original === pos) return $near.pos;
+  const offset = header.offset + pos - original;
+  if (offset < 1 || offset >= header.copy.nodeSize) return null;
+  const at = $near.pos + pos - original;
+  return toCanonical(at) === pos ? at : null;
+}
+
+/** The same header row in the same table continuation, at its original offset. */
+export function sameRepeatedHeaderIn($pos: ResolvedPos, doc: ProseMirrorNode): number | null {
+  const header = repeatedHeaderAt($pos);
+  if (!header || typeof header.tableId !== 'string' || !header.tableId) return null;
+  let at: number | null = null;
+  doc.descendants((node, pos) => {
+    if (at !== null || node.isTextblock) return false;
+    if (
+      node.type.name !== 'table' ||
+      node.attrs.dataId !== header.tableId ||
+      node.attrs.splitPartIndex !== header.part
+    ) {
+      return true;
+    }
+    const copy = node.maybeChild(header.row);
+    if (copy && (isTableHeaderCopy(header.copy, copy) || header.copy.eq(copy))) {
+      const offset = Math.min(header.offset, copy.nodeSize - 1);
+      at = rowStart(node, pos + 1, header.row) + offset;
+    }
+    return false;
+  });
+  return at;
 }
 
 // Row `row` in the table around `pos` and where it starts.

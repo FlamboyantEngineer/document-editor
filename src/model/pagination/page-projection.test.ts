@@ -2,7 +2,7 @@ import type { Node } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { joinDocumentPages, projectDocument, repaginate } from '../index.js';
+import { continuesFragment, joinDocumentPages, projectDocument, repaginate } from '../index.js';
 
 type Attrs = Record<string, unknown>;
 const { nodes } = documentSchema;
@@ -73,6 +73,60 @@ describe('page projection', () => {
     const across = positionOf(paged, 'across');
     expect(textAfter(whole, tr.mapping.map(across))).toBe('acro');
   });
+
+  it.each(['code', 'table'] as const)(
+    'DOCE-PAGINATION-1.2 DOCE-PAGINATION-6.1 joins three captioned %s fragments nested in a quote',
+    (kind) => {
+      const figure = (part: number | null, text: string, id: string | null = 'object') => {
+        const continued = part !== null && part > 0;
+        const caption = create(
+          `${kind}_caption`,
+          continued ? { continuedText: 'Caption' } : null,
+          continued ? undefined : 'Caption',
+        );
+        const attrs = { dataId: id, splitPartIndex: part };
+        const object =
+          kind === 'code'
+            ? create(
+                'code_block',
+                {
+                  ...attrs,
+                  codeBlockContinued: continued,
+                  codeLineStart: (part ?? 0) + 1,
+                },
+                text,
+              )
+            : create(
+                'table',
+                attrs,
+                text
+                  .split('\n')
+                  .map((line) =>
+                    create('table_row', null, [
+                      create('table_cell', null, [paragraph(null, line)]),
+                    ]),
+                  ),
+              );
+        return create(`${kind}_figure`, { splitPartIndex: part }, [caption, object]);
+      };
+      const quote = (part: number | null, child: Node) =>
+        create('blockquote', { dataId: 'quote', splitPartIndex: part }, [child]);
+      const after = paragraph(null, 'Text after the figure');
+      const heading = quote(0, figure(0, 'First'));
+      const middle = quote(1, figure(1, 'Second'));
+      const end = quote(2, figure(2, 'Third'));
+      const split = doc(section(page([heading]), page([middle]), page([end, after])));
+      const whole = doc(section(page([quote(null, figure(null, 'First\nSecond\nThird')), after])));
+      const joined = joinDocumentPages(split);
+      expect(joined.doc.eq(whole)).toBe(true);
+      for (const text of ['Third', 'Text after the figure']) {
+        expect(joined.mapping.map(positionOf(split, text))).toBe(positionOf(whole, text));
+      }
+      const first = figure(1, 'First');
+      expect(continuesFragment(first, figure(2, 'Separate', 'other-object'))).toBe(false);
+      expect(continuesFragment(first, figure(2, 'Anonymous', null))).toBe(true);
+    },
+  );
 
   it('DOCE-PAGINATION-6.2 lays the whole document onto pages with page numbers and footnotes', () => {
     const whole = joinDocumentPages(paged).doc;
