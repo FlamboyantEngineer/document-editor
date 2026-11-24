@@ -3,6 +3,7 @@
 // (`data-diff-line`), and a block whose formatting changed too marks its other lines as formatted.
 // A kind the template's change bars leave out never counts, so it never hides a shown one.
 
+import { useResizeObserver } from '@flamboyantengineer/ui-components/core';
 import type { ResolvedPos } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -245,13 +246,7 @@ const drawnKeyOf = ({ lines, insets }: { lines: ChangeLines; insets: ChangeInset
 // at first, as a frame that was hidden shows, and as its width changes.
 function useLayoutCount(view: EditorView | null) {
   const [count, setCount] = useState(0);
-  useEffect(() => {
-    const owner = view?.dom.ownerDocument.defaultView;
-    if (!view || typeof owner?.ResizeObserver !== 'function') return undefined;
-    const observer = new owner.ResizeObserver(() => setCount((value) => value + 1));
-    observer.observe(view.dom);
-    return () => observer.disconnect();
-  }, [view]);
+  useResizeObserver(view ? [view.dom] : [], () => setCount((value) => value + 1));
   return count;
 }
 

@@ -151,6 +151,87 @@ describe('the context menu clipboard entries', () => {
     expect(shown.state.doc).toBe(before);
   });
 
+  // A clipboard that takes writes, both formats through `write` unless it refuses them.
+  function stubWritableClipboard({ refuseRich = false } = {}) {
+    const written: Record<string, string>[] = [];
+    const write = async (
+      items: { types: string[]; getType: (type: string) => Promise<Blob> }[],
+    ) => {
+      if (refuseRich) throw new Error('The clipboard refused the write.');
+      for (const item of items) {
+        const flavours: Record<string, string> = {};
+        for (const type of item.types) flavours[type] = await (await item.getType(type)).text();
+        written.push(flavours);
+      }
+    };
+    const writeText = (text: string) => {
+      written.push({ 'text/plain': text });
+      return Promise.resolve();
+    };
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { write, writeText },
+    });
+    return written;
+  }
+
+  // A stand-in for the window's ClipboardItem: the flavours it was given, read back as blobs.
+  class FakeClipboardItem {
+    readonly types: string[];
+    constructor(private readonly items: Record<string, Blob>) {
+      this.types = Object.keys(items);
+    }
+    getType(type: string): Promise<Blob> {
+      return Promise.resolve(this.items[type] ?? new Blob());
+    }
+  }
+
+  const selectAll = (shown: EditorView) => {
+    const { doc } = shown.state;
+    const from = TextSelection.atStart(doc).from;
+    shown.dispatch(
+      shown.state.tr.setSelection(TextSelection.create(doc, from, TextSelection.atEnd(doc).to)),
+    );
+  };
+  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  it('DOCE-EDITOR-3.2 cuts the selection in both formats, deleting it once the clipboard has it', async () => {
+    const written = stubWritableClipboard();
+    const { shown, press } = setUp();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    selectAll(shown);
+    press('cut');
+    await settle();
+    expect(written).toHaveLength(1);
+    expect(written[0]?.['text/plain']).toBe('Before');
+    expect(written[0]?.['text/html']).toContain('Before');
+    expect(blocks(shown)).toEqual(['']);
+  });
+
+  it('DOCE-EDITOR-3.2 keeps the selection when the clipboard refuses the cut', async () => {
+    const written = stubWritableClipboard({ refuseRich: true });
+    const { shown, press } = setUp();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    selectAll(shown);
+    const before = shown.state.doc;
+    press('cut');
+    await settle();
+    expect(written).toEqual([]);
+    expect(shown.state.doc).toBe(before);
+  });
+
+  it('DOCE-EDITOR-3.2 copies the text alone where the window has no ClipboardItem', async () => {
+    const written = stubWritableClipboard();
+    const { shown, press } = setUp();
+    vi.stubGlobal('ClipboardItem', undefined);
+    selectAll(shown);
+    const before = shown.state.doc;
+    press('copy');
+    await settle();
+    expect(written).toEqual([{ 'text/plain': 'Before' }]);
+    expect(shown.state.doc).toBe(before);
+  });
+
   it("DOCE-EDITOR-3.6 gives the editor's groups the ids CONTEXT_MENU_GROUPS names, in order", () => {
     const { shown } = setUp();
     const target = resolveContextTarget(shown.state, shown.state.selection.head, true);
