@@ -22,6 +22,7 @@ import {
   useSessionValue,
 } from '../../src/components/index.js';
 import type { PagesLayout } from '../../src/document/index.js';
+import { createDocumentEditing } from '../../src/engine/index.js';
 import { createMemoryHost, type EditorHost } from '../../src/host/index.js';
 import {
   type DocumentFile,
@@ -237,7 +238,13 @@ function FreshPane() {
   const handle = useRef<DocumentEditorHandle>(null);
   useEffect(() => {
     FRESH.open = (file) => {
-      const state = EditorState.create({ doc: readDocumentFile(file, documentSchema).doc });
+      // With the writers' editing plugins (their object views number code), so it is laid out
+      // as their pages are.
+      const writers = TEMPLATES.values().next().value;
+      const state = EditorState.create({
+        doc: readDocumentFile(file, documentSchema).doc,
+        plugins: createDocumentEditing(documentSchema, writers ? { template: () => writers } : {}),
+      });
       setOpened((last) => ({ state, key: (last?.key ?? 0) + 1 }));
     };
   }, []);
