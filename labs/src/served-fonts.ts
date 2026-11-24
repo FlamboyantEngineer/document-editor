@@ -2,9 +2,9 @@
 // `labs/build/fonts/`. The regression templates name Arial, Courier New and the generic serif, which
 // the labs serve as Arimo, Cousine and Tinos (as Times New Roman), faces with the same metrics, so
 // documents keep their look on every machine; Lab Geist and Lab Geist Mono are Geist's own, and
-// MathML is drawn in STIX Two Math, served as the generic `math`. A
-// generic keyword is answered with the faces of the family it stands for. Every file is fetched
-// once and kept.
+// MathML is drawn in STIX Two Math, served as Lab STIX Two Math and the generic `math`, so a
+// local STIX Two Math never draws instead. A generic keyword is answered with the faces of the
+// family it stands for. Every file is fetched once and kept.
 
 import type { FontFaceFile, FontFiles, FontsAdapter } from '../../src/host/index.js';
 
@@ -29,7 +29,9 @@ const FAMILIES: Families = {
   'lab geist': faces('geist'),
   'lab geist mono': faces('geist-mono'),
   // MathML's face, with the OpenType MATH table its stretchy operators and script sizes read.
-  'stix two math': [{ weight: 400, style: 'normal', file: 'stix-two-math-latin-400-normal.woff' }],
+  'lab stix two math': [
+    { weight: 400, style: 'normal', file: 'stix-two-math-latin-400-normal.woff' },
+  ],
 };
 
 // Other files under the same families: Cousine for every family, so a host that swaps its fonts,
@@ -40,7 +42,7 @@ const COUSINE_FAMILIES: Families = Object.fromEntries(
 );
 
 const GENERICS: Readonly<Record<string, string>> = {
-  math: 'STIX Two Math',
+  math: 'Lab STIX Two Math',
   monospace: 'Courier New',
   'sans-serif': 'Arial',
   serif: 'Times New Roman',
@@ -101,7 +103,7 @@ export const COUSINE_FONTS: FontsAdapter = labFonts(COUSINE_FAMILIES);
 
 /** `LAB_FONTS` without a face for MathML, as a host that serves no math face (DOCE-PAGINATION-12.9). */
 export const NO_MATH_FONTS: FontsAdapter = labFonts(
-  Object.fromEntries(Object.entries(FAMILIES).filter(([family]) => family !== 'stix two math')),
+  Object.fromEntries(Object.entries(FAMILIES).filter(([family]) => family !== 'lab stix two math')),
   0,
   Object.fromEntries(Object.entries(GENERICS).filter(([generic]) => generic !== 'math')),
 );

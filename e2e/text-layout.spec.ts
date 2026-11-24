@@ -353,7 +353,7 @@ test.describe('served fonts', () => {
     await expect(root).toHaveAttribute('data-math-font', 'served');
     const first = page.locator('.de-document-editor__content .pm-page .de-math math').first();
     expect(await first.evaluate((math) => getComputedStyle(math).fontFamily)).toBe(
-      '"STIX Two Math"',
+      '"Lab STIX Two Math"',
     );
     await page.goto('regression.html?document=math&textLayout=pretext&fonts=no-math&debug');
     await waitForLab(page);
