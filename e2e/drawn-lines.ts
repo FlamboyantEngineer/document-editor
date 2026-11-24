@@ -10,8 +10,9 @@ export interface BlockAt {
   readonly page: number;
   readonly elementId: string;
   readonly part: number;
-  /** A header's or footer's block, which has no element id: its region and its index in it. */
-  readonly region?: { readonly name: 'header' | 'footer'; readonly index: number } | undefined;
+  /** A header's, footer's or footnote area's block, which has no element id: its region and its index in it. */
+  readonly region?:
+    { readonly name: 'header' | 'footer' | 'footnotes'; readonly index: number } | undefined;
 }
 
 /** What one block fragment draws: the text of each of its lines, or null when it is not drawn. */
@@ -83,6 +84,9 @@ export function readDrawnLines(
           return true;
         // So is a template variable's value, which the page variables draw inside it.
         if (node.parentElement?.closest('[data-template-variable]')) return true;
+        // A footnote entry's number is drawn before its content, which a print copy no longer marks
+        // as not editable.
+        if (node.parentElement?.closest('.pm-footnote-entry-number')) return false;
         const beside = node.parentElement?.closest(
           '[contenteditable="false"], .ProseMirror-widget',
         );
@@ -178,13 +182,13 @@ const plain = (text: string) => text.replaceAll('\u00a0', ' ');
 
 /**
  * The blocks of the engine's result (`textLines()`) that the engine laid out, with their lines'
- * text, to read on the pages: a header's or footer's by its region and its index in it.
+ * text, to read on the pages: a header's, footer's or footnote entry's by its region and its index in it.
  */
 export function blocksToRead(
   computed: readonly { readonly blocks: readonly TextBlockLines[] }[],
 ): ComputedBlock[] {
   return computed.flatMap(({ blocks }, index) => {
-    const inRegion = { header: 0, footer: 0 };
+    const inRegion = { header: 0, footer: 0, footnotes: 0 };
     return blocks.flatMap((block) => {
       const region = block.region
         ? { name: block.region, index: (inRegion[block.region] += 1) - 1 }
@@ -230,7 +234,7 @@ export async function mismatchedLines(
 interface TextBlockLines {
   readonly elementId: string;
   readonly part: number;
-  readonly region?: 'header' | 'footer' | undefined;
+  readonly region?: 'header' | 'footer' | 'footnotes' | undefined;
   readonly lines: readonly { readonly text: string }[] | null;
 }
 

@@ -238,8 +238,9 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const counts = createCounts();
   const widthOf = contentWidths(template);
   const tables = keptLines(text, { widthOf, markup, numbers: () => numbers });
-  const nested = createNestedLines({ geometry, recorder, widthOf, markup });
-  const regions = createRegionLines({ geometry, recorder, widthOf, markup });
+  const footnoteOf = (part: ProseMirrorNode) => numbers.footnoteOf(part);
+  const laying = { geometry, recorder, widthOf, footnoteOf, markup };
+  const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     tables.forget();
@@ -292,9 +293,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     measureRegion: selecting(select, (...at) => regions.lay(...at).room),
     regionLines: selecting(select, (...at) => regions.lay(...at).lines),
     lines: selecting(select, (node, place) => tables.lines(node, place)),
-    nestedLines: selecting(select, (container, scope) =>
-      nested.lines(container, { scope, footnoteOf: numbers.footnoteOf }),
-    ),
+    nestedLines: selecting(select, (...at) => nested.lines(...at)),
     provisional: atoms.pending,
     stats: counts.stats,
     destroy() {

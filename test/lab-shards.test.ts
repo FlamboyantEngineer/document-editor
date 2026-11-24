@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
+  averageDurations,
   listedTests,
   planShards,
   recordDurations,
@@ -81,5 +82,12 @@ describe('DOCE-LABS-10.1 shards of equal time', () => {
   it('DOCE-LABS-10.1 keeps tests that share a name together', () => {
     const shards = plan(['same', 'same', 'other'], { same: 5, other: 9 }, 2);
     expect(shards.map((shard) => shard.names)).toEqual([['same', 'same'], ['other']]);
+  });
+
+  it('DOCE-LABS-10.1 averages a new run into the record, keeping only the tests it holds', () => {
+    expect(averageDurations({ kept: 10, removed: 4 }, { kept: 20, added: 3 })).toEqual({
+      kept: 15,
+      added: 3,
+    });
   });
 });

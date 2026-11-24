@@ -1,5 +1,5 @@
-// Forced lines in page headers and footers (DOCE-PAGINATION-11.2, 11.10): each paragraph and
-// heading of a drawn page's header and footer is drawn on the lines the engine laid it out on with
+// Forced lines in page headers, footers and footnote areas (DOCE-PAGINATION-11.2, 11.10): each
+// text block of a drawn page's header, footer and footnote area is drawn on the lines the engine laid it out on with
 // its region, with the texts its template variables show there (`createPageVariables`). The
 // variables' values are the page variables' own decorations, so they are read as the view draws,
 // after every plugin's state is known, and the sets are kept by node and lines as the content's are.
@@ -14,8 +14,15 @@ import { NO_INSERTED } from './inserted-texts.js';
 import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
-/** The page regions whose text blocks are drawn on forced lines. */
-export const FORCED_REGIONS: ReadonlySet<string> = new Set(['page_header', 'page_footer']);
+/** A page region whose text blocks are drawn on forced lines. */
+export type ForcedRegion = 'header' | 'footer' | 'footnotes';
+
+/** The page regions whose text blocks are drawn on forced lines, by node type. */
+export const FORCED_REGIONS: ReadonlyMap<string, ForcedRegion> = new Map([
+  ['page_header', 'header'],
+  ['page_footer', 'footer'],
+  ['page_footnotes', 'footnotes'],
+]);
 
 /** The texts a region's template variables show, by key, as the view draws them. */
 function regionVariableTexts(
