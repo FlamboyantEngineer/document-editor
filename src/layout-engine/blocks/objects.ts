@@ -147,7 +147,9 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
     context.place.scope,
   );
   if (!size?.math) return atomBlock(context, node, margins);
-  const placed = placeMath(size.math, context.place.width, endRoom(context, node, size.math));
+  const end = endRoom(context, node, size.math);
+  const fitted = placeMath(size.math, context.place.width, end.room);
+  const placed = end.tag ? { ...fitted, tagEnd: end.tag } : fitted;
   context.options.onMath?.(node, placed);
   const { ascent, descent } = placed.box;
   const tag = size.math.tag;
@@ -165,17 +167,21 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
   );
 }
 
-// The room a display equation's line keeps at its end: the wider of its tag and its automatic
-// number, in its font, and an em between it and the equation; 0 without either.
+// The room a display equation's line keeps at its end: its tag, then its automatic number, side
+// by side with an em between them, and an em before the equation, in its font; and how far the
+// tag sits from the line's end, past the number and its em. Both 0 without a tag or number.
 function endRoom(
   { options, place }: BlockContext,
   node: ProseMirrorNode,
   math: MathLayouts,
-): number {
+): { room: number; tag: number } {
   const width = (text: string) => options.text.textWidth?.(text, node, place.scope) ?? 0;
   const number = options.equationOf?.(node);
-  const end = Math.max(math.tag?.width ?? 0, number ? width(number) : 0);
-  return end ? end + width(EM_SPACE) : 0;
+  const em = width(EM_SPACE);
+  const numbered = number ? width(number) : 0;
+  const tag = math.tag && numbered ? numbered + em : 0;
+  const end = tag + (math.tag?.width ?? 0) || numbered;
+  return { room: end ? end + em : 0, tag };
 }
 
 const EM_SPACE = '\u2003';

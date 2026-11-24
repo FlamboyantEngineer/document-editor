@@ -2008,7 +2008,7 @@ a.de-contents__entry {
 
 .de-math[data-math-layout] > .de-math__tag {
   position: absolute;
-  inset-inline-end: 0;
+  inset-inline-end: var(--de-math-tag-end, 0px);
   top: calc(var(--de-math-top) - var(--de-math-tag-ascent, 0px));
   overflow: visible;
 }
