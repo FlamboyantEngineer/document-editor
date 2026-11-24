@@ -88,6 +88,10 @@ interface DocumentNumbering {
   readonly headings: ReadonlyMap<number, string>;
   /** The numbered paragraphs, which the browser still draws on its own lines. */
   readonly paragraphs: ReadonlySet<number>;
+  /** A caption's label, as this document's captions show them (`blockNumbers`). */
+  readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
+  /** Every caption's label in order, as one key. */
+  readonly labelsKey?: string | undefined;
 }
 
 /** What the engine laid out and left to the DOM so far. */
@@ -164,11 +168,13 @@ export interface PagesTextEngine {
   /**
    * The lines of each text block inside a top-level container of a page, such as a table's cells'
    * paragraphs, as the engine lays the container out in its section's content width; none when it
-   * cannot lay the container out.
+   * cannot lay the container out. Its captions show `labelOf`'s labels, as the pages' own copies of
+   * the parts of a split table or code block do; the measured document's by default.
    */
   nestedLines(
     container: ProseMirrorNode,
     scope: string | null,
+    labelOf?: (caption: ProseMirrorNode) => string | undefined,
   ): ReadonlyMap<ProseMirrorNode, DrawnLines>;
   /**
    * Whether an atom the engine measured, such as an image or math, still waits for its final size,

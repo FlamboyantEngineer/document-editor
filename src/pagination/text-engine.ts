@@ -170,12 +170,13 @@ function engineLayouts(
     text: numberedText(text, { numbers, inserted, recorder }),
     atoms,
     metrics: (scope) => blockMetrics(template, scope, sheet),
-    labelOf: (caption) => numbers().labelOf(caption),
+    labelOf: (caption) => (recorder.labelOf ?? numbers().labelOf)(caption),
     footnoteOf: (entry) => numbers().footnoteOf(entry),
     contentsOf: (node) => contents.of(node, numbers().doc),
     pageDigits: () => contents.digits(),
   });
-  return { host, atoms, text, geometry, select, measureContext, variablesKey };
+  const labelOf = (caption: ProseMirrorNode) => numbers().labelOf(caption);
+  return { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf };
 }
 
 // A way into the engine that measures, setting Pretext's width source to the engine's own first
@@ -241,13 +242,13 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     recorder,
     contents,
   });
-  const { host, atoms, text, geometry, select, measureContext, variablesKey } = layouts;
+  const { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf } = layouts;
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
   const tables = keptLines(text, { widthOf, markup, numbers: () => numbers, variablesKey });
   const footnoteOf = (part: ProseMirrorNode) => numbers.footnoteOf(part);
-  const laying = { geometry, recorder, widthOf, footnoteOf, markup, variablesKey };
+  const laying = { geometry, recorder, widthOf, footnoteOf, markup, variablesKey, labelOf };
   const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
@@ -256,7 +257,6 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     nested.forget();
     options.onAtomsSettled();
   });
-
   return {
     template,
     fonts: options.fonts,

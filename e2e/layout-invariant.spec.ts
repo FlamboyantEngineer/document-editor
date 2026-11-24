@@ -626,16 +626,19 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // its caption (DOCE-PAGINATION-9.11), and margins are truncated to the layout unit as Chromium draws
 // them (8pt is 10.656px, not 10.672px; DOCE-PAGINATION-9.2): the planned heights moved, and the
 // oversized quote holding a code figure is on forced lines.
+// Captions of figures, tables and code are drawn on forced lines and counted too
+// (DOCE-PAGINATION-11.2): the line fingerprints of the documents with captions moved, their planned
+// heights did not.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '6de13d262fa01cc3', heights: '5b4ca33a9e63f4d1' },
-  'heading-keep-with-next': { lines: 'ac6c98be9145f1a7', heights: '7adf329654b1bc43' },
+  'caption-numbering': { lines: '73ff4f55af65f179', heights: '5b4ca33a9e63f4d1' },
+  'heading-keep-with-next': { lines: 'f3b2f4d0f58c7941', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '3917f81eb2ce04de', heights: 'fff1aac6498b64ce' },
-  'oversized-blocks': { lines: 'f99df5a739cff8f2', heights: 'f3be75ce06ce1c8d' },
+  'long-mixed': { lines: 'ce519859d4413c47', heights: 'fff1aac6498b64ce' },
+  'oversized-blocks': { lines: '0d16eb6598af7a34', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: 'd40800e840119375' },
 };
 
