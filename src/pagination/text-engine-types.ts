@@ -200,6 +200,8 @@ export interface PagesTextEngine {
    * (DOCE-PAGINATION-12.10); null for math measured as drawn.
    */
   mathOf(node: ProseMirrorNode): PlacedMath | null;
+  /** A count that moves whenever a math node is placed anew or the placements are forgotten. */
+  mathVersion?(): number;
   stats(): TextEngineStats;
   destroy(): void;
 }

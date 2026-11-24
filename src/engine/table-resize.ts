@@ -263,16 +263,23 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
   const resize = { column: at.column, max: roomFor(dom) };
   // Only the last column's border changes the table's outer width.
   const keepFit = at.column < at.map.width - 1;
-  const shown = partsOf(view, dom);
-  const restores = shown.map(shownStyles);
+  // A changed table draws a new column group. Its sizing belongs to that edit once drawn.
+  const previews = partsOf(view, dom).map((table) => {
+    const columns = table.querySelector(':scope > colgroup');
+    return {
+      table,
+      isCurrent: () => table.querySelector(':scope > colgroup') === columns,
+      restore: shownStyles(table),
+    };
+  });
   const restore = () => {
-    for (const each of restores) each();
+    for (const preview of previews) if (preview.isCurrent()) preview.restore();
   };
   const owner = view.dom.ownerDocument;
   const widthsAt = (x: number) => resizeColumns(start, { ...resize, by: x - event.clientX });
   const move = (moved: MouseEvent) => {
     const widths = widthsAt(moved.clientX);
-    for (const each of shown) showWidths(each, widths);
+    for (const preview of previews) if (preview.isCurrent()) showWidths(preview.table, widths);
   };
   const finish = (up: MouseEvent) => {
     owner.removeEventListener('mousemove', move);

@@ -90,23 +90,39 @@ function sameTableColumns(previous: ProseMirrorNode, next: ProseMirrorNode): boo
   return widths.length === latest.length && widths.every((width, index) => width === latest[index]);
 }
 
-// A table as its markup draws it. A drag can preview widths outside the rows. Once the stored
-// widths change, redraw the table and column group from the same markup as the viewer and print.
+// Updates the sizing drawn outside the rows, which must keep their DOM for the caret.
+function updateTableColumns(table: HTMLTableElement, sized: HTMLTableElement): void {
+  table.style.width = sized.style.width;
+  table.style.maxWidth = sized.style.maxWidth;
+  const sizing = sized.getAttribute('data-table-columns');
+  if (sizing === null) table.removeAttribute('data-table-columns');
+  else table.setAttribute('data-table-columns', sizing);
+  const columns = sized.querySelector(':scope > colgroup');
+  if (columns) table.querySelector(':scope > colgroup')?.replaceWith(columns);
+}
+
+// A table as its markup draws it, with its kept widths refreshed after any drag preview.
 function tableView(node: ProseMirrorNode, view: EditorView): NodeView {
-  const spec = node.type.spec.toDOM?.(node);
-  if (!spec) throw new Error(`${node.type.name} has no markup`);
-  const { dom, contentDOM } = DOMSerializer.renderSpec(view.dom.ownerDocument, spec);
+  const { toDOM } = node.type.spec;
+  if (!toDOM) throw new Error(`${node.type.name} has no markup`);
+  const owner = view.dom.ownerDocument;
+  const { dom, contentDOM } = DOMSerializer.renderSpec(owner, toDOM(node));
   let current = node;
   return {
     dom,
     contentDOM: contentDOM ?? undefined,
     update(next) {
-      if (
-        next.type !== current.type ||
-        !sameAttrs(next, current) ||
-        !sameTableColumns(current, next)
-      ) {
-        return false;
+      if (next.type !== current.type || !sameAttrs(next, current)) return false;
+      if (!sameTableColumns(current, next)) {
+        const { dom: sized } = DOMSerializer.renderSpec(owner, toDOM(next));
+        if (
+          !isElement(dom) ||
+          dom.tagName !== 'TABLE' ||
+          !isElement(sized) ||
+          sized.tagName !== 'TABLE'
+        )
+          return false;
+        updateTableColumns(dom as HTMLTableElement, sized as HTMLTableElement);
       }
       current = next;
       return true;

@@ -49,25 +49,49 @@ const typesetIn = (view: () => EditorView | null) => (node: ProseMirrorNode) => 
   return state ? typesetMathOf(state, node) : null;
 };
 
+// Whether two placements draw the same: the same layouts at the same scale and end room.
+const samePlace = (was: PlacedMath | undefined, now: PlacedMath) =>
+  was?.math === now.math &&
+  was.tag === now.tag &&
+  was.box.scale === now.box.scale &&
+  was.end === now.end;
+
+// How many of the nodes are in a document, forgetting the others.
+function liveIn(doc: ProseMirrorNode | null, nodes: Set<ProseMirrorNode>): number {
+  if (!nodes.size) return 0;
+  const live = new Set<ProseMirrorNode>();
+  doc?.descendants((node) => {
+    if (nodes.has(node)) live.add(node);
+  });
+  for (const node of nodes) if (!live.has(node)) nodes.delete(node);
+  return live.size;
+}
+
 // Where each math node laid out from its layout was placed, and those scaled below the reported
-// scale (`MATH_MIN_REPORTED_SCALE`).
+// scale (`MATH_MIN_REPORTED_SCALE`), counted in the document the engine numbers last: math edited
+// or deleted since it was laid out is not.
 export function mathPlaces() {
   let placed = new WeakMap<ProseMirrorNode, PlacedMath>();
   const small = new Set<ProseMirrorNode>();
+  // Moves when a node is placed anew, so what draws the placements knows to read them again.
+  let version = 0;
   return {
     record(node: ProseMirrorNode, at: PlacedMath) {
+      if (!samePlace(placed.get(node), at)) version += 1;
       placed.set(node, at);
       if (at.box.scale < MATH_MIN_REPORTED_SCALE) small.add(node);
       else small.delete(node);
     },
     /** The engine's readings of them: each node's placement, and the count in its stats. */
-    reading: (stats: () => TextEngineStats) => ({
+    reading: (stats: () => TextEngineStats, doc: () => ProseMirrorNode | null) => ({
       mathOf: (node: ProseMirrorNode) => placed.get(node) ?? null,
-      stats: (): TextEngineStats => ({ ...stats(), smallMath: small.size }),
+      mathVersion: () => version,
+      stats: (): TextEngineStats => ({ ...stats(), smallMath: liveIn(doc(), small) }),
     }),
     forget() {
       placed = new WeakMap();
       small.clear();
+      version += 1;
     },
   };
 }
