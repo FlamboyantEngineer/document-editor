@@ -39,8 +39,18 @@ const DOCUMENT = {
   ],
 } as DocumentFile;
 
-// What the clipboard holds: its text formats, and an image's size in pixels.
-const readClipboard = (page: Page) =>
+// What the clipboard holds: its text formats, and an image's size in pixels. A copy still being
+// written (an image is drawn after the press) makes a read fail with "Clipboard data has changed",
+// so a read is tried again until the clipboard holds still.
+const readClipboard = async (page: Page) => {
+  let formats: Record<string, string> = {};
+  await expect(async () => {
+    formats = await readClipboardOnce(page);
+  }).toPass();
+  return formats;
+};
+
+const readClipboardOnce = (page: Page) =>
   page.evaluate(async () => {
     const formats: Record<string, string> = {};
     for (const entry of await navigator.clipboard.read())
