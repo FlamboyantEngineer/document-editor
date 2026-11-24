@@ -4,8 +4,10 @@
 // the pages showed, and each section in its template scope, as the pages' view draws them.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { mathDrawingHooks, mathDrawingTrees } from '../engine/math-drawing.js';
 import { isMath, type MathTree } from '../engine/math-typeset.js';
 import { elementNumbers } from '../engine/print-links.js';
+import type { PlacedMath } from '../layout-engine/math-atoms.js';
 import {
   createDocumentSchema,
   findTemplateSection,
@@ -106,8 +108,20 @@ function mathHooks(
   element.attrs.set('class', own ? `${own} de-math` : 'de-math');
   element.attrs.set('data-display', node.type.name === 'math_display' ? 'display' : 'inline');
   element.attrs.set('data-state', math?.state ?? 'pending');
-  if (math?.state === 'ready') element.children = [mathElement(math.math)];
-  else if (math?.state === 'invalid') element.children = [{ text: math.text }];
+  if (math?.state === 'ready') {
+    // Drawn from its layout where the engine placed one, its MathML then hidden from sight
+    // (DOCE-PAGINATION-12.11).
+    const drawing = math.drawing ? drawingOf(element, math.drawing) : [];
+    element.children = [...drawing, mathElement(math.math)];
+  } else if (math?.state === 'invalid') element.children = [{ text: math.text }];
+}
+
+// The SVG math the engine placed is drawn as, with the placement's hooks on its element.
+function drawingOf(element: PrintElement, placed: PlacedMath): PrintElement[] {
+  const { style, ...attrs } = mathDrawingHooks(placed);
+  for (const [name, value] of Object.entries(attrs)) element.attrs.set(name, value);
+  addStyle(element, style);
+  return mathDrawingTrees(placed).map(mathElement);
 }
 
 // A typeset MathML element as a rendered tree, which the snapshot's allow-list then holds to.

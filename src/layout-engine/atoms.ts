@@ -5,6 +5,7 @@
 // its final size arrives the cache keeps it and tells its listeners, which lay out again.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { MathLayouts } from './math-atoms.js';
 
 /** An atom's box in CSS pixels at a zoom of 1. */
 export interface AtomSize {
@@ -16,6 +17,8 @@ export interface AtomSize {
   readonly align?: 'top' | 'bottom' | undefined;
   /** A block atom's outer margins as drawn, its content's margins that pass through its edges included. */
   readonly margins?: { readonly top: number; readonly bottom: number } | undefined;
+  /** Math sized from its layout (DOCE-PAGINATION-12.10): the layout, which the engine may scale. */
+  readonly math?: MathLayouts | undefined;
 }
 
 /** A cached atom's box, and whether it may still change. */
@@ -150,6 +153,19 @@ interface Entry {
   readonly nodes: ProseMirrorNode[];
 }
 
+// A cached atom's size as an inline atom's: its box, baseline, alignment and math layout.
+function inlineSize(size: MeasuredAtom | null): AtomSize | null {
+  if (!size) return null;
+  const { width, height, baseline, align, math } = size;
+  return {
+    width,
+    height,
+    ...(baseline === undefined ? {} : { baseline }),
+    ...(align ? { align } : {}),
+    ...(math ? { math } : {}),
+  };
+}
+
 /** Creates an atom cache over a host's measurer. */
 export function createAtomCache({
   measure,
@@ -217,17 +233,7 @@ export function createAtomCache({
   };
 
   return {
-    measureAtom: (node, place) => {
-      const size = measured(node, INLINE_WIDTH, place);
-      if (!size) return null;
-      const { width, height, baseline, align } = size;
-      return {
-        width,
-        height,
-        ...(baseline === undefined ? {} : { baseline }),
-        ...(align ? { align } : {}),
-      };
-    },
+    measureAtom: (node, place) => inlineSize(measured(node, INLINE_WIDTH, place)),
     measureBlockAtom: (node, width, scope) => measured(node, width, { scope }),
     subscribe: (listener) => {
       listeners.add(listener);

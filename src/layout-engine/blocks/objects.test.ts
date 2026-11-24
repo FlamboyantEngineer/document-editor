@@ -110,6 +110,28 @@ describe('equations, rules and markup', () => {
     expect(measure).toHaveBeenCalledTimes(1);
   });
 
+  it('DOCE-PAGINATION-12.10 scales a display equation wider than its line less its tag down to fit', () => {
+    const svg = { tag: 'svg', attrs: {}, children: [] };
+    const tag = { width: 40, ascent: 10, descent: 3, svg, missing: '' };
+    const math = { math: { width: 1120, ascent: 30, descent: 12, svg, missing: '' }, tag };
+    const placed = vi.fn();
+    const { layout } = standInBlockLayout({
+      measure: () => ({ size: { width: 1160, height: 42, math } }),
+      onMath: placed,
+    });
+    const equation = node('math_display', null, [schema.text('x')]);
+    // 560px for the equation beside its tag: half its size, 15px above its baseline and 6px below.
+    expect(blockOf(layout.layoutBlock(equation, place))).toMatchObject({
+      height: 21,
+      marginTop: 6,
+      marginBottom: 6,
+    });
+    expect(placed).toHaveBeenCalledWith(equation, {
+      ...math,
+      box: { width: 560, ascent: 15, descent: 6, scale: 0.5 },
+    });
+  });
+
   it('DOCE-PAGINATION-10.4 gives a rule its border, half its text size (12px) above and below, and a page break no height', () => {
     const { layout } = standInBlockLayout();
     expect(blockOf(layout.layoutBlock(node('horizontal_rule', null), place))).toMatchObject({

@@ -19,16 +19,24 @@ function widthsOf(table: StoredNode): number[] | null {
   return widths.length ? widths : null;
 }
 
-// The table with each cell's widths taken from the fitted columns it spans.
+const rowspanOf = (cell: StoredNode) => Math.max(1, Number(cell.attrs?.rowspan) || 1);
+
+// The table with each cell's widths taken from the fitted columns it spans, from the column the
+// cell starts in: past the columns cells spanning rows from above still cover in its row.
 function withWidths(table: StoredNode, widths: readonly number[]): StoredNode {
+  // For each column, how many more rows a cell from above covers.
+  const covered: number[] = [];
   const rows = (table.content ?? []).map((row) => {
     let column = 0;
     const cells = (row.content ?? []).map((cell) => {
+      while ((covered[column] ?? 0) > 0) column += 1;
       const span = spanOf(cell);
       const colwidth = widths.slice(column, column + span);
+      for (let each = column; each < column + span; each += 1) covered[each] = rowspanOf(cell);
       column += span;
       return colwidth.length === span ? { ...cell, attrs: { ...cell.attrs, colwidth } } : cell;
     });
+    covered.forEach((rows, index) => (covered[index] = rows - 1));
     return { ...row, content: cells };
   });
   return { ...table, content: rows };

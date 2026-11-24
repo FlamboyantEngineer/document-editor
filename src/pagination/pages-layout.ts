@@ -17,6 +17,7 @@ import { typesetMathOf } from '../engine/math-views.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
+import { placedMath } from './engine-math.js';
 import { engineNumbersKey } from './engine-numbers.js';
 import { forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, sectionScope } from './forced-lines.js';
@@ -99,16 +100,19 @@ function drawnNumbers(state: EditorState): PagesLayoutNumber[] {
   });
 }
 
-// Each math node's typeset MathML, or what it shows when invalid, as the pages draw it.
+// Each math node's typeset MathML, or what it shows when invalid, and where the engine placed its
+// layout (DOCE-PAGINATION-12.11), as the pages draw it.
 function drawnMath(
   state: EditorState,
   typesetOf: (node: ProseMirrorNode) => TypesetMath | null,
 ): PagesLayoutMath[] {
   const math: PagesLayoutMath[] = [];
+  const placed = placedMath(state);
   state.doc.descendants((node, pos) => {
     if (!isMath(node)) return !node.isText;
     const typeset = typesetOf(node);
-    if (typeset) math.push({ ...typeset, pos });
+    const drawing = placed.get(pos);
+    if (typeset) math.push({ ...typeset, pos, ...(drawing ? { drawing } : {}) });
     return false;
   });
   return math;

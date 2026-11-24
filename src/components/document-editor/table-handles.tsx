@@ -9,7 +9,7 @@ import {
   useMenuController,
   useMenuControllerState,
 } from '@flamboyantengineer/ui-components/context-menu';
-import { DragHandleGlyph } from '@flamboyantengineer/ui-components/core';
+import { DragHandleGlyph, useResizeObserver } from '@flamboyantengineer/ui-components/core';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -94,16 +94,7 @@ function useTableGeometry(
     measure();
   }, [view, layer, target, table]);
   // One observer while a table is targeted, measuring it again as the document resizes.
-  const targeted = target !== null;
-  useLayoutEffect(() => {
-    const owner = layer?.ownerDocument.defaultView;
-    if (!view || !targeted || !owner || typeof owner.ResizeObserver !== 'function') {
-      return undefined;
-    }
-    const observer = new owner.ResizeObserver(() => measureRef.current());
-    observer.observe(view.dom);
-    return () => observer.disconnect();
-  }, [view, layer, targeted]);
+  useResizeObserver(view && layer && target ? [view.dom] : [], () => measureRef.current());
   return geometry;
 }
 
