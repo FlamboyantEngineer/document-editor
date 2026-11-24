@@ -66,8 +66,8 @@ Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 
 In store mode the session shall save by itself once changes pause for `autosaveDelay` milliseconds (1000 by default).
 
-Implementation: `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
+Implementation: `src/session/store-saving.ts`, `src/utils/trailing-timer.ts`
+Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`, `src/utils/trailing-timer.test.ts`
 
 ### DOCE-SESSION-2.4 - No empty automatic saves
 
@@ -216,8 +216,8 @@ Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 
 In store mode, while the document has unsaved changes, the session shall keep its content in the stored format, with its template pin and the revision it was edited from, through the host's `drafts` adapter once changes pause for `draftDelay` milliseconds (300 by default), so a reload or a crash does not lose it. Once a save leaves nothing unsaved, the session shall remove the draft.
 
-Implementation: `src/session/drafts.ts`, `src/session/store-session.ts`
-Verification: `src/session/drafts.test.ts`
+Implementation: `src/session/drafts.ts`, `src/session/store-session.ts`, `src/utils/trailing-timer.ts`
+Verification: `src/session/drafts.test.ts`, `src/utils/trailing-timer.test.ts`
 
 ### DOCE-SESSION-6.2 - Offering a draft
 
@@ -258,8 +258,8 @@ Verification: `src/session/drafts.test.ts`
 
 In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left or when it is stopped with a draft still waiting: the document's state, the changes the room has not confirmed, one update each, the last state the room had confirmed all of (`confirmed`), and the room's generation. The confirmed state shall be taken when a draft is kept with no change unconfirmed, and at once when the connection is lost with none unconfirmed, so edits made offline before the next draft merge from it; it is not taken at each confirmation, which would read the whole document for every change the room echoes.
 
-Implementation: `src/collab/offline.ts`
-Verification: `src/collab/offline.test.ts`
+Implementation: `src/collab/offline.ts`, `src/utils/trailing-timer.ts`
+Verification: `src/collab/offline.test.ts`, `src/utils/trailing-timer.test.ts`
 
 ### DOCE-SESSION-6.8 - Replaying room-mode drafts
 
