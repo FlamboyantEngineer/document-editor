@@ -1,6 +1,7 @@
 // The text blocks a page draws on forced lines (DOCE-PAGINATION-11.2): each paragraph, heading and
 // code block directly in its content, and each in a table's cells, a list, a quote, a layout
-// section's columns, a script's output, an embed or a code figure, and linked code's code, on the
+// section's columns, a script's output, an embed or a code figure, the captions of figures, tables
+// and code but a later part's, and linked code's code, on the
 // lines the engine laid it out on with its container. The pages' decorations, the computed lines a
 // test compares with, and the layout handed to a viewer or a print all read them from here; that
 // layout leaves linked code out, since a static drawing draws it from its markup.
@@ -15,8 +16,19 @@ import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 /** The block types drawn on forced lines. */
 const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading', 'code_block']);
 
+/** The captions drawn on forced lines, after the label the pages draw before their content. */
+const CAPTION_TYPES: ReadonlySet<string> = new Set([
+  'figure_caption',
+  'table_caption',
+  'code_caption',
+]);
+
+/** Whether a block is a caption, drawn after its label (`ForcedBlock.prefixed`). */
+export const isCaption = (node: ProseMirrorNode) => CAPTION_TYPES.has(node.type.name);
+
 /** The top-level blocks whose text blocks are drawn on forced lines, laid out with them. */
 const NESTED_TYPES: ReadonlySet<string> = new Set([
+  'figure',
   'table_figure',
   'table',
   'bullet_list',
@@ -37,6 +49,11 @@ export interface ForcedBlock {
   readonly table: DrawnLines | null;
   /** A heading's number, drawn before its content. */
   readonly prefix?: string | undefined;
+  /**
+   * Whether the pages draw generated content before the block's content, its first line's indent
+   * before it: a heading's number, or a caption's label.
+   */
+  readonly prefixed?: boolean | undefined;
   readonly reason?: string | undefined;
   /** Whether it is inside a top-level block, such as a table cell's paragraph. */
   readonly nested: boolean;
@@ -57,6 +74,8 @@ interface ForcedPlace {
   readonly numbered: ReadonlySet<number>;
   /** The words other plugins insert in the blocks, such as a comparison's deleted words. */
   readonly inserted: InsertedTexts;
+  /** The labels the pages' captions show, a split part's copy's among them. */
+  readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
 }
 
 function topLevel(engine: PagesTextEngine, node: ProseMirrorNode, at: ForcedPlace): ForcedBlock {
@@ -68,7 +87,7 @@ function topLevel(engine: PagesTextEngine, node: ProseMirrorNode, at: ForcedPlac
   const inserted = at.inserted.byBlock.get(node);
   const table = engine.lines(node, { scope: at.scope, prefix, inserted });
   if (!table) return { node, pos, table, reason: 'not laid out by the engine', nested: false };
-  return { node, pos, table, prefix, nested: false };
+  return { node, pos, table, prefix, prefixed: Boolean(prefix), nested: false };
 }
 
 // Why a text block inside a container is left to the browser before it is laid out: a number the
@@ -78,6 +97,33 @@ function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): str
   if (at.headings.has(pos)) return 'numbered heading';
   return at.inserted.byBlock.has(node) ? 'inserted words' : null;
 }
+
+// A later part of a split table or code block, whose caption shows the first part's text and the
+// continued suffix, which the engine does not lay out: the browser draws it on its own lines.
+function laterPart(holder: ProseMirrorNode | null): boolean {
+  const part: unknown = holder?.attrs.splitPartIndex;
+  if (typeof part === 'number' && part > 0) return true;
+  return holder?.lastChild?.attrs.codeBlockContinued === true;
+}
+
+// A caption inside a container, on the lines the container's layout gave it, unless its label
+// fills its first line: the content's lines alone do not show where that line ends.
+function caption(
+  node: ProseMirrorNode,
+  { pos, holder, lines }: { pos: number; holder: ProseMirrorNode | null; lines: NestedLines },
+): ForcedBlock {
+  if (laterPart(holder))
+    return { node, pos, table: null, reason: 'continued caption', nested: true };
+  const table = lines.get(node);
+  if (!table) return { node, pos, table: null, reason: 'not laid out by the engine', nested: true };
+  // A label wider than the caption's box wraps on its own before the content, as in a narrow cell.
+  const [first, second] = table.lines;
+  if (second && first?.to === 0)
+    return { node, pos, table: null, reason: 'wrapped label', nested: true };
+  return { node, pos, table, prefixed: true, nested: true };
+}
+
+type NestedLines = ReadonlyMap<ProseMirrorNode, DrawnLines>;
 
 // Linked code, drawn by its view on the lines of the code block it is laid out as
 // (`linkedCodeFigure`), the lines a container's layout gave that code when it is inside one.
@@ -95,9 +141,13 @@ function linkedCode(
 }
 
 function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedPlace) {
-  const lines = engine.nestedLines(container, at.scope);
+  const lines = engine.nestedLines(container, at.scope, at.labelOf);
   const blocks: ForcedBlock[] = [];
-  container.descendants((node, offset) => {
+  container.descendants((node, offset, parent) => {
+    if (isCaption(node)) {
+      blocks.push(caption(node, { pos: at.pos + 1 + offset, holder: parent, lines }));
+      return false;
+    }
     if (node.type.name === 'linked_code_block') {
       const pos = at.pos + 1 + offset;
       const block = linkedCode(engine, node, { pos, scope: at.scope, nested: lines });

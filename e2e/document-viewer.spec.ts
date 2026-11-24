@@ -2,8 +2,14 @@ import type { Page } from '@playwright/test';
 import type { RegressionDocumentName } from '../labs/src/regression/regression-documents.js';
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
-import { blocksToRead, readDrawnLines, readDrawnPages } from './drawn-lines.js';
+import {
+  blocksToRead,
+  misplacedLineNumbers,
+  readDrawnLines,
+  readDrawnPages,
+} from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
+import { loadWrappedLinkedCode } from './wrapped-linked-code.js';
 
 // The read-only viewer (specs/PAGINATION.md DOCE-PAGINATION-13.6): the pages' layout drawn without
 // the editor shows every page the engine computed, each forced block on the engine's lines, draws
@@ -23,6 +29,10 @@ const NAMES: readonly RegressionDocumentName[] = [
   'mixed-geometry-repeated-sections',
   'footnote-heavy',
   'long-ordered-list',
+  'code-blocks',
+  'linked-code',
+  'code-block-stress',
+  'inline-geometry',
 ];
 
 const VIEWER = '.de-document-viewer';
@@ -75,8 +85,26 @@ test.describe('the read-only viewer', () => {
         ),
       );
       expect(mismatches).toEqual([]);
+      // Each code line number sits on its line's first row, as in the editor.
+      expect(await misplacedLineNumbers(page, 'viewer')).toEqual([]);
     });
   }
+
+  test('DOCE-PAGINATION-13.6 draws code and linked code the engine wraps on the computed lines, with their gutters', async ({
+    page,
+  }) => {
+    await open(page, 'linked-code');
+    await loadWrappedLinkedCode(page);
+    await page.evaluate(() => window.stressLab.whenSettled());
+    await showViewer(page);
+    const { mismatches } = await linesAgainstComputed(page);
+    expect(mismatches).toEqual([]);
+    const wraps = page.locator(`${VIEWER} .linked-code-block code .de-forced-lines__end`);
+    expect(await wraps.count(), 'lines the engine wrapped in linked code').toBeGreaterThan(4);
+    expect(await misplacedLineNumbers(page, 'viewer'), 'code line numbers off their lines').toEqual(
+      [],
+    );
+  });
 
   test('DOCE-PAGINATION-13.6 draws the same pages as HTML beside pages painted into canvases', async ({
     page,

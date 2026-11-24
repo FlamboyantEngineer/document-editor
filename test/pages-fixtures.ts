@@ -52,6 +52,8 @@ export interface StubEngineOptions {
   readonly headings?: ReadonlyMap<number, string>;
   /** Clusters given a reserved box 16px wide (DOCE-PAGINATION-12.4). */
   readonly reserved?: ReadonlySet<string>;
+  /** The width of code's gutter, which the lines are inset by (DOCE-PAGINATION-11.2). */
+  readonly inset?: number;
   /** The width of the box each page variable in the text takes (DOCE-PAGINATION-11.13). */
   readonly pageBox?: number;
 }
@@ -103,6 +105,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
         height: lines.length * 20,
         overhead: 0,
         justify: options.justify ?? false,
+        ...(options.inset ? { inset: options.inset } : {}),
       };
       const reserved = options.reserved;
       const boxes = pageBoxes(block, options.pageBox);

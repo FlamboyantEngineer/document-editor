@@ -22,6 +22,8 @@ interface BlockNumbers {
    * none when it shows none.
    */
   labelOf(caption: ProseMirrorNode): string | undefined;
+  /** Every caption's label, in the document's order, as one key. */
+  readonly labelsKey: string;
   /** An ordered list item's marker, its space after included; none for any other node. */
   markerOf(item: ProseMirrorNode): string | undefined;
   /** A footnote marker's or entry's number; none for a footnote no marker in its scope cites. */
@@ -114,6 +116,7 @@ export function blockNumbers(
   const numbers = footnoteNumbers(doc, footnotes);
   return {
     labelOf: (caption) => labels.get(caption),
+    labelsKey: [...labels.values()].join('|'),
     markerOf: (item) => markers.get(item),
     footnoteOf: (part) => numbers.get(part),
   };

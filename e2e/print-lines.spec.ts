@@ -5,6 +5,7 @@ import { printSnapshot } from '../src/document/index.js';
 import { mismatchedLines } from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
 import { expectPrintEqualsEditor, pdfFontNames, pdfPageTexts } from './print-fidelity.js';
+import { loadWrappedLinkedCode } from './wrapped-linked-code.js';
 
 // Print on the layout engine's lines (specs/PAGINATION.md DOCE-PAGINATION-13): the editor's
 // snapshot and the static render of its pages' layout, each printed to PDF, hold every page's
@@ -21,8 +22,8 @@ declare global {
 const ROOMY = { width: 1600, height: 1800 };
 
 // Documents with split paragraphs, numbered headings, tables, captions, lists, rules, page breaks,
-// footnotes and sections of other sizes, and none of what only a view draws (lists of contents,
-// highlighted code, typeset math).
+// footnotes, code and linked code with their gutters, and sections of other sizes, and none of what
+// only a view draws (lists of contents, typeset math).
 const NAMES: readonly RegressionDocumentName[] = [
   'heading-keep-with-next',
   'mixed-geometry-repeated-sections',
@@ -30,6 +31,8 @@ const NAMES: readonly RegressionDocumentName[] = [
   'footnote-heavy',
   'blockquotes',
   'long-ordered-list',
+  'code-blocks',
+  'linked-code',
 ];
 
 async function open(page: Page, name: RegressionDocumentName) {
@@ -120,6 +123,18 @@ test.describe('print on the layout engine lines', () => {
       await expectPrintEqualsEditor(page, context, () => printOf(page, 'layoutPrint'));
     });
   }
+
+  test('DOCE-PAGINATION-13.4 prints linked code the engine wraps on the computed lines, as the editor shows it', async ({
+    page,
+    context,
+  }) => {
+    await open(page, 'linked-code');
+    await loadWrappedLinkedCode(page);
+    const { missing, wrapped } = await printedLines(page, 'layoutPrint');
+    expect(missing, 'computed lines missing from the PDF').toEqual([]);
+    expect(wrapped, 'forced blocks the print draws on other lines').toEqual([]);
+    await expectPrintEqualsEditor(page, context, () => printOf(page, 'layoutPrint'));
+  });
 
   test('DOCE-PAGINATION-13.5 a line the print wraps by itself fails the check, though its text is all there', async ({
     page,

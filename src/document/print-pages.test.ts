@@ -212,6 +212,46 @@ describe('renderLayoutPrintPage', () => {
       expect(box.childElementCount).toBe(0);
   });
 
+  it('DOCE-PAGINATION-13.3 draws code and linked code on their lines as tokens, beside the gutter the pages drew', () => {
+    const doc = pagesDocument([
+      page([
+        node('code_figure', null, [
+          node('code_caption', null, [text('Listing')]),
+          node('code_block', { dataId: 'c1', language: 'typescript', codeLineStart: 9 }, [
+            text('const longer = 1;\nx'),
+          ]),
+        ]),
+        node('linked_code_block', {
+          dataId: 'l1',
+          code: 'return value;\n',
+          startLine: 998,
+          language: 'typescript',
+        }),
+      ]),
+    ]);
+    const { printed } = bothDrawings(doc, stubEngine({ perLine: 7, inset: 24 }));
+    const [code, linked] = [...printed.querySelectorAll('pre')];
+    for (const pre of [code, linked]) {
+      // The gutter is just before the code, and hidden.
+      expect(pre?.querySelector('.de-code-gutter')?.getAttribute('aria-hidden')).toBe('true');
+      expect(pre?.querySelector('.de-code-gutter + code')).not.toBeNull();
+      expect(pre?.querySelectorAll('code .de-code-token').length).toBeGreaterThan(0);
+      expect(pre?.querySelectorAll('code .de-forced-lines__end').length).toBeGreaterThan(0);
+    }
+    const numbers = (pre: Element | undefined) =>
+      [...(pre?.querySelectorAll('.de-code-gutter__number') ?? [])].map((each) => each.textContent);
+    expect(numbers(code)).toEqual(['9', '10']);
+    // Linked code's last line feed starts no line, and its text is drawn from its attributes.
+    expect(numbers(linked)).toEqual(['998']);
+    expect(linked?.querySelector('code')?.textContent).toBe('return value;\n');
+    expect(linked?.getAttribute('style')).toContain('--de-code-gutter-digits: 3');
+    expect(code?.querySelectorAll('.de-code-gutter__text br').length).toBeGreaterThan(0);
+    // Without a gutter on the pages, none in print.
+    const plain = bothDrawings(doc, stubEngine({ perLine: 7 })).printed;
+    expect(plain.querySelector('.de-code-gutter')).toBeNull();
+    expect(plain.querySelectorAll('pre .de-code-token').length).toBeGreaterThan(0);
+  });
+
   it('DOCE-PAGINATION-11.13 draws a page variable in the text in its box, with its line end, as the view does', () => {
     const variable = (key: string) => node('template_variable', { variableKey: key });
     const doc = pagesDocument([
