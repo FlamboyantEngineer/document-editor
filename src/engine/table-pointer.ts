@@ -82,13 +82,27 @@ function isEmptyCell(cell: ProseMirrorNode): boolean {
   return Boolean(only?.isTextblock && only.content.size === 0);
 }
 
+// Whether a press is in a cell's padding: on the cell itself, or beside its content box, where a
+// block drawn on the layout engine's lines reaches with the room its lines are given.
+function isInPadding(element: Element, event: MouseEvent): boolean {
+  if (event.target === element) return true;
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  if (!style) return false;
+  const box = element.getBoundingClientRect();
+  // A cell not laid out has no box to press beside.
+  if (box.width === 0) return false;
+  const start = box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+  const end = box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
+  return event.clientX < start || event.clientX > end;
+}
+
 // The cell a click or double click is on, when it is not empty and no lock covers it, with whether
-// the press is in its padding, outside its content blocks.
+// the press is in its padding, outside its content box.
 function clickedCell(view: EditorView, event: MouseEvent) {
   const cell = cellAt(view, event.target);
   const node = cell && view.state.doc.nodeAt(cell.pos);
   if (!cell || !node || isEmptyCell(node) || isCellLocked(view.state, cell.pos)) return null;
-  return { ...cell, node, inPadding: event.target === cell.element };
+  return { ...cell, node, inPadding: isInPadding(cell.element, event) };
 }
 
 /** Selects the content of the cell at a position before it as text, from its start to its end. */

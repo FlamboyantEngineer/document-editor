@@ -25,6 +25,7 @@ import {
 } from '../../src/model/index.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { runLabScript } from './lab-scripts.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
 
 // Runs the template's scripts for their previews.
 const SCRIPTS = createMemoryHost({ scripts: runLabScript }).scripts;
@@ -166,6 +167,7 @@ function Lab() {
         <pre aria-label="Template JSON">{JSON.stringify(own, null, 2)}</pre>
       </div>
       <DocumentEditor
+        {...LAB_TEXT_LAYOUT}
         state={state}
         onStateChange={setState}
         template={editable}

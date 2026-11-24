@@ -21,6 +21,7 @@ import { assignElementIds, createDocumentEditing } from '../../src/engine/index.
 import { BASE_TEMPLATE, createDocumentSchema, readDocumentFile } from '../../src/model/index.js';
 import { heading, sampleDocument } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
 
 // The page's storage, which keeps the remembered panel across reloads.
 const STORAGE = createSafeStorage({
@@ -184,6 +185,7 @@ function Lab() {
         </fieldset>
       </div>
       <DocumentEditor
+        {...LAB_TEXT_LAYOUT}
         state={state}
         onStateChange={setState}
         template={BASE_TEMPLATE}

@@ -15,6 +15,7 @@ import type { DocumentSession } from '../../src/session/index.js';
 import { createSessionRooms } from '../../test/session-rooms.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
 
 const DOCUMENT_ID = 'lab';
 
@@ -101,7 +102,12 @@ function Reader({ person }: { person: { id: string; name: string } }) {
         )}
       >
         {(props) => (
-          <DocumentEditor {...props} statusBar aria-label={`${person.name}'s document`} />
+          <DocumentEditor
+            {...LAB_TEXT_LAYOUT}
+            {...props}
+            statusBar
+            aria-label={`${person.name}'s document`}
+          />
         )}
       </DocumentSessionBoundary>
     </section>

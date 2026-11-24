@@ -58,9 +58,10 @@ function labDocument(): DocumentFile {
   return file;
 }
 
-// How the writers' pages lay their text out (`textLayout=pretext`, DOCE-PAGINATION-11).
+// How the writers' pages lay their text out: with the layout engine (DOCE-PAGINATION-11), or
+// measured in the DOM with `textLayout=dom`.
 const TEXT_LAYOUT =
-  new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+  new URLSearchParams(window.location.search).get('textLayout') === 'dom' ? 'dom' : 'pretext';
 // The writers' served fonts under `textLayout=pretext` (DOCE-HOST-1.14.1).
 const FONTS = TEXT_LAYOUT === 'pretext' ? LAB_FONTS : undefined;
 

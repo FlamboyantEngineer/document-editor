@@ -96,10 +96,10 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
   return sizes?.find(({ value }) => value === asked)?.value ?? sizes?.[0]?.value ?? 1;
 }
 
-// `?textLayout=pretext` lays the text out with the layout engine and draws its lines (DOCE-PAGINATION-11),
-// so the budgets can be measured with it.
+// The text is laid out with the layout engine and drawn on its lines (DOCE-PAGINATION-11);
+// `?textLayout=dom` measures it in the DOM.
 const TEXT_LAYOUT =
-  new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+  new URLSearchParams(window.location.search).get('textLayout') === 'dom' ? 'dom' : 'pretext';
 
 // `?rendering=html-canvas` paints each page into a canvas (DOCE-EDITOR-1.9), so the budgets can be
 // measured with it.

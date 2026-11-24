@@ -115,6 +115,30 @@ function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
   return new Set([...TEXT_ATOMS].filter((type) => !host.has(type)));
 }
 
+// Whether a block is one a host draws with a node view of its own, or holds one: it takes the room
+// that view shows, which only drawing it tells, so it is measured as drawn.
+function holdsHostBlock(node: ProseMirrorNode, host: ReadonlySet<string>): boolean {
+  if (host.size === 0) return false;
+  let found = host.has(node.type.name);
+  node.descendants((child) => {
+    found ||= child.isBlock && host.has(child.type.name);
+    return !found && !child.isTextblock;
+  });
+  return found;
+}
+
+// Why a block is left to be measured as drawn before the engine lays it out, or null: words
+// inserted outside a text block take room the engine cannot lay out, and a host's view the room it
+// shows.
+function refusedAsDrawn(
+  node: ProseMirrorNode,
+  inserted: InsertedTexts,
+  hostViews: ReadonlySet<string>,
+): string | null {
+  if (inserted.outside.has(node)) return 'inserted words outside a text block';
+  return holdsHostBlock(node, hostViews) ? 'drawn by a host view' : null;
+}
+
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
 function engineLayouts(
   options: TextEngineOptions,
@@ -249,6 +273,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf } = layouts;
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   const counts = createCounts();
+  const hostViews = new Set(options.hostViews ?? []);
   const widthOf = contentWidths(template);
   const tables = keptLines(text, { widthOf, markup, numbers: numbers.current, variablesKey });
   const footnoteOf = (part: ProseMirrorNode) => numbers.current().footnoteOf(part);
@@ -279,9 +304,9 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     ),
     measureBlock(node, scope, inserted = NO_INSERTED) {
       select();
-      // Words inserted outside a text block take room the engine cannot lay out.
-      if (inserted.outside.has(node)) {
-        counts.refuse('inserted words outside a text block');
+      const refusal = refusedAsDrawn(node, inserted, hostViews);
+      if (refusal) {
+        counts.refuse(refusal);
         return null;
       }
       const listed = contents.keyOf(node, numbers.current().doc) + variablesKey(node);

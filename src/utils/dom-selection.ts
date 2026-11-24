@@ -3,6 +3,7 @@
 // whatever commits a state the writer did not make, such as a layout or proofing results, first
 // has the view read the selection the browser shows.
 
+import { Selection as EditorSelection } from 'prosemirror-state';
 import type { DirectEditorProps, EditorView } from 'prosemirror-view';
 
 // The view's reader of DOM changes, which ProseMirror keeps internal.
@@ -49,8 +50,27 @@ function pressBeforeFocus(view: EditorView): void {
   }, 0);
 }
 
+// Whether the browser shows no selection of its own in the view as it takes focus: none, one
+// outside it, or a caret at the content's start or before it, where it puts one in an editable
+// element focused with no selection in it.
+function showsNoSelection(view: EditorView): boolean {
+  const shown = (view as unknown as FocusedView).domSelectionRange();
+  const { anchorNode, anchorOffset } = shown;
+  if (!anchorNode || !view.dom.contains(anchorNode)) return true;
+  if (anchorNode !== shown.focusNode || anchorOffset !== shown.focusOffset) return false;
+  const first = EditorSelection.findFrom(view.state.doc.resolve(0), 1, true);
+  try {
+    return first !== null && view.posAtDOM(anchorNode, anchorOffset) <= first.from;
+  } catch {
+    return false;
+  }
+}
+
 // Takes focus as ProseMirror does, so that its own check of the selection does not run, and runs
-// one check in its place twenty milliseconds on.
+// one check in its place twenty milliseconds on. A focus with no input where the browser shows no
+// selection of its own, as one a dialog hands back, draws the view's selection at once:
+// ProseMirror's own guard misses a document that opens with a selectable block, and a layout drawn
+// or a selection change reported before the check would otherwise take that place for the writer's.
 function takeFocus(view: EditorView): void {
   const own = view as unknown as FocusedView;
   const observer = own.domObserver;
@@ -62,6 +82,7 @@ function takeFocus(view: EditorView): void {
   view.dom.classList.add('ProseMirror-focused');
   observer.start();
   own.focused = true;
+  if (!focusing.input && showsNoSelection(view)) view.focus();
   view.dom.ownerDocument.defaultView?.setTimeout(() => {
     if (noted.get(view.dom) === focusing) noted.delete(view.dom);
     if (view.isDestroyed || !view.hasFocus()) return;
