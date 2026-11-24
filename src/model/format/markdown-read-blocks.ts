@@ -51,9 +51,10 @@ function table(node: Table, context: BlockContext): StoredNode {
   const width = node.children[0]?.children.length ?? 0;
   const rows = node.children.map((row, index) => ({
     type: 'tableRow',
-    content: row.children.slice(0, width).map((cell, column) => {
+    content: Array.from({ length: width }, (_, column) => {
+      const cell = row.children[column];
       const align = node.align?.[column];
-      const content = readInline(cell.children, context);
+      const content = cell ? readInline(cell.children, context) : [];
       return {
         type: index === 0 ? 'tableHeader' : 'tableCell',
         ...(align === 'center' || align === 'right' ? { attrs: { align } } : {}),

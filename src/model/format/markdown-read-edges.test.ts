@@ -58,6 +58,25 @@ describe('reading Markdown edge cases', () => {
     ]);
   });
 
+  it('DOCE-IMPORT-4.4 reads prices and prose before inline math as text', () => {
+    expect(blocksOf('Prices $5-$10. Formula $x$.')).toEqual([
+      paragraph(
+        text('Prices $5-$10. Formula '),
+        { type: 'math', attrs: { source: 'x' } },
+        text('.'),
+      ),
+    ]);
+    expect(blocksOf('From US$5 to US$10, then $2 + 2$ and $a\\$b$.')).toEqual([
+      paragraph(
+        text('From US$5 to US$10, then '),
+        { type: 'math', attrs: { source: '2 + 2' } },
+        text(' and '),
+        { type: 'math', attrs: { source: 'a\\$b' } },
+        text('.'),
+      ),
+    ]);
+  });
+
   it('DOCE-IMPORT-4.4 reads nested emphasis, character references and lazy quote lines as CommonMark does', () => {
     expect(blocksOf('*a **b** c*')).toEqual([
       paragraph(

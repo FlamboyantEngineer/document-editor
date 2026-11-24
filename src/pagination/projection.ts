@@ -257,7 +257,7 @@ function projectionState(
       splitBreaksPlugin(),
       ...(text
         ? textLayoutPlugins(text, {
-            canonical: () => session().canonical.doc,
+            map: source.map,
             redraw: () => take(session(), session().projection.tr.setMeta(forcedLinesKey, true)),
           })
         : []),

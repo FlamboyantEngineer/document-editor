@@ -98,6 +98,61 @@ describe('the pages engine and its inputs', () => {
     engine.destroy();
   });
 
+  it('DOCE-PAGINATION-11.1 DOCE-PAGINATION-12.10 lays out an unchanged table when its equation’s number grows', () => {
+    const equation: StoredNode = { type: 'mathBlock', attrs: { source: 'x' } };
+    const table: StoredNode = {
+      type: 'table',
+      content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [equation] }] }],
+    };
+    const doc = read([...Array.from({ length: 8 }, () => equation), table]);
+    const first = blocksOf(doc)[0];
+    const kept = blocksOf(doc).at(-1);
+    const watched = kept?.lastChild?.lastChild?.lastChild?.lastChild;
+    if (!first || !kept || watched?.type.name !== 'math_display') throw new Error('No equations');
+    let start = -1;
+    doc.descendants((node, pos) => {
+      if (node === first) start = pos;
+      return start < 0;
+    });
+    const later = EditorState.create({ doc }).tr.insert(
+      start,
+      first.type.create(first.attrs, first.content),
+    ).doc;
+    expect(blocksOf(later).at(-1)).toBe(kept);
+
+    const glyph = { tag: 'mi', attrs: {}, children: ['x'] };
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      typesetOf: () => ({ state: 'ready', math: { tag: 'math', attrs: {}, children: [glyph] } }),
+      mathLayouter: () => ({
+        key: 'fixed-equation',
+        prepare: () => null,
+        layout: () => ({
+          width: 900,
+          ascent: 18,
+          descent: 6,
+          svg: { tag: 'svg', attrs: {}, children: [] },
+          missing: '',
+        }),
+      }),
+    });
+    try {
+      engine.number(doc);
+      const before = engine.measureBlock(kept, null);
+      const placed = engine.mathOf(watched);
+      expect(placed?.end).toBeGreaterThan(0);
+      expect(engine.measureBlock(kept, null)).toBe(before);
+      engine.number(later);
+      expect(engine.measureBlock(kept, null)).not.toBe(before);
+      expect(engine.mathOf(watched)?.end).toBeGreaterThan(placed?.end ?? 0);
+      expect(engine.mathOf(watched)?.box.width).toBeLessThan(placed?.box.width ?? 0);
+    } finally {
+      engine.destroy();
+    }
+  });
+
   it('DOCE-PAGINATION-10.8 measures an inline atom as the pages measuring view draws it', () => {
     const doc = read([
       paragraph(text('aa '), { type: 'math_inline', content: [text('x^2')] }, text(' bb')),

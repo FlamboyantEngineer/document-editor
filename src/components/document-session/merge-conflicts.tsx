@@ -5,7 +5,6 @@
 import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button, ButtonGroup } from '@flamboyantengineer/ui-components/button';
 import { createInlineWordDiff, InlineTextDiff } from '@flamboyantengineer/ui-components/text-diff';
-import type { StoredNode } from '../../model/format/document-format.js';
 import type { DocumentSession } from '../../session/document-session.js';
 import type { MergeConflict } from '../../session/merge.js';
 import { canKeepBoth } from '../../session/merge-conflicts.js';
@@ -43,9 +42,9 @@ export interface MergeConflictsProps {
 }
 
 // A stored block's text, its blocks' texts one per line.
-function textOf(node: StoredNode | null): string {
+function textOf(node: MergeConflict['mine']): string {
   if (!node) return '';
-  if (node.type === 'text') return node.text ?? '';
+  if ('type' in node && node.type === 'text') return node.text ?? '';
   const parts = (node.content ?? []).map(textOf);
   return node.content?.some((child) => child.type === 'text') ? parts.join('') : parts.join('\n');
 }

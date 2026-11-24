@@ -5,6 +5,8 @@
 // SVG tree of paths and rules. MathJax and its STIX2 font load with the first equation; when
 // they cannot load there is no layouter and math takes the reserved box.
 
+import type { MathJaxStix2Font } from '@mathjax/mathjax-stix2-font/js/svg.js';
+import type { SVG as SvgOutput } from '@mathjax/src/js/output/svg.js';
 import type { MathTree } from '../../engine/math-typeset.js';
 import {
   type LaidMath,
@@ -49,13 +51,43 @@ const RANGES: Readonly<Record<string, () => Promise<unknown>>> = {
   variants: () => import('@mathjax/mathjax-stix2-font/js/svg/dynamic/variants.js'),
 };
 
-const RANGE_NAME = /\/svg\/dynamic\/([a-z-]+)\.js$/u;
-
-async function loadRange(name: string): Promise<unknown> {
-  const load = RANGES[RANGE_NAME.exec(name)?.[1] ?? ''];
+async function loadRange(name: string): Promise<void> {
+  const load = RANGES[name];
   if (!load) throw new Error(`No math glyph range ${name}`);
-  const loaded = (await load()) as { default?: unknown };
-  return loaded.default ?? loaded;
+  await load();
+}
+
+// The files register glyph data with MathJax's font class. Loading and applying that data belong
+// to this font instance, so a host's global loader and each range's shared load state stay intact.
+function isolateFontRanges(font: MathJaxStix2Font, retryAfter: (wait: Promise<void>) => void) {
+  let pending: Promise<void> | null = null;
+  const clear = () => {
+    pending = null;
+  };
+  font.loadDynamicFile = (range) => {
+    const loaded = loadRange(range.file).then(() => range.setup(font));
+    // An equation can resume once a range settles, even if another equation needed a failed range.
+    pending = loaded.then(clear, clear);
+    return loaded;
+  };
+  // A host can use MathJax in synchronous mode. Our files still load as asynchronous imports.
+  font.loadDynamicFileSync = (range) => retryAfter(font.loadDynamicFile(range));
+  return () => {
+    // MathJax removes the glyph placeholder as soon as it starts loading the range. Wait before
+    // even trying another equation, or it can cache a drawing with the still-loading glyph absent.
+    if (pending) retryAfter(pending);
+  };
+}
+
+function isolatedSvg(SVG: typeof SvgOutput, font: MathJaxStix2Font) {
+  // The upstream constructor writes its font class to a shared static used by other SVG outputs.
+  const previous = Object.getOwnPropertyDescriptor(SVG, 'genericFont');
+  try {
+    return new SVG({ fontData: font, fontCache: 'none', linebreaks: { inline: false } });
+  } finally {
+    if (previous) Object.defineProperty(SVG, 'genericFont', previous);
+    else Reflect.deleteProperty(SVG, 'genericFont');
+  }
 }
 
 const escapeText = (text: string) =>
@@ -156,25 +188,28 @@ async function createConverter(): Promise<Converter | null> {
     import('@mathjax/src/js/input/mathml.js'),
     import('@mathjax/src/js/output/svg.js'),
     import('@mathjax/src/js/adaptors/liteAdaptor.js'),
-    import('@mathjax/src/js/handlers/html.js'),
+    import('@mathjax/src/js/handlers/html/HTMLHandler.js'),
     import('@mathjax/mathjax-stix2-font/js/svg.js'),
   ]).catch(() => null);
   if (!modules) return null;
-  const [{ mathjax }, { MathML }, { SVG }, { liteAdaptor }, { RegisterHTMLHandler }, font] =
+  const [{ mathjax }, { MathML }, { SVG }, { liteAdaptor }, { HTMLHandler }, { MathJaxStix2Font }] =
     modules;
-  mathjax.asyncLoad = loadRange;
-  const adaptor = liteAdaptor();
-  RegisterHTMLHandler(adaptor);
-  const output = new SVG({
-    fontData: font.MathJaxStix2Font,
-    fontCache: 'none',
-    linebreaks: { inline: false, automatic: false },
+  const font = new MathJaxStix2Font();
+  const waitForFont = isolateFontRanges(font, mathjax.retryAfter);
+  const handler = new HTMLHandler(liteAdaptor());
+  const document = handler.create('', {
+    InputJax: new MathML(),
+    OutputJax: isolatedSvg(SVG, font),
   });
-  const document = mathjax.document('', { InputJax: new MathML(), OutputJax: output });
+  const convert = document.convert.bind(document);
+  document.convert = (markup, options) => {
+    waitForFont();
+    return convert(markup, options);
+  };
   // Sizes are read in ems, so the em and ex given here only set the attributes left out.
   const options = (display: boolean) => ({ display, em: 16, ex: 8, containerWidth: 1_000_000 });
   return {
-    key: `mathjax-${mathjax.version}-stix2-${font.MathJaxStix2Font.NAME}`,
+    key: `mathjax-${mathjax.version}-stix2-${MathJaxStix2Font.NAME}`,
     convert: (markup, display) => document.convert(markup, options(display)) as LiteNode,
     convertLoading: async (markup, display) =>
       (await document.convertPromise(markup, options(display))) as LiteNode,

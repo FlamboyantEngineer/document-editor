@@ -14,6 +14,7 @@ import {
   keepsAllNumbers,
   objectNumbers,
 } from './engine-numbers.js';
+import { createProjectionMap } from './projection-map.js';
 
 const schema = createDocumentSchema();
 
@@ -22,10 +23,20 @@ const figureCaption = (id: string, text: string) =>
 const figure = (id: string, text: string) =>
   node('figure', { dataId: id }, [figureCaption(`${id}-caption`, text)]);
 const equation = (text: string) => node('math_display', null, [documentSchema.text(text)]);
-const headerRow = () =>
-  node('table_row', { dataId: 'header-row' }, [
-    node('table_header', null, [equation('x'), figure('header-figure', 'In a header')]),
+const headerRow = (nested: boolean) => {
+  const math = equation('x');
+  const block = nested
+    ? node('table_figure', null, [
+        node('table_caption', null),
+        node('table', { captionEnabled: false }, [
+          node('table_row', null, [node('table_cell', null, [math])]),
+        ]),
+      ])
+    : math;
+  return node('table_row', { dataId: 'header-row' }, [
+    node('table_header', null, [block, figure('header-figure', 'In a header')]),
   ]);
+};
 const bodyRow = () =>
   node('table_row', null, [node('table_cell', null, [node('paragraph', null)])]);
 
@@ -42,60 +53,101 @@ describe('engine numbers', () => {
       ['ca91001c', 'Code Block 1.1 - '],
       ['ca91001f', 'Figure 1.2 - '],
     ]);
-    expect(numbers.equations.slice(0, 3)).toEqual(['(Eq. i)', '(Eq. 1.1)', '(Eq. 1.2)']);
+    expect([...numbers.equations.values()].slice(0, 3)).toEqual([
+      '(Eq. i)',
+      '(Eq. 1.1)',
+      '(Eq. 1.2)',
+    ]);
   });
 
-  it('DOCE-PAGINATION-11.9 DOCE-CONTENTS-1.2 draws and counts objects in repeated table headers', () => {
-    const table = node('table_figure', null, [
-      node('table_caption', null),
-      node('table', { dataId: 'table' }, [headerRow(), bodyRow(), bodyRow()]),
-    ]);
-    const following = [equation('y'), figure('last-figure', 'After the table')];
-    const canonical = pagesDocument([page([table, ...following])]);
-    const split = splitTableFigureWith(true)(
-      {
-        node: table,
-        height: 30,
-        marginTop: 0,
-        marginBottom: 0,
-        measurement: { children: [0, 10, 20].map((top) => ({ top, bottom: top + 10 })) },
-      },
-      20,
-    );
-    const tail = split?.tail[0]?.node;
-    if (!split || !tail) throw new Error('The table did not split.');
-    const continuation = tail.child(1);
-    const copy = headerRow();
-    const tailWithEditedHeader = tail.type.create(tail.attrs, [
-      tail.child(0),
-      continuation.type.create(continuation.attrs, [copy, continuation.child(1)]),
-    ]);
+  it.each([false, true])(
+    'DOCE-PAGINATION-11.9 DOCE-CONTENTS-1.2 draws repeated header numbers with a nested equation table %s',
+    (nested) => {
+      const table = node('table_figure', null, [
+        node('table_caption', null),
+        node('table', { dataId: 'table' }, [headerRow(nested), bodyRow(), bodyRow()]),
+      ]);
+      const following = [equation('y'), figure('last-figure', 'After the table')];
+      const canonical = pagesDocument([page([table, ...following])]);
+      const split = splitTableFigureWith(true)(
+        {
+          node: table,
+          height: 30,
+          marginTop: 0,
+          marginBottom: 0,
+          measurement: { children: [0, 10, 20].map((top) => ({ top, bottom: top + 10 })) },
+        },
+        20,
+      );
+      const tail = split?.tail[0]?.node;
+      if (!split || !tail) throw new Error('The table did not split.');
+      const continuation = tail.child(1);
+      const copy = headerRow(nested);
+      const tailWithEditedHeader = tail.type.create(tail.attrs, [
+        tail.child(0),
+        continuation.type.create(continuation.attrs, [copy, continuation.child(1)]),
+      ]);
+      const projected = pagesDocument([
+        page([split.head.node]),
+        page([tailWithEditedHeader, ...following]),
+      ]);
+      canonical.check();
+      projected.check();
+
+      const catalog = catalogDocument(projected, BASE_TEMPLATE);
+      expect(catalog.figures?.map(({ number }) => number)).toEqual(['Figure 1', 'Figure 2']);
+      const equations = [...objectNumbers(canonical, BASE_TEMPLATE).equations.values()];
+      expect(equations).toHaveLength(2);
+      expect(catalog.equations?.map(({ number }) => number)).toEqual(equations);
+      const caption = copy.child(0).child(1).child(0);
+      expect(captionNumbers(projected, BASE_TEMPLATE).labelOf(caption)).toBe('Figure 1 - ');
+
+      const engine = { ...stubEngine(), template: BASE_TEMPLATE };
+      const map = createProjectionMap(projected);
+      const plugin = engineNumbers({ engine: () => engine, map: () => map });
+      const drawn = engineNumbersKey.getState(
+        EditorState.create({ doc: projected, plugins: [plugin] }),
+      );
+      const numbers = drawn
+        ?.find()
+        .filter(({ from }) => projected.nodeAt(from)?.type.name === 'math_display')
+        .sort((left, right) => left.from - right.from)
+        .map(({ spec }) => (spec as { number: string }).number);
+      expect(numbers).toEqual([equations[0], equations[0], equations[1]]);
+    },
+  );
+
+  it('DOCE-PAGINATION-11.9 uses each equation’s canonical position in continued columns', () => {
+    const columns = (part: number, left: string, right: string) =>
+      node('layout_section', { dataId: 'columns', layoutPreset: 'halves', splitPartIndex: part }, [
+        node('layout_column', null, [equation(left)]),
+        node('layout_column', null, [equation(right)]),
+      ]);
     const projected = pagesDocument([
-      page([split.head.node]),
-      page([tailWithEditedHeader, ...following]),
+      page([columns(0, 'a', 'c')], { header: [equation('header')] }),
+      page([columns(1, 'b', 'd')], { footer: [equation('footer')] }),
     ]);
-    canonical.check();
-    projected.check();
-
-    const catalog = catalogDocument(projected, BASE_TEMPLATE);
-    expect(catalog.figures?.map(({ number }) => number)).toEqual(['Figure 1', 'Figure 2']);
-    const equations = objectNumbers(canonical, BASE_TEMPLATE).equations;
-    expect(equations).toHaveLength(2);
-    expect(catalog.equations?.map(({ number }) => number)).toEqual(equations);
-    const caption = copy.child(0).child(1).child(0);
-    expect(captionNumbers(projected, BASE_TEMPLATE).labelOf(caption)).toBe('Figure 1 - ');
-
+    const map = createProjectionMap(projected);
     const engine = { ...stubEngine(), template: BASE_TEMPLATE };
-    const plugin = engineNumbers({ engine: () => engine, canonical: () => canonical });
+    const plugin = engineNumbers({ engine: () => engine, map: () => map });
     const drawn = engineNumbersKey.getState(
       EditorState.create({ doc: projected, plugins: [plugin] }),
     );
-    const numbers = drawn
+    const labels = drawn
       ?.find()
-      .filter(({ from }) => projected.nodeAt(from)?.type.name === 'math_display')
-      .sort((left, right) => left.from - right.from)
-      .map(({ spec }) => (spec as { number: string }).number);
-    expect(numbers).toEqual([equations[0], equations[0], equations[1]]);
+      .sort((a, b) => a.from - b.from)
+      .map(({ from, spec }) => [
+        projected.nodeAt(from)?.textContent,
+        (spec as { number: string }).number,
+      ]);
+    const numbered = [...objectNumbers(map.canonical, BASE_TEMPLATE).equations.values()];
+    expect(numbered).toHaveLength(4);
+    expect(labels).toEqual([
+      ['a', numbered[0]],
+      ['c', numbered[2]],
+      ['b', numbered[1]],
+      ['d', numbered[3]],
+    ]);
   });
 
   it('DOCE-PAGINATION-11.9 counts the numbers again only when an edit can change them', () => {

@@ -7,7 +7,8 @@
     "@handlewithcare/react-prosemirror": "3.3.0",
     "prosemirror-view": "1.42.3",
     "@y/y": "14.0.0-rc.23",
-    "lib0": "1.0.0-rc.22"
+    "lib0": "1.0.0-rc.22",
+    "katex": "^0.19.1"
   },
   "pinned": ["@flamboyantengineer/ui-components", "@flamboyantengineer/collaboration-tools"],
   "shared": [

@@ -11,6 +11,7 @@ import type { RefObject } from 'react';
 import { proofingKey, searchKey, searchPaneKey } from '../../engine/index.js';
 import { codeLineNumbers } from '../../engine/object-views.js';
 import type { SuggestionMarkup } from '../../layout-engine/hidden-suggestions.js';
+import type { MathLayouter } from '../../layout-engine/math-atoms.js';
 import {
   createLayoutRules,
   findTemplateSection,
@@ -153,6 +154,13 @@ interface PagingSettings {
   readonly markup: () => SuggestionMarkup;
 }
 
+// Keeps typeset math on the engine's reserved boxes when its built-in layouter cannot load.
+const reservedMathLayouter: MathLayouter = {
+  key: 'reserved-math',
+  prepare: () => null,
+  layout: () => null,
+};
+
 // The layout engine lays the text out with the template the pages show now, measured with the
 // served fonts, which the pages wait for (DOCE-HOST-1.14.1), code beside the gutter of line
 // numbers the state's object views draw, and math sized and drawn by MathJax (DOCE-PAGINATION-12.12),
@@ -171,9 +179,12 @@ function textLayoutOf(
     markup,
     // The values the page variables draw (`ownPlugins`), which the text's variables are laid out in.
     variables: { value: (key: string) => latest.current.variables?.value(key) },
-    mathLayouter: import('../../layout-engine/math/mathjax-layouter.js').then((module) =>
-      module.createMathJaxLayouter(),
-    ),
+    mathLayouter: import('../../layout-engine/math/mathjax-layouter.js')
+      .then((module) => module.createMathJaxLayouter())
+      .then(
+        (layouter) => layouter ?? reservedMathLayouter,
+        () => reservedMathLayouter,
+      ),
   };
 }
 

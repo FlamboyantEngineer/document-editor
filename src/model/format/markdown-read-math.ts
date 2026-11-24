@@ -3,9 +3,9 @@
 // stays text. A dollar sign a backslash escapes does not close it and stays in its source. The
 // math's source is taken as written, so Markdown inside it, such as `*`, is not read.
 //
-// Whether a dollar sign closes math depends only on the characters beside it, never on where the
-// math opened, so once an opening finds no closing up to the end of its text, no later opening in
-// that text looks again: reading takes work in proportion to the text.
+// The first unescaped sign must be a valid closing sign. Skipping an invalid sign could swallow
+// prose and the start of another formula. Once an opening finds no sign up to the end of its
+// text, no later opening in that text looks again: reading takes work in proportion to the text.
 
 import type { Extension as FromMarkdownExtension, Handle } from 'mdast-util-from-markdown';
 import type { Code, Construct, Effects, Extension, State, Tokenizer } from 'micromark-util-types';
@@ -55,9 +55,10 @@ function mathConstruct(unclosed: Unclosed): Construct {
         unclosed.to = this.now().offset;
         return nok(code);
       }
-      if (code === DOLLAR && !isSpace(previous)) {
+      if (code === DOLLAR) {
+        if (isSpace(previous)) return nok(code);
         effects.exit('pandocMathData');
-        return effects.attempt(closing, done, reopen)(code);
+        return effects.attempt(closing, done, nok)(code);
       }
       if (code < -2) {
         effects.exit('pandocMathData');
@@ -76,13 +77,6 @@ function mathConstruct(unclosed: Unclosed): Construct {
     // The character after a backslash, a dollar sign included, belongs to the math.
     const escaped = (code: Code): State | undefined => {
       if (code === null || code < -2) return data(code);
-      effects.consume(code);
-      previous = code;
-      return data;
-    };
-
-    const reopen = (code: Code): State | undefined => {
-      effects.enter('pandocMathData');
       effects.consume(code);
       previous = code;
       return data;

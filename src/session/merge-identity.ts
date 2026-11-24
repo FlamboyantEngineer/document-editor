@@ -8,7 +8,7 @@ import { createElementId } from '../engine/element-ids.js';
 import { cloneJson } from '../model/clone-json.js';
 import type { DocumentFile, StoredNode } from '../model/format/document-format.js';
 import { storedNodeKey } from './dirty.js';
-import { childElements, elementIdKey, elementIdOf } from './stored-elements.js';
+import { childElements, elementIdKey, elementIdOf, sectionKey } from './stored-elements.js';
 
 /** The three versions a merge reads, and how it makes an id. */
 interface MergeVersions {
@@ -153,7 +153,7 @@ function identifySiblings(siblings: Siblings, context: Identifying): void {
 
 // A section is found in each version by its id, or by its place when it has none.
 const sectionsByKey = (file: DocumentFile) =>
-  new Map(file.sections.map((section, index) => [section.id ?? `#${String(index)}`, section]));
+  new Map(file.sections.map((section, index) => [sectionKey(section, index), section]));
 
 // Ids no version holds, from `newId`.
 function freshIds(versions: MergeVersions, newId: () => string): () => string {

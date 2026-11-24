@@ -28,7 +28,7 @@ export interface PickedAsset {
 
 type Upload = { readonly file: File; readonly error?: string | undefined; readonly done: boolean };
 
-function uploadError(reason: unknown, fallback: string): string {
+function failureMessage(reason: unknown, fallback: string): string {
   const message = reason instanceof Error ? reason.message : reason;
   return typeof message === 'string' && message.trim() ? message : fallback;
 }
@@ -65,7 +65,7 @@ export function useFigureUpload(
     const failed = (reason: unknown) => {
       if (!controller.signal.aborted) {
         running.current = null;
-        setUpload({ file, done: true, error: uploadError(reason, labels.uploadFailed) });
+        setUpload({ file, done: true, error: failureMessage(reason, labels.uploadFailed) });
       }
     };
     const options = current
@@ -196,6 +196,38 @@ export function ImageSource({
   );
 }
 
+interface DiagramEditRequest {
+  readonly current: StoredDiagram | null;
+  readonly signal: AbortSignal;
+  readonly fallback: string;
+  readonly onSave: (diagram: StoredDiagram) => void;
+  readonly onFinish: (diagram: StoredDiagram | null) => void;
+  readonly onError: (message: string) => void;
+}
+
+/** Opens the host editor and forwards its saves and result while the request is active. */
+export async function editHostedDiagram(
+  diagrams: DiagramAdapter,
+  { current, signal, fallback, onSave, onFinish, onError }: DiagramEditRequest,
+): Promise<void> {
+  const failed = (reason: unknown) => {
+    if (!signal.aborted) onError(failureMessage(reason, fallback));
+  };
+  const save = (stored: StoredDiagram) => {
+    if (!signal.aborted) onSave(stored);
+  };
+  let result: Awaited<ReturnType<DiagramAdapter['edit']>>;
+  try {
+    result = await diagrams.edit(current, signal, { onSave: save });
+  } catch (reason) {
+    failed(reason);
+    return;
+  }
+  if (signal.aborted) return;
+  if (result.ok) onFinish(result.value);
+  else failed(result.error.message);
+}
+
 /**
  * Opens the host's diagram editor, handing on each diagram a save stores while it stays open
  * (`onSave`) and the one it resolves with (`onStored`); closing the dialog aborts it.
@@ -219,18 +251,17 @@ export function useDiagramEditing(
     const controller = new AbortController();
     running.current = controller;
     setState({ pending: true });
-    const failed = (message?: string) =>
-      setState({ pending: false, error: message ?? labels.diagramFailed });
-    const save = (stored: StoredDiagram) => {
-      if (!controller.signal.aborted) onSave(stored);
-    };
-    diagrams.edit(diagram, controller.signal, { onSave: save }).then((result) => {
-      if (controller.signal.aborted) return undefined;
-      if (!result.ok) return failed(result.error.message);
-      if (result.value) onStored(result.value);
-      setState({ pending: false });
-      return undefined;
-    }, failed);
+    void editHostedDiagram(diagrams, {
+      current: diagram,
+      signal: controller.signal,
+      fallback: labels.diagramFailed,
+      onSave,
+      onFinish: (stored) => {
+        if (stored) onStored(stored);
+        setState({ pending: false });
+      },
+      onError: (error) => setState({ pending: false, error }),
+    });
   };
   return { ...state, edit };
 }

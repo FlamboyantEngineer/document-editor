@@ -100,6 +100,42 @@ const offPlan = (page: Page) =>
   );
 
 test.describe('equations on the engine’s lines', () => {
+  test('DOCE-PAGINATION-12.9 DOCE-PAGINATION-12.12 reserves equation boxes when the MathJax chunk fails', async ({
+    page,
+  }) => {
+    let requested = false;
+    await page.route('**/mathjax-layouter-*.js', (route) => {
+      requested = true;
+      return route.fulfill({
+        contentType: 'application/javascript',
+        body: 'throw new Error("MathJax chunk unavailable");',
+      });
+    });
+    await load(
+      page,
+      documentOf(paragraph(math('x+1')), { type: 'mathBlock', attrs: { source: 'x+1' } } as Stored),
+    );
+    expect(requested).toBe(true);
+    const kept = page.locator(`${MATH}[data-state='ready'][data-math-layout='reserved']`);
+    await expect(kept).toHaveCount(2);
+    await expect.poll(() => provisional(page)).toBe(false);
+    await expect(kept.locator('math')).toHaveCount(2);
+    await expect(kept.locator('.de-math__drawing')).toHaveCount(0);
+    const boxes = await kept.evaluateAll((equations) =>
+      equations.map((equation) => {
+        const style = getComputedStyle(equation);
+        const em = parseFloat(style.fontSize);
+        const width = parseFloat(style.getPropertyValue('--de-math-width'));
+        const ascent = parseFloat(style.getPropertyValue('--de-math-ascent'));
+        const descent = parseFloat(style.getPropertyValue('--de-math-descent'));
+        return { width: width / em, height: (ascent + descent) / em };
+      }),
+    );
+    expect(boxes[0]?.width).toBeCloseTo(3);
+    expect(boxes[0]?.height).toBeCloseTo(1);
+    expect(boxes[1]?.height).toBeCloseTo(2);
+  });
+
   test('DOCE-PAGINATION-10.8 keeps slow math provisional and lays it out at its typeset size', async ({
     page,
   }) => {
@@ -195,6 +231,46 @@ test.describe('equations on the engine’s lines', () => {
     expect(await drawnMath(printed, PRINTED)).toEqual(editor);
     await printed.close();
   });
+
+  test('DOCE-PAGINATION-11.9 DOCE-PAGINATION-12.10 DOCE-PAGINATION-12.11 fits equations after the contents beside their numbers and tags', async ({
+    page,
+  }) => {
+    await page.setViewportSize(ROOMY);
+    const wide = Array.from({ length: 42 }, () => 'x').join('+');
+    const equation = (source: string): Stored => ({ type: 'mathBlock', attrs: { source } });
+    await load(
+      page,
+      documentOf(
+        equation('x'),
+        { type: 'contents', attrs: { kind: 'toc' } },
+        equation(wide),
+        equation(`${wide}\\tag{TAG}`),
+      ),
+      {
+        formatVersion: 1,
+        id: 'numbered-equations',
+        page: { size: 'US Letter', margins: { left: '208px', right: '208px' } },
+      },
+    );
+    await expect(page.locator(`${MATH}[data-math-layout='laid']`)).toHaveCount(3);
+    await expect.poll(() => provisional(page)).toBe(false);
+
+    const expectSpacing = async (view: Page, root: string) => {
+      const boxes = await equationSpacing(view, root);
+      expect(boxes.map(({ number }) => number)).toEqual(['"(Eq. 1.)"', '"(Eq. 2.)"', '"(Eq. 3.)"']);
+      const [, plain, tagged] = boxes;
+      expect(plain?.lineWidth).toBeCloseTo(400, 1);
+      expect(plain?.numberGap).toBeGreaterThan(0);
+      expect(tagged?.tagGap).toBeGreaterThan(4);
+      expect(tagged?.numberGap).toBeGreaterThan(0);
+    };
+    await expectSpacing(page, EDITOR);
+    await showViewer(page);
+    await expectSpacing(page, VIEWER);
+    const printed = await printed_(page);
+    await expectSpacing(printed, PRINTED);
+    await printed.close();
+  });
 });
 
 // Shows the pages' layout in the read-only viewer, every page drawn.
@@ -271,4 +347,22 @@ const drawnMath = (page: Page, root: string) =>
         },
       ),
     root,
+  );
+
+// The clearance beside the actual drawing and tag, including the generated number’s width.
+const equationSpacing = (page: Page, root: string) =>
+  page.locator(`${root} .pm-page-content .de-math[data-display='display']`).evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const line = node.getBoundingClientRect();
+      const equation = node.querySelector('.de-math__drawing')?.getBoundingClientRect();
+      if (!equation) throw new Error('The equation has no drawing');
+      const tag = node.querySelector('.de-math__tag')?.getBoundingClientRect();
+      const number = getComputedStyle(node, '::after');
+      return {
+        lineWidth: line.width,
+        number: number.content,
+        numberGap: line.right - Number.parseFloat(number.width) - (tag?.right ?? equation.right),
+        tagGap: tag ? tag.left - equation.right : null,
+      };
+    }),
   );

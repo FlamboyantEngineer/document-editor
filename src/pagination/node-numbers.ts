@@ -7,10 +7,9 @@ import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
-import { DEFAULT_CONTENTS_KINDS } from '../model/contents/contents-kinds.js';
-import { catalogDocument } from '../model/contents/document-catalog.js';
 import type { TemplateFile } from '../model/index.js';
-import { captionLabelKeys } from './caption-label-keys.js';
+import { blockLabelKeys } from './block-label-keys.js';
+import { equationNumbers } from './equation-numbers.js';
 
 /** A document's numbers by node, for the blocks laid out next. */
 export interface NodeNumbers {
@@ -59,18 +58,14 @@ function footnotesOf(doc: ProseMirrorNode) {
   return { byId, byBlock };
 }
 
-const EQUATIONS = { equations: DEFAULT_CONTENTS_KINDS.equations };
-
-// Each display equation's number, in document order as the pages draw them (`engineNumbers`).
+// The number at each equation's position, by node for the block geometry that lays it out.
 function equationsOf(doc: ProseMirrorNode, template: TemplateFile) {
-  const numbers = (catalogDocument(doc, template, EQUATIONS).equations ?? []).map(
-    (entry) => entry.number,
-  );
+  const byPosition = equationNumbers(doc, template);
   const byNode = new Map<ProseMirrorNode, string>();
-  doc.descendants((node) => {
-    if (node.type.name !== 'math_display') return !node.isTextblock;
-    byNode.set(node, numbers[byNode.size] ?? '');
-    return false;
+  doc.descendants((node, pos) => {
+    const number = byPosition.get(pos);
+    if (number !== undefined) byNode.set(node, number);
+    return !node.isTextblock;
   });
   return byNode;
 }
@@ -101,15 +96,17 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     }
     const footnotes = footnotesOf(doc);
     const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
-    // Read when a block is laid out, not for the numbering the pages draw on every change.
-    let captions: ReadonlyMap<ProseMirrorNode, string> | null = null;
-    const captionKey = (node: ProseMirrorNode) =>
-      (captions ??= captionLabelKeys(doc, (caption) => labels.labelOf(caption))).get(node) ?? '';
     let equations: ReadonlyMap<ProseMirrorNode, string> | null = null;
     const equationOf = (node: ProseMirrorNode) =>
       node.type.name === 'math_display'
         ? (equations ??= equationsOf(doc, template)).get(node) || undefined
         : undefined;
+    // Read when a block is laid out, including numbers of its unchanged descendant equations.
+    let keys: ReadonlyMap<ProseMirrorNode, string> | null = null;
+    const labelKey = (node: ProseMirrorNode) =>
+      (keys ??= blockLabelKeys(doc, (child) => labels.labelOf(child) ?? equationOf(child))).get(
+        node,
+      ) ?? '';
     return {
       doc,
       prefixes,
@@ -118,7 +115,7 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
       footnoteOf,
       equationOf,
       keyOf: (node) =>
-        `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}|${equationOf(node) ?? ''}`,
+        `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${labelKey(node)}`,
     };
   };
   const numbering = {

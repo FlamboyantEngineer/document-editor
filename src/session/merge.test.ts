@@ -398,4 +398,65 @@ describe('resolveMergeConflict', () => {
     const resolved = resolveMergeConflict(inList, conflict, { choice: 'theirs', newId });
     expect(resolved).toEqual(file(list('l0000001', [paragraph('a0000002', 'Two, theirs')])));
   });
+
+  it.each(['s0000002', null])(
+    'DOCE-SESSION-4.2 settles a deleted section identified by %s',
+    (id) => {
+      const section = { id, name: 'summary', content: [TWO] };
+      const base = { ...file(ONE), sections: [...file(ONE).sections, section] };
+      const changed = { ...section, content: [paragraph('a0000002', 'Two, theirs')] };
+      const theirs = { ...base, sections: [...file(ONE).sections, changed] };
+      const merged = mergeDocuments({ base, mine: file(ONE), theirs });
+      const [conflict] = merged.conflicts;
+      expect(conflict).toEqual({ id: id ?? '#1', mine: null, theirs: changed });
+      if (!conflict) throw new Error('Expected the section conflict.');
+      expect(canKeepBoth(conflict)).toBe(false);
+      expect(resolveMergeConflict(merged.content, conflict, { choice: 'both', newId })).toBe(
+        merged.content,
+      );
+      expect(resolveMergeConflict(merged.content, conflict, { choice: 'mine', newId })).toEqual(
+        file(ONE),
+      );
+      expect(resolveMergeConflict(merged.content, conflict, { choice: 'theirs', newId })).toEqual(
+        theirs,
+      );
+      const reversed = mergeDocuments({ base, mine: theirs, theirs: file(ONE) });
+      const [keepReader] = reversed.conflicts;
+      if (!keepReader) throw new Error('Expected the reversed section conflict.');
+      const edited = { ...changed, content: [paragraph('a0000002', 'Two, then more')] };
+      const continuing = { ...base, sections: [...file(ONE).sections, edited] };
+      const kept = resolveMergeConflict(continuing, keepReader, { choice: 'mine', newId });
+      expect(kept).toEqual(continuing);
+      expect(kept).not.toBe(continuing);
+      expect(resolveMergeConflict(continuing, keepReader, { choice: 'theirs', newId })).toEqual(
+        file(ONE),
+      );
+    },
+  );
+
+  it('DOCE-SESSION-4.2 returns the input when a selected version cannot be placed', () => {
+    const withoutBlock = file(ONE);
+    expect(resolveMergeConflict(withoutBlock, conflict, { choice: 'theirs', newId })).toBe(
+      withoutBlock,
+    );
+    const only = { id: 's0000001', mine: null, theirs: withoutBlock.sections[0] ?? null };
+    expect(resolveMergeConflict(withoutBlock, only, { choice: 'mine', newId })).toBe(withoutBlock);
+  });
+
+  it('DOCE-SESSION-4.2 resolves the same anonymous section after another deletion changes its position', () => {
+    const first = { id: 's0000001', content: [ONE] };
+    const second = { content: [TWO] };
+    const third = { content: [THREE] };
+    const base = { ...file(), sections: [first, second, third] };
+    const mine = { ...base, sections: [third] };
+    // The resolver receives choices in the order the reader makes them, after the merge.
+    const conflictA = { id: first.id, mine: null, theirs: first };
+    const conflictB = { id: '#1', mine: null, theirs: second };
+    const afterFirst = resolveMergeConflict(base, conflictA, { choice: 'mine', newId });
+    expect(afterFirst.sections).toEqual([second, third]);
+    expect(resolveMergeConflict(afterFirst, conflictB, { choice: 'mine', newId })).toEqual(mine);
+
+    const ambiguous = { ...base, sections: [second, third, second] };
+    expect(resolveMergeConflict(ambiguous, conflictB, { choice: 'mine', newId })).toBe(ambiguous);
+  });
 });

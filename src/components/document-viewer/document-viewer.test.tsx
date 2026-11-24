@@ -7,6 +7,7 @@ import { node, page, pagesDocument, pagesState, stubEngine } from '../../../test
 import { BASE_TEMPLATE } from '../../model/index.js';
 import { engineNumbers } from '../../pagination/engine-numbers.js';
 import { pagesLayout } from '../../pagination/pages-layout.js';
+import { createProjectionMap } from '../../pagination/projection-map.js';
 import { DocumentViewer } from './document-viewer.js';
 
 const paragraph = (value: string): Node =>
@@ -39,7 +40,8 @@ function tenPages(count = 10, withImages = false, title = 'Part') {
     if (each.type.name === 'heading') headings.set(pos, String(headings.size + 1));
   });
   const engine = { ...stubEngine({ perLine: 4, headings }), template: BASE_TEMPLATE };
-  const numbers = engineNumbers({ engine: () => engine, canonical: () => doc });
+  const map = createProjectionMap(doc);
+  const numbers = engineNumbers({ engine: () => engine, map: () => map });
   const layout = pagesLayout(pagesState(doc, engine, [numbers]));
   if (!layout) throw new Error('no layout');
   return layout;

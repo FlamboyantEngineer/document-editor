@@ -12,10 +12,10 @@ import { createElementId } from '../engine/element-ids.js';
 import { replaceDocumentContent } from '../engine/replace-document-content.js';
 import type { EditorHost } from '../host/adapters.js';
 import type { RoomConnection, RoomState } from '../host/session-adapters.js';
-import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import { accessDrafts } from './draft-access.js';
 import { type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
+import { readStored } from './open-document.js';
 import type { OpenedRoom, RoomDraft } from './room-open.js';
 import { roomRefusal } from './room-status.js';
 import type { SessionStores } from './store-session.js';
@@ -143,9 +143,15 @@ export function createRoomDrafts(context: RoomDraftsContext) {
         choice: SWAPPED[choice],
         newId: createElementId,
       });
-      const { doc } = readDocumentFile(resolved, schema, { unknown: 'keep' });
+      if (resolved === content) return;
+      const read = readStored(resolved, schema);
+      if (!read.ok) return;
       const { sendRoomDocument } = await loadOffline();
-      show(room, shown.state.apply(replaceDocumentContent(shown.state, doc)), sendRoomDocument);
+      if (document.get() !== shown || keeping.closed) return;
+      const change = replaceDocumentContent(shown.state, read.value.doc);
+      const { state, transactions } = shown.state.applyTransaction(change);
+      if (change.docChanged && !transactions.length) return;
+      show(room, state, sendRoomDocument);
       conflicts.set(conflicts.get().filter((each) => each !== leftover));
       void keep(room);
     },

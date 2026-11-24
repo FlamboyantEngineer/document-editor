@@ -1,9 +1,9 @@
 import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import { type EditorState, Selection, TextSelection } from 'prosemirror-state';
-import { StepMap } from 'prosemirror-transform';
+import type { StepMap } from 'prosemirror-transform';
 import { addressResolver } from '../engine/presence-address.js';
 import { markRemote } from '../engine/transaction-kind.js';
-import { diffFragments } from '../utils/fragment-diff.js';
+import { mapRoomText } from './room-text-map.js';
 
 function uniqueTextblock(doc: ProseMirrorNode, block: ProseMirrorNode): number | null {
   let start: number | null = null;
@@ -35,19 +35,17 @@ function keptTextblock(
 export function keepRoomSelection(state: EditorState, kept: Selection): EditorState {
   const { doc } = state;
   const resolveAddress = addressResolver(doc);
+  const maps = new Map<number, StepMap>();
   const near = ($pos: ResolvedPos) => {
     const start = keptTextblock($pos, doc, resolveAddress);
     const $block = start === null ? null : doc.resolve(start);
     if (!$block?.parent.isTextblock) {
       return Selection.near(doc.resolve(Math.min($pos.pos, doc.content.size)));
     }
-    const diff = diffFragments($pos.parent.content, $block.parent.content);
-    const offset =
-      diff && diff.endA !== diff.endB
-        ? new StepMap([diff.start, diff.endA - diff.start, diff.endB - diff.start]).map(
-            $pos.parentOffset,
-          )
-        : $pos.parentOffset;
+    const from = $pos.start();
+    const map = maps.get(from) ?? mapRoomText($pos.parent.content, $block.parent.content);
+    maps.set(from, map);
+    const offset = map.map($pos.parentOffset);
     return Selection.near(doc.resolve($block.pos + offset));
   };
   const head = near(kept.$head);

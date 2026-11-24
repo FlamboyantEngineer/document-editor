@@ -39,7 +39,7 @@ const paragraph = (...content: StoredNode[]): StoredNode => ({ type: 'paragraph'
 
 const newProofer = () =>
   createWordListProofer({
-    corrections: { teh: ['the'], recieve: ['receive'] },
+    corrections: { teh: ['the'], recieve: ['receive'], x: ['word'] },
     grammar: { 'a apple': { message: 'Use an before a vowel.', suggestions: ['an apple'] } },
   });
 
@@ -154,6 +154,27 @@ describe('proofing', () => {
     expect(next.doc.textBetween(0, next.doc.content.size)).toBe('.');
     expect(next.selection.from).toBe(issue.from);
   });
+
+  it.each([
+    ['Replace', replaceProofingIssue],
+    ['Replace All', replaceAllProofingIssues],
+  ] as const)(
+    'DOCE-PROOFING-2.1 DOCE-PROOFING-2.4 keeps a one-character comment anchor through %s',
+    async (_label, replace) => {
+      const marks = [{ type: 'comment', attrs: { thread: 'thread-1' } }];
+      const state = await checked(
+        stateOf(paragraph(text('Before '), text('x', marks), text(' after'))),
+      );
+      const [issue] = listProofingIssues(state);
+      if (!issue) throw new Error('An issue is marked');
+      const stored = writeDocumentFile(run(state, replace(issue, 'word')).doc);
+      expect(stored.sections[0]?.content[0]?.content).toEqual([
+        text('Before '),
+        text('word', marks),
+        text(' after'),
+      ]);
+    },
+  );
 
   it('DOCE-PROOFING-2.2 DOCE-PROOFING-3.3 DOCE-HOST-1.7 ignores a word everywhere and adds it to the dictionary', async () => {
     const state = await checked(stateOf(paragraph(text('teh and teh and recieve'))));

@@ -4,13 +4,7 @@
 // revealing it. Abbreviations whose glossary entry needs the writer count and are visited with the
 // issues.
 
-import {
-  type Command,
-  type EditorState,
-  NodeSelection,
-  TextSelection,
-  type Transaction,
-} from 'prosemirror-state';
+import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type AbbreviationIssue, listAbbreviationIssues } from './abbreviation-health.js';
 import { isEditRangeLocked } from './edit-lock.js';
@@ -23,6 +17,7 @@ import {
   type ProofingState,
 } from './proofing.js';
 import { issueFromDecoration } from './proofing-ranges.js';
+import { replaceMarkedText } from './replace-text.js';
 
 /** The proofing state, or null when the document is not proofed. */
 export function proofingState(state: EditorState): ProofingState | null {
@@ -96,12 +91,6 @@ const proofingMeta =
     return true;
   };
 
-function replaceIn(tr: Transaction, issue: ProofingIssueAt, replacement: string) {
-  if (replacement === '') return tr.delete(issue.from, issue.to);
-  const marks = tr.doc.resolve(issue.from + 1).marks();
-  return tr.replaceWith(issue.from, issue.to, tr.doc.type.schema.text(replacement, marks));
-}
-
 function canReplaceRange(state: EditorState, issue: ProofingIssueAt, doc = state.doc): boolean {
   return !isEditRangeLocked(state, issue, doc) && !isHostContentAt(doc, issue.from);
 }
@@ -118,7 +107,7 @@ export function replaceProofingIssue(issue: ProofingIssueAt, replacement: string
     )
       return false;
     if (dispatch) {
-      const tr = replaceIn(state.tr, issue, replacement);
+      const tr = replaceMarkedText(state.tr, issue, replacement);
       dispatch(
         tr
           .setSelection(TextSelection.create(tr.doc, issue.from + replacement.length))
@@ -164,7 +153,7 @@ export function replaceAllProofingIssues(issue: ProofingIssueAt, replacement: st
       // Later issues first, so the earlier ones' positions stay put.
       for (const each of issues.reverse()) {
         if (tr.doc === state.doc || canReplaceRange(state, each, tr.doc))
-          replaceIn(tr, each, replacement);
+          replaceMarkedText(tr, each, replacement);
       }
       dispatch(tr.scrollIntoView());
     }
