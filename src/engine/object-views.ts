@@ -14,11 +14,13 @@ import {
   TextSelection,
 } from 'prosemirror-state';
 import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
+import type { LineTable } from '../layout-engine/line-table.js';
 import { normalizeSignatureVector } from '../model/index.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
 import { drawGutter, forcedLinesIn } from './code-gutter.js';
-import { codeTokenAttrs, highlightCode, paintCodeHighlights } from './code-highlighting.js';
+import { paintCodeHighlights } from './code-highlighting.js';
+import { drawLinkedCode } from './linked-code.js';
 
 /** The line numbers of a code text, from its first line's number, one per line. */
 export function lineNumbers(code: string, first = 1): string {
@@ -32,31 +34,15 @@ const firstLine = (node: ProseMirrorNode) => {
   return Number.isInteger(value) && value > 0 ? value : 1;
 };
 
+// The code a gutter numbers. Linked code's text is drawn as it is, so a line feed at its end starts
+// no line, where a code block's view draws the line after it.
 const codeText = (node: ProseMirrorNode) =>
-  node.type.name === 'linked_code_block' ? String(node.attrs.code ?? '') : node.textContent;
+  node.type.name === 'linked_code_block'
+    ? String(node.attrs.code ?? '').replace(/\n$/u, '')
+    : node.textContent;
 
 const sameAttrs = (a: ProseMirrorNode, b: ProseMirrorNode) =>
   JSON.stringify(a.attrs) === JSON.stringify(b.attrs);
-
-// Draws linked code's text as its tokens, each kind marked for the stylesheet.
-function drawLinkedCode(code: HTMLElement, node: ProseMirrorNode): void {
-  const owner = code.ownerDocument;
-  const text = codeText(node);
-  const parts: Node[] = [];
-  let offset = 0;
-  for (const token of highlightCode(text, node.attrs.language)) {
-    if (token.from > offset) parts.push(owner.createTextNode(text.slice(offset, token.from)));
-    const span = owner.createElement('span');
-    for (const [name, value] of Object.entries(codeTokenAttrs(token.kind))) {
-      span.setAttribute(name, value);
-    }
-    span.textContent = text.slice(token.from, token.to);
-    parts.push(span);
-    offset = token.to;
-  }
-  if (offset < text.length) parts.push(owner.createTextNode(text.slice(offset)));
-  code.replaceChildren(...parts);
-}
 
 // A code block as its markup draws it, with a gutter of line numbers before its code when asked,
 // and linked code's text highlighted.
@@ -78,11 +64,19 @@ function codeView(
   gutter.setAttribute('aria-hidden', 'true');
   gutter.contentEditable = 'false';
   if (numbered && pre && code) pre.insertBefore(gutter, code);
-  if (code && node.type.name === 'linked_code_block') drawLinkedCode(code, node);
+  // Linked code's caption line is drawn from its address, beside the code it labels.
+  pre
+    ?.querySelector(':scope > .doc-linked-code-caption-line')
+    ?.setAttribute('contenteditable', 'false');
   let current = node;
+  // Linked code's text is drawn from its attributes, again when the lines it is drawn on change.
+  let drawnOn: LineTable | null | undefined;
   const draw = (next: ProseMirrorNode, decorations: readonly Decoration[]) => {
     current = next;
     const lines = forcedLinesIn(decorations);
+    if (code && next.type.name === 'linked_code_block' && lines !== drawnOn)
+      drawLinkedCode(code, next, lines);
+    drawnOn = lines;
     if (numbered) drawGutter(gutter, codeText(next), { first: firstLine(next), lines });
   };
   draw(node, drawing.decorations);

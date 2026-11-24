@@ -164,6 +164,55 @@ describe('line numbers', () => {
     ]);
   });
 
+  it("DOCE-PAGINATION-11.2 draws linked code's text and gutter on the lines it is handed, and again when they change", () => {
+    const linked = nodes.linked_code_block?.create({
+      url: 'https://example.com/a.ts',
+      language: 'typescript',
+      code: 'const a = 1;\n',
+    });
+    if (!linked) throw new Error('The schema has linked code');
+    const doc = documentSchema.topNodeType.createAndFill(null, [linked]);
+    if (!doc) throw new Error('The document is valid');
+    // `const ` wraps, `a = 1;\n` ends at the line feed.
+    const line = (from: number, to: number, end: 'wrap' | 'end') =>
+      ({ from, to, width: 10, left: 0, top: 0, height: 14, end }) as const;
+    const forcedLines = {
+      width: 100,
+      lines: [line(0, 6, 'wrap'), line(6, 13, 'end')],
+      height: 28,
+      overhead: 16,
+    };
+    const shown = { lines: true };
+    const forced = new Plugin({
+      props: {
+        decorations: (state) =>
+          shown.lines
+            ? DecorationSet.create(state.doc, [Decoration.node(0, 1, {}, { forcedLines })])
+            : DecorationSet.empty,
+      },
+    });
+    view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: [createObjectViews(), forced] }),
+    });
+    const code = view.dom.querySelector('pre > code');
+    // The line ends at its last character, the space after the keyword, which keeps its token.
+    const ends = [...(code?.querySelectorAll('.de-forced-lines__end') ?? [])];
+    expect(ends.map((end) => end.textContent)).toEqual([' ']);
+    expect(code?.querySelector('[data-token="keyword"]')?.textContent).toBe('const');
+    expect(code?.textContent).toBe('const a = 1;\n');
+    // The caption line is drawn beside the code, and the line feed at the end starts no row.
+    const caption = view.dom.querySelector('.doc-linked-code-caption-line');
+    expect(caption?.getAttribute('contenteditable')).toBe('false');
+    const rows = [...view.dom.querySelectorAll('.de-code-gutter__line')];
+    expect(rows.map((row) => row.querySelector('.de-code-gutter__text')?.innerHTML)).toEqual([
+      'const <br>a = 1;',
+    ]);
+    shown.lines = false;
+    view.dispatch(view.state.tr.setMeta('redraw', true));
+    expect(code?.querySelectorAll('.de-forced-lines__end')).toHaveLength(0);
+    expect(code?.textContent).toBe('const a = 1;\n');
+  });
+
   it('DOCE-OBJECTS-3.1 numbers only linked code, or none, when the editing plugins are asked to', () => {
     const code = nodes.code_block?.create(null, documentSchema.text('a'));
     const linked = nodes.linked_code_block?.create({ code: 'b\nc', startLine: 7 });

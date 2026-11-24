@@ -239,7 +239,7 @@ interface TextBlockLines {
 }
 
 /**
- * The code blocks the editor's pages draw on forced lines whose gutter of line numbers is not drawn
+ * The code blocks and linked code the editor's pages draw on forced lines whose gutter of line numbers is not drawn
  * on their lines: each number whose row is not the first row of its line of code, and each gutter
  * that does not end where its code does, as `id: what`.
  */
@@ -267,12 +267,13 @@ export function misplacedLineNumbers(page: Page): Promise<string[]> {
       }
       return tops;
     };
+    // A code block's own element, or linked code's around its pre.
     for (const pre of document.querySelectorAll(
-      `${pages} pre.de-forced-lines:has(> .de-code-gutter)`,
+      `${pages} :is(pre.de-forced-lines, .de-forced-lines > pre):has(> .de-code-gutter)`,
     )) {
       const code = pre.querySelector(':scope > code');
       if (!code) continue;
-      const id = pre.getAttribute('data-id') ?? '';
+      const id = pre.closest('[data-id]')?.getAttribute('data-id') ?? '';
       const tops = lineTops(code);
       const numbers = [...pre.querySelectorAll('.de-code-gutter__number')];
       // A number's glyphs sit at the same height from its row's top on every row, whatever the

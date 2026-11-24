@@ -57,7 +57,9 @@ interface Reading {
 
 function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): BlockTextLines {
   const { node, pos, table, reason } = block;
-  const id: unknown = node.attrs.dataId;
+  // Linked code is read as its element, with the lines of the code it is laid out as.
+  const element = block.owner ?? node;
+  const id: unknown = element.attrs.dataId;
   const elementId = typeof id === 'string' ? id : '';
   // A header's, footer's or footnote area's block is whole on the page it is drawn on.
   const split = Boolean(elementId) && !region;
@@ -65,8 +67,8 @@ function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): B
   if (split) reading.before.set(elementId, start + node.content.size);
   return {
     elementId,
-    part: Number(node.attrs.splitPartIndex ?? 0),
-    type: node.type.name,
+    part: Number(element.attrs.splitPartIndex ?? 0),
+    type: element.type.name,
     pos,
     start,
     lines:

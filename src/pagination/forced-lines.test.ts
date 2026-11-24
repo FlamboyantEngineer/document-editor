@@ -3,6 +3,7 @@ import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
 import type { TextLine } from '../layout-engine/line-table.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
@@ -57,6 +58,13 @@ function stubEngine(options: StubOptions = {}) {
     nestedLines(container, scope) {
       const found = new Map<Node, DrawnLines>();
       container.descendants((child) => {
+        // Linked code is laid out as the code block of its figure, as its layout records it.
+        const linked = linkedCodeFigure(child)?.code;
+        if (linked) {
+          const table = this.lines(linked, { scope });
+          if (table) found.set(linked, table);
+          return false;
+        }
         if (!child.isTextblock) return true;
         const table = this.lines(child, { scope });
         if (table) found.set(child, table);
@@ -274,6 +282,58 @@ describe('forcedLines', () => {
     expect(
       page?.blocks.map(({ elementId, type, nested: inside }) => ({ elementId, type, inside })),
     ).toEqual([{ elementId: 'k1', type: 'code_block', inside: true }]);
+  });
+
+  it("DOCE-PAGINATION-11.2 hands linked code's view the lines of the code it is laid out as", () => {
+    const linked = create('linked_code_block', {
+      dataId: 'lk',
+      code: 'abcdefghijklmn\nop',
+      startLine: 7,
+    });
+    const { engine, calls } = stubEngine();
+    const doc = pagesDoc([[linked]]);
+    const state = stateWith(doc, engine);
+    const code = linkedCodeFigure(linked)?.code;
+    expect(code?.attrs.codeLineStart).toBe(7);
+    expect(calls.map(({ text }) => text)).toEqual(['abcdefghijklmn\nop']);
+    const [block, ...rest] = decorations(state).find();
+    // One decoration on the atom's element, the lines in its spec; the view draws the marks.
+    expect(rest).toEqual([]);
+    expect(block?.spec).toEqual({ forcedLines: code && engine.lines(code, { scope: 'Body' }) });
+    expect(drawn(state)).toEqual([
+      {
+        from: block?.from,
+        to: (block?.from ?? 0) + 1,
+        class: 'de-forced-lines',
+        'data-lines': '2',
+        dir: 'ltr',
+      },
+    ]);
+    const [page] = pageTextLines(state);
+    expect(
+      page?.blocks.map(({ elementId, type, lines }) => ({ elementId, type, lines: lines?.length })),
+    ).toEqual([{ elementId: 'lk', type: 'linked_code_block', lines: 2 }]);
+  });
+
+  it('DOCE-PAGINATION-11.2 hands linked code in a quote the lines its layout gave its code', () => {
+    const linked = create('linked_code_block', { dataId: 'lq', code: 'abcdefghijklmn' });
+    const quote = create('blockquote', null, [paragraph('aa', { dataId: 'q1' }), linked]);
+    const { engine } = stubEngine();
+    const state = stateWith(pagesDoc([[quote]]), engine);
+    const code = linkedCodeFigure(linked)?.code;
+    const atom = decorations(state)
+      .find()
+      .find(
+        (each) =>
+          (each.spec as { forcedLines?: unknown }).forcedLines !== undefined &&
+          each.to - each.from === 1,
+      );
+    expect(atom?.spec).toEqual({ forcedLines: code && engine.lines(code, { scope: 'Body' }) });
+    const [page] = pageTextLines(state);
+    expect(page?.blocks.map(({ elementId, nested }) => ({ elementId, nested }))).toEqual([
+      { elementId: 'q1', nested: true },
+      { elementId: 'lq', nested: true },
+    ]);
   });
 
   it("DOCE-PAGINATION-11.2 marks each paragraph in a layout section's columns, and in their lists", () => {

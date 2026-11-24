@@ -178,9 +178,16 @@ export interface WrappedBlock {
   readonly drawn: number;
 }
 
+// Whether an element the writer cannot edit is drawn beside the lines rather than on one, as a
+// box of its own: linked code's caption line, a code block's gutter.
+const besideLines = (element: HTMLElement) =>
+  !(element.ownerDocument.defaultView?.getComputedStyle(element).display ?? 'inline').startsWith(
+    'inline',
+  );
+
 // The boxes an element's content is drawn in: its text's, each hard break's, so a line that holds
 // only a break counts, and each inline atom's own box, as an atom such as typeset math draws parts
-// of itself above and below its line.
+// of itself above and below its line; none of what is drawn beside the lines.
 function contentBoxes(element: Element): DOMRect[] {
   const boxes: DOMRect[] = [];
   const range = element.ownerDocument.createRange();
@@ -191,6 +198,7 @@ function contentBoxes(element: Element): DOMRect[] {
         boxes.push(...range.getClientRects());
       } else if (child.nodeType === 1) {
         const inner = child as HTMLElement;
+        if (inner.contentEditable === 'false' && besideLines(inner)) continue;
         if (inner.contentEditable === 'false' || inner.tagName === 'BR')
           boxes.push(...inner.getClientRects());
         else visit(inner);

@@ -139,6 +139,42 @@ test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () =>
     const [first] = mismatches;
     expect(first?.drawn?.length ?? 0).toBeGreaterThan(first?.computed.length ?? 0);
   });
+
+  test('DOCE-LABS-8.1 linked code whose lines the engine wraps', async ({ page }) => {
+    for (const zoom of [50, 100, 175]) {
+      await open(page, 'linked-code', zoom);
+      // Long lines, highlighted, one with an emoji no served font draws, from line 998 so the
+      // gutter widens to four digits.
+      const code = [
+        `export const readings = [${Array.from({ length: 40 }, (_, at) => String(at)).join(', ')}];`,
+        'const short = 1;',
+        `// ${'station 🛰 '.repeat(14)}`,
+        '',
+        `const text = "${'wrapped words '.repeat(12)}";\n`,
+      ].join('\n');
+      await page.evaluate(
+        (linked) => {
+          const file = window.regressionLab.stored();
+          const section = file?.sections[0];
+          if (!file || !section) throw new Error('The regression lab holds no document');
+          const content = section.content.map((block) =>
+            block.type === 'linkedCode'
+              ? { ...block, attrs: { ...block.attrs, ...linked } }
+              : block,
+          );
+          window.regressionLab.load({ ...file, sections: [{ ...section, content }] });
+        },
+        { code, language: 'typescript', startLine: 998 },
+      );
+      await waitForLab(page);
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      await settle(page);
+      const wraps = page.locator('.linked-code-block.de-forced-lines code .de-forced-lines__end');
+      expect(await wraps.count(), 'lines the engine wrapped in linked code').toBeGreaterThan(4);
+      await expectOneResult(page);
+      expect(await misplacedLineNumbers(page), 'code line numbers off their lines').toEqual([]);
+    }
+  });
 });
 
 // The pages of the editor, and those of them painted into a canvas (DOCE-EDITOR-1.9).
