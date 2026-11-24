@@ -10,15 +10,7 @@ import type {
   RichTextStateUpdate,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState } from 'prosemirror-state';
-import {
-  type ComponentType,
-  type CSSProperties,
-  type ReactNode,
-  type Ref,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ComponentType, type ReactNode, type Ref, useMemo, useRef, useState } from 'react';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
@@ -68,7 +60,7 @@ import { EditorScope } from './editor-scope.js';
 import { EditorSurface } from './editor-surface.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
-import { rootData } from './root-data.js';
+import { rootData, rootStyle } from './root-data.js';
 import { type EditorSession, useRoomReloadNotice, useSaveShortcut } from './save-status-item.js';
 import { usePinnedScripts } from './script-entries.js';
 import type { TextChromeProps } from './text-chrome.js';
@@ -129,6 +121,11 @@ export interface DocumentEditorProps
    * (`sheet`).
    */
   webWidth?: 'fill' | 'page' | 'sheet' | undefined;
+  /**
+   * The widest an endless page (`webWidth` `sheet`) shows, as a CSS length such as `'800px'`, in
+   * place of its page width (`--de-web-max-width`).
+   */
+  webMaxWidth?: string | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
   editable?: boolean | undefined;
   /**
@@ -428,9 +425,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState, progress.text) })}
-        style={
-          { ...templateStyle, '--de-zoom': String((props.zoom ?? 100) / 100) } as CSSProperties
-        }
+        style={rootStyle(props, templateStyle)}
       >
         <EditorSurface
           measureIn={layout === 'page' ? measureIn : null}

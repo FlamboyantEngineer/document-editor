@@ -1451,7 +1451,8 @@ div.de-host-view {
  * container and grows with its content, inset only by the template's margins, without the pages'
  * headers and footers. A document's web layout (`data-web-width="page"`) keeps its page width,
  * centred, with no page margins, like a large text area. An endless page
- * (`data-web-width="sheet"`) keeps its page width as its widest, centred, inset by its page margins,
+ * (`data-web-width="sheet"`) keeps its page width, or the host's `--de-web-max-width`, as its widest,
+ * centred, inset by its page margins,
  * and shows as paper on the surface around it, as the pages do, without ever ending.
  */
 .de-document-editor[data-layout='web'] {
@@ -1487,7 +1488,7 @@ div.de-host-view {
 }
 
 .de-document-editor[data-layout='web'][data-web-width='sheet'] .pm-page {
-  width: var(--doc-page-width, auto);
+  width: var(--de-web-max-width, var(--doc-page-width, auto));
   max-width: 100%;
   margin-inline: auto;
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);

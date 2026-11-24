@@ -64,11 +64,13 @@ function Harness({
   editable,
   layout,
   webWidth,
+  webMaxWidth,
   handleRef,
 }: {
   editable: boolean;
   layout: DocumentLayout;
   webWidth?: DocumentEditorProps['webWidth'];
+  webMaxWidth?: string;
   handleRef?: Ref<DocumentEditorHandle>;
 }) {
   const [state, setState] = useState(initial);
@@ -79,6 +81,7 @@ function Harness({
       template={TEMPLATE}
       layout={layout}
       webWidth={webWidth}
+      webMaxWidth={webMaxWidth}
       editable={editable}
       aria-label="Report"
       handleRef={handleRef}
@@ -119,6 +122,9 @@ describe('DocumentEditor', () => {
     expect(root).toHaveAttribute('data-web-width', 'page');
     rerender(<Harness editable layout="web" webWidth="sheet" />);
     expect(root).toHaveAttribute('data-web-width', 'sheet');
+    expect(root?.getAttribute('style')).not.toContain('--de-web-max-width');
+    rerender(<Harness editable layout="web" webWidth="sheet" webMaxWidth="800px" />);
+    expect(root?.getAttribute('style')).toContain('--de-web-max-width: 800px');
   });
 
   it('DOCE-EDITOR-1.2 switches between reading and authoring, keeping the document', async () => {

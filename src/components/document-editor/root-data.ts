@@ -1,5 +1,6 @@
 // The editor root's data attributes: how it shows the document, and what its debugging shows.
 
+import type { CSSProperties } from 'react';
 import type { LayoutState } from '../../pagination/index.js';
 import type { DocumentEditorDebug, DocumentEditorProps } from './document-editor.js';
 import type { PagesFontsState } from './use-pages-fonts.js';
@@ -44,4 +45,20 @@ export function rootData(
     formattingMarks: props.formattingMarks ?? false,
     layoutState,
   };
+}
+
+/**
+ * The editor root's custom properties: its template's, the zoom as a factor and, when the host
+ * gives one, the widest an endless page shows.
+ */
+export function rootStyle(
+  props: DocumentEditorProps,
+  templateStyle: Readonly<Record<string, string>>,
+): CSSProperties {
+  const style: Record<string, string> = {
+    ...templateStyle,
+    '--de-zoom': String((props.zoom ?? 100) / 100),
+  };
+  if (props.webMaxWidth) style['--de-web-max-width'] = props.webMaxWidth;
+  return style as CSSProperties;
 }

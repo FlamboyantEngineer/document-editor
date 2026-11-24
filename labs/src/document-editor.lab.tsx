@@ -160,6 +160,7 @@ function Lab() {
   const [state, setState] = useState(initialState);
   const [layout, setLayout] = useState<DocumentLayout>('page');
   const [webWidth, setWebWidth] = useState<'fill' | 'page' | 'sheet'>('fill');
+  const [webMaxWidth, setWebMaxWidth] = useState('');
   const [editable, setEditable] = useState(true);
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
@@ -220,6 +221,18 @@ function Lab() {
               <option value="fill">Fill the surface</option>
               <option value="page">Page width</option>
               <option value="sheet">Endless page</option>
+            </select>
+          </label>
+          <label>
+            Max width{' '}
+            <select
+              name="web-max-width"
+              value={webMaxWidth}
+              onChange={(event) => setWebMaxWidth(event.currentTarget.value)}
+            >
+              <option value="">Page width</option>
+              <option value="600px">600px</option>
+              <option value="1000px">1000px</option>
             </select>
           </label>
           <label>
@@ -385,6 +398,7 @@ function Lab() {
         template={TEMPLATE}
         layout={layout}
         webWidth={webWidth}
+        webMaxWidth={webMaxWidth || undefined}
         onLayoutChange={setLayout}
         editable={editable}
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
