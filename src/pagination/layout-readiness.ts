@@ -17,14 +17,16 @@ interface LayoutReadinessOptions {
 /** Keeps a projection's layout state, and the callers waiting for it to settle. */
 export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOptions) {
   let state: LayoutState = 'pending';
+  let destroyed = false;
   let cancel: (() => void) | null = null;
   const waiting: ((state: LayoutState) => void)[] = [];
-  const set = (next: LayoutState) => {
+  const set = (next: LayoutState, notify = true) => {
+    if (destroyed) return;
     cancel?.();
     cancel = null;
     if (next === state) return;
     state = next;
-    onChange?.(next);
+    if (notify) onChange?.(next);
     if (next === 'pending') return;
     for (const resolve of waiting.splice(0)) resolve(next);
   };
@@ -39,6 +41,7 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
      * unless another layout is due by then.
      */
     laidOut(isIdle: () => boolean) {
+      if (destroyed) return;
       cancel?.();
       const settle = () => {
         cancel = null;
@@ -54,8 +57,8 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
       return new Promise((resolve) => waiting.push(resolve));
     },
     destroy() {
-      cancel?.();
-      cancel = null;
+      set('failed', false);
+      destroyed = true;
     },
   };
 }

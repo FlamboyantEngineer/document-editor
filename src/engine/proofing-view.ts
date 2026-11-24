@@ -4,18 +4,11 @@
 // text; results wait while a pointer button is down, so they never redraw a selection being made.
 // While the editor is not editable, or the host turns proofing off, nothing is checked.
 
-import type { EditorState, PluginView } from 'prosemirror-state';
+import type { PluginView } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import type { ProofingText } from '../host/proofing-adapters.js';
 import { readDomSelection } from '../utils/dom-selection.js';
-import {
-  proofingKey,
-  type ProofingOptions,
-  type ProofingStatus,
-  type SourcedIssue,
-  uncheckedBlocks,
-} from './proofing.js';
-import { type ProofedBlock, segmentsOf, type TextSegment } from './proofing-text.js';
+import { proofingKey, type ProofingOptions, uncheckedBlocks } from './proofing.js';
+import { checkProofingBlocks, selectProofingBlocks } from './proofing-batches.js';
 
 // Whether a pointer button is down on the view: results committed during a drag would draw the
 // selection the drag started from back over it, so they wait for the release and for the view to
@@ -51,52 +44,6 @@ function pointerOn(view: EditorView) {
   };
 }
 
-/** A block of a check, with the segments its text goes in. */
-interface CheckedBlock {
-  readonly block: ProofedBlock;
-  readonly segments: readonly TextSegment[];
-}
-
-// The next blocks to check: as many as a check takes, by count and by length, and at least one.
-function nextBatch(view: EditorView, options: ProofingOptions): CheckedBlock[] {
-  const limit = options.batchLength ?? 6000;
-  const count = options.batch ?? 50;
-  const batch: CheckedBlock[] = [];
-  let length = 0;
-  for (const block of uncheckedBlocks(view.state)) {
-    if (batch.length >= count || (batch.length > 0 && length + block.text.length > limit)) break;
-    batch.push({ block, segments: segmentsOf(block.text, options.textLength ?? 2000) });
-    length += block.text.length;
-  }
-  return batch;
-}
-
-// Each block's issues from every proofer's answers, by the block's text.
-function collect(
-  batch: readonly CheckedBlock[],
-  answers: readonly PromiseSettledResult<readonly (readonly SourcedIssue[])[]>[],
-) {
-  const results = new Map<string, SourcedIssue[]>();
-  for (const { block } of batch) results.set(block.text, []);
-  answers.forEach((answer) => {
-    if (answer.status !== 'fulfilled') return;
-    let index = 0;
-    for (const { block, segments } of batch) {
-      for (const segment of segments) {
-        for (const issue of answer.value[index] ?? []) {
-          results.get(block.text)?.push({
-            ...issue,
-            from: issue.from + segment.offset,
-            to: issue.to + segment.offset,
-          });
-        }
-        index += 1;
-      }
-    }
-  });
-  return results;
-}
-
 // Whether a view's document is proofed now: it is editable, and the host has proofing on.
 const enabledIn = (view: EditorView, options: ProofingOptions) =>
   view.editable && (options.isEnabled?.(view.state) ?? true);
@@ -110,26 +57,6 @@ function publishEnabled(view: EditorView, enabled: boolean) {
   });
 }
 
-// Whether a change of the view's state starts every text over, as a new language does.
-function startsOver(next: EditorView, previous: EditorState) {
-  const now = proofingKey.getState(next.state);
-  const before = proofingKey.getState(previous);
-  return Boolean(now && before && now.results.size === 0 && before.results.size > 0);
-}
-
-// Why the first proofer that failed did: its error's `reason`, when it gives one as text.
-function reasonOf(answers: readonly PromiseSettledResult<unknown>[]): string | null {
-  const failed = answers.find((answer) => answer.status === 'rejected');
-  const reason = (failed?.reason as { reason?: unknown } | undefined)?.reason;
-  return typeof reason === 'string' ? reason : null;
-}
-
-function statusOf(answers: readonly PromiseSettledResult<unknown>[]): ProofingStatus {
-  const failed = answers.filter((answer) => answer.status === 'rejected').length;
-  if (failed === 0) return 'ready';
-  return failed === answers.length ? 'unavailable' : 'degraded';
-}
-
 /** Checks a view's document with the plugin's proofers. */
 export function proofingView(view: EditorView, options: ProofingOptions): PluginView {
   const owner = view.dom.ownerDocument.defaultView;
@@ -137,6 +64,7 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
   let timer: number | null = null;
   let running: AbortController | null = null;
   let enabled = enabledIn(view, options);
+  let refresh = false;
 
   function clear() {
     if (timer !== null) owner?.clearTimeout(timer);
@@ -160,35 +88,28 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
 
   async function run() {
     const proofing = proofingKey.getState(view.state);
-    const batch = enabled ? nextBatch(view, options) : [];
-    if (!proofing || batch.length === 0 || running) return;
+    if (!enabled || !proofing || running || view.isDestroyed) return;
+    const blocks = selectProofingBlocks(uncheckedBlocks(view.state), options);
+    if (blocks.length === 0 && (!refresh || proofing.results.size === 0)) return;
     const controller = new AbortController();
     running = controller;
-    const texts: ProofingText[] = batch.flatMap(({ block, segments }) =>
-      segments.map((segment) => ({
-        text: segment.text,
-        language: block.language ?? proofing.language,
-      })),
-    );
-    // A proofer that fails marks nothing; the texts count as checked, and the status says so.
-    const answers = await Promise.allSettled(
-      proofing.proofers.map(async (proofer, source) => {
-        const found = await proofer.check(texts, { signal: controller.signal });
-        return found.map((issues) => issues.map((issue) => ({ ...issue, source })));
-      }),
-    );
+    const answer =
+      blocks.length > 0
+        ? await checkProofingBlocks(blocks, {
+            proofers: proofing.proofers,
+            signal: controller.signal,
+            limits: options,
+          })
+        : { results: new Map(), status: proofing.status, reason: proofing.reason };
     await pointer.released();
     if (running === controller) running = null;
     if (controller.signal.aborted || view.isDestroyed) return;
+    refresh = false;
     readDomSelection(view);
-    const meta = {
-      results: collect(batch, answers),
-      status: statusOf(answers),
-      reason: reasonOf(answers),
-    };
+    const meta = { ...answer, generation: proofing.generation };
     view.dispatch(view.state.tr.setMeta(proofingKey, meta).setMeta('addToHistory', false));
     // More text than one check takes is checked next.
-    schedule(0);
+    if (blocks.length > 0) schedule(0);
   }
 
   // The first check waits for the host, or as long as one after a change, so it does not slow the
@@ -200,13 +121,18 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
     update(next, previous) {
       const was = enabled;
       enabled = enabledIn(next, options);
-      if (proofingKey.getState(next.state)?.enabled !== enabled) publishEnabled(next, enabled);
+      const proofing = proofingKey.getState(next.state);
+      if (proofing?.enabled !== enabled) publishEnabled(next, enabled);
+      const changed = !next.state.doc.eq(previous.doc);
+      refresh ||= changed;
       // Turned off, a running check is dropped; turned on, and on a new start, every text not
       // checked yet is checked now.
-      if (was !== enabled || startsOver(next, previous)) return restart(0);
-      if (!enabled || next.state.doc.eq(previous.doc)) return;
+      if (was !== enabled || proofing?.generation !== proofingKey.getState(previous)?.generation) {
+        return restart(0);
+      }
+      if (!enabled || !changed) return;
       // A collaborator's change waits for the running check rather than aborting it.
-      if (proofingKey.getState(next.state)?.remoteChange && running) return;
+      if (proofing?.remoteChange && running) return;
       restart(options.delay ?? 500);
     },
     destroy() {

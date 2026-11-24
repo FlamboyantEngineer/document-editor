@@ -5,14 +5,18 @@
 
 import { type EditorState, Plugin } from 'prosemirror-state';
 import { Decoration, type DecorationAttrs, DecorationSet } from 'prosemirror-view';
+import { contentsDecorations, contentsKey } from '../engine/contents.js';
 import { footnoteNumbersKey } from '../engine/footnote-numbers.js';
 import { withReservedWords } from './inserted-reserved.js';
+import type { PageMap } from './page-map.js';
 import type { ProjectionMap } from './projection-map.js';
 
 /** What the drawn decorations read: the canonical state and the map onto the projection. */
 export interface DecorationSource {
   canonical(): EditorState;
   map(): ProjectionMap;
+  /** The pages of this projection, for the page numbers in its contents lists. */
+  pages?(): PageMap;
 }
 
 // Each canonical set as mapped onto one projection map, so an unchanged set maps once.
@@ -135,7 +139,10 @@ export function canonicalDecorations(source: DecorationSource): Plugin {
         for (const plugin of canonical.plugins) {
           // The pages number their footnotes for themselves.
           if (plugin.spec.key === footnoteNumbersKey) continue;
-          const set = plugin.props.decorations?.call(plugin, canonical);
+          const set =
+            plugin.spec.key === contentsKey && source.pages
+              ? contentsDecorations(canonical, source.pages())
+              : plugin.props.decorations?.call(plugin, canonical);
           if (set instanceof DecorationSet && set !== DecorationSet.empty) {
             sets.push(onProjection(set, map));
           }

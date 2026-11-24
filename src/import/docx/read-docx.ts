@@ -27,7 +27,6 @@ import {
   DEFAULT_DOCX_LIMITS,
   type DocxLimits,
   refuseLargeOutput,
-  refuseMacros,
   refuseNonStandardPart,
 } from './docx-checks.js';
 import { type DocxComments, readComments } from './docx-comments.js';
@@ -38,7 +37,6 @@ import {
   type DocxPackage,
   type DocxPart,
   type ImportedImage,
-  mainDocumentPath,
   openPackage,
   relationshipKind,
 } from './docx-package.js';
@@ -100,6 +98,7 @@ export type DocxRead =
 interface Parts {
   readonly package: DocxPackage;
   readonly main: DocxPart;
+  readonly body: XmlElement;
   /** The main part's related part of a kind, such as `styles`. */
   readonly related: (kind: string) => Promise<DocxPart | null>;
 }
@@ -164,10 +163,11 @@ async function openParts(
 ): Promise<Parts> {
   const limits = { ...DEFAULT_DOCX_LIMITS, ...options.limits };
   const archive = readZip(bytes, limits);
-  await refuseMacros(archive);
   const pkg = openPackage(archive, warnings, { imageSource: options.imageSource, limits });
-  const main = await pkg.part(await mainDocumentPath(archive));
-  if (!main) throw importError('damaged', 'The document part is missing.');
+  const main = await pkg.main();
+  const [body, ...otherBodies] = childElements(main.root, 'w:body');
+  if (main.root.name !== 'w:document' || !body || otherBodies.length)
+    throw importError('damaged', 'The document part has an invalid root or body.');
   const related = async (kind: string) => {
     const relationship = [...main.relationships.values()].find(
       (each) => relationshipKind(each.type) === kind,
@@ -176,7 +176,7 @@ async function openParts(
     refuseNonStandardPart(kind, relationship.target);
     return pkg.part(relationship.target);
   };
-  return { package: pkg, main, related };
+  return { package: pkg, main, body, related };
 }
 
 // The template section names the writer lists in the settings part, in section order.
@@ -193,9 +193,7 @@ function sectionNames(settings: DocxPart | null): string[] {
 }
 
 // The body's block elements split at each section's end, with the properties that end it.
-function bodySections(
-  body: XmlElement | null,
-): { elements: XmlElement[]; sectPr: XmlElement | null }[] {
+function bodySections(body: XmlElement): { elements: XmlElement[]; sectPr: XmlElement | null }[] {
   const sections: { elements: XmlElement[]; sectPr: XmlElement | null }[] = [];
   let elements: XmlElement[] = [];
   for (const element of childElements(body)) {
@@ -230,9 +228,7 @@ async function readSections(
     header: null,
     footer: null,
   };
-  for (const [index, { elements, sectPr }] of bodySections(
-    childElement(shared.parts.main.root, 'w:body'),
-  ).entries()) {
+  for (const [index, { elements, sectPr }] of bodySections(shared.parts.body).entries()) {
     const ids = sectionRegionIds(sectPr);
     if (ids.header) shared.warnings.add('header-footer-skipped', 'header');
     if (ids.footer) shared.warnings.add('header-footer-skipped', 'footer');

@@ -96,6 +96,17 @@ const hooks = createHooks('document-side-panel', ['pane']);
 const FOCUSABLE =
   'input:not([disabled]), textarea, select, button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
 
+type PendingFocus = { paneId: string; onShown: RevealPaneOptions['onShown'] };
+
+function focusShownPane(panel: HTMLElement, { paneId, onShown }: PendingFocus): boolean {
+  if (panel.getAttribute('data-expanded') !== 'true') return false;
+  const pane = panel.querySelector<HTMLElement>(`[data-pane="${CSS.escape(paneId)}"]`);
+  if (!pane || pane.closest('[hidden], [inert]')) return false;
+  if (onShown) onShown(pane);
+  else (pane.querySelector<HTMLElement>(FOCUSABLE) ?? pane).focus();
+  return true;
+}
+
 const valueKey = (persistKey: string | undefined, name: string) =>
   persistKey === undefined ? undefined : `${persistKey}:${name}`;
 
@@ -129,14 +140,11 @@ function usePanelState(props: DocumentSidePanelProps, firstPane: string | undefi
 // pane shows.
 function useRevealedPanes(
   paneIds: readonly string[],
-  { select, expand, selectedPane, isExpanded }: ReturnType<typeof usePanelState>,
+  { select, expand }: ReturnType<typeof usePanelState>,
 ) {
   const panes = useEditorPanesContext();
   const panel = useRef<HTMLElement>(null);
-  const [focusing, setFocusing] = useState<{
-    paneId: string;
-    onShown: ((pane: HTMLElement) => void) | undefined;
-  } | null>(null);
+  const [focusing, setFocusing] = useState<PendingFocus | null>(null);
   const latest = useRef({ paneIds, select, expand });
   useEffect(() => {
     latest.current = { paneIds, select, expand };
@@ -145,27 +153,36 @@ function useRevealedPanes(
     () =>
       panes?.add({
         has: (paneId) => latest.current.paneIds.includes(paneId),
+        canExpand: () => panel.current?.hasAttribute('data-collapse-forced') === false,
         reveal: (paneId, options: RevealPaneOptions) => {
           latest.current.select(paneId);
           latest.current.expand(true);
-          if (options.onShown || (options.focus ?? true)) {
-            setFocusing({ paneId, onShown: options.onShown });
-          }
+          const focus = options.onShown || (options.focus ?? true);
+          setFocusing(focus ? { paneId, onShown: options.onShown } : null);
         },
       }),
     [panes],
   );
   useEffect(() => {
-    if (focusing === null) return;
-    const pane = panel.current?.querySelector<HTMLElement>(
-      `[data-pane="${CSS.escape(focusing.paneId)}"]`,
-    );
-    if (!pane || pane.closest('[hidden], [inert]')) return;
-    if (focusing.onShown) focusing.onShown(pane);
-    else (pane.querySelector<HTMLElement>(FOCUSABLE) ?? pane).focus();
-    // Focus moves once the pane shows, after the panel commits it; the next reveal asks again.
-    setFocusing(null);
-  }, [focusing, selectedPane, isExpanded]);
+    const element = panel.current;
+    const owner = element?.ownerDocument.defaultView;
+    if (!element || !owner || !focusing) return;
+    // DockPanel measures its own available width, which can change without another render here.
+    const focus = () => {
+      if (!focusShownPane(element, focusing)) return;
+      observer.disconnect();
+      setFocusing(null);
+    };
+    const observer = new owner.MutationObserver(focus);
+    observer.observe(element, {
+      attributes: true,
+      attributeFilter: ['data-expanded', 'hidden', 'inert'],
+      subtree: true,
+    });
+    // A reveal can leave the visible tab unchanged. Check its committed DOM on the same path.
+    focus();
+    return () => observer.disconnect();
+  }, [focusing]);
   return panel;
 }
 

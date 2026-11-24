@@ -58,10 +58,22 @@ function readTableAttrs(dom: HTMLElement) {
  * The column group that sizes a table's columns: an aligned table's columns always, an unaligned
  * table's columns that have a width. Every table has one, as column resizing expects.
  */
-function columnGroup(widths: readonly number[], fitted: boolean) {
+function columnGroup(widths: readonly number[], fitted: boolean, mixed: boolean) {
   const total = widths.reduce((sum, width) => sum + (width || 0), 0);
+  const fixed = mixed ? widths.filter((width) => width > 0).length : 0;
   const columns = widths.map((width) => {
     if (!width) return ['col'];
+    if (mixed) {
+      // Limit fixed columns proportionally, leaving an equal share for each unset column.
+      const share = (width * fixed) / (total * widths.length);
+      const cap = `calc(var(--doc-table-column-room) * ${String(share)})`;
+      return [
+        'col',
+        {
+          style: `width:var(--doc-table-column-width, ${String(width)}px);--doc-table-column-cap:min(${String(width)}px, ${cap})`,
+        },
+      ];
+    }
     return [
       'col',
       { style: `width:${fitted ? `${String((100 * width) / total)}%` : `${String(width)}px`}` },
@@ -74,6 +86,7 @@ function renderTable(node: ProseMirrorNode) {
   const attrs: DomAttributes = {};
   const layout = parseObjectLayout(node.attrs.objectLayout);
   const widths = layout ? tableObjectColumnWidths(node) : firstRowColumnWidths(node);
+  const mixed = !layout && widths.some((width) => width > 0) && widths.some((width) => !width);
   if (layout) {
     const total = widths.reduce((sum, width) => sum + width, 0);
     attrs['data-object-layout'] = layout;
@@ -83,10 +96,11 @@ function renderTable(node: ProseMirrorNode) {
     // An unaligned table renders at its column total once every column has a width.
     attrs.style = `width:${tableColumnTotalCss(widths, node)};max-width:100%`;
   }
+  if (mixed) attrs['data-table-columns'] = 'mixed';
   if (node.attrs.captionEnabled === false) attrs['data-caption-enabled'] = 'false';
   const borderClass = String(node.attrs.tableBorderClass || '');
   if (TABLE_BORDER_CLASSES.has(borderClass)) attrs.class = borderClass;
-  return ['table', attrs, columnGroup(widths, layout === 'fit-page-width'), ['tbody', 0]];
+  return ['table', attrs, columnGroup(widths, layout === 'fit-page-width', mixed), ['tbody', 0]];
 }
 
 // A table sits in its `table_figure`, after its caption, so it is in no group of its own.
@@ -98,6 +112,7 @@ const table: NodeSpec = {
     tableBorderClass: { default: '' },
     objectLayout: { default: null },
     captionEnabled: { default: true },
+    projectedColumnWidths: { default: null },
   },
   parseDOM: [{ tag: 'table', contentElement: tableContentElement, getAttrs: readTableAttrs }],
   toDOM: (node) => renderTable(node) as unknown as OutputSpec,

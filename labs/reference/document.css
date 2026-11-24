@@ -554,8 +554,64 @@ div.de-host-view {
 }
 
 /* A table's columns take the widths the engine gives them: stored ones kept, the rest shared. */
-:where(.de-document-editor[data-text-layout='pretext']) .pm-page-content table {
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  table {
   table-layout: fixed;
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  .doc-table-figure:has(> table[data-table-columns='mixed']) {
+  container-type: inline-size;
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  table[data-table-columns='mixed'] {
+  --doc-table-outer-border: var(--doc-table-border-width, 1px);
+  --doc-table-horizontal-border: var(--doc-table-border-width, 1px);
+  --doc-table-column-room: max(0px, 100cqw - var(--doc-table-outer-border));
+  width: 100%;
+  border-collapse: collapse;
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  table[data-table-columns='mixed']:is(.table-border-none, .table-border-horizontal) {
+  --doc-table-outer-border: 0px;
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  table[data-table-columns='mixed'].table-border-1px {
+  --doc-table-outer-border: 1px;
+  --doc-table-horizontal-border: 1px;
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-header, .pm-page-footer)
+  table[data-table-columns='mixed'].table-border-none {
+  --doc-table-horizontal-border: 0px;
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-header, .pm-page-footer)
+  table[data-table-columns='mixed']
+  > tbody
+  > tr
+  > :is(td, th) {
+  border-style: solid;
+  border-color: var(--doc-table-border-color, #334155);
+  border-width: var(--doc-table-horizontal-border) var(--doc-table-outer-border);
+}
+
+:where(.de-document-editor[data-text-layout='pretext'])
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  table[data-table-columns='mixed']
+  > colgroup
+  > col[style] {
+  --doc-table-column-width: var(--doc-table-column-cap);
 }
 
 /*
@@ -1270,11 +1326,12 @@ div.de-host-view {
   display: none;
 }
 
-/* A later part of a split table repeats its caption only with its header rows: a part that opens
-   with a body row shows none. */
+/* A continuation without repeated header rows has no caption text. Older projections also
+   hide the caption when the first row contains a body cell. */
 :where(.de-document-editor, .de-document-editor__measure)
   .doc-table-figure[data-split-part-index]:not([data-split-part-index='0']):has(
-    > table > tbody > tr:first-child > td
+    > table > tbody > tr:first-child > td,
+    > .doc-caption-line > .doc-caption-text:not([data-continued-text])
   )
   > .doc-caption-line {
   display: none;

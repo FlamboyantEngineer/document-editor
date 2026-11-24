@@ -24,6 +24,19 @@ export interface ProofedBlock {
 
 type BlockText = Omit<ProofedBlock, 'start'>;
 
+/** Identifies a provider request by its text and effective language. */
+export function proofingTextKey({
+  text,
+  language,
+}: Pick<ProofedBlock, 'text' | 'language'>): string {
+  return JSON.stringify([language, text]);
+}
+
+/** The block language overrides the document language. */
+export function proofingLanguage(node: ProseMirrorNode, fallback: string | null): string | null {
+  return typeof node.attrs.lang === 'string' ? node.attrs.lang : fallback;
+}
+
 // Each block's text, kept for as long as the block is, so a long document is read again only where
 // it changed.
 const blockTexts = new WeakMap<ProseMirrorNode, BlockText>();
@@ -46,7 +59,7 @@ function blockText(block: ProseMirrorNode): BlockText {
       for (let index = 0; index < read.length; index += 1) offsets.push(offset);
     }
   });
-  const language = typeof block.attrs.lang === 'string' ? block.attrs.lang : null;
+  const language = proofingLanguage(block, null);
   const read = { text, language, offsets };
   blockTexts.set(block, read);
   return read;
@@ -56,14 +69,19 @@ function blockText(block: ProseMirrorNode): BlockText {
  * Each prose block of the document, in order: the pages' bodies and footnote areas, without their
  * headers and footers.
  */
-export function proofedBlocks(doc: ProseMirrorNode): ProofedBlock[] {
+export function proofedBlocks(
+  doc: ProseMirrorNode,
+  language: string | null = null,
+): ProofedBlock[] {
   const blocks: ProofedBlock[] = [];
   doc.descendants((node, pos) => {
     if (UNPROOFED_BLOCKS.has(node.type.name) || UNPROOFED_REGIONS.has(regionKind(node)))
       return false;
     if (!node.isTextblock) return true;
     const block = blockText(node);
-    if (block.text.trim()) blocks.push({ ...block, start: pos + 1 });
+    if (block.text.trim()) {
+      blocks.push({ ...block, language: block.language ?? language, start: pos + 1 });
+    }
     return false;
   });
   return blocks;

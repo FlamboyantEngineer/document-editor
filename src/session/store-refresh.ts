@@ -6,9 +6,10 @@
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { createElementId } from '../engine/element-ids.js';
 import { replaceDocumentContent } from '../engine/replace-document-content.js';
-import type { EditorHost, StoredDocument } from '../host/adapters.js';
+import type { EditorHost, SavedState, StoredDocument } from '../host/adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
+import type { TemplatePin } from '../model/format/template-format.js';
 import type { SessionDocument } from './document-session.js';
 import { type DocumentMerge, type MergeConflict, mergeDocuments } from './merge.js';
 import { findElement, type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
@@ -30,6 +31,7 @@ interface StoreRefreshContext {
   /** The conflicts the reader has yet to settle. */
   conflicts: WritableStore<readonly MergeConflict[]>;
   saving: () => StoreSaving | null;
+  followTemplate: (pin: TemplatePin | null, saved: SavedState | null) => void;
   /** The edits the editor holds back, committed before the reader's changes are merged. */
   pending?: PendingEdits | undefined;
 }
@@ -38,13 +40,22 @@ interface StoreRefreshContext {
 function showContent(
   context: StoreRefreshContext,
   content: DocumentFile,
-  template: SessionDocument['template'],
+  { template, saved }: { template: SessionDocument['template']; saved?: SavedState | null },
 ): boolean {
   const read = readStored(content, context.schema);
   const shown = context.document.get();
   if (!read.ok || !shown) return false;
   const state = shown.state.apply(replaceDocumentContent(shown.state, read.value.doc));
-  context.document.set({ ...shown, state, template, pin: content.template ?? null });
+  const pin = content.template ?? null;
+  const changedPin = !samePin(shown.pin, pin);
+  context.document.set({
+    ...shown,
+    state,
+    template,
+    pin,
+    templateUpdate: changedPin ? null : shown.templateUpdate,
+  });
+  if (changedPin) context.followTemplate(pin, saved ?? null);
   return true;
 }
 
@@ -97,9 +108,17 @@ function mergeStored(context: StoreRefreshContext, stored: StoredDocument): Take
 function showTakenIn(
   context: StoreRefreshContext,
   stored: StoredDocument,
-  { taken, template }: { taken: TakenIn; template: SessionDocument['template'] },
+  {
+    taken,
+    template,
+    saved,
+  }: {
+    taken: TakenIn;
+    template: SessionDocument['template'];
+    saved?: SavedState | null;
+  },
 ): void {
-  if (!showContent(context, taken.merge.content, template)) return;
+  if (!showContent(context, taken.merge.content, { template, saved })) return;
   const conflicts = unsettled(context.conflicts.get(), taken.merge.conflicts, taken.theirs);
   context.conflicts.set(conflicts);
   context.saving()?.rebase(stored, { doc: taken.doc, hold: conflicts.length > 0 });
@@ -122,7 +141,7 @@ async function takeIn(context: StoreRefreshContext, stored: StoredDocument): Pro
   const taken = mergeStored(context, stored);
   if (!taken) return;
   if (samePin(taken.merge.content.template ?? null, pin)) {
-    showTakenIn(context, stored, { taken, template: loaded.value.template });
+    showTakenIn(context, stored, { taken, ...loaded.value });
     return;
   }
   // The reader pinned another template meanwhile: the merge pins another one to load.
@@ -142,6 +161,15 @@ export function createStoreRefresh(context: StoreRefreshContext) {
     const stored = await host.documents.load(documentId, signal);
     return stored.ok && !signal.aborted ? stored.value : null;
   };
+  let latest = -Infinity;
+  const takeLatest = () =>
+    enqueue(async () => {
+      await context.saving()?.settled();
+      const saving = context.saving();
+      if (!saving || signal.aborted || latest <= saving.baseline().sequence) return;
+      const stored = await load();
+      if (stored) await takeIn(context, stored);
+    });
   return {
     /** A save conflicted: takes in the stored document, loading it when the host gave none. */
     onConflict: async (current: StoredDocument | null) => {
@@ -151,14 +179,11 @@ export function createStoreRefresh(context: StoreRefreshContext) {
     /** Follows the store's saves, taking in each one newer than the session's (DOCE-SESSION-7.1). */
     follow: () =>
       host.documents.subscribe?.(documentId, (state) => {
-        void enqueue(async () => {
-          await context.saving()?.settled();
-          const saving = context.saving();
-          if (!saving || state.sequence <= saving.baseline().sequence) return;
-          const stored = await load();
-          if (stored) await takeIn(context, stored);
-        });
+        latest = Math.max(latest, state.sequence);
+        if (context.saving()) void takeLatest();
       }) ?? (() => undefined),
+    hasNewer: (sequence: number) => latest > sequence,
+    takeLatest,
     /** Settles one conflict by the reader's choice; saving goes on once none is left. */
     resolve: (id: string, choice: MergeChoice) => {
       const conflict = context.conflicts.get().find((each) => each.id === id);
@@ -167,7 +192,7 @@ export function createStoreRefresh(context: StoreRefreshContext) {
       const content = writeDocumentFile(shown.state.doc, { template: shown.pin });
       const resolved = resolveMergeConflict(content, conflict, { choice, newId: createElementId });
       // Settling a block leaves the pin, and so the template, as shown.
-      if (!showContent(context, resolved, shown.template)) return;
+      if (!showContent(context, resolved, shown)) return;
       const left = context.conflicts.get().filter((each) => each !== conflict);
       context.conflicts.set(left);
       if (!left.length) context.saving()?.release();

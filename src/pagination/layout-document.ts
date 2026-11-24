@@ -164,7 +164,12 @@ function layoutSection(
   const perPage = options.footnoteNumbering === 'page';
   const { area, regions } = fill;
   const { shown } = start;
-  const roomOn = (index: number) => roomsFor(regions, start.page + index, start.pages);
+  const rooms: ReturnType<typeof roomsFor>[] = [];
+  const roomOn = (index: number) => {
+    const room = rooms[index] ?? roomsFor(regions, start.page + index, start.pages);
+    rooms[index] = room;
+    return room;
+  };
   const baseHeight = (index: number) => {
     const room = roomOn(index);
     return fill.pageHeight - room.header - room.footer;
@@ -181,6 +186,10 @@ function layoutSection(
     previous: start.previous,
     // With footnotes numbered through the document, a page's room depends on those shown before.
     state: () => (area && !perPage ? [...shown].join(' ') : ''),
+    geometry: (index) => {
+      const { header, footer } = roomOn(index);
+      return `${header}/${footer}`;
+    },
     next: (queue, index) => layoutNextPage(queue, index, { pageHeight, rules: fill.rules }),
     page(page) {
       const index = metrics.length;

@@ -15,6 +15,7 @@ import {
 } from 'prosemirror-state';
 import { DecorationSet, type EditorView } from 'prosemirror-view';
 import { viewOnlyInline } from '../utils/view-only-decorations.js';
+import { isEditRangeLocked } from './edit-lock.js';
 import {
   findMatches,
   findMatchesInBlocks,
@@ -71,6 +72,9 @@ const attributes: Readonly<Record<SearchScope, string>> = {
   find: SEARCH_MATCH_ATTR,
   pane: SEARCH_RESULT_ATTR,
 };
+
+// DecorationSet.remove compares each removed decoration against its siblings.
+const decorationRemovalLimit = 256;
 
 const decorationOf = (scope: SearchScope, match: SearchMatch, current: boolean) =>
   viewOnlyInline(match, { [attributes[scope]]: current ? 'current' : 'match' });
@@ -177,6 +181,7 @@ function typed(
   const matches = [...kept, ...found].sort((one, other) => one.from - other.from);
   const current = matches.length === 0 ? -1 : Math.max(matches.findIndex(from), 0);
   const next = { ...value, matches, current };
+  if (kept.length === 0) return { ...next, decorations: decorate(doc, scope, next) };
   // Drawn again: the typed blocks, and the matches that were or are now current.
   const was = value.matches[value.current];
   const dirty = [...blocks];
@@ -186,7 +191,10 @@ function typed(
   let decorations = value.decorations.map(tr.mapping, doc);
   const redrawn = new Set<number>();
   for (const range of dirty) {
-    decorations = decorations.remove(decorations.find(range.from, range.to));
+    const removed = decorations.find(range.from, range.to);
+    if (removed.length > decorationRemovalLimit)
+      return { ...next, decorations: decorate(doc, scope, next) };
+    decorations = decorations.remove(removed);
     matches.forEach((match, index) => {
       if (match.to >= range.from && match.from <= range.to) redrawn.add(index);
     });
@@ -322,16 +330,18 @@ export function replaceMatch(replacement: string, scope: SearchScope = 'find'): 
 /** Replaces each match of a search the writer may replace, as one change; the others stay found. */
 export function replaceAllMatches(replacement: string, scope: SearchScope = 'find'): Command {
   return (state, dispatch) => {
-    const matches = (searchState(state, scope)?.matches ?? []).filter((match) =>
-      isMatchReplaceable(state, match),
-    );
-    if (matches.length === 0) return false;
-    if (dispatch) {
-      const tr = state.tr;
-      for (const match of [...matches].reverse()) replaceIn(tr, match, replacement);
-      closeHistory(tr);
-      dispatch(scope === 'find' ? tr.scrollIntoView() : tr);
+    const matches = searchState(state, scope)?.matches ?? [];
+    if (!dispatch) return matches.some((match) => isMatchReplaceable(state, match));
+    const tr = state.tr;
+    for (const match of matches.toReversed()) {
+      if (!isMatchReplaceable(state, match)) continue;
+      // A host policy may depend on content changed by a preceding replacement.
+      if (tr.doc !== state.doc && isEditRangeLocked(state, match, tr.doc)) continue;
+      replaceIn(tr, match, replacement);
     }
+    if (!tr.docChanged) return false;
+    closeHistory(tr);
+    dispatch(scope === 'find' ? tr.scrollIntoView() : tr);
     return true;
   };
 }

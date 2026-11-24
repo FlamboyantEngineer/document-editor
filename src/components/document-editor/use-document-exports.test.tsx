@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
@@ -145,5 +145,32 @@ describe('File > Export', () => {
     render(<Harness entries={[]} />);
     expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'File' })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-6.28 runs, deduplicates and aborts exports under root StrictMode', async () => {
+    const user = userEvent.setup();
+    const pdf = pendingExport('pdf', 'PDF');
+    const { unmount } = render(
+      <StrictMode>
+        <Harness entries={[pdf.entry]} />
+      </StrictMode>,
+    );
+    await user.click(await openExport(user, 'PDF'));
+    const first = pdf.requests[0];
+    expect(first?.signal.aborted).toBe(false);
+    const running = await openExport(user, 'PDF');
+    expect(running).toHaveAttribute('aria-disabled', 'true');
+    await user.click(running);
+    expect(pdf.requests).toHaveLength(1);
+    await user.keyboard('{Escape}{Escape}{Escape}');
+
+    pdf.end({ ok: true, value: undefined });
+    expect(await screen.findByText('success: PDF export is ready')).toBeVisible();
+    await user.click(await openExport(user, 'PDF'));
+    const second = pdf.requests[1];
+    expect(second?.signal.aborted).toBe(false);
+    expect(second?.signal).not.toBe(first?.signal);
+    unmount();
+    expect(second?.signal.aborted).toBe(true);
   });
 });

@@ -5,6 +5,7 @@
 // face the browser picks, which no served file measures.
 
 import type { TemplateFile } from '../model/index.js';
+import { splitFontFamilies } from '../model/templates/template-css-values.js';
 
 const GENERICS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
 
@@ -23,10 +24,17 @@ function renamed(value: unknown, rename: (font: string) => string): unknown {
   if (!value || typeof value !== 'object') return value;
   const entries = Object.entries(value).map(([key, child]) =>
     key === 'font' && typeof child === 'string'
-      ? [key, rename(child)]
+      ? [key, splitFontFamilies(child).map(renameFamily(rename)).join(', ')]
       : [key, renamed(child, rename)],
   );
   return Object.fromEntries(entries);
+}
+
+function renameFamily(rename: (font: string) => string) {
+  return (font: string) => {
+    const name = rename(font);
+    return name !== font && name.includes(',') ? `"${name}"` : name;
+  };
 }
 
 /**

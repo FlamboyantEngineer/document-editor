@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { installEditorDom } from '../../../test/editor-dom.js';
@@ -16,21 +16,24 @@ import {
 } from '../../../test/template-workspace.js';
 import type { HostResult } from '../../host/adapters.js';
 import type { TemplateFile } from '../../model/index.js';
-import { TemplateWorkspace } from './template-workspace.js';
+import { TemplateWorkspace, type TemplateWorkspaceParts } from './template-workspace.js';
 
 const REPORT: TemplateFile = { formatVersion: 1, id: 'report', name: 'Report' };
 const LETTER: TemplateFile = { formatVersion: 1, id: 'letter', name: 'Letter' };
+const MEMO: TemplateFile = { formatVersion: 1, id: 'memo', name: 'Memo' };
 
 type Store = ReturnType<typeof storeOf>;
-type Method = 'save' | 'load';
+type Method = 'save' | 'load' | 'versions';
 
 // Holds back the store's answers to one method until the test lets each go, in any order.
 function holdBack(store: Store, method: Method) {
-  const held: { args: unknown[]; release: () => void }[] = [];
-  const original = store[method].bind(store) as (...args: unknown[]) => Promise<unknown>;
+  const held: { args: unknown[]; release: () => Promise<void> }[] = [];
+  const original = store[method]?.bind(store) as
+    ((...args: unknown[]) => Promise<unknown>) | undefined;
+  if (!original) throw new Error(`No ${method} method to hold.`);
   const holding = (...args: unknown[]) =>
     new Promise((resolve) => {
-      held.push({ args, release: () => void original(...args).then(resolve) });
+      held.push({ args, release: () => original(...args).then(resolve) });
     });
   Object.assign(store, { [method]: holding });
   return {
@@ -55,7 +58,7 @@ describe('TemplateWorkspace requests', () => {
       await user.click(saveButton());
       await waitFor(() => expect(saves.held).toHaveLength(1), LOADED);
       await rename(user, 'Second');
-      saves.held[0]?.release();
+      await act(async () => saves.held[0]?.release());
       await waitFor(
         () =>
           expect(store.load('report')).resolves.toMatchObject({
@@ -94,7 +97,7 @@ describe('TemplateWorkspace requests', () => {
         }),
       );
       await waitFor(async () => expect(await nameField()).toHaveValue('Letter'), LOADED);
-      saves.held[0]?.release();
+      await act(async () => saves.held[0]?.release());
       await waitFor(
         () =>
           expect(store.load('report')).resolves.toMatchObject({
@@ -252,12 +255,109 @@ describe('TemplateWorkspace requests', () => {
       // Back to the template before the version arrives: the current version is viewed.
       await versionAction(user, rows[0] as HTMLElement, 'View version');
       loads.stop();
-      loads.held[0]?.release();
-      await expect(store.load('report')).resolves.toMatchObject({ ok: true });
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await act(async () => loads.held[0]?.release());
       expect(screen.queryByText('Version 1, read only')).not.toBeInTheDocument();
       await user.click(screen.getByRole('tab', { name: 'Properties' }));
       expect(await nameField()).toBeEnabled();
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-3.9 keeps the latest template request loading until its answer',
+    async () => {
+      const store = storeOf(REPORT, LETTER, MEMO);
+      const changes: (string | null)[] = [];
+      const props = {
+        store,
+        renderPreview: ({ template }: { template: TemplateFile }) => <p>{template.name} preview</p>,
+        onTemplateIdChange: (id: string | null) => changes.push(id),
+      };
+      const { rerender } = render(<TemplateWorkspace {...props} templateId="report" />);
+      await screen.findByText('Report preview', {}, LOADED);
+      const loads = holdBack(store, 'load');
+      rerender(<TemplateWorkspace {...props} templateId="letter" />);
+      await waitFor(() => expect(loads.held[0]?.args[0]).toBe('letter'));
+      rerender(<TemplateWorkspace {...props} templateId="memo" />);
+      await waitFor(() => expect(loads.held[1]?.args[0]).toBe('memo'));
+
+      await act(async () => loads.held[0]?.release());
+      expect(root()).toHaveAttribute('aria-busy', 'true');
+      expect(screen.queryByText('Letter preview')).not.toBeInTheDocument();
+      loads.stop();
+      await act(async () => loads.held[1]?.release());
+      expect(screen.getByText('Memo preview')).toBeVisible();
+      expect(root()).not.toHaveAttribute('aria-busy');
+      expect(changes).toEqual(['report', 'memo']);
+    },
+    SLOW,
+  );
+
+  it.each(['lookup', 'load', 'failure'])(
+    'DOCE-TEMPLATE-EDITOR-3.9 stays on Current while a historical %s finishes',
+    async (phase) => {
+      const store = storeOf(REPORT, { ...REPORT, name: 'Current Report' });
+      const changes: (string | null)[] = [];
+      const props = {
+        store,
+        templateId: 'report',
+        renderPreview: ({ template }: { template: TemplateFile }) => <p>{template.name} preview</p>,
+        onRevisionChange: (id: string | null) => changes.push(id),
+      };
+      const { rerender } = render(<TemplateWorkspace {...props} revision={null} />);
+      await screen.findByText('Current Report preview', {}, LOADED);
+      if (phase === 'failure') {
+        const read = store.load.bind(store);
+        store.load = (id, options) =>
+          options?.revision
+            ? Promise.resolve({
+                ok: false,
+                error: { kind: 'unavailable', message: 'Historical load failed' },
+              })
+            : read(id, options);
+      }
+      const requests = holdBack(store, phase === 'lookup' ? 'versions' : 'load');
+      rerender(<TemplateWorkspace {...props} revision="rev-1" />);
+      await waitFor(() => expect(requests.held).toHaveLength(1));
+
+      rerender(<TemplateWorkspace {...props} revision={null} />);
+      requests.stop();
+      await act(async () => requests.held[0]?.release());
+      expect(screen.getByText('Current Report preview')).toBeVisible();
+      expect(
+        screen.queryByText(/Version 1, read only|Historical load failed/),
+      ).not.toBeInTheDocument();
+      expect(changes).toEqual([]);
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-3.9 closes an obsolete leave confirmation and preserves the draft',
+    async () => {
+      const user = userEvent.setup();
+      const store = storeOf(REPORT, LETTER);
+      const props = {
+        store,
+        renderLayout: ({ tabs, messages, panel, properties }: TemplateWorkspaceParts) => (
+          <>
+            {tabs}
+            {messages}
+            {panel(properties)}
+          </>
+        ),
+      };
+      const { rerender } = render(<TemplateWorkspace {...props} templateId="report" />);
+      await rename(user, 'Unsaved report');
+      rerender(<TemplateWorkspace {...props} templateId="letter" />);
+      expect(await screen.findByRole('alertdialog', {}, LOADED)).toBeVisible();
+      rerender(<TemplateWorkspace {...props} templateId="report" />);
+      await waitFor(
+        () => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+        LOADED,
+      );
+      expect(await nameField()).toHaveValue('Unsaved report');
+      expect(root()).toHaveAttribute('data-dirty', 'true');
     },
     SLOW,
   );

@@ -46,8 +46,10 @@ import { awaitReady, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-cache.js';
 import { pageChromeDecorations } from './page-chrome.js';
+import { createPageMapScope } from './page-map.js';
 import { layoutSettled, pagesLayout } from './pages-layout.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
+import { bindProjectionView } from './projection-attachment.js';
 import { inputPlugin } from './projection-input-plugin.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import {
@@ -247,7 +249,10 @@ function projectionState(
         selection: () => session().canonical.selection,
         map: () => session().map,
       }),
-      canonicalDecorations(source),
+      canonicalDecorations({
+        ...source,
+        pages: () => session().pageMaps.read(session().canonical),
+      }),
       pageChromeDecorations(),
       splitBreaksPlugin(),
       ...(text
@@ -287,6 +292,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     options,
     rules,
     cache,
+    pageMaps: createPageMapScope(),
     cells: holdCellSelection(),
     counts: { refused: 0, relaid: 0 },
     ghost,
@@ -335,6 +341,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
   current = live;
   const unlisten = remeasureGhost(live);
   layout(live);
+  const mounted = bindProjectionView(live);
   return {
     get state() {
       return live.canonical;
@@ -345,14 +352,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     get map() {
       return live.map;
     },
-    attach(view) {
-      live.view = view;
-      const unwatch = live.edits.watch(view);
-      return () => {
-        unwatch();
-        if (live.view === view) live.view = null;
-      };
-    },
+    attach: mounted.attach,
     receive: (tr) => receive(live, tr),
     update(state, tr) {
       // A projection gone keeps what it last showed, as a renderer may still hold it.
@@ -392,6 +392,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     },
     servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {
+      mounted.detach();
       unlisten();
       live.cells.release();
       live.cancelLayout?.();

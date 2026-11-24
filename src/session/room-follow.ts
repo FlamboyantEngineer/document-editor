@@ -19,6 +19,8 @@ interface ConnectionFollowing {
   granted: () => EditorCapabilities;
   /** Why the editor stopped following the room, once it has (DOCE-COLLAB-4.7). */
   unreadable: ValueStore<HostError | null>;
+  /** Whether a reload is waiting for the template its replacement content pins. */
+  reloading: ValueStore<boolean>;
 }
 
 // Nothing the reader does would reach a room the editor no longer follows.
@@ -42,7 +44,7 @@ export function readConnection(
 export function followConnection(
   connection: RoomConnection,
   { status, document, connection: shownConnection }: SessionStores,
-  { cached, granted, unreadable }: ConnectionFollowing,
+  { cached, granted, unreadable, reloading }: ConnectionFollowing,
 ) {
   let hasSynced = !cached;
   const show = () => {
@@ -53,7 +55,7 @@ export function followConnection(
     const save = error ? 'error' : roomSavePhase(state);
     status.set({ ...status.get(), save, error, dirty: state.hasUnconfirmedChanges });
     const read = readConnection(connection, { cached, hasSynced });
-    const next = unread ? { ...read, gate: LOCKED } : read;
+    const next = unread || reloading.get() ? { ...read, gate: LOCKED } : read;
     const last = shownConnection.get();
     if (last?.phase === next.phase && sameGate(last, next)) return;
     shownConnection.set(next);
@@ -61,7 +63,7 @@ export function followConnection(
     if (shown) document.set(withCapabilities(shown, granted(), next.gate));
   };
   show();
-  const stops = [connection.subscribe(show), unreadable.subscribe(show)];
+  const stops = [connection.subscribe(show), unreadable.subscribe(show), reloading.subscribe(show)];
   return () => {
     for (const stop of stops) stop();
   };

@@ -30,7 +30,7 @@ import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
-import { markerKey, NO_NUMBERS, type NodeNumbers, numbersByNode } from './node-numbers.js';
+import { holdNodeNumbers, markerKey, type NodeNumbers } from './node-numbers.js';
 import { numberedText } from './numbered-text.js';
 import { createRegionLines } from './region-lines.js';
 import { atomMeasurer, mathPlaces } from './text-engine-atoms.js';
@@ -233,13 +233,13 @@ function keptLines(
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template, markup } = options;
-  let numbers = NO_NUMBERS;
+  const numbers = holdNodeNumbers(template);
   // The words inserted in the blocks being measured.
   let current = NO_INSERTED;
   const recorder: LinesRecorder = { lines: null };
   const contents = createContentsLists(template, options.view);
   const layouts = engineLayouts(options, {
-    numbers: () => numbers,
+    numbers: numbers.current,
     inserted: () => current,
     recorder,
     contents,
@@ -248,8 +248,8 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
-  const tables = keptLines(text, { widthOf, markup, numbers: () => numbers, variablesKey });
-  const footnoteOf = (part: ProseMirrorNode) => numbers.footnoteOf(part);
+  const tables = keptLines(text, { widthOf, markup, numbers: numbers.current, variablesKey });
+  const footnoteOf = (part: ProseMirrorNode) => numbers.current().footnoteOf(part);
   const laying = { geometry, recorder, widthOf, footnoteOf, markup, variablesKey, labelOf };
   const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
   const unsubscribe = atoms.subscribe(() => {
@@ -262,10 +262,8 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   return {
     template,
     fonts: options.fonts,
-    number(doc) {
-      if (numbers.doc !== doc) numbers = numbersByNode(doc, template).byNode;
-    },
-    numbering: (doc) => numbersByNode(doc, template).numbering,
+    number: numbers.number,
+    numbering: numbers.numbering,
     pageDigits: (count) => contents.pageDigits(count),
     contentsDrawn: selecting(select, (node, scope) =>
       drawnContents(node, {
@@ -274,7 +272,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
         text,
         contents,
         width: widthOf(scope),
-        doc: numbers.doc,
+        doc: numbers.current().doc,
       }),
     ),
     measureBlock(node, scope, inserted = NO_INSERTED) {
@@ -284,8 +282,8 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
         counts.refuse('inserted words outside a text block');
         return null;
       }
-      const listed = contents.keyOf(node, numbers.doc) + variablesKey(node);
-      const key = `${scope ?? ''}|${numbers.keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, options.markup)}${listed}`;
+      const listed = contents.keyOf(node, numbers.current().doc) + variablesKey(node);
+      const key = `${scope ?? ''}|${numbers.current().keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, options.markup)}${listed}`;
       const kept = blocks.get(node);
       if (kept?.key === key) return kept.block;
       current = inserted;

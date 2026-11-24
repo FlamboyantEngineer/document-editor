@@ -33,7 +33,7 @@ function gridOf(rows: readonly StoredNode[]): number[] {
     const widths = widthsOf(cell);
     return Array.from({ length: span(cell.attrs?.colspan) }, (_, index) => widths[index] ?? 0);
   });
-  const columns = Math.max(grid.length, ...rows.map((row) => row.content?.length ?? 0));
+  const columns = rows.reduce((max, row) => Math.max(max, row.content?.length ?? 0), grid.length);
   return Array.from({ length: Math.max(1, columns) }, (_, index) => grid[index] ?? 0);
 }
 
@@ -78,8 +78,8 @@ interface Placing {
   readonly writing: Writing;
   readonly blocks: CellBlocks;
   readonly grid: readonly number[];
-  /** The rows each grid column is still merged down for. */
-  readonly merged: number[];
+  /** The remaining vertical merges, by their starting grid column. */
+  readonly merged: Map<number, { columns: number; remaining: number }>;
 }
 
 const VERTICAL: Readonly<Record<string, string>> = {
@@ -92,14 +92,13 @@ const VERTICAL: Readonly<Record<string, string>> = {
 function cellProperties(cell: StoredNode, column: number, placing: Placing): string {
   const columns = span(cell.attrs?.colspan);
   const rows = span(cell.attrs?.rowspan);
-  const width = placing.grid.slice(column, column + columns).reduce((sum, value) => sum + value, 0);
   const header = cell.type === 'tableHeader';
   const fill =
     toWordColor(cell.attrs?.background) ??
     (header ? toWordColor(placing.writing.counting.styles.table?.header?.background) : null);
   const vertical = VERTICAL[text(cell.attrs?.verticalAlign)];
   return [
-    width ? `<w:tcW w:w="${String(width)}" w:type="dxa"/>` : '<w:tcW w:w="0" w:type="auto"/>',
+    cellWidth(placing.grid, column, columns),
     columns > 1 ? `<w:gridSpan w:val="${String(columns)}"/>` : '',
     rows > 1 ? '<w:vMerge w:val="restart"/>' : '',
     fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '',
@@ -110,7 +109,7 @@ function cellProperties(cell: StoredNode, column: number, placing: Placing): str
 function cellOf(cell: StoredNode, column: number, placing: Placing): string {
   const columns = span(cell.attrs?.colspan);
   const rows = span(cell.attrs?.rowspan);
-  for (let index = column; index < column + columns; index += 1) placing.merged[index] = rows - 1;
+  if (rows > 1) placing.merged.set(column, { columns, remaining: rows - 1 });
   const body = placing.blocks(cell.content, placing.writing) || paragraph('');
   // A header cell's paragraphs take the header style.
   const shown =
@@ -120,14 +119,22 @@ function cellOf(cell: StoredNode, column: number, placing: Placing): string {
   return `<w:tc><w:tcPr>${cellProperties(cell, column, placing)}</w:tcPr>${shown}</w:tc>`;
 }
 
-// A cell that continues a merge from the row above, for each grid column still merged.
-function continuedCell(column: number, placing: Placing): string {
-  placing.merged[column] = (placing.merged[column] ?? 1) - 1;
-  const width = placing.grid[column] ?? 0;
-  const size = width
-    ? `<w:tcW w:w="${String(width)}" w:type="dxa"/>`
-    : '<w:tcW w:w="0" w:type="auto"/>';
-  return `<w:tc><w:tcPr>${size}<w:vMerge/></w:tcPr><w:p/></w:tc>`;
+function cellWidth(grid: readonly number[], column: number, columns: number): string {
+  const width = grid.slice(column, column + columns).reduce((sum, value) => sum + value, 0);
+  return width ? `<w:tcW w:w="${String(width)}" w:type="dxa"/>` : '<w:tcW w:w="0" w:type="auto"/>';
+}
+
+// A vertical continuation must cover the same grid columns as the cell that started it.
+function writeContinuations(column: number, placing: Placing, written: string[]): number {
+  for (let merge = placing.merged.get(column); merge; merge = placing.merged.get(column)) {
+    const { columns } = merge;
+    const size = cellWidth(placing.grid, column, columns);
+    const span = columns > 1 ? `<w:gridSpan w:val="${String(columns)}"/>` : '';
+    written.push(`<w:tc><w:tcPr>${size}${span}<w:vMerge/></w:tcPr><w:p/></w:tc>`);
+    if (--merge.remaining === 0) placing.merged.delete(column);
+    column += columns;
+  }
+  return column;
 }
 
 function rowOf(row: StoredNode, placing: Placing, repeat: boolean): string {
@@ -135,13 +142,11 @@ function rowOf(row: StoredNode, placing: Placing, repeat: boolean): string {
   const written: string[] = [];
   let column = 0;
   for (const cell of cells) {
-    while ((placing.merged[column] ?? 0) > 0) written.push(continuedCell(column++, placing));
+    column = writeContinuations(column, placing, written);
     written.push(cellOf(cell, column, placing));
     column += span(cell.attrs?.colspan);
   }
-  while (column < placing.grid.length && (placing.merged[column] ?? 0) > 0) {
-    written.push(continuedCell(column++, placing));
-  }
+  writeContinuations(column, placing, written);
   const header = repeat && cells.length > 0 && cells.every((cell) => cell.type === 'tableHeader');
   return `<w:tr>${header ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${written.join('')}</w:tr>`;
 }
@@ -151,7 +156,12 @@ export function writeTable(node: StoredNode, writing: Writing, blocks: CellBlock
   const settings = writing.counting.styles.table;
   const rows = keptContent(storedBodyOf(node), writing.suggestions);
   const grid = gridOf(rows);
-  const placing: Placing = { writing: { ...writing, structural: false }, blocks, grid, merged: [] };
+  const placing: Placing = {
+    writing: { ...writing, structural: false },
+    blocks,
+    grid,
+    merged: new Map(),
+  };
   const caption = captionParagraph(node, 'table', writing);
   // Header rows repeat while they lead the table.
   let leading = settings?.repeatHeader !== false;

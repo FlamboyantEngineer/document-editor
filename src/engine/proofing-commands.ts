@@ -4,17 +4,23 @@
 // revealing it. Abbreviations whose glossary entry needs the writer count and are visited with the
 // issues.
 
-import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
+import {
+  type Command,
+  type EditorState,
+  NodeSelection,
+  TextSelection,
+  type Transaction,
+} from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type AbbreviationIssue, listAbbreviationIssues } from './abbreviation-health.js';
 import {
-  currentIssueKey,
   PROOFING_ISSUE_ATTR,
   type ProofingIssueAt,
   proofingKey,
   type ProofingMeta,
   type ProofingState,
 } from './proofing.js';
+import { issueFromDecoration } from './proofing-ranges.js';
 
 /** The proofing state, or null when the document is not proofed. */
 export function proofingState(state: EditorState): ProofingState | null {
@@ -23,7 +29,9 @@ export function proofingState(state: EditorState): ProofingState | null {
 
 // Document order: by start, then end, then key, so issues over the same text stay apart.
 const inOrder = (left: ProofingIssueAt, right: ProofingIssueAt) =>
-  left.from - right.from || left.to - right.to || (left.key < right.key ? -1 : 1);
+  left.from - right.from ||
+  left.to - right.to ||
+  (left.key === right.key ? 0 : left.key < right.key ? -1 : 1);
 
 /** The issues marked in the document, in document order. */
 export function listProofingIssues(state: EditorState): ProofingIssueAt[] {
@@ -31,11 +39,7 @@ export function listProofingIssues(state: EditorState): ProofingIssueAt[] {
   if (!proofing?.enabled) return [];
   return proofing.decorations
     .find()
-    .map((decoration) => ({
-      ...(decoration.spec as { issue: ProofingIssueAt }).issue,
-      from: decoration.from,
-      to: decoration.to,
-    }))
+    .map(issueFromDecoration)
     .filter((issue) => state.doc.textBetween(issue.from, issue.to) === issue.text)
     .sort(inOrder);
 }
@@ -90,13 +94,24 @@ const proofingMeta =
     return true;
   };
 
+function replaceIn(tr: Transaction, issue: ProofingIssueAt, replacement: string) {
+  if (replacement === '') return tr.delete(issue.from, issue.to);
+  const marks = tr.doc.resolve(issue.from + 1).marks();
+  return tr.replaceWith(issue.from, issue.to, tr.doc.type.schema.text(replacement, marks));
+}
+
 /** Puts a suggestion in place of an issue's text, when the text is still there. */
 export function replaceProofingIssue(issue: ProofingIssueAt, replacement: string): Command {
   return (state, dispatch) => {
-    if (state.doc.textBetween(issue.from, issue.to) !== issue.text) return false;
+    if (
+      issue.from < 0 ||
+      issue.from >= issue.to ||
+      issue.to > state.doc.content.size ||
+      state.doc.textBetween(issue.from, issue.to) !== issue.text
+    )
+      return false;
     if (dispatch) {
-      const marks = state.doc.resolve(issue.from + 1).marks();
-      const tr = state.tr.replaceWith(issue.from, issue.to, state.schema.text(replacement, marks));
+      const tr = replaceIn(state.tr, issue, replacement);
       dispatch(
         tr
           .setSelection(TextSelection.create(tr.doc, issue.from + replacement.length))
@@ -113,23 +128,29 @@ const alike = (issue: ProofingIssueAt, other: ProofingIssueAt) =>
   other.kind === issue.kind &&
   (other.rule?.id ?? null) === (issue.rule?.id ?? null);
 
-/** How many issues are like one, itself included. */
+// Use the first issue in document order if ranges overlap, even across providers.
+function alikeRanges(state: EditorState, issue: ProofingIssueAt): ProofingIssueAt[] {
+  const ranges: ProofingIssueAt[] = [];
+  for (const other of listProofingIssues(state)) {
+    if (alike(issue, other) && (ranges.at(-1)?.to ?? 0) <= other.from) ranges.push(other);
+  }
+  return ranges;
+}
+
+/** How many non-overlapping ranges have issues like this one. */
 export function countAlikeIssues(state: EditorState, issue: ProofingIssueAt): number {
-  return listProofingIssues(state).filter((other) => alike(issue, other)).length;
+  return alikeRanges(state, issue).length;
 }
 
 /** Puts a suggestion in place of every issue like one, as one change. */
 export function replaceAllProofingIssues(issue: ProofingIssueAt, replacement: string): Command {
   return (state, dispatch) => {
-    const issues = listProofingIssues(state).filter((other) => alike(issue, other));
+    const issues = alikeRanges(state, issue);
     if (issues.length === 0) return false;
     if (dispatch) {
       const tr = state.tr;
       // Later issues first, so the earlier ones' positions stay put.
-      for (const each of [...issues].reverse()) {
-        const marks = tr.doc.resolve(each.from + 1).marks();
-        tr.replaceWith(each.from, each.to, state.schema.text(replacement, marks));
-      }
+      for (const each of issues.reverse()) replaceIn(tr, each, replacement);
       dispatch(tr.scrollIntoView());
     }
     return true;
@@ -139,7 +160,10 @@ export function replaceAllProofingIssues(issue: ProofingIssueAt, replacement: st
 /** Ignores this one issue, for as long as the editor is open. */
 export function ignoreProofingOnce(issue: ProofingIssueAt): Command {
   return (state, dispatch) =>
-    proofingMeta({ ignoreOnce: currentIssueKey(state, issue) })(state, dispatch);
+    proofingMeta(
+      { ignoreOnce: issue.key },
+      listProofingIssues(state).some(({ key }) => key === issue.key),
+    )(state, dispatch);
 }
 
 /**

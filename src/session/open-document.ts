@@ -111,3 +111,27 @@ export async function openStoredDocument(
   if (!template.ok) return template;
   return { ok: true, value: { stored: stored.value, template: template.value, capabilities } };
 }
+
+// A session watches saves before reading its first snapshot. Take in any saves that arrived
+// while its template or draft loaded, before handing the snapshot to the editor.
+export async function openCurrentDocument(
+  read: () => ReturnType<typeof openStoredDocument>,
+  hasNewer: (sequence: number) => boolean,
+  loadDraft: (stored: StoredDocument) => Promise<void>,
+) {
+  let opened = await read();
+  while (opened.ok) {
+    const { stored } = opened.value;
+    if (!hasNewer(stored.sequence)) {
+      await loadDraft(stored);
+      if (!hasNewer(stored.sequence)) return opened;
+    }
+    const newer = await read();
+    if (!newer.ok || newer.value.stored.sequence <= stored.sequence) {
+      await loadDraft(stored);
+      return opened;
+    }
+    opened = newer;
+  }
+  return opened;
+}

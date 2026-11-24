@@ -20,8 +20,13 @@ export async function readWoff(
 ): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (bytes.byteLength < HEADER || view.getUint32(0) !== 0x774f4646) return bytes;
+  if (bytes.byteLength < 4 || view.getUint32(0) !== 0x774f4646) return bytes;
+  if (bytes.byteLength < HEADER || view.getUint32(8) !== bytes.byteLength) {
+    throw new Error('Invalid WOFF header');
+  }
   const count = view.getUint16(12);
+  const start = HEADER + count * ENTRY;
+  if (!count || start > bytes.byteLength) throw new Error('Invalid WOFF directory');
   const entries = Array.from({ length: count }, (_, index) => {
     const at = HEADER + index * ENTRY;
     return {
@@ -33,9 +38,14 @@ export async function readWoff(
     };
   });
   const tables = await Promise.all(
-    entries.map(({ offset, compressed, length }) => {
+    entries.map(async ({ offset, compressed, length }) => {
+      if (offset < start || offset + compressed > bytes.byteLength || compressed > length) {
+        throw new Error('Invalid WOFF table');
+      }
       const data = bytes.subarray(offset, offset + compressed);
-      return compressed < length ? inflate(data) : Promise.resolve(data);
+      const table = compressed < length ? await inflate(data) : data;
+      if (table.byteLength !== length) throw new Error('Invalid WOFF table length');
+      return table;
     }),
   );
   let size = SFNT_HEADER + SFNT_ENTRY * count;

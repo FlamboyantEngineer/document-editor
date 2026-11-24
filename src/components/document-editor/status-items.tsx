@@ -48,9 +48,10 @@ function useDeferredEditor(): { editor: EditorContext; deferred: EditorContext['
 }
 
 // The document's statistics on the deferred state, read from the pages its layout gives.
-function useStatistics(deferred: EditorContext['state'] | undefined) {
+function useStatistics(shown: ReturnType<typeof useDeferredEditor>) {
+  const deferred = shown?.deferred;
   // The pages a projection shows the state on change as it lays them out, the state unchanged.
-  const pages = deferred ? pageMap(deferred) : null;
+  const pages = deferred ? pageMap(deferred, shown?.editor.view) : null;
   return useMemo(
     () => (deferred && pages ? documentStatistics(deferred, pages) : null),
     [deferred, pages],
@@ -63,7 +64,7 @@ function useStatistics(deferred: EditorContext['state'] | undefined) {
  */
 export function DocumentPageStatus() {
   const shown = useDeferredEditor();
-  const statistics = useStatistics(shown?.deferred);
+  const statistics = useStatistics(shown);
   const viewport = useDocumentViewport(shown?.editor.view ?? null);
   if (!shown || !statistics || shown.editor.layout !== 'page') return null;
   const { view, labels } = shown.editor;
@@ -77,7 +78,7 @@ export function DocumentPageStatus() {
  */
 export function DocumentWordStatus() {
   const shown = useDeferredEditor();
-  const statistics = useStatistics(shown?.deferred);
+  const statistics = useStatistics(shown);
   if (!shown || !statistics) return null;
   const { labels } = shown.editor;
   const limit = contentLimitOf(shown.deferred);

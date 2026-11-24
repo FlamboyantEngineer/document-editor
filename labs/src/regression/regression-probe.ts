@@ -224,7 +224,7 @@ function placeCaret(view: EditorView, at: number) {
 // The caret at a fragment boundary of the pages the view shows: on its own paged state, or on the
 // canonical state a projection shows on pages, at the boundary's place in the whole document.
 function caretAtFragment(view: EditorView, type: string, edge: FragmentEdge): FragmentCaret | null {
-  const doc = pageMap(view.state).projection;
+  const doc = pageMap(view.state, view).projection;
   const continuation = firstContinuation(doc, type);
   if (!continuation) return null;
   const head = headOf(doc, continuation);

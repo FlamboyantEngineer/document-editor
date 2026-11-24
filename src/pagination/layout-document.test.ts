@@ -20,6 +20,7 @@ import {
   type PageMetric,
   type SectionReport,
 } from './layout-document.js';
+import { createMeasureCache } from './measure-cache.js';
 import { createPageVariables } from './page-variables.js';
 import { createPagesTextEngine } from './text-engine.js';
 import type { PagesTextEngine, RegionRoom } from './text-engine-types.js';
@@ -97,6 +98,56 @@ describe('headers and footers showing page numbers', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
+
+  it.each(['header', 'footer'] as const)(
+    'DOCE-PAGINATION-5.5 lays cached body blocks out again when the %s grows or shrinks',
+    (region) => {
+      const template = templateWith({ [region]: [line(text('Report'))] });
+      const content = ['one', 'two', 'three'].map((value) => line(text(value)));
+      const { doc } = readDocumentFile(
+        { formatVersion: 1, sections: [{ content }] },
+        documentSchema,
+      );
+      const view = new EditorView(document.createElement('div'), {
+        state: EditorState.create({ doc: setPageRegions(new Transform(doc), template).doc }),
+      });
+      let height = 10;
+      vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const measured = this.classList.contains(`pm-page-${region}`)
+          ? height
+          : this.tagName === 'P'
+            ? 25
+            : 0;
+        return new DOMRect(0, 0, 100, measured);
+      });
+      const memory = createLayoutMemory();
+      const cache = createMeasureCache();
+      const layout = (incremental: boolean) => {
+        const pages: PageMetric[] = [];
+        layoutDocument(view, {
+          pageHeight: 80,
+          rules: {},
+          cache,
+          memory: incremental ? memory : undefined,
+          onPage: (page) => pages.push(page),
+        });
+        return pages;
+      };
+      expect(layout(true)).toHaveLength(2);
+      height = 35;
+      const grown = layout(true);
+      expect(grown).toHaveLength(3);
+      expect(grown).toEqual(layout(false));
+      expect(grown.every(({ used, available }) => used <= available)).toBe(true);
+      height = 10;
+      const shrunk = layout(true);
+      expect(shrunk).toHaveLength(2);
+      expect(shrunk).toEqual(layout(false));
+      view.destroy();
+    },
+  );
 
   it('DOCE-PAGINATION-11.10 gives each page the header room its own number takes, 9 to 10', () => {
     const template = templateWith({ header: [line(report(92), variable('page.current'))] });

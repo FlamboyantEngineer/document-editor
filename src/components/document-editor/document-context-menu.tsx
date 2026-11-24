@@ -11,7 +11,7 @@ import {
 import { type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
-import { type RefObject, useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 import { PROOFING_ISSUE_ATTR } from '../../engine/index.js';
 import { isFocusLost } from '../../utils/composed-focus.js';
 import { isElement } from '../../utils/is-element.js';
@@ -19,9 +19,13 @@ import type { ContextEntriesOptions } from './context-entries.js';
 import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
 import { resolveContextTarget } from './context-target.js';
 import { createEditorContext, type EditorContextOptions } from './editor-context.js';
+import type { EditorSession } from './save-status-item.js';
 
 interface DocumentContextMenuProps extends Omit<ContextEntriesOptions, 'startComment'> {
   view: EditorView | null;
+  /** The host's state and session, even when the view is a projection. */
+  documentState: EditorState;
+  session: EditorSession | undefined;
   /** Holds the comments margin's way to start a thread, while the reader may comment. */
   startCommentRef: RefObject<(() => void) | null>;
   /** The host's providers and arrangement. */
@@ -184,15 +188,32 @@ function targetAt(
   return { ...resolved, proofingIssue: mark ? resolved.proofingIssue : null, proofingMark: mark };
 }
 
+function useMenuInputs(props: DocumentContextMenuProps) {
+  const { view, documentState, session, editable } = props;
+  const { doc, plugins } = documentState;
+  const latestRef = useRef(props);
+  const clipboardTargetRef = useRef({ view, doc, plugins, session, editable });
+  useEffect(() => {
+    latestRef.current = props;
+  });
+  // Transactions that only update plugin metadata keep the document and its configuration.
+  useLayoutEffect(() => {
+    clipboardTargetRef.current = { view, doc, plugins, session, editable };
+  }, [view, doc, plugins, session, editable]);
+  return { latestRef, clipboardTargetRef };
+}
+
+function keepClipboardTarget(target: RefObject<unknown>) {
+  const original = target.current;
+  return () => target.current === original;
+}
+
 /** Opens the editor's context menu on the document of `view`. */
 export function DocumentContextMenu(props: DocumentContextMenuProps) {
   const { view } = props;
   const controller = useMenuController();
   const holdRef = useRef<MenuHold | null>(null);
-  const latest = useRef(props);
-  useEffect(() => {
-    latest.current = props;
-  });
+  const { latestRef, clipboardTargetRef } = useMenuInputs(props);
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner) return undefined;
@@ -204,7 +225,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       pos: number,
       { mark, left = null }: { mark?: boolean; left?: ReturnType<typeof selectionLeft> } = {},
     ) => {
-      const { startCommentRef, options: menu, shown, ...options } = latest.current;
+      const { startCommentRef, options: menu, shown, ...options } = latestRef.current;
       const { state } = view;
       const target = targetAt(state, pos, { editable: options.editable, mark });
       // The providers get the editor as its other controls see it, on the state the menu opens
@@ -213,7 +234,11 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
         ...shown,
         editable: options.editable && !target.locked,
       });
-      const entries = { ...options, ...commentOnLeft(view, left, startCommentRef.current) };
+      const entries = {
+        ...options,
+        ...commentOnLeft(view, left, startCommentRef.current),
+        isClipboardCurrent: keepClipboardTarget(clipboardTargetRef),
+      };
       const items = composeContextMenu(view, target, { context, entries, menu });
       if (items.length === 0) return;
       holdRef.current = holdAt(view, anchor, pos);
@@ -222,7 +247,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     // Whether the host keeps the selection on a secondary click there; its press then moves no
     // caret.
     const keeps = (event: MouseEvent) =>
-      isElement(event.target) && latest.current.options.keepSelection?.(event.target) === true;
+      isElement(event.target) && latestRef.current.options.keepSelection?.(event.target) === true;
     const onMouseDown = (event: MouseEvent) => {
       if (event.button === 2 && keeps(event)) event.preventDefault();
     };
@@ -265,7 +290,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       view.dom.removeEventListener('contextmenu', onContextMenu);
       view.dom.removeEventListener('keydown', onKeyDown);
     };
-  }, [view, controller]);
+  }, [view, controller, latestRef, clipboardTargetRef]);
   useFocusAfterClose(view, controller);
   useMenuFollowsContent(view, controller, holdRef);
   return <ContextMenu controller={controller} aria-label={props.labels.contextMenu} isNonModal />;

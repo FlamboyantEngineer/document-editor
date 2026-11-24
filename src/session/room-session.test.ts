@@ -10,7 +10,7 @@ import type * as Activity from '../collab/presence-activity.js';
 import { createRoomScope } from '../collab/room-scope.js';
 import { listPeers } from '../engine/presence.js';
 import { undoCommand } from '../engine/undo-commands.js';
-import { FULL_CAPABILITIES } from '../host/capabilities.js';
+import { FULL_CAPABILITIES, READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
 import { createMemoryHost, type MemoryHostOptions } from '../host/memory-host.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { createDocumentSession, type DocumentSession } from './document-session.js';
@@ -193,6 +193,55 @@ describe('createDocumentSession in room mode', () => {
     const adaView = mount(ada);
     await ada.flush();
     expect(textOf(adaView.state)).toBe('Well, Hello');
+  });
+
+  it('DOCE-SESSION-3.2 publishes the first edit before an editor is mounted in an empty room', async () => {
+    const room = roomsFor(DOCUMENT, { documents: [] });
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    expect(await ada.ready).toBe(true);
+    expect(await grace.ready).toBe(true);
+    const shared = room.providerOf('ada')?.doc;
+    if (!shared) throw new Error('The room is not connected.');
+    expect(readContent(documentSchema, shared.get('content'))).toBeNull();
+    const reader = mount(grace);
+
+    ada.update((state) => state.apply(state.tr.insertText('First edit')));
+    expect(readContent(documentSchema, shared.get('content'))?.textContent).toBe('First edit');
+    expect(await ada.flush()).toBe(true);
+    await vi.waitFor(() => expect(textOf(reader.state)).toBe('First edit'));
+    ada.close();
+    const reopened = openAs('ada');
+    expect(await reopened.ready).toBe(true);
+    expect(textOf(shown(reopened).state)).toBe('First edit');
+  });
+
+  it('DOCE-SESSION-1.4 keeps a capability update received while the room’s template loads', async () => {
+    const pin = { id: 'memo', revision: 'rev-1' };
+    const room = roomsFor({ ...DOCUMENT, template: pin });
+    const host = createMemoryHost({ templates: [{ formatVersion: 1, id: pin.id }] });
+    const templates = host.templates;
+    if (!templates) throw new Error('The host has no templates.');
+    const load = templates.load.bind(templates);
+    const held: (() => void)[] = [];
+    templates.load = async (...args) => {
+      if (args[0] === pin.id) await new Promise<void>((resolve) => held.push(resolve));
+      return load(...args);
+    };
+    const session = createDocumentSession({
+      host: { ...host, collaboration: room.adapter('ada') },
+      documentId: 'doc',
+      mode: 'room',
+    });
+    sessions.push(session);
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    host.memory.setCapabilities(READ_ONLY_CAPABILITIES);
+    held.shift()?.();
+
+    expect(await session.ready).toBe(true);
+    expect(shown(session).pin).toEqual(pin);
+    expect(shown(session).editingMode).toBe('read');
+    expect(shown(session).capabilities).toEqual(READ_ONLY_CAPABILITIES);
   });
 
   it('DOCE-SESSION-3.2 makes a change with no editor bound on what the room holds by then', async () => {

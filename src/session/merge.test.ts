@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
 import type { DocumentFile, StoredNode } from '../model/format/document-format.js';
+import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { mergeDocuments } from './merge.js';
 import { canKeepBoth, resolveMergeConflict } from './merge-conflicts.js';
 
@@ -7,6 +9,12 @@ const paragraph = (id: string, text: string): StoredNode => ({
   type: 'paragraph',
   attrs: { id },
   content: [{ type: 'text', text }],
+});
+
+const quote = (id: string, ...content: StoredNode[]): StoredNode => ({
+  type: 'blockquote',
+  attrs: { id },
+  content,
 });
 
 const list = (id: string, items: StoredNode[]): StoredNode => ({
@@ -117,6 +125,143 @@ describe('mergeDocuments', () => {
     const merge = mergeDocuments({ base, mine, theirs });
     expect(merge.conflicts).toEqual([]);
     expect(merge.content).toEqual(mine);
+  });
+
+  it('DOCE-SESSION-4.1 puts the changed block inside the new section one writer moved it into', () => {
+    const base = file(ONE, TWO);
+    const mine = sections([TWO], [ONE]);
+    const changed = paragraph('a0000001', 'One, theirs');
+    const theirs = file(changed, TWO);
+    const merge = mergeDocuments({ base, mine, theirs });
+    expect(merge).toEqual({ content: sections([TWO], [changed]), conflicts: [] });
+  });
+
+  it('DOCE-SESSION-4.1 puts a block moved into two different new sections in the reader’s once', () => {
+    const base = file(ONE, TWO);
+    const mine = sections([TWO], [ONE]);
+    const theirs = {
+      ...base,
+      sections: [
+        { id: 's0000001', content: [TWO] },
+        { id: 's0000003', content: [ONE, THREE] },
+      ],
+    };
+    const merge = mergeDocuments({ base, mine, theirs });
+    expect(merge).toEqual({
+      content: {
+        ...mine,
+        sections: [
+          { id: 's0000001', content: [TWO] },
+          { id: 's0000003', content: [THREE] },
+          { id: 's0000002', content: [ONE] },
+        ],
+      },
+      conflicts: [],
+    });
+  });
+
+  it('DOCE-SESSION-4.1 brings the other writer’s edit to a new nested destination', () => {
+    const base = file(ONE, TWO);
+    const moving = sections([TWO], [list('l0000001', [ONE])]);
+    const changed = paragraph('a0000001', 'One, edited');
+    const editing = file(changed, TWO);
+    for (const [mine, theirs] of [
+      [moving, editing],
+      [editing, moving],
+    ] as const) {
+      const merge = mergeDocuments({ base, mine, theirs });
+      expect(merge).toEqual({
+        content: sections([TWO], [list('l0000001', [changed])]),
+        conflicts: [],
+      });
+    }
+  });
+
+  it('DOCE-SESSION-4.1 keeps the document valid when a nested destination loses a competing move', () => {
+    const base = file(ONE, TWO);
+    const mine = file(TWO, quote('q0000001', ONE));
+    const theirs = file(TWO, quote('q0000002', ONE));
+    const merged = mergeDocuments({ base, mine, theirs });
+    expect(merged).toEqual({ content: mine, conflicts: [] });
+    expect(readDocumentFile(merged.content, documentSchema).problems).toEqual([]);
+  });
+
+  it('DOCE-SESSION-4.1 leaves an emptied source behind when the other writer only changed the moved block', () => {
+    const base = file(quote('q0000001', ONE), TWO);
+    const mine = sections([TWO], [ONE]);
+    const changed = paragraph('a0000001', 'One, theirs');
+    const theirs = file(quote('q0000001', changed), TWO);
+    const merged = mergeDocuments({ base, mine, theirs });
+    expect(merged).toEqual({ content: sections([TWO], [changed]), conflicts: [] });
+    expect(readDocumentFile(merged.content, documentSchema).problems).toEqual([]);
+  });
+
+  it('DOCE-SESSION-4.2 keeps a changed source for conflict resolution without duplicating a moved block', () => {
+    const base = file(quote('q0000001', ONE, THREE), TWO);
+    const mine = sections([TWO], [ONE]);
+    const changed = paragraph('a0000001', 'One, theirs');
+    const other = paragraph('a0000003', 'Three, theirs');
+    const theirs = file(quote('q0000001', changed, other), TWO);
+    const merged = mergeDocuments({ base, mine, theirs });
+    const kept = quote('q0000001', other);
+    expect(merged.content).toEqual(sections([kept, TWO], [changed]));
+    const [conflict] = merged.conflicts;
+    expect(conflict).toEqual({ id: 'q0000001', mine: null, theirs: kept });
+    if (!conflict) throw new Error('The source has no conflict.');
+    const resolved = resolveMergeConflict(merged.content, conflict, {
+      choice: 'theirs',
+      newId: () => 'r0000001',
+    });
+    expect(resolved).toEqual(merged.content);
+    expect(readDocumentFile(resolved, documentSchema).problems).toEqual([]);
+  });
+
+  it('DOCE-SESSION-4.1 retains insertion anchors when the lead moves and the other side deletes', () => {
+    const head = paragraph('b0000001', 'Before');
+    const next = paragraph('b0000002', 'Next');
+    const tail = paragraph('b0000003', 'After');
+    const mine = file(THREE, ONE, TWO);
+    const theirs = file(head, ONE, next, THREE, tail);
+    expect(mergeDocuments({ base: BASE, mine, theirs }).content).toEqual(
+      file(head, THREE, tail, ONE, next),
+    );
+  });
+
+  it('DOCE-SESSION-4.1 orders disjoint edits without scanning the output for each kept block', () => {
+    for (const size of [500, 2000]) {
+      const blocks = Array.from({ length: size }, (_, index) =>
+        paragraph(`merge-${String(index)}`, 'Text'),
+      );
+      const base = file(...blocks);
+      const mine = file(paragraph('merge-0', 'Mine'), ...blocks.slice(1));
+      const theirs = file(...blocks.slice(0, -1), paragraph(`merge-${String(size - 1)}`, 'Theirs'));
+      let scans = 0;
+      const indexOf = Array.prototype.indexOf;
+      const spy = vi.spyOn(Array.prototype, 'indexOf').mockImplementation(function (
+        this: unknown[],
+        key,
+        from,
+      ) {
+        if (typeof key === 'string' && key.startsWith('merge-')) scans += this.length;
+        return indexOf.call(this, key, from);
+      });
+      const merged = (() => {
+        try {
+          return mergeDocuments({ base, mine, theirs });
+        } finally {
+          spy.mockRestore();
+        }
+      })();
+      expect(scans).toBeLessThanOrEqual(size);
+      expect(merged).toEqual({
+        content: file(
+          paragraph('merge-0', 'Mine'),
+          ...blocks.slice(1, -1),
+          paragraph(`merge-${String(size - 1)}`, 'Theirs'),
+        ),
+        conflicts: [],
+      });
+    }
   });
 
   it('DOCE-SESSION-4.1 merges the items of a list both sides changed', () => {

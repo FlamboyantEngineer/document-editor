@@ -84,6 +84,24 @@ test.describe('document panels', () => {
       .toBe(true);
   });
 
+  test('DOCE-EDITOR-8.2 focuses a requested pane once the panel has room', async ({ page }) => {
+    const navigation = page.getByRole('region', { name: 'Navigation' });
+    await page.setViewportSize({ width: 760, height: 800 });
+    await expect(navigation).toHaveAttribute('data-collapse-forced', 'true');
+    const reveal = page.getByRole('button', { name: 'Reveal search' });
+    await reveal.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByLabel('Pane reveal')).toHaveText('Revealed search');
+    const pane = navigation.locator('[data-pane="search"]');
+    await expect(pane).toBeHidden();
+
+    await page.setViewportSize({ width: 1450, height: 800 });
+    await expect(pane).toBeVisible();
+    await expect
+      .poll(() => pane.evaluate((element) => element.contains(document.activeElement)))
+      .toBe(true);
+  });
+
   test('DOCE-EDITOR-8.4 shows the host rows, actions and sections in the properties', async ({
     page,
   }) => {

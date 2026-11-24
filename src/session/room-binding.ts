@@ -10,7 +10,7 @@ import {
   createAwarenessPresence,
   type PresenceAwareness,
 } from '../collab/awareness.js';
-import { readContent } from '../collab/delta.js';
+import { readContent, writeContent } from '../collab/delta.js';
 import { diffNodes } from '../collab/diff.js';
 import { createRoomScope, resolveRoomScope, type RoomScope } from '../collab/room-scope.js';
 import { createCollabSync, getCollabSync } from '../collab/sync.js';
@@ -23,6 +23,8 @@ const TEMPLATE_ATTR = 'template';
 
 /** A room's shared document, as a session uses it. */
 export interface RoomBinding {
+  /** The shared document this binding's plugins read and write. */
+  readonly shared: unknown;
   /** The document the room holds, or null while it holds none; throws on one it cannot read. */
   content(): ProseMirrorNode | null;
   /**
@@ -80,10 +82,6 @@ function presencePlugins({ awareness, presence }: RoomBindingOptions) {
   return [createPresence(), createAwarenessPresence({ ...presence, awareness: shared })];
 }
 
-// Whether the state runs the room's sync plugin with no editor bound, so nothing keeps it and the
-// room the same.
-const unbound = (state: EditorState) => getCollabSync(state)?.bound === false;
-
 // The state with the room's content in place of its own, as the editor takes it when it binds.
 function withContent(state: EditorState, content: ProseMirrorNode): EditorState {
   const tr = state.tr.replaceWith(0, state.doc.content.size, content.content);
@@ -106,17 +104,19 @@ export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBind
     unreadable = true;
     options.onUnreadable(error);
   };
-  // What the room holds for a state no editor is bound to; nothing when it cannot be read, which
-  // the editor tells of when it binds.
+  // An unbound state's room content: null for an empty room, undefined when the session cannot
+  // read or write on the state's behalf.
   const heldFor = (state: EditorState) => {
-    if (!unbound(state) || unreadable) return null;
+    const sync = getCollabSync(state);
+    if (!sync || sync.bound || sync.type !== scope.content || unreadable) return undefined;
     try {
       return content();
     } catch {
-      return null;
+      return undefined;
     }
   };
   return {
+    shared,
     content,
     held: (state) => {
       const held = heldFor(state);
@@ -124,10 +124,10 @@ export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBind
     },
     write: (state) => {
       const held = heldFor(state);
-      if (!held || held.eq(state.doc)) return;
-      const change = diffNodes(held, state.doc);
+      if (held === undefined || held?.eq(state.doc)) return;
       doc.transact(() => {
-        scope.content.applyDelta(change as never);
+        if (held) scope.content.applyDelta(diffNodes(held, state.doc) as never);
+        else writeContent(scope.content, state.doc);
       });
     },
     plugins: [
@@ -150,11 +150,16 @@ export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBind
       }, origin);
     },
     followPin: (onPin) => {
+      let following = true;
       const observer = (_event: unknown, tr: Y.Transaction) => {
         if (tr.origin !== origin) onPin(asPin(meta.getAttr(TEMPLATE_ATTR)));
       };
       meta.observe(observer);
-      return () => meta.unobserve(observer);
+      return () => {
+        if (!following) return;
+        following = false;
+        meta.unobserve(observer);
+      };
     },
   };
 }

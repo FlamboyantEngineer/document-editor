@@ -92,9 +92,9 @@ function headingSpans(file: DocumentFile, ids: readonly string[]) {
     const blockLevel = Number(block.attrs?.level ?? 1);
     if (isHeading && level && blockLevel <= level) level = 0;
     const id = storedElementId(block);
-    if (isHeading && !level && id && wanted.has(id)) {
-      level = blockLevel;
+    if (isHeading && id && wanted.has(id)) {
       found.add(id);
+      if (!level) level = blockLevel;
     }
     if (level) spans.push(block);
   }

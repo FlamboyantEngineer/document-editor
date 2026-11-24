@@ -68,28 +68,33 @@ const ENTITIES: Readonly<Record<string, string>> = {
   '&nbsp;': ' ',
 };
 
-// Stands for a variable the host gives no value, kept apart from the text escaped around it.
-const UNRESOLVED = /\0([\w.-]+)\0/g;
+function writeTemplateValues(source: string, writing: Writing): string {
+  const parts: string[] = [];
+  let literal = '';
+  for (const [index, part] of source.split(/\{\{\s*([\w.-]+)\s*\}\}/g).entries()) {
+    const value = index % 2 === 0 ? part : writing.values.variable?.(part);
+    if (typeof value === 'string') literal += value;
+    else {
+      parts.push(escapeText(literal), `{{${part}}}`);
+      literal = '';
+    }
+  }
+  return parts.join('') + escapeText(literal);
+}
 
 // A template block as its text: its HTML source with each variable's value, without its tags; a
 // variable without one is written as its key in braces, which reads back as the variable.
 function templateBlockOf(node: StoredNode, writing: Writing): string | null {
-  const source = text(node.attrs?.source).replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => {
-    const value = writing.values.variable?.(String(key));
-    return typeof value === 'string' ? value.replaceAll('\0', '') : `\0${String(key)}\0`;
-  });
-  const lines = source
+  const source = text(node.attrs?.source)
     .replace(BREAKING_TAGS, '\n')
     .replace(/<[^>]*>/g, '')
-    .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity] ?? entity)
+    .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity] ?? entity);
+  const lines = writeTemplateValues(source, writing)
     .split('\n')
     .map((line) => line.trim())
-    .filter(Boolean);
-  return lines.length
-    ? lines
-        .map((line) => escapeLineStart(escapeText(line)).replace(UNRESOLVED, '{{$1}}'))
-        .join('\n\n')
-    : null;
+    .filter(Boolean)
+    .map(escapeLineStart);
+  return lines.length ? lines.join('\n\n') : null;
 }
 
 // A paragraph's lines; the spaces it starts with are left out, since Markdown reads a paragraph

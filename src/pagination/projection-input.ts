@@ -20,7 +20,12 @@ import { ReplaceAroundStep, type Step } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import { characterWidth } from './graphemes.js';
 import type { ProjectionMap } from './projection-map.js';
-import { canonicalSelection } from './selection-mirror.js';
+import {
+  canonicalSelection,
+  footnoteSelectionIn,
+  projectionSelection,
+  repeatedHeaderSelectionIn,
+} from './selection-mirror.js';
 
 /** The two documents an input reads: the canonical state, the projection's state and their map. */
 interface InputSource {
@@ -101,41 +106,63 @@ export function isColumnWidthChange(tr: Transaction): boolean {
   );
 }
 
-// Each step of a projection edit on the canonical transaction, and its mirror on the projection's;
-// false when a step cannot be placed.
-function routeSteps(tr: Transaction, target: RoutedEdit & { map: ProjectionMap }): boolean {
+// Carries each step to the canonical state and mirrors it on the pages. Returns the map of the
+// browser's final document, or null when a step cannot be placed.
+function routeSteps(tr: Transaction, target: RoutedEdit): ProjectionMap | null {
   const { canonical: ctr, projection: ptr } = target;
   let { map } = target;
+  // The browser may keep editing one copy while the mirror also edits the other copies.
+  let browser = map;
   let crossed = false;
   const placed = tr.steps.every((step, index) => {
-    const routed = map.mapStep(step, 'toCanonical');
+    const routed = browser.mapStep(step, 'toCanonical');
     if (!routed || ctr.maybeStep(routed).failed) return false;
-    crossed ||= touchesBreak(step, tr.docs[index] ?? tr.before);
+    crossed ||= touchesBreak(step, browser.projection);
+    const browserAfter = tr.docs[index + 1] ?? tr.doc;
     const echo = map.mirror(routed, ctr.doc);
-    // A step in a repeated header row comes back on every copy and the first part's row.
-    if (echo && (echo.projection.eq(tr.docs[index + 1] ?? tr.doc) || echo.steps.length > 1)) {
+    const matches = echo?.projection.eq(browserAfter);
+    // An edit in a repeated row or note comes back on all of its copies.
+    if (echo && (matches || echo.steps.length > 1 || browser !== map)) {
       for (const each of echo.steps) ptr.step(each);
+      browser = matches
+        ? echo.map
+        : browser.advance({
+            projectionStep: step,
+            projection: browserAfter,
+            canonicalStep: routed,
+            canonical: ctr.doc,
+          });
       map = echo.map;
       return true;
     }
-    // Taken as the browser made it, a step must stay inside one region of one page, so the pages
-    // still join into the canonical document.
-    if (!withinRegion(step, ptr.doc) || ptr.maybeStep(step).failed) return false;
+    // Taking the browser's step directly is safe only while both projections are the same.
+    if (browser !== map || !withinRegion(step, ptr.doc) || ptr.maybeStep(step).failed) return false;
     map = map.advance({
       projectionStep: step,
       projection: ptr.doc,
       canonicalStep: routed,
       canonical: ctr.doc,
     });
+    browser = map;
     return true;
   });
-  Object.assign(target, { map, atBreak: crossed });
-  return placed;
+  if (!placed) return null;
+  Object.assign(target, { map: map.on(ptr.doc), atBreak: crossed });
+  return browser;
 }
 
-// The projection selection after a routed edit: the edit's own where the mirror matches it.
-function routedSelection(tr: Transaction, ptr: Transaction): Selection {
-  if (!ptr.doc.eq(tr.doc)) return tr.selection.map(ptr.doc, ptr.mapping);
+// The browser selection is already in the document after its edit. When the mirror took
+// different steps, carry it through the common canonical document to the echoed pages.
+function routedSelection(tr: Transaction, target: RoutedEdit, browser: ProjectionMap): Selection {
+  const { projection: ptr, canonical, map } = target;
+  if (!ptr.doc.eq(tr.doc)) {
+    const note = footnoteSelectionIn(tr.selection, ptr.doc);
+    if (note) return note;
+    const selected = canonicalSelection(browser, tr.selection, canonical.doc);
+    if (!selected) return ptr.selection;
+    const near = repeatedHeaderSelectionIn(tr.selection, ptr.doc) ?? ptr.selection;
+    return projectionSelection(map, selected, near);
+  }
   return TextSelection.between(
     ptr.doc.resolve(tr.selection.anchor),
     ptr.doc.resolve(tr.selection.head),
@@ -154,13 +181,14 @@ export function routeDomChange(tr: Transaction, source: InputSource): RoutedEdit
     map: source.map,
     atBreak: false,
   };
-  if (!routeSteps(tr, target)) return null;
-  const selection = routedSelection(tr, target.projection);
+  const browser = routeSteps(tr, target);
+  if (!browser) return null;
+  const selection = routedSelection(tr, target, browser);
   target.projection.setSelection(selection);
   // A selection that only followed the edit, as typing's does, follows it on the canonical state
   // too: mapped across a page break, it could land on the wrong side of the new text.
   const followed = tr.selection.eq(source.projection.selection.map(tr.doc, tr.mapping));
-  const mapped = followed ? null : canonicalSelection(target.map, selection, target.canonical.doc);
+  const mapped = followed ? null : canonicalSelection(browser, tr.selection, target.canonical.doc);
   if (mapped) target.canonical.setSelection(mapped);
   return target;
 }

@@ -2,11 +2,8 @@
 // and the tags that say whether a request's answer still applies: one made before another template
 // was opened, or before a later request of the same kind, is dropped (DOCE-TEMPLATE-EDITOR-3.9).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { OpenTemplate } from './template-requests.js';
-
-/** Requests of which only the latest one's answer applies. */
-type RequestKind = 'view';
 
 /** How the workspace changes the open template and tags its requests. */
 export interface OpenTemplateActions {
@@ -16,17 +13,17 @@ export interface OpenTemplateActions {
   update: (update: (open: OpenTemplate | null) => OpenTemplate | null) => void;
   /** Opens another template, or none: the answers to requests made before it are dropped. */
   replace: (open: OpenTemplate | null) => void;
-  /**
-   * Tags a request with the template open now and, for a kind, with its count among that kind's
-   * requests: the check returned says whether its answer still applies.
-   */
-  tag: (kind?: RequestKind) => () => boolean;
+  /** Tags a request with the template open now. */
+  tag: () => () => boolean;
+  /** Supersedes earlier navigation intents, even before the open template changes. */
+  navigate: () => AbortSignal;
+  cancelNavigation: () => void;
 }
 
 function createActions(setOpen: (open: OpenTemplate | null) => void): OpenTemplateActions {
   let latest: OpenTemplate | null = null;
   let opened = 0;
-  const counts = new Map<RequestKind, number>();
+  let navigation: AbortController | null = null;
   const show = (open: OpenTemplate | null) => {
     latest = open;
     setOpen(open);
@@ -38,12 +35,16 @@ function createActions(setOpen: (open: OpenTemplate | null) => void): OpenTempla
       opened += 1;
       show(open);
     },
-    tag: (kind) => {
+    tag: () => {
       const at = opened;
-      const count = kind ? (counts.get(kind) ?? 0) + 1 : 0;
-      if (kind) counts.set(kind, count);
-      return () => at === opened && (!kind || counts.get(kind) === count);
+      return () => at === opened;
     },
+    navigate: () => {
+      navigation?.abort();
+      navigation = new AbortController();
+      return navigation.signal;
+    },
+    cancelNavigation: () => navigation?.abort(),
   };
 }
 
@@ -51,5 +52,6 @@ function createActions(setOpen: (open: OpenTemplate | null) => void): OpenTempla
 export function useOpenTemplate() {
   const [open, setOpen] = useState<OpenTemplate | null>(null);
   const [actions] = useState(() => createActions(setOpen));
+  useEffect(() => actions.cancelNavigation, [actions]);
   return [open, actions] as const;
 }

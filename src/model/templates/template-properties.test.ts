@@ -79,6 +79,21 @@ describe('template properties', () => {
     expect(properties['--doc-figure-caption-order']).toBe('1');
   });
 
+  it('DOCE-TEMPLATES-5.2 writes explicit web margins without fixed page dimensions', () => {
+    const web = templateProperties({
+      formatVersion: 1,
+      id: 'article',
+      page: { margins: { left: '24px', bottom: '0px' } },
+    });
+    expect(web).toMatchObject({
+      '--doc-page-margin-left': '24px',
+      '--doc-page-margin-bottom': '0px',
+    });
+    expect(web).not.toHaveProperty('--doc-page-width');
+    expect(web).not.toHaveProperty('--doc-page-height');
+    expect(web).not.toHaveProperty('--doc-page-margin-right');
+  });
+
   it('DOCE-TEMPLATES-5.2 writes a relative paragraph size in pixels, against the default size', () => {
     const at = (size: string) =>
       templateProperties({

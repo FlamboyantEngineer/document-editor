@@ -14,6 +14,7 @@ import type { EditorHost } from '../host/adapters.js';
 import type { RoomConnection, RoomState } from '../host/session-adapters.js';
 import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
+import { accessDrafts } from './draft-access.js';
 import { type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
 import type { OpenedRoom, RoomDraft } from './room-open.js';
 import { roomRefusal } from './room-status.js';
@@ -39,7 +40,7 @@ interface Keeping {
 }
 
 // Keeps the room's draft once no leftover waits for the reader, so a reload keeps them too.
-function keepDraft(context: RoomDraftsContext, keeping: Keeping, room: OpenedRoom) {
+async function keepDraft(context: RoomDraftsContext, keeping: Keeping, room: OpenedRoom) {
   const { host, documentId, stores } = context;
   const drafts = host.drafts;
   if (!drafts || keeping.closed || stores.conflicts.get().length > 0) return;
@@ -47,21 +48,20 @@ function keepDraft(context: RoomDraftsContext, keeping: Keeping, room: OpenedRoo
   keeping.stop = () => {
     stopped = true;
   };
-  void loadOffline().then(({ keepRoomDrafts }) => {
-    if (stopped || keeping.closed) return;
-    const kept = keepRoomDrafts({
-      documentId,
-      drafts,
-      connection: room.connection as RoomConnection<Y.Doc>,
-      lifecycle: host.lifecycle,
-      restored: room.draft,
-    });
-    keeping.keeper = kept;
-    keeping.stop = () => {
-      kept.stop();
-      if (keeping.keeper === kept) keeping.keeper = null;
-    };
+  const { keepRoomDrafts } = await loadOffline();
+  if (stopped || keeping.closed) return;
+  const kept = keepRoomDrafts({
+    documentId,
+    drafts,
+    connection: room.connection as RoomConnection<Y.Doc>,
+    lifecycle: host.lifecycle,
+    restored: room.draft,
   });
+  keeping.keeper = kept;
+  keeping.stop = () => {
+    kept.stop();
+    if (keeping.keeper === kept) keeping.keeper = null;
+  };
 }
 
 // The draft of a refused room's document as it is now, kept at once so a reload merges it too.
@@ -75,7 +75,7 @@ async function refusedDraft(
   const connection = room.connection as RoomConnection<Y.Doc>;
   const draft =
     keeping.keeper?.capture() ?? captureRoomDraft(connection, { confirmed: opened.confirmed });
-  void host.drafts?.put(documentId, draft);
+  if (host.drafts) void accessDrafts(host.drafts, documentId).put(draft);
   return draft;
 }
 
@@ -109,7 +109,7 @@ export function createRoomDrafts(context: RoomDraftsContext) {
         if (merge.transaction) show(room, shown.state.apply(merge.transaction), sendRoomDocument);
         conflicts.set(merge.leftovers);
       }
-      keep(room);
+      await keep(room);
     },
     /**
      * Calls `onRefused` when the room refuses the draft the session opened on for its generation,
@@ -147,7 +147,7 @@ export function createRoomDrafts(context: RoomDraftsContext) {
       const { sendRoomDocument } = await loadOffline();
       show(room, shown.state.apply(replaceDocumentContent(shown.state, doc)), sendRoomDocument);
       conflicts.set(conflicts.get().filter((each) => each !== leftover));
-      keep(room);
+      void keep(room);
     },
     /** Stops keeping the draft of the current connection. */
     stop: () => keeping.stop(),

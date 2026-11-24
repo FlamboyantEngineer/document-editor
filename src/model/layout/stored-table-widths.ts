@@ -3,43 +3,48 @@
 // its own tables there (DOCE-TABLES-3.7).
 
 import type { StoredNode } from '../format/document-format.js';
+import { storedBodyOf } from '../schema/caption-content.js';
+import { MAX_SPAN } from '../schema/table-nodes.js';
 import { fillColumns, scaleColumns } from './column-widths.js';
 
-const spanOf = (cell: StoredNode) => Math.max(1, Number(cell.attrs?.colspan) || 1);
+const spanOf = (value: unknown) =>
+  typeof value === 'number' && Number.isInteger(value) && value > 1 ? Math.min(MAX_SPAN, value) : 1;
 
 // A table's column widths from its first row's cells; null while one is unset.
 function widthsOf(table: StoredNode): number[] | null {
   const widths: number[] = [];
-  for (const cell of table.content?.[0]?.content ?? []) {
+  for (const cell of storedBodyOf(table)[0]?.content ?? []) {
     const colwidth = cell.attrs?.colwidth;
-    if (!Array.isArray(colwidth) || colwidth.length !== spanOf(cell)) return null;
-    if (!colwidth.every((width) => typeof width === 'number' && width > 0)) return null;
+    if (!Array.isArray(colwidth) || colwidth.length !== spanOf(cell.attrs?.colspan)) return null;
+    if (
+      !colwidth.every((width) => typeof width === 'number' && Number.isFinite(width) && width > 0)
+    ) {
+      return null;
+    }
     widths.push(...(colwidth as number[]));
   }
   return widths.length ? widths : null;
 }
 
-const rowspanOf = (cell: StoredNode) => Math.max(1, Number(cell.attrs?.rowspan) || 1);
-
-// The table with each cell's widths taken from the fitted columns it spans, from the column the
-// cell starts in: past the columns cells spanning rows from above still cover in its row.
+// Each cell takes the widths of its logical columns, skipping cells spanning from rows above.
 function withWidths(table: StoredNode, widths: readonly number[]): StoredNode {
-  // For each column, how many more rows a cell from above covers.
   const covered: number[] = [];
-  const rows = (table.content ?? []).map((row) => {
+  const content = (table.content ?? []).map((row) => {
+    if (row.type !== 'tableRow') return row;
     let column = 0;
     const cells = (row.content ?? []).map((cell) => {
       while ((covered[column] ?? 0) > 0) column += 1;
-      const span = spanOf(cell);
+      const span = spanOf(cell.attrs?.colspan);
       const colwidth = widths.slice(column, column + span);
-      for (let each = column; each < column + span; each += 1) covered[each] = rowspanOf(cell);
+      const rowspan = spanOf(cell.attrs?.rowspan);
+      for (let each = column; each < column + span; each += 1) covered[each] = rowspan;
       column += span;
       return colwidth.length === span ? { ...cell, attrs: { ...cell.attrs, colwidth } } : cell;
     });
     covered.forEach((rows, index) => (covered[index] = rows - 1));
     return { ...row, content: cells };
   });
-  return { ...table, content: rows };
+  return { ...table, content };
 }
 
 /**

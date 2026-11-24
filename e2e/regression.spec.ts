@@ -708,6 +708,52 @@ test.describe('table fragment stress', () => {
     expect(repeated.every(({ captionShown, caption }) => captionShown && caption)).toBe(true);
   });
 
+  test('DOCE-PAGINATION-7.9 keeps typing in the repeated table header on the later page', async ({
+    page,
+  }) => {
+    await openDocument(page, 'table-long-repeated-header');
+    const content = page.locator('.de-document-editor__content');
+    const cell = '> tbody > tr:first-child > th:nth-child(2)';
+    const headers = content.locator(`table[data-id] ${cell}`);
+    const later = content.locator(`table[data-split-part-index="1"] ${cell}`);
+    const copies = await headers.count();
+    expect(copies).toBeGreaterThan(1);
+    await expect(later).toHaveText('Reading');
+    await later.scrollIntoViewIfNeeded();
+    await later.click();
+    await page.keyboard.press('End');
+    const caretInLater = () =>
+      later.evaluate((cell) => {
+        const selection = cell.ownerDocument.getSelection();
+        return selection?.isCollapsed === true && cell.contains(selection.anchorNode);
+      });
+    const expectHeader = async (text: string) => {
+      await expect(headers).toHaveText(Array.from({ length: copies }, () => text));
+      await expect
+        .poll(
+          async () =>
+            storedNodes(await storedOf(page), 'text').filter((node) => node.text === text).length,
+        )
+        .toBe(1);
+    };
+    await expect.poll(caretInLater).toBe(true);
+    await page.keyboard.type('X');
+    await expectHeader('ReadingX');
+    await expect.poll(caretInLater).toBe(true);
+
+    const layouts = () => page.evaluate(() => window.stressLab.layoutStats()?.layouts ?? 0);
+    const before = await layouts();
+    await page.evaluate(() => {
+      window.regressionLab.snapshot({ markup: 'final' });
+    });
+    await settle(page);
+    expect(await layouts()).toBeGreaterThan(before);
+    await expect.poll(caretInLater).toBe(true);
+    await page.keyboard.type('Y');
+    await expectHeader('ReadingXY');
+    await expect.poll(caretInLater).toBe(true);
+  });
+
   test('DOCE-LABS-4.4 DOCE-TABLES-2.4 previews a dragged column on every part of a split table', async ({
     page,
   }) => {
@@ -1425,4 +1471,57 @@ test.describe('mixed geometry', () => {
       .evaluate((cell) => getComputedStyle(cell).borderTopWidth);
     expect(widths).toBe('1px');
   });
+});
+
+test('DOCE-PAGINATION-1.8 selects, edits and undoes in both columns on a continuation page', async ({
+  page,
+}) => {
+  await openDocument(page, 'minimal-paragraph');
+  await page.evaluate(() => {
+    const column = (side: string) => ({
+      type: 'column',
+      content: Array.from({ length: 52 }, (_, index) => ({
+        type: 'paragraph',
+        content: [{ type: 'text', text: `${side} column paragraph ${String(index + 1)}.` }],
+      })),
+    });
+    window.regressionLab.load({
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'columns',
+              attrs: { preset: 'halves' },
+              content: [column('Left'), column('Right')],
+            },
+          ],
+        },
+      ],
+    });
+  });
+  const continuation = page.locator(
+    '.de-document-editor__content .doc-layout-section[data-split-part-index="1"]',
+  );
+  const stored = () => page.evaluate(() => JSON.stringify(window.regressionLab.stored()));
+  await expect(continuation.locator('.doc-layout-column')).toHaveCount(2);
+  await expect.poll(stored).toContain('Left column paragraph 1.');
+  const before = await stored();
+  for (const side of ['Left', 'Right']) {
+    const line = continuation
+      .getByText(new RegExp(String.raw`^${side} column paragraph \d+\.$`))
+      .first();
+    await line.scrollIntoViewIfNeeded();
+    await line.click({ position: { x: 8, y: 8 } });
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect
+      .poll(() => line.evaluate((node) => node.ownerDocument.getSelection()?.toString()))
+      .toBe(side[0]);
+    await page.keyboard.insertText('X');
+    await expect.poll(stored).toContain(`X${side.slice(1)} column paragraph`);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(stored).toBe(before);
+  }
 });

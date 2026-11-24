@@ -227,9 +227,9 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-3.9 - Answers that come back late
 
-The workspace shall apply a store's answer only to the template it was asked for: each request is tagged with the template open when it was made, and an answer that comes back after another template, a new one or none was opened is dropped, apart from listing the templates again after a save. Of the requests to show a saved version, only the latest one's answer applies, so a version asked for before the reader went back to the template, or picked another, is not shown. Each request reads the open template as it is when it is made, so a restore or a keep after the guard saved the changes saves on the revision that save made.
+The workspace shall apply a store's answer only to the template it was asked for: each request is tagged with the template open when it was made, and an answer that comes back after another template, a new one or none was opened is dropped, apart from listing the templates again after a save. Opening a template, selecting a saved version and returning to Current supersede earlier navigation as soon as they are requested, before the guard asks or the store looks up a revision. Only the latest navigation may update the shown template, version, error or loading state. When navigation is superseded, a confirmation still awaiting an answer closes and leaves the draft as it is. Each request reads the open template as it is when it is made, so a restore or a keep after the guard saved the changes saves on the revision that save made.
 
-Implementation: `src/components/template-workspace/use-open-template.ts`, `src/components/template-workspace/use-template-workspace.ts`
+Implementation: `src/components/template-workspace/use-open-template.ts`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-workspace/use-workspace-controls.ts`, `src/components/template-workspace/workspace-requests.ts`
 Verification: `src/components/template-workspace/template-workspace-requests.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-3.10 - Scope tabs

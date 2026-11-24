@@ -11,6 +11,7 @@ import {
   Slice,
 } from 'prosemirror-model';
 import { ReplaceStep, Transform } from 'prosemirror-transform';
+import { mirrorPageMove } from './page-moves.js';
 import { splitPartOf } from './split-part.js';
 
 type Attrs = Record<string, unknown>;
@@ -44,10 +45,20 @@ export function isFragment(node: ProseMirrorNode, rules: FragmentRules = FRAGMEN
   return Object.entries(rule.whole).some(([name, value]) => (node.attrs[name] ?? null) !== value);
 }
 
+// A captioned code block or table owns the stable ID on the object inside its figure.
+function heldObjectId(node: ProseMirrorNode): unknown {
+  return node.type.name === 'code_figure' || node.type.name === 'table_figure'
+    ? node.lastChild?.attrs.dataId
+    : null;
+}
+
 // Two nodes of one type, one of them a fragment, that are the same element: they share an id, or
 // their part numbers follow on.
 function sameSplitElement(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
   if (!isFragment(previous, rules) && !isFragment(next, rules)) return false;
+  const previousObjectId = heldObjectId(previous);
+  const nextObjectId = heldObjectId(next);
+  if (previousObjectId && nextObjectId) return previousObjectId === nextObjectId;
   const id = previous.attrs.dataId as unknown;
   if (id && id === next.attrs.dataId) return true;
   const index = splitPartOf(previous);
@@ -197,31 +208,57 @@ function holdsOnlyPlaceholder(column: ProseMirrorNode): boolean {
   return column.childCount === 1 && isContinuationPlaceholder(column.firstChild);
 }
 
-// Each column of the section that starts at `pos` joins its column in the section before, in order,
-// and their facing blocks join when they are one block's fragments. The second section's content
-// moves, so positions in it map to where it was.
+// The later column stays in place as a placeholder until the later section is removed. Pairing
+// its removal with the insertion recovers positions in the moved content in both directions.
+function moveColumnContent(
+  tr: Transform,
+  { from, target }: { readonly from: number; readonly target: number },
+  column: ProseMirrorNode,
+) {
+  const placeholder = continuationPlaceholder(column.type.schema);
+  if (!placeholder) return;
+  const remove = tr.steps.length;
+  tr.replaceWith(from + 1, from + column.nodeSize - 1, placeholder);
+  const before = tr.doc.nodeAt(target);
+  if (!before) return;
+  const end = target + before.nodeSize - 1;
+  const isPlaceholder = holdsOnlyPlaceholder(before);
+  tr.replaceWith(isPlaceholder ? target + 1 : end, end, column.content);
+  mirrorPageMove(tr, remove);
+  return isPlaceholder ? null : end;
+}
+
 function joinLayoutSections(tr: Transform, pos: number, rules: FragmentRules) {
   const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
   if (!previous || !next) return;
   const start = pos - previous.nodeSize;
-  tr.delete(pos, pos + next.nodeSize);
   let columnPos = start + 1;
   next.children.forEach((extra, index) => {
-    const column = index < previous.childCount ? tr.doc.nodeAt(columnPos) : null;
-    if (!column) {
-      tr.insert(columnPos, extra);
-      columnPos += extra.nodeSize;
-      return;
-    }
-    const end = columnPos + column.nodeSize - 1;
-    if (holdsOnlyPlaceholder(column)) {
-      tr.replaceWith(columnPos + 1, end, extra.content);
-    } else if (!holdsOnlyPlaceholder(extra)) {
-      tr.insert(end, extra.content);
-      joinFacingChildren(tr, end, rules);
+    const left = tr.doc.nodeAt(start);
+    if (!left) return;
+    const right = tr.doc.resolve(start + left.nodeSize + 1);
+    const from = right.posAtIndex(index);
+    const missing = index >= left.childCount;
+    // With no corresponding column, add a placeholder column to receive the content.
+    const added = missing
+      ? extra.type.create(extra.attrs, continuationPlaceholder(extra.type.schema), extra.marks)
+      : null;
+    if (added) tr.insert(columnPos, added);
+    if (!holdsOnlyPlaceholder(extra) || missing) {
+      const seam = moveColumnContent(
+        tr,
+        { from: from + (added?.nodeSize ?? 0), target: columnPos },
+        extra,
+      );
+      if (seam != null) joinFacingChildren(tr, seam, rules);
     }
     columnPos += tr.doc.nodeAt(columnPos)?.nodeSize ?? 0;
   });
+  const left = tr.doc.nodeAt(start);
+  if (!left) return;
+  const rightPos = start + left.nodeSize;
+  const right = tr.doc.nodeAt(rightPos);
+  if (right) tr.delete(rightPos, rightPos + right.nodeSize);
 }
 
 function isHeaderRow(row: ProseMirrorNode): boolean {
@@ -316,7 +353,7 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
     join: joinCodeBlocks,
   },
   linked_code_block: { whole: { ...PART, codeBlockContinued: false }, join: joinLinkedCode },
-  table: { whole: PART, join: joinTables },
+  table: { whole: { ...PART, projectedColumnWidths: null }, join: joinTables },
   table_figure: { whole: PART, join: joinTableFigures },
   code_figure: { whole: PART, join: joinCodeFigures },
   blockquote: { whole: PART, join: joinContainers },

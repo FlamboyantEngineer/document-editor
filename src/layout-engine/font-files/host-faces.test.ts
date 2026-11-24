@@ -1,14 +1,18 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { referenceFaces } from '../../../test/font-files-node.js';
 import type { FontFaceFile } from '../../host/font-files.js';
 import { readHostFaces } from './host-faces.js';
+import { readWoff } from './woff.js';
 
 const signed = (signature: number) => {
   const bytes = new Uint8Array(16);
   new DataView(bytes.buffer).setUint32(0, signature);
   return bytes;
 };
-const woff = signed(0x774f4646);
+const [regular] = referenceFaces();
+if (!regular) throw new Error('Expected a reference font');
+const woff = regular.bytes;
 const face = (overrides: Partial<FontFaceFile>): FontFaceFile => ({
   family: 'Sans',
   weight: 400,
@@ -18,12 +22,13 @@ const face = (overrides: Partial<FontFaceFile>): FontFaceFile => ({
 });
 
 describe('DOCE-HOST-1.14.2 served faces are checked', () => {
-  it('keeps WOFF and OpenType faces, with their style, weight and unicode-range', () => {
-    const { faces, problems } = readHostFaces({
+  it('keeps WOFF and OpenType faces, with their style, weight and unicode-range', async () => {
+    const openType = await readWoff(woff);
+    const { faces, problems } = await readHostFaces({
       faces: [
         face({ style: 'italic', weight: 700, unicodeRange: 'U+0000-00FF' }),
-        face({ bytes: signed(0x00010000).buffer }),
-        face({ bytes: signed(0x4f54544f) }),
+        face({ bytes: openType.buffer }),
+        face({ bytes: openType }),
       ],
     });
     expect(problems).toEqual([]);
@@ -36,14 +41,16 @@ describe('DOCE-HOST-1.14.2 served faces are checked', () => {
     );
   });
 
-  it('leaves out, without throwing, faces it cannot read, each with a problem', () => {
-    const { faces, problems } = readHostFaces({
+  it('leaves out, without throwing, faces it cannot read, each with a problem', async () => {
+    const { faces, problems } = await readHostFaces({
       faces: [
         face({ bytes: new Uint8Array() }),
         face({ style: 'oblique' as FontFaceFile['style'] }),
         face({ weight: 1200 }),
         face({ bytes: signed(0x774f4632) }),
         face({ bytes: undefined as unknown as Uint8Array<ArrayBuffer> }),
+        face({ bytes: signed(0x774f4646) }),
+        face({ bytes: signed(0x00010000) }),
         face({}),
       ],
     });
@@ -54,6 +61,8 @@ describe('DOCE-HOST-1.14.2 served faces are checked', () => {
       ['weight', 2],
       ['format', 3],
       ['empty', 4],
+      ['format', 5],
+      ['format', 6],
     ]);
   });
 });

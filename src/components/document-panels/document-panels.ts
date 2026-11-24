@@ -17,6 +17,7 @@ export interface RevealPaneOptions {
 /** A side panel as the editor knows it: whether it holds a pane, and revealing one. */
 interface PaneHolder {
   has(paneId: string): boolean;
+  canExpand(): boolean;
   reveal(paneId: string, options: RevealPaneOptions): void;
 }
 
@@ -33,7 +34,7 @@ export interface EditorPanes {
   attachSearch(element: HTMLElement, handle: SearchPaneHandle): () => void;
   /**
    * Reveals the search pane and focuses a box of it once it shows, its query selected; false when
-   * no panel holds the pane.
+   * no panel holding it has room to expand.
    */
   focusSearch(box: SearchPaneBox): boolean;
   /** The editor's comments, for the built-in comments pane. */
@@ -51,9 +52,9 @@ function createPaneHolders() {
         holders.delete(holder);
       };
     },
-    reveal(paneId: string, options: RevealPaneOptions = {}) {
+    reveal(paneId: string, options: RevealPaneOptions = {}, requireRoom = false) {
       for (const holder of holders) {
-        if (!holder.has(paneId)) continue;
+        if (!holder.has(paneId) || (requireRoom && !holder.canExpand())) continue;
         holder.reveal(paneId, options);
         return true;
       }
@@ -63,7 +64,7 @@ function createPaneHolders() {
 }
 
 // The search panes drawn, by their element, which the find keys focus in the panel revealing one.
-function createSearchFocus(reveal: (paneId: string, options: RevealPaneOptions) => boolean) {
+function createSearchFocus(reveal: ReturnType<typeof createPaneHolders>['reveal']) {
   const shown = new Map<HTMLElement, SearchPaneHandle>();
   return {
     attachSearch(element: HTMLElement, handle: SearchPaneHandle) {
@@ -73,13 +74,17 @@ function createSearchFocus(reveal: (paneId: string, options: RevealPaneOptions) 
       };
     },
     focusSearch(box: SearchPaneBox) {
-      return reveal('search', {
-        onShown: (pane) => {
-          const handle = [...shown].find(([element]) => pane.contains(element))?.[1];
-          if (box === 'replace') handle?.focusReplacement();
-          else handle?.focusQuery();
+      return reveal(
+        'search',
+        {
+          onShown: (pane) => {
+            const handle = [...shown].find(([element]) => pane.contains(element))?.[1];
+            if (box === 'replace') handle?.focusReplacement();
+            else handle?.focusQuery();
+          },
         },
-      });
+        true,
+      );
     },
   };
 }

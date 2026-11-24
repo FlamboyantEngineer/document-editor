@@ -17,7 +17,7 @@ import {
   sameStructure,
   type StoredNode,
 } from '../../src/model/index.js';
-import { pageMap } from '../../src/pagination/index.js';
+import { pageMap, type ProjectionView } from '../../src/pagination/index.js';
 import { showOnPages } from './lab-pages.js';
 
 /** The content height of each page, in pixels. */
@@ -149,11 +149,11 @@ function sameContent(left: Node, right: Node): boolean {
 const WIDTHS = { wide: 480, narrow: 300 } as const;
 
 // Records the caret's text, and the page that holds it as the layout tells it.
-function reportCaret(state: EditorState): void {
+function reportCaret({ state, view }: ProjectionView): void {
   const { from } = state.selection;
   const { dataset } = document.documentElement;
   dataset.labCaretText = state.doc.textBetween(from, from + 12);
-  dataset.labCaretPage = String(pageMap(state).pageAt(from)?.number ?? 0);
+  dataset.labCaretPage = String(pageMap(state, view).pageAt(from)?.number ?? 0);
 }
 
 // Records what a test reads after the editor moved onto new pages: whether they join back into
@@ -183,9 +183,9 @@ function render(): void {
       }),
       pageHeight: PAGE_HEIGHT,
       ghostPlugins: [],
-      dispatch: () => reportCaret(pages.state),
+      dispatch: () => reportCaret(pages),
       onLayout: reportPages,
-      onLaidOut: (laidOut) => reportCaret(laidOut.state),
+      onLaidOut: (laidOut) => reportCaret(laidOut),
     },
   );
   button.addEventListener('click', () => {

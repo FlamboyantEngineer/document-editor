@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readRegressionDocument } from '../../test/stored-fixtures.js';
 import type { DocumentFile } from '../model/index.js';
+import { acceptedDocumentText } from './accepted-text.js';
 import { storedDocumentText } from './stored-text.js';
 
 describe('storedDocumentText', () => {
@@ -64,6 +65,84 @@ describe('storedDocumentText', () => {
       ],
     };
     expect(storedDocumentText(file, documentSchema)).toBe('North\ngate');
+  });
+
+  it('DOCE-FORMAT-9.2 leaves out a deleted table and keeps a note only where it is still cited', () => {
+    const text = (value: string) => ({ type: 'text', text: value });
+    const deletion = [{ type: 'deletion', attrs: { id: 'd0000002' } }];
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          content: [
+            {
+              type: 'table',
+              attrs: { suggestionKind: 'deletion', suggestionId: 'd0000001' },
+              content: [
+                { type: 'caption', content: [text('Deleted caption')] },
+                {
+                  type: 'tableRow',
+                  content: [
+                    {
+                      type: 'tableCell',
+                      content: [{ type: 'paragraph', content: [text('Deleted cell')] }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'paragraph',
+              content: [
+                text('Body'),
+                {
+                  type: 'footnote',
+                  attrs: { id: 'a0000001' },
+                  marks: deletion,
+                  content: [text('Removed note')],
+                },
+                {
+                  type: 'footnote',
+                  attrs: { id: 'a0000002' },
+                  marks: deletion,
+                  content: [text('Shared note')],
+                },
+                { type: 'footnote', attrs: { id: 'a0000002' }, content: [text('Shared note')] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(storedDocumentText(file, documentSchema)).toBe('Body\nShared note');
+  });
+
+  it('DOCE-FORMAT-9.2 keeps one note body while any of its two markers survive acceptance', () => {
+    const schema = documentSchema;
+    const id = { footnoteId: 'shared' };
+    const deletion = schema.marks.deletion?.create({ dataId: 'd0000001' });
+    if (!deletion) throw new Error('Expected a deletion mark');
+    const marker = schema.node('footnote_reference', id);
+    const deleted = marker.mark([deletion]);
+    const body = schema.node('footnote_entry', id, schema.text('Shared note'));
+    const documentWith = (second: typeof marker) =>
+      schema.node('doc', null, [
+        schema.node('page_section', null, [
+          schema.node('page', null, [
+            schema.node('page_header'),
+            schema.node('page_content', null, [
+              schema.node('paragraph', null, [schema.text('First paragraph'), deleted]),
+              schema.node('paragraph', null, [schema.text('Second paragraph'), second]),
+            ]),
+            schema.node('page_footnotes', null, [body]),
+            schema.node('page_footer'),
+          ]),
+        ]),
+      ]);
+    expect(acceptedDocumentText(documentWith(marker))).toBe(
+      'First paragraph\nSecond paragraph\nShared note',
+    );
+    expect(acceptedDocumentText(documentWith(deleted))).toBe('First paragraph\nSecond paragraph');
   });
 
   it('DOCE-FORMAT-9.2 reads the captions objects show and the code linked code holds', () => {

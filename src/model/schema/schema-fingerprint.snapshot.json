@@ -673,6 +673,7 @@
         "tableBorderClass": { "default": "" },
         "objectLayout": { "default": null },
         "captionEnabled": { "default": true },
+        "projectedColumnWidths": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },

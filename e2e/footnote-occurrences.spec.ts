@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
+import type { StoredNode } from '../src/model/index.js';
 import tablesTemplate from '../test/fixtures/documents/templates/regression-tables.json' with { type: 'json' };
 import { expect, test, waitForLab } from './fixtures.js';
 
@@ -56,6 +57,41 @@ async function openNotes(page: Page) {
   });
 }
 
+async function openEditableNotes(page: Page) {
+  await page.goto('regression.html?document=minimal-paragraph');
+  await waitForLab(page);
+  await page.evaluate((template) => {
+    const text = (value: string) => ({ type: 'text', text: value });
+    const row = (cell: string, content: StoredNode[]) => ({
+      type: 'tableRow',
+      content: [{ type: cell, content: [{ type: 'paragraph', content }] }],
+    });
+    const header = row('tableHeader', [
+      text('Heading '),
+      {
+        type: 'footnote',
+        attrs: { id: 'head' },
+        content: [text('In the header.')],
+      },
+    ]);
+    const body = Array.from({ length: 18 }, (_, index) =>
+      row('tableCell', [text(`Row ${String(index + 1)}`)]),
+    );
+    window.regressionLab.load(
+      {
+        formatVersion: 1,
+        sections: [{ name: 'repeated', content: [{ type: 'table', content: [header, ...body] }] }],
+      },
+      {
+        ...template,
+        id: 'editable-page-notes',
+        page: { size: 'A7', margins: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } },
+        footnotes: { numbering: 'page' },
+      } as Parameters<RegressionProbe['load']>[1],
+    );
+  }, tablesTemplate);
+}
+
 // Each page's footnote markers' numbers, in order.
 const markerNumbers = (root: string) =>
   [...document.querySelectorAll(`${root} .pm-page`)].map((sheet) =>
@@ -87,6 +123,63 @@ test.describe('a footnote in a repeated table header', () => {
     expect(await page.evaluate(() => window.regressionLab.showViewer())).toBe(true);
     await expect(page.locator(`${VIEWER} .pm-page[data-drawn]`)).toHaveCount(editor.length);
     expect(await page.evaluate(markerNumbers, VIEWER)).toEqual(editor);
+  });
+
+  test('DOCE-PAGINATION-7.9 edits the shared note from its second visual occurrence', async ({
+    page,
+  }) => {
+    await openEditableNotes(page);
+    const copies = page.locator(
+      `${EDITOR} .pm-footnote-entry[data-footnote-id="head"] .pm-footnote-entry-content`,
+    );
+    const first = copies.first();
+    const second = copies.nth(1);
+    await second.scrollIntoViewIfNeeded();
+    await second.click();
+    await page.keyboard.press('End');
+    const caretInSecond = () =>
+      second.evaluate((node) =>
+        node.contains(node.ownerDocument.getSelection()?.anchorNode ?? null),
+      );
+    await expect.poll(caretInSecond).toBe(true);
+    await page.keyboard.insertText(' Extra.');
+    const editedNote = 'In the header. Extra.';
+    await expect(first).toHaveText(editedNote);
+    await expect(second).toHaveText(editedNote);
+    await expect.poll(caretInSecond).toBe(true);
+    const persisted = () => page.evaluate(() => JSON.stringify(window.regressionLab.stored()));
+    await expect.poll(persisted).toContain(editedNote);
+    expect((await persisted()).split(editedNote)).toHaveLength(2);
+    await page.keyboard.press('Shift+Home');
+    // The browser can include the rendered note number in a line selection.
+    const selectedText = () =>
+      second.evaluate((note) => {
+        const selection = note.ownerDocument.getSelection();
+        if (selection?.rangeCount !== 1) return null;
+        const range = selection.getRangeAt(0).cloneRange();
+        if (!range.intersectsNode(note)) return null;
+        if (!note.contains(range.startContainer)) range.setStart(note, 0);
+        if (!note.contains(range.endContainer)) range.setEnd(note, note.childNodes.length);
+        return range.toString();
+      });
+    const selectedRange = () => page.evaluate(() => window.regressionLab.selected());
+    await expect.poll(selectedText).toBe(editedNote);
+    await expect
+      .poll(async () => {
+        const range = await selectedRange();
+        return range && range[1] - range[0];
+      })
+      .toBe(editedNote.length);
+    const before = await selectedRange();
+    await page.evaluate(() => window.regressionLab.setZoom(110));
+    await expect(page.locator('.de-document-editor')).toHaveCSS('--de-zoom', '1.1');
+    await page.evaluate(() => window.stressLab.whenSettled());
+    await expect.poll(caretInSecond).toBe(true);
+    await expect.poll(selectedText).toBe(editedNote);
+    await expect.poll(selectedRange).toEqual(before);
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(' Again.');
+    await expect.poll(persisted).toContain('In the header. Extra. Again.');
   });
 
   test('DOCE-PAGINATION-13.11 links each page’s marker to that page’s entry and back in the viewer', async ({

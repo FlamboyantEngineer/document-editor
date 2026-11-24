@@ -1,9 +1,14 @@
 // What a script produced, put in its block: the content, with ids its block and place make, and
 // where it came from. Nothing here needs an editor view, so a run on a stored document shares it.
 
-import { Fragment, Mark, type Node as ProseMirrorNode } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transform } from 'prosemirror-transform';
-import type { ScriptProvenance, ScriptSignature } from '../model/index.js';
+import {
+  readStoredContent,
+  type ScriptProvenance,
+  type ScriptSignature,
+  type StoredContent,
+} from '../model/index.js';
 
 /** A script block of a document, by its element id. */
 export interface ScriptBlockAt {
@@ -34,18 +39,27 @@ export interface ScriptOutput {
   readonly inputs?: string | undefined;
 }
 
+/** A script result that the block can hold without dropping or fitting any content. */
+export function readScriptOutput(content: StoredContent, block: ProseMirrorNode): Fragment {
+  const fragment = Fragment.from(readStoredContent(content, block.type.schema));
+  if (!block.type.validContent(fragment))
+    throw new Error('The script returned content that its block cannot hold.');
+  return fragment;
+}
+
 // The attributes that identify an element rather than say what it holds.
 const IDENTITY_ATTRS = new Set(['dataId', 'dataAuthor', 'dataAiSession']);
 
 // Whether two nodes hold the same: the same types, text, marks and attributes, identity aside.
 function sameOutput(a: ProseMirrorNode, b: ProseMirrorNode): boolean {
-  if (a.type !== b.type || !Mark.sameSet(a.marks, b.marks)) return false;
-  if (a.isText) return a.text === b.text;
-  const keys = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
-  for (const key of keys) {
-    if (!IDENTITY_ATTRS.has(key) && a.attrs[key] !== b.attrs[key]) return false;
+  if (a === b) return true;
+  if (a.type !== b.type) return false;
+  if (a.isText) return a.eq(b);
+  const attrs = { ...b.attrs };
+  for (const key of IDENTITY_ATTRS) {
+    if (Object.hasOwn(a.attrs, key)) attrs[key] = a.attrs[key];
   }
-  return sameOutputContent(a.content, b.content);
+  return a.hasMarkup(b.type, attrs, b.marks) && sameOutputContent(a.content, b.content);
 }
 
 /** Whether two outputs hold the same nodes, text, marks and attributes, identity aside. */
@@ -111,6 +125,7 @@ export function putScriptOutputs(
   for (const block of [...blocks].reverse()) {
     const output = outputs.get(block.id);
     if (!output || output.script !== block.node.attrs.script) continue;
+    if (!block.node.type.validContent(output.content)) continue;
     const provenance = output.provenance ?? null;
     const signatures = output.signatures ? [...output.signatures] : null;
     const sameContent = sameOutputContent(block.node.content, output.content);

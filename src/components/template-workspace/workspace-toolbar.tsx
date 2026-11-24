@@ -65,8 +65,9 @@ export function WorkspaceToolbar(props: WorkspaceToolbarProps) {
   const { open } = workspace;
   const viewing = workspace.viewing !== null;
   const leave = (then: () => void) => {
-    void confirmLeave().then((left) => {
-      if (left) then();
+    const signal = workspace.beginNavigation();
+    void confirmLeave({ signal }).then((left) => {
+      if (left && !signal.aborted) then();
     });
   };
   const save = () =>

@@ -64,7 +64,8 @@ function Workspace(props: TemplateWorkspaceProps) {
   const { confirmLeave } = useUnsavedChangesGuard();
   // A restore stages the version as the draft, which would drop its unsaved changes: ask first.
   const onRestore = async (revision: string) => {
-    if (await confirmLeave()) await workspace.restore(revision);
+    const signal = workspace.beginNavigation();
+    if ((await confirmLeave({ signal })) && !signal.aborted) await workspace.restore(revision);
   };
   const [scope, setScope] = useState<TemplateScope>(null);
   const panel = usePanel(props);

@@ -61,8 +61,8 @@ export async function createFontFileMeasurer({
     reserve: reserveUnserved(faceSet),
     heapBytes: () => harfBuzz.heapBytes(),
     async addFiles(files) {
-      const read = readHostFaces(files);
-      faceSet.add(await unpacked(read.faces), files.generics);
+      const read = await readHostFaces(files);
+      faceSet.add(read.faces, files.generics);
       return read.problems;
     },
     alias: (name, family) => faceSet.alias(name, family),

@@ -3,21 +3,19 @@
 // remove and restore templates through the host's template store (`workspace-requests.ts`).
 
 import { useEffect, useRef, useState } from 'react';
-import type {
-  TemplateStoreAdapter,
-  TemplateSummary,
-  TemplateVersion,
-} from '../../host/adapters.js';
+import type { TemplateStoreAdapter, TemplateSummary } from '../../host/adapters.js';
 import {
   hasTemplateParentCycle,
   mergeTemplateFiles,
   type TemplateFile,
 } from '../../model/index.js';
 import { freshSectionName } from '../template-editor/template-editor.js';
-import { isChanged, loadInherited } from './template-requests.js';
+import { isChanged, loadInherited, valueOf } from './template-requests.js';
 import { useOpenTemplate } from './use-open-template.js';
 import {
   clear,
+  report,
+  showVersion,
   type ViewedVersion,
   type WorkspaceCore,
   type WorkspaceProblem,
@@ -85,11 +83,62 @@ function useInherited(store: TemplateStoreAdapter, shown: TemplateFile | null, i
 
 // The saved version of a template at a revision, as the store lists it.
 async function versionAt(store: TemplateStoreAdapter, id: string, revision: string) {
-  const listed = await store.versions?.(id);
-  return listed?.ok ? listed.value.find((version) => version.revision === revision) : undefined;
+  const listed = store.versions?.(id);
+  return listed
+    ? (await valueOf(listed)).find((version) => version.revision === revision)
+    : undefined;
 }
 
 type RequestCore = Omit<WorkspaceCore, 'request'> & { setLoading: (loading: boolean) => void };
+
+// Looking up the version is part of the same navigation as showing it.
+async function showRevision(
+  core: Omit<WorkspaceCore, 'request'>,
+  revision: string | null,
+  navigation: () => boolean,
+) {
+  const id = core.opened.current()?.draft.id;
+  const sameTemplate = core.opened.tag();
+  const isCurrent = () => navigation() && sameTemplate();
+  try {
+    const version = id && revision ? await versionAt(core.store, id, revision) : undefined;
+    await showVersion(core, version ?? null, isCurrent);
+  } catch (error) {
+    if (isCurrent()) report(core, error);
+  }
+}
+
+type RequestedTemplate = {
+  id: string | null;
+  revision: string | null;
+  announce: boolean;
+  navigation?: AbortSignal;
+};
+
+async function loadRequestedTemplate(
+  core: RequestCore,
+  { id, revision, announce }: RequestedTemplate & { id: string },
+  isCurrent: () => boolean,
+) {
+  core.setLoading(true);
+  try {
+    const { template, revision: latestRevision, sequence } = await valueOf(core.store.load(id));
+    if (!isCurrent()) return;
+    core.setLoading(false);
+    core.opened.replace({
+      saved: { revision: latestRevision, sequence },
+      stored: template,
+      draft: template,
+    });
+    clear(core);
+    if (announce) core.onTemplateIdChange?.(id);
+    if (revision && isCurrent()) await showRevision(core, revision, isCurrent);
+  } catch (error) {
+    if (!isCurrent()) return;
+    core.setLoading(false);
+    report(core, error);
+  }
+}
 
 // Loads the template each request names and opens it with a fresh draft, at a saved version when
 // asked; a template that fails to load leaves the one open as it is. The host is told of a template
@@ -98,50 +147,42 @@ function useRequestedTemplate(
   core: RequestCore,
   initial: { id: string | null; revision: string | null },
 ) {
-  const [requested, setRequested] = useState({ ...initial, count: 0, announce: false });
+  const [requested, setRequested] = useState<RequestedTemplate>({ ...initial, announce: false });
   const latest = useRef(core);
   useEffect(() => {
     latest.current = core;
   });
-  const { store, opened } = core;
+  const { store } = core;
+  const previousStore = useRef(store);
   useEffect(() => {
-    const { id, announce, revision } = requested;
+    const { id } = requested;
+    const changedStore = previousStore.current !== store;
+    previousStore.current = store;
     if (id === null) return;
     const now = latest.current;
-    const isCurrent = opened.tag();
-    now.setLoading(true);
-    void store.load(id).then(async (result) => {
-      if (!isCurrent()) return;
-      now.setLoading(false);
-      if (!result.ok) {
-        now.setProblem({ kind: 'failed', message: result.error.message ?? result.error.kind });
-        return;
-      }
-      const { template, revision: latestRevision, sequence } = result.value;
-      opened.replace({
-        saved: { revision: latestRevision, sequence },
-        stored: template,
-        draft: template,
-      });
-      clear(now);
-      if (announce) now.onTemplateIdChange?.(id);
-      const version = revision ? await versionAt(store, id, revision) : undefined;
-      if (version && opened.current()?.draft.id === id)
-        await workspaceRequests({ ...now, request: () => undefined }).view(version);
-    });
-  }, [store, requested, opened]);
+    const navigation = changedStore
+      ? now.opened.navigate()
+      : (requested.navigation ?? now.opened.navigate());
+    if (navigation.aborted) return;
+    let mounted = true;
+    void loadRequestedTemplate(now, { ...requested, id }, () => mounted && !navigation.aborted);
+    return () => {
+      mounted = false;
+    };
+  }, [store, requested]);
   return (id: string | null, options: TemplateRequest = {}) => {
+    const navigation = core.beginNavigation();
     if (id === null) {
-      core.setLoading(false);
-      opened.replace(null);
+      core.opened.replace(null);
+      clear(core);
       if (options.announce) core.onTemplateIdChange?.(null);
     }
-    setRequested((previous) => ({
+    setRequested({
       id,
       revision: options.revision ?? null,
-      count: previous.count + 1,
       announce: options.announce ?? false,
-    }));
+      navigation,
+    });
   };
 }
 
@@ -173,7 +214,11 @@ export function useTemplateWorkspace(options: TemplateWorkspaceOptions) {
   const shown = viewing?.template ?? open?.draft ?? null;
   const isRoot = shown !== null && (options.isRoot?.(shown) ?? false);
   const inherited = useInherited(store, shown, isRoot);
-  const setters = { store, opened, setViewing, setConflict, setProblem, relist };
+  const beginNavigation = () => {
+    setLoading(false);
+    return opened.navigate();
+  };
+  const setters = { store, opened, setViewing, setConflict, setProblem, relist, beginNavigation };
   const callbacks = { onTemplateIdChange, onRevisionChange };
   const request = useRequestedTemplate(
     { ...setters, ...callbacks, setLoading },
@@ -191,13 +236,15 @@ export function useTemplateWorkspace(options: TemplateWorkspaceOptions) {
     problem,
     /** What keeps the open template from being saved, if anything. */
     saveProblem: saveProblemOf(open?.draft, templates),
+    /** Supersedes pending navigation before asking whether the writer will leave the draft. */
+    beginNavigation,
     /** Opens a stored template by id, or none, and tells the host once it is open. */
     openTemplate: (templateId: string | null, revision?: string | null) =>
       request(templateId, { announce: true, revision }),
     /** Opens a new, unsaved template (`blankTemplate`), and tells the host none is stored open. */
     createTemplate: () => {
       const fresh = blankTemplate();
-      setLoading(false);
+      beginNavigation();
       opened.replace({ saved: null, stored: fresh, draft: fresh });
       clear(core);
       onTemplateIdChange?.(null);
@@ -207,11 +254,9 @@ export function useTemplateWorkspace(options: TemplateWorkspaceOptions) {
     discard: () =>
       opened.update((current) => (current?.saved ? { ...current, draft: current.stored } : null)),
     /** Shows the saved version of the open template at a revision, or the template with null. */
-    viewRevision: async (revision: string | null) => {
-      const id = opened.current()?.draft.id;
-      const version: TemplateVersion | undefined =
-        id && revision ? await versionAt(store, id, revision) : undefined;
-      await workspaceRequests(core).view(version ?? null);
+    viewRevision: (revision: string | null) => {
+      const navigation = beginNavigation();
+      return showRevision(core, revision, () => !navigation.aborted);
     },
     ...workspaceRequests(core),
   };

@@ -27,7 +27,7 @@ Verification: `src/engine/search.test.ts`, `e2e/search.spec.ts`
 
 ### DOCE-SEARCH-1.4 - Locked content
 
-A match in locked content (DOCE-EDITING-4.1), or in content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1), shall stay found but never be replaced: `replaceMatch` refuses it, and `replaceAllMatches` replaces the others and is refused when only locked matches remain. Each replacement closes its own undo step.
+A match with any locked position (DOCE-EDITING-4.1), or in content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1), shall stay found but never be replaced. Search applies the same range check as the edit lock. `replaceMatch` refuses the protected match and `replaceAllMatches` replaces the others and is refused when only protected matches remain. Replace All also skips matches a host lock protects during replacement. Each replacement closes its own undo step.
 
 Implementation: `src/engine/search.ts`
 Verification: `src/engine/search.test.ts`
@@ -41,7 +41,7 @@ Verification: `src/engine/search.test.ts`, `e2e/search.spec.ts`
 
 ### DOCE-SEARCH-1.6 - Inline nodes
 
-An inline node shall be searched as the text it shows: its `leafText`, the text it holds, such as a template variable's value, or the text its rendering writes, such as a mention's `@` and name; one object character when it shows none. A match that covers any part of an inline node covers all of it, and is found but never replaced (`isMatchReplaceable`): `replaceMatch` refuses it and `replaceAllMatches` leaves it.
+An inline node shall be searched as the text it shows: its `leafText`, the text it holds, such as a template variable's value, or the text its rendering writes, such as a mention's `@` and name; one object character when it shows none. A match that covers any part of an inline node covers all of it. Text hits mapping to the same range count as one result and receive one highlight. `replaceMatch` refuses a match covering an inline node (`isMatchReplaceable`), and `replaceAllMatches` leaves it.
 
 Implementation: `src/engine/search-text.ts`
 Verification: `src/engine/search.test.ts`
@@ -64,10 +64,10 @@ Verification: `src/components/document-editor/document-find-bar.test.tsx`, `e2e/
 
 ### DOCE-SEARCH-2.2 - Opening the find bar
 
-The shortcut table's `find` key (Mod-F by default) anywhere in the editor, in the document, the toolbar, a side panel or the find bar itself, shall show the find bar with its find box focused and its text selected, and its `replace` key (Mod-H by default) shows it with its replacement box focused while the writer can edit, its find box otherwise; a key something inside the editor already handled is left alone, as the search pane takes Mod-F and Mod-H to its own boxes. Opening seeds the find bar's search with the selected text (DOCE-SEARCH-1.7), keeping its options. The menubar's Find and the handle's `openFind(mode)` (`find` or `replace`) open it the same way; `openFind` returns false while the editor has no find bar. With `find: 'pane'` the same keys, the menubar's Find and `openFind` go to the side panel's search pane instead and no find bar shows: the panel holding the pane expands and selects it, and once it shows, its query is focused with its text selected (`find`) or its replace controls shown with the replacement focused (`replace`), its search seeded with the selected text and searched at once; while no panel holds the pane, the key is left to the browser and `openFind` returns false.
+The shortcut table's `find` key (Mod-F by default) anywhere in the editor, in the document, the toolbar, a side panel or the find bar itself, shall show the find bar with its find box focused and its text selected, and its `replace` key (Mod-H by default) shows it with its replacement box focused while the writer can edit, its find box otherwise; a key something inside the editor already handled is left alone, as the search pane takes Mod-F and Mod-H to its own boxes. Opening seeds the find bar's search with the selected text (DOCE-SEARCH-1.7), keeping its options. The menubar's Find and the handle's `openFind(mode)` (`find` or `replace`) open it the same way; `openFind` returns false while the editor has no find bar. With `find: 'pane'` the same keys, the menubar's Find and `openFind` go to the side panel's search pane instead and no find bar shows: the panel holding the pane expands and selects it, and once it shows, its query is focused with its text selected (`find`) or its replace controls shown with the replacement focused (`replace`), its search seeded with the selected text and searched at once; while no panel holding the pane has room to expand, the key is left to the browser and `openFind` returns false. With room again, the next key press opens and focuses the search pane.
 
 Implementation: `src/components/document-editor/document-find-bar.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-panels/document-panels.ts`
-Verification: `src/components/document-editor/document-find-bar.test.tsx`, `src/components/document-panels/document-search-routing.test.tsx`, `e2e/search.spec.ts`
+Verification: `src/components/document-editor/document-find-bar.test.tsx`, `src/components/document-panels/document-search-routing.test.tsx`, `e2e/search.spec.ts`, `e2e/panels.spec.ts`
 
 ## DOCE-SEARCH-3 - The search pane
 

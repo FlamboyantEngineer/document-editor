@@ -14,6 +14,8 @@ interface PageRecord {
   readonly head: readonly LayoutBlock[];
   /** The caller's state before it, such as which footnotes earlier pages showed. */
   readonly state: string;
+  /** The room its measured header and footer take. */
+  readonly geometry: string;
 }
 
 /** A section as it was laid out, for the next layout of it. */
@@ -34,6 +36,8 @@ interface IncrementalSection {
   readonly next: (queue: LayoutBlock[], pageIndex: number) => LayoutBlock[];
   /** The caller's state before the next page, which a reused page must start in. */
   readonly state: () => string;
+  /** The measured header and footer on a page of a given index. */
+  readonly geometry?: (index: number) => string;
   /** Tells the caller of each page, laid out or reused, in order. */
   readonly page: (blocks: readonly LayoutBlock[]) => void;
 }
@@ -124,9 +128,13 @@ function meetsOld(
 /** Lays a section out, reusing the pages of its previous layout that the change leaves alike. */
 export function layoutSectionIncrementally(section: IncrementalSection): IncrementalResult {
   const { blocks, key } = section;
-  const matches = section.previous?.key === key;
-  const previous =
-    matches && section.previous?.pages[0]?.state === section.state() ? section.previous : undefined;
+  const { previous: before } = section;
+  const geometry = (index: number) => section.geometry?.(index) ?? '';
+  const matches =
+    before?.key === key &&
+    before.pages[0]?.state === section.state() &&
+    before.pages.every((record, index) => record.geometry === geometry(index));
+  const previous = matches ? before : undefined;
   const records: PageRecord[] = [];
   const reuse = (record: PageRecord, start: number) => {
     records.push({ ...record, start });
@@ -145,7 +153,7 @@ export function layoutSectionIncrementally(section: IncrementalSection): Increme
       break;
     }
     const page = section.next(queue, records.length);
-    records.push({ blocks: page, ...next });
+    records.push({ blocks: page, ...next, geometry: geometry(records.length) });
     section.page(page);
     laidOut += 1;
   }

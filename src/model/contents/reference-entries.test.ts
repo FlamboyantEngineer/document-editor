@@ -1,6 +1,8 @@
+import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { BASE_TEMPLATE, catalogDocument, readDocumentFile, type StoredNode } from '../index.js';
+import { splitTextNode } from '../pagination/text-split.js';
 
 const cite = (value: string, attrs: Record<string, unknown>): StoredNode => ({
   type: 'text',
@@ -115,5 +117,74 @@ describe('a list of references', () => {
       'external-document|XYZ S-10 B|Signals',
       'catalogue-entry|ABC C-1|Catalogued',
     ]);
+  });
+
+  it('DOCE-CONTENTS-1.9 uses the whole visible citation for fallback text and identity', () => {
+    const word = (value: string): StoredNode => {
+      const citation = cite(value, {});
+      return { ...citation, marks: [{ type: 'bold' }, ...(citation.marks ?? [])] };
+    };
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  cite('Alpha ', {}),
+                  word('standard'),
+                  { type: 'text', text: '; ' },
+                  cite('Alpha ', {}),
+                  word('guide'),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    expect(catalogDocument(doc, BASE_TEMPLATE).references?.map((entry) => entry.text)).toEqual([
+      'Alpha guide',
+      'Alpha standard',
+    ]);
+  });
+
+  it('DOCE-CONTENTS-1.9 reads one citation from text that continues on a new page', () => {
+    const reference = { target: 'work' };
+    const canonical = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          { content: [{ type: 'paragraph', content: [cite('Alpha standard', reference)] }] },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const section = canonical.child(0);
+    const page = section.child(0);
+    const [head, tail] = splitTextNode(page.child(1).child(0), {
+      end: 6,
+      next: 6,
+      headHeight: 24,
+      tailHeight: 24,
+    });
+    const withParagraph = (paragraph: ProseMirrorNode) =>
+      page.copy(
+        Fragment.fromArray([
+          page.child(0),
+          page.child(1).copy(Fragment.from(paragraph)),
+          page.child(2),
+          page.child(3),
+        ]),
+      );
+    const projection = canonical.copy(
+      Fragment.from(section.copy(Fragment.fromArray([withParagraph(head), withParagraph(tail)]))),
+    );
+    expect(catalogDocument(projection, BASE_TEMPLATE).references).toEqual(
+      catalogDocument(canonical, BASE_TEMPLATE).references,
+    );
   });
 });

@@ -3,6 +3,7 @@
 // with it: each part holds the caption, which a later part repeats as its text alone.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { firstRowColumnWidths } from '../schema/object-layout.js';
 import { type ChildLayout, isContainerMeasurement } from './container-split.js';
 import { splitHeldWith } from './held-split.js';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
@@ -56,11 +57,14 @@ function closedRows(rows: readonly ProseMirrorNode[]): boolean[] {
 }
 
 // The last body row that fits and no cell spans past; -1 for none.
-function lastSplitRow(rows: readonly ProseMirrorNode[], layouts: readonly ChildLayout[], fit: Fit) {
-  const closed = closedRows(rows);
+function lastSplitRow(closed: readonly boolean[], layouts: readonly ChildLayout[], fit: Fit) {
   let last = lastFittingRow(layouts, fit.headerCount, fit.room);
   while (last >= fit.headerCount && !closed[last]) last -= 1;
   return last;
+}
+
+function nextBodyRow(layouts: readonly ChildLayout[], last: number, headerCount: number) {
+  return last < headerCount ? undefined : layouts[last + 1];
 }
 
 interface Fit {
@@ -79,25 +83,34 @@ export function splitTableWith(repeatHeader: boolean) {
     const rows = node.children;
     if (!isContainerMeasurement(block.measurement)) return null;
     const layouts = block.measurement.children;
-    const headerCount = leadingHeaderRows(node);
+    const headerCount = block.measurement.tableHeaderRows ?? leadingHeaderRows(node);
     if (layouts.length !== rows.length || rows.length - headerCount <= 1) return null;
     const span = layouts.at(-1)?.bottom ?? 0;
     const overhead = Math.max(0, block.height - span);
-    const last = lastSplitRow(rows, layouts, { headerCount, room: fitting - overhead });
-    const next = layouts[last + 1];
-    if (last < headerCount || !next) return null;
-    const header = repeatHeader ? rows.slice(0, headerCount) : [];
-    const headerLayouts = repeatHeader ? layouts.slice(0, headerCount) : [];
+    const closed = closedRows(rows);
+    const last = lastSplitRow(closed, layouts, { headerCount, room: fitting - overhead });
+    const next = nextBodyRow(layouts, last, headerCount);
+    if (!next) return null;
+    // The repeat must be a complete grid of its own. A header cell continuing into the body
+    // would occupy a column in the continuation's first body row that another cell already uses.
+    const repeatedHeaderCount = repeatHeader && closed[headerCount - 1] ? headerCount : 0;
+    const header = rows.slice(0, repeatedHeaderCount);
+    const headerLayouts = layouts.slice(0, repeatedHeaderCount);
     const headerSpan = headerLayouts.at(-1)?.bottom ?? 0;
     const part = splitPartOf(node) ?? 0;
+    const widths = firstRowColumnWidths(node).map((width) => width || 0);
     const create = (index: number, content: ProseMirrorNode[]) =>
-      node.type.create({ ...node.attrs, splitPartIndex: index }, content, node.marks);
+      node.type.create(
+        { ...node.attrs, splitPartIndex: index, projectedColumnWidths: index > 0 ? widths : null },
+        content,
+        node.marks,
+      );
     return {
       head: {
         ...block,
         node: create(part, rows.slice(0, last + 1)),
         height: overhead + (layouts[last]?.bottom ?? 0),
-        measurement: { children: layouts.slice(0, last + 1) },
+        measurement: { ...block.measurement, children: layouts.slice(0, last + 1) },
       },
       tail: [
         {
@@ -107,6 +120,7 @@ export function splitTableWith(repeatHeader: boolean) {
           breakBefore: true,
           measurement: {
             children: [...headerLayouts, ...shift(layouts.slice(last + 1), next.top - headerSpan)],
+            tableHeaderRows: repeatedHeaderCount,
           },
         },
       ],
@@ -114,25 +128,32 @@ export function splitTableWith(repeatHeader: boolean) {
   };
 }
 
-// A later part without its caption's box, which the stylesheet shows only above header rows.
-function withoutCaption(part: LayoutBlock, caption: number): LayoutBlock {
-  const firstRow = part.node.lastChild?.firstChild;
-  if (!firstRow || isHeaderRow(firstRow)) return part;
-  return { ...part, height: Math.max(0, part.height - caption) };
+function hideUnrepeatedCaption(part: LayoutBlock, height: number): LayoutBlock {
+  const { node, measurement } = part;
+  if (!isContainerMeasurement(measurement) || measurement.tableHeaderRows !== 0) return part;
+  const caption = node.firstChild;
+  const table = node.lastChild;
+  if (!caption || !table) return part;
+  const hidden = caption.type.create({ ...caption.attrs, continuedText: null });
+  return {
+    ...part,
+    node: node.type.create(node.attrs, [hidden, table], node.marks),
+    height: Math.max(0, part.height - height),
+  };
 }
 
 /**
  * A table with its caption split as its table splits (`splitTableWith`), the node holding them
- * measured by its table's rows (`splitHeldWith`); a later part that opens with a body row shows no
- * caption, so it takes none of the caption's height.
+ * measured by its table's rows (`splitHeldWith`); a later part without repeated headers has no
+ * continued caption or caption height.
  */
 export const splitTableFigureWith = (repeatHeader: boolean) => {
   const split = splitHeldWith(splitTableWith(repeatHeader));
   return (block: LayoutBlock, fitting: number): SplitBlock | null => {
     const result = split(block, fitting);
+    if (!result) return null;
     const measured = block.measurement;
     const caption = isContainerMeasurement(measured) ? Math.max(0, measured.caption ?? 0) : 0;
-    if (!result || !(caption > 0)) return result;
-    return { ...result, tail: result.tail.map((part) => withoutCaption(part, caption)) };
+    return { ...result, tail: result.tail.map((part) => hideUnrepeatedCaption(part, caption)) };
   };
 };

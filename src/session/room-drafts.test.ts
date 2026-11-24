@@ -103,6 +103,24 @@ async function editOffline(room: SessionRooms, host: MemoryHost) {
 }
 
 describe('room-mode drafts in a session', () => {
+  it('DOCE-SESSION-6.10 keeps a held edit when closing without a lifecycle event', async () => {
+    const room = roomsFor(file('Hello', 'World'));
+    const host = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });
+    const session = openAs(host, 'ada');
+    expect(await session.ready).toBe(true);
+    const view = mount(session);
+    room.providerOf('ada')?.disconnect();
+    const release = session.holdPendingEdits(() => {
+      typeFirst(view, 'Held ');
+      release();
+    });
+
+    session.close();
+    const reopened = openAs(host, 'ada', { offline: true });
+    expect(await reopened.ready).toBe(true);
+    expect(textOf(shown(reopened).state)).toBe('Held Hello|World');
+  });
+
   it('DOCE-SESSION-6.10 opens on its draft and sends the offline edit once connected', async () => {
     const room = roomsFor(file('Hello', 'World'));
     const host = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });

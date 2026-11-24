@@ -39,7 +39,7 @@ function suggestionSection(
     ? offered.map((suggestion, index) =>
         commandEntry(
           view,
-          { id: `proofing-${String(index)}`, label: suggestion },
+          { id: `proofing-${String(index)}`, label: suggestion || labels.delete },
           replaceProofingIssue(issue, suggestion),
         ),
       )
@@ -60,19 +60,22 @@ function suggestionSection(
 function replaceAllEntry(
   view: EditorView,
   issue: ProofingIssueAt,
-  { offered, label }: { readonly offered: readonly string[]; readonly label: string },
+  {
+    offered,
+    labels,
+  }: { readonly offered: readonly string[]; readonly labels: DocumentEditorLabels },
 ): MenuEntry {
   const alike = countAlikeIssues(view.state, issue) > 1;
   const items = offered.map((suggestion, index) =>
     commandEntry(
       view,
-      { id: `proofing-replace-all-${String(index)}`, label: suggestion },
+      { id: `proofing-replace-all-${String(index)}`, label: suggestion || labels.delete },
       replaceAllProofingIssues(issue, suggestion),
     ),
   );
   return alike && items.length > 0
-    ? { id: 'proofing-replace-all', label, items }
-    : { id: 'proofing-replace-all', label, isDisabled: true };
+    ? { id: 'proofing-replace-all', label: labels.replaceAll, items }
+    : { id: 'proofing-replace-all', label: labels.replaceAll, isDisabled: true };
 }
 
 // The entries of a mark the issues no longer hold: there, and disabled.
@@ -129,7 +132,7 @@ export function proofingEntries(
   const items: MenuEntry[] = issue
     ? [
         section,
-        replaceAllEntry(view, issue, { offered, label: labels.replaceAll }),
+        replaceAllEntry(view, issue, { offered, labels }),
         ...decisionEntries(view, issue, labels),
       ]
     : [section, ...unmatchedEntries(labels)];

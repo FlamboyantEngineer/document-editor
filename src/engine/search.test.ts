@@ -1,6 +1,6 @@
 import { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
@@ -23,6 +23,7 @@ import {
   setSearch,
 } from './search.js';
 import { searchResults } from './search-results.js';
+import { findMatches } from './search-text.js';
 
 const paragraph = (value: string): StoredNode => ({
   type: 'paragraph',
@@ -65,6 +66,33 @@ describe('search', () => {
     // "cafe" followed by a combining acute accent is one word, not "cafe" and a mark.
     state = run(stateOf('cafe\u0301 and cafe'), setSearch('cafe', { wholeWord: true }));
     expect(searchKey.getState(state)?.matches).toHaveLength(1);
+  });
+
+  it('DOCE-SEARCH-1.1 finds every occurrence in a densely matching paragraph', () => {
+    const size = 140_000;
+    const { doc } = stateOf('a'.repeat(size));
+    expect(findMatches(doc, { query: 'a', options: {} })).toHaveLength(size);
+  });
+
+  it('DOCE-SEARCH-1.1 redraws a densely matching paragraph without removing each mark', () => {
+    const size = 300;
+    const state = run(stateOf('a'.repeat(size), 'a'), setSearch('a'));
+    const remove = vi.spyOn(DecorationSet.prototype, 'remove');
+    const typed = state.apply(state.tr.insertText('a', state.selection.from));
+    expect(remove.mock.calls.every(([decorations]) => decorations.length < size)).toBe(true);
+    expect(searchState(typed)?.matches).toHaveLength(size + 2);
+    expect(searchState(typed)?.decorations.find()).toHaveLength(size + 2);
+  });
+
+  it('DOCE-SEARCH-3.1 reads a matching block once for all of its result previews', () => {
+    const size = 300;
+    const state = run(stateOf('a'.repeat(size), 'a'), setSearch('a'));
+    const block = state.doc.resolve(firstTextAt(state)).parent;
+    const children = vi.spyOn(Node.prototype, 'forEach');
+    const results = searchResults(state);
+    expect(children.mock.contexts.filter((node) => node === block)).toHaveLength(1);
+    expect(results[size - 1]).toMatchObject({ start: size - 1, end: size });
+    expect(results[size]).toMatchObject({ source: 'a', start: 0, end: 1 });
   });
 
   it('DOCE-SEARCH-1.1 leaves the footnote areas out', () => {
@@ -184,6 +212,38 @@ describe('search', () => {
     expect(textOf(state)).toBe('dog here|Fixed cat');
     expect(searchKey.getState(state)?.matches).toHaveLength(1);
     expect(replaceAllMatches('dog')(state)).toBe(false);
+  });
+
+  it('DOCE-SEARCH-1.4 replaces the editable matches when an interior character is locked', () => {
+    const state = stateOf('cat cat');
+    const first = firstTextAt(state);
+    const locked = state.reconfigure({
+      plugins: [...state.plugins, createEditLock({ isLocked: (_doc, pos) => pos === first + 1 })],
+    });
+    const found = run(locked, setSearch('cat'));
+    expect(searchResults(found).map(({ replaceable }) => replaceable)).toEqual([false, true]);
+    expect(replaceMatch('dog')(found)).toBe(false);
+    const replaced = run(found, replaceAllMatches('dog'));
+    expect(textOf(replaced)).toBe('cat dog');
+    expect(searchState(replaced)?.matches).toEqual([{ from: first, to: first + 3 }]);
+  });
+
+  it('DOCE-SEARCH-1.4 keeps a replacement when it causes a different match to become locked', () => {
+    const state = stateOf('cat cat');
+    const first = firstTextAt(state);
+    const locked = state.reconfigure({
+      plugins: [
+        ...state.plugins,
+        createEditLock({
+          isLocked: (doc, pos) => pos === first + 1 && doc.textContent.endsWith('dog'),
+        }),
+      ],
+    });
+    const found = run(locked, setSearch('cat'));
+    expect(searchResults(found).map(({ replaceable }) => replaceable)).toEqual([true, true]);
+    const replaced = run(found, replaceAllMatches('dog'));
+    expect(textOf(replaced)).toBe('cat dog');
+    expect(searchResults(replaced).map(({ replaceable }) => replaceable)).toEqual([false]);
   });
 
   it('DOCE-SEARCH-1.4 leaves a match in an embed found and replaces the others', () => {
@@ -311,6 +371,30 @@ function stateWith(content: StoredNode[]) {
 }
 
 describe('search scopes, inline nodes and seeding', () => {
+  it('DOCE-SEARCH-1.6 counts a whole inline object once and highlights it when stepping back', () => {
+    const state = stateWith([
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'mention', attrs: { person: 'u-1', label: 'Grace Hopper' } },
+          { type: 'text', text: ' and a lamp' },
+        ],
+      },
+    ]);
+    const found = run(state, setSearch('p'));
+    expect(searchState(found)?.matches).toHaveLength(2);
+    const previous = run(run(found, selectNextMatch), selectPreviousMatch);
+    const view = new EditorView(document.createElement('div'), { state: previous });
+    try {
+      expect(view.dom.querySelectorAll(`[${SEARCH_MATCH_ATTR}]`)).toHaveLength(2);
+      expect(view.dom.querySelector(`[${SEARCH_MATCH_ATTR}="current"]`)).toHaveTextContent(
+        '@Grace Hopper',
+      );
+    } finally {
+      view.destroy();
+    }
+  });
+
   it('DOCE-SEARCH-3.2 leaves a search: the matches kept, unmarked, the current one selected', () => {
     const doc = stateOf('One cat, two cats.').doc;
     let state = EditorState.create({ doc, plugins: [createSearch('pane')] });

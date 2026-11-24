@@ -3,6 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../../test/deferred.js';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { scriptState } from '../../../test/script-blocks.js';
@@ -77,9 +78,91 @@ async function openMenu(user: ReturnType<typeof userEvent.setup>, at?: string) {
   return screen.findByRole('menu');
 }
 
+function clipboardState() {
+  const doc = readDocumentFile(
+    {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Keep both' }] }],
+        },
+      ],
+    },
+    documentSchema,
+  ).doc;
+  const start = TextSelection.atStart(doc).from;
+  return EditorState.create({ doc, selection: TextSelection.create(doc, start, start + 4) });
+}
+
+function installClipboard(value: Partial<Clipboard>) {
+  const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value });
+  return () => {
+    if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
+    else Reflect.deleteProperty(navigator, 'clipboard');
+  };
+}
+
 installEditorDom();
 
 describe('DocumentContextMenu', () => {
+  it('DOCE-EDITOR-3.2 cancels a cut once the host switches to a state sharing the same document node', async () => {
+    const user = userEvent.setup();
+    const first = clipboardState();
+    const second = EditorState.create({ doc: first.doc, selection: first.selection });
+    const stateChanged = vi.fn();
+    const written = deferred<void>();
+    const writeText = vi.fn(() => written.promise);
+    const restoreClipboard = installClipboard({ writeText });
+    try {
+      const { rerender } = render(<Harness state={first} onStateChange={stateChanged} />);
+      screen.getByRole('textbox', { name: 'Report' }).focus();
+      await user.keyboard('{Shift>}{F10}{/Shift}');
+      await user.click(await screen.findByRole('menuitem', { name: /^Cut/ }));
+      expect(writeText).toHaveBeenCalledWith('Keep');
+
+      rerender(<Harness state={second} onStateChange={stateChanged} />);
+      stateChanged.mockClear();
+      await act(async () => written.resolve());
+      expect(stateChanged).not.toHaveBeenCalled();
+      expect(screen.getByText('Keep both')).toBeVisible();
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it('DOCE-EDITOR-3.2 pastes at the same range through metadata-only state updates', async () => {
+    const user = userEvent.setup();
+    const initial = clipboardState();
+    const read = deferred<string>();
+    const readText = vi.fn(() => read.promise);
+    const stateChanged = vi.fn<DocumentEditorProps['onStateChange']>();
+    const restoreClipboard = installClipboard({ readText });
+    vi.stubGlobal('ClipboardEvent', class extends Event {});
+    try {
+      const { rerender } = render(<Harness state={initial} onStateChange={stateChanged} />);
+      screen.getByRole('textbox', { name: 'Report' }).focus();
+      await user.keyboard('{Shift>}{F10}{/Shift}');
+      const menu = await screen.findByRole('menu');
+      const beforeRead = initial.apply(initial.tr.setMeta('addToHistory', false));
+      rerender(<Harness state={beforeRead} onStateChange={stateChanged} />);
+      await user.click(within(menu).getByRole('menuitem', { name: /^Paste as plain text/ }));
+      expect(readText).toHaveBeenCalledOnce();
+
+      const pendingRead = beforeRead.apply(beforeRead.tr.setMeta('addToHistory', false));
+      rerender(<Harness state={pendingRead} onStateChange={stateChanged} />);
+      stateChanged.mockClear();
+      await act(async () => read.resolve('Pasted'));
+      const update = stateChanged.mock.calls[0]?.[0];
+      const changed = typeof update === 'function' ? update(pendingRead) : update;
+      expect(changed?.doc.textContent).toBe('Pasted both');
+    } finally {
+      restoreClipboard();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('DOCE-EDITOR-3.6 DOCE-EDITOR-4.4 hands a provider the editor as it is: its mode, markup, layout and zoom', async () => {
     const user = userEvent.setup();
     const seen = vi.fn<(context: EditorContext) => void>();

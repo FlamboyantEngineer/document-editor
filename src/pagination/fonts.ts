@@ -3,6 +3,7 @@
 
 import type { FontsAdapter } from '../host/adapters.js';
 import type { TemplateFile } from '../model/index.js';
+import { splitFontFamilies } from '../model/templates/template-css-values.js';
 
 /** How long the pages wait for the host's font faces before they settle without them. */
 export const FONT_TIMEOUT = 5000;
@@ -14,8 +15,10 @@ function collect(value: unknown, families: Set<string>): void {
   }
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) {
-    if (key === 'font' && typeof child === 'string' && child.trim()) families.add(child.trim());
-    else collect(child, families);
+    if (key === 'font' && typeof child === 'string') {
+      const names = splitFontFamilies(child).map((token) => token.replace(/^["']|["']$/gu, ''));
+      for (const name of names.filter(Boolean)) families.add(name);
+    } else collect(child, families);
   }
 }
 

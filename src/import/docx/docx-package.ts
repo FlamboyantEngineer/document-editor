@@ -5,9 +5,15 @@
 import { encodeBase64 } from '../../utils/base64.js';
 import { importError } from '../import-error.js';
 import type { ImportWarnings } from '../import-warnings.js';
-import { childElements, readXml, type XmlElement } from '../xml-read.js';
+import { readXml, type XmlElement } from '../xml-read.js';
 import type { ZipArchive } from '../zip-read.js';
-import { DEFAULT_DOCX_LIMITS, type DocxLimits, refuseNonStandardPart } from './docx-checks.js';
+import {
+  DEFAULT_DOCX_LIMITS,
+  type DocxLimits,
+  packageElements,
+  refuseMacros,
+  refuseNonStandardPart,
+} from './docx-checks.js';
 
 /** An image the document embeds: its bytes, media type and where it was stored. */
 export interface ImportedImage {
@@ -44,6 +50,29 @@ interface PackageOptions {
   readonly limits?: Pick<DocxLimits, 'xmlBytes' | 'xmlDepth'> | undefined;
 }
 
+const namespaces: ReadonlyMap<string, string> = new Map([
+  ['http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w'],
+  ['http://purl.oclc.org/ooxml/wordprocessingml/main', 'w'],
+  ['http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'r'],
+  ['http://purl.oclc.org/ooxml/officeDocument/relationships', 'r'],
+  ['http://schemas.openxmlformats.org/drawingml/2006/main', 'a'],
+  ['http://purl.oclc.org/ooxml/drawingml/main', 'a'],
+  ['http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing', 'wp'],
+  ['http://purl.oclc.org/ooxml/drawingml/wordprocessingDrawing', 'wp'],
+  ['http://schemas.openxmlformats.org/drawingml/2006/picture', 'pic'],
+  ['http://purl.oclc.org/ooxml/drawingml/picture', 'pic'],
+  ['http://schemas.openxmlformats.org/officeDocument/2006/math', 'm'],
+  ['http://purl.oclc.org/ooxml/officeDocument/math', 'm'],
+  ['http://schemas.microsoft.com/office/word/2010/wordml', 'w14'],
+  ['http://schemas.microsoft.com/office/word/2012/wordml', 'w15'],
+  ['http://schemas.microsoft.com/office/word/2010/wordprocessingShape', 'wps'],
+  ['http://schemas.openxmlformats.org/markup-compatibility/2006', 'mc'],
+  ['urn:schemas-microsoft-com:vml', 'v'],
+  ['http://www.w3.org/XML/1998/namespace', 'xml'],
+  ['http://schemas.openxmlformats.org/package/2006/content-types', 'opc-types'],
+  ['http://schemas.openxmlformats.org/package/2006/relationships', 'opc-rels'],
+]);
+
 const MEDIA_TYPES: ReadonlyMap<string, string> = new Map([
   ['png', 'image/png'],
   ['jpg', 'image/jpeg'],
@@ -75,21 +104,52 @@ const relationshipsPath = (path: string) => {
 
 /** Reads the parts of a package, each once. */
 export interface DocxPackage {
+  /** Checks the package and opens its main document part. */
+  readonly main: () => Promise<DocxPart>;
   /** A part with its relationships and images; null when the package has no such part. */
   readonly part: (path: string) => Promise<DocxPart | null>;
   /** The images read so far, in the order first met. */
   readonly images: ImportedImage[];
 }
 
-async function readText(
+function xmlSource(bytes: Uint8Array): string {
+  const first = bytes[0];
+  const second = bytes[1];
+  if ((first === 0xff && second === 0xfe) || (first === 0x3c && second === 0))
+    return new TextDecoder('utf-16le', { fatal: true }).decode(bytes);
+  if ((first === 0xfe && second === 0xff) || (first === 0 && second === 0x3c))
+    return new TextDecoder('utf-16be', { fatal: true }).decode(bytes);
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+}
+
+async function readXmlPart(
   archive: ZipArchive,
   path: string,
-  limits: Pick<DocxLimits, 'xmlBytes'> = DEFAULT_DOCX_LIMITS,
-): Promise<string | null> {
+  limits: Pick<DocxLimits, 'xmlBytes' | 'xmlDepth'>,
+): Promise<XmlElement | null> {
   const bytes = await archive.read(path);
-  if (bytes && bytes.length > limits.xmlBytes)
+  if (!bytes) return null;
+  if (bytes.length > limits.xmlBytes)
     throw importError('too-large', `An XML part is larger than ${String(limits.xmlBytes)} bytes.`);
-  return bytes ? new TextDecoder().decode(bytes) : null;
+  let text: string;
+  try {
+    text = xmlSource(bytes);
+  } catch (cause) {
+    throw Object.assign(importError('damaged', 'An XML part could not be decoded.'), { cause });
+  }
+  return readXml(text, limits.xmlDepth, namespaces);
+}
+
+function createXmlReader(archive: ZipArchive, limits: Pick<DocxLimits, 'xmlBytes' | 'xmlDepth'>) {
+  const roots = new Map<string, Promise<XmlElement | null>>();
+  return (path: string) => {
+    let root = roots.get(path);
+    if (!root) {
+      root = readXmlPart(archive, path, limits);
+      roots.set(path, root);
+    }
+    return root;
+  };
 }
 
 /** The parts of a package read from its archive. */
@@ -99,11 +159,7 @@ export function openPackage(
   options: PackageOptions = {},
 ): DocxPackage {
   const images: ImportedImage[] = [];
-  const limits = options.limits ?? DEFAULT_DOCX_LIMITS;
-  const xml = async (path: string) => {
-    const text = await readText(archive, path, limits);
-    return text === null ? null : readXml(text, limits.xmlDepth);
-  };
+  const readRoot = createXmlReader(archive, options.limits ?? DEFAULT_DOCX_LIMITS);
   const byPath = new Map<string, ImportedImage | null>();
   const readImage = async (path: string): Promise<ImportedImage | null> => {
     if (byPath.has(path)) return byPath.get(path) ?? null;
@@ -122,7 +178,11 @@ export function openPackage(
   };
   const relationshipsOf = async (path: string) => {
     const relationships = new Map<string, Relationship>();
-    for (const element of childElements(await xml(relationshipsPath(path)), 'Relationship')) {
+    for (const element of packageElements(
+      await readRoot(relationshipsPath(path)),
+      'Relationships',
+      'Relationship',
+    )) {
       const external = element.attrs.TargetMode === 'External';
       const target = element.attrs.Target ?? '';
       relationships.set(element.attrs.Id ?? '', {
@@ -134,7 +194,7 @@ export function openPackage(
     return relationships;
   };
   const readPart = async (path: string): Promise<DocxPart | null> => {
-    const root = await xml(path);
+    const root = await readRoot(path);
     if (root === null) return null;
     const relationships = await relationshipsOf(path);
     const partImages = new Map<string, ImportedImage | null>();
@@ -152,26 +212,33 @@ export function openPackage(
   };
   // Each part is read once, however many sections or readers ask for it.
   const parts = new Map<string, Promise<DocxPart | null>>();
+  const part = (path: string) => {
+    let known = parts.get(path);
+    if (!known) {
+      known = readPart(path);
+      parts.set(path, known);
+    }
+    return known;
+  };
   return {
     images,
-    part: (path) => {
-      let part = parts.get(path);
-      if (!part) {
-        part = readPart(path);
-        parts.set(path, part);
-      }
-      return part;
+    part,
+    async main() {
+      await refuseMacros(archive.paths, readRoot);
+      const main = await part(mainDocumentPath(await readRoot('_rels/.rels')));
+      if (!main) throw importError('damaged', 'The document part is missing.');
+      return main;
     },
   };
 }
 
-/** The path of the package's main document part, from the package relationships. */
-export async function mainDocumentPath(archive: ZipArchive): Promise<string> {
-  const text = await readText(archive, '_rels/.rels');
-  const main = childElements(text ? readXml(text) : null, 'Relationship').find(
+// The path of the package's main document part, from the package relationships.
+function mainDocumentPath(root: XmlElement | null): string {
+  const main = packageElements(root, 'Relationships', 'Relationship').find(
     (element) => relationshipKind(element.attrs.Type ?? '') === 'officeDocument',
   );
-  if (!main) throw importError('unreadable', 'The file is not a word processing document.');
+  if (!main || main.attrs.TargetMode === 'External')
+    throw importError('unreadable', 'The file is not a word processing document.');
   const path = resolvePath('', main.attrs.Target ?? '');
   refuseNonStandardPart('officeDocument', path);
   return path;

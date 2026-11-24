@@ -6,6 +6,7 @@
 
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { bindPageMaps, pageMap } from './page-map.js';
 import type { ProjectionMap } from './projection-map.js';
 import { canonicalNodeAt } from './selection-mirror.js';
 
@@ -63,7 +64,7 @@ function mappedMethods(view: EditorView, source: CanonicalViewSource) {
  */
 export function canonicalView(view: EditorView, source: CanonicalViewSource): EditorView {
   const methods: Record<PropertyKey, unknown> = mappedMethods(view, source);
-  return new Proxy(view, {
+  const canonical = new Proxy(view, {
     get(target, key) {
       if (key === 'state') return source.canonical();
       if (Object.hasOwn(methods, key)) return methods[key];
@@ -71,4 +72,6 @@ export function canonicalView(view: EditorView, source: CanonicalViewSource): Ed
       return typeof value === 'function' ? (value as () => unknown).bind(target) : value;
     },
   });
+  bindPageMaps(canonical, (state) => pageMap(state, view));
+  return canonical;
 }

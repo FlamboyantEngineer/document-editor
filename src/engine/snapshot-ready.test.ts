@@ -2,6 +2,7 @@ import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { mount } from '../../test/projection-fixtures.js';
 import { BASE_TEMPLATE, readDocumentFile } from '../model/index.js';
 import { documentSnapshotWhenReady } from './snapshot-ready.js';
 
@@ -36,6 +37,17 @@ describe('documentSnapshotWhenReady', () => {
     expect(steps).toEqual(['settled', 'snapshot']);
     expect(sources(html)).toEqual(['a.png', 'a.png', 'b.png']);
     view.destroy();
+  });
+
+  it('DOCE-EDITOR-6.26 stops a snapshot that awaits the destroyed projection', async () => {
+    const { projection } = mount();
+    const snapshot = documentSnapshotWhenReady(projection.view, {
+      template: BASE_TEMPLATE,
+      whenSettled: projection.whenSettled,
+    });
+    projection.destroy();
+    await expect(snapshot).rejects.toThrow('The document layout is unavailable.');
+    document.body.replaceChildren();
   });
 
   it('DOCE-EDITOR-6.26 resolves each image address once, answering later, or keeps it', async () => {

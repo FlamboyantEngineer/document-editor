@@ -186,6 +186,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
       tableBorderClass: 'border',
       objectLayout: 'layout',
       captionEnabled: 'captionEnabled',
+      projectedColumnWidths: null,
     },
   },
   // A figure's or a table's caption, its first child in the stored format; a table's caption and
