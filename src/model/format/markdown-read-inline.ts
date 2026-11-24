@@ -12,9 +12,9 @@ import { linkTarget, PUNCTUATION } from './markdown-read-link.js';
 export interface InlineContext {
   /** Link reference definitions, by lower-case label. */
   readonly links: ReadonlyMap<string, string>;
-  /** Footnote definitions' raw text, by label. */
-  readonly notes: ReadonlyMap<string, string>;
-  readonly warnings: ImportWarnings;
+  /** Reads the footnote definitions by label, when cited. */
+  readonly notes: ReadonlyMap<string, () => StoredNode[]>;
+  readonly warnings: Pick<ImportWarnings, 'add'>;
   /** Whether footnote references are read; not inside a footnote's own text. */
   readonly inNote?: boolean | undefined;
 }
@@ -157,10 +157,11 @@ const image: Reader = ({ source, context }, at) => {
 };
 
 const footnote: Reader = ({ source, context }, at) => {
+  if (context.inNote) return null;
   const label = /^\[\^([^\]\s]+)\]/.exec(source.slice(at));
   const note = label ? context.notes.get(label[1] ?? '') : undefined;
-  if (!label || note === undefined || context.inNote) return null;
-  const content = readInline(note, { ...context, inNote: true }, []);
+  if (!label || !note) return null;
+  const content = note();
   return {
     nodes: [{ type: 'footnote', ...(content.length ? { content } : {}) }],
     end: at + label[0].length,

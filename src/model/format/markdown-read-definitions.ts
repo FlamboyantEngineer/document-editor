@@ -2,7 +2,7 @@
 
 export interface Definitions {
   readonly links: Map<string, string>;
-  readonly notes: Map<string, string>;
+  readonly defineNote: (label: string, source: string) => void;
 }
 
 const definition = /^ {0,3}\[(\^?)([^\]]+)\]:[ \t]*(.*)$/;
@@ -12,7 +12,7 @@ export const isDefinition = (line: string): boolean => definition.test(line);
 
 export function takeDefinition(
   cursor: { readonly lines: readonly string[]; at: number },
-  { links, notes }: Definitions,
+  { links, defineNote }: Definitions,
 ): boolean {
   const found = definition.exec(cursor.lines[cursor.at] ?? '');
   if (!found) return false;
@@ -27,6 +27,6 @@ export function takeDefinition(
     text.push((cursor.lines[cursor.at] ?? '').replace(continuation, ''));
     cursor.at += 1;
   }
-  notes.set(label, text.join('\n'));
+  defineNote(label, text.join('\n'));
   return true;
 }

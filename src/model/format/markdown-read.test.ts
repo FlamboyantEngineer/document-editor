@@ -222,6 +222,63 @@ describe('reading Markdown', () => {
     expect(readMarkdown('').file).toEqual({ formatVersion: 1, sections: [{ content: [] }] });
   });
 
+  it('DOCE-IMPORT-4.2 reports omitted inline and block HTML in source order', () => {
+    const read = readMarkdown(
+      [
+        '> Before *<span>one</span>* and [a link][ref].',
+        '> <div>omitted</div>',
+        '',
+        '| Heading |',
+        '| ------- |',
+        '| <kbd>two</kbd> <span>three</span> |',
+        '',
+        '<div>also omitted</div>',
+        '',
+        '[ref]: https://example.test',
+      ].join('\n'),
+    );
+    expect(read.warnings).toEqual([
+      warning('content-left-out', '<span>', 4),
+      warning('content-left-out', 'HTML block', 2),
+      warning('content-left-out', '<kbd>', 2),
+    ]);
+    expect(read.file.sections[0]?.content[0]?.content?.[0]?.content).toContainEqual({
+      type: 'text',
+      text: 'a link',
+      marks: [{ type: 'link', attrs: { href: 'https://example.test' } }],
+    });
+  });
+
+  it('DOCE-IMPORT-4.2 reports warnings where each used footnote is defined once', () => {
+    const read = readMarkdown(
+      [
+        '[^early]: <small>Earlier definition</small>',
+        '',
+        '- First [^late] and <kbd>inline</kbd>.',
+        '',
+        '  <div>omitted</div>',
+        '',
+        'Late again [^late], early [^early].',
+        '',
+        '[^late]: <span>Later definition</span>',
+        '',
+        '[^unused]: <aside>Unused definition</aside>',
+      ].join('\n'),
+    );
+    expect(read.warnings).toEqual([
+      warning('content-left-out', '<small>', 2),
+      warning('content-left-out', '<kbd>', 2),
+      warning('content-left-out', 'HTML block', 1),
+      warning('content-left-out', '<span>', 2),
+    ]);
+    const [list, last] = read.file.sections[0]?.content ?? [];
+    const firstNote = list?.content?.[0]?.content?.[0]?.content?.[1];
+    const repeatNote = last?.content?.[1];
+    expect(firstNote).toEqual({ type: 'footnote', content: [text('Later definition')] });
+    expect(repeatNote).toEqual(firstNote);
+    expect(repeatNote?.content?.[0]).not.toBe(firstNote?.content?.[0]);
+  });
+
   it('DOCE-IMPORT-4.3 reads back what the writer writes for every regression document', () => {
     const schema = createDocumentSchema();
     const files = readdirSync(documents).filter((name) => name.endsWith('.json'));

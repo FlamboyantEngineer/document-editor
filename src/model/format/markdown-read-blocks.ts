@@ -6,7 +6,7 @@ import { storedCaption } from '../schema/caption-content.js';
 import type { StoredNode } from './document-format.js';
 import { type Definitions, isDefinition, takeDefinition } from './markdown-read-definitions.js';
 import { closesFence, openingFence } from './markdown-read-fence.js';
-import type { InlineContext } from './markdown-read-inline.js';
+import { type InlineContext, readInline } from './markdown-read-inline.js';
 
 interface Lines {
   readonly lines: readonly string[];
@@ -14,8 +14,12 @@ interface Lines {
 }
 
 /** Block parsing collects definitions before inline links and footnotes are resolved. */
-export interface BlockContext extends Definitions, Pick<InlineContext, 'warnings'> {
-  readonly inlineSource: WeakMap<StoredNode, string>;
+export interface BlockContext extends Definitions, Pick<InlineContext, 'notes'> {
+  /** Inline parsing after all definitions are known. */
+  readonly deferred: (() => void)[];
+  readonly inlineContent: WeakMap<StoredNode, StoredNode[]>;
+  /** Reserves the current source position for the warnings emitted by its reading. */
+  readonly nextWarnings: () => InlineContext['warnings'];
 }
 
 type BlockReader = (lines: Lines, context: BlockContext) => StoredNode[] | null;
@@ -31,7 +35,11 @@ const HTML_BLOCK =
 const isBlank = (line: string | undefined) => line === undefined || line.trim() === '';
 
 function withInlineSource(node: StoredNode, text: string, context: BlockContext): StoredNode {
-  context.inlineSource.set(node, text.trim());
+  const { links, notes, inlineContent } = context;
+  const warnings = context.nextWarnings();
+  context.deferred.push(() =>
+    inlineContent.set(node, readInline(text.trim(), { links, notes, warnings })),
+  );
   return node;
 }
 
@@ -104,7 +112,7 @@ const quote: BlockReader = (lines, context) => {
 const htmlBlock: BlockReader = (lines, context) => {
   if (!HTML_BLOCK.test(lines.lines[lines.at] ?? '')) return null;
   while (lines.at < lines.lines.length && !isBlank(lines.lines[lines.at])) lines.at += 1;
-  context.warnings.add('content-left-out', 'HTML block');
+  context.nextWarnings().add('content-left-out', 'HTML block');
   return [];
 };
 

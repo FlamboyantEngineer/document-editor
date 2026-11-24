@@ -244,13 +244,13 @@ function secondNote(doc: Node) {
   return copy;
 }
 
-function repeatedHeaderPages() {
+function repeatedHeaderPages(repeat = true) {
   const row = (type: string, text: string) =>
     create('table_row', null, [create(type, null, [create('paragraph', null, text)])]);
   const header = row('table_header', 'Header');
   const part = (index: number, text: string) =>
     create('table_figure', { splitPartIndex: index }, [
-      create('table_caption', null),
+      create('table_caption', { continuedText: repeat && index > 0 ? '' : null }),
       create('table', { dataId: 'table', splitPartIndex: index }, [
         header,
         row('table_cell', text),
@@ -382,6 +382,19 @@ describe('projection map', { timeout: 30_000 }, () => {
       restored + 1,
       restored + 4,
     ]);
+  });
+
+  it('DOCE-PAGINATION-7.9 keeps an authored header-shaped row independent when headers do not repeat', () => {
+    const { combined: doc } = repeatedHeaderPages(false);
+    const map = createProjectionMap(doc);
+    const projection = EditorState.create({ doc });
+    const canonical = EditorState.create({ doc: map.canonical });
+    const edit = projection.tr.insertText('Z', positionOf(doc, 'Header') + 2);
+    const routed = routeDomChange(edit, { map, canonical, projection });
+    if (!routed) throw new Error('The header edit should route.');
+    const text = 'IntroductionHeZaderFirst body rowHeaderSecond body row';
+    expect(textOf(routed.projection.doc)).toBe(text);
+    expect(textOf(routed.canonical.doc)).toBe(text);
   });
 
   it('DOCE-PAGINATION-7.9 keeps a selection in the repeated table header after repagination', () => {

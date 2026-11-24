@@ -89,3 +89,10 @@ Verification: `test/bundle-budgets.test.ts`, `src/components/template-workspace/
 
 Implementation: `scripts/check-bundle-size.mjs`, `scripts/lib/bundle-budgets.mjs`
 Verification: `test/bundle-budgets.test.ts`
+
+### DOCE-ENTRY-2.7 - Packed client entry and UI peer
+
+The browser entry shall export `DocumentEditor` and `TemplateWorkspace` from the packed package. The manifest shall require the base component library at the same exact Git commit used in development. `npm run check:consumer` shall install the packed editor with strict peers and load the client entry against that commit.
+
+Implementation: `src/index.ts`, `package.json`, `scripts/check-consumer.mjs`
+Verification: `test/node-entry.test.ts`

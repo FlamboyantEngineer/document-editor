@@ -16,6 +16,7 @@ import {
 import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import type { LineTable } from '../layout-engine/line-table.js';
 import { normalizeSignatureVector } from '../model/index.js';
+import { firstRowColumnWidths } from '../model/schema/object-layout.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
 import { firstCodeLine, gutterText } from './code-drawing.js';
@@ -82,8 +83,15 @@ function codeView(
   };
 }
 
-// A table as its markup draws it. Only its rows are the document's: the drag of a column border
-// draws widths on the table and its column group, which the view leaves as they are.
+function sameTableColumns(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
+  if (previous.firstChild === next.firstChild) return true;
+  const widths = firstRowColumnWidths(previous);
+  const latest = firstRowColumnWidths(next);
+  return widths.length === latest.length && widths.every((width, index) => width === latest[index]);
+}
+
+// A table as its markup draws it. A drag can preview widths outside the rows. Once the stored
+// widths change, redraw the table and column group from the same markup as the viewer and print.
 function tableView(node: ProseMirrorNode, view: EditorView): NodeView {
   const spec = node.type.spec.toDOM?.(node);
   if (!spec) throw new Error(`${node.type.name} has no markup`);
@@ -93,7 +101,13 @@ function tableView(node: ProseMirrorNode, view: EditorView): NodeView {
     dom,
     contentDOM: contentDOM ?? undefined,
     update(next) {
-      if (next.type !== current.type || !sameAttrs(next, current)) return false;
+      if (
+        next.type !== current.type ||
+        !sameAttrs(next, current) ||
+        !sameTableColumns(current, next)
+      ) {
+        return false;
+      }
       current = next;
       return true;
     },

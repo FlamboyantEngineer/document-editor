@@ -228,14 +228,19 @@ export function setColumnWidths(
   };
 }
 
-// What a table and its column group show, to put back after a drag that changes nothing.
+// What a table and its column group show before the temporary drag widths.
 function shownStyles(table: HTMLElement) {
-  const columns = [...table.querySelectorAll(':scope > colgroup > col')];
-  const styles = [table, ...columns].map((each) => [each, each.getAttribute('style')] as const);
+  const columns = [...table.querySelectorAll<HTMLElement>(':scope > colgroup > col')];
+  const styles = [table, ...columns].map((element) => ({
+    element,
+    width: element.style.width,
+    priority: element.style.getPropertyPriority('width'),
+    hadStyle: element.hasAttribute('style'),
+  }));
   return () => {
-    for (const [element, style] of styles) {
-      if (style === null) element.removeAttribute('style');
-      else element.setAttribute('style', style);
+    for (const { element, width, priority, hadStyle } of styles) {
+      element.style.setProperty('width', width, priority);
+      if (!hadStyle && !element.style.length) element.removeAttribute('style');
     }
   };
 }
@@ -274,12 +279,10 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
     owner.removeEventListener('mouseup', finish);
     if (view.isDestroyed) return;
     const table = endDrag(view);
-    const kept =
-      table >= 0 &&
-      Math.abs(up.clientX - event.clientX) >= 1 &&
+    restore();
+    if (table >= 0 && Math.abs(up.clientX - event.clientX) >= 1) {
       setColumnWidths(table, widthsAt(up.clientX), { keepFit })(view.state, view.dispatch, view);
-    // A drag that kept nothing has the document draw nothing again: put back what it showed.
-    if (!kept) restore();
+    }
   };
   owner.addEventListener('mousemove', move);
   owner.addEventListener('mouseup', finish);

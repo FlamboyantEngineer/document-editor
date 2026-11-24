@@ -109,12 +109,23 @@ describe('table nodes', () => {
       table.spec.toDOM?.(table.create(null, [row.create(null, cells)])) as readonly unknown[];
     const [, attrs, columns] = render(sized(100), sized(300));
     expect(attrs).toMatchObject({
+      'data-table-columns': 'fixed',
       style: 'width:calc(400px + var(--doc-table-border-width, 1px));max-width:100%',
     });
     expect(columns).toEqual([
       'colgroup',
-      ['col', { style: 'width:100px' }],
-      ['col', { style: 'width:300px' }],
+      [
+        'col',
+        {
+          style: 'width:var(--doc-table-column-width, 100px);--doc-table-column-proportion:25%',
+        },
+      ],
+      [
+        'col',
+        {
+          style: 'width:var(--doc-table-column-width, 300px);--doc-table-column-proportion:75%',
+        },
+      ],
     ]);
     const [, partly, partColumns] = render(sized(100), sized(null));
     expect(partly).not.toHaveProperty('style');

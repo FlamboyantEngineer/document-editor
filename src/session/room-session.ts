@@ -27,13 +27,10 @@ import {
   whenKept,
 } from './room-open.js';
 import { reloadRoom } from './room-reload.js';
+import { keepRoomSelection } from './room-selection.js';
 import { followSession, withCapabilities } from './session-follow.js';
-import {
-  changeTemplate,
-  createSessionStores,
-  defaultState,
-  type SessionStores,
-} from './store-session.js';
+import { createSessionStores, defaultState, type SessionStores } from './store-session.js';
+import { changeTemplate, type TemplateCommit } from './template-change.js';
 import { createValueStore } from './value-store.js';
 
 // Where a room session's connection is before it connects.
@@ -90,14 +87,22 @@ export interface RoomRun {
   stores: SessionStores;
   drafts: ReturnType<typeof createRoomDrafts>;
   follow: ReturnType<typeof followSession>;
-  showPin: (pin: TemplatePin | null, binding: RoomBinding) => Promise<boolean>;
+  showPin: (
+    pin: TemplatePin | null,
+    binding: RoomBinding,
+    commit?: TemplateCommit,
+  ) => Promise<boolean>;
   current: { room: OpenedRoom | null; stops: (() => void)[]; stopPin: () => void };
 }
 
-/** Follows the pin of the binding whose state the session is now showing. */
-export function watchRoomPin(run: RoomRun, binding: RoomBinding) {
+/** Follows the pin of the binding, while loading its contents or after showing them. */
+export function watchRoomPin(
+  run: RoomRun,
+  binding: RoomBinding,
+  onPin: (pin: TemplatePin | null) => void = (pin) => void run.showPin(pin, binding),
+) {
   run.current.stopPin();
-  run.current.stopPin = binding.followPin((pin) => void run.showPin(pin, binding));
+  run.current.stopPin = binding.followPin(onPin);
 }
 
 // Leaves the room the session is connected to. The session holds no room by the time the
@@ -226,6 +231,27 @@ function createRoomPause(
   };
 }
 
+function roomSetTemplate(run: RoomRun): DocumentSession['setTemplate'] {
+  const { stores } = run;
+  const allowed = () => stores.document.get()?.editingMode === 'edit';
+  return (pin) => {
+    const binding = run.current.room?.binding;
+    if (!binding || !allowed()) return Promise.resolve(false);
+    // The pin and the content moved to the template reach the room in one change.
+    return run.showPin(pin, binding, {
+      allowed,
+      apply: (template) =>
+        stores.withTemplate(template, () => {
+          binding.setPin(pin, (held) => movedDocument(held, template));
+          const shown = stores.document.get();
+          if (!shown) return undefined;
+          const held = binding.held(shown.state);
+          return held === shown.state ? held : keepRoomSelection(held, shown.state.selection);
+        }),
+    });
+  };
+}
+
 /** Opens a document in its shared room (DOCE-SESSION-3.2 to 3.6). */
 export function createRoomSession(options: DocumentSessionOptions): DocumentSession {
   const { host, documentId } = options;
@@ -247,10 +273,16 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     onLeave: () => void flush(),
     gate: () => stores.connection.get()?.gate ?? null,
   });
-  const showPin = async (pin: TemplatePin | null, binding: RoomBinding) => {
+  const showPin = async (
+    pin: TemplatePin | null,
+    binding: RoomBinding,
+    commit?: TemplateCommit,
+  ) => {
     const isCurrent = () => run.current.room?.binding === binding;
-    const changed = await changeTemplate({ host, signal, isCurrent }, stores, pin);
-    if (changed) follow.followTemplate(pin, changed.saved);
+    const changed = await changeTemplate({ host, signal, isCurrent, commit }, stores, pin);
+    if (changed && isCurrent() && samePin(document.get()?.pin ?? null, pin)) {
+      follow.followTemplate(pin, changed.saved);
+    }
     return changed !== null;
   };
   const run: RoomRun = {
@@ -287,18 +319,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     reloads: stores.reloads,
     ready: signal.aborted ? Promise.resolve(false) : loadRoom(run),
     update: roomUpdate(run),
-    setTemplate: async (pin) => {
-      const opened = room();
-      if (!opened || document.get()?.editingMode !== 'edit') return false;
-      const binding = opened.binding;
-      const shown = await showPin(pin, binding);
-      // The pin and the content moved to the template reach the room in one change.
-      const template = document.get()?.template;
-      if (shown && template && opened.binding === binding && room() === opened) {
-        binding.setPin(pin, (held) => movedDocument(held, template));
-      }
-      return shown;
-    },
+    setTemplate: roomSetTemplate(run),
     save: () => flush().then(() => undefined),
     flush,
     ...pause,

@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
-import { StrictMode, useState } from 'react';
+import { Activity, StrictMode, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
@@ -172,5 +172,32 @@ describe('File > Export', () => {
     expect(second?.signal).not.toBe(first?.signal);
     unmount();
     expect(second?.signal.aborted).toBe(true);
+  });
+
+  it('DOCE-EDITOR-6.28 allows a new export after a React Activity resumes', async () => {
+    const user = userEvent.setup();
+    const pdf = pendingExport('pdf', 'PDF');
+    const shown = (mode: 'visible' | 'hidden') => (
+      <Activity mode={mode}>
+        <Harness entries={[pdf.entry]} />
+      </Activity>
+    );
+    const { rerender } = render(shown('visible'));
+    await user.click(await openExport(user, 'PDF'));
+    expect(pdf.requests).toHaveLength(1);
+    rerender(shown('hidden'));
+    expect(pdf.requests[0]?.signal.aborted).toBe(true);
+    rerender(shown('visible'));
+
+    await user.click(await openExport(user, 'PDF'));
+    expect(pdf.requests).toHaveLength(2);
+    expect(pdf.requests[1]?.signal.aborted).toBe(false);
+    const running = await openExport(user, 'PDF');
+    expect(running).toHaveAttribute('aria-disabled', 'true');
+
+    await act(async () => pdf.end({ ok: true, value: undefined }));
+    expect(running).toHaveAttribute('aria-disabled', 'true');
+    await act(async () => pdf.end({ ok: true, value: undefined }));
+    await waitFor(() => expect(running).not.toHaveAttribute('aria-disabled', 'true'));
   });
 });

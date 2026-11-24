@@ -186,6 +186,43 @@ describe('mergeDocuments', () => {
     expect(readDocumentFile(merged.content, documentSchema).problems).toEqual([]);
   });
 
+  it('DOCE-SESSION-4.1 breaks cyclic placements and keeps unrelated moves and edits', () => {
+    const first = (text: StoredNode, ...children: StoredNode[]) =>
+      quote('q0000001', text, ...children);
+    const second = (text: StoredNode, ...children: StoredNode[]) =>
+      quote('q0000002', text, ...children);
+    const third = (...children: StoredNode[]) => quote('q0000003', THREE, ...children);
+    const other = paragraph('a0000004', 'Unrelated move');
+    const changedOne = paragraph('a0000001', 'One, mine');
+    const changedTwo = paragraph('a0000002', 'Two, theirs');
+    const base = file(first(ONE), second(TWO), third(), other);
+    const mine = file(second(TWO, first(changedOne)), third(), other);
+    const theirs = file(first(ONE, second(changedTwo)), third(other));
+    const merged = mergeDocuments({ base, mine, theirs });
+
+    expect(merged).toEqual({
+      content: file(second(changedTwo, first(changedOne)), third(other)),
+      conflicts: [],
+    });
+    expect(readDocumentFile(merged.content, documentSchema).problems).toEqual([]);
+  });
+
+  it('DOCE-SESSION-4.1 checks the new placement when breaking one cycle reveals another', () => {
+    const first = (...children: StoredNode[]) => quote('q0000001', ONE, ...children);
+    const second = (...children: StoredNode[]) => quote('q0000002', TWO, ...children);
+    const third = (text: StoredNode, ...children: StoredNode[]) =>
+      quote('q0000003', text, ...children);
+    const changedThree = paragraph('a0000003', 'Three, theirs');
+    const base = file(first(), third(THREE, second()));
+    const mine = file(third(THREE, second(first())));
+    const theirs = file(first(second(), third(changedThree)));
+
+    expect(mergeDocuments({ base, mine, theirs })).toEqual({
+      content: file(third(changedThree, second(first()))),
+      conflicts: [],
+    });
+  });
+
   it('DOCE-SESSION-4.1 leaves an emptied source behind when the other writer only changed the moved block', () => {
     const base = file(quote('q0000001', ONE), TWO);
     const mine = sections([TWO], [ONE]);

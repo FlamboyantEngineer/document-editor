@@ -152,7 +152,7 @@ Verification: `src/model/templates/template-sections.test.ts`
 
 ### DOCE-IMPORT-3.3 - Fitted table widths
 
-When it composes a document, each table, at any depth, whose column widths are all set and add up to more than its section's pages' content width (the section's page size, orientation and margins over the template's) shall have every column shrunk in proportion to fit it (`fitStoredTables`, `scaleColumns`), whole pixels, never below the narrowest a column may be (`DEFAULT_TABLE_CELL_MIN_WIDTH`), a column already narrower keeping its width; each cell shall take the widths of the columns it spans, counted from the column it starts in, past the columns cells spanning rows from above cover. A captioned table keeps its caption when it is fitted. When the section has no fixed content width, its imported column widths shall be preserved. A table that fits, or one with a width unset, shall be left as it is. With `tables: 'fill'`, each top-level table whose widths are all set shall instead fill that width exactly, its columns in proportion to their widths, whole pixels summing to it, the pixels rounding leaves going to the columns that lost most (`fillColumns`), narrower tables widening too; nested tables only shrink. `tableInset` pixels shall be kept clear of the width either way, such as for the page's and table's borders.
+When it composes a document, each table, at any depth, whose column widths are all set and add up to more than its section's pages' content width (the section's page size, orientation and margins over the template's) shall have every column shrunk in proportion to fit it (`fitStoredTables`, `scaleColumns`), whole pixels, never below the narrowest a column may be (`DEFAULT_TABLE_CELL_MIN_WIDTH`), a column already narrower keeping its width; each cell shall take the widths of the columns it spans, counted from the column it starts in, past the columns cells spanning rows from above cover. A captioned table keeps its caption when it is fitted. When the section has no fixed content width, its imported column widths shall be preserved. A table that fits, or one with a width unset, shall be left as it is. With `tables: 'fill'`, each table directly in the section’s content whose widths are all set shall instead fill that width exactly, its columns in proportion to their widths, whole pixels summing to it, the pixels rounding leaves going to the columns that lost most (`fillColumns`), narrower tables widening too. A table nested under any other block, including a quote or a layout column, shall only shrink. `tableInset` pixels shall be kept clear of the width either way, such as for the page's and table's borders.
 
 Implementation: `src/model/layout/column-widths.ts`, `src/model/layout/stored-table-widths.ts`, `src/model/templates/template-sections.ts`
 Verification: `src/model/layout/column-widths.test.ts`, `src/model/layout/stored-table-widths.test.ts`, `src/model/templates/template-sections.test.ts`, `src/model/templates/template-compose.test.ts`
@@ -189,9 +189,9 @@ Verification: `src/model/format/markdown-read.test.ts`
 
 ### DOCE-IMPORT-4.2 - Markdown left out
 
-An HTML block and an HTML tag the reader does not read shall be left out, the tag keeping its text, each with a `content-left-out` warning naming it.
+An HTML block and an HTML tag the reader does not read shall be left out, the tag keeping its text, each with a `content-left-out` warning naming it. Warnings shall follow their source order across blocks and inline tags (DOCE-IMPORT-1.3). Warnings in a footnote definition shall count its source tags once at the definition's position when the note is cited, regardless of how often it is cited. Unused footnote definitions shall add no warnings.
 
-Implementation: `src/model/format/markdown-read-inline.ts`, `src/model/format/markdown-read-blocks.ts`
+Implementation: `src/model/format/markdown-read.ts`, `src/model/format/markdown-read-inline.ts`, `src/model/format/markdown-read-blocks.ts`, `src/model/format/markdown-read-definitions.ts`
 Verification: `src/model/format/markdown-read.test.ts`
 
 ### DOCE-IMPORT-4.3 - Reading back the writer

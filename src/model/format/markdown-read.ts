@@ -8,10 +8,11 @@ import {
   type ImportWarning,
   type ImportWarnings,
 } from '../../import/import-warnings.js';
+import { cloneJson } from '../clone-json.js';
 import { DOCUMENT_FORMAT_VERSION, type DocumentFile, type StoredNode } from './document-format.js';
 import { type BlockContext, readBlocks } from './markdown-read-blocks.js';
 import { withObjects } from './markdown-read-captions.js';
-import { readInline } from './markdown-read-inline.js';
+import { type InlineContext, readInline } from './markdown-read-inline.js';
 
 /** A stored document read from Markdown, and what the reading left out. */
 export interface MarkdownRead {
@@ -19,14 +20,44 @@ export interface MarkdownRead {
   readonly warnings: ImportWarning[];
 }
 
-// Definitions may follow their references. Resolve inline source and captions once every block
-// has been read and the definitions are known.
+// The parser discovers the source positions in order. Their warnings can come later, when a
+// paragraph is read with its link definitions or a footnote is read by its first reference.
+function orderedWarnings() {
+  type Entry = Parameters<ImportWarnings['add']>;
+  const scopes: (Entry[] | undefined)[] = [];
+  return {
+    next: (): InlineContext['warnings'] => {
+      const index = scopes.length;
+      scopes.push(undefined);
+      return {
+        add: (...entry) => {
+          (scopes[index] ??= []).push(entry);
+        },
+      };
+    },
+    list: () => {
+      const warnings = createImportWarnings();
+      for (const entries of scopes) {
+        for (const entry of entries ?? []) warnings.add(...entry);
+      }
+      return warnings.list();
+    },
+  };
+}
+
+function deferNote(source: string, context: InlineContext): () => StoredNode[] {
+  let content: StoredNode[] | undefined;
+  return () => {
+    if (content) return cloneJson(content);
+    content = readInline(source, { ...context, inNote: true });
+    return content;
+  };
+}
+
+// Attach the parsed inline content and join the captions with the objects they caption.
 function resolveBlock(node: StoredNode, context: BlockContext): StoredNode {
-  const inline = context.inlineSource.get(node);
-  if (inline !== undefined) {
-    const content = readInline(inline, context);
-    return content.length ? { ...node, content } : node;
-  }
+  const inline = context.inlineContent.get(node);
+  if (inline) return inline.length ? { ...node, content: inline } : node;
   if (!node.content) return node;
   const content = node.content.map((child) => resolveBlock(child, context));
   return {
@@ -42,16 +73,22 @@ function resolveBlock(node: StoredNode, context: BlockContext): StoredNode {
  * underline, superscript, subscript, strikethrough, emphasis, code and line breaks.
  */
 export function readMarkdown(markdown: string): MarkdownRead {
-  const warnings: ImportWarnings = createImportWarnings();
+  const warnings = orderedWarnings();
   const text = markdown.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
   const body = text.replace(/^---\n[\s\S]*?\n(?:---|\.\.\.)\n/, '');
+  const links = new Map<string, string>();
+  const notes = new Map<string, () => StoredNode[]>();
   const context: BlockContext = {
-    links: new Map(),
-    notes: new Map(),
-    warnings,
-    inlineSource: new WeakMap(),
+    links,
+    notes,
+    defineNote: (label, source) =>
+      notes.set(label, deferNote(source, { links, notes, warnings: warnings.next() })),
+    nextWarnings: warnings.next,
+    deferred: [],
+    inlineContent: new WeakMap(),
   };
   const blocks = readBlocks(body.split('\n'), context);
+  for (const read of context.deferred) read();
   const content = withObjects(blocks.map((block) => resolveBlock(block, context)));
   return {
     file: { formatVersion: DOCUMENT_FORMAT_VERSION, sections: [{ content }] },
