@@ -6,8 +6,10 @@ import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inlin
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { citationIdentifiers } from '../model/citation-identifiers.js';
 import type { AtomPlace } from './atoms.js';
+import { type BodyVariables, PAGE_VARIABLES, pageBoxWidth } from './body-variables.js';
 import { isHidden } from './hidden-suggestions.js';
 import type { InsertedText } from './inserted-text.js';
+import type { ReservedBox } from './reserved-boxes.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
 
@@ -57,6 +59,8 @@ type TextRuns =
       readonly runs: readonly TextRun[];
       /** The content ranges hidden as suggestions the markup leaves out, in order. */
       readonly hidden: readonly HiddenRange[];
+      /** The boxes its page variables are drawn in (`BodyVariables`), in order. */
+      readonly boxes: readonly ReservedBox[];
     }
   | { readonly ok: false; readonly reason: string };
 
@@ -73,9 +77,14 @@ interface RunInput {
   readonly scope?: string | null | undefined;
   /**
    * The text each template variable shows, by its key, where the block is drawn once with known
-   * values, such as a section's header or footer; a block with a variable is refused without it.
+   * values, such as a section's header or footer.
    */
   readonly variables?: VariableTexts | undefined;
+  /**
+   * What the variables of a block in a page's body show, where they are not given by `variables`;
+   * a block with a variable is refused without either.
+   */
+  readonly bodyVariables?: BodyVariables | undefined;
   /** The inline atoms laid out as their text (`TEXT_ATOMS` by default), and their numbers. */
   readonly textAtoms?:
     (TextAtomSource & { readonly types?: ReadonlySet<string> | undefined }) | undefined;
@@ -185,17 +194,24 @@ function addAtom(
 }
 
 // A template variable as the text it shows, unbroken as an atom is, in its marks' font; nothing
-// for one that shows none.
+// for one that shows none. In a page's body, a page variable takes its box (DOCE-PAGINATION-11.13).
 function addVariable(
   run: Builder,
-  { child, offset, input }: { child: ProseMirrorNode; offset: number; input: RunInput },
+  at: { child: ProseMirrorNode; offset: number; input: RunInput; boxes: ReservedBox[] },
 ): string | null {
-  if (!input.variables) return 'template variable';
-  const text = input.variables.get(String(child.attrs.variableKey ?? '')) ?? '';
+  const { child, offset, input } = at;
+  const { variables, bodyVariables: body } = input;
+  const key = String(child.attrs.variableKey ?? '');
   const font = fontString(markedFont(input.typography, child.marks));
-  run.items.push(text ? { text, font, break: 'never' } : { width: 0 });
-  run.offsets.push(offset);
-  run.atoms.push(null);
+  if (!variables && body && PAGE_VARIABLES.has(key)) {
+    const width = pageBoxWidth(body.digits(), font);
+    addText(run, { item: { width }, offset, box: null });
+    at.boxes.push({ from: offset, to: offset + child.nodeSize, width });
+    return null;
+  }
+  if (!variables && !body) return 'template variable';
+  const text = (variables ? variables.get(key) : body?.text(key)) ?? '';
+  addText(run, { item: text ? { text, font, break: 'never' } : { width: 0 }, offset, box: null });
   return null;
 }
 
@@ -270,6 +286,7 @@ export function buildRuns(input: RunInput): TextRuns {
     run = startRun(0);
   }
   const hidden: [number, number][] = [];
+  const boxes: ReservedBox[] = [];
   node.forEach((child, offset) => {
     if (failure) return;
     if (isHidden(child, input.hidden)) {
@@ -297,7 +314,7 @@ export function buildRuns(input: RunInput): TextRuns {
       }
     } else if (child.type.name === 'template_variable') {
       // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
-      failure = addVariable(run, { child, offset, input });
+      failure = addVariable(run, { child, offset, input, boxes });
     } else {
       insert(run, offset);
       failure = addAtom(run, { child, offset, input });
@@ -312,5 +329,5 @@ export function buildRuns(input: RunInput): TextRuns {
     addInserted(run, after, typography);
   }
   runs.push(finish(run, size, false));
-  return { ok: true, runs, hidden };
+  return { ok: true, runs, hidden, boxes };
 }

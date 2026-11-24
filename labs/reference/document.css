@@ -633,6 +633,24 @@ div.de-host-view {
   white-space: pre;
 }
 
+/* A page's number or the page count in the text takes a box of room for its digits, the same on
+   every page (DOCE-PAGINATION-11.13): the variable stays inline, so a line end or an indent on it
+   is drawn outside the box, and its value is drawn in the box at the right, its digits all as
+   wide. */
+.de-document-editor [data-template-variable].de-forced-lines__reserved {
+  display: inline;
+  width: auto;
+}
+
+.de-document-editor [data-template-variable].de-forced-lines__reserved > * {
+  display: inline-block;
+  width: var(--de-reserved-width);
+  text-align: right;
+  text-indent: 0;
+  white-space: pre;
+  font-variant-numeric: tabular-nums;
+}
+
 .de-document-editor .pm-page-content > :is(h1, h2, h3, h4, h5, h6).de-forced-lines::before {
   content: attr(data-number);
 }

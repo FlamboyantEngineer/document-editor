@@ -7,9 +7,11 @@ import { documentSchema, findNode, parseMarkup } from '../../test/document-marku
 import type { TemplateFile } from '../model/format/template-format.js';
 import { planParagraphSplit } from '../model/pagination/text-split.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { pageBoxWidth } from './body-variables.js';
 import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { createTextLayout, lineTableMeasurement, type TextLayoutOptions } from './text-layout.js';
+import { fontString } from './typography.js';
 
 const pretext = vi.hoisted(() => ({ locales: [] as (string | undefined)[] }));
 
@@ -333,6 +335,48 @@ describe('createTextLayout', () => {
     const written = table(block('<p>aaaa bbcc</p>'), 60);
     expect(shown.table.lines.length).toBe(written.lines.length);
     expect(shown.table.height).toBe(written.height);
+  });
+
+  it('DOCE-PAGINATION-11.13 lays a body variable out as its text and a page variable in a box of room for its digits', () => {
+    const variable = (key: string) => {
+      const node = documentSchema.nodes.template_variable?.create({ variableKey: key });
+      if (!node) throw new Error('schema has no template variable');
+      return node;
+    };
+    const paragraph = documentSchema.nodes.paragraph?.create(null, [
+      documentSchema.text('aaaa '),
+      variable('document.title'),
+      documentSchema.text(' '),
+      variable('page.current'),
+    ]);
+    if (!paragraph) throw new Error('schema has no paragraph');
+    const layoutWith = (digits: number) =>
+      createTextLayout({
+        template: BASE_TEMPLATE,
+        bodyVariables: {
+          text: (key) => (key === 'document.title' ? 'bb cc' : ''),
+          digits: () => digits,
+        },
+      });
+    const font = fontString(layoutWith(3).typography(paragraph).font);
+    // After 'aaaa ', the empty title variable and a space.
+    const page = 5 + 2 + 1;
+    for (const digits of [3, 4]) {
+      const shown = layoutWith(digits).layoutText(paragraph, { width: 600 });
+      if (!shown.ok) throw new Error(shown.reason);
+      // The page's number takes a box whatever it reads, and the title's text is laid out.
+      expect(shown.table.reserved).toEqual([
+        { from: page, to: page + 2, width: pageBoxWidth(digits, font) },
+      ]);
+      const written = table(block('<p>aaaa bbcc 0</p>'), 600);
+      expect(shown.table.lines).toHaveLength(written.lines.length);
+    }
+    expect(pageBoxWidth(4, font)).toBeGreaterThan(pageBoxWidth(3, font));
+    // In a header or footer, only the page's own values lay the variables out.
+    expect(layoutWith(3).layoutText(paragraph, { width: 600, inRegion: true })).toEqual({
+      ok: false,
+      reason: 'template variable',
+    });
   });
 
   it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {

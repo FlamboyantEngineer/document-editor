@@ -15,9 +15,15 @@ import {
 } from './print-tree.js';
 
 // The hooks of the marks covering a range, merged as a view merges decorations on one node; an
-// inner mark is left to `inInnerMarks`.
-function hooksOver(marks: readonly LineMark[], from: number, to: number) {
-  const covering = marks.filter((mark) => !mark.inner && mark.from <= from && mark.to >= to);
+// inner mark is left to `inInnerMarks`, except on an inline node's own element (`boxes`).
+function hooksOver(
+  marks: readonly LineMark[],
+  { from, to }: { from: number; to: number },
+  boxes = false,
+) {
+  const covering = marks.filter(
+    (mark) => (boxes || !mark.inner) && mark.from <= from && mark.to >= to,
+  );
   if (!covering.length) return null;
   const styles = covering.flatMap((mark) => (mark.style ? [mark.style] : []));
   // Written as a view writes an element's style, each declaration ended.
@@ -71,7 +77,7 @@ function textPieces(text: string, at: number, marks: readonly LineMark[]): Print
   return sorted.slice(1).flatMap((to, index) => {
     const from = sorted[index] ?? at;
     const pieces = inInnerMarks([{ text: text.slice(from - at, to - at) }], marks, { from, to });
-    const hooks = hooksOver(marks, from, to);
+    const hooks = hooksOver(marks, { from, to });
     if (!hooks) return pieces;
     const attrs: Record<string, string> = { class: hooks.class };
     if (hooks.style) attrs.style = hooks.style;
@@ -96,7 +102,9 @@ export function linesContent(
     }
     const at = place.pos + 1 + offset;
     const drawn = nodeTree(child, place.drawing, { at, unmarked: true });
-    const hooks = hooksOver(marks, offset, offset + child.nodeSize);
+    // A box on the node, such as a page variable's, is drawn on its own element with the other
+    // marks on its range, as the view draws them.
+    const hooks = hooksOver(marks, { from: offset, to: offset + child.nodeSize }, true);
     items.push({ marks: child.marks, trees: hooks ? withHooks(drawn, hooks) : drawn });
   });
   return markedContent(items);

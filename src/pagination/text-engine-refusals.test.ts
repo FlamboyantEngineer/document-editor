@@ -75,9 +75,9 @@ function refusalsOf(file: DocumentFile): Refusals {
   return { laid, refused, reasons: Object.fromEntries([...reasons].sort()) };
 }
 
-// The blocks each document leaves to the DOM today, and why, over the whole set (854 laid, 44
-// refused): code captions wait for code figure geometry that matches the drawn box, and a block
-// with a template variable is left to the DOM since #323. A count may only go down.
+// The blocks each document leaves to the DOM today, and why, over the whole set (855 laid, 43
+// refused): code captions wait for code figure geometry that matches the drawn box. A count may
+// only go down.
 const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {
   'caption-numbering': 7,
   'code-block-stress': 7,
@@ -89,12 +89,10 @@ const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {
   'oversized-blocks': 1,
   'roman-numbering-coverage': 7,
   'table-rich-cells': 1,
-  'template-blocks-and-variables': 1,
 };
 
 const REFUSED_BY_REASON: Readonly<Record<string, number>> = {
   'a code caption is left to its code figure in the DOM': 43,
-  'template variable': 1,
 };
 
 beforeEach(() => {
