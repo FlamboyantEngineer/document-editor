@@ -143,22 +143,40 @@ test.describe('a footnote in a repeated table header', () => {
       );
     await expect.poll(caretInSecond).toBe(true);
     await page.keyboard.insertText(' Extra.');
-    await expect(first).toHaveText('In the header. Extra.');
-    await expect(second).toHaveText('In the header. Extra.');
+    const editedNote = 'In the header. Extra.';
+    await expect(first).toHaveText(editedNote);
+    await expect(second).toHaveText(editedNote);
     await expect.poll(caretInSecond).toBe(true);
     const persisted = () => page.evaluate(() => JSON.stringify(window.regressionLab.stored()));
-    await expect.poll(persisted).toContain('In the header. Extra.');
-    expect((await persisted()).match(/In the header\. Extra\./g)).toHaveLength(1);
+    await expect.poll(persisted).toContain(editedNote);
+    expect((await persisted()).split(editedNote)).toHaveLength(2);
     await page.keyboard.press('Shift+Home');
-    const selected = () => page.evaluate(() => document.getSelection()?.toString());
-    const before = await selected();
-    expect(before).toContain('In the header. Extra.');
-    await page.evaluate(async () => {
-      window.regressionLab.setZoom(110);
-      return window.stressLab.whenSettled();
-    });
+    // The browser can include the rendered note number in a line selection.
+    const selectedText = () =>
+      second.evaluate((note) => {
+        const selection = note.ownerDocument.getSelection();
+        if (selection?.rangeCount !== 1) return null;
+        const range = selection.getRangeAt(0).cloneRange();
+        if (!range.intersectsNode(note)) return null;
+        if (!note.contains(range.startContainer)) range.setStart(note, 0);
+        if (!note.contains(range.endContainer)) range.setEnd(note, note.childNodes.length);
+        return range.toString();
+      });
+    const selectedRange = () => page.evaluate(() => window.regressionLab.selected());
+    await expect.poll(selectedText).toBe(editedNote);
+    await expect
+      .poll(async () => {
+        const range = await selectedRange();
+        return range && range[1] - range[0];
+      })
+      .toBe(editedNote.length);
+    const before = await selectedRange();
+    await page.evaluate(() => window.regressionLab.setZoom(110));
+    await expect(page.locator('.de-document-editor')).toHaveCSS('--de-zoom', '1.1');
+    await page.evaluate(() => window.stressLab.whenSettled());
     await expect.poll(caretInSecond).toBe(true);
-    await expect.poll(selected).toBe(before);
+    await expect.poll(selectedText).toBe(editedNote);
+    await expect.poll(selectedRange).toEqual(before);
     await page.keyboard.press('End');
     await page.keyboard.insertText(' Again.');
     await expect.poll(persisted).toContain('In the header. Extra. Again.');

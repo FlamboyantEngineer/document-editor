@@ -190,14 +190,16 @@ function targetAt(
 
 function useMenuInputs(props: DocumentContextMenuProps) {
   const { view, documentState, session, editable } = props;
+  const { doc, plugins } = documentState;
   const latestRef = useRef(props);
-  const clipboardTargetRef = useRef({ view, documentState, session, editable });
+  const clipboardTargetRef = useRef({ view, doc, plugins, session, editable });
   useEffect(() => {
     latestRef.current = props;
   });
+  // Transactions that only update plugin metadata keep the document and its configuration.
   useLayoutEffect(() => {
-    clipboardTargetRef.current = { view, documentState, session, editable };
-  }, [view, documentState, session, editable]);
+    clipboardTargetRef.current = { view, doc, plugins, session, editable };
+  }, [view, doc, plugins, session, editable]);
   return { latestRef, clipboardTargetRef };
 }
 

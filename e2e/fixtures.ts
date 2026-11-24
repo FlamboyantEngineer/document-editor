@@ -17,7 +17,7 @@ export const test = base.extend<{ lab: LabFixture; labErrors: string[] }>({
   labErrors: [
     async ({ page }, use) => {
       const errors: string[] = [];
-      page.on('pageerror', (error) => errors.push(error.message));
+      page.on('pageerror', (error) => errors.push(error.stack ?? error.message));
       page.on('console', (message) => {
         if (message.type() === 'error') errors.push(message.text());
       });

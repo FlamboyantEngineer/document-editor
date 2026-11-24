@@ -244,6 +244,43 @@ function secondNote(doc: Node) {
 // The property tests walk every character of generated documents after each edit: under a second
 // each here, but several times slower on CI's runners beside the other test files, so they get 30 s.
 describe('projection map', { timeout: 30_000 }, () => {
+  it.each(['inside the replacement', 'after the replacement'] as const)(
+    'DOCE-PAGINATION-7.9 preserves the browser selection %s when an edit echoes across a page break',
+    (where) => {
+      const fragments = ['ABCD', 'EFGH'].map((text, index) =>
+        create('paragraph', { dataId: 'split', splitPartIndex: index }, text),
+      );
+      const tail = create('paragraph', { dataId: 'tail' }, 'Trailing');
+      const pages = fragments.map((fragment, index) =>
+        create('page', null, [
+          create('page_header', null),
+          create('page_content', null, index ? [fragment, tail] : [fragment]),
+          create('page_footnotes', null),
+          create('page_footer', null),
+        ]),
+      );
+      const doc = create('doc', null, [create('page_section', null, pages)]);
+      const map = createProjectionMap(doc);
+      const projection = EditorState.create({ doc });
+      const canonical = EditorState.create({ doc: map.canonical });
+      const tr = projection.tr.insertText(
+        'x'.repeat(200),
+        positionOf(doc, 'C'),
+        positionOf(doc, 'G'),
+      );
+      const selected = (document: Node) =>
+        where === 'inside the replacement'
+          ? positionOf(document, 'xxx') + 100
+          : positionOf(document, 'Trailing') + 1;
+      tr.setSelection(TextSelection.create(tr.doc, selected(tr.doc)));
+      const routed = routeDomChange(tr, { map, canonical, projection });
+      if (!routed) throw new Error('The edit should route.');
+      expect(routed.projection.steps.length).toBeGreaterThan(1);
+      expect(routed.projection.selection.head).toBe(selected(routed.projection.doc));
+      expect(routed.canonical.selection.head).toBe(selected(routed.canonical.doc));
+    },
+  );
+
   it('DOCE-PAGINATION-1.8 preserves positions in both columns through joining and repagination', () => {
     const column = (id: string, part: number, value: string) =>
       create('layout_column', null, [

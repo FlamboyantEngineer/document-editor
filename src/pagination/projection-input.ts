@@ -20,7 +20,11 @@ import { ReplaceAroundStep, type Step } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import { characterWidth } from './graphemes.js';
 import type { ProjectionMap } from './projection-map.js';
-import { canonicalSelection, footnoteSelectionIn } from './selection-mirror.js';
+import {
+  canonicalSelection,
+  footnoteSelectionIn,
+  projectionSelection,
+} from './selection-mirror.js';
 
 /** The two documents an input reads: the canonical state, the projection's state and their map. */
 interface InputSource {
@@ -101,9 +105,9 @@ export function isColumnWidthChange(tr: Transaction): boolean {
   );
 }
 
-// Each step of a projection edit on the canonical transaction, and its mirror on the projection's;
-// false when a step cannot be placed.
-function routeSteps(tr: Transaction, target: RoutedEdit & { map: ProjectionMap }): boolean {
+// Carries each step to the canonical state and mirrors it on the pages. Returns the map of the
+// browser's final document, or null when a step cannot be placed.
+function routeSteps(tr: Transaction, target: RoutedEdit): ProjectionMap | null {
   const { canonical: ctr, projection: ptr } = target;
   let { map } = target;
   // The browser may keep editing one copy while the mirror also edits the other copies.
@@ -141,14 +145,20 @@ function routeSteps(tr: Transaction, target: RoutedEdit & { map: ProjectionMap }
     browser = map;
     return true;
   });
-  Object.assign(target, { map, atBreak: crossed });
-  return placed;
+  if (!placed) return null;
+  Object.assign(target, { map: map.on(ptr.doc), atBreak: crossed });
+  return browser;
 }
 
-// The projection selection after a routed edit: the edit's own where the mirror matches it.
-function routedSelection(tr: Transaction, ptr: Transaction): Selection {
+// The browser selection is already in the document after its edit. When the mirror took
+// different steps, carry it through the common canonical document to the echoed pages.
+function routedSelection(tr: Transaction, target: RoutedEdit, browser: ProjectionMap): Selection {
+  const { projection: ptr, canonical, map } = target;
   if (!ptr.doc.eq(tr.doc)) {
-    return footnoteSelectionIn(tr.selection, ptr.doc) ?? tr.selection.map(ptr.doc, ptr.mapping);
+    const note = footnoteSelectionIn(tr.selection, ptr.doc);
+    if (note) return note;
+    const selected = canonicalSelection(browser, tr.selection, canonical.doc);
+    return selected ? projectionSelection(map, selected, ptr.selection) : ptr.selection;
   }
   return TextSelection.between(
     ptr.doc.resolve(tr.selection.anchor),
@@ -168,13 +178,14 @@ export function routeDomChange(tr: Transaction, source: InputSource): RoutedEdit
     map: source.map,
     atBreak: false,
   };
-  if (!routeSteps(tr, target)) return null;
-  const selection = routedSelection(tr, target.projection);
+  const browser = routeSteps(tr, target);
+  if (!browser) return null;
+  const selection = routedSelection(tr, target, browser);
   target.projection.setSelection(selection);
   // A selection that only followed the edit, as typing's does, follows it on the canonical state
   // too: mapped across a page break, it could land on the wrong side of the new text.
   const followed = tr.selection.eq(source.projection.selection.map(tr.doc, tr.mapping));
-  const mapped = followed ? null : canonicalSelection(target.map, selection, target.canonical.doc);
+  const mapped = followed ? null : canonicalSelection(browser, tr.selection, target.canonical.doc);
   if (mapped) target.canonical.setSelection(mapped);
   return target;
 }
