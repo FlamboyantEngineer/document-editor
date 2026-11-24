@@ -807,7 +807,13 @@
           "preserveWhitespace": "full",
           "getAttrs": "function"
         },
-        { "tag": "math", "getAttrs": "function", "getContent": "function" }
+        { "tag": "math", "getAttrs": "function", "getContent": "function" },
+        {
+          "tag": "img[data-latex]",
+          "priority": 70,
+          "getAttrs": "function",
+          "getContent": "function"
+        }
       ],
       "toDOM": {
         "defaults": "<span data-inline-type=\"latex\" data-inline-content=\"\"></span>",
@@ -839,7 +845,13 @@
           "preserveWhitespace": "full",
           "getAttrs": "function"
         },
-        { "tag": "math", "getAttrs": "function", "getContent": "function" }
+        { "tag": "math", "getAttrs": "function", "getContent": "function" },
+        {
+          "tag": "img[data-latex]",
+          "priority": 70,
+          "getAttrs": "function",
+          "getContent": "function"
+        }
       ],
       "toDOM": {
         "defaults": "<div data-block-type=\"latex\" data-latex-content=\"\"></div>",

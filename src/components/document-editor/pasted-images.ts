@@ -32,6 +32,14 @@ export function hasPastedImages(html: string): boolean {
 }
 
 /**
+ * Whether pasted HTML holds an image of math that carries its LaTeX (`data-latex`, as a math
+ * image is copied), which the document's parse rules read back as math rather than a figure.
+ */
+export function hasPastedMath(html: string): boolean {
+  return [...html.matchAll(imageTag)].some(([tag]) => attributeOf(tag, 'data-latex').trim() !== '');
+}
+
+/**
  * Whether pasted HTML holds text. An application that copies content often puts a picture of it on
  * the clipboard beside the HTML; HTML without text is an image copied alone.
  */

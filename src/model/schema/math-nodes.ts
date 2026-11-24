@@ -24,6 +24,24 @@ function mathMLRule(display: boolean): TagParseRule {
   };
 }
 
+/**
+ * An image of math that carries its LaTeX (`data-latex`, as a copied math image does), pasted back
+ * as math: display math when `data-math-display` says `display`, inline math otherwise.
+ */
+function mathImageRule(display: boolean): TagParseRule {
+  const latexOf = (dom: HTMLElement) => dom.getAttribute('data-latex')?.trim() ?? '';
+  return {
+    tag: 'img[data-latex]',
+    // Ahead of the image node's rule for any image (priority 60).
+    priority: 70,
+    getAttrs: (dom) =>
+      latexOf(dom) !== '' && (dom.getAttribute('data-math-display') === 'display') === display
+        ? null
+        : false,
+    getContent: (dom, schema) => Fragment.from(schema.text(latexOf(dom as HTMLElement))),
+  };
+}
+
 /** A math node, inline or shown as its own block. */
 function createMathNode(display: boolean): NodeSpec {
   const tag = display ? 'div' : 'span';
@@ -44,7 +62,7 @@ function createMathNode(display: boolean): NodeSpec {
       `${tag}[data-math-node="${kind}"]`,
     ]
       .map((selector): TagParseRule => ({ tag: selector, preserveWhitespace: 'full' }))
-      .concat(mathMLRule(display)),
+      .concat(mathMLRule(display), mathImageRule(display)),
     toDOM: (node) => [tag, { [typeAttr]: 'latex', [contentAttr]: node.textContent || '' }, 0],
   };
 }

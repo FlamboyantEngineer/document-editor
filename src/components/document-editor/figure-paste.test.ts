@@ -63,7 +63,8 @@ function writeAtEnd(view: EditorView, text: string) {
   view.dispatch(view.state.tr.insertText(text));
 }
 
-// Uploads that end when the test says: `finish` stores the one in progress.
+// Uploads that end when the test says: `finish` stores the next one once it has started (a paste
+// first reads whether its images carry math).
 function pendingUploads() {
   const waiting: (() => void)[] = [];
   const started: File[] = [];
@@ -75,7 +76,11 @@ function pendingUploads() {
         resolve({ ok: true, value: { id, url: '', name: file.name, mediaType: file.type } }),
       );
     });
-  return { upload, started, finish: () => waiting.shift()?.() };
+  const finish = async () => {
+    await vi.waitFor(() => expect(waiting.length).toBeGreaterThan(0));
+    waiting.shift()?.();
+  };
+  return { upload, started, finish };
 }
 
 const figures = (view: EditorView) => {
@@ -217,12 +222,12 @@ describe('figurePasteHandlers', () => {
     const html = '<p>New <img src="data:image/png;base64,iVBORw==" alt="Chart"></p>';
     handlers.handlePaste(view, htmlPasteOf(html));
     view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(figures(view)).toEqual(['Chart:asset-1']));
     expect(blocks(view)[0]).toBe('New');
     handlers.handlePaste(view, htmlPasteOf(html));
     writeAtEnd(view, ' and');
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() =>
       expect(notified.at(-1)).toEqual({ tone: 'error', text: 'Paste again.' }),
     );
@@ -304,7 +309,7 @@ describe('the place of pasted and dropped images', () => {
     const { view, handlers } = setUp(uploads.upload, ['One', 'Two', 'Three']);
     expect(handlers.handlePaste(view, pasteOf([picture('board.png')]))).toBe(true);
     writeAtEnd(view, ' and');
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(figures(view)).toHaveLength(1));
     expect(blocks(view)).toEqual(['One', '[board.png]', 'Two', 'Three and']);
     // The writer's caret stayed where they write: the next key does not replace the figure.
@@ -324,7 +329,7 @@ describe('the place of pasted and dropped images', () => {
     if (!paragraph) throw new Error('The schema has paragraphs.');
     view.dispatch(view.state.tr.insert(view.state.selection.$from.before(), paragraph));
     writeAtEnd(view, ' and');
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(figures(view)).toHaveLength(1));
     expect(blocks(view)).toEqual(['Zero', 'One', '[board.png]', 'Two and']);
     view.destroy();
@@ -335,7 +340,7 @@ describe('the place of pasted and dropped images', () => {
     const { view, handlers } = setUp(uploads.upload, ['One', 'Two']);
     handlers.handlePaste(view, pasteOf([picture('board.png')]));
     view.dispatch(view.state.tr.insertText('Just '));
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(figures(view)).toHaveLength(1));
     view.dispatch(view.state.tr.insertText('the '));
     expect(blocks(view)).toEqual(['Just the One', '[board.png]', 'Two']);
@@ -346,7 +351,7 @@ describe('the place of pasted and dropped images', () => {
     const uploads = pendingUploads();
     const { view, handlers } = setUp(uploads.upload, ['One', 'Two']);
     handlers.handlePaste(view, pasteOf([picture('board.png')]));
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(figures(view)).toHaveLength(1));
     expect(view.state.selection.content().content.firstChild?.type.name).toBe('figure');
     view.destroy();
@@ -356,10 +361,10 @@ describe('the place of pasted and dropped images', () => {
     const uploads = pendingUploads();
     const { view, handlers } = setUp(uploads.upload, ['One', 'Two']);
     handlers.handlePaste(view, pasteOf([picture('first.png'), picture('second.png')]));
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(uploads.started).toHaveLength(2));
     writeAtEnd(view, ' and');
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(figures(view)).toHaveLength(2));
     expect(blocks(view)).toEqual(['One', '[first.png]', '[second.png]', 'Two and']);
     view.destroy();
@@ -379,7 +384,7 @@ describe('the place of pasted and dropped images', () => {
     } as unknown as DragEvent;
     expect(handlers.handleDrop(view, drop)).toBe(true);
     writeAtEnd(view, ' and');
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(figures(view)).toHaveLength(1));
     expect(blocks(view)).toEqual(['One', 'Two', '[board.png]', 'Three and']);
     view.destroy();
@@ -390,9 +395,9 @@ describe('the place of pasted and dropped images', () => {
     const { view, handlers } = setUp(uploads.upload, ['One']);
     handlers.handlePaste(view, pasteOf([picture('first.png'), picture('second.png')]));
     view.setProps({ editable: () => false });
-    uploads.finish();
+    await uploads.finish();
     await vi.waitFor(() => expect(uploads.started).toHaveLength(2));
-    uploads.finish();
+    await uploads.finish();
     view.setProps({ editable: () => true });
     writeAtEnd(view, ' and');
     expect(blocks(view)).toEqual(['One and']);

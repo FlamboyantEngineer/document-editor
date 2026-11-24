@@ -142,7 +142,7 @@ describe('math copy entries', () => {
     await vi.waitFor(() => expect(written[1]).toBe(SOURCE));
   });
 
-  it('DOCE-OBJECTS-1.12 copies the drawing as an image at its size before scaling', async () => {
+  it('DOCE-OBJECTS-1.12 copies the drawing as an image at its size before scaling, with its LaTeX', async () => {
     const written = recordClipboard();
     const { entries } = setUp({ drawn: true });
     const create = document.createElement.bind(document);
@@ -164,7 +164,7 @@ describe('math copy entries', () => {
     const formats = written[0] as Record<string, Promise<Blob>>;
     await expect((await formats['image/png'])?.text()).resolves.toBe('png');
     await expect((await formats['text/html'])?.text()).resolves.toBe(
-      `<img src="data:image/png;base64,cG5n" width="40" height="20" alt="${SOURCE}">`,
+      `<img src="data:image/png;base64,cG5n" width="40" height="20" alt="${SOURCE}" data-latex="${SOURCE}" data-math-display="display">`,
     );
   });
 });
@@ -179,5 +179,14 @@ describe('pasted equations', () => {
     expect(findNode(doc, 'math_inline')?.textContent).toBe(String.raw`\pi r^2`);
     expect(findNode(doc, 'math_display')?.textContent).toBe(SOURCE);
     expect(doc.lastChild?.textContent).toBe('y');
+  });
+
+  it('DOCE-OBJECTS-1.12 reads an image of math carrying its LaTeX back as math, other images as images', () => {
+    const doc = parseMarkup(
+      `<p>Area <img src="a.png" alt="" data-latex="\\pi r^2"> and <img src="b.png" alt="b"></p><img src="c.png" data-latex="${SOURCE}" data-math-display="display">`,
+    );
+    expect(findNode(doc, 'math_inline')?.textContent).toBe(String.raw`\pi r^2`);
+    expect(findNode(doc, 'math_display')?.textContent).toBe(SOURCE);
+    expect(findNode(doc, 'image')?.attrs.src).toBe('b.png');
   });
 });
