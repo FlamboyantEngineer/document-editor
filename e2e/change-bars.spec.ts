@@ -32,7 +32,9 @@ const settle = (page: Page) =>
 // Types at the end of a block's text.
 async function typeAtEnd(page: Page, block: Locator, typed: string) {
   await block.scrollIntoViewIfNeeded();
-  await block.click();
+  // On the block's last line, which End then ends.
+  const box = await block.boundingBox();
+  await block.click({ position: { x: (box?.width ?? 8) / 2, y: (box?.height ?? 8) - 4 } });
   await page.keyboard.press('End');
   await page.keyboard.type(typed);
   await settle(page);

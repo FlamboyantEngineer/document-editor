@@ -471,7 +471,7 @@ Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/hos
 
 ### DOCE-EDITOR-6.8 - The browser's own checks
 
-The document and its measuring view shall turn the browser's spelling check off (`spellcheck="false"`): the host's proofer checks the text (DOCE-PROOFING). Each page contains its layout and paint, never its style, so the heading and object numbers, CSS counters, count across pages.
+The document and its measuring view shall turn the browser's spelling check off (`spellcheck="false"`): the host's proofer checks the text (DOCE-PROOFING). Each page contains its layout and paint. With the layout engine's text layout (`textLayout: 'pretext'`), a page also skips its style and layout while off screen (`content-visibility: auto`, DOCE-PAGINATION-11.6), and the heading and object numbers are the engine's (DOCE-PAGINATION-11.9); with the DOM's, a page never contains its style, so those numbers, CSS counters, count across pages.
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/document.css`
 Verification: `e2e/document-editor.spec.ts`
@@ -825,6 +825,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-forced-lines__start`                | slot      |                                                                        | A line's first character, where the line starts in from the content edge.                                          |
 | `de-forced-lines__justified`            | slot      |                                                                        | A wrapped justified line's text.                                                                                   |
 | `data-lines`                            | attribute | a number                                                               | On `de-forced-lines`: how many lines the engine computed.                                                          |
+| `data-selection-page`                   | attribute | `true`                                                                 | With the layout engine, on a page holding the selection's anchor or head (DOCE-PAGINATION-11.6), view-only.        |
 | `data-number`                           | attribute |                                                                        | On a heading, with the layout engine, on forced lines or not: its number the engine laid out, with its space.      |
 | `--de-number`                           | property  |                                                                        | With the layout engine, on a caption, linked code or display equation: its label or number (DOCE-PAGINATION-11.9). |
 | `--de-line-indent`                      | property  |                                                                        | On `de-forced-lines__start`: how far in the line starts.                                                           |

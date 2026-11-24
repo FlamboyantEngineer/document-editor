@@ -19,6 +19,7 @@ import type { DocumentFile, TemplateFile } from '../../src/model/index.js';
 import type { DocumentSession, DocumentVersions } from '../../src/session/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
 
 const DOCUMENT_ID = 'lab';
 
@@ -131,6 +132,7 @@ function History({
         <output aria-label="Template shown">{(shown?.template ?? document.template).id}</output>
         <DocumentHistoryBanner versions={versions} onReturn={setSettings} />
         <DocumentEditor
+          {...LAB_TEXT_LAYOUT}
           {...(shown ?? {
             state: document.state,
             onStateChange: session.update,

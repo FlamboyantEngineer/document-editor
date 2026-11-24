@@ -59,7 +59,8 @@ test.describe('math input', () => {
       const box = element.getBoundingClientRect();
       return { content: after.content, position: after.position, width: box.width };
     });
-    expect(number.content).toContain('counter(equation');
+    // The engine draws the number it laid the line out with, in the template's format.
+    expect(number.content).toMatch(/^"\(Eq\. \d+(\.\d+)*\.\)"/);
     expect(number.position).toBe('absolute');
   });
 

@@ -38,6 +38,7 @@ import {
 } from '../../src/model/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
 
 const schema = createDocumentSchema();
 
@@ -214,6 +215,7 @@ function PersonDocument(props: PersonDocumentProps) {
   const [state, setState] = useState(() => createPersonState(props));
   return (
     <DocumentEditor
+      {...LAB_TEXT_LAYOUT}
       state={state}
       onStateChange={setState}
       template={TEMPLATE}

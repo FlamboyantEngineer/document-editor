@@ -43,7 +43,8 @@ describe('keepInputAfterFocus', () => {
     expect(flush).not.toHaveBeenCalled();
     vi.advanceTimersByTime(20);
     expect(flush).toHaveBeenCalledTimes(1);
-    expect(focus).not.toHaveBeenCalled();
+    // The view drew its selection as it took focus, before the key, and not over it.
+    expect(focus).toHaveBeenCalledTimes(1);
   });
 
   it('DOCE-PAGINATION-7.24 reads the browser selection at the check when a press on the view brought focus', () => {
@@ -56,17 +57,30 @@ describe('keepInputAfterFocus', () => {
     expect(focus).not.toHaveBeenCalled();
   });
 
-  it('DOCE-PAGINATION-7.22 draws the view selection back after a focus with no input, only where the browser shows another', () => {
+  it('DOCE-PAGINATION-7.22 draws the view selection after a focus with no input, and again only where the browser shows another', () => {
     const moved = watchedView();
     const handlers = keepInputAfterFocus(undefined);
     handlers.focus?.(moved.view, new FocusEvent('focus'));
-    vi.advanceTimersByTime(20);
     expect(moved.focus).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(20);
+    expect(moved.focus).toHaveBeenCalledTimes(2);
     expect(moved.flush).not.toHaveBeenCalled();
     const kept = watchedView({ shown: true });
     handlers.focus?.(kept.view, new FocusEvent('focus'));
     vi.advanceTimersByTime(20);
-    expect(kept.focus).not.toHaveBeenCalled();
+    expect(kept.focus).toHaveBeenCalledTimes(1);
+  });
+
+  it('DOCE-PAGINATION-7.22 leaves a selection the browser shows in the view as it takes focus to the check', () => {
+    const { view, focus } = watchedView();
+    const text = view.dom.appendChild(document.createTextNode('placed'));
+    document.body.append(view.dom);
+    getSelection()?.setBaseAndExtent(text, 1, text, 4);
+    keepInputAfterFocus(undefined).focus?.(view, new FocusEvent('focus'));
+    expect(focus).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(20);
+    expect(focus).toHaveBeenCalledTimes(1);
+    document.body.replaceChildren();
   });
 
   it('DOCE-PAGINATION-7.22 forgets a press that brought no focus', () => {
@@ -77,7 +91,7 @@ describe('keepInputAfterFocus', () => {
     handlers.focus?.(view, new FocusEvent('focus'));
     vi.advanceTimersByTime(20);
     expect(flush).not.toHaveBeenCalled();
-    expect(focus).toHaveBeenCalledTimes(1);
+    expect(focus).toHaveBeenCalledTimes(2);
   });
 
   it('DOCE-PAGINATION-7.22 shares what it noted between handlers wrapped twice, and passes events on', () => {

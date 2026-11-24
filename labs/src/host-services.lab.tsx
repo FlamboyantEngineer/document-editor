@@ -40,6 +40,8 @@ import {
 } from '../../src/model/index.js';
 import { chapter, heading, text, variable } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 // A template whose header shows two of the host's variables and whose footer numbers the pages.
 const LAB_TEMPLATE: TemplateFile = {
@@ -354,9 +356,11 @@ function Lab() {
       hostChanged = () => undefined;
     };
   }, []);
-  const record = (entry: string) => setLog((entries) => [entry, ...entries].slice(0, 12));
+  const record = (entry: string) => setLog((entries) => [entry, ...entries].slice(0, 40));
+  // The lab's served files and shaper lay the pages out; `load` answers as the behaviour chosen.
   const fonts = useMemo<FontsAdapter>(
     () => ({
+      ...LAB_FONTS,
       load: (families, { timeout }) => {
         record(`fonts: load ${families.join(', ')} (timeout ${String(timeout)} ms)`);
         if (fontBehaviour === 'fail') {
@@ -509,6 +513,7 @@ function Lab() {
         </fieldset>
       </div>
       <DocumentEditor
+        {...LAB_TEXT_LAYOUT}
         state={state}
         onStateChange={setState}
         template={TEMPLATE}

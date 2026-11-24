@@ -16,11 +16,16 @@ async function padding(page: Page, text: string) {
   return { x: box.x + 2, y: box.y + box.height / 2 };
 }
 
-// A point at the blank end of a cell's paragraph.
+// A point at the blank end of a cell's paragraph, inside the cell's content box: a paragraph on the
+// engine's lines reaches into the padding.
 async function paragraphEnd(page: Page, text: string) {
   const box = await cell(page, text).locator('p').boundingBox();
+  const end = await cell(page, text).evaluate((element) => {
+    const { right } = element.getBoundingClientRect();
+    return right - parseFloat(getComputedStyle(element).paddingRight);
+  });
   if (!box) throw new Error('The paragraph is not drawn');
-  return { x: box.x + box.width - 4, y: box.y + box.height / 2 };
+  return { x: end - 4, y: box.y + box.height / 2 };
 }
 
 // Inserts a table of three rows and three columns after the lab's first paragraph.

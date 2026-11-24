@@ -7,6 +7,7 @@ import { engineNumbers } from './engine-numbers.js';
 import { forcedLines } from './forced-lines.js';
 import { forcedRegions } from './forced-regions.js';
 import type { ProjectionMap } from './projection-map.js';
+import { selectionPagesPlugin } from './selection-pages.js';
 import type { TextEngineHolder } from './text-engine-holder.js';
 
 /** The engine's plugins on the pages' view. */
@@ -19,6 +20,7 @@ export function textLayoutPlugins(
     engineNumbers({ engine, map: source.map }),
     forcedLines({ engine, version: () => text.version(), redraw: source.redraw }),
     forcedRegions(),
+    selectionPagesPlugin(),
     // After the forced lines, whose lines lay their blocks out and so place their math.
     engineMath({ engine, version: () => text.version() }),
   ];

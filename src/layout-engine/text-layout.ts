@@ -27,6 +27,7 @@ import {
   fontString,
   type FontStyle,
   snapLeading,
+  type TextAlign,
 } from './typography.js';
 
 /** What the engine lays text out from. */
@@ -108,6 +109,8 @@ export interface TextBlockPlace {
   readonly inserted?: readonly InsertedText[] | undefined;
   /** A caption's label, number and separator, drawn before its text in the caption label font. */
   readonly label?: string | undefined;
+  /** The alignment its object gives it in place of its own, as a figure its caption. */
+  readonly align?: TextAlign | undefined;
 }
 
 /** A block's line table, or why the engine cannot lay it out. */
@@ -353,7 +356,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         width: lineWidth,
         leading: style.leading,
         strut: strutOf(font, style.font.size, style.leading),
-        align: style.align,
+        align: place.align ?? style.align,
         padding: style.padding,
         firstStart: starts.firstStart,
         restStart: starts.restStart,

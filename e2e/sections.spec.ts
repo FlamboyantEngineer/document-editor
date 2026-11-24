@@ -29,7 +29,8 @@ test.describe('sections lab', () => {
       .locator('h1')
       .first()
       .evaluate((heading) => getComputedStyle(heading, '::before').content);
-    expect(before).toContain('upper-alpha');
+    // The appendix restarts its numbering in letters, drawn as the engine numbered it.
+    expect(before).toMatch(/^"A\. "/);
     const overflow = await page
       .locator('.de-document-editor__content .pm-page')
       .evaluateAll((pages) =>

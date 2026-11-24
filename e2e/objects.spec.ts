@@ -166,27 +166,33 @@ test.describe('objects', () => {
   test('DOCE-FOOTNOTES-1.1 DOCE-PAGINATION-7.2 lays a footnote inserted on a full page out at once, apart from the text', async ({
     page,
   }) => {
-    const first = content(page).locator('.pm-page').first();
-    const blocks = first.locator('.pm-page-content p:not(td p, th p)');
-    const last = blocks.last();
+    const pages = content(page).locator('.pm-page');
+    // A full page: one ending with a paragraph, the room left under its text less than the area's
+    // spacing above an entry (the template's 12pt), so an entry's line no longer fits beside it.
+    let full = -1;
+    for (let at = 0; full < 0 && at < (await pages.count()); at += 1) {
+      const blocks = pages.nth(at).locator('.pm-page-content > *');
+      await blocks.last().scrollIntoViewIfNeeded();
+      // The page is drawn on the engine's lines once near the screen.
+      await expect(pages.nth(at).locator('.de-forced-lines').first()).toBeAttached();
+      const room = await pages.nth(at).evaluate((element) => {
+        const body = element.querySelector('.pm-page-content');
+        const children = [...(body?.children ?? [])];
+        const ends = children.map((child) => child.getBoundingClientRect().bottom);
+        const free = (body?.getBoundingClientRect().bottom ?? 0) - Math.max(...ends);
+        return { free, paragraph: children.at(-1)?.tagName === 'P' };
+      });
+      if (room.paragraph && room.free < 16) full = at;
+    }
+    expect(full).toBeGreaterThanOrEqual(0);
+    const last = pages.nth(full).locator('.pm-page-content > p').last();
     const text = (await last.textContent()) ?? '';
-    await last.scrollIntoViewIfNeeded();
     await last.click();
     await page.keyboard.press('End');
-    const area = first.locator('.pm-page-footnotes');
+    const area = pages.nth(full).locator('.pm-page-footnotes');
     const height = (region: typeof area) =>
       region.evaluate((element) => element.getBoundingClientRect().height);
     await expect.poll(() => height(area)).toBe(0);
-    // The page is full: the room left under its text is taken by the area's spacing above an
-    // entry, so the entry's line no longer fits beside the text.
-    const free = await first.evaluate((element) => {
-      const body = element.querySelector('.pm-page-content');
-      const ends = [...(body?.children ?? [])].map((child) => child.getBoundingClientRect().bottom);
-      return (body?.getBoundingClientRect().bottom ?? 0) - Math.max(...ends);
-    });
-    await page.addStyleTag({
-      content: `.pm-page-footnotes { --doc-footnote-spacing-to-content: ${Math.ceil(free)}px; }`,
-    });
     await toolbar(page).getByRole('button', { name: 'Footnote' }).click();
     // Before anything is typed, the marker's page holds the entry, its text ending above it: the
     // block that no longer fits with the entry moves on, here to the next page.
@@ -194,12 +200,11 @@ test.describe('objects', () => {
       .locator('p', { hasText: text.trim() })
       .locator('.footnote-reference');
     await expect(marker).toHaveCount(1);
-    const pages = content(page).locator('.pm-page');
     const index = await marker.evaluate((element) => {
       const all = [...document.querySelectorAll('.de-document-editor__content .pm-page')];
       return all.indexOf(element.closest('.pm-page') as Element);
     });
-    expect(index).toBe(1);
+    expect(index).toBe(full + 1);
     const cited = pages.nth(index).locator('.pm-page-footnotes');
     await expect(cited.locator('.pm-footnote-entry')).toHaveCount(1);
     await expect.poll(() => height(cited)).toBeGreaterThan(0);
@@ -526,8 +531,12 @@ test.describe('objects', () => {
         row.getBoundingClientRect(),
       );
       const height = parseFloat(getComputedStyle(code).lineHeight);
+      // On the engine's lines the code holds a text node a line.
+      const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+      let text = walker.nextNode() as Text | null;
+      while (text && !text.data.includes('next();')) text = walker.nextNode() as Text | null;
+      if (!text) throw new Error('No second line');
       const range = document.createRange();
-      const text = code.firstChild as Text;
       const at = text.data.indexOf('next();');
       range.setStart(text, at);
       range.setEnd(text, at + 1);

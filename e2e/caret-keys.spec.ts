@@ -12,6 +12,16 @@ async function openEditor(lab: LabFixture, page: Page) {
   await expect(page.locator('.de-document-editor')).toHaveAttribute('data-layout-state', 'settled');
 }
 
+// The pages' text, without a later part's caption: a page drawn on the engine's lines draws that
+// caption's text, one farther away shows it from its attribute (DOCE-PAGINATION-11.6).
+const documentText = (page: Page) =>
+  content(page).evaluate((root) => {
+    const copy = root.cloneNode(true) as Element;
+    for (const caption of copy.querySelectorAll('.doc-caption-line:not([data-id])'))
+      caption.remove();
+    return copy.textContent;
+  });
+
 // The page index and text of the block the browser's selection ends in, with what it selects.
 function selection(page: Page) {
   return page.evaluate(() => {
@@ -145,6 +155,8 @@ test.describe('caret keys across pages', () => {
     const last = (await pages(page).count()) - 1;
     const paragraph = blocks(page, last).filter({ hasText: 'Each requirement' }).first();
     await paragraph.scrollIntoViewIfNeeded();
+    // The page is drawn on the engine's lines once near the screen, and the clicks go where it is.
+    await expect(paragraph).toHaveClass(/de-forced-lines/);
     const box = await paragraph.boundingBox();
     if (!box) throw new Error('The paragraph is not shown.');
     await page.mouse.dblclick(box.x + 40, box.y + 8);
@@ -298,7 +310,7 @@ test.describe('caret keys across pages', () => {
   }) => {
     await openEditor(lab, page);
     await page.getByLabel('Authoring').uncheck();
-    const before = await content(page).textContent();
+    const before = await documentText(page);
     await clickInto(page, 0, 'last');
     const next = blocks(page, 1).first();
     await next.scrollIntoViewIfNeeded();
@@ -310,6 +322,6 @@ test.describe('caret keys across pages', () => {
     for (const key of ['Delete', 'Backspace', 'Enter', 'ControlOrMeta+Home', 'PageDown', 'x']) {
       await page.keyboard.press(key);
     }
-    expect(await content(page).textContent()).toBe(before);
+    expect(await documentText(page)).toBe(before);
   });
 });

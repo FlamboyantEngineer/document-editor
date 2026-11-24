@@ -95,14 +95,17 @@ test.describe('split linked code', () => {
     await openStress(page);
     const continued = fragment(page, WHOLE_FILE, 1);
     await continued.scrollIntoViewIfNeeded();
+    // A page scrolled near the screen is drawn on the engine's lines (DOCE-PAGINATION-11.6).
+    await expect(continued).toHaveClass(/de-forced-lines/);
     const before = await shape(continued);
     await continued.click();
     await expect(continued).toHaveClass(/ProseMirror-selectednode/);
     expect(await shape(continued)).toEqual(before);
     // The first fragment is drawn as before too.
     const first = fragment(page, WHOLE_FILE, 0);
-    const firstBefore = await shape(first);
     await first.scrollIntoViewIfNeeded();
+    await expect(first).toHaveClass(/de-forced-lines/);
+    const firstBefore = await shape(first);
     await first.click();
     await expect(first).toHaveClass(/ProseMirror-selectednode/);
     expect((await shape(first)).markup).toBe(firstBefore.markup);
@@ -148,6 +151,7 @@ test.describe('split linked code', () => {
     await openStress(page);
     const continued = fragment(page, WHOLE_FILE, 2);
     await continued.scrollIntoViewIfNeeded();
+    await expect(continued).toHaveClass(/de-forced-lines/);
     const url = await continued.getAttribute('data-url');
     await continued.click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Edit linked code…' }).click();

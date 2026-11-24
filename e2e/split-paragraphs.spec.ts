@@ -111,7 +111,8 @@ function expectSplitsFill(pages: readonly PageRead[]) {
   }
 }
 
-// Selects text of the pages from an offset in one element's first text to an offset in another's.
+// Selects text of the pages from an offset in one element's text to an offset in another's: an
+// element drawn on the engine's lines holds a text node a line.
 async function selectText(
   page: Page,
   from: { id: string; part: number; offset: number },
@@ -119,18 +120,24 @@ async function selectText(
 ) {
   await page.evaluate(
     ([start, end]) => {
-      const textIn = ({ id, part }: { id: string; part: number }) => {
+      const pointIn = ({ id, part, offset }: { id: string; part: number; offset: number }) => {
         const element = [
           ...document.querySelectorAll(`.de-document-editor__content p[data-id="${id}"]`),
         ].find((each) => Number(each.getAttribute('data-split-part-index') ?? 0) === part);
         const walker = document.createTreeWalker(element ?? document.body, NodeFilter.SHOW_TEXT);
-        return walker.nextNode() ?? document.body;
+        let left = offset;
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const length = node.textContent?.length ?? 0;
+          if (left <= length) return [node, left] as const;
+          left -= length;
+        }
+        throw new Error(`No offset ${String(offset)} in ${id}`);
       };
       const editor = document.querySelector<HTMLElement>(
         '.de-document-editor__content [contenteditable="true"]',
       );
       editor?.focus();
-      getSelection()?.setBaseAndExtent(textIn(start), start.offset, textIn(end), end.offset);
+      getSelection()?.setBaseAndExtent(...pointIn(start), ...pointIn(end));
     },
     [from, to] as const,
   );

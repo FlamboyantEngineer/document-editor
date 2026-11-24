@@ -31,6 +31,7 @@ import {
 } from '../../src/model/index.js';
 import { text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -253,6 +254,7 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
           <output aria-label="Bars reported">{`${String(bars.length)} bars`}</output>
         </fieldset>
         <DocumentEditor
+          {...LAB_TEXT_LAYOUT}
           state={state}
           onStateChange={
             pair

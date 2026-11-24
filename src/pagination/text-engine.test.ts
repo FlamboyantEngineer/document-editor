@@ -41,6 +41,26 @@ describe('createPagesTextEngine', () => {
     expect(measureIn.querySelector('.de-atom-measure')).toBeNull();
   });
 
+  it('DOCE-PAGINATION-11.1 DOCE-PAGINATION-7.17 leaves a block a host view draws, or one holding it, to be measured as drawn', () => {
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      hostViews: ['blockquote'],
+    });
+    const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
+    const list = findNode(
+      parseMarkup('<ul><li><p>a</p><blockquote><p>b</p></blockquote></li></ul>'),
+      'bullet_list',
+    );
+    if (!quote || !list) throw new Error('no blocks');
+    expect(engine.measureBlock(quote, null)).toBeNull();
+    expect(engine.measureBlock(list, null)).toBeNull();
+    expect(engine.measureBlock(paragraph(WORDS), null)).not.toBeNull();
+    expect(engine.stats().reasons.get('drawn by a host view')).toBe(2);
+    engine.destroy();
+  });
+
   it('DOCE-PAGINATION-11.12 measures a block with a suggestion again in another markup', () => {
     let markup: 'all' | 'final' | 'original' = 'all';
     const engine = createPagesTextEngine({

@@ -28,6 +28,7 @@ import type { DocumentSession } from '../../src/session/index.js';
 import { createSessionRooms } from '../../test/session-rooms.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
 
 const DOCUMENT_ID = 'lab';
 
@@ -196,7 +197,7 @@ function RoomLab() {
           <p role="alert">{`The document did not open: ${error?.kind ?? 'unknown'}`}</p>
         )}
       >
-        {(props) => <DocumentEditor {...props} aria-label="Room document" />}
+        {(props) => <DocumentEditor {...LAB_TEXT_LAYOUT} {...props} aria-label="Room document" />}
       </DocumentSessionBoundary>
     </section>
   );
@@ -228,7 +229,7 @@ function Lab() {
           <p role="alert">{`The document did not open: ${error?.kind ?? 'unknown'}`}</p>
         )}
       >
-        {(props) => <DocumentEditor {...props} aria-label="Sample document" />}
+        {(props) => <DocumentEditor {...LAB_TEXT_LAYOUT} {...props} aria-label="Sample document" />}
       </DocumentSessionBoundary>
     </>
   );

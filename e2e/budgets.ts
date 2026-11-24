@@ -236,7 +236,7 @@ export async function openScale(
     textLayout = 'dom',
   }: { compare?: boolean; textLayout?: 'dom' | 'pretext' } = {},
 ) {
-  const query = `${compare ? '&compare' : ''}${textLayout === 'pretext' ? '&textLayout=pretext' : ''}`;
+  const query = `${compare ? '&compare' : ''}${textLayout === 'dom' ? '&textLayout=dom' : ''}`;
   await page.goto(`stress-scale.html?size=${String(size)}${query}`);
   // The largest documents take longer than the usual wait to settle. A plain function polled, not
   // an expectation: each failed poll of an expectation reads the page's accessibility tree, about a

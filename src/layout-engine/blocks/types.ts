@@ -9,7 +9,7 @@ import type { LineTable } from '../line-table.js';
 import type { MathRecorder } from '../math-atoms.js';
 import type { VariableTexts } from '../runs.js';
 import type { TextBlockLayout, TextBlockPlace } from '../text-layout.js';
-import type { BlockTypography } from '../typography.js';
+import type { BlockTypography, TextAlign } from '../typography.js';
 import type { BlockMetrics } from './metrics.js';
 
 /**
@@ -106,6 +106,8 @@ export interface BlockPlace {
   readonly region?: BlockRegion | undefined;
   /** The text its template variables show, for a header or footer drawn with known values. */
   readonly variables?: VariableTexts | undefined;
+  /** The alignment its object gives a caption in place of the caption's own. */
+  readonly align?: TextAlign | undefined;
 }
 
 /** A block laid out without the DOM, in the shape the page layout reads. */

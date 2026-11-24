@@ -159,7 +159,7 @@ Verification: `src/engine/table-format.test.ts`
 
 ### DOCE-TABLES-3.11 - Clicks in cells
 
-A click in a cell's padding, outside its content blocks, shall select the cell; a double click on the cell's content shall select all its content as text (`selectCellContent`), however many paragraphs it holds, and a double click in its padding every cell of its table (`selectWholeTable`), replacing a cell selection either way. A click or double click on a paragraph, its blank end included, places the caret as ever. An empty cell, one empty paragraph, keeps the caret for both, so it can be typed into. A Ctrl or Cmd click is DOCE-TABLES-3.5's. A cell a host's lock covers is never selected as a cell: a cell selection there becomes a caret at its head.
+A click in a cell's padding, outside its content box, shall select the cell, also where a paragraph drawn on the layout engine's lines reaches into it (DOCE-PAGINATION-11); a double click on the cell's content shall select all its content as text (`selectCellContent`), however many paragraphs it holds, and a double click in its padding every cell of its table (`selectWholeTable`), replacing a cell selection either way. A click or double click on a paragraph, its blank end included, places the caret as ever. An empty cell, one empty paragraph, keeps the caret for both, so it can be typed into. A Ctrl or Cmd click is DOCE-TABLES-3.5's. A cell a host's lock covers is never selected as a cell: a cell selection there becomes a caret at its head.
 
 Implementation: `src/engine/table-pointer.ts`, `src/engine/table-border-hover.ts`
 Verification: `src/engine/table-pointer.test.ts`, `e2e/table-selection.spec.ts`
