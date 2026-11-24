@@ -9,7 +9,7 @@ import { unzoom } from './measure-scale.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** Where a section's regions are measured: at the view's scale, or by the layout engine in a scope. */
-export interface RegionAt {
+interface RegionAt {
   readonly ratio: number;
   readonly scope: string | null;
   readonly engine: PagesTextEngine | null | undefined;

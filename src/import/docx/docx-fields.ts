@@ -27,7 +27,7 @@ export const CAPTION_LABEL_MARK = '\u0000caption-label';
 /** The start of the target of a cross-reference that names a bookmark not yet resolved. */
 export const BOOKMARK_TARGET = '\u0000bookmark:';
 /** The page fields read as variables. */
-export const PAGE_FIELDS: ReadonlyMap<string, string> = new Map([
+const PAGE_FIELDS: ReadonlyMap<string, string> = new Map([
   ['PAGE', 'page.current'],
   ['NUMPAGES', 'page.total'],
 ]);
