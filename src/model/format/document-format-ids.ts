@@ -2,10 +2,8 @@
 // check a document it is given and give ids to one it builds, the way the editor does (DOCE-EDITING-1).
 
 import { cloneJson } from '../clone-json.js';
+import { ELEMENT_ID_PATTERN } from '../element-id.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
-
-/** What an element id looks like, as the editor's `ELEMENT_ID_PATTERN`: eight hexadecimal digits. */
-const ID_PATTERN = /^[a-f0-9]{8}$/;
 
 /** An element whose id is missing, not of the id form, or one an earlier element holds. */
 export interface StoredIdProblem {
@@ -54,7 +52,7 @@ export function checkStoredIds(file: DocumentFile): StoredIdProblem[] {
   forEachElement(file, ({ node, path }) => {
     const id = node.attrs?.[idKey(node)];
     if (id === undefined || id === null) problems.push({ path, problem: 'missing', id });
-    else if (typeof id !== 'string' || !ID_PATTERN.test(id)) {
+    else if (typeof id !== 'string' || !ELEMENT_ID_PATTERN.test(id)) {
       problems.push({ path, problem: 'invalid', id });
     } else if (seen.has(id)) problems.push({ path, problem: 'repeated', id });
     seen.add(id);

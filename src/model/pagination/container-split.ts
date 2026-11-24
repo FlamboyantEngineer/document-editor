@@ -5,6 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { continuationPlaceholder, isContinuationPlaceholder } from './fragments.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
+import { splitPartOf } from './split-part.js';
 import { splitParagraphWith } from './text-split.js';
 
 /** Where a child sits, measured from the top of its container fragment's first child. */
@@ -144,11 +145,6 @@ function splitChildren(request: SplitRequest, splitChild: ChildSplit): ChildrenS
   };
 }
 
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : 0;
-}
-
 type Attrs = Record<string, unknown>;
 
 // The container's two fragments as layout blocks: the first ends with the last child it keeps, the
@@ -160,7 +156,7 @@ function fragments(
 ) {
   const { block } = request;
   const { node } = block;
-  const part = partIndex(node);
+  const part = splitPartOf(node) ?? 0;
   const overhead = isContainerMeasurement(block.measurement)
     ? containerOverhead(block.measurement)
     : 0;

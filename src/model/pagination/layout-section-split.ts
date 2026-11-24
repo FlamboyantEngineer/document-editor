@@ -12,6 +12,7 @@ import {
 } from './container-split.js';
 import { continuationPlaceholder, isContinuationPlaceholder } from './fragments.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
+import { splitPartOf } from './split-part.js';
 
 // One side of a split column: its blocks, and where they sit.
 interface ColumnPart {
@@ -85,11 +86,6 @@ function columnNode(column: ProseMirrorNode, content: readonly ProseMirrorNode[]
   return column.type.create(column.attrs, children, column.marks);
 }
 
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : 0;
-}
-
 type Side = 'head' | 'tail';
 
 // One fragment of the section: its columns' parts on that side, as tall as its tallest column.
@@ -109,7 +105,7 @@ function sectionPart(block: LayoutBlock, splits: readonly ColumnSplit[], side: S
     return { top: 0, bottom: height, measurement };
   });
   const content = splits.map((split) => columnNode(split.column, split[side]?.content));
-  const index = partIndex(node) + (side === 'tail' ? 1 : 0);
+  const index = (splitPartOf(node) ?? 0) + (side === 'tail' ? 1 : 0);
   return {
     ...block,
     node: node.type.create({ ...node.attrs, splitPartIndex: index }, content, node.marks),

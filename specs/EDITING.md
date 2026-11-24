@@ -8,7 +8,7 @@ A document is edited through the plugins `createDocumentEditing(schema, options)
 
 After a local change that adds or moves elements, every element of the content shall hold an id of eight hexadecimal digits that no earlier element holds (`assignElementIds`): an element without one, with one of another form, or with one an earlier element holds gets a fresh one. The parts a split element is laid out in shall share its id, and page chrome (sections, pages, headers, footers and footnote areas) shall get none. An inline atom, such as a mention or an equation, is an element too: a change that inserts one gives it an id, while a change that inserts only text gives none (DOCE-EDITING-1.3).
 
-Implementation: `src/engine/element-ids.ts`
+Implementation: `src/engine/element-ids.ts`, `src/model/element-id.ts`
 Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.test.ts`
 
 ### DOCE-EDITING-1.2 - Authorship
