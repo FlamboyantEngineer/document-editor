@@ -54,7 +54,8 @@ if (forced) keepForcedLineCaretSide();
 mountStressLab({
   build: (size) => (SCENARIOS[size] ?? SCENARIOS[0]).build(),
   sizes: SCENARIOS.map(({ label }, value) => ({ label, value })),
-  editor: { find: true, suggesting: query.has('suggest') },
+  // The spike draws its own computed lines over the browser's layout of the text.
+  editor: { find: true, suggesting: query.has('suggest'), textLayout: 'dom', fonts: undefined },
   plugins: () => (forced && !direct ? [createForcedLines(options)] : []),
   // A completion offer is drawn inline after a pause, and Pretext does not lay it out, so the
   // browser would wrap the line it sits on. Off until the engine lays offers out with their line.

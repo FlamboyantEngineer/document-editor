@@ -1031,14 +1031,16 @@ test.describe('document editor lab', () => {
     await lab.open('document-editor');
     await expect(page.getByRole('status', { name: 'Host report' })).toContainText('ready');
     await expect(content(page)).toHaveAttribute('spellcheck', 'false');
+    // A page not holding the selection, which never skips its layout (DOCE-PAGINATION-11.6).
     const containment = await page
-      .locator('.de-document-editor__content .pm-page')
+      .locator('.de-document-editor__content .pm-page:not([data-selection-page])')
       .first()
       .evaluate((element) => {
         const style = getComputedStyle(element);
         return `${style.contain}|${style.contentVisibility}`;
       });
-    expect(containment).not.toMatch(/style|auto/);
+    // Off screen a page skips its style and layout; the engine numbers it (DOCE-PAGINATION-11.9).
+    expect(containment).toBe('layout paint|auto');
   });
 
   test('DOCE-EDITOR-5.3 goes to a page from the status bar and switches the layout', async ({

@@ -7,6 +7,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { isTextMeasurement } from '../../model/pagination/text-split.js';
 import { parseObjectLayout } from '../../model/schema/object-layout.js';
 import { type MathLayouts, placeMath } from '../math-atoms.js';
+import type { TextAlign } from '../typography.js';
 import { type BlockContext, type Laid, laid, notLaid } from './context.js';
 import { linkedCodeFigure } from './linked-code.js';
 import { continuedCaptionGrowth, layTextBlock } from './text-blocks.js';
@@ -54,8 +55,20 @@ function atomBlock(context: BlockContext, node: ProseMirrorNode, margins = { top
   );
 }
 
-function captionHeight(context: BlockContext, caption: ProseMirrorNode, width: number) {
-  return layTextBlock({ ...context, place: { ...context.place, width }, parent: 'other' }, caption);
+function captionHeight(
+  context: BlockContext,
+  caption: ProseMirrorNode,
+  { width, align }: { width: number; align?: TextAlign | undefined },
+) {
+  const place = { ...context.place, width, ...(align ? { align } : {}) };
+  return layTextBlock({ ...context, place, parent: 'other' }, caption);
+}
+
+// The alignment a figure gives its caption, which spans the content width: the figure's own, as
+// the stylesheet draws it; none for a figure across the page width, whose caption keeps its own.
+function figureCaptionAlign(figure: ProseMirrorNode): TextAlign | undefined {
+  const layout = parseObjectLayout(figure.attrs.objectLayout);
+  return layout === null || layout === 'fit-page-width' ? undefined : layout;
 }
 
 /** A figure: its image box and, unless switched off, its caption across the content width. */
@@ -70,7 +83,7 @@ export function layFigure(context: BlockContext, figure: ProseMirrorNode): Laid 
   let caption = 0;
   const line = figure.firstChild;
   if (figure.attrs.captionEnabled !== false && line) {
-    const result = captionHeight(context, line, width);
+    const result = captionHeight(context, line, { width, align: figureCaptionAlign(figure) });
     if (!result.ok) return result;
     caption = result.block.height;
   }
@@ -102,7 +115,7 @@ export function layCodeFigure(context: BlockContext, figure: ProseMirrorNode): L
   let continuedCaption = 0;
   if (code.attrs.captionEnabled !== false) {
     const width = context.place.width - 2 * metrics.padding;
-    const line = captionHeight(context, caption, width);
+    const line = captionHeight(context, caption, { width });
     if (!line.ok) return line;
     above = line.block.height + 2 * metrics.captionGap + metrics.captionRule;
     const own = { ...context, place: { ...context.place, width }, parent: 'other' as const };

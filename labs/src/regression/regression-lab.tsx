@@ -65,10 +65,10 @@ const COMPARE =
     ? undefined
     : ({ previous: 'opened', display: COMPARE_QUERY === 'markup' ? 'markup' : 'bars' } as const);
 
-// How the pages lay their text out: measured in the DOM, or by the layout engine on its lines
-// (`textLayout=pretext`, DOCE-PAGINATION-11).
+// How the pages lay their text out: by the layout engine on its lines (DOCE-PAGINATION-11), or
+// measured in the DOM with `textLayout=dom`.
 const TEXT_LAYOUT =
-  new URLSearchParams(window.location.search).get('textLayout') === 'pretext' ? 'pretext' : 'dom';
+  new URLSearchParams(window.location.search).get('textLayout') === 'dom' ? 'dom' : 'pretext';
 
 // With the layout engine, the lab serves its font files and HarfBuzz (DOCE-HOST-1.14.1); with
 // `fonts=none` it serves neither, and the pages keep the browser's layout; with `fonts=cousine` it

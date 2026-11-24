@@ -541,6 +541,19 @@ div.de-host-view {
   content-visibility: auto;
 }
 
+/* A page holding the selection never skips its layout, so the selection stays where it was put. */
+:where(.de-document-editor[data-text-layout='pretext'])
+  .de-document-editor__content
+  .pm-page[data-selection-page] {
+  content-visibility: visible;
+}
+
+/* The pages anchor the scroll, not what they hold: a decoration that splits a forced line's text,
+   such as the formatting marks, would otherwise move the view by a line. */
+:where(.de-document-editor[data-text-layout='pretext']) .de-document-editor__content .pm-page > * {
+  overflow-anchor: none;
+}
+
 :where(.de-document-editor[data-text-layout='pretext']) .pm-page-content :is(ol, ul) {
   line-height: var(--doc-paragraph-line-height, 1.5);
 }
@@ -715,8 +728,9 @@ div.de-host-view {
   font-variant-numeric: tabular-nums;
 }
 
+/* A heading's number is drawn, not read: its name is its text alone. */
 .de-document-editor .pm-page-content > :is(h1, h2, h3, h4, h5, h6).de-forced-lines::before {
-  content: attr(data-number);
+  content: attr(data-number) / '';
 }
 
 .de-document-editor
@@ -1210,7 +1224,7 @@ div.de-host-view {
   .de-document-editor__content
   .pm-page-content
   :is(h1, h2, h3, h4, h5, h6)::before {
-  content: attr(data-number);
+  content: attr(data-number) / '';
 }
 
 .de-document-editor[data-text-layout='pretext']

@@ -51,8 +51,13 @@ afterEach(() => {
 });
 
 // A click or double click on an element, as the view hands it to the plugin.
-function clickOn(view: EditorView, target: Element, kind: 'handleClick' | 'handleDoubleClick') {
-  const event = { button: 0, target, ctrlKey: false, metaKey: false, shiftKey: false };
+function clickOn(
+  view: EditorView,
+  target: Element,
+  kind: 'handleClick' | 'handleDoubleClick',
+  clientX = 0,
+) {
+  const event = { button: 0, target, clientX, ctrlKey: false, metaKey: false, shiftKey: false };
   return pointer.props[kind]?.call(pointer, view, 0, event as unknown as MouseEvent) ?? false;
 }
 
@@ -67,6 +72,18 @@ describe('clicks in cells', () => {
     const { selection } = view.state;
     expect(selection).toBeInstanceOf(CellSelection);
     expect((selection as CellSelection).$anchorCell.nodeAfter?.textContent).toBe('Valve');
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-3.11 selects a cell clicked beside its content box, where its paragraph reaches', () => {
+    const view = tableView();
+    const element = cellElement(view, 'Pump');
+    element.style.padding = '0 8px';
+    element.getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 100, y: 0, width: 100, height: 20 });
+    expect(clickOn(view, paragraphIn(view, 'Pump'), 'handleClick', 150)).toBe(false);
+    expect(clickOn(view, paragraphIn(view, 'Pump'), 'handleClick', 196)).toBe(true);
+    expect((view.state.selection as CellSelection).$anchorCell.nodeAfter?.textContent).toBe('Pump');
     view.destroy();
   });
 

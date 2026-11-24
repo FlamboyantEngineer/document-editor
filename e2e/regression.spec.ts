@@ -1466,26 +1466,34 @@ test.describe('mixed geometry', () => {
       .locator("figure[data-object-layout]:not([data-caption-enabled='false'])")
       .evaluateAll((figures) =>
         figures.map((figure) => {
-          const caption = figure.querySelector('.doc-figure-caption-line') as HTMLElement;
-          return [
-            figure.getAttribute('data-object-layout'),
-            getComputedStyle(caption).textAlign,
-            Math.round(
-              caption.getBoundingClientRect().width - figure.getBoundingClientRect().width,
-            ),
-          ];
+          // Where the caption's text is drawn in the figure, which spans the content width: the
+          // room left of it, which holds its label too, and right of it.
+          const text = document.createRange();
+          text.selectNodeContents(figure.querySelector('.doc-caption-text') as Element);
+          const shown = text.getBoundingClientRect();
+          const box = figure.getBoundingClientRect();
+          return {
+            layout: figure.getAttribute('data-object-layout'),
+            left: shown.left - box.left,
+            right: box.right - shown.right,
+            room: box.width - shown.width,
+          };
         }),
       );
-    // The regression document's left figure has its caption turned off.
-    for (const layout of ['center', 'right']) {
-      expect(captions.find(([shown]) => shown === layout)).toEqual([layout, layout, 0]);
-    }
+    // The regression document's left figure has its caption turned off; the right one's is empty.
+    // A centred caption's line, its label before its text, leaves as much room on either side.
+    const centred = captions.find(({ layout }) => layout === 'center');
+    expect(centred?.right).toBeGreaterThan(0);
+    expect(centred?.right).toBeLessThan((centred?.room ?? 0) / 2 + 1);
+    expect(centred?.left).toBeGreaterThan(centred?.right ?? 0);
+    expect(Math.round(captions.find(({ layout }) => layout === 'right')?.right ?? -1)).toBe(0);
     await openDocument(page, 'linked-code');
     const label = await content
       .locator('.doc-linked-code-caption-line')
       .first()
       .evaluate((line) => getComputedStyle(line, '::before').content);
-    expect(label).toContain('counter(codeblock)');
+    // The label shows the engine's number (DOCE-PAGINATION-11.9), not a counter.
+    expect(label).toMatch(/^"Code Block \d+(\.\d+)* - "$/);
     await openDocument(page, 'table-merged-cells');
     const widths = await content
       .locator('table.table-border-1px td')

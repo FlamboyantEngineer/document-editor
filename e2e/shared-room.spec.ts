@@ -40,9 +40,11 @@ const documentText = (page: Page, name: string) =>
     return copy.textContent;
   });
 
-// Both writers hold the same document: the same text, page for page.
+// Both writers hold the same document: the same text, page for page, every page drawn on the
+// engine's lines, as a page far from the screen draws a later part's caption only then.
 async function expectSameDocument(page: Page) {
   await expect(async () => {
+    await page.evaluate(() => window.collabRoom.drawAllLines());
     const [ada, grace] = await Promise.all([
       documentText(page, 'Ada'),
       documentText(page, 'Grace'),
