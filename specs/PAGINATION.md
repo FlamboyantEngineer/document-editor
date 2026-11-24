@@ -8,8 +8,8 @@ The editor lays each section out on pages. A block that does not fit where it fa
 
 Each splittable node type shall have a fragment rule (`FRAGMENT_RULES`) naming the attribute values of a whole block; a node holding any other value shall be a fragment (`isFragment`). The rules shall cover paragraphs, code blocks, linked code, tables, quotes, bullet and ordered lists, list items and tables of contents.
 
-Implementation: `src/model/pagination/fragments.ts`
-Verification: `src/model/pagination/fragments.test.ts`
+Implementation: `src/model/pagination/fragments.ts`, `src/model/pagination/split-part.ts`
+Verification: `src/model/pagination/fragments.test.ts`, `src/model/pagination/split-part.test.ts`
 
 ### DOCE-PAGINATION-1.2 - Joining fragments
 
@@ -1003,8 +1003,8 @@ Verification: `src/document/print-pages.test.ts`, `e2e/document-viewer.spec.ts`
 
 Under `textLayout: 'pretext'` with served fonts (DOCE-HOST-1.14.1), the pages' layout shall hold the served faces the pages were measured and drawn with and the served family each generic keyword stands for (`fonts`), and null when the host serves none. A static drawing of the layout shall draw in them: the print drawn from the layout holds each face as an `@font-face` rule with its file inline, under the family the template names, in the template with each generic family as its served family (DOCE-PAGINATION-12.5); the viewer adds the faces to its document while it shows the pages, through the document's face registry (DOCE-PAGINATION-12.8), and takes them out again. The handle's snapshots (`exportSnapshot`, `exportSnapshotAsync`) shall hold the same faces inline before the host's stylesheets. A PDF printed from either (DOCE-EDITOR-6.26) shall embed only the served faces, with every page's computed lines on that page.
 
-Implementation: `src/pagination/served-fonts.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/pages-layout.ts`, `src/document/font-faces.ts`, `src/document/print-pages.ts`, `src/components/document-viewer/document-viewer.tsx`, `src/components/document-editor/editor-handle.ts`, `src/document/headless-print.ts`
-Verification: `src/document/font-faces.test.ts`, `src/document/print-pages.test.ts`, `src/components/document-viewer/document-viewer.test.tsx`, `e2e/print-lines.spec.ts`
+Implementation: `src/pagination/served-fonts.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/pages-layout.ts`, `src/document/font-faces.ts`, `src/utils/base64.ts`, `src/document/print-pages.ts`, `src/components/document-viewer/document-viewer.tsx`, `src/components/document-editor/editor-handle.ts`, `src/document/headless-print.ts`
+Verification: `src/document/font-faces.test.ts`, `src/utils/base64.test.ts`, `src/document/print-pages.test.ts`, `src/components/document-viewer/document-viewer.test.tsx`, `e2e/print-lines.spec.ts`
 
 ### DOCE-PAGINATION-13.9 - Links to pages the viewer has not drawn
 

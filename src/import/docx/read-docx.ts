@@ -5,6 +5,7 @@
 // at the blocks their bookmarks mark and typed heading numbers are taken off.
 
 import type { CommentThread } from '../../host/comment-adapters.js';
+import { createElementId } from '../../model/element-id.js';
 import {
   DOCUMENT_FORMAT_VERSION,
   type DocumentFile,
@@ -75,12 +76,6 @@ export interface DocxReadOptions {
    * number, to the end (`findAppendixSection` gives a template's); none keeps them in place.
    */
   readonly appendixSection?: string | undefined;
-}
-
-// A fresh random suggestion id, of the editor's element id form.
-function randomId(): string {
-  const [value = 0] = crypto.getRandomValues(new Uint32Array(1));
-  return value.toString(16).padStart(8, '0');
 }
 
 /** A document read, or why it could not be. */
@@ -280,7 +275,7 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
   const parts = await openParts(bytes, options, warnings);
   const root = async (kind: string) => (await parts.related(kind))?.root ?? null;
   const custom = options.template?.styles?.custom;
-  const newId = options.newId ?? randomId;
+  const newId = options.newId ?? createElementId;
   const keepsReview = options.review === 'keep';
   const commentsRoot = await root('comments');
   const shared: Shared = {
