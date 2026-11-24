@@ -9,6 +9,7 @@ import type { TypesetMath } from '../engine/math-typeset.js';
 import type { FontFiles } from '../host/font-files.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { LineMark } from '../layout-engine/line-marks.js';
+import type { PlacedMath } from '../layout-engine/math-atoms.js';
 
 /**
  * A text block of a page drawn on the engine's lines: a paragraph or heading, top-level or nested, a
@@ -58,7 +59,15 @@ export interface PagesLayoutNumber {
  * What a math node at a position was typeset as where the pages drew it: its MathML as data, as
  * the typesetter kept it, or what invalid math shows and why.
  */
-export type PagesLayoutMath = TypesetMath & { readonly pos: number };
+export type PagesLayoutMath = TypesetMath & {
+  readonly pos: number;
+  /**
+   * Where the engine placed typeset math laid out from a math font's data (DOCE-PAGINATION-12.11):
+   * its layout, with the SVG every drawing draws, and its box and scale; absent for math measured
+   * as drawn.
+   */
+  readonly drawing?: PlacedMath | undefined;
+};
 
 /** A document's pages as the editor laid them out on the text layout engine's lines. */
 export interface PagesLayout {

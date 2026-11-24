@@ -17,6 +17,7 @@ import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import { type MergeConflict, mergeDocuments } from '../session/merge.js';
 import { resolveMergeConflict } from '../session/merge-conflicts.js';
+import { createTrailingTimer } from '../utils/trailing-timer.js';
 import { readRoomDocument, type RoomReadOptions, yjsToDocument } from './convert.js';
 import { CONTENT_TYPE, readContent } from './delta.js';
 import { diffNodes } from './diff.js';
@@ -121,27 +122,21 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   let confirmed: Uint8Array | null = options.restored?.confirmed ?? null;
   let unconfirmedBefore = connection.state().hasUnconfirmedChanges;
   let connectedBefore = connection.state().status === 'connected';
-  let timer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
 
-  const cancel = () => {
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-  };
   const capture = (): RoomDraft => {
     const draft = captureRoomDraft(connection, { confirmed, now });
     confirmed = draft.confirmed;
     return draft;
   };
   const keep = () => {
-    cancel();
+    timer.cancel();
     if (stopped) return Promise.resolve();
     return drafts.put(documentId, capture()).then(() => undefined);
   };
+  const timer = createTrailingTimer(delay, () => void keep());
   const schedule = () => {
-    if (stopped) return;
-    cancel();
-    timer = setTimeout(() => void keep(), delay);
+    if (!stopped) timer.schedule();
   };
 
   const onUpdate = () => schedule();
@@ -170,9 +165,9 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
     flush: keep,
     stop: () => {
       // A draft still waiting to be kept holds changes no draft has, and nothing keeps it later.
-      if (timer !== null) void keep();
+      if (timer.isPending()) void keep();
       stopped = true;
-      cancel();
+      timer.cancel();
       doc.off('update', onUpdate);
       stopState();
       stopLifecycle?.();

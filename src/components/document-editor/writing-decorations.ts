@@ -10,6 +10,7 @@ import { type Decoration, DecorationSet, type EditorView } from 'prosemirror-vie
 import { useMemo } from 'react';
 import { documentCounts, scriptBlockStates, scriptMessage } from '../../engine/index.js';
 import { documentRegions, type TemplateFile } from '../../model/index.js';
+import { diffFragments } from '../../utils/fragment-diff.js';
 import { viewOnlyInline, viewOnlyNode, viewOnlyWidget } from '../../utils/view-only-decorations.js';
 import { heldSelectionDecorations } from './held-selection.js';
 import { type SectionInsertButtons, sectionInsertDecorations } from './section-insert-buttons.js';
@@ -164,14 +165,9 @@ function spacesIn(doc: ProseMirrorNode, from: number, to: number) {
 // The spaces' decorations for one document after another: the last set mapped through what
 // changed between them, its changed part found again.
 function nextSpaces(last: { doc: ProseMirrorNode; set: DecorationSet }, doc: ProseMirrorNode) {
-  const start = last.doc.content.findDiffStart(doc.content);
-  if (start === null) return last.set;
-  const diffEnd = last.doc.content.findDiffEnd(doc.content) ?? {
-    a: last.doc.content.size,
-    b: doc.content.size,
-  };
-  const overlap = Math.max(0, start - Math.min(diffEnd.a, diffEnd.b));
-  const [endA, endB] = [diffEnd.a + overlap, diffEnd.b + overlap];
+  const diff = diffFragments(last.doc.content, doc.content);
+  if (!diff) return last.set;
+  const { start, endA, endB } = diff;
   const mapped = last.set.map(new Mapping([new StepMap([start, endA - start, endB - start])]), doc);
   const around = spacesIn(doc, Math.max(0, start - 1), Math.min(doc.content.size, endB + 1));
   return mapped.remove(mapped.find(around.start, around.end)).add(doc, around.found);

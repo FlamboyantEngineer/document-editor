@@ -7,6 +7,12 @@ import {
   type Mark,
   type Node as ProseMirrorNode,
 } from 'prosemirror-model';
+import {
+  escapeHtmlAttribute,
+  escapeHtmlText,
+  readOutputSpec,
+  VOID_ELEMENTS,
+} from './html-output.js';
 
 // An element of the HTML being written: its tag, its attributes in order and its children.
 interface Element {
@@ -16,48 +22,8 @@ interface Element {
 }
 type Child = Element | { readonly text: string };
 
-// The elements HTML writes with no closing tag.
-const VOID = new Set([
-  'area',
-  'base',
-  'br',
-  'col',
-  'embed',
-  'hr',
-  'img',
-  'input',
-  'link',
-  'meta',
-  'source',
-  'track',
-  'wbr',
-]);
-
-// Text and attribute values escaped as a browser's `innerHTML` writes them.
-const escapeText = (text: string) =>
-  text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\u00a0/g, '&nbsp;');
-const escapeAttr = (text: string) =>
-  text
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\u00a0/g, '&nbsp;');
-
-function isAttrs(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-// An output spec's attributes in order, each by its local name, those without a value left out.
-function attrsOf(attrs: Record<string, unknown>): [string, string][] {
-  return Object.entries(attrs)
-    .filter(([, value]) => value !== null && value !== undefined)
-    .map(([name, value]) => [name.split(' ').pop() ?? name, String(value as string)]);
-}
+// Text and attribute values are escaped as a browser's `innerHTML` writes them, no-break spaces too.
+const NBSP = { nbsp: true } as const;
 
 /**
  * Builds the element an output spec describes, returning it and the element its content goes in,
@@ -65,15 +31,10 @@ function attrsOf(attrs: Record<string, unknown>): [string, string][] {
  */
 function build(spec: DOMOutputSpec): { dom: Child; content: Element | null } {
   if (typeof spec === 'string') return { dom: { text: spec }, content: null };
-  if (!Array.isArray(spec)) throw new Error('A static render needs output specs, not DOM nodes.');
-  const [name, ...rest] = spec as readonly unknown[];
-  // A namespaced tag (`ns tag`) is written by its local name.
-  const tag = String(name).split(' ').pop() ?? '';
-  const first = rest[0];
-  const start = isAttrs(first) ? 1 : 0;
-  const element: Element = { tag, attrs: isAttrs(first) ? attrsOf(first) : [], children: [] };
+  const { tag, attrs, children } = readOutputSpec(spec);
+  const element: Element = { tag, attrs, children: [] };
   let content: Element | null = null;
-  for (const child of rest.slice(start)) {
+  for (const child of children) {
     if (child === 0) {
       content = element;
       continue;
@@ -151,10 +112,12 @@ function writeFragment(fragment: Fragment, into: Element): void {
 }
 
 function stringify(child: Child): string {
-  if ('text' in child) return escapeText(child.text);
-  const attrs = child.attrs.map(([name, value]) => ` ${name}="${escapeAttr(value)}"`).join('');
+  if ('text' in child) return escapeHtmlText(child.text, NBSP);
+  const attrs = child.attrs
+    .map(([name, value]) => ` ${name}="${escapeHtmlAttribute(value, NBSP)}"`)
+    .join('');
   const open = `<${child.tag}${attrs}>`;
-  if (VOID.has(child.tag)) return open;
+  if (VOID_ELEMENTS.has(child.tag)) return open;
   return `${open}${child.children.map(stringify).join('')}</${child.tag}>`;
 }
 

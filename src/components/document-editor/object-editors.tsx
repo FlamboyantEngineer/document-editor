@@ -4,6 +4,7 @@
 // the math as it is. A field lasts as long as its edit: a change elsewhere that moves the math keeps
 // what it holds. Captions are document content, edited as text.
 
+import { useResizeObserver } from '@flamboyantengineer/ui-components/core';
 import { MathField } from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
@@ -63,18 +64,17 @@ function useEditedBox(view: EditorView | null, edited: Edited | null, state: Edi
   const [layer, setLayer] = useState<HTMLElement | null>(null);
   const [box, setBox] = useState<Box | null>(null);
   const pos = edited?.pos;
+  const measureRef = useRef(() => undefined as void);
   useLayoutEffect(() => {
-    const owner = layer?.ownerDocument.defaultView;
     // Measuring reads the committed document, so the box is set once the DOM has committed.
     const update = () =>
       setBox(view && layer && pos !== undefined ? measure(view, pos, layer) : null);
+    measureRef.current = update;
     update();
-    if (!view || !owner || pos === undefined) return undefined;
-    const observer =
-      typeof owner.ResizeObserver === 'function' ? new owner.ResizeObserver(update) : null;
-    observer?.observe(view.dom);
-    return () => observer?.disconnect();
   }, [view, layer, pos, state]);
+  useResizeObserver(view && layer && pos !== undefined ? [view.dom] : [], () =>
+    measureRef.current(),
+  );
   return { setLayer, box };
 }
 

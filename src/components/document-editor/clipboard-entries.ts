@@ -3,7 +3,7 @@
 // same entry point as a paste from the keyboard (`pasteImages`), so a copied image, or content
 // whose images come with it, is uploaded and becomes figures from the menu too.
 
-import { ClipboardGlyph, CopyGlyph } from '@flamboyantengineer/ui-components/core';
+import { ClipboardGlyph, CopyGlyph, copyRichText } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { EditorView } from 'prosemirror-view';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -20,24 +20,16 @@ interface ClipboardEntriesOptions {
 const clipboardOf = (view: EditorView) =>
   view.dom.ownerDocument.defaultView?.navigator.clipboard ?? null;
 
-// Writes the selection to the clipboard as the editor copies it, and deletes it for a cut once
-// the clipboard has it.
+// Writes the selection to the clipboard as the editor copies it, both formats where the window's
+// clipboard takes them, and deletes it for a cut once the clipboard has it. A refused write copies
+// nothing and cuts nothing.
 async function copySelection(view: EditorView, cut: boolean): Promise<void> {
-  const owner = view.dom.ownerDocument.defaultView;
-  const clipboard = clipboardOf(view);
-  if (!owner || !clipboard) return;
   const { dom, text } = view.serializeForClipboard(view.state.selection.content());
-  if (typeof owner.ClipboardItem === 'function') {
-    const blob = (value: string, type: string) => new owner.Blob([value], { type });
-    const item = new owner.ClipboardItem({
-      'text/html': blob(dom.innerHTML, 'text/html'),
-      'text/plain': blob(text, 'text/plain'),
-    });
-    await clipboard.write([item]);
-  } else {
-    await clipboard.writeText(text);
-  }
-  if (cut) view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
+  const copied = await copyRichText(
+    { text, html: dom.innerHTML },
+    { owner: view.dom, clipboard: clipboardOf(view), fallback: false },
+  );
+  if (cut && copied !== 'failed') view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
 }
 
 // A clipboard image as the file a paste would carry; the clipboard gives it no name.

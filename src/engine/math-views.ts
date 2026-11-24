@@ -11,8 +11,9 @@ import {
 } from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
-import type { EditorView, NodeView } from 'prosemirror-view';
+import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
+import { drawnMathIn } from './math-drawing.js';
 import {
   cancelMath,
   commitMath,
@@ -42,7 +43,7 @@ interface MathDrawing {
 function mathView(
   node: ProseMirrorNode,
   view: EditorView,
-  { render, invalid, typesets, timeout }: MathDrawing,
+  { render, invalid, typesets, timeout, decorations }: MathDrawing & Placing,
 ): NodeView {
   const display = node.type.name === 'math_display';
   const owner = view.dom.ownerDocument;
@@ -53,12 +54,13 @@ function mathView(
   let source: string | null = null;
   let current = node;
   let deadline: number | undefined;
+  const drawing = drawnMathIn(dom, decorations);
   const window = owner.defaultView;
   // Shows what the source typeset as, or what invalid math shows and why, and asks the pages to
   // measure it again.
   const show = (result: { ok: true; element: Element } | { ok: false; message: string }) => {
-    if (result.ok) dom.replaceChildren(result.element);
-    else {
+    drawing.show(result.ok ? result.element : null);
+    if (!result.ok) {
       dom.textContent = display ? invalid.display : invalid.inline;
       dom.title = result.message;
     }
@@ -71,6 +73,7 @@ function mathView(
     const latex = next.textContent;
     if (latex === source) return;
     source = latex;
+    drawing.show(null);
     dom.textContent = latex;
     dom.dataset.state = 'pending';
     dom.removeAttribute('title');
@@ -104,9 +107,10 @@ function mathView(
   draw(node);
   return {
     dom,
-    update(next) {
+    update(next, decorations) {
       if (next.type !== current.type) return false;
       draw(next);
+      drawing.place(decorations);
       return true;
     },
     selectNode: () => dom.setAttribute('data-selected', 'true'),
@@ -115,6 +119,17 @@ function mathView(
     destroy: () => window?.clearTimeout(deadline),
   };
 }
+
+// The decorations a math node is drawn with, which may place it (DOCE-PAGINATION-12.11).
+interface Placing {
+  readonly decorations: readonly Decoration[];
+}
+
+// The node view constructor drawing math with a plugin's drawing.
+const mathViewOf =
+  (drawing: MathDrawing): NodeViewConstructor =>
+  (...[node, view, , decorations]: Parameters<NodeViewConstructor>) =>
+    mathView(node, view, { ...drawing, decorations });
 
 const mathViewsKey = new PluginKey<MathInputState>('math-views');
 
@@ -191,8 +206,8 @@ export function createMathViews({
     props: {
       ...mathInputProps(mathViewsKey),
       nodeViews: {
-        math_inline: (node, view) => mathView(node, view, drawing),
-        math_display: (node, view) => mathView(node, view, drawing),
+        math_inline: mathViewOf(drawing),
+        math_display: mathViewOf(drawing),
       },
     },
   });

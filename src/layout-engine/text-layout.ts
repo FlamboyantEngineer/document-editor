@@ -12,6 +12,7 @@ import { footnoteMarkerItem } from './footnote-marker.js';
 import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { type CacheStats, createLineCache, layoutLines } from './lines.js';
+import type { MathRecorder } from './math-atoms.js';
 import { createStruts, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
@@ -38,6 +39,8 @@ export interface TextLayoutOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** Sizes the inline atoms the engine does not lay out as text. */
   readonly measureAtom?: MeasureAtom | undefined;
+  /** Told each math node laid out from its layout, with the box and scale it takes. */
+  readonly onMath?: MathRecorder | undefined;
   /**
    * The inline atoms the engine lays out as their text (`TEXT_ATOMS` by default, less those a host
    * draws itself), and the footnote markers' numbers.
@@ -112,7 +115,7 @@ export type TextBlockLayout =
   | { readonly ok: false; readonly reason: string };
 
 /** A text layout engine for one template, language and set of fonts. */
-interface TextLayout extends ContentsLayout {
+export interface TextLayout extends ContentsLayout {
   /** A text block's typography in a scope. */
   readonly typography: (node: ProseMirrorNode, scope?: string | null) => BlockTypography;
   /**
@@ -293,12 +296,15 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
       const font = fontString(style.font);
       const starts = lineStarts(node, { style, place, codeLineNumbers: options.codeLineNumbers });
+      const lineWidth = Math.max(1, place.width - 2 * style.padding);
       const runs = buildRuns({
         node,
         typography: style,
         prefix: marker?.item ?? place.prefix,
         lead: starts.lead,
         measureAtom: options.measureAtom,
+        lineWidth,
+        onMath: options.onMath,
         scope: place.scope,
         textAtoms: options.textAtoms,
         variables: place.variables,
@@ -310,7 +316,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       if (!runs.ok) return runs;
       const table = layoutLines(cache, {
         runs: runs.runs,
-        width: Math.max(1, place.width - 2 * style.padding),
+        width: lineWidth,
         leading: style.leading,
         strut: strutOf(font, style.font.size, style.leading),
         align: style.align,

@@ -8,7 +8,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { blockNumbers } from '../layout-engine/blocks/numbers.js';
+import { captionNumbers } from '../layout-engine/blocks/numbers.js';
 import { DEFAULT_CONTENTS_KINDS } from '../model/contents/contents-kinds.js';
 import { catalogDocument } from '../model/contents/document-catalog.js';
 import type { TemplateFile } from '../model/format/template-format.js';
@@ -41,7 +41,7 @@ function captionKey(node: ProseMirrorNode, parent: ProseMirrorNode | null): stri
 
 /** The caption labels and equation numbers of a canonical document under its template. */
 export function objectNumbers(doc: ProseMirrorNode, template: TemplateFile): ObjectNumbers {
-  const numbers = blockNumbers(doc, template);
+  const numbers = captionNumbers(doc, template);
   const captions = new Map<string, string>();
   doc.descendants((node, _pos, parent) => {
     const label = numbers.labelOf(node);

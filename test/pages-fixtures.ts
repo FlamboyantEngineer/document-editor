@@ -120,6 +120,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
       return reserved ? reservedBoxes(word, { offset: 0, font: '', reserve }) : [];
     },
     provisional: () => false,
+    mathOf: () => null,
     stats: () => ({ laid: 0, refused: 0, reasons: new Map() }),
     destroy: () => undefined,
   };

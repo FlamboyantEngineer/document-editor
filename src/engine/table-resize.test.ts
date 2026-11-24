@@ -86,6 +86,53 @@ describe('column resize', () => {
     expect(setColumnWidths(tablePos, [240])(state)).toBe(false);
     expect(setColumnWidths(tablePos, [240, 360, 100])(state)).toBe(false);
   });
+
+  it('DOCE-TABLES-2.4 gives a cell beside one spanning rows the width of its own column', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'table',
+                content: [
+                  row(cell('A1', { rowspan: 2 }), cell('B1'), cell('C1')),
+                  row(cell('B2', { colspan: 2 })),
+                  row(cell('A3'), cell('B3'), cell('C3')),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let tablePos = -1;
+    doc.descendants((node, pos) => {
+      if (tablePos < 0 && node.type.name === 'table') tablePos = pos;
+    });
+    const state = EditorState.create({ doc });
+    let next = state;
+    expect(setColumnWidths(tablePos, [120, 180, 90])(state, (tr) => (next = state.apply(tr)))).toBe(
+      true,
+    );
+    const widths: Record<string, unknown> = {};
+    next.doc.descendants((node) => {
+      if (node.type.name === 'table_cell') widths[node.textContent] = node.attrs.colwidth;
+      return node.type.name !== 'table_cell';
+    });
+    expect(widths).toEqual({
+      A1: [120],
+      B1: [180],
+      C1: [90],
+      B2: [180, 90],
+      A3: [120],
+      B3: [180],
+      C3: [90],
+    });
+  });
 });
 
 // A view of a paragraph and a table of two columns, every element laid out 100 pixels wide, with

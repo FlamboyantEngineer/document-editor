@@ -12,6 +12,7 @@ import {
 } from './container-split.js';
 import { continuationPlaceholder, isContinuationPlaceholder } from './fragments.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
+import { splitPartOf } from './split-part.js';
 
 // One side of a split column: its blocks, and where they sit.
 interface ColumnPart {
@@ -26,12 +27,6 @@ interface ColumnSplit {
   readonly tail: ColumnPart | null;
 }
 
-function childrenOf(node: ProseMirrorNode): ProseMirrorNode[] {
-  const children: ProseMirrorNode[] = [];
-  node.forEach((child) => children.push(child));
-  return children;
-}
-
 // A column's own height: its blocks' span and its padding, not the height a grid stretched it to
 // beside a taller column.
 function columnHeight({ top, bottom, measurement }: ChildLayout): number {
@@ -41,14 +36,14 @@ function columnHeight({ top, bottom, measurement }: ChildLayout): number {
 
 function whole(column: ProseMirrorNode, layout: ChildLayout): ColumnPart {
   return {
-    content: childrenOf(column),
+    content: column.children,
     height: columnHeight(layout),
     measurement: layout.measurement,
   };
 }
 
 function part(block: LayoutBlock): ColumnPart {
-  return { content: childrenOf(block.node), height: block.height, measurement: block.measurement };
+  return { content: block.node.children, height: block.height, measurement: block.measurement };
 }
 
 // A column split at the height the section has: whole on the first page when it fits, through its
@@ -85,11 +80,6 @@ function columnNode(column: ProseMirrorNode, content: readonly ProseMirrorNode[]
   return column.type.create(column.attrs, children, column.marks);
 }
 
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : 0;
-}
-
 type Side = 'head' | 'tail';
 
 // One fragment of the section: its columns' parts on that side, as tall as its tallest column.
@@ -109,7 +99,7 @@ function sectionPart(block: LayoutBlock, splits: readonly ColumnSplit[], side: S
     return { top: 0, bottom: height, measurement };
   });
   const content = splits.map((split) => columnNode(split.column, split[side]?.content));
-  const index = partIndex(node) + (side === 'tail' ? 1 : 0);
+  const index = (splitPartOf(node) ?? 0) + (side === 'tail' ? 1 : 0);
   return {
     ...block,
     node: node.type.create({ ...node.attrs, splitPartIndex: index }, content, node.marks),
@@ -130,7 +120,7 @@ export function splitLayoutSection(
 ): SplitBlock | null {
   const { node, measurement } = block;
   if (!isContainerMeasurement(measurement)) return null;
-  const columns = childrenOf(node);
+  const columns = node.children;
   if (!columns.length || measurement.children.length !== columns.length) return null;
   const room = fitting - containerOverhead(measurement);
   const splits = columns.map((column, index) => {

@@ -1906,6 +1906,66 @@ a.de-contents__entry {
   background: var(--doc-math-hover-background, color-mix(in srgb, #2563eb 18%, transparent));
 }
 
+/* Math the engine placed (DOCE-PAGINATION-12.10, 12.12) takes exactly its box: `--de-math-width`
+   wide, `--de-math-ascent` above the baseline and `--de-math-descent` below it, the scale to fit
+   already applied. Drawn from its layout (`laid`), its SVG fills the box and its MathML is hidden
+   from sight but kept for screen readers, copy and find; a display equation's SVG is centred and
+   its tag sits at the line's end on the same baseline. In the reserved box (`reserved`), the
+   MathML is centred in the box and may reach past it without moving anything. */
+.de-math[data-math-layout] {
+  position: relative;
+  display: inline-block;
+  inline-size: var(--de-math-width);
+  block-size: calc(var(--de-math-ascent) + var(--de-math-descent));
+  vertical-align: calc(-1 * var(--de-math-descent));
+}
+
+.de-math[data-math-layout][data-display='display'] {
+  --de-math-top: max(var(--de-math-ascent), var(--de-math-tag-ascent, 0px));
+  display: block;
+  inline-size: auto;
+  block-size: calc(
+    var(--de-math-top) + max(var(--de-math-descent), var(--de-math-tag-descent, 0px))
+  );
+  vertical-align: baseline;
+}
+
+.de-math[data-math-layout] > .de-math__drawing {
+  display: block;
+  overflow: visible;
+}
+
+.de-math[data-math-layout][data-display='display'] > .de-math__drawing {
+  margin-block-start: calc(var(--de-math-top) - var(--de-math-ascent));
+  margin-inline: auto;
+}
+
+.de-math[data-math-layout] > .de-math__tag {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(var(--de-math-top) - var(--de-math-tag-ascent, 0px));
+  overflow: visible;
+}
+
+.de-math[data-math-layout='laid'] > math {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.de-math[data-math-layout='reserved'] > math {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+}
+
 /* Code with line numbers: the gutter takes no room of its own and lies over the code's left padding,
    as wide as the code. Each of its lines holds the line's number, then a hidden copy of the line's
    text that wraps as the code does, so a wrapped line's later rows keep a blank gutter. The

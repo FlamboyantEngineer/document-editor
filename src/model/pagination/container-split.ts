@@ -5,6 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { continuationPlaceholder, isContinuationPlaceholder } from './fragments.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
+import { splitPartOf } from './split-part.js';
 import { splitParagraphWith } from './text-split.js';
 
 /** Where a child sits, measured from the top of its container fragment's first child. */
@@ -56,12 +57,6 @@ interface ChildrenSplit {
   tailHeight: number;
 }
 
-function childrenOf(node: ProseMirrorNode): ProseMirrorNode[] {
-  const children: ProseMirrorNode[] = [];
-  node.forEach((child) => children.push(child));
-  return children;
-}
-
 function shift(layouts: readonly ChildLayout[], by: number): ChildLayout[] {
   return layouts.map((layout) => ({ ...layout, top: layout.top - by, bottom: layout.bottom - by }));
 }
@@ -90,7 +85,7 @@ interface SplitRequest {
 
 // Splits through the child that crosses the page's foot, keeping its first fragment on the page.
 function splitThroughChild(request: SplitRequest, index: number, splitChild: ChildSplit) {
-  const children = childrenOf(request.block.node);
+  const children = request.block.node.children;
   const layouts = (request.block.measurement as ContainerMeasurement).children;
   const child = children[index];
   const layout = layouts[index];
@@ -124,7 +119,7 @@ function splitThroughChild(request: SplitRequest, index: number, splitChild: Chi
 
 function splitChildren(request: SplitRequest, splitChild: ChildSplit): ChildrenSplit | null {
   const { block, fitting } = request;
-  const children = childrenOf(block.node);
+  const children = block.node.children;
   if (!isContainerMeasurement(block.measurement)) return null;
   const layouts = block.measurement.children;
   if (layouts.length !== children.length) return null;
@@ -144,11 +139,6 @@ function splitChildren(request: SplitRequest, splitChild: ChildSplit): ChildrenS
   };
 }
 
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : 0;
-}
-
 type Attrs = Record<string, unknown>;
 
 // The container's two fragments as layout blocks: the first ends with the last child it keeps, the
@@ -160,7 +150,7 @@ function fragments(
 ) {
   const { block } = request;
   const { node } = block;
-  const part = partIndex(node);
+  const part = splitPartOf(node) ?? 0;
   const overhead = isContainerMeasurement(block.measurement)
     ? containerOverhead(block.measurement)
     : 0;

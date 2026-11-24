@@ -11,6 +11,7 @@ import {
   Slice,
 } from 'prosemirror-model';
 import { ReplaceStep, Transform } from 'prosemirror-transform';
+import { splitPartOf } from './split-part.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -36,11 +37,6 @@ function ruleFor(rules: FragmentRules, name: string): FragmentRule | undefined {
   return Object.hasOwn(rules, name) ? rules[name] : undefined;
 }
 
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : -1;
-}
-
 /** Whether a node is a fragment of a split block under the rules. */
 export function isFragment(node: ProseMirrorNode, rules: FragmentRules = FRAGMENT_RULES): boolean {
   const rule = ruleFor(rules, node.type.name);
@@ -54,8 +50,8 @@ function sameSplitElement(previous: ProseMirrorNode, next: ProseMirrorNode, rule
   if (!isFragment(previous, rules) && !isFragment(next, rules)) return false;
   const id = previous.attrs.dataId as unknown;
   if (id && id === next.attrs.dataId) return true;
-  const index = partIndex(previous);
-  return index >= 0 && partIndex(next) === index + 1;
+  const index = splitPartOf(previous);
+  return index !== null && splitPartOf(next) === index + 1;
 }
 
 /** Whether `next` is the fragment that follows `previous`. */
@@ -129,12 +125,6 @@ export function joinBlocks(
   }
 }
 
-function children(node: ProseMirrorNode): ProseMirrorNode[] {
-  const nodes: ProseMirrorNode[] = [];
-  node.forEach((child) => nodes.push(child));
-  return nodes;
-}
-
 // A node type that holds the blocks, for the transform that joins them: the document, or for
 // blocks that only go inside another, such as list items, one that holds them.
 function containerFor(blocks: readonly ProseMirrorNode[], { schema }: NodeType): NodeType {
@@ -155,7 +145,8 @@ export function joinFragments(
   if (!first) return [];
   const tr = new Transform(containerFor(blocks, first.type).create(null, blocks));
   joinBlocks(tr, { from: 0, blocks }, rules);
-  return children(tr.doc);
+  // A copy: callers own the blocks they get back.
+  return [...tr.doc.children];
 }
 
 // After two containers join at `pos`, their facing children meet one position inside.
@@ -215,7 +206,7 @@ function joinLayoutSections(tr: Transform, pos: number, rules: FragmentRules) {
   const start = pos - previous.nodeSize;
   tr.delete(pos, pos + next.nodeSize);
   let columnPos = start + 1;
-  children(next).forEach((extra, index) => {
+  next.children.forEach((extra, index) => {
     const column = index < previous.childCount ? tr.doc.nodeAt(columnPos) : null;
     if (!column) {
       tr.insert(columnPos, extra);
@@ -234,11 +225,11 @@ function joinLayoutSections(tr: Transform, pos: number, rules: FragmentRules) {
 }
 
 function isHeaderRow(row: ProseMirrorNode): boolean {
-  return row.childCount > 0 && children(row).every((cell) => cell.type.name === 'table_header');
+  return row.childCount > 0 && row.children.every((cell) => cell.type.name === 'table_header');
 }
 
 function headerRows(table: ProseMirrorNode): ProseMirrorNode[] {
-  const rows = children(table);
+  const rows = table.children;
   const count = rows.findIndex((row) => !isHeaderRow(row));
   return rows.slice(0, count < 0 ? rows.length : count);
 }
@@ -249,7 +240,7 @@ function joinTables(tr: Transform, pos: number) {
   const { nodeBefore: previous, nodeAfter: next } = $pos;
   if (!previous || !next) return;
   const header = headerRows(previous);
-  const rows = children(next);
+  const rows = next.children;
   const repeats =
     header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
   tr.join(pos);
@@ -267,7 +258,7 @@ function joinTableFigures(tr: Transform, pos: number, rules: FragmentRules) {
   const later = next?.lastChild;
   if (!previous || !first || !repeated || !later || next.childCount !== 2) return;
   const header = headerRows(first);
-  const rows = children(later);
+  const rows = later.children;
   const repeats =
     header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
   // Inside the first table after its rows, to inside the later one before its rows.

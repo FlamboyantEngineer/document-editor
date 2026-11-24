@@ -1,9 +1,12 @@
-import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { EditorState, Plugin } from 'prosemirror-state';
+import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
+import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js';
+import { placeMath } from '../layout-engine/math-atoms.js';
 import { createDocumentEditing } from './document-editing.js';
+import { mathDrawingHooks } from './math-drawing.js';
 import { createMathViews, DEFAULT_INVALID_MATH_TEXT, typesetMathOf } from './math-views.js';
 
 installEditorDom();
@@ -127,5 +130,43 @@ describe('a renderer that does not answer', () => {
     expect(remeasured).toHaveBeenCalledTimes(2);
     expect(typesetMathOf(state, inline)?.state).toBe('ready');
     vi.useRealTimers();
+  });
+});
+
+describe('math drawn from its layout', () => {
+  it('DOCE-PAGINATION-12.11 draws the SVG its decoration places before the typeset MathML, and again when the placement changes', async () => {
+    const render = (source: string) => ({
+      ok: true as const,
+      mathml: `<math><mi>${source}</mi></math>`,
+    });
+    const laid = standInMathLayouter().layouter.layout(mathOf(['x']), false, 20);
+    if (!laid) throw new Error('the stand-in refused');
+    const atom = nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = atom && nodes.paragraph?.create(null, [atom]);
+    const doc = paragraph && documentSchema.topNodeType.createAndFill(null, [paragraph]);
+    if (!doc) throw new Error('The document is valid');
+    let placed = placeMath({ math: laid }, 600);
+    const placing = new Plugin({
+      props: {
+        decorations: (state) =>
+          DecorationSet.create(state.doc, [
+            Decoration.node(1, 1 + atom.nodeSize, mathDrawingHooks(placed), {
+              mathDrawing: placed,
+            }),
+          ]),
+      },
+    });
+    view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: [createMathViews({ render }), placing] }),
+    });
+    const math = view.dom.querySelector<HTMLElement>('.de-math');
+    await expect.poll(() => math?.dataset.state).toBe('ready');
+    expect(math?.dataset.mathLayout).toBe('laid');
+    expect([...(math?.children ?? [])].map((child) => child.localName)).toEqual(['svg', 'math']);
+    expect(math?.querySelector('svg')?.getAttribute('width')).toBe('10');
+    placed = placeMath({ math: laid }, 5);
+    view.dispatch(view.state.tr.setMeta('placed', true));
+    expect(math?.querySelector('svg')?.getAttribute('width')).toBe('5');
+    expect(math?.style.getPropertyValue('--de-math-scale')).toBe('0.5');
   });
 });

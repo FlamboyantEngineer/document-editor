@@ -6,6 +6,7 @@ import type { ChildLayout, LayoutBlock } from '../../model/index.js';
 import type { AtomCache } from '../atoms.js';
 import type { ContentsRow, ContentsRowPlace, ContentsRowTable } from '../contents-row.js';
 import type { LineTable } from '../line-table.js';
+import type { MathRecorder } from '../math-atoms.js';
 import type { VariableTexts } from '../runs.js';
 import type { TextBlockLayout, TextBlockPlace } from '../text-layout.js';
 import type { BlockTypography } from '../typography.js';
@@ -148,6 +149,8 @@ export interface BlockLayoutOptions {
    * every row's page box is this many of its font's `0`, whatever its page reads; 3 by default.
    */
   readonly pageDigits?: (() => number) | undefined;
+  /** Told each display equation laid out from its layout, with its box and scale. */
+  readonly onMath?: MathRecorder | undefined;
 }
 
 /** Block geometry. */

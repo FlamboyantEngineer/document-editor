@@ -6,6 +6,7 @@ import type * as Y from '@y/y';
 import * as delta from 'lib0/delta';
 import { Fragment, type Node, type Schema, Slice } from 'prosemirror-model';
 import { ReplaceStep, type Transform } from 'prosemirror-transform';
+import { diffFragments } from '../utils/fragment-diff.js';
 import { type AnyDelta, contentToDelta, deltaToFragment, deltaToNode } from './delta.js';
 
 type AttrOp = { key: string; value?: unknown };
@@ -87,14 +88,11 @@ function replayAttrs(place: Place, change: AnyDelta): void {
 
 function replayInline(place: Place, node: Node, change: AnyDelta): void {
   const content = changedInline(place, node, change);
-  const found = node.content.findDiffStart(content);
-  if (found === null) return;
-  const ends = node.content.findDiffEnd(content) ?? { a: found, b: found };
-  // The common suffix may reach back over the common prefix, as when "a." becomes "a. b.".
-  const overlap = Math.max(0, found - Math.min(ends.a, ends.b));
-  const from = snap(node.content, found, false);
-  const endA = snap(node.content, ends.a + overlap, true);
-  const endB = snap(content, ends.b + overlap, true);
+  const diff = diffFragments(node.content, content);
+  if (!diff) return;
+  const from = snap(node.content, diff.start, false);
+  const endA = snap(node.content, diff.endA, true);
+  const endB = snap(content, diff.endB, true);
   const start = place.at + 1;
   const range = { from: start + from, to: start + endA };
   replaceRange(place, range, new Slice(content.cut(from, endB), 0, 0));
