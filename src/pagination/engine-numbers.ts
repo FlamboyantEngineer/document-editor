@@ -45,16 +45,7 @@ export function objectNumbers(doc: ProseMirrorNode, template: TemplateFile): Obj
   const numbers = captionNumbers(doc, template);
   const captions = new Map<string, string>();
   const equations = equationNumbers(doc, template);
-  const byNode = new WeakMap<ProseMirrorNode, string | null>();
-  const byId = new Map<string, string | null>();
-  doc.descendants((node, pos, parent) => {
-    if (node.type.name === 'math_display') {
-      const value = equations.get(pos) ?? '';
-      const id = idOf(node);
-      byNode.set(node, byNode.has(node) ? null : value);
-      if (id) byId.set(id, byId.has(id) ? null : value);
-      return false;
-    }
+  doc.descendants((node, _pos, parent) => {
     const label = numbers.labelOf(node);
     const key = label === undefined ? null : captionKey(node, parent);
     if (key && label !== undefined && !captions.has(key)) captions.set(key, label);
@@ -62,8 +53,8 @@ export function objectNumbers(doc: ProseMirrorNode, template: TemplateFile): Obj
   });
   return {
     captions,
-    equations,
-    equationFor: (node) => byNode.get(node) ?? byId.get(idOf(node) ?? '') ?? undefined,
+    equations: equations.positions,
+    equationFor: equations.of,
   };
 }
 

@@ -72,18 +72,20 @@ test.describe('math copy', () => {
 
     await math.click({ button: 'right' });
     await item(page, 'Copy equation as image').click();
-    await expect.poll(async () => Object.keys(await readClipboard(page))).toContain('image/png');
     const drawn = await math.locator('svg.de-math__drawing').boundingBox();
-    const image = await readClipboard(page);
-    const [width, height] = (image['image/png'] ?? '').split('x').map(Number);
-    expect(Math.abs((width ?? 0) - 2 * (drawn?.width ?? 0))).toBeLessThanOrEqual(2);
-    expect(Math.abs((height ?? 0) - 2 * (drawn?.height ?? 0))).toBeLessThanOrEqual(2);
-    expect(image['text/html']).toMatch(/^<img src="data:image\/png;base64,/);
+    await expect(async () => {
+      const image = await readClipboard(page);
+      expect(image).toHaveProperty('image/png');
+      const [width, height] = (image['image/png'] ?? '').split('x').map(Number);
+      expect(Math.abs((width ?? 0) - 2 * (drawn?.width ?? 0))).toBeLessThanOrEqual(2);
+      expect(Math.abs((height ?? 0) - 2 * (drawn?.height ?? 0))).toBeLessThanOrEqual(2);
+      expect(image['text/html']).toMatch(/^<img src="data:image\/png;base64,/);
+    }).toPass({ timeout: 10_000 });
 
     await math.click({ button: 'right' });
     await item(page, 'Copy equation').click();
     await expect
-      .poll(async () => (await readClipboard(page))['text/plain'] ?? '')
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
       .toContain(`<annotation encoding="application/x-tex">${SOURCE}</annotation>`);
     await page.locator(EDITOR).getByText('Again').click();
     await page.keyboard.press('End');

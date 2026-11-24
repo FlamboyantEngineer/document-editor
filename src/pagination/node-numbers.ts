@@ -58,18 +58,6 @@ function footnotesOf(doc: ProseMirrorNode) {
   return { byId, byBlock };
 }
 
-// The number at each equation's position, by node for the block geometry that lays it out.
-function equationsOf(doc: ProseMirrorNode, template: TemplateFile) {
-  const byPosition = equationNumbers(doc, template);
-  const byNode = new Map<ProseMirrorNode, string>();
-  doc.descendants((node, pos) => {
-    const number = byPosition.get(pos);
-    if (number !== undefined) byNode.set(node, number);
-    return !node.isTextblock;
-  });
-  return byNode;
-}
-
 /** The numbers of the footnote markers a text block holds, as a key. */
 export function markerKey(node: ProseMirrorNode, footnoteOf: NodeNumbers['footnoteOf']): string {
   let key = '';
@@ -96,10 +84,10 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     }
     const footnotes = footnotesOf(doc);
     const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
-    let equations: ReadonlyMap<ProseMirrorNode, string> | null = null;
+    let equations: ReturnType<typeof equationNumbers> | null = null;
     const equationOf = (node: ProseMirrorNode) =>
       node.type.name === 'math_display'
-        ? (equations ??= equationsOf(doc, template)).get(node) || undefined
+        ? (equations ??= equationNumbers(doc, template)).of(node) || undefined
         : undefined;
     // Read when a block is laid out, including numbers of its unchanged descendant equations.
     let keys: ReadonlyMap<ProseMirrorNode, string> | null = null;

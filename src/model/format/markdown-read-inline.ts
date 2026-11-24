@@ -1,32 +1,21 @@
-// Markdown's inline content, as mdast gives it, read into stored inline content: emphasis, strong,
-// strikethrough, code, links and images, inline math, footnote references, line breaks, the HTML
-// tags for underline, superscript, subscript, strikethrough, emphasis, strong and code, and
-// `{{key}}` variables. Other HTML tags are left out with a warning, keeping their text.
+// Markdown's inline content, as markdown-it tokenizes it, read into stored inline content:
+// emphasis, strong, strikethrough, code, links and images, inline math, footnote references, line
+// breaks, the HTML tags for underline, superscript, subscript, strikethrough, emphasis, strong and
+// code, and `{{key}}` variables. Other HTML tags are left out with a warning, keeping their text.
 
-import type {
-  Definition,
-  Delete,
-  Emphasis,
-  FootnoteDefinition,
-  Nodes,
-  PhrasingContent,
-  RootContent,
-  Strong,
-} from 'mdast';
+import type { Token } from 'markdown-it';
 import { joinText, textNode, withMark } from '../../import/stored-inline.js';
-import { cloneJson } from '../clone-json.js';
 import type { StoredMark, StoredNode } from './document-format.js';
-import type { MarkdownWarning } from './markdown-read.js';
-import { flattenDeepNesting } from './markdown-read-depth.js';
+import { deeperThanStored } from './markdown-read-depth.js';
+import type { SourceWarnings } from './markdown-read-warnings.js';
 
 /** What inline reading needs from the whole document. */
 export interface InlineContext {
-  /** Link reference definitions, by identifier. */
-  readonly links: ReadonlyMap<string, Definition>;
-  /** Footnote definitions, by identifier. */
-  readonly notes: ReadonlyMap<string, FootnoteDefinition>;
-  readonly noteContents: WeakMap<FootnoteDefinition, StoredNode[]>;
-  readonly warn: MarkdownWarning;
+  /** Each footnote definition's tokens, by the footnote plugin's id. */
+  readonly notes: ReadonlyMap<number, readonly Token[]>;
+  /** Each footnote's stored text once read, by the same id. */
+  readonly noteText: Map<number, StoredNode[]>;
+  readonly warnings: SourceWarnings;
   /** Whether footnote references are read; not inside a footnote's own text. */
   readonly inNote?: boolean | undefined;
 }
@@ -46,6 +35,12 @@ const HTML_MARKS: ReadonlyMap<string, StoredMark> = new Map([
   ['code', { type: 'code' }],
 ]);
 
+const FORMATS: Readonly<Record<string, StoredMark>> = {
+  em_open: { type: 'italic' },
+  strong_open: { type: 'bold' },
+  s_open: { type: 'strike' },
+};
+
 const TAG = /^<(\/?)([a-zA-Z][\w-]*)[^>]*>$/;
 
 interface Tag {
@@ -53,18 +48,17 @@ interface Tag {
   readonly name: string;
 }
 
-const tagOf = (node: PhrasingContent): Tag | null => {
-  if (node.type !== 'html') return null;
-  const tag = TAG.exec(node.value);
+const tagOf = (token: Token): Tag | null => {
+  const tag = token.type === 'html_inline' ? TAG.exec(token.content) : null;
   return tag ? { closing: tag[1] === '/', name: (tag[2] ?? '').toLowerCase() } : null;
 };
 
-// For each opening formatting tag among sibling nodes, the index of the tag that closes it.
-function closingTags(nodes: readonly PhrasingContent[]): Map<number, number> {
+// For each opening formatting tag among the tokens, the index of the tag that closes it.
+function closingTags(tokens: readonly Token[]): Map<number, number> {
   const open = new Map<string, number[]>();
   const pairs = new Map<number, number>();
-  nodes.forEach((node, index) => {
-    const tag = tagOf(node);
+  tokens.forEach((token, index) => {
+    const tag = tagOf(token);
     if (!tag || !HTML_MARKS.has(tag.name)) return;
     const stack = open.get(tag.name) ?? [];
     open.set(tag.name, stack);
@@ -77,126 +71,102 @@ function closingTags(nodes: readonly PhrasingContent[]): Map<number, number> {
   return pairs;
 }
 
-const linkMark = (href: string, title?: string | null): StoredMark => ({
-  type: 'link',
-  attrs: { href, ...(title ? { title } : {}) },
-});
-
-const image = (src: string, alt: string | null | undefined): StoredNode => ({
-  type: 'image',
-  attrs: { src, ...(alt ? { alt } : {}) },
-});
-
-// A footnote's text: its paragraphs' content, one space between them.
-function noteContent(definition: FootnoteDefinition, context: InlineContext): StoredNode[] {
-  const cached = context.noteContents.get(definition);
-  if (cached) return cloneJson(cached);
-  flattenDeepNesting(definition, context.warn);
-  const inner = { ...context, inNote: true };
-  const parts = definition.children.map((block) =>
-    block.type === 'paragraph'
-      ? readInline(block.children, inner)
-      : [textNode(plainText(block), [])],
-  );
-  const content = joinText(
-    parts.flatMap((part, index) => (index ? [textNode(' ', []), ...part] : part)),
-  );
-  context.noteContents.set(definition, content);
-  return content;
-}
-
-/** The text a block holds, for a footnote's text, which holds no blocks. */
-function plainText(node: Nodes | RootContent): string {
-  if ('value' in node) return node.value;
-  if ('children' in node) return node.children.map((child) => plainText(child)).join(' ');
-  return '';
-}
-
-type Reader<T extends PhrasingContent['type']> = (
-  node: Extract<PhrasingContent, { type: T }>,
-  marks: readonly StoredMark[],
-  context: InlineContext,
-) => StoredNode[];
-
-const marked =
-  <T extends 'emphasis' | 'strong' | 'delete'>(mark: StoredMark): Reader<T> =>
-  (node, marks, context) =>
-    readInline((node as Emphasis | Strong | Delete).children, context, withMark(marks, mark));
-
-// Each inline node's stored content in `marks`, by its type.
-const READERS: { readonly [T in PhrasingContent['type']]: Reader<T> } = {
-  text: (node, marks) => [textNode(node.value.replace(/\n/g, ' '), marks)],
-  variable: (node) => [{ type: 'variable', attrs: { key: node.key } }],
-  emphasis: marked({ type: 'italic' }),
-  strong: marked({ type: 'bold' }),
-  delete: marked({ type: 'strike' }),
-  inlineCode: (node, marks) => [textNode(node.value, withMark(marks, { type: 'code' }))],
-  inlineMath: (node) => [{ type: 'math', attrs: { source: node.value } }],
-  break: () => [{ type: 'lineBreak' }],
-  link: (node, marks, context) =>
-    readInline(node.children, context, withMark(marks, linkMark(node.url, node.title))),
-  linkReference: (node, marks, context) => {
-    const definition = context.links.get(node.identifier);
-    const linked = definition ? withMark(marks, linkMark(definition.url, definition.title)) : marks;
-    return readInline(node.children, context, linked);
-  },
-  image: (node) => [image(node.url, node.alt)],
-  imageReference: (node, marks, context) => {
-    const definition = context.links.get(node.identifier);
-    return definition ? [image(definition.url, node.alt)] : [textNode(node.alt ?? '', marks)];
-  },
-  footnoteReference: (node, marks, context) => {
-    const definition = context.notes.get(node.identifier);
-    if (!definition || context.inNote) {
-      return [textNode(`[^${node.label ?? node.identifier}]`, marks)];
-    }
-    const content = noteContent(definition, context);
-    return [{ type: 'footnote', ...(content.length ? { content } : {}) }];
-  },
-  html: (node, _marks, context) => {
-    const tag = tagOf(node);
-    if (tag?.name === 'br') return [{ type: 'lineBreak' }];
-    context.warn(node, tag ? `<${tag.name}>` : 'HTML');
-    return [];
-  },
+const linkMark = (token: Token): StoredMark => {
+  const title = token.attrGet('title');
+  return {
+    type: 'link',
+    attrs: { href: token.attrGet('href') ?? '', ...(title ? { title } : {}) },
+  };
 };
 
-// One node's stored inline content in `marks`.
-const readNode = <T extends PhrasingContent['type']>(
-  node: Extract<PhrasingContent, { type: T }>,
-  marks: readonly StoredMark[],
-  context: InlineContext,
-): StoredNode[] => (READERS[node.type as T] as Reader<T>)(node, marks, context);
+// A footnote's text: its paragraphs' content, one space between them, and the text of any other
+// block it holds, since a footnote holds no blocks. Read once, where it is first cited, its
+// warnings given at the lines it is written on; each citation gets its own copy.
+function noteContent(id: number, context: InlineContext): StoredNode[] {
+  const known = context.noteText.get(id);
+  if (known) return structuredClone(known);
+  const inner = { ...context, inNote: true };
+  const tokens = context.notes.get(id) ?? [];
+  const citedAt = context.warnings.at(tokens[0]?.map?.[0]);
+  if (deeperThanStored(tokens)) context.warnings.add('content-left-out', 'nesting');
+  const parts = tokens.flatMap((token) => {
+    context.warnings.at(token.map?.[0]);
+    if (token.type === 'inline') return [readInline(token.children ?? [], inner)];
+    if (token.type === 'fence' || token.type === 'code_block' || token.type === 'math_block')
+      return [[textNode(token.content.trim(), [])]];
+    return [];
+  });
+  context.warnings.at(citedAt);
+  const content = joinText(parts.flatMap((part, at) => (at ? [textNode(' ', []), ...part] : part)));
+  context.noteText.set(id, content);
+  return structuredClone(content);
+}
 
-/** mdast inline content as stored inline content, each node in `marks` and those it adds. */
+function footnoteOf(token: Token, marks: readonly StoredMark[], context: InlineContext) {
+  const { id, label } = token.meta as { id: number; label?: string };
+  if (context.inNote || label === undefined) return [textNode(`[^${label ?? ''}]`, marks)];
+  const content = noteContent(id, context);
+  return [{ type: 'footnote', ...(content.length ? { content } : {}) }];
+}
+
+function htmlOf(token: Token, context: InlineContext): StoredNode[] {
+  const tag = tagOf(token);
+  if (tag?.name === 'br') return [{ type: 'lineBreak' }];
+  context.warnings.add('content-left-out', tag ? `<${tag.name}>` : 'HTML');
+  return [];
+}
+
+// One leaf token's stored inline content in `marks`.
+function leafOf(token: Token, marks: readonly StoredMark[], context: InlineContext): StoredNode[] {
+  switch (token.type) {
+    case 'text':
+      return [textNode(token.content, marks)];
+    case 'softbreak':
+      return [textNode(' ', marks)];
+    case 'hardbreak':
+      return [{ type: 'lineBreak' }];
+    case 'code_inline':
+      return [textNode(token.content, withMark(marks, { type: 'code' }))];
+    case 'math_inline':
+      return [{ type: 'math', attrs: { source: token.content } }];
+    case 'variable':
+      return [{ type: 'variable', attrs: { key: (token.meta as { key: string }).key } }];
+    case 'image': {
+      const alt = token.content;
+      return [
+        { type: 'image', attrs: { src: token.attrGet('src') ?? '', ...(alt ? { alt } : {}) } },
+      ];
+    }
+    case 'footnote_ref':
+      return footnoteOf(token, marks, context);
+    case 'html_inline':
+      return htmlOf(token, context);
+    default:
+      return [];
+  }
+}
+
+/** markdown-it inline tokens as stored inline content, each in `marks` and those it adds. */
 export function readInline(
-  nodes: readonly PhrasingContent[],
+  tokens: readonly Token[],
   context: InlineContext,
   marks: readonly StoredMark[] = [],
 ): StoredNode[] {
-  const pairs = closingTags(nodes);
-  const closesAt = new Map<number, StoredMark>();
-  let current = [...marks];
-  const tagged: StoredMark[] = [];
+  const pairs = closingTags(tokens);
+  const closes = new Set<number>();
+  const outer: (readonly StoredMark[])[] = [];
+  let current = marks;
   const out: StoredNode[] = [];
-  nodes.forEach((node, index) => {
-    const mark = closesAt.get(index);
-    if (mark) {
-      tagged.splice(tagged.lastIndexOf(mark), 1);
-      current = tagged.reduce(withMark, [...marks]);
-      return;
-    }
-    const tag = tagOf(node);
+  tokens.forEach((token, index) => {
+    const format = FORMATS[token.type];
+    const tagMark = HTML_MARKS.get(tagOf(token)?.name ?? '');
     const closing = pairs.get(index);
-    const tagMark = tag ? HTML_MARKS.get(tag.name) : undefined;
-    if (tagMark && closing !== undefined) {
-      const added = { ...tagMark };
-      closesAt.set(closing, added);
-      tagged.push(added);
-      current = withMark(current, added);
-      return;
-    }
-    out.push(...readNode(node, current, context));
+    if (format || token.type === 'link_open' || (tagMark && closing !== undefined)) {
+      if (closing !== undefined) closes.add(closing);
+      outer.push(current);
+      current = withMark(current, format ?? tagMark ?? linkMark(token));
+    } else if (token.nesting === -1 || closes.has(index)) current = outer.pop() ?? marks;
+    else out.push(...leafOf(token, current, context));
   });
   return joinText(out);
 }

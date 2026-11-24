@@ -1,19 +1,15 @@
-// Markdown's blocks, as mdast gives them, read into stored blocks: headings, paragraphs, quotes,
-// lists with their start number and checked items, fenced and indented code with its language, `$$`
-// display math, rules and GitHub tables with their alignment. HTML blocks are left out with a
-// warning; figures and captions are taken in afterwards, as the library's writer places them.
+// Markdown's blocks, as markdown-it tokenizes them, read into stored blocks: headings, paragraphs,
+// quotes, lists with their start number and checked items, fenced and indented code with its
+// language, `$$` display math, rules and GitHub tables with their alignment. HTML blocks are left
+// out with a warning; figures and captions are taken in afterwards, as the library's writer places
+// them. The tokens come flat, each block opened and closed by a token, so the blocks are built
+// with a stack of their own and no nesting runs out of call stack.
 
-import type { BlockContent, DefinitionContent, List, RootContent, Table } from 'mdast';
-import type { Math as MathNode } from 'mdast-util-math';
+import type { Token } from 'markdown-it';
 import { joinText } from '../../import/stored-inline.js';
 import type { StoredNode } from './document-format.js';
 import { withObjects } from './markdown-read-captions.js';
 import { type InlineContext, readInline } from './markdown-read-inline.js';
-
-/** What block reading needs: the inline context and the Markdown read, for `$$` in a paragraph. */
-interface BlockContext extends InlineContext {
-  readonly source: string;
-}
 
 const withContent = (type: string, content: StoredNode[], attrs?: Record<string, unknown>) => ({
   type,
@@ -21,113 +17,148 @@ const withContent = (type: string, content: StoredNode[], attrs?: Record<string,
   ...(content.length ? { content } : {}),
 });
 
-const blocksOrParagraph = (content: StoredNode[]): StoredNode[] =>
+const TASK_BOX = /^\[([ xX])\][ \t]/;
+const emptied = (content: StoredNode[]): StoredNode[] =>
   content.length ? content : [{ type: 'paragraph' }];
 
-function list(node: List, context: BlockContext): StoredNode {
-  const start = node.ordered && node.start !== null && node.start !== undefined && node.start !== 1;
+// A bulleted item whose first paragraph starts with a task list box, as a checked or unchecked
+// item without the box. A numbered item keeps its box as text: a checklist is a bulleted list.
+// `boxed` holds the paragraphs whose Markdown starts with a box, one no backslash escapes.
+function taskItem(item: StoredNode, boxed: WeakSet<StoredNode>): StoredNode {
+  const [first, ...rest] = item.content ?? [];
+  const [text, ...inline] = first && boxed.has(first) ? (first.content ?? []) : [];
+  const box = text?.type === 'text' && !text.marks ? TASK_BOX.exec(text.text ?? '') : null;
+  if (!first || !text || !box) return item;
+  const after = (text.text ?? '').slice(box[0].length);
+  const content = joinText([...(after ? [{ ...text, text: after }] : []), ...inline]);
   return {
-    type: node.ordered ? 'orderedList' : 'bulletList',
-    ...(start ? { attrs: { start: node.start } } : {}),
-    content: node.children.map((item) => {
-      const checked = typeof item.checked === 'boolean' ? item.checked : null;
-      const content = blocksOrParagraph(readBlocks(item.children, context));
-      // A checklist is a bulleted list: a numbered item keeps its box as text.
-      if (node.ordered && checked !== null) return withContent('listItem', boxed(content, checked));
-      return withContent('listItem', content, checked === null ? undefined : { checked });
-    }),
+    type: item.type,
+    attrs: { checked: box[1] !== ' ' },
+    content: [withContent('paragraph', content), ...rest],
   };
 }
 
-// Content whose first paragraph starts with a task list box again, as text.
-function boxed(content: StoredNode[], checked: boolean): StoredNode[] {
-  const [first, ...rest] = content;
-  const box: StoredNode = { type: 'text', text: checked ? '[x] ' : '[ ] ' };
-  if (first?.type !== 'paragraph') return [{ type: 'paragraph', content: [box] }, ...content];
-  return [{ ...first, content: joinText([box, ...(first.content ?? [])]) }, ...rest];
+function listOf(open: Token, items: StoredNode[], boxed: WeakSet<StoredNode>): StoredNode {
+  const ordered = open.type === 'ordered_list_open';
+  const start = Number(open.attrGet('start') ?? 1);
+  return {
+    type: ordered ? 'orderedList' : 'bulletList',
+    ...(ordered && start !== 1 ? { attrs: { start } } : {}),
+    content: ordered ? items : items.map((item) => taskItem(item, boxed)),
+  };
 }
 
-function table(node: Table, context: BlockContext): StoredNode {
-  const width = node.children[0]?.children.length ?? 0;
-  const rows = node.children.map((row, index) => ({
-    type: 'tableRow',
-    content: Array.from({ length: width }, (_, column) => {
-      const cell = row.children[column];
-      const align = node.align?.[column];
-      const content = cell ? readInline(cell.children, context) : [];
-      return {
-        type: index === 0 ? 'tableHeader' : 'tableCell',
-        ...(align === 'center' || align === 'right' ? { attrs: { align } } : {}),
-        content: [withContent('paragraph', content)],
-      };
-    }),
-  }));
-  return { type: 'table', content: [{ type: 'caption' }, ...rows] };
+function cellOf(open: Token, content: StoredNode[]): StoredNode {
+  const align = /text-align:(center|right)/.exec(String(open.attrGet('style') ?? ''))?.[1];
+  return {
+    type: open.type === 'th_open' ? 'tableHeader' : 'tableCell',
+    ...(align ? { attrs: { align } } : {}),
+    content: [withContent('paragraph', content)],
+  };
 }
 
 // A paragraph holding only `$$` math, which is display math written on one line.
-function displayMath(node: RootContent, source: string): StoredNode | null {
-  const [only] = node.type === 'paragraph' && node.children.length === 1 ? node.children : [];
-  if (only?.type !== 'inlineMath') return null;
-  if (!source.startsWith('$$', only.position?.start.offset ?? -1)) return null;
-  return withContent('mathBlock', [], only.value ? { source: only.value } : undefined);
+function paragraphOf(content: StoredNode[], display: boolean): StoredNode {
+  const [only] = content;
+  if (!display || content.length !== 1 || only?.type !== 'math')
+    return withContent('paragraph', content);
+  const source = only.attrs?.source;
+  return withContent('mathBlock', [], source ? { source } : undefined);
 }
 
-// Fenced `$$` math; text after the opening signs is the block's label, which an equation does not
-// hold.
-function mathBlock(node: MathNode, context: BlockContext): StoredNode {
-  if (node.meta) context.warn(node, 'math label');
-  return withContent('mathBlock', [], node.value ? { source: node.value } : undefined);
+// The block a closing token ends, from the token that opened it and the content between them.
+function closed(frame: Open, boxed: WeakSet<StoredNode>): StoredNode[] {
+  const { token: open, content } = frame;
+  switch (open.type) {
+    case 'paragraph_open': {
+      const paragraph = paragraphOf(content, frame.display);
+      if (frame.box) boxed.add(paragraph);
+      return [paragraph];
+    }
+    case 'heading_open': {
+      const level = Number(open.tag.slice(1));
+      return [withContent('heading', content, level > 1 ? { level } : undefined)];
+    }
+    // A quote or item the reader emptied, such as one holding only definitions, keeps a paragraph.
+    case 'blockquote_open':
+      return [withContent('blockquote', withObjects(emptied(content)))];
+    case 'list_item_open':
+      return [withContent('listItem', withObjects(emptied(content)))];
+    case 'bullet_list_open':
+    case 'ordered_list_open':
+      return [listOf(open, content, boxed)];
+    case 'table_open':
+      return [{ type: 'table', content: [{ type: 'caption' }, ...content] }];
+    case 'tr_open':
+      return [{ type: 'tableRow', content }];
+    case 'th_open':
+    case 'td_open':
+      return [cellOf(open, content)];
+    default:
+      return content;
+  }
 }
 
-function readBlock(
-  node: RootContent | BlockContent | DefinitionContent,
-  context: BlockContext,
-): StoredNode[] {
-  switch (node.type) {
-    case 'heading':
-      return [
-        withContent(
-          'heading',
-          readInline(node.children, context),
-          node.depth > 1 ? { level: node.depth } : undefined,
-        ),
-      ];
-    case 'paragraph':
-      return [
-        displayMath(node, context.source) ??
-          withContent('paragraph', readInline(node.children, context)),
-      ];
-    case 'blockquote':
-      return [withContent('blockquote', blocksOrParagraph(readBlocks(node.children, context)))];
-    case 'list':
-      return [list(node, context)];
-    case 'code':
-      return [
-        withContent(
-          'codeBlock',
-          node.value ? [{ type: 'text', text: node.value }] : [],
-          node.lang ? { language: node.lang } : undefined,
-        ),
-      ];
-    case 'math':
-      return [mathBlock(node, context)];
-    case 'thematicBreak':
+const codeOf = (text: string, language?: string) =>
+  withContent(
+    'codeBlock',
+    text ? [{ type: 'text', text }] : [],
+    language ? { language } : undefined,
+  );
+
+// A token standing for a whole block, or the inline content of the block it is in.
+function leafOf(token: Token, context: InlineContext): StoredNode[] {
+  switch (token.type) {
+    case 'inline':
+      return readInline(token.children ?? [], context);
+    case 'fence':
+      return [codeOf(token.content.replace(/\n$/, ''), token.info.trim().split(/\s/)[0])];
+    case 'code_block':
+      return [codeOf(token.content.replace(/\n+$/, ''))];
+    case 'math_block': {
+      // Text after the opening `$$` is the block's label, which an equation does not hold.
+      if (token.info) context.warnings.add('content-left-out', 'math label');
+      const source = token.content.replace(/\n$/, '');
+      return [withContent('mathBlock', [], source ? { source } : undefined)];
+    }
+    case 'hr':
       return [{ type: 'rule' }];
-    case 'table':
-      return [table(node, context)];
-    case 'html':
-      context.warn(node, 'HTML block');
+    case 'html_block':
+      context.warnings.add('content-left-out', 'HTML block');
       return [];
     default:
       return [];
   }
 }
 
-/** mdast blocks as stored blocks, with figures and captions as the writer places them. */
-export function readBlocks(
-  nodes: readonly (RootContent | BlockContent | DefinitionContent)[],
-  context: BlockContext,
-): StoredNode[] {
-  return withObjects(nodes.flatMap((node) => readBlock(node, context)));
+interface Open {
+  readonly token: Token;
+  readonly content: StoredNode[];
+  /** Whether the block holds only `$$` math, read as display math. */
+  display: boolean;
+  /** Whether its Markdown starts with a task list box. */
+  box: boolean;
+}
+
+/** markdown-it block tokens as stored blocks, with figures and captions as the writer places them. */
+export function readBlocks(tokens: readonly Token[], context: InlineContext): StoredNode[] {
+  const root: StoredNode[] = [];
+  const stack: Open[] = [];
+  const boxed = new WeakSet<StoredNode>();
+  const into = () => stack[stack.length - 1]?.content ?? root;
+  for (const token of tokens) {
+    context.warnings.at(token.map?.[0]);
+    if (token.nesting === 1) stack.push({ token, content: [], display: false, box: false });
+    else if (token.nesting === -1) {
+      const open = stack.pop();
+      if (open) into().push(...closed(open, boxed));
+    } else {
+      const parent = stack[stack.length - 1];
+      const children = token.children ?? [];
+      if (parent && children.length === 1 && children[0]?.markup === '$$') parent.display = true;
+      if (parent && token.type === 'inline' && TASK_BOX.test(token.content)) parent.box = true;
+      into().push(...leafOf(token, context));
+    }
+  }
+  return withObjects(root);
 }

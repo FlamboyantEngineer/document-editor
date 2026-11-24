@@ -17,6 +17,8 @@ import {
   type StoredNode,
 } from '../model/index.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { routeDomChange } from './projection-input.js';
+import { createProjectionMap } from './projection-map.js';
 import { createPagesTextEngine } from './text-engine.js';
 
 beforeEach(() => {
@@ -37,6 +39,16 @@ function blocksOf(doc: ProseMirrorNode): ProseMirrorNode[] {
   return blocks;
 }
 
+function positionOf(doc: ProseMirrorNode, target: ProseMirrorNode): number {
+  let found = -1;
+  doc.descendants((node, pos) => {
+    if (node === target) found = pos;
+    return found < 0;
+  });
+  if (found < 0) throw new Error('No position');
+  return found;
+}
+
 // The pages' engine; footnote markers laid out too, as once thread Q3's superscript fix lands.
 function engineOf(view?: EditorView) {
   return createPagesTextEngine({
@@ -45,6 +57,27 @@ function engineOf(view?: EditorView) {
     onAtomsSettled: () => undefined,
     refusedTextAtoms: new Map(),
     ...(view ? { view: () => view } : {}),
+  });
+}
+
+function engineOfEquations() {
+  const glyph = { tag: 'mi', attrs: {}, children: ['x'] };
+  return createPagesTextEngine({
+    template: BASE_TEMPLATE,
+    measureIn: document.createElement('div'),
+    onAtomsSettled: () => undefined,
+    typesetOf: () => ({ state: 'ready', math: { tag: 'math', attrs: {}, children: [glyph] } }),
+    mathLayouter: () => ({
+      key: 'fixed-equation',
+      prepare: () => null,
+      layout: () => ({
+        width: 900,
+        ascent: 18,
+        descent: 6,
+        svg: { tag: 'svg', attrs: {}, children: [] },
+        missing: '',
+      }),
+    }),
   });
 }
 
@@ -109,35 +142,13 @@ describe('the pages engine and its inputs', () => {
     const kept = blocksOf(doc).at(-1);
     const watched = kept?.lastChild?.lastChild?.lastChild?.lastChild;
     if (!first || !kept || watched?.type.name !== 'math_display') throw new Error('No equations');
-    let start = -1;
-    doc.descendants((node, pos) => {
-      if (node === first) start = pos;
-      return start < 0;
-    });
     const later = EditorState.create({ doc }).tr.insert(
-      start,
+      positionOf(doc, first),
       first.type.create(first.attrs, first.content),
     ).doc;
     expect(blocksOf(later).at(-1)).toBe(kept);
 
-    const glyph = { tag: 'mi', attrs: {}, children: ['x'] };
-    const engine = createPagesTextEngine({
-      template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
-      typesetOf: () => ({ state: 'ready', math: { tag: 'math', attrs: {}, children: [glyph] } }),
-      mathLayouter: () => ({
-        key: 'fixed-equation',
-        prepare: () => null,
-        layout: () => ({
-          width: 900,
-          ascent: 18,
-          descent: 6,
-          svg: { tag: 'svg', attrs: {}, children: [] },
-          missing: '',
-        }),
-      }),
-    });
+    const engine = engineOfEquations();
     try {
       engine.number(doc);
       const before = engine.measureBlock(kept, null);
@@ -148,6 +159,71 @@ describe('the pages engine and its inputs', () => {
       expect(engine.measureBlock(kept, null)).not.toBe(before);
       expect(engine.mathOf(watched)?.end).toBeGreaterThan(placed?.end ?? 0);
       expect(engine.mathOf(watched)?.box.width).toBeLessThan(placed?.box.width ?? 0);
+    } finally {
+      engine.destroy();
+    }
+  });
+
+  it('DOCE-PAGINATION-11.9 DOCE-PAGINATION-12.10 keeps the number’s room while editing a projected table equation', () => {
+    const equation: StoredNode = { type: 'mathBlock', attrs: { id: 'nested', source: 'x+y' } };
+    const table: StoredNode = {
+      type: 'table',
+      content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [equation] }] }],
+    };
+    const firstEquation: StoredNode = { type: 'mathBlock', attrs: { source: 'x' } };
+    const doc = read([...Array.from({ length: 8 }, () => firstEquation), table]);
+    const block = blocksOf(doc).at(-1);
+    const math = block?.lastChild?.lastChild?.lastChild?.lastChild;
+    if (!block || math?.type.name !== 'math_display') throw new Error('No nested equation');
+    const map = createProjectionMap(doc);
+    const projection = EditorState.create({ doc });
+    const canonical = EditorState.create({ doc: map.canonical });
+    const routed = routeDomChange(projection.tr.insertText('+z', positionOf(doc, math) + 2), {
+      projection,
+      canonical,
+      map,
+    });
+    if (!routed) throw new Error('No routed edit');
+    const edited = blocksOf(routed.projection.doc).at(-1);
+    const committed = blocksOf(routed.canonical.doc).at(-1);
+    const editedMath = edited?.lastChild?.lastChild?.lastChild?.lastChild;
+    const committedMath = committed?.lastChild?.lastChild?.lastChild?.lastChild;
+    if (!edited || !editedMath || !committed || !committedMath)
+      throw new Error('No edited equation');
+    expect(editedMath).toMatchObject({ textContent: 'x+z+y' });
+    expect(editedMath).not.toBe(committedMath);
+    expect(editedMath.eq(committedMath)).toBe(true);
+
+    const engine = engineOfEquations();
+    try {
+      engine.number(canonical.doc);
+      engine.measureBlock(block, null);
+      const end = engine.mathOf(math)?.end;
+      expect(end).toBeGreaterThan(0);
+      engine.nestedLines(edited, null);
+      expect(engine.mathOf(editedMath)?.end).toBe(end);
+
+      engine.number(routed.canonical.doc);
+      engine.measureBlock(committed, null);
+      engine.nestedLines(edited, null);
+      expect(engine.mathOf(editedMath)?.end).toBe(end);
+      expect(engine.mathOf(editedMath)?.box.width).toBe(engine.mathOf(committedMath)?.box.width);
+
+      // Adding an earlier equation leaves the edited table intact in both documents.
+      const oldDoc = routed.canonical.doc;
+      const first = blocksOf(oldDoc)[0];
+      if (!first) throw new Error('No preceding equation');
+      const next = EditorState.create({ doc: oldDoc }).tr.insert(
+        positionOf(oldDoc, first),
+        first.type.create(first.attrs, first.content),
+      ).doc;
+      expect(blocksOf(next).at(-1)).toBe(committed);
+      engine.number(next);
+      engine.measureBlock(committed, null);
+      const changed = engine.mathOf(committedMath);
+      expect(changed?.end).toBeGreaterThan(end ?? 0);
+      // Kept page drawing can read placement without asking nestedLines again.
+      expect(engine.mathOf(editedMath)).toBe(changed);
     } finally {
       engine.destroy();
     }

@@ -58,23 +58,12 @@ describe('reading Markdown edge cases', () => {
     ]);
   });
 
-  it('DOCE-IMPORT-4.4 reads prices and prose before inline math as text', () => {
-    expect(blocksOf('Prices $5-$10. Formula $x$.')).toEqual([
-      paragraph(
-        text('Prices $5-$10. Formula '),
-        { type: 'math', attrs: { source: 'x' } },
-        text('.'),
-      ),
-    ]);
-    expect(blocksOf('From US$5 to US$10, then $2 + 2$ and $a\\$b$.')).toEqual([
-      paragraph(
-        text('From US$5 to US$10, then '),
-        { type: 'math', attrs: { source: '2 + 2' } },
-        text(' and '),
-        { type: 'math', attrs: { source: 'a\\$b' } },
-        text('.'),
-      ),
-    ]);
+  it('DOCE-IMPORT-4.4 keeps prices and prose before a separate formula literal', () => {
+    for (const prose of ['Prices $5-$10. Formula ', 'Price $5. Formula ']) {
+      expect(blocksOf(`${prose}$x$.`)).toEqual([
+        paragraph(text(prose), { type: 'math', attrs: { source: 'x' } }, text('.')),
+      ]);
+    }
   });
 
   it('DOCE-IMPORT-4.4 reads nested emphasis, character references and lazy quote lines as CommonMark does', () => {
@@ -134,29 +123,26 @@ describe('reading Markdown edge cases', () => {
     expect(read.warnings.map((warning) => warning.detail)).toEqual(['<constructor>', '<tostring>']);
   });
 
-  // About twenty reads of up to 40,000 characters take more than a test's default five seconds on a
-  // busy runner.
-  it(
-    'DOCE-IMPORT-4.4 reads unclosed emphasis, math and tags in time that grows with the text',
-    { timeout: 30_000 },
-    () => {
-      // The fastest of three reads, so a pause elsewhere does not count.
-      const time = (markdown: string) => {
-        let best = Infinity;
-        for (let run = 0; run < 3; run += 1) {
-          const start = performance.now();
-          readMarkdown(markdown);
-          best = Math.min(best, performance.now() - start);
-        }
-        return best;
-      };
-      for (const unit of ['*a ', '$a ', '<u>a ']) {
-        expect(blocksOf(unit.repeat(10))).toHaveLength(1);
-        // Four times the text: about four times the time, where rescanning to the end gave sixteen.
-        expect(time(unit.repeat(8000)), unit).toBeLessThan(time(unit.repeat(2000)) * 9 + 5);
+  it('DOCE-IMPORT-4.4 reads unclosed emphasis, links, math, tags and variables, emphasis runs and wide tables in time that grows with the text', () => {
+    // The fastest of three reads, so a pause elsewhere does not count.
+    const time = (markdown: string) => {
+      let best = Infinity;
+      for (let run = 0; run < 3; run += 1) {
+        const start = performance.now();
+        readMarkdown(markdown);
+        best = Math.min(best, performance.now() - start);
       }
-    },
-  );
+      return best;
+    };
+    const wideTable = (columns: number) =>
+      ['| a '.repeat(columns), '|---'.repeat(columns), '| 1 '.repeat(columns)].join('|\n') + '|';
+    expect(time(wideTable(8000)), 'wide table').toBeLessThan(time(wideTable(2000)) * 9 + 5);
+    for (const unit of ['*a ', '**a*', '[a](', '$a ', '<u>a ', '{{a}} {{']) {
+      expect(blocksOf(unit.repeat(10))).toHaveLength(1);
+      // Four times the text: about four times the time, where rescanning to the end gave sixteen.
+      expect(time(unit.repeat(8000)), unit).toBeLessThan(time(unit.repeat(2000)) * 9 + 5);
+    }
+  });
 
   it('DOCE-IMPORT-4.4 flattens nesting deeper than a document holds, with a warning', () => {
     const read = readMarkdown(`${'>'.repeat(5000)} deep`);

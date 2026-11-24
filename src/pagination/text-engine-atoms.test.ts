@@ -29,4 +29,24 @@ describe('math places', () => {
     expect(reading.stats().smallMath).toBe(1);
     expect(reading.mathOf(kept)).toBe(small);
   });
+
+  it('DOCE-PAGINATION-12.11 finds the placement of an equal copy of the laid node by its element id', () => {
+    const laid = standInMathLayouter().layouter.layout(mathOf(['a']), true, 20);
+    if (!laid) throw new Error('the stand-in refused');
+    const at = placeMath({ math: laid }, 500);
+    const equation = (id: string, latex: string) =>
+      schema.node('math_display', { dataId: id }, [schema.text(latex)]);
+    const places = mathPlaces();
+    places.record(equation('m1', 'a+b'), at);
+    const reading = places.reading(
+      () => ({ laid: 0, refused: 0, reasons: new Map() }),
+      () => null,
+    );
+    // The pages edited the equation in their own copy of it.
+    expect(reading.mathOf(equation('m1', 'a+b'))).toBe(at);
+    expect(reading.mathOf(equation('m1', 'a+c'))).toBeNull();
+    expect(reading.mathOf(equation('m2', 'a+b'))).toBeNull();
+    places.forget();
+    expect(reading.mathOf(equation('m1', 'a+b'))).toBeNull();
+  });
 });

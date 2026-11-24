@@ -94,7 +94,5 @@ Verification: `test/bundle-budgets.test.ts`
 
 The browser entry shall export `DocumentEditor` and `TemplateWorkspace` from the packed package. The manifest shall require the base component library at the same exact Git commit used in development. `npm run check:consumer` shall install the packed editor with strict peers and load the client entry against that commit.
 
-The packed-consumer check shall also use the documented direct KaTeX dependency and the host's `$katex` override. It shall reinstall with strict `npm ci` using the generated lockfile and verify that the host and editor share one KaTeX installation.
-
-Implementation: `src/index.ts`, `package.json`, `scripts/check-consumer.mjs`, `scripts/tested-set.json`
+Implementation: `src/index.ts`, `package.json`, `scripts/check-consumer.mjs`
 Verification: `test/node-entry.test.ts`
