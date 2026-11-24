@@ -4,18 +4,21 @@
 // told through the host's feedback. Pasted HTML whose images come with the paste, as data URIs or
 // as a word processor's pictures, is pasted once all its images are uploaded, each a figure, at
 // the selection it was pasted at; an image whose bytes the paste lacks pastes nothing, and if the
-// document changed meanwhile nothing is pasted and the reader is asked to paste again. A paste
-// from the keyboard and the context menu's Paste both go through `pasteImages`.
+// document changed meanwhile nothing is pasted and the reader is asked to paste again. An image of
+// math that carries its LaTeX becomes that math instead (DOCE-OBJECTS-1.12). A paste from the
+// keyboard and the context menu's Paste both go through `pasteImages`.
 
+import { readMathImage } from '@flamboyantengineer/ui-components/math-preview';
 import { DOMSerializer } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { insertMath } from '../../engine/index.js';
 import type { AssetAdapter, FeedbackAdapter } from '../../host/index.js';
 import { createFigure } from '../../model/schema/caption-content.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { insertFigureAt, type PastePlace } from './paste-place.js';
-import { hasPastedImages, hasPastedText, pastedImages } from './pasted-images.js';
+import { insertAt, insertFigureAt, type PastePlace } from './paste-place.js';
+import { hasPastedImages, hasPastedMath, hasPastedText, pastedImages } from './pasted-images.js';
 
 /** What pasting images needs from the host. */
 export interface FigurePasteOptions {
@@ -87,6 +90,21 @@ function refuse(options: FigurePasteOptions, message?: string): null {
   return null;
 }
 
+// Images copied from math with their LaTeX (`copyMathImage`) become that math again, in order, when
+// every image is one; true when they were.
+async function insertMathImages(
+  view: EditorView,
+  { files, at }: { files: File[]; at: PastePlace },
+  options: FigurePasteOptions,
+): Promise<boolean> {
+  const maths = await Promise.all(files.map((file) => readMathImage(file)));
+  if (maths.some((math) => math === null)) return false;
+  if (!canTake(view) || options.isCurrent?.() === false) return true;
+  let place = at;
+  for (const math of maths) if (math) place = insertAt(view, place, insertMath(math.source, math));
+  return true;
+}
+
 // Uploads all the images, then inserts them as figures in order: the first at the place they were
 // pasted or dropped at, each next one after the one before. Nothing is inserted if one fails.
 async function insertFigures(
@@ -94,6 +112,7 @@ async function insertFigures(
   { files, at }: { files: File[]; at: PastePlace },
   options: FigurePasteOptions,
 ) {
+  if (await insertMathImages(view, { files, at }, options)) return;
   const stored = await uploadAll(files, options);
   if (!stored || !canTake(view) || options.isCurrent?.() === false) return;
   let place = at;
@@ -158,7 +177,7 @@ export function pasteImages(
   content: PastedContent,
   options: FigurePasteOptions,
 ): boolean {
-  if (!view.editable) return false;
+  if (!view.editable || hasPastedMath(content.html)) return false;
   const files = imagesOf(content.files);
   if (files.length > 0 && !hasPastedText(content.html)) {
     const at = { doc: view.state.doc, selection: view.state.selection };

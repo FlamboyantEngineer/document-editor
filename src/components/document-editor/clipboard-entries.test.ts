@@ -122,7 +122,55 @@ const strongText = ({ state: { doc } }: EditorView) => {
   return found;
 };
 
+// A 1x1 PNG, carrying the LaTeX a copied math image does.
+const PIXEL =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+// The PNG with an uncompressed `iTXt` chunk `LaTeX` after its header; the reader checks no CRC.
+function mathImage(latex: string) {
+  const png = Uint8Array.from(atob(PIXEL), (char) => char.charCodeAt(0));
+  const data = new TextEncoder().encode(`LaTeX\0\0\0\0\0${latex}`);
+  const chunk = new Uint8Array(12 + data.length);
+  new DataView(chunk.buffer).setUint32(0, data.length);
+  chunk.set(new TextEncoder().encode('iTXt'), 4);
+  chunk.set(data, 8);
+  return Promise.resolve(
+    new Blob([png.subarray(0, 33), chunk, png.subarray(33)], { type: 'image/png' }),
+  );
+}
+
+// The math in the document, as its LaTeX.
+const mathsOf = ({ state: { doc } }: EditorView) => {
+  const found: string[] = [];
+  doc.descendants((node) => {
+    if (node.type.name.startsWith('math_')) found.push(`${node.type.name}:${node.textContent}`);
+  });
+  return found;
+};
+
 describe('the context menu clipboard entries', () => {
+  it('DOCE-OBJECTS-1.12 pastes an image of math that carries its LaTeX as math, not a figure', async () => {
+    const image = await mathImage(String.raw`\pi r^2`);
+    stubClipboard([{ types: ['image/png'], getType: () => Promise.resolve(image) }]);
+    const { shown, uploaded, press } = setUp();
+    press('paste');
+    await vi.waitFor(() => expect(mathsOf(shown)).toEqual([String.raw`math_inline:\pi r^2`]));
+    expect(uploaded).toEqual([]);
+  });
+
+  it('DOCE-OBJECTS-1.12 pastes the HTML image of copied math as that math, display math as a block', async () => {
+    stubClipboard([
+      clipboardItem({
+        'image/png': 're-encoded, without its text',
+        'text/html': `<img src="data:image/png;base64,${PIXEL}" width="40" height="20" alt="x" data-latex="x^2" data-math-display="display">`,
+      }),
+    ]);
+    const { shown, uploaded, press } = setUp();
+    press('paste');
+    await vi.waitFor(() => expect(mathsOf(shown)).toEqual(['math_display:x^2']));
+    expect(uploaded).toEqual([]);
+    expect(blocks(shown)).not.toContain('[image.png]');
+  });
+
   it('DOCE-EDITOR-3.2 DOCE-EDITOR-4.6 pastes a copied image as a figure, uploaded', async () => {
     stubClipboard([clipboardItem({ 'image/png': 'image' })]);
     const { shown, uploaded, press } = setUp();
