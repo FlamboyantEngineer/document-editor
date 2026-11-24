@@ -268,21 +268,114 @@ describe('forcedLines', () => {
     const doc = pagesDoc([[figure]]);
     const state = stateWith(doc, engine);
     const at = positionOf(doc, 'abcdefghijklmnop');
+    const label = positionOf(doc, 'Listing');
     // The figure is laid out whole, its caption with its code.
-    expect(nested).toHaveBeenCalledWith(figure, 'Body');
+    expect(nested).toHaveBeenCalledWith(figure, 'Body', undefined);
     expect(calls.map(({ text }) => text)).toEqual(['Listing', 'abcdefghijklmnop']);
     const block = decorations(state)
       .find()
       .find((each) => each.from === at);
     expect(block?.spec).toEqual({ forcedLines: engine.lines(code, { scope: 'Body' }) });
     expect(drawn(state)).toEqual([
+      { from: label, to: label + 9, class: 'de-forced-lines', 'data-lines': '1', dir: 'ltr' },
       { from: at, to: at + 18, class: 'de-forced-lines', 'data-lines': '2', dir: 'ltr' },
       { from: at + 10, to: at + 11, class: 'de-forced-lines__end' },
     ]);
     const [page] = pageTextLines(state);
     expect(
       page?.blocks.map(({ elementId, type, nested: inside }) => ({ elementId, type, inside })),
-    ).toEqual([{ elementId: 'k1', type: 'code_block', inside: true }]);
+    ).toEqual([
+      { elementId: '', type: 'code_caption', inside: true },
+      { elementId: 'k1', type: 'code_block', inside: true },
+    ]);
+  });
+
+  it("DOCE-PAGINATION-11.2 draws figures' and tables' captions on their lines, their indent before the label", () => {
+    const figure = create('figure', { src: 'a.png' }, [
+      create('figure_caption', null, [documentSchema.text('aaaaaaaaaabb')]),
+    ]);
+    const cell = create('table_cell', null, [paragraph('cc')]);
+    const table = create('table', null, [create('table_row', null, [cell])]);
+    const holder = create('table_figure', null, [
+      create('table_caption', null, [documentSchema.text('dd')]),
+      table,
+    ]);
+    const doc = pagesDoc([[figure, holder]]);
+    const state = stateWith(doc, stubEngine({ left: 4 }).engine);
+    const [first, second, third] = [
+      positionOf(doc, 'aaaaaaaaaabb'),
+      positionOf(doc, 'dd'),
+      positionOf(doc, 'cc'),
+    ];
+    const indent = { style: '--de-first-indent: 4.000px' };
+    const line = { class: 'de-forced-lines__start', style: '--de-line-indent: 4.000px' };
+    expect(drawn(state)).toEqual([
+      {
+        from: first,
+        to: first + 14,
+        class: 'de-forced-lines',
+        'data-lines': '2',
+        dir: 'ltr',
+        ...indent,
+      },
+      { from: first + 10, to: first + 11, class: 'de-forced-lines__end' },
+      { from: first + 11, to: first + 12, ...line },
+      {
+        from: second,
+        to: second + 4,
+        class: 'de-forced-lines',
+        'data-lines': '1',
+        dir: 'ltr',
+        ...indent,
+      },
+      { from: third, to: third + 4, class: 'de-forced-lines', 'data-lines': '1', dir: 'ltr' },
+      { from: third + 1, to: third + 2, ...line },
+    ]);
+  });
+
+  it("DOCE-PAGINATION-11.2 leaves a later part's caption, with the first part's text, to the browser", () => {
+    const code = create('code_block', { codeBlockContinued: true }, [documentSchema.text('ee')]);
+    const figure = create('code_figure', null, [create('code_caption', null), code]);
+    const doc = pagesDoc([[figure]]);
+    const state = stateWith(doc, stubEngine().engine);
+    const [page] = pageTextLines(state);
+    expect(page?.blocks.map(({ type, reason }) => ({ type, reason }))).toEqual([
+      { type: 'code_caption', reason: 'continued caption' },
+      { type: 'code_block', reason: undefined },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.2 leaves a caption whose label fills its first line to the browser', () => {
+    const { engine } = stubEngine();
+    const lines = (from: number, to: number): TextLine => ({
+      from,
+      to,
+      width: 10,
+      left: 0,
+      top: 0,
+      height: 20,
+      end: 'end',
+    });
+    const label = {
+      width: 100,
+      lines: [lines(0, 0), lines(0, 2)],
+      height: 40,
+      overhead: 0,
+      justify: false,
+    };
+    const caption = create('table_caption', null, [documentSchema.text('ff')]);
+    const table = create('table', null, [
+      create('table_row', null, [create('table_cell', null, [paragraph('gg')])]),
+    ]);
+    const holder = create('table_figure', null, [caption, table]);
+    const own = engine.nestedLines.bind(engine);
+    engine.nestedLines = (container, scope) =>
+      new Map([...own(container, scope), [caption, label]]);
+    const [page] = pageTextLines(stateWith(pagesDoc([[holder]]), engine));
+    expect(page?.blocks.map(({ type, reason }) => ({ type, reason }))).toEqual([
+      { type: 'table_caption', reason: 'wrapped label' },
+      { type: 'paragraph', reason: undefined },
+    ]);
   });
 
   it("DOCE-PAGINATION-11.2 hands linked code's view the lines of the code it is laid out as", () => {

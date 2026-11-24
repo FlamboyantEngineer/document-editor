@@ -117,7 +117,7 @@ function ownText(node: ProseMirrorNode, { from, to, marker, variable }: TextBetw
 export function pageTextLines(state: EditorState): PageTextLines[] {
   const engine = (forcedLinesKey.getState(state) as ForcedLinesState | undefined)?.engine;
   if (!engine) return [];
-  const { headings, paragraphs } = engine.numbering(state.doc);
+  const { headings, paragraphs, labelOf } = engine.numbering(state.doc);
   const numbers = footnoteNumbersKey.getState(state)?.set;
   const markerAt = (pos: number) => {
     const number = numbers
@@ -151,7 +151,7 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
       return false;
     }
     if (parent?.type.name !== 'page_content') return true;
-    const place = { pos, scope, headings, numbered: paragraphs, inserted };
+    const place = { pos, scope, headings, numbered: paragraphs, inserted, labelOf };
     for (const block of forcedBlocksOf(engine, node, place)) blocks.push(blockOf(reading, block));
     return false;
   });

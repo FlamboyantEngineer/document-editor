@@ -13,6 +13,8 @@ import type { DrawnLines } from './text-engine-types.js';
  */
 export interface LinesRecorder {
   lines: Map<ProseMirrorNode, DrawnLines> | null;
+  /** The labels the container's captions show while it is laid out; the numbers' by default. */
+  labelOf?: ((caption: ProseMirrorNode) => string | undefined) | null | undefined;
 }
 
 interface NestedSource {
@@ -23,6 +25,8 @@ interface NestedSource {
   readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
   /** The markup the pages are laid out in, by which one holding a suggestion is kept too. */
   readonly markup?: (() => SuggestionMarkup) | undefined;
+  /** A caption's label in the measured document, whose width the caption's lines follow. */
+  readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   /** What the template variables anywhere in a node show, as a key (`bodyVariablesKey`). */
   readonly variablesKey?: ((node: ProseMirrorNode) => string) | undefined;
 }
@@ -44,9 +48,23 @@ export function footnoteNumbersKey(
   return key;
 }
 
+// The labels a container's captions show, in order, as a key.
+function labelsKey(
+  container: ProseMirrorNode,
+  labelOf: (caption: ProseMirrorNode) => string | undefined,
+): string {
+  let key = '';
+  container.descendants((child) => {
+    const label = labelOf(child);
+    if (label !== undefined) key += `,${label}`;
+    return !child.isTextblock;
+  });
+  return key;
+}
+
 /**
- * The nested lines of containers, kept by node, scope, footnote numbers and markup until
- * forgotten.
+ * The nested lines of containers, kept by node, scope, footnote numbers, caption labels and markup
+ * until forgotten.
  */
 export function createNestedLines(source: NestedSource) {
   let kept = new WeakMap<
@@ -57,13 +75,18 @@ export function createNestedLines(source: NestedSource) {
     lines(
       container: ProseMirrorNode,
       scope: string | null,
+      labelOf?: (caption: ProseMirrorNode) => string | undefined,
     ): ReadonlyMap<ProseMirrorNode, DrawnLines> {
-      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}${source.variablesKey?.(container) ?? ''}`;
+      const labels = labelOf ?? source.labelOf;
+      const shown = labels ? labelsKey(container, labels) : '';
+      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}${source.variablesKey?.(container) ?? ''}|${shown}`;
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
       const { geometry, recorder } = source;
       recorder.lines = new Map();
+      recorder.labelOf = labelOf ?? null;
       const result = geometry.layoutBlock(container, { width: source.widthOf(scope), scope });
+      recorder.labelOf = null;
       const lines: ReadonlyMap<ProseMirrorNode, DrawnLines> = result.ok
         ? recorder.lines
         : new Map();
