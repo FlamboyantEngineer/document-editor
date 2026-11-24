@@ -75,9 +75,9 @@ function refusalsOf(file: DocumentFile): Refusals {
   return { laid, refused, reasons: Object.fromEntries([...reasons].sort()) };
 }
 
-// The blocks each document leaves to the DOM today, and why, over the whole set (898 laid): none, since
-// template variables in the text are laid out too (DOCE-PAGINATION-11.13). A count may only go
-// down, so a change that refuses a block fails.
+// The blocks each document leaves to the DOM today, and why, over the whole set (898 laid): none,
+// since template variables in the text are laid out too (DOCE-PAGINATION-11.13). A count may only
+// go down, so a change that refuses a block fails.
 const REFUSED_BY_DOCUMENT: Readonly<Record<string, number>> = {};
 
 const REFUSED_BY_REASON: Readonly<Record<string, number>> = {};
