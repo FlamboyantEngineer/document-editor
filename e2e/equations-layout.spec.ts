@@ -149,6 +149,30 @@ test.describe('equations on the engine’s lines', () => {
     await expect.poll(() => offPlan(page)).toEqual([]);
   });
 
+  test('DOCE-PAGINATION-12.11 draws display math edited in place from its new layout', async ({
+    page,
+  }) => {
+    const block = { type: 'mathBlock', attrs: { source: 'x^2' } } as Stored;
+    await load(page, documentOf(paragraph(text('Before')), block, paragraph(text('After'))));
+    const display = page.locator(`${MATH}[data-display='display']`);
+    await expect(display).toHaveAttribute('data-math-layout', 'laid');
+    const width = () =>
+      display.evaluate((element) => element.style.getPropertyValue('--de-math-width'));
+    const before = await width();
+    // The pages and the canonical state each make their own copy of math edited inside.
+    await display.dblclick();
+    const source = page
+      .locator('.de-object-editors__field[data-kind="math"]')
+      .getByRole('textbox', { name: 'LaTeX' });
+    await expect(source).toBeFocused();
+    await page.keyboard.press('End');
+    await page.keyboard.type('+y^3');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(display.locator('math')).toContainText('y');
+    await expect(display).toHaveAttribute('data-math-layout', 'laid');
+    await expect.poll(width).not.toBe(before);
+  });
+
   test('DOCE-PAGINATION-13.1 breaks a line right after inline math in the editor, the viewer and a print', async ({
     page,
   }) => {
