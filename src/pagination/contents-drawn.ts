@@ -26,12 +26,18 @@ export function drawnContents(
   if (!list || !width) return null;
   const result = at.geometry.layoutBlock(node, { width: at.width, scope: at.scope });
   if (!result.ok) return null;
-  const { rows } = result.block.measurement as { rows: readonly ContentsRowLayout[] };
+  const { rows, title, empty } = result.block.measurement as {
+    rows: readonly ContentsRowLayout[];
+    title?: readonly number[];
+    empty?: readonly number[];
+  };
   const page = reservedPage(at.contents.digits());
   return {
     pageWidths: LEVELS.map((level) =>
       list.showPage ? width(page, { kind: list.kind, level, scope: at.scope }) : null,
     ),
     rows: rows.map((row) => row.starts),
+    ...(title ? { title } : {}),
+    ...(empty ? { empty } : {}),
   };
 }

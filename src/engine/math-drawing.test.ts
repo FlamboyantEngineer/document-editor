@@ -22,6 +22,11 @@ describe('math drawn from its layout', () => {
     expect(mathDrawingHooks(tagged).style).toContain(
       '--de-math-tag-width: 20px; --de-math-tag-ascent: 14px; --de-math-tag-descent: 4px',
     );
+    // The room the line's end keeps, for a tag or an automatic number.
+    expect(mathDrawingHooks(placeMath({ math: laid(['a']) }, 600, 31)).style).toContain(
+      '--de-math-end: 31px',
+    );
+    expect(mathDrawingHooks(placed).style).not.toContain('--de-math-end');
     expect(mathDrawingHooks(placeMath(reservedMath(2, false, 10), 600))).toMatchObject({
       'data-math-layout': 'reserved',
     });

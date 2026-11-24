@@ -31,6 +31,7 @@ export function numberedText(
     typography: (node, scope) => text.typography(node, scope),
     layoutContentsRow: (row, place) => text.layoutContentsRow(row, place),
     contentsTextWidth: (value, level) => text.contentsTextWidth(value, level),
+    textWidth: (value, node, scope) => text.textWidth(value, node, scope),
     ...(contentsText ? { layoutContentsText: contentsText } : {}),
     layoutText: (node, place) => {
       const { prefixes, paragraphs } = numbers();
