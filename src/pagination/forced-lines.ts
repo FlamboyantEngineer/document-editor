@@ -70,7 +70,9 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
     const forced = forcedBlocksOf(builder.engine, child, place);
     const [first] = forced;
     if (first?.nested) {
-      const lines = new Map(forced.flatMap(({ node, table }) => (table ? [[node, table]] : [])));
+      const lines = new Map(
+        forced.flatMap(({ node, owner, table }) => (table ? [[owner ?? node, table]] : [])),
+      );
       const { set } = containerSet(builder, child, lines);
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;
@@ -78,6 +80,11 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
     const table = first?.table;
     if (!first || !table) return;
     const dir = drawnDirection(builder.directions, { node: child, pos });
+    // Linked code's view draws its code on the lines it is handed.
+    if (first.owner) {
+      locals.push(Decoration.node(offset, end, blockAttrs(table, { dir }), { forcedLines: table }));
+      return;
+    }
     locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
     const key = `${first.prefix ?? ''}|${insertedKey(builder.inserted.byBlock.get(child))}`;
     const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });

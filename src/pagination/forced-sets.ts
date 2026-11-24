@@ -126,9 +126,9 @@ function linesKey(table: DrawnLines): string {
 }
 
 // A container's set, such as a table's, a row's or a cell's, kept by node and by the lines of the
-// forced text blocks in it: each marked, with its lines inside it, from the container's content
-// start. Built from its children's kept sets, so a keystroke in one cell leaves every other row's
-// and cell's set as it was, unless their lines moved.
+// forced text blocks in it, and of linked code by its own node: each marked, with its lines inside
+// it, from the container's content start. Built from its children's kept sets, so a keystroke in
+// one cell leaves every other row's and cell's set as it was, unless their lines moved.
 export function containerSet(
   builder: Builder,
   container: ProseMirrorNode,
@@ -147,6 +147,8 @@ export function containerSet(
       // The lines go with the block's element too, for a node view that draws beside them, such
       // as a code block's gutter of line numbers.
       locals.push(Decoration.node(offset, end, blockAttrs(table, { dir }), { forcedLines: table }));
+      // An atom, such as linked code, draws its lines in its own view.
+      if (child.isLeaf) return;
       const set = blockSet(builder, child, { table, key, prefixed: false });
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;

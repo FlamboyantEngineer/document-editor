@@ -4,9 +4,10 @@
 // (DOCE-PAGINATION-10.2, 10.4).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { deriveLinkedCodeBlockCaption } from '../../model/schema/caption-text.js';
+import { isTextMeasurement } from '../../model/pagination/text-split.js';
 import { parseObjectLayout } from '../../model/schema/object-layout.js';
 import { type BlockContext, type Laid, laid, notLaid } from './context.js';
+import { linkedCodeFigure } from './linked-code.js';
 import { layTextBlock } from './text-blocks.js';
 
 function sizeAttr(value: unknown): number {
@@ -102,40 +103,33 @@ export function layCodeFigure(context: BlockContext, figure: ProseMirrorNode): L
     if (!line.ok) return line;
     above = line.block.height + 2 * metrics.captionGap + metrics.captionRule;
   }
+  // Each part of a split code figure draws the caption again, so it is part of the room every
+  // part takes beyond its lines.
+  const { measurement } = body.block;
   return laid({
     ...body.block,
     node: figure,
     height: above + body.block.height,
+    ...(isTextMeasurement(measurement)
+      ? { measurement: { ...measurement, overhead: (measurement.overhead ?? 0) + above } }
+      : {}),
   });
 }
-
-// A node of a type with the text given, or none when the text is empty.
-const withText = (node: ProseMirrorNode, text: string) =>
-  text ? [node.type.schema.text(text)] : [];
 
 /**
  * Linked code: the host's code under the caption its address names, in the box a captioned code
  * block draws (`pre` with its caption line), so it is laid out as that code figure would be. Its
- * lines count from the start of its code, as its split reads them.
+ * lines count from the start of its code, as its split reads them, and are numbered from its first
+ * line's number.
  */
 export function layLinkedCode(context: BlockContext, node: ProseMirrorNode): Laid {
-  const { schema } = node.type;
-  const { code_figure: figureType, code_caption: captionType, code_block: codeType } = schema.nodes;
-  if (!figureType || !captionType || !codeType)
-    return notLaid(node, 'no code figure in the schema');
-  const caption = captionType.create(
-    null,
-    withText(node, deriveLinkedCodeBlockCaption(node.attrs.url)),
-  );
-  const code = codeType.create(
-    { language: node.attrs.language },
-    withText(node, String(node.attrs.code ?? '')),
-  );
+  const linked = linkedCodeFigure(node);
+  if (!linked) return notLaid(node, 'no code figure in the schema');
   const label = context.options.labelOf?.(node);
   const labelOf = (line: ProseMirrorNode) =>
-    line === caption ? label : context.options.labelOf?.(line);
+    line === linked.caption ? label : context.options.labelOf?.(line);
   const options = { ...context.options, labelOf };
-  const result = layCodeFigure({ ...context, options }, figureType.create(null, [caption, code]));
+  const result = layCodeFigure({ ...context, options }, linked.figure);
   return result.ok ? laid({ ...result.block, node }) : notLaid(node, result.reason);
 }
 

@@ -1,10 +1,12 @@
-// The text blocks a page draws on forced lines (DOCE-PAGINATION-11.2): each paragraph and heading
-// directly in its content, and each paragraph and heading in a table's cells, a list, a quote, a
-// layout section's columns, a script's output or an embed, on the lines the engine laid it out on
-// with its container. The pages' decorations, the computed lines a test compares with, and the
-// layout handed to a viewer or a print all read them from here.
+// The text blocks a page draws on forced lines (DOCE-PAGINATION-11.2): each paragraph, heading and
+// code block directly in its content, and each in a table's cells, a list, a quote, a layout
+// section's columns, a script's output, an embed or a code figure, and linked code's code, on the
+// lines the engine laid it out on with its container. The pages' decorations, the computed lines a
+// test compares with, and the layout handed to a viewer or a print all read them from here; that
+// layout leaves linked code out, since a static drawing draws it from its markup.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
 import { isContinuationPlaceholder } from '../model/pagination/fragments.js';
 import { isContinued } from './block-directions.js';
 import type { InsertedTexts } from './inserted-texts.js';
@@ -38,6 +40,11 @@ export interface ForcedBlock {
   readonly reason?: string | undefined;
   /** Whether it is inside a top-level block, such as a table cell's paragraph. */
   readonly nested: boolean;
+  /**
+   * The atom whose view draws the block's lines, for a block laid out as a text block it is not:
+   * linked code, whose `node` is then the code block it is laid out as.
+   */
+  readonly owner?: ProseMirrorNode | undefined;
 }
 
 /** Where a page content's child is, and the numbers the pages draw. */
@@ -72,19 +79,31 @@ function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): str
   return at.inserted.byBlock.has(node) ? 'inserted words' : null;
 }
 
-// The lines of the text blocks in a container. A code figure's code is laid out alone, at the
-// content width its figure lays it out at, since its caption is left to the browser.
-function linesIn(engine: PagesTextEngine, container: ProseMirrorNode, scope: string | null) {
-  if (container.type.name !== 'code_figure') return engine.nestedLines(container, scope);
-  const code = container.lastChild;
-  const table = code?.type.name === 'code_block' ? engine.lines(code, { scope }) : null;
-  return new Map(code && table ? [[code, table]] : []);
+// Linked code, drawn by its view on the lines of the code block it is laid out as
+// (`linkedCodeFigure`), the lines a container's layout gave that code when it is inside one.
+function linkedCode(
+  engine: PagesTextEngine,
+  owner: ProseMirrorNode,
+  at: { pos: number; scope: string | null; nested?: ReadonlyMap<ProseMirrorNode, DrawnLines> },
+): ForcedBlock | null {
+  const code = linkedCodeFigure(owner)?.code;
+  if (!code) return null;
+  const nested = Boolean(at.nested);
+  const table = (at.nested ? at.nested.get(code) : engine.lines(code, { scope: at.scope })) ?? null;
+  const reason = table ? {} : { reason: 'not laid out by the engine' };
+  return { node: code, owner, pos: at.pos, table, nested, ...reason };
 }
 
 function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedPlace) {
-  const lines = linesIn(engine, container, at.scope);
+  const lines = engine.nestedLines(container, at.scope);
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset) => {
+    if (node.type.name === 'linked_code_block') {
+      const pos = at.pos + 1 + offset;
+      const block = linkedCode(engine, node, { pos, scope: at.scope, nested: lines });
+      if (block) blocks.push(block);
+      return false;
+    }
     if (!FORCED_TYPES.has(node.type.name)) return !node.isTextblock;
     // A split's empty placeholder takes no room on the page (DOCE-PAGINATION-4.3).
     if (isContinuationPlaceholder(node)) return false;
@@ -106,5 +125,9 @@ export function forcedBlocksOf(
 ): ForcedBlock[] {
   const name = child.type.name;
   if (FORCED_TYPES.has(name)) return [topLevel(engine, child, at)];
+  if (name === 'linked_code_block') {
+    const block = linkedCode(engine, child, at);
+    return block ? [block] : [];
+  }
   return NESTED_TYPES.has(name) ? inside(engine, child, at) : [];
 }

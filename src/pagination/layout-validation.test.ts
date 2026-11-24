@@ -182,6 +182,21 @@ describe('findWrappedLines', () => {
     expect(findWrappedLines(root)).toEqual([]);
   });
 
+  it("DOCE-PAGINATION-11.4 leaves out what is drawn beside the lines, such as linked code's caption line", () => {
+    drawLines(1);
+    const block = forced('linked', 1);
+    const caption = document.createElement('span');
+    caption.style.display = 'block';
+    caption.contentEditable = 'false';
+    caption.getClientRects = () => [new DOMRect(0, -30, 100, 18)] as unknown as DOMRectList;
+    block.prepend(caption);
+    const root = document.createElement('div');
+    root.append(block);
+    document.body.append(root);
+    expect(findWrappedLines(root)).toEqual([]);
+    root.remove();
+  });
+
   it('DOCE-PAGINATION-11.4 counts a line that holds only a hard break', () => {
     // Two lines of text with an empty line between them, drawn by the second of two breaks.
     const tops = [0, 20, 40];

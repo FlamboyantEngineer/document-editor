@@ -28,6 +28,15 @@ export function unzoom(length: number, zoom: number): number {
 }
 
 /**
+ * A margin as Chromium lays it out: a computed style gives the length it resolves (`0.667em` at
+ * 14px is 9.333px), and layout keeps it as whole layout units, dropping what is left over
+ * (9.328125px), where the layout engine's margins are too (DOCE-PAGINATION-9.2).
+ */
+export function layoutMargin(length: number): number {
+  return Math.trunc(length * LAYOUT_UNIT + Math.sign(length) * 1e-6) / LAYOUT_UNIT;
+}
+
+/**
  * Publishes the inverse of the measuring element's device pixel ratio as `--de-measure-zoom`, which
  * the reference stylesheet zooms it by, and tells `changed` when the ratio changes, as when the
  * window moves to another screen; returns what stops it. Measurements divide by the zoom the
