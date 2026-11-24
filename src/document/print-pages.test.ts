@@ -2,8 +2,11 @@ import type { Node } from 'prosemirror-model';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
+import { placeMath } from '../layout-engine/math-atoms.js';
 import { BASE_TEMPLATE, type TemplateFile } from '../model/index.js';
+import { engineMath } from '../pagination/engine-math.js';
 import { engineNumbers } from '../pagination/engine-numbers.js';
 import { pagesLayout } from '../pagination/pages-layout.js';
 import { drawLayoutPages, renderLayoutPrintPage } from './print-pages.js';
@@ -98,6 +101,36 @@ describe('renderLayoutPrintPage', () => {
     // The math that ends the first line takes its end hook on its own element.
     const first = printed.querySelector('.de-math');
     expect(first?.classList.contains('de-forced-lines__end')).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-12.11 draws math as SVG at the box the engine placed it at, its MathML kept hidden', () => {
+    const atom = node('math_inline', null, [documentSchema.text('ab')]);
+    const doc = pagesDocument([page([paragraph([atom], { dataId: 'p1' })])]);
+    const laid = standInMathLayouter().layouter.layout(mathOf(['a', 'b']), false, 20);
+    if (!laid) throw new Error('the stand-in refused');
+    const placed = placeMath({ math: laid }, 10);
+    const engine = { ...stubEngine({ perLine: 3 }), mathOf: () => placed };
+    const source = { engine: () => engine, version: () => 0 };
+    const state = pagesState(doc, engine, [engineMath(source)]);
+    const typeset = mathOf(['a', 'b']);
+    const layout = pagesLayout(state, { typesetOf: () => ({ state: 'ready', math: typeset }) });
+    expect(layout?.math?.[0]?.drawing).toBe(placed);
+    if (!layout) throw new Error('no layout');
+    const printed = new DOMParser().parseFromString(
+      renderLayoutPrintPage(layout, BASE_TEMPLATE),
+      'text/html',
+    );
+    const math = printed.querySelector<HTMLElement>('.de-math');
+    expect(math?.dataset.mathLayout).toBe('laid');
+    expect(math?.style.getPropertyValue('--de-math-scale')).toBe('0.5');
+    expect(math?.style.getPropertyValue('--de-math-width')).toBe('10px');
+    const svg = math?.querySelector('svg.de-math__drawing');
+    expect(svg?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect([svg?.getAttribute('width'), svg?.getAttribute('height')]).toEqual(['10', '9']);
+    expect(svg?.getAttribute('aria-hidden')).toBe('true');
+    expect(svg?.querySelector('rect')).not.toBeNull();
+    // The MathML follows the drawing, for screen readers, copy and find.
+    expect(math?.lastElementChild?.localName).toBe('math');
   });
 
   it('DOCE-PAGINATION-9.12 draws each forced block in the direction the pages view draws it', () => {

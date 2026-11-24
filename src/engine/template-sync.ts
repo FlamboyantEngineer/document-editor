@@ -81,11 +81,7 @@ function fingerprintOf(node: ProseMirrorNode): unknown {
 const fingerprint = (blocks: Iterable<ProseMirrorNode>) =>
   JSON.stringify([...blocks].map(fingerprintOf));
 
-const blocksOf = (content: ProseMirrorNode | null) => {
-  const blocks: ProseMirrorNode[] = [];
-  content?.forEach((block) => blocks.push(block));
-  return blocks;
-};
+const blocksOf = (content: ProseMirrorNode | null) => content?.children ?? [];
 
 /** How a document's sections drifted from its template, in the template's and document's order. */
 export function templateSectionDrift(

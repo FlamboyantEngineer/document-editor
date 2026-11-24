@@ -10,24 +10,18 @@ const SECTION = 'page_section';
 const PAGE = 'page';
 const CONTENT = 'page_content';
 
-function childrenOf(fragment: Fragment): ProseMirrorNode[] {
-  const nodes: ProseMirrorNode[] = [];
-  fragment.forEach((child) => nodes.push(child));
-  return nodes;
-}
-
 // Whether sections or pages hold more than one page side by side, as only a view's pages do.
 function crossesPages(fragment: Fragment): boolean {
-  const nodes = childrenOf(fragment);
+  const nodes = fragment.content;
   if (nodes.filter((node) => node.type.name === PAGE).length > 1) return true;
   return nodes.some((node) => node.type.name === SECTION && crossesPages(node.content));
 }
 
 // The blocks of every page's content under sections and pages, in order.
 function contentBlocks(fragment: Fragment): ProseMirrorNode[] {
-  return childrenOf(fragment).flatMap((node) => {
+  return fragment.content.flatMap((node) => {
     const { name } = node.type;
-    if (name === CONTENT) return childrenOf(node.content);
+    if (name === CONTENT) return node.children;
     return name === SECTION || name === PAGE ? contentBlocks(node.content) : [];
   });
 }

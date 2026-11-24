@@ -7,6 +7,7 @@
 
 import type { EditorView } from 'prosemirror-view';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
+import type { MathLayouter } from '../layout-engine/math-atoms.js';
 import type { TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
 import type { PageVariablesOptions } from './page-variables.js';
@@ -31,6 +32,11 @@ export interface TextLayoutSetting {
   readonly markup?: (() => SuggestionMarkup) | undefined;
   /** Where the template variables get their values, as the page variables draw them. */
   readonly variables?: PageVariablesOptions | undefined;
+  /**
+   * The math layouter typeset math is sized and drawn from (DOCE-PAGINATION-12.10), awaited with
+   * the engine; null, or none, measures math as the browser draws it.
+   */
+  readonly mathLayouter?: PromiseLike<MathLayouter | null> | undefined;
 }
 
 /** A projection's text layout engine, once loaded. */
@@ -55,24 +61,36 @@ interface EngineModule {
   readonly forgetFontWidths: typeof forgetFontWidths;
 }
 
+// The engine's module once loaded, with the math layouter it sizes math with, if any.
+type LoadedEngine = EngineModule & { readonly layouter: MathLayouter | null };
+
+// Loads the engine's module, the served fonts and the math layouter; a layouter that fails to load
+// leaves math measured as drawn.
+const loadEngine = (setting: TextLayoutSetting) =>
+  Promise.all([
+    import('./text-engine.js'),
+    setting.fonts,
+    Promise.resolve(setting.mathLayouter ?? null).catch(() => null),
+  ]);
+
 // What the engine takes from the host's served fonts: its widths, which families are served, the
-// room it keeps for unserved glyphs and the font files.
+// room it keeps for unserved glyphs, where it reports them, and the font files.
 function servedInputs(fonts: ServedFonts) {
   return {
     measureContext: fonts.measureContext,
     isFontServed: (family: string) => fonts.isFontServed(family),
     reserve: fonts.reserve,
+    missing: (text: string) => fonts.missing(text),
     fonts: fonts.files,
   };
 }
 
-// What the engine takes from the setting beside its template: the host's views, the markup and
-// the variables' values.
-const settingInputs = ({ hostViews, markup, variables }: TextLayoutSetting) => ({
-  hostViews,
-  markup,
-  variables,
-});
+// What the engine takes from the setting beside its template: the host's views, the markup, the
+// variables' values and the math layouter it loaded.
+const settingInputs = (
+  { hostViews, markup, variables }: TextLayoutSetting,
+  { layouter }: LoadedEngine,
+) => ({ hostViews, markup, variables, mathLayouter: () => layouter });
 
 // How many times the markup the pages are laid out in has changed, as it is read.
 function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => number {
@@ -97,7 +115,7 @@ export function holdTextEngine(options: {
   /** The view that measures the pages, which atoms are measured as drawn in. */
   readonly view?: (() => EditorView | null) | undefined;
 }): TextEngineHolder {
-  let made: EngineModule | null = null;
+  let made: LoadedEngine | null = null;
   let fonts: PagesFonts | null = null;
   let current: PagesTextEngine | null = null;
   let numbered = false;
@@ -105,12 +123,10 @@ export function holdTextEngine(options: {
   let version = 0;
   const markups = markupChanges(options.setting.markup);
   let destroyed = false;
-  const loaded = Promise.all([import('./text-engine.js'), options.setting.fonts]).then(
-    ([module, served]) => {
-      made = module;
-      fonts = served;
-    },
-  );
+  const loaded = loadEngine(options.setting).then(([module, served, layouter]) => {
+    made = { ...module, layouter };
+    fonts = served;
+  });
   const settled = () => {
     version += 1;
     options.changed();
@@ -159,7 +175,7 @@ export function holdTextEngine(options: {
         measureIn: options.measureIn,
         onAtomsSettled: settled,
         view: options.view,
-        ...settingInputs(options.setting),
+        ...settingInputs(options.setting, made),
       });
       // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.10).
       current = Object.assign(engine, { language });

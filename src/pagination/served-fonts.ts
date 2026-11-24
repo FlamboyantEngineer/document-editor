@@ -24,6 +24,11 @@ export interface ServedFonts {
   isFontServed(family: string): boolean;
   /** The width a cluster no served face draws whole takes (DOCE-PAGINATION-12.4). */
   readonly reserve: ReserveCluster;
+  /**
+   * Records the characters of something drawn with no glyph to draw them, such as math the math
+   * layouter has none for (DOCE-PAGINATION-12.9), as the measurer's missing glyphs.
+   */
+  missing(text: string): void;
   /** The served family each generic keyword stands for, as the pages draw it (`servedTemplate`). */
   readonly generics: Readonly<Record<string, string>>;
   /** The faces the pages measure and draw with, and the family each generic stands for. */
@@ -119,6 +124,10 @@ function servedFonts(
     phase: 'pretext',
     measureContext: () => measurer.createContext() as unknown as MeasureContext,
     reserve: measurer.reserve,
+    missing: (text) => {
+      for (const character of text)
+        measurer.problems.missingGlyphs.add(character.codePointAt(0) ?? 0);
+    },
     isFontServed: (family) => faces.families.has(familyKey(family)),
     generics: faces.generics,
     files: () => ({ faces: [...faces.served], generics: { ...faces.generics } }),

@@ -4,6 +4,7 @@
 // two people changing one thread at once both keep what they did (`comment-records.ts`).
 
 import type * as Y from '@y/y';
+import { toHexString } from 'lib0/buffer';
 import type { IdentityAdapter } from '../host/adapters.js';
 import { mayChangeComment } from '../host/comment-rules.js';
 import type {
@@ -51,7 +52,7 @@ const denied: HostResult<CommentThread> = { ok: false, error: { kind: 'denied' }
 // a document may be shown outside one.
 function createRandomId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return toHexString(bytes);
 }
 
 /** What the store's changes act through: the type, the writer, the reader and the time. */

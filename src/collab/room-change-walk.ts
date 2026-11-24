@@ -307,12 +307,7 @@ function readNode(tally: Tally, a: Node, b: Node): void {
     if (!readAligned(tally, unitsOf(a), unitsOf(b))) tally.need('edit');
     return;
   }
-  const children = (node: Node) => {
-    const list: Node[] = [];
-    node.forEach((child) => list.push(child));
-    return list;
-  };
-  readChildren(tally, children(a), children(b));
+  readChildren(tally, a.children, b.children);
 }
 
 /** What a change of the content did, from the content before and after it. */
