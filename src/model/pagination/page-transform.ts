@@ -5,7 +5,15 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
-import { FRAGMENT_RULES, type FragmentRules, joinBlocks } from './fragments.js';
+import {
+  continuesFragment,
+  FRAGMENT_RULES,
+  type FragmentRules,
+  isFragment,
+  joinAt,
+  joinBlocks,
+  makeWhole,
+} from './fragments.js';
 
 /** Which of a section's pages join, by index; by default all of them. */
 export interface PageJoinOptions {
@@ -35,32 +43,151 @@ function pageAt(tr: Transform, sectionPos: number, index: number) {
 }
 
 // Moves page `index`'s content and footnotes onto the end of the page before it, which keeps its
-// own header and the later page's footer.
-function mergeIntoPrevious(tr: Transform, sectionPos: number, index: number): boolean {
+// own header and the later page's footer. Gives where the two pages' blocks now meet, or null.
+function mergeIntoPrevious(tr: Transform, sectionPos: number, index: number): number | null {
   const before = pageAt(tr, sectionPos, index - 1);
   const after = pageAt(tr, sectionPos, index);
-  if (!before || !after) return false;
+  if (!before || !after) return null;
   const beforeRegions = regionStarts(before.page, before.pos);
   const afterRegions = regionStarts(after.page, after.pos);
   const content = beforeRegions.get('page_content');
   const notes = beforeRegions.get('page_footnotes');
   const nextNotes = afterRegions.get('page_footnotes');
   const nextContent = afterRegions.get('page_content');
-  if (content === undefined || notes === undefined) return false;
-  if (nextNotes === undefined || nextContent === undefined) return false;
+  if (content === undefined || notes === undefined) return null;
+  if (nextNotes === undefined || nextContent === undefined) return null;
   // The later page's footnotes come after its content, so copying the entries there first moves
   // nothing the deletion reaches.
   const entries = tr.doc.nodeAt(notes)?.content;
   if (entries?.size) tr.insert(nextNotes + 1, entries);
   const contentEnd = content + (tr.doc.nodeAt(content)?.nodeSize ?? 2) - 1;
   tr.delete(contentEnd, nextContent + 1);
-  return true;
+  return contentEnd;
 }
 
 function children(node: ProseMirrorNode | null | undefined): ProseMirrorNode[] {
   const nodes: ProseMirrorNode[] = [];
   node?.forEach((child) => nodes.push(child));
   return nodes;
+}
+
+// The pages from `from` through `last` join in pairs, round after round, so each block is copied
+// into a joined page a number of times that grows with the log of the pages rather than with the
+// pages. Within a round the later pairs join first, so the earlier pages stay put. Each merge is
+// told where the two pages' blocks meet, by the index the later one's first page had before any
+// merge; false stops the rounds.
+function mergePages(
+  tr: Transform,
+  sectionPos: number,
+  {
+    from,
+    last,
+    merged,
+  }: { from: number; last: number; merged?: (index: number, seam: number) => void },
+): boolean {
+  // By the pages as they now are, the index of each one's first page before the rounds.
+  const firsts = Array.from({ length: last - from + 1 }, (_, offset) => from + offset);
+  for (let count = firsts.length; count > 1; count = Math.ceil(count / 2)) {
+    for (let offset = count % 2 === 0 ? count - 1 : count - 2; offset >= 1; offset -= 2) {
+      const seam = mergeIntoPrevious(tr, sectionPos, from + offset);
+      if (seam === null) return false;
+      merged?.(firsts[offset] ?? from + offset, seam);
+      firsts.splice(offset, 1);
+    }
+  }
+  return true;
+}
+
+function contentOf(page: ProseMirrorNode): ProseMirrorNode | null {
+  let content: ProseMirrorNode | null = null;
+  page.forEach((region) => {
+    if (region.type.name === 'page_content') content ??= region;
+  });
+  return content;
+}
+
+// A block of the joining pages: where it starts before any step, and whether it continues the
+// block before it, on the page before.
+interface PlannedBlock {
+  readonly pos: number;
+  readonly node: ProseMirrorNode;
+  readonly continues: boolean;
+}
+
+// How the joining pages' blocks join, read before any step: for each page after the first, whether
+// its first block continues the block before it, and where each block starts. Null when a page has
+// no blocks or two blocks of one page continue each other, which the joins block by block take.
+interface SeamPlan {
+  /** By page index: whether its first block continues the previous page's last. */
+  readonly continues: ReadonlyMap<number, boolean>;
+  /** By page index: how many blocks it holds. */
+  readonly counts: ReadonlyMap<number, number>;
+  readonly blocks: readonly PlannedBlock[];
+}
+
+function seamPlan(
+  section: ProseMirrorNode,
+  {
+    sectionPos,
+    from,
+    last,
+    rules,
+  }: { sectionPos: number; from: number; last: number; rules: FragmentRules },
+): SeamPlan | null {
+  const continues = new Map<number, boolean>();
+  const counts = new Map<number, number>();
+  const blocks: PlannedBlock[] = [];
+  let previous: ProseMirrorNode | null = null;
+  let planned = true;
+  section.forEach((page, pageOffset, index) => {
+    if (!planned || index < from || index > last) return;
+    const content = contentOf(page);
+    if (!content?.childCount) {
+      planned = false;
+      return;
+    }
+    counts.set(index, content.childCount);
+    let contentPos = sectionPos + 1 + pageOffset + 1;
+    page.forEach((region, offset) => {
+      if (region === content) contentPos += offset;
+    });
+    content.forEach((block, offset, at) => {
+      const continued = previous !== null && continuesFragment(previous, block, rules);
+      if (at === 0 && index > from) continues.set(index, continued);
+      else if (continued) planned = false;
+      blocks.push({ pos: contentPos + 1 + offset, node: block, continues: continued });
+      previous = block;
+    });
+  });
+  return planned ? { continues, counts, blocks } : null;
+}
+
+// Joins the pages and their fragments as they meet: a block made of fragments is joined from its
+// first page on, so each join meets the next fragment as the page split it. A page whose one block
+// continues on both sides holds back the join after it until the rounds are done, since by then the
+// later fragment would already have taken the one after it.
+function joinPagesAtSeams(
+  tr: Transform,
+  sectionPos: number,
+  { from, last, rules, plan }: { from: number; last: number; rules: FragmentRules; plan: SeamPlan },
+) {
+  const { continues } = plan;
+  // Each block that continues nothing takes its whole attributes, as the joins block by block give
+  // them; the rest join into the ones they continue. Attribute steps move no position.
+  for (const block of plan.blocks) {
+    if (!block.continues && isFragment(block.node, rules)) makeWhole(tr, block.pos, rules);
+  }
+  const held: { index: number; seam: number; steps: number }[] = [];
+  const holds = (index: number) =>
+    continues.get(index - 1) === true && plan.counts.get(index - 1) === 1;
+  const merged = (index: number, seam: number) => {
+    if (!continues.get(index)) return;
+    if (holds(index)) held.push({ index, seam, steps: tr.steps.length });
+    else joinAt(tr, seam, rules);
+  };
+  if (!mergePages(tr, sectionPos, { from, last, merged })) return;
+  held.sort((left, right) => left.index - right.index);
+  for (const { seam, steps } of held) joinAt(tr, tr.mapping.slice(steps).map(seam), rules);
 }
 
 /**
@@ -75,14 +202,12 @@ export function joinSectionPages(
   const section = tr.doc.nodeAt(sectionPos);
   if (section?.type.name !== 'page_section') return;
   const last = Math.min(to ?? section.childCount - 1, section.childCount - 1);
-  // Pages join in pairs, round after round, so each block is copied into a joined page a number of
-  // times that grows with the log of the pages rather than with the pages. Within a round the later
-  // pairs join first, so the earlier pages stay put.
-  for (let count = last - from + 1; count > 1; count = Math.ceil(count / 2)) {
-    for (let offset = count % 2 === 0 ? count - 1 : count - 2; offset >= 1; offset -= 2) {
-      if (!mergeIntoPrevious(tr, sectionPos, from + offset)) return;
-    }
+  const plan = seamPlan(section, { sectionPos, from, last, rules });
+  if (plan) {
+    joinPagesAtSeams(tr, sectionPos, { from, last, rules, plan });
+    return;
   }
+  if (!mergePages(tr, sectionPos, { from, last })) return;
   const page = pageAt(tr, sectionPos, from);
   const contentPos = page ? regionStarts(page.page, page.pos).get('page_content') : undefined;
   if (contentPos === undefined) return;
