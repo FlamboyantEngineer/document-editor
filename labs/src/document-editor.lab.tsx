@@ -160,7 +160,7 @@ const LAB_MENTIONS = {
 function Lab() {
   const [state, setState] = useState(initialState);
   const [layout, setLayout] = useState<DocumentLayout>('page');
-  const [pageWidth, setPageWidth] = useState(false);
+  const [webWidth, setWebWidth] = useState<'fill' | 'page' | 'sheet'>('fill');
   const [editable, setEditable] = useState(true);
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
@@ -212,13 +212,16 @@ function Lab() {
             </label>
           ))}
           <label>
-            <input
-              type="checkbox"
-              name="page-width"
-              checked={pageWidth}
-              onChange={(event) => setPageWidth(event.currentTarget.checked)}
-            />{' '}
-            Page width
+            Web width{' '}
+            <select
+              name="web-width"
+              value={webWidth}
+              onChange={(event) => setWebWidth(event.currentTarget.value as typeof webWidth)}
+            >
+              <option value="fill">Fill the surface</option>
+              <option value="page">Page width</option>
+              <option value="sheet">Endless page</option>
+            </select>
           </label>
           <label>
             <input
@@ -383,7 +386,7 @@ function Lab() {
         onStateChange={setState}
         template={TEMPLATE}
         layout={layout}
-        webWidth={pageWidth ? 'page' : 'fill'}
+        webWidth={webWidth}
         onLayoutChange={setLayout}
         editable={editable}
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}

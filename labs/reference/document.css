@@ -1464,7 +1464,9 @@ div.de-host-view {
  * Web layout: the surface (`data-layout="web"`) shows each section as one page that fills its
  * container and grows with its content, inset only by the template's margins, without the pages'
  * headers and footers. A document's web layout (`data-web-width="page"`) keeps its page width,
- * centred, with no page margins, like a large text area.
+ * centred, with no page margins, like a large text area. An endless page
+ * (`data-web-width="sheet"`) keeps its page width as its widest, centred, inset by its page margins,
+ * and shows as paper on the surface around it, as the pages do, without ever ending.
  */
 .de-document-editor[data-layout='web'] {
   background: var(--doc-page-background, #fff);
@@ -1491,6 +1493,18 @@ div.de-host-view {
   max-width: 100%;
   margin-inline: auto;
   padding: 0;
+}
+
+.de-document-editor[data-layout='web'][data-web-width='sheet'] {
+  background: none;
+  color: inherit;
+}
+
+.de-document-editor[data-layout='web'][data-web-width='sheet'] .pm-page {
+  width: var(--doc-page-width, auto);
+  max-width: 100%;
+  margin-inline: auto;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
 /* A document title shown above the content, outside it, in the template's title style. */
