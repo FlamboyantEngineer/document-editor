@@ -9,6 +9,7 @@ import { blockMetrics } from '../src/layout-engine/blocks/metrics.js';
 import type { SheetNumbers } from '../src/layout-engine/blocks/sheet-numbers.js';
 import type { BlockTextLayout } from '../src/layout-engine/blocks/types.js';
 import type { LineTable } from '../src/layout-engine/line-table.js';
+import type { MathRecorder } from '../src/layout-engine/math-atoms.js';
 import type { TemplateFile } from '../src/model/index.js';
 import { BASE_TEMPLATE } from '../src/model/templates/base-template.js';
 
@@ -90,6 +91,7 @@ export function standInBlockLayout({
   labelOf,
   footnoteOf,
   sheet,
+  onMath,
 }: {
   template?: TemplateFile;
   measure?: AtomMeasurer;
@@ -97,6 +99,7 @@ export function standInBlockLayout({
   labelOf?: (caption: ProseMirrorNode) => string | undefined;
   footnoteOf?: (entry: ProseMirrorNode) => string | undefined;
   sheet?: SheetNumbers;
+  onMath?: MathRecorder;
 } = {}) {
   const atoms = createAtomCache({ measure });
   const layout = createBlockLayout({
@@ -105,6 +108,7 @@ export function standInBlockLayout({
     metrics: (scope) => blockMetrics(template, scope, sheet),
     labelOf,
     footnoteOf,
+    onMath,
   });
   return { layout, atoms };
 }

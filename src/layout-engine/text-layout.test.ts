@@ -241,6 +241,31 @@ describe('createTextLayout', () => {
     expect(small.lines[0]?.height).toBe(18);
   });
 
+  it('DOCE-PAGINATION-12.10 scales inline math wider than its whole line down to fit, and records where it placed it', () => {
+    const atom = documentSchema.nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = atom && documentSchema.nodes.paragraph?.create(null, [atom]);
+    if (!atom || !paragraph) throw new Error('schema has no inline math');
+    const svg = { tag: 'svg', attrs: {}, children: [] };
+    const math = { math: { width: 800, ascent: 40, descent: 8, svg, missing: '' } };
+    const placed = vi.fn();
+    const lines = table(paragraph, 400, {
+      measureAtom: () => ({ width: 800, height: 48, baseline: 40, math }),
+      onMath: placed,
+    });
+    // Half the size on a 400px line: 400px wide, 20px above the baseline and 4px below.
+    expect(lines.lines[0]).toMatchObject({ width: 400, height: 26 });
+    expect(placed).toHaveBeenCalledWith(atom, {
+      ...math,
+      box: { width: 400, ascent: 20, descent: 4, scale: 0.5 },
+    });
+    // Math that fits keeps its size.
+    const narrow = { math: { ...math.math, width: 100 } };
+    const fitted = table(paragraph, 400, {
+      measureAtom: () => ({ width: 100, height: 48, baseline: 40, math: narrow }),
+    });
+    expect(fitted.lines[0]).toMatchObject({ width: 100, height: 48 });
+  });
+
   it('DOCE-PAGINATION-9.5 lays footnote markers, mentions and glossary references out as their text', () => {
     const { nodes } = documentSchema;
     const marker = nodes.footnote_reference?.create({ footnoteId: 'f1' });

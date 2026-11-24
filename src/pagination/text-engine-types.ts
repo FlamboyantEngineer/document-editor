@@ -4,11 +4,13 @@
 import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
+import type { TypesetMath } from '../engine/math-typeset.js';
 import type { FontFiles } from '../host/font-files.js';
 import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
+import type { MathLayouter, PlacedMath } from '../layout-engine/math-atoms.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
@@ -31,6 +33,8 @@ export interface TextEngineOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** The width a cluster the width source cannot measure takes, such as the font-file measurer's. */
   readonly reserve?: ReserveCluster | undefined;
+  /** Told the characters of math the math layouter has no glyph for (DOCE-PAGINATION-12.9). */
+  readonly missing?: ((text: string) => void) | undefined;
   /** The served faces the widths come from, which every drawing of the pages draws with. */
   readonly fonts?: (() => FontFiles) | undefined;
   /** Whether code blocks are drawn with a gutter of line numbers, which takes their width. */
@@ -63,6 +67,14 @@ export interface TextEngineOptions {
    * its text; one with no value shows none (DOCE-PAGINATION-11.13).
    */
   readonly variables?: PageVariablesOptions | undefined;
+  /**
+   * Lays typeset math out from a math font's data (DOCE-PAGINATION-12.10), so its box and drawing
+   * come from one layout on every system; null while there is none. Math is measured as drawn
+   * without it, or without `typesetOf`.
+   */
+  readonly mathLayouter?: (() => MathLayouter | null) | undefined;
+  /** What a math node was typeset as, by the math views the pages draw with. */
+  readonly typesetOf?: ((node: ProseMirrorNode) => TypesetMath | null) | undefined;
 }
 
 /** A text block's place on the pages. */
@@ -100,6 +112,8 @@ export interface TextEngineStats {
   readonly refused: number;
   /** Why blocks were left to the DOM, with how many. */
   readonly reasons: ReadonlyMap<string, number>;
+  /** How many equations are scaled to fit below `MATH_MIN_REPORTED_SCALE`. */
+  readonly smallMath?: number | undefined;
 }
 
 /** A page header's, footer's or footnote area's height, its gap to the content and its children. */
@@ -181,6 +195,11 @@ export interface PagesTextEngine {
    * so the blocks holding it, and the page breaks after them, may move.
    */
   provisional(): boolean;
+  /**
+   * The layout a math node was laid out from, with the box and scale it takes on the pages
+   * (DOCE-PAGINATION-12.10); null for math measured as drawn.
+   */
+  mathOf(node: ProseMirrorNode): PlacedMath | null;
   stats(): TextEngineStats;
   destroy(): void;
 }

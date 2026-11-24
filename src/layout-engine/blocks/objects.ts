@@ -6,6 +6,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { isTextMeasurement } from '../../model/pagination/text-split.js';
 import { parseObjectLayout } from '../../model/schema/object-layout.js';
+import { placeMath } from '../math-atoms.js';
 import { type BlockContext, type Laid, laid, notLaid } from './context.js';
 import { linkedCodeFigure } from './linked-code.js';
 import { layTextBlock } from './text-blocks.js';
@@ -133,10 +134,35 @@ export function layLinkedCode(context: BlockContext, node: ProseMirrorNode): Lai
   return result.ok ? laid({ ...result.block, node }) : notLaid(node, result.reason);
 }
 
-/** A display equation, measured as an atom, with the stylesheet's margins. */
+/**
+ * A display equation, with the stylesheet's margins: from its layout, scaled down to fit the line
+ * less its tag (DOCE-PAGINATION-12.10), or measured as an atom.
+ */
 export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): Laid {
   const { math } = context.metrics;
-  return atomBlock(context, node, { top: math.before, bottom: math.after });
+  const margins = { top: math.before, bottom: math.after };
+  const size = context.options.atoms.measureBlockAtom(
+    node,
+    context.place.width,
+    context.place.scope,
+  );
+  if (!size?.math) return atomBlock(context, node, margins);
+  const placed = placeMath(size.math, context.place.width);
+  context.options.onMath?.(node, placed);
+  const { ascent, descent } = placed.box;
+  const tag = size.math.tag;
+  // The tag sits on the equation's baseline, unscaled.
+  const height = Math.max(ascent, tag?.ascent ?? 0) + Math.max(descent, tag?.descent ?? 0);
+  const flush = context.parent === 'region';
+  return laid(
+    {
+      node,
+      height,
+      marginTop: flush ? 0 : margins.top,
+      marginBottom: flush ? 0 : margins.bottom,
+    },
+    size.provisional,
+  );
 }
 
 /** A horizontal rule: its borders, with the stylesheet's margins. */
