@@ -15,7 +15,13 @@ import type {
 import { isMath, type TypesetMath } from '../engine/math-typeset.js';
 import { typesetMathOf } from '../engine/math-views.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
-import { firstLineIndent, lineMarks } from '../layout-engine/line-marks.js';
+import {
+  drawnBlock,
+  firstLineIndent,
+  type LabelPart,
+  labelParts,
+  lineMarks,
+} from '../layout-engine/line-marks.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
 import { forcedBlocksOf } from './forced-blocks.js';
@@ -39,6 +45,12 @@ interface PagesLayoutOptions {
    * canonical state; by default the pages' own state's.
    */
   readonly typesetOf?: ((node: ProseMirrorNode) => TypesetMath | null) | undefined;
+}
+
+// A caption's label in its parts, where its lines break inside or after it.
+function shownLabel(table: Parameters<typeof labelParts>[0]): { label?: LabelPart[] } {
+  const label = labelParts(table);
+  return label ? { label } : {};
 }
 
 // Each forced block of the pages, with the marks that draw its lines, whether the view draws them
@@ -67,7 +79,9 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
         ...(prefix ? { number: prefix } : {}),
         ...(indent ? { style: indent } : {}),
         ...(rtl ? { direction: 'rtl' as const } : {}),
-        marks: lineMarks(block, table, { prefixed: Boolean(prefixed) }),
+        marks: lineMarks(drawnBlock(block, table), table, { prefixed: Boolean(prefixed) }),
+        ...(table.text === undefined ? {} : { text: table.text }),
+        ...shownLabel(table),
         // Code laid out beside a gutter of line numbers is drawn with it.
         ...((table.inset ?? 0) > 0 ? { gutter: true as const } : {}),
       });

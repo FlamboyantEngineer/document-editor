@@ -39,6 +39,11 @@ export interface BlockTextLines {
   readonly nested?: true | undefined;
   /** The page region it is in, when it is in a header, footer or footnote area. */
   readonly region?: ForcedRegion | undefined;
+  /**
+   * For a caption without an element id of its own, as a later part's copy, the element id and
+   * split part of the object it captions, whose holder draws it.
+   */
+  readonly captionOf?: { readonly elementId: string; readonly part: number } | undefined;
 }
 
 /** A page's top-level text blocks, in order. */
@@ -75,17 +80,29 @@ function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): B
       table?.lines.map(({ from, to }) => ({
         from: from + start,
         to: to + start,
-        text: ownText(node, {
-          from,
-          to,
-          marker: (offset) => reading.markerAt(pos + 1 + offset),
-          variable: (offset) => reading.variableAt(pos + 1 + offset),
-        }),
+        // A later part's caption is laid out over the text it shows, not its content.
+        text:
+          table.text?.slice(from, to) ??
+          ownText(node, {
+            from,
+            to,
+            marker: (offset) => reading.markerAt(pos + 1 + offset),
+            variable: (offset) => reading.variableAt(pos + 1 + offset),
+          }),
       })) ?? null,
     ...(reason ? { reason } : {}),
     ...(block.nested ? { nested: true as const } : {}),
     ...(region ? { region } : {}),
+    ...captionOf(block, elementId),
   };
+}
+
+// The object a caption without an element id captions, by which a reader finds it.
+function captionOf(block: ForcedBlock, elementId: string): Pick<BlockTextLines, 'captionOf'> {
+  const object = block.holder?.lastChild;
+  const id: unknown = object?.attrs.dataId;
+  if (elementId || !object || typeof id !== 'string' || !id) return {};
+  return { captionOf: { elementId: id, part: Number(object.attrs.splitPartIndex ?? 0) } };
 }
 
 interface TextBetween {

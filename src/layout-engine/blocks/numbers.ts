@@ -8,6 +8,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { ContentsKind } from '../../model/contents/contents-kinds.js';
 import { catalogDocument } from '../../model/contents/document-catalog.js';
 import type { TemplateFile } from '../../model/format/template-format.js';
+import { repeatedCaptionOf } from '../../model/pagination/held-split.js';
 import { captionNodeOf } from '../../model/schema/caption-content.js';
 
 /** The caption labels of one document, by node. */
@@ -59,11 +60,15 @@ export function captionNumbers(doc: ProseMirrorNode, template: TemplateFile): Ca
     if (typeof id === 'string' && id) ids.set(id, label);
   }
   return {
-    labelOf: (caption) => {
+    labelOf: function labelOf(caption): string | undefined {
       const label = labels.get(caption);
       if (label !== undefined) return label;
       const id: unknown = caption.attrs.dataId;
-      return typeof id === 'string' ? ids.get(id) : undefined;
+      if (typeof id === 'string' && ids.has(id)) return ids.get(id);
+      // A later part's caption, made again by a split after an edit, shows the label of the
+      // caption it repeats.
+      const repeated = repeatedCaptionOf(caption);
+      return repeated ? labelOf(repeated) : undefined;
     },
     labelsKey: [...labels.values()].join('|'),
   };

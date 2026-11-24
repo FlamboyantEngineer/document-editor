@@ -529,6 +529,44 @@ describe('createTextLayout', () => {
     expect(lay(['x '])).toEqual([[0, 9, 'end']]);
   });
 
+  it("DOCE-PAGINATION-9.11 lays a later part's caption out over the first part's text and its kind's continued suffix", () => {
+    const caption = documentSchema.nodes.code_caption?.create({ continuedText: 'Listing' });
+    if (!caption) throw new Error('no code caption');
+    const laid = table(caption, 200);
+    expect(laid.text).toBe('Listing (continued)');
+    expect(starts(laid)).toEqual([[0, 19, 'end']]);
+    // A table's suffix is the template's, none in the base template.
+    const later = documentSchema.nodes.table_caption?.create({ continuedText: 'Totals' });
+    if (!later) throw new Error('no table caption');
+    expect(table(later, 200).text).toBe('Totals');
+    expect(table(block('<p>Totals</p>'), 200).text).toBeUndefined();
+  });
+
+  it('DOCE-PAGINATION-9.11 records the parts of a caption label its lines break inside or after', () => {
+    const caption = (text: string) =>
+      documentSchema.nodes.table_caption?.create(null, text ? [documentSchema.text(text)] : []);
+    const lay = (text: string, width: number) => {
+      const node = caption(text);
+      if (!node) throw new Error('no table caption');
+      const result = createTextLayout({ template: BASE_TEMPLATE }).layoutText(node, {
+        width,
+        label: 'Table 1 - ',
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table;
+    };
+    // `Table 1 - ` is 51px: at 40px a line breaks inside it, before the content.
+    expect(lay('ff gg', 40)).toMatchObject({ label: 'Table 1 \n- ' });
+    expect(starts(lay('ff gg', 40))).toEqual([
+      [0, 0, 'wrap'],
+      [0, 5, 'end'],
+    ]);
+    // The label and the content start on one line: nothing is recorded.
+    expect(lay('ff gg', 66).label).toBeUndefined();
+    // The label fills its line, the content starting on the next.
+    expect(lay('ffffffffff', 60)).toMatchObject({ label: 'Table 1 - \n' });
+  });
+
   it('DOCE-PAGINATION-9.7 refuses a block whose font is not served', () => {
     const engine = createTextLayout({
       template: BASE_TEMPLATE,

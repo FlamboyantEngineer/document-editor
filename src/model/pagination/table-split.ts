@@ -5,7 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { firstRowColumnWidths } from '../schema/object-layout.js';
 import { type ChildLayout, isContainerMeasurement } from './container-split.js';
-import { splitHeldWith } from './held-split.js';
+import { continuedCaptionOf, splitHeldWith } from './held-split.js';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
 import { splitPartOf } from './split-part.js';
 
@@ -153,7 +153,10 @@ export const splitTableFigureWith = (repeatHeader: boolean) => {
     const result = split(block, fitting);
     if (!result) return null;
     const measured = block.measurement;
-    const caption = isContainerMeasurement(measured) ? Math.max(0, measured.caption ?? 0) : 0;
+    // The caption a later part shows, with the continued suffix.
+    const caption = isContainerMeasurement(measured)
+      ? Math.max(0, (measured.caption ?? 0) + continuedCaptionOf(measured))
+      : 0;
     return { ...result, tail: result.tail.map((part) => hideUnrepeatedCaption(part, caption)) };
   };
 };

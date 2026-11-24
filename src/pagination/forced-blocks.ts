@@ -1,7 +1,7 @@
 // The text blocks a page draws on forced lines (DOCE-PAGINATION-11.2): each paragraph, heading and
 // code block directly in its content, and each in a table's cells, a list, a quote, a layout
 // section's columns, a script's output, an embed or a code figure, the captions of figures, tables
-// and code but a later part's, and linked code's code, on the
+// and code that the pages show, and linked code's code, on the
 // lines the engine laid it out on with its container. The pages' decorations, the computed lines a
 // test compares with, and the layout handed to a viewer or a print all read them from here; that
 // layout leaves linked code out, since a static drawing draws it from its markup.
@@ -62,6 +62,8 @@ export interface ForcedBlock {
    * linked code, whose `node` is then the code block it is laid out as.
    */
   readonly owner?: ProseMirrorNode | undefined;
+  /** For a caption, what holds it with its object, such as a table's or code's holder. */
+  readonly holder?: ProseMirrorNode | undefined;
 }
 
 /** Where a page content's child is, and the numbers the pages draw. */
@@ -98,29 +100,35 @@ function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): str
   return at.inserted.byBlock.has(node) ? 'inserted words' : null;
 }
 
-// A later part of a split table or code block, whose caption shows the first part's text and the
-// continued suffix, which the engine does not lay out: the browser draws it on its own lines.
+// A later part of a split table or code block.
 function laterPart(holder: ProseMirrorNode | null): boolean {
   const part: unknown = holder?.attrs.splitPartIndex;
   if (typeof part === 'number' && part > 0) return true;
   return holder?.lastChild?.attrs.codeBlockContinued === true;
 }
 
-// A caption inside a container, on the lines the container's layout gave it, unless its label
-// fills its first line: the content's lines alone do not show where that line ends.
+// Whether the pages draw nothing of a caption: one switched off, on its figure or on the table or
+// code it holds, or a later part's that shows no caption, as one opening with a body row.
+function hiddenCaption(node: ProseMirrorNode, holder: ProseMirrorNode | null): boolean {
+  if (holder?.attrs.captionEnabled === false) return true;
+  if (holder?.lastChild?.attrs.captionEnabled === false) return true;
+  return laterPart(holder) && typeof node.attrs.continuedText !== 'string';
+}
+
+// A caption inside a container, on the lines the container's layout gave it: a later part's shows
+// the first part's text and the continued suffix, laid out as text it holds (`LineTable.text`),
+// and a label that a line breaks inside or after is drawn in its parts (`LineTable.label`). One
+// the pages do not draw is left out.
 function caption(
   node: ProseMirrorNode,
   { pos, holder, lines }: { pos: number; holder: ProseMirrorNode | null; lines: NestedLines },
-): ForcedBlock {
-  if (laterPart(holder))
-    return { node, pos, table: null, reason: 'continued caption', nested: true };
+): ForcedBlock | null {
+  if (hiddenCaption(node, holder)) return null;
   const table = lines.get(node);
-  if (!table) return { node, pos, table: null, reason: 'not laid out by the engine', nested: true };
-  // A label wider than the caption's box wraps on its own before the content, as in a narrow cell.
-  const [first, second] = table.lines;
-  if (second && first?.to === 0)
-    return { node, pos, table: null, reason: 'wrapped label', nested: true };
-  return { node, pos, table, prefixed: true, nested: true };
+  const held = holder ? { holder } : {};
+  if (!table)
+    return { node, pos, table: null, reason: 'not laid out by the engine', nested: true, ...held };
+  return { node, pos, table, prefixed: true, nested: true, ...held };
 }
 
 type NestedLines = ReadonlyMap<ProseMirrorNode, DrawnLines>;
@@ -145,7 +153,8 @@ function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedP
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset, parent) => {
     if (isCaption(node)) {
-      blocks.push(caption(node, { pos: at.pos + 1 + offset, holder: parent, lines }));
+      const block = caption(node, { pos: at.pos + 1 + offset, holder: parent, lines });
+      if (block) blocks.push(block);
       return false;
     }
     if (node.type.name === 'linked_code_block') {

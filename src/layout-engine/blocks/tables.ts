@@ -8,7 +8,7 @@ import { isContainerMeasurement, type LayoutBlock } from '../../model/index.js';
 import { type BlockContext, isLaid, type Laid, laid, layChildren, notLaid } from './context.js';
 import { stackContainer } from './stack.js';
 import { type TableBorders, tableBorders, tableColumns } from './table-columns.js';
-import { layTextBlock } from './text-blocks.js';
+import { continuedCaptionGrowth, layTextBlock } from './text-blocks.js';
 
 interface PlacedCell {
   readonly top: number;
@@ -111,11 +111,14 @@ function tableWidth(context: BlockContext, table: ProseMirrorNode): number {
   return tableColumns(table, { available: context.place.width, borders, count }).width;
 }
 
-// A table's rows with its caption's box, which a later part opening with a body row does not show.
-function withCaption(measurement: unknown, caption: number): unknown {
-  return caption > 0 && isContainerMeasurement(measurement)
-    ? { ...measurement, caption }
-    : measurement;
+// A table's rows with its caption's box, which a later part opening with a body row does not show,
+// and how much taller a later part's caption is.
+function withCaption(
+  measurement: unknown,
+  { caption, continuedCaption }: { caption: number; continuedCaption: number },
+): unknown {
+  if (caption <= 0 || !isContainerMeasurement(measurement)) return measurement;
+  return { ...measurement, caption, ...(continuedCaption ? { continuedCaption } : {}) };
 }
 
 /**
@@ -131,11 +134,14 @@ export function layTableFigure(context: BlockContext, figure: ProseMirrorNode): 
   const laidTable = layTable(context, table);
   if (!laidTable.ok) return laidTable;
   let captionHeight = 0;
+  let continuedCaption = 0;
   if (table.attrs.captionEnabled !== false) {
     const width = tableWidth(context, table);
-    const line = layTextBlock({ ...context, place: { ...context.place, width } }, caption);
+    const own = { ...context, place: { ...context.place, width } };
+    const line = layTextBlock(own, caption);
     if (!line.ok) return line;
     captionHeight = line.block.height + 2 * context.metrics.table.captionPadding;
+    continuedCaption = continuedCaptionGrowth(own, caption, line.block.height);
   }
   return laid(
     {
@@ -143,7 +149,10 @@ export function layTableFigure(context: BlockContext, figure: ProseMirrorNode): 
       height: captionHeight + laidTable.block.height,
       marginTop: 0,
       marginBottom: context.metrics.paragraphAfter,
-      measurement: withCaption(laidTable.block.measurement, captionHeight),
+      measurement: withCaption(laidTable.block.measurement, {
+        caption: captionHeight,
+        continuedCaption,
+      }),
     },
     laidTable.provisional,
   );

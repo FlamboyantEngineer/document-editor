@@ -9,7 +9,7 @@ import { parseObjectLayout } from '../../model/schema/object-layout.js';
 import { type MathLayouts, placeMath } from '../math-atoms.js';
 import { type BlockContext, type Laid, laid, notLaid } from './context.js';
 import { linkedCodeFigure } from './linked-code.js';
-import { layTextBlock } from './text-blocks.js';
+import { continuedCaptionGrowth, layTextBlock } from './text-blocks.js';
 
 function sizeAttr(value: unknown): number {
   const size = typeof value === 'string' ? Number(value) : value;
@@ -99,20 +99,30 @@ export function layCodeFigure(context: BlockContext, figure: ProseMirrorNode): L
   if (!body.ok) return body;
   const metrics = context.metrics.code;
   let above = 0;
+  let continuedCaption = 0;
   if (code.attrs.captionEnabled !== false) {
-    const line = captionHeight(context, caption, context.place.width - 2 * metrics.padding);
+    const width = context.place.width - 2 * metrics.padding;
+    const line = captionHeight(context, caption, width);
     if (!line.ok) return line;
     above = line.block.height + 2 * metrics.captionGap + metrics.captionRule;
+    const own = { ...context, place: { ...context.place, width }, parent: 'other' as const };
+    continuedCaption = continuedCaptionGrowth(own, caption, line.block.height);
   }
   // Each part of a split code figure draws the caption again, so it is part of the room every
-  // part takes beyond its lines.
+  // part takes beyond its lines; a later part's shows the continued suffix too.
   const { measurement } = body.block;
   return laid({
     ...body.block,
     node: figure,
     height: above + body.block.height,
     ...(isTextMeasurement(measurement)
-      ? { measurement: { ...measurement, overhead: (measurement.overhead ?? 0) + above } }
+      ? {
+          measurement: {
+            ...measurement,
+            overhead: (measurement.overhead ?? 0) + above,
+            ...(continuedCaption ? { continuedCaption } : {}),
+          },
+        }
       : {}),
   });
 }

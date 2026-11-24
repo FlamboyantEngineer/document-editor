@@ -3,7 +3,7 @@
 // own marks, as the pages' view draws the same marks as inline decorations.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { LineMark } from '../layout-engine/line-marks.js';
+import type { LabelPart, LineMark } from '../layout-engine/line-marks.js';
 import {
   isPrintElement,
   markedContent,
@@ -108,4 +108,39 @@ export function linesContent(
     items.push({ marks: child.marks, trees: hooks ? withHooks(drawn, hooks) : drawn });
   });
   return markedContent(items);
+}
+
+/** What a caption draws on its lines that is not its content (DOCE-PAGINATION-11.2). */
+interface ShownText {
+  /** Its label's parts, where a line breaks inside the label or right after it. */
+  readonly label?: readonly LabelPart[] | null | undefined;
+  /** The text a later part's caption shows, with the marks that draw it on its lines. */
+  readonly text?: { readonly text: string; readonly marks: readonly LineMark[] } | undefined;
+}
+
+/**
+ * A caption's label on the lines its parts start (`de-forced-lines__label`), each part after the
+ * first at its line's indent and each line it ends broken, and the text a later part's caption
+ * shows on its lines (`de-forced-lines__text`): what the pages draw for a caption, before its
+ * content, in place of the label and text the stylesheet draws.
+ */
+export function shownTrees({ label, text }: ShownText): PrintTree[] {
+  const trees: PrintTree[] = [];
+  if (label) {
+    const parts = label.flatMap((part, index): PrintTree[] => {
+      const own: PrintTree =
+        index > 0 && part.style
+          ? printElement('span', { class: 'de-forced-lines__start', style: `${part.style};` }, [
+              { text: part.text },
+            ])
+          : { text: part.text };
+      return part.breaks ? [own, printElement('br')] : [own];
+    });
+    trees.push(printElement('span', { class: 'de-forced-lines__label' }, parts));
+  }
+  if (text) {
+    const pieces = textPieces(text.text, 0, text.marks);
+    trees.push(printElement('span', { class: 'de-forced-lines__text' }, pieces));
+  }
+  return trees;
 }

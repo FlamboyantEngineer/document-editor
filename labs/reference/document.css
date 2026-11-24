@@ -1222,7 +1222,10 @@ div.de-host-view {
 
 /* A table caption's label and number in the label style, unset values the text's; its text in
    the text style, unset values the paragraph's. */
-:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
+:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before,
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-table-caption-line
+  .de-forced-lines__label {
   font-family: var(
     --doc-table-caption-label-font-family,
     var(--doc-table-caption-text-font-family, inherit)
@@ -1252,7 +1255,10 @@ div.de-host-view {
 
 /* A figure caption's label and number in the label style, unset values the text's; its text in
    the text style, unset values the paragraph's. */
-:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before {
+:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before,
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-figure-caption-line
+  .de-forced-lines__label {
   font-family: var(
     --doc-figure-caption-label-font-family,
     var(--doc-figure-caption-text-font-family, inherit)
@@ -1283,7 +1289,10 @@ div.de-host-view {
 /* A code caption's label and number in the label style, unset values the text's; its text in
    the text style, unset values the paragraph's. */
 :where(.de-document-editor, .de-document-editor__measure)
-  :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
+  :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before,
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-code-caption-line
+  .de-forced-lines__label {
   font-family: var(
     --doc-code-caption-label-font-family,
     var(--doc-code-caption-text-font-family, inherit)
@@ -1368,6 +1377,26 @@ div.de-host-view {
   )
   .doc-caption-continued::after {
   content: var(--doc-code-caption-continued, '');
+}
+
+/*
+ * A caption on the engine's lines (DOCE-PAGINATION-11.2) draws, before its content, its label in
+ * the parts its lines start where a line breaks inside the label or right after it
+ * (`de-forced-lines__label`), and a later part's caption the first part's text and the continued
+ * suffix on its lines (`de-forced-lines__text`), in place of what the rules above generate.
+ */
+.de-document-editor
+  .pm-page-content
+  .doc-caption-line:has(> .doc-caption-text > .de-forced-lines__label)::before,
+.de-document-editor
+  .pm-page-content
+  .doc-caption-line
+  > .doc-caption-text:has(> .de-forced-lines__text)::before,
+.de-document-editor
+  .pm-page-content
+  .doc-caption-line:has(> .doc-caption-text > .de-forced-lines__text)
+  > .doc-caption-continued::after {
+  content: none;
 }
 
 /*

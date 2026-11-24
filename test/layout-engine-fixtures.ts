@@ -95,6 +95,7 @@ export function standInBlockLayout({
   sheet,
   onMath,
   equationOf,
+  text = standInTextLayout(refuse),
 }: {
   template?: TemplateFile;
   measure?: AtomMeasurer;
@@ -104,10 +105,12 @@ export function standInBlockLayout({
   sheet?: SheetNumbers;
   onMath?: MathRecorder;
   equationOf?: (equation: ProseMirrorNode) => string | undefined;
+  /** The text layout, the stand-in's by default. */
+  text?: BlockTextLayout;
 } = {}) {
   const atoms = createAtomCache({ measure });
   const layout = createBlockLayout({
-    text: standInTextLayout(refuse),
+    text,
     atoms,
     metrics: (scope) => blockMetrics(template, scope, sheet),
     labelOf,

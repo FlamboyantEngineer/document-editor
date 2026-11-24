@@ -38,7 +38,7 @@ import {
   type PrintMarkup,
   standalonePage,
 } from './print-content.js';
-import { linesContent } from './print-lines.js';
+import { linesContent, shownTrees } from './print-lines.js';
 import {
   isPrintElement,
   type NodeDrawing,
@@ -166,6 +166,13 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
     content(node, pos) {
       const block = blocks.get(pos);
       if (block && isCode(node)) return codeContent(node, block);
+      if (block?.text !== undefined || block?.label) {
+        // A caption's label in its parts, and the text a later part's caption shows.
+        const text =
+          block.text === undefined ? undefined : { text: block.text, marks: block.marks };
+        const own = text ? [] : linesContent(node, block.marks, { pos, drawing });
+        return [...shownTrees({ label: block.label, text }), ...own];
+      }
       if (block) return linesContent(node, block.marks, { pos, drawing });
       const value = node.type.name === 'template_variable' ? values.get(pos + 1) : undefined;
       // A variable shows the value the pages showed, before its own content, as its widget did.

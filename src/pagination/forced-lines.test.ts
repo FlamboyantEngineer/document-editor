@@ -364,49 +364,109 @@ describe('forcedLines', () => {
     ]);
   });
 
-  it("DOCE-PAGINATION-11.2 leaves a later part's caption, with the first part's text, to the browser", () => {
-    const code = create('code_block', { codeBlockContinued: true }, [documentSchema.text('ee')]);
-    const figure = create('code_figure', null, [create('code_caption', null), code]);
-    const doc = pagesDoc([[figure]]);
-    const state = stateWith(doc, stubEngine().engine);
-    const [page] = pageTextLines(state);
-    expect(page?.blocks.map(({ type, reason }) => ({ type, reason }))).toEqual([
-      { type: 'code_caption', reason: 'continued caption' },
-      { type: 'code_block', reason: undefined },
-    ]);
+  const lineOf = (from: number, to: number, left = 0): TextLine => ({
+    from,
+    to,
+    width: 10,
+    left,
+    top: 0,
+    height: 20,
+    end: 'wrap',
   });
 
-  it('DOCE-PAGINATION-11.2 leaves a caption whose label fills its first line to the browser', () => {
+  // An engine that lays a caption out on the lines given, its other blocks as the stub does.
+  function withCaptionLines(caption: Node, table: DrawnLines) {
     const { engine } = stubEngine();
-    const lines = (from: number, to: number): TextLine => ({
-      from,
-      to,
-      width: 10,
-      left: 0,
-      top: 0,
-      height: 20,
-      end: 'end',
-    });
-    const label = {
+    const own = engine.nestedLines.bind(engine);
+    engine.nestedLines = (container, scope) =>
+      new Map([...own(container, scope), [caption, table]]);
+    return engine;
+  }
+
+  it("DOCE-PAGINATION-11.2 draws a later part's caption, the first part's text and the continued suffix, on its lines", () => {
+    const code = create('code_block', { codeBlockContinued: true }, [documentSchema.text('ee')]);
+    const caption = create('code_caption', { continuedText: 'Listing' });
+    const figure = create('code_figure', null, [caption, code]);
+    const text = 'Listing (continued)';
+    const shown: DrawnLines = {
       width: 100,
-      lines: [lines(0, 0), lines(0, 2)],
+      lines: [lineOf(0, 8), { ...lineOf(8, 19), end: 'end' }],
       height: 40,
       overhead: 0,
       justify: false,
+      text,
     };
+    const state = stateWith(pagesDoc([[figure]]), withCaptionLines(caption, shown));
+    const [page] = pageTextLines(state);
+    expect(page?.blocks.map(({ type, reason, lines }) => ({ type, reason, lines }))).toEqual([
+      {
+        type: 'code_caption',
+        reason: undefined,
+        lines: [
+          { from: 0, to: 8, text: 'Listing ' },
+          { from: 8, to: 19, text: '(continued)' },
+        ],
+      },
+      { type: 'code_block', reason: undefined, lines: [{ from: 0, to: 2, text: 'ee' }] },
+    ]);
+    // The text is drawn before the empty content, its first line ended after its last character.
+    const view = new EditorView(document.createElement('div'), { state });
+    const drawnText = view.dom.querySelector('.doc-caption-text > .de-forced-lines__text');
+    expect(drawnText?.innerHTML).toBe(
+      'Listing<span class="de-forced-lines__end"> </span>(continued)',
+    );
+    view.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.2 leaves out the captions the pages do not show', () => {
+    const cell = () => create('table_cell', null, [paragraph('gg')]);
+    const table = (attrs: Record<string, unknown> | null) =>
+      create('table', attrs, [create('table_row', null, [cell()])]);
+    const off = create('table_figure', null, [
+      create('table_caption', null, [documentSchema.text('ff')]),
+      table({ captionEnabled: false }),
+    ]);
+    const figure = create('figure', { src: 'a.png', captionEnabled: false }, [
+      create('figure_caption', null, [documentSchema.text('hh')]),
+    ]);
+    // A later part opening with a body row shows no caption.
+    const headerless = create('table_figure', { splitPartIndex: 1 }, [
+      create('table_caption', null),
+      table({ splitPartIndex: 1 }),
+    ]);
+    const [page] = pageTextLines(
+      stateWith(pagesDoc([[off, figure, headerless]]), stubEngine().engine),
+    );
+    expect(page?.blocks.map(({ type }) => type)).toEqual(['paragraph', 'paragraph']);
+  });
+
+  it('DOCE-PAGINATION-11.2 draws a caption whose label a line breaks inside in the parts its lines start', () => {
     const caption = create('table_caption', null, [documentSchema.text('ff')]);
     const table = create('table', null, [
       create('table_row', null, [create('table_cell', null, [paragraph('gg')])]),
     ]);
     const holder = create('table_figure', null, [caption, table]);
-    const own = engine.nestedLines.bind(engine);
-    engine.nestedLines = (container, scope) =>
-      new Map([...own(container, scope), [caption, label]]);
-    const [page] = pageTextLines(stateWith(pagesDoc([[holder]]), engine));
-    expect(page?.blocks.map(({ type, reason }) => ({ type, reason }))).toEqual([
-      { type: 'table_caption', reason: 'wrapped label' },
-      { type: 'paragraph', reason: undefined },
-    ]);
+    const label: DrawnLines = {
+      width: 100,
+      lines: [lineOf(0, 0), { ...lineOf(0, 2, 4), end: 'end' }],
+      height: 40,
+      overhead: 0,
+      justify: false,
+      label: 'Table \n1 - ',
+    };
+    const doc = pagesDoc([[holder]]);
+    const state = stateWith(doc, withCaptionLines(caption, label));
+    const [page] = pageTextLines(state);
+    expect(page?.blocks[0]?.lines?.map(({ text }) => text)).toEqual(['', 'ff']);
+    // The content starts on the label's second line, which starts at its indent, not the text.
+    const starts = drawn(state).filter((each) => each.class === 'de-forced-lines__start');
+    expect(starts).toEqual([]);
+    const view = new EditorView(document.createElement('div'), { state });
+    const drawnLabel = view.dom.querySelector('.doc-caption-text > .de-forced-lines__label');
+    expect(drawnLabel?.innerHTML).toBe(
+      'Table <br><span class="de-forced-lines__start" style="--de-line-indent: 4.000px;">1 - </span>',
+    );
+    view.destroy();
   });
 
   it("DOCE-PAGINATION-11.2 hands linked code's view the lines of the code it is laid out as", () => {

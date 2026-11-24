@@ -13,6 +13,8 @@ export interface BlockAt {
   /** A header's, footer's or footnote area's block, which has no element id: its region and its index in it. */
   readonly region?:
     { readonly name: 'header' | 'footer' | 'footnotes'; readonly index: number } | undefined;
+  /** A caption without an element id: the object it captions, whose holder draws it. */
+  readonly captionOf?: { readonly elementId: string; readonly part: number } | undefined;
 }
 
 /** What one block fragment draws: the text of each of its lines, or null when it is not drawn. */
@@ -80,6 +82,11 @@ export function readDrawnLines(
       // A footnote marker's number and a template variable's value are laid out on the line, as
       // the computed lines read them.
       const ownText = (node: Node, block: Element) => {
+        // A caption drawn on the engine's lines shows text it does not hold: a later part's caption
+        // the first part's text, read as its text, and a label in parts, whose breaks are read.
+        if (node.parentElement?.closest('.de-forced-lines__text')) return true;
+        if (node.nodeName === 'BR' && node.parentElement?.closest('.de-forced-lines__label'))
+          return true;
         if (node.parentElement?.closest('.footnote-reference, [data-footnote-reference]'))
           return true;
         // So is a template variable's value, which the page variables draw inside it.
@@ -109,12 +116,15 @@ export function readDrawnLines(
           const blocks = area?.querySelectorAll(':is(p, h1, h2, h3, h4, h5, h6, pre)');
           return blocks?.[at.region.index];
         }
-        const candidates = pages[at.page]?.querySelectorAll(
-          `[data-id="${CSS.escape(at.elementId)}"]`,
-        );
-        return [...(candidates ?? [])].find(
-          (element) => Number(element.getAttribute('data-split-part-index') ?? 0) === at.part,
-        );
+        const of = (elementId: string, part: number) =>
+          [
+            ...(pages[at.page]?.querySelectorAll(`[data-id="${CSS.escape(elementId)}"]`) ?? []),
+          ].find((element) => Number(element.getAttribute('data-split-part-index') ?? 0) === part);
+        if (at.captionOf) {
+          const object = of(at.captionOf.elementId, at.captionOf.part);
+          return object?.parentElement?.querySelector(':scope > .doc-caption-line') ?? undefined;
+        }
+        return of(at.elementId, at.part);
       };
       return asked.map((at) => {
         const block = find(at);
@@ -197,7 +207,8 @@ export function blocksToRead(
         : undefined;
       if (!block.lines) return [];
       const lines = block.lines.map((line) => plain(line.text));
-      return [{ page: index, elementId: block.elementId, part: block.part, region, lines }];
+      const { elementId, part, captionOf } = block;
+      return [{ page: index, elementId, part, region, lines, ...(captionOf ? { captionOf } : {}) }];
     });
   });
 }
@@ -238,6 +249,7 @@ interface TextBlockLines {
   readonly part: number;
   readonly region?: 'header' | 'footer' | 'footnotes' | undefined;
   readonly lines: readonly { readonly text: string }[] | null;
+  readonly captionOf?: { readonly elementId: string; readonly part: number } | undefined;
 }
 
 /**

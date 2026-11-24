@@ -631,16 +631,19 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // heights did not.
 // Display equations are sized by MathJax (DOCE-PAGINATION-12.12): caption-numbering's planned
 // heights moved.
+// A later part's caption and a label its lines break inside are drawn on forced lines, and a
+// caption switched off is no forced block (DOCE-PAGINATION-11.2): the line fingerprints of the
+// documents with them moved, their planned heights did not.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '73ff4f55af65f179', heights: 'a4bb924a0d7cb5ea' },
+  'caption-numbering': { lines: 'd7ce4ad490208d2c', heights: 'a4bb924a0d7cb5ea' },
   'heading-keep-with-next': { lines: 'f3b2f4d0f58c7941', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: 'ce519859d4413c47', heights: 'fff1aac6498b64ce' },
-  'oversized-blocks': { lines: '0d16eb6598af7a34', heights: 'f3be75ce06ce1c8d' },
+  'long-mixed': { lines: '7aa9bf0a36e28942', heights: 'fff1aac6498b64ce' },
+  'oversized-blocks': { lines: '3855b1312e8943bb', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: 'd40800e840119375' },
 };
 
