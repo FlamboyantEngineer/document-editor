@@ -27,6 +27,9 @@ describe('math drawn from its layout', () => {
       '--de-math-end: 31px',
     );
     expect(mathDrawingHooks(placed).style).not.toContain('--de-math-end');
+    // A tag beside an automatic number sits past it.
+    const beside = { ...placeMath({ math: laid(['a']), tag: laid(['1']) }, 600, 60), tagEnd: 30 };
+    expect(mathDrawingHooks(beside).style).toContain('--de-math-tag-end: 30px');
     expect(mathDrawingHooks(placeMath(reservedMath(2, false, 10), 600))).toMatchObject({
       'data-math-layout': 'reserved',
     });
