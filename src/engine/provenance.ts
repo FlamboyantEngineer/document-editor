@@ -9,6 +9,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
 import { isStructureNode } from '../model/schema/document-structure.js';
+import { diffFragments } from '../utils/fragment-diff.js';
 import { automationActor } from './automation.js';
 import { isInPageRegion } from './block-place.js';
 import { isLocalEdit, isRemoteTransaction } from './transaction-kind.js';
@@ -39,13 +40,8 @@ interface Inserted {
 // documents around it: a change that rewrites a whole node or page to type one character, as an
 // editor reading the DOM or a view following another may make, inserts only that character.
 function newPart(before: ProseMirrorNode, after: ProseMirrorNode): Inserted | null {
-  const start = before.content.findDiffStart(after.content);
-  if (start === null) return null;
-  const end = after.content.findDiffEnd(before.content);
-  let to = end?.a ?? after.content.size;
-  const overlap = start - Math.min(to, end?.b ?? before.content.size);
-  if (overlap > 0) to += overlap;
-  return to > start ? { from: start, to } : null;
+  const diff = diffFragments(before.content, after.content);
+  return diff && diff.endB > diff.start ? { from: diff.start, to: diff.endB } : null;
 }
 
 // Whether a step lays pages out rather than inserting the writer's content: a view following

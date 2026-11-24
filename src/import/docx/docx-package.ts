@@ -2,6 +2,7 @@
 // relationships a part has to others (`_rels/<part>.rels`), and the images a part embeds, read up
 // front so the readers that walk the part need not wait.
 
+import { encodeBase64 } from '../../utils/base64.js';
 import { importError } from '../import-error.js';
 import type { ImportWarnings } from '../import-warnings.js';
 import { childElements, readXml, type XmlElement } from '../xml-read.js';
@@ -72,14 +73,6 @@ const relationshipsPath = (path: string) => {
   return `${path.slice(0, slash + 1)}_rels/${path.slice(slash + 1)}.rels`;
 };
 
-function base64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let at = 0; at < bytes.length; at += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
-  }
-  return btoa(binary);
-}
-
 /** Reads the parts of a package, each once. */
 export interface DocxPackage {
   /** A part with its relationships and images; null when the package has no such part. */
@@ -120,7 +113,7 @@ export function openPackage(
     if (mediaType && bytes) {
       const src =
         options.imageSource?.({ path, mediaType, bytes }) ??
-        `data:${mediaType};base64,${base64(bytes)}`;
+        `data:${mediaType};base64,${encodeBase64(bytes)}`;
       image = { path, mediaType, bytes, src };
       images.push(image);
     }

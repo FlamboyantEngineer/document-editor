@@ -270,8 +270,8 @@ Verification: `src/model/format/html.test.ts`
 
 `writeStaticHtml(doc)` from `./document` shall write a document's content as HTML text with no DOM, each node and mark as its type's `toDOM` output spec writes it and a mark kept open across the nodes that share it, as ProseMirror's serializer does, so it gives the markup `writeHtml` gives, text and attribute values escaped as a browser writes them. A type whose `toDOM` gives a DOM node rather than an output spec shall make it throw.
 
-Implementation: `src/document/static-html.ts`
-Verification: `src/document/static-html.test.ts`, `test/extension-guide.test.ts`, `test/node-entry.test.ts`
+Implementation: `src/document/static-html.ts`, `src/document/html-output.ts`
+Verification: `src/document/static-html.test.ts`, `test/extension-guide.test.ts`, `test/node-entry.test.ts`, `src/document/html-output.test.ts`
 
 ## DOCE-FORMAT-7 - Contract tests
 

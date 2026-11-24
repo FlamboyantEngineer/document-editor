@@ -64,16 +64,10 @@ interface PageRange {
   targetTo: number;
 }
 
-function pagesOf(section: ProseMirrorNode): ProseMirrorNode[] {
-  const pages: ProseMirrorNode[] = [];
-  section.forEach((page) => pages.push(page));
-  return pages;
-}
-
 // The pages between the ones both sections begin and end with alike; null when every page is.
 function differingPages(section: ProseMirrorNode, target: ProseMirrorNode): PageRange | null {
-  const pages = pagesOf(section);
-  const targetPages = pagesOf(target);
+  const pages = section.children;
+  const targetPages = target.children;
   const last = pages.length - 1;
   const targetLast = targetPages.length - 1;
   let from = 0;

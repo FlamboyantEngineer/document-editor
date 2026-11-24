@@ -6,12 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type ChildLayout, isContainerMeasurement } from './container-split.js';
 import { splitHeldWith } from './held-split.js';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
-
-function rowsOf(table: ProseMirrorNode): ProseMirrorNode[] {
-  const rows: ProseMirrorNode[] = [];
-  table.forEach((row) => rows.push(row));
-  return rows;
-}
+import { splitPartOf } from './split-part.js';
 
 /** Whether every cell of a row is a header cell. */
 export function isHeaderRow(row: ProseMirrorNode): boolean {
@@ -24,14 +19,9 @@ export function isHeaderRow(row: ProseMirrorNode): boolean {
 
 /** How many of a table's rows lead it as header rows. */
 export function leadingHeaderRows(table: ProseMirrorNode): number {
-  const rows = rowsOf(table);
+  const rows = table.children;
   const count = rows.findIndex((row) => !isHeaderRow(row));
   return count < 0 ? rows.length : count;
-}
-
-function partIndex(node: ProseMirrorNode): number {
-  const index = node.attrs.splitPartIndex as unknown;
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : 0;
 }
 
 function shift(layouts: readonly ChildLayout[], by: number): ChildLayout[] {
@@ -86,7 +76,7 @@ interface Fit {
 export function splitTableWith(repeatHeader: boolean) {
   return (block: LayoutBlock, fitting: number): SplitBlock | null => {
     const { node } = block;
-    const rows = rowsOf(node);
+    const rows = node.children;
     if (!isContainerMeasurement(block.measurement)) return null;
     const layouts = block.measurement.children;
     const headerCount = leadingHeaderRows(node);
@@ -99,7 +89,7 @@ export function splitTableWith(repeatHeader: boolean) {
     const header = repeatHeader ? rows.slice(0, headerCount) : [];
     const headerLayouts = repeatHeader ? layouts.slice(0, headerCount) : [];
     const headerSpan = headerLayouts.at(-1)?.bottom ?? 0;
-    const part = partIndex(node);
+    const part = splitPartOf(node) ?? 0;
     const create = (index: number, content: ProseMirrorNode[]) =>
       node.type.create({ ...node.attrs, splitPartIndex: index }, content, node.marks);
     return {
