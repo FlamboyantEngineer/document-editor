@@ -24,6 +24,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { clampFigureSize, type FigureBounds, figureBounds, sizeRatio } from './figure-size.js';
 import {
   DiagramSource,
+  editHostedDiagram,
   type FigureAsset,
   ImageSource,
   type PickedAsset,
@@ -258,17 +259,20 @@ function drawDiagram({
     runCommand(view, insertFigure({ figureType: 'diagram', ...asset, alt: 'figure', ...sized }));
     placed = diagram.assetId;
   };
-  const failed = (message?: string) => {
-    if (controller.signal.aborted) return;
-    feedback?.notify({ tone: 'error', text: message ?? labels.diagramFailed });
-    onClose();
-  };
-  diagrams.edit(null, controller.signal, { onSave: save }).then((result) => {
-    if (!result.ok) return failed(result.error.message);
-    if (result.value) save(result.value);
-    if (!controller.signal.aborted) onClose();
-    return undefined;
-  }, failed);
+  void editHostedDiagram(diagrams, {
+    current: null,
+    signal: controller.signal,
+    fallback: labels.diagramFailed,
+    onSave: save,
+    onFinish: (stored) => {
+      if (stored) save(stored);
+      if (!controller.signal.aborted) onClose();
+    },
+    onError: (text) => {
+      feedback?.notify({ tone: 'error', text });
+      onClose();
+    },
+  });
   return () => controller.abort();
 }
 

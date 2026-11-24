@@ -7,7 +7,7 @@ import { createDocumentEditing } from '../engine/document-editing.js';
 import { isRemoteTransaction } from '../engine/transaction-kind.js';
 import type { HostResult } from '../host/adapters.js';
 import { resolveEditingMode } from '../host/capabilities.js';
-import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
+import type { TemplateFile } from '../model/format/template-format.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import type {
   DocumentSession,
@@ -21,7 +21,6 @@ import type {
 import { createSessionDrafts } from './drafts.js';
 import type { MergeConflict } from './merge.js';
 import {
-  loadPinnedTemplate,
   openCurrentDocument,
   type OpenedDocument,
   openStoredDocument,
@@ -32,6 +31,7 @@ import { followSession, withCapabilities } from './session-follow.js';
 import type { SessionStatus } from './status.js';
 import { createStoreRefresh } from './store-refresh.js';
 import { createStoreSaving, storeBaseline } from './store-saving.js';
+import { changeTemplate } from './template-change.js';
 import { createValueStore } from './value-store.js';
 
 const DEFAULT_AUTOSAVE_DELAY = 1000;
@@ -129,38 +129,6 @@ export function createSessionStores(
 
 export type SessionStores = ReturnType<typeof createSessionStores>;
 type StoreSaving = ReturnType<typeof createStoreSaving>;
-
-// How many template changes each session's stores were asked for: only the last one asked shows.
-const templateAsks = new WeakMap<SessionStores, number>();
-
-/**
- * Shows another template the document pins; null when it cannot load, the document is gone, or
- * another change was asked for since, whichever load ends first.
- */
-export async function changeTemplate(
-  {
-    host,
-    signal,
-    isCurrent,
-  }: {
-    host: DocumentSessionOptions['host'];
-    signal: AbortSignal;
-    isCurrent?: () => boolean;
-  },
-  stores: SessionStores,
-  pin: TemplatePin | null,
-) {
-  const { status, document } = stores;
-  const ask = (templateAsks.get(stores) ?? 0) + 1;
-  templateAsks.set(stores, ask);
-  const loaded = await loadPinnedTemplate(host, pin, signal);
-  if (signal.aborted || templateAsks.get(stores) !== ask || isCurrent?.() === false) return null;
-  const shown = document.get();
-  if (!loaded.ok) status.set({ ...status.get(), error: loaded.error });
-  if (!loaded.ok || !shown) return null;
-  document.set({ ...shown, template: loaded.value.template, pin, templateUpdate: null });
-  return { doc: shown.state.doc, saved: loaded.value.saved };
-}
 
 // What a session takes in and keeps beside saving: other writers' saves (DOCE-SESSION-4, 7) and its
 // drafts (DOCE-SESSION-6).

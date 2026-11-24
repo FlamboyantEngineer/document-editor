@@ -73,7 +73,7 @@ function replaceAllEntry(
       replaceAllProofingIssues(issue, suggestion),
     ),
   );
-  return alike && items.length > 0
+  return alike && items.some((item) => !item.isDisabled)
     ? { id: 'proofing-replace-all', label: labels.replaceAll, items }
     : { id: 'proofing-replace-all', label: labels.replaceAll, isDisabled: true };
 }

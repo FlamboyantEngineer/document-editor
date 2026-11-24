@@ -130,6 +130,50 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     },
   );
 
+  it.each(['rejects', 'throws'])(
+    'DOCE-OBJECTS-1.4 keeps the dialog and fields usable after an upload %s',
+    async (failure) => {
+      const user = userEvent.setup();
+      const view = editorView();
+      const onClose = vi.fn();
+      const upload = vi
+        .fn<AssetAdapter['upload']>()
+        .mockImplementationOnce(() => {
+          const error = new Error('Image service declined the upload.');
+          if (failure === 'throws') throw error;
+          return Promise.reject(error);
+        })
+        .mockResolvedValueOnce(uploadResult('retried'));
+      render(
+        <FigureDialog
+          view={view}
+          labels={DEFAULT_EDITOR_LABELS}
+          onClose={onClose}
+          assets={{ ...ASSETS, upload }}
+        />,
+      );
+      const dialog = screen.getByRole('dialog');
+      await user.type(within(dialog).getByRole('textbox', { name: 'Caption' }), 'Sketch');
+      await user.upload(uploadInput(), new File(['image'], 'draft.png', { type: 'image/png' }));
+      expect(
+        await within(dialog).findByText('Image service declined the upload.'),
+      ).toBeInTheDocument();
+      expect(within(dialog).getByRole('textbox', { name: 'Caption' })).toHaveValue('Sketch');
+      expect(within(dialog).getByRole('button', { name: 'Insert' })).toBeDisabled();
+      expect(onClose).not.toHaveBeenCalled();
+
+      await user.upload(uploadInput(), new File(['image'], 'retry.png', { type: 'image/png' }));
+      const insert = within(dialog).getByRole('button', { name: 'Insert' });
+      await waitFor(() => expect(insert).toBeEnabled());
+      expect(
+        within(dialog).queryByText('Image service declined the upload.'),
+      ).not.toBeInTheDocument();
+      await user.click(insert);
+      expect(figureAttrs(view)).toMatchObject({ fileAssetId: 'retried', snapshotId: 'retried' });
+      expect(writeMarkup(view.state.doc)).toContain('Sketch');
+    },
+  );
+
   it('DOCE-OBJECTS-1.4 places an image chosen among the host assets, clamped to the page', async () => {
     const user = userEvent.setup();
     const view = editorView();
@@ -235,6 +279,47 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     await user.click(screen.getByRole('button', { name: 'Apply' }));
     expect(figureAttrs(view)).toMatchObject({ fileAssetId: 'drawing-2', width: 480 });
   });
+
+  it.each(['throws', 'rejects', 'rejects with no message'])(
+    'DOCE-OBJECTS-1.4 keeps the figure dialog usable when diagram editing %s',
+    async (failure) => {
+      const user = userEvent.setup();
+      const onClose = vi.fn();
+      const view = editorView({
+        type: 'figure',
+        attrs: { kind: 'diagram', assetId: 'drawing', assetRevision: 'original' },
+      });
+      const labels = { ...DEFAULT_EDITOR_LABELS, diagramFailed: 'Try editing the diagram again.' };
+      const message = 'The drawing service is unavailable.';
+      const edit = vi
+        .fn<DiagramAdapter['edit']>()
+        .mockImplementationOnce(() => {
+          const error = new Error(failure === 'rejects with no message' ? '' : message);
+          if (failure === 'throws') throw error;
+          return Promise.reject(error);
+        })
+        .mockResolvedValueOnce({ ok: true, value: { assetId: 'drawing', snapshotId: 'updated' } });
+      render(<FigureDialog view={view} labels={labels} onClose={onClose} diagrams={{ edit }} />);
+      const dialog = screen.getByRole('dialog');
+      const editButton = within(dialog).getByRole('button', { name: 'Edit diagram…' });
+      const caption = within(dialog).getByRole('textbox', { name: 'Caption' });
+      await user.type(caption, 'Floor plan');
+      await user.click(editButton);
+      const error = failure === 'rejects with no message' ? labels.diagramFailed : message;
+      expect(await within(dialog).findByText(error)).toBeInTheDocument();
+      expect(caption).toHaveValue('Floor plan');
+      expect(editButton).toBeEnabled();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(figureAttrs(view)?.snapshotId).toBe('original');
+
+      await user.click(editButton);
+      await waitFor(() => expect(editButton).toBeEnabled());
+      expect(within(dialog).queryByText(error)).not.toBeInTheDocument();
+      await user.click(within(dialog).getByRole('button', { name: 'Apply' }));
+      expect(figureAttrs(view)).toMatchObject({ fileAssetId: 'drawing', snapshotId: 'updated' });
+      expect(writeMarkup(view.state.doc)).toContain('Floor plan');
+    },
+  );
 });
 
 describe('Inherited figure alignment', () => {

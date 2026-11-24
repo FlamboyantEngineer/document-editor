@@ -105,7 +105,7 @@ function layTable(context: BlockContext, table: ProseMirrorNode): Laid {
 }
 
 /** The width a table takes in its place, its outer border included. */
-export function tableWidth(context: BlockContext, table: ProseMirrorNode): number {
+function tableWidth(context: BlockContext, table: ProseMirrorNode): number {
   const borders = tableBorders(table, context.metrics.table.border);
   const count = TableMap.get(table).width;
   return tableColumns(table, { available: context.place.width, borders, count }).width;

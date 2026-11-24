@@ -4,15 +4,11 @@
 // revealing it. Abbreviations whose glossary entry needs the writer count and are visited with the
 // issues.
 
-import {
-  type Command,
-  type EditorState,
-  NodeSelection,
-  TextSelection,
-  type Transaction,
-} from 'prosemirror-state';
+import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type AbbreviationIssue, listAbbreviationIssues } from './abbreviation-health.js';
+import { isEditRangeLocked } from './edit-lock.js';
+import { isHostContentAt } from './host-content.js';
 import {
   PROOFING_ISSUE_ATTR,
   type ProofingIssueAt,
@@ -21,6 +17,7 @@ import {
   type ProofingState,
 } from './proofing.js';
 import { issueFromDecoration } from './proofing-ranges.js';
+import { replaceMarkedText } from './replace-text.js';
 
 /** The proofing state, or null when the document is not proofed. */
 export function proofingState(state: EditorState): ProofingState | null {
@@ -94,10 +91,8 @@ const proofingMeta =
     return true;
   };
 
-function replaceIn(tr: Transaction, issue: ProofingIssueAt, replacement: string) {
-  if (replacement === '') return tr.delete(issue.from, issue.to);
-  const marks = tr.doc.resolve(issue.from + 1).marks();
-  return tr.replaceWith(issue.from, issue.to, tr.doc.type.schema.text(replacement, marks));
+function canReplaceRange(state: EditorState, issue: ProofingIssueAt, doc = state.doc): boolean {
+  return !isEditRangeLocked(state, issue, doc) && !isHostContentAt(doc, issue.from);
 }
 
 /** Puts a suggestion in place of an issue's text, when the text is still there. */
@@ -107,11 +102,12 @@ export function replaceProofingIssue(issue: ProofingIssueAt, replacement: string
       issue.from < 0 ||
       issue.from >= issue.to ||
       issue.to > state.doc.content.size ||
-      state.doc.textBetween(issue.from, issue.to) !== issue.text
+      state.doc.textBetween(issue.from, issue.to) !== issue.text ||
+      !canReplaceRange(state, issue)
     )
       return false;
     if (dispatch) {
-      const tr = replaceIn(state.tr, issue, replacement);
+      const tr = replaceMarkedText(state.tr, issue, replacement);
       dispatch(
         tr
           .setSelection(TextSelection.create(tr.doc, issue.from + replacement.length))
@@ -129,10 +125,15 @@ const alike = (issue: ProofingIssueAt, other: ProofingIssueAt) =>
   (other.rule?.id ?? null) === (issue.rule?.id ?? null);
 
 // Use the first issue in document order if ranges overlap, even across providers.
-function alikeRanges(state: EditorState, issue: ProofingIssueAt): ProofingIssueAt[] {
+function alikeRanges(
+  state: EditorState,
+  issue: ProofingIssueAt,
+  include: (candidate: ProofingIssueAt) => boolean = () => true,
+): ProofingIssueAt[] {
   const ranges: ProofingIssueAt[] = [];
   for (const other of listProofingIssues(state)) {
-    if (alike(issue, other) && (ranges.at(-1)?.to ?? 0) <= other.from) ranges.push(other);
+    if (alike(issue, other) && (ranges.at(-1)?.to ?? 0) <= other.from && include(other))
+      ranges.push(other);
   }
   return ranges;
 }
@@ -142,15 +143,18 @@ export function countAlikeIssues(state: EditorState, issue: ProofingIssueAt): nu
   return alikeRanges(state, issue).length;
 }
 
-/** Puts a suggestion in place of every issue like one, as one change. */
+/** Puts a suggestion in place of every editable issue like one, as one change. */
 export function replaceAllProofingIssues(issue: ProofingIssueAt, replacement: string): Command {
   return (state, dispatch) => {
-    const issues = alikeRanges(state, issue);
+    const issues = alikeRanges(state, issue, (other) => canReplaceRange(state, other));
     if (issues.length === 0) return false;
     if (dispatch) {
       const tr = state.tr;
       // Later issues first, so the earlier ones' positions stay put.
-      for (const each of issues.reverse()) replaceIn(tr, each, replacement);
+      for (const each of issues.reverse()) {
+        if (tr.doc === state.doc || canReplaceRange(state, each, tr.doc))
+          replaceMarkedText(tr, each, replacement);
+      }
       dispatch(tr.scrollIntoView());
     }
     return true;

@@ -12,7 +12,7 @@ import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import type { SessionDocument } from './document-session.js';
 import { type DocumentMerge, type MergeConflict, mergeDocuments } from './merge.js';
-import { findElement, type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
+import { findConflictVersion, type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
 import { loadPinnedTemplate, readStored, samePin } from './open-document.js';
 import type { PendingEdits } from './pending-edits.js';
 import type { createStoreSaving } from './store-saving.js';
@@ -45,7 +45,9 @@ function showContent(
   const read = readStored(content, context.schema);
   const shown = context.document.get();
   if (!read.ok || !shown) return false;
-  const state = shown.state.apply(replaceDocumentContent(shown.state, read.value.doc));
+  const change = replaceDocumentContent(shown.state, read.value.doc);
+  const { state, transactions } = shown.state.applyTransaction(change);
+  if (change.docChanged && !transactions.length) return false;
   const pin = content.template ?? null;
   const changedPin = !samePin(shown.pin, pin);
   context.document.set({
@@ -59,20 +61,19 @@ function showContent(
   return true;
 }
 
-// The conflicts left to settle once another save is taken in: the merge's own, and each earlier
-// one whose stored block is as it was. The stored document is the merge's base by then, so the
-// merge reads such a block as the reader's change alone, and saving it would overwrite the other
-// writer's without asking. A block the store changed again was judged anew by the merge.
+// The displayed merge kept the edited version over a deletion. Keep that deletion choice to ask
+// about while the edited version survives, even when another save changes its content again.
 function unsettled(
   before: readonly MergeConflict[],
   found: readonly MergeConflict[],
   theirs: DocumentFile,
 ): MergeConflict[] {
-  const kept = before.filter(
-    (old) =>
-      !found.some((each) => each.id === old.id) &&
-      sameStored(findElement(theirs, old.id), old.theirs),
-  );
+  const kept = before.flatMap((old) => {
+    if (found.some((each) => each.id === old.id)) return [];
+    const version = findConflictVersion(theirs, old);
+    if (version === undefined || sameStored(version, old.theirs)) return [old];
+    return old.mine === null && version !== null ? [{ ...old, theirs: version }] : [];
+  });
   return [...kept, ...found];
 }
 
@@ -191,8 +192,8 @@ export function createStoreRefresh(context: StoreRefreshContext) {
       if (!conflict || !shown) return;
       const content = writeDocumentFile(shown.state.doc, { template: shown.pin });
       const resolved = resolveMergeConflict(content, conflict, { choice, newId: createElementId });
-      // Settling a block leaves the pin, and so the template, as shown.
-      if (!showContent(context, resolved, shown)) return;
+      // Settling a conflict leaves the pin, and so the template, as shown.
+      if (resolved === content || !showContent(context, resolved, shown)) return;
       const left = context.conflicts.get().filter((each) => each !== conflict);
       context.conflicts.set(left);
       if (!left.length) context.saving()?.release();

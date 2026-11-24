@@ -84,6 +84,8 @@ describe('the page boxes of a list of contents', () => {
     const drawn = engine.contentsDrawn(contents, null);
     expect(reservedPage(3)).toBe('000');
     expect(drawn?.rows).toEqual([[0], [0], [0]]);
+    // The title is drawn on the engine's lines too.
+    expect(drawn?.title).toEqual([0]);
     const three = drawn?.pageWidths[0] ?? 0;
     expect(three).toBeGreaterThan(0);
     engine.pageDigits(1000);

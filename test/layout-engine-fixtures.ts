@@ -80,6 +80,8 @@ export function standInTextLayout(refuse: readonly string[] = []): BlockTextLayo
                 (place.footnoteNumber ? `${place.footnoteNumber} ` : ''),
             ),
           },
+    // Ten pixels a character.
+    textWidth: (text) => text.length * 10,
   };
 }
 
@@ -92,6 +94,7 @@ export function standInBlockLayout({
   footnoteOf,
   sheet,
   onMath,
+  equationOf,
   text = standInTextLayout(refuse),
 }: {
   template?: TemplateFile;
@@ -101,6 +104,7 @@ export function standInBlockLayout({
   footnoteOf?: (entry: ProseMirrorNode) => string | undefined;
   sheet?: SheetNumbers;
   onMath?: MathRecorder;
+  equationOf?: (equation: ProseMirrorNode) => string | undefined;
   /** The text layout, the stand-in's by default. */
   text?: BlockTextLayout;
 } = {}) {
@@ -112,6 +116,7 @@ export function standInBlockLayout({
     labelOf,
     footnoteOf,
     onMath,
+    equationOf,
   });
   return { layout, atoms };
 }

@@ -231,7 +231,7 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
         if (state.baseline.revision === revision) break;
       }
       if (saving) await saving;
-      return !state.dirty;
+      return !state.held && !state.dirty;
     },
     hasUnsavedChanges: () => state.dirty,
     close: () => {

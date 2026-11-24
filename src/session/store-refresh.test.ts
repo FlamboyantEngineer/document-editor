@@ -1,8 +1,9 @@
-import { TextSelection } from 'prosemirror-state';
+import { Plugin, TextSelection } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import type { DocumentStoreAdapter, EditorHost } from '../host/adapters.js';
 import { createMemoryHost } from '../host/memory-host.js';
 import type { DocumentFile, StoredNode } from '../model/format/document-format.js';
+import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { createDocumentSession, type DocumentSession } from './document-session.js';
 
 const paragraph = (id: string, text: string): StoredNode => ({
@@ -101,6 +102,47 @@ const storedText = async (host: EditorHost) => {
 };
 
 describe('store-mode merges', () => {
+  it('DOCE-SESSION-4.1 saves both quotes after concurrent moves would nest each inside the other', async () => {
+    const file = (...content: StoredNode[]): DocumentFile => ({
+      formatVersion: 1,
+      sections: [{ id: 's0000001', content }],
+    });
+    const first = (text: string, ...children: StoredNode[]): StoredNode => ({
+      type: 'blockquote',
+      attrs: { id: 'b0000001' },
+      content: [paragraph('a0000001', text), ...children],
+    });
+    const second = (text: string, ...children: StoredNode[]): StoredNode => ({
+      type: 'blockquote',
+      attrs: { id: 'b0000002' },
+      content: [paragraph('a0000002', text), ...children],
+    });
+    const host = hostWithoutFeed(file(first('First'), second('Second')));
+    const session = open(host);
+    try {
+      expect(await session.ready).toBe(true);
+      const mine = file(second('Second', first('First, mine')));
+      session.update((state) => {
+        const { doc } = readDocumentFile(mine, state.schema);
+        return state.apply(state.tr.replaceWith(0, state.doc.content.size, doc.content));
+      });
+      const theirs = file(first('First', second('Second, theirs')));
+      expect(
+        await host.documents.save('doc', { content: theirs, baseRevision: 'rev-1' }),
+      ).toMatchObject({ ok: true });
+
+      expect(await session.flush()).toBe(true);
+      expect(session.conflicts.get()).toEqual([]);
+      expect(paragraphs(session)).toEqual(['Second, theirs', 'First, mine']);
+      expect(await host.documents.load('doc')).toMatchObject({
+        ok: true,
+        value: { content: file(second('Second, theirs', first('First, mine'))) },
+      });
+    } finally {
+      session.close();
+    }
+  });
+
   it('DOCE-SESSION-4.1 saves the reader’s edit inside the new section another writer moved it to', async () => {
     const host = hostWithoutFeed();
     const session = open(host);
@@ -220,6 +262,127 @@ describe('store-mode merges', () => {
     expect(session.conflicts.get()).toEqual([]);
     expect(paragraphs(session)).toEqual(['First, theirs', 'Second']);
     expect(session.hasUnsavedChanges()).toBe(false);
+  });
+
+  it('DOCE-SESSION-4.2 keeps a section conflict through another save and persists the chosen deletion', async () => {
+    const first = { id: 's0000001', name: null, content: [paragraph('a0000001', 'First')] };
+    const second = { id: 's0000002', name: null, content: [paragraph('a0000002', 'Second')] };
+    const stored = { ...DOCUMENT, sections: [first, second] };
+    const host = createMemoryHost({ documents: [{ id: 'doc', content: stored }] });
+    const session = open(host);
+    try {
+      expect(await session.ready).toBe(true);
+      session.update((state) =>
+        state.apply(state.tr.delete(state.doc.child(0).nodeSize, state.doc.content.size)),
+      );
+      const changed = { ...second, content: [paragraph('a0000002', 'Second, theirs')] };
+      const firstSave = await host.documents.save('doc', {
+        content: { ...stored, sections: [first, changed] },
+        baseRevision: 'rev-1',
+      });
+      if (!firstSave.ok) throw new Error('Could not save the changed section.');
+      await vi.waitFor(() => expect(session.conflicts.get()).toMatchObject([{ id: second.id }]));
+      const unrelated = { ...first, content: [paragraph('a0000001', 'First, theirs')] };
+      const secondSave = await host.documents.save('doc', {
+        content: { ...stored, sections: [unrelated, changed] },
+        baseRevision: firstSave.value.revision,
+      });
+      if (!secondSave.ok) throw new Error('Could not save the unrelated edit.');
+      await vi.waitFor(() =>
+        expect(paragraphs(session)).toEqual(['First, theirs', 'Second, theirs']),
+      );
+      expect(session.conflicts.get()).toMatchObject([{ id: second.id }]);
+      const latest = { ...second, content: [paragraph('a0000002', 'Second, again')] };
+      expect(
+        await host.documents.save('doc', {
+          content: { ...stored, sections: [unrelated, latest] },
+          baseRevision: secondSave.value.revision,
+        }),
+      ).toMatchObject({ ok: true });
+      await vi.waitFor(() =>
+        expect(session.conflicts.get()).toMatchObject([
+          { id: second.id, mine: null, theirs: latest },
+        ]),
+      );
+      expect(await session.flush()).toBe(false);
+
+      await session.resolveConflict(second.id, 'mine');
+      expect(session.conflicts.get()).toEqual([]);
+      expect(await session.flush()).toBe(true);
+      expect(await storedText(host)).not.toContain(second.id);
+      expect(await storedText(host)).toContain('First, theirs');
+    } finally {
+      session.close();
+    }
+  });
+
+  it('DOCE-SESSION-4.2 keeps a conflict when the editor refuses its resolution', async () => {
+    const first = { id: 's0000001', content: [paragraph('a0000001', 'First')] };
+    const second = { id: 's0000002', content: [paragraph('a0000002', 'Second')] };
+    const stored = { ...DOCUMENT, sections: [first, second] };
+    const host = hostWithoutFeed(stored);
+    const session = open(host);
+    try {
+      expect(await session.ready).toBe(true);
+      session.update((state) =>
+        state.apply(state.tr.delete(state.doc.child(0).nodeSize, state.doc.content.size)),
+      );
+      const changed = { ...second, content: [paragraph('a0000002', 'Second, theirs')] };
+      await host.documents.save('doc', {
+        content: { ...stored, sections: [first, changed] },
+        baseRevision: 'rev-1',
+      });
+      await session.save();
+      expect(session.conflicts.get()).toMatchObject([{ id: second.id }]);
+      let refuse = true;
+      session.update((state) =>
+        state.reconfigure({
+          plugins: [
+            ...state.plugins,
+            new Plugin({ filterTransaction: (tr) => !refuse || !tr.docChanged }),
+          ],
+        }),
+      );
+      await session.resolveConflict(second.id, 'mine');
+      expect(session.conflicts.get()).toMatchObject([{ id: second.id }]);
+      expect(await session.flush()).toBe(false);
+      expect(paragraphs(session)).toEqual(['First', 'Second, theirs']);
+
+      refuse = false;
+      await session.resolveConflict(second.id, 'mine');
+      expect(await session.flush()).toBe(true);
+      expect(session.conflicts.get()).toEqual([]);
+      expect(paragraphs(session)).toEqual(['First']);
+    } finally {
+      session.close();
+    }
+  });
+
+  it('DOCE-SESSION-4.2 keeps a stored section id separate from an anonymous position key', async () => {
+    const first = { id: '#1', content: [paragraph('a0000001', 'Identified')] };
+    const second = { content: [paragraph('a0000002', 'Anonymous')] };
+    const host = hostWithoutFeed({ ...DOCUMENT, sections: [first, second] });
+    const session = open(host);
+    try {
+      expect(await session.ready).toBe(true);
+      typeAt(session, 'Identified', ', mine');
+      await saveAsAnotherWriter(host, { id: 'a0000001', text: 'Identified, theirs' });
+      expect(await session.flush()).toBe(false);
+      expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]);
+      expect(paragraphs(session)).toEqual(['Identified, mine', 'Anonymous']);
+      await session.resolveConflict('a0000001', 'mine');
+      expect(await session.flush()).toBe(true);
+      expect(await host.documents.load('doc')).toMatchObject({
+        ok: true,
+        value: {
+          content: {
+            sections: [{ ...first, content: [paragraph('a0000001', 'Identified, mine')] }, second],
+          },
+        },
+      });
+    } finally {
+      session.close();
+    }
   });
 
   it('DOCE-SESSION-4.2 keeps both texts when the reader asks, then saves', async () => {

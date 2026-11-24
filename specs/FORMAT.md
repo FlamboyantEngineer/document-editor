@@ -145,7 +145,7 @@ Verification: `src/model/format/markdown-fidelity.test.ts`, `src/model/format/ma
 
 ### DOCE-FORMAT-4.5 - Values and format changes
 
-A variable shall be written as the text `values.variable(key)` gives, escaped, or as its key in braces when it gives none (DOCE-FORMAT-5.3), which reads back as the variable. A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept. Tags and entities in a variable value shall be written as literal text. A template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
+A variable shall be written as the text `values.variable(key)` gives, escaped, or as its key in braces when it gives none (DOCE-FORMAT-5.3), which reads back as the variable. A template block shall be written as the text of its source, its tags left out and its paragraphs kept. It shall replace complete variable tokens within each HTML text node in the same way, after reading that node's character references, including numeric references and named braces. Tokens split by markup shall remain literal text after its removal. Tags and entities in a variable value shall be written as literal text. A template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
 
 Implementation: `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
 Verification: `src/model/format/markdown-fidelity.test.ts`, `src/model/format/markdown-round-trip.test.ts`

@@ -28,6 +28,11 @@ export interface PickedAsset {
 
 type Upload = { readonly file: File; readonly error?: string | undefined; readonly done: boolean };
 
+function failureMessage(reason: unknown, fallback: string): string {
+  const message = reason instanceof Error ? reason.message : reason;
+  return typeof message === 'string' && message.trim() ? message : fallback;
+}
+
 /**
  * Uploads a chosen image through the host's assets, naming the figure's current asset, and hands
  * the stored asset on. A file larger than the host takes is refused before any request.
@@ -57,24 +62,34 @@ export function useFigureUpload(
     const controller = new AbortController();
     running.current = controller;
     setUpload({ file, done: false });
-    const failed = (message?: string) => {
+    const failed = (reason: unknown) => {
       if (!controller.signal.aborted) {
         running.current = null;
-        setUpload({ file, done: true, error: message ?? labels.uploadFailed });
+        setUpload({ file, done: true, error: failureMessage(reason, labels.uploadFailed) });
       }
     };
     const options = current
       ? { current: { assetId: current.fileAssetId, snapshotId: current.snapshotId } }
       : {};
-    assets.upload(file, controller.signal, options).then((result) => {
-      if (controller.signal.aborted) return undefined;
-      if (!result.ok) return failed(result.error.message);
+    const store = async () => {
+      let result: Awaited<ReturnType<AssetAdapter['upload']>>;
+      try {
+        result = await assets.upload(file, controller.signal, options);
+      } catch (reason) {
+        failed(reason);
+        return;
+      }
+      if (controller.signal.aborted) return;
+      if (!result.ok) {
+        failed(result.error.message);
+        return;
+      }
       const { id, snapshotId } = result.value;
       running.current = null;
       onStored({ fileAssetId: id, snapshotId: snapshotId ?? id });
       setUpload({ file, done: true });
-      return undefined;
-    }, failed);
+    };
+    void store();
     return undefined;
   };
   return { upload, choose, refuse, cancel, max, pending: upload !== null && !upload.done };
@@ -181,6 +196,38 @@ export function ImageSource({
   );
 }
 
+interface DiagramEditRequest {
+  readonly current: StoredDiagram | null;
+  readonly signal: AbortSignal;
+  readonly fallback: string;
+  readonly onSave: (diagram: StoredDiagram) => void;
+  readonly onFinish: (diagram: StoredDiagram | null) => void;
+  readonly onError: (message: string) => void;
+}
+
+/** Opens the host editor and forwards its saves and result while the request is active. */
+export async function editHostedDiagram(
+  diagrams: DiagramAdapter,
+  { current, signal, fallback, onSave, onFinish, onError }: DiagramEditRequest,
+): Promise<void> {
+  const failed = (reason: unknown) => {
+    if (!signal.aborted) onError(failureMessage(reason, fallback));
+  };
+  const save = (stored: StoredDiagram) => {
+    if (!signal.aborted) onSave(stored);
+  };
+  let result: Awaited<ReturnType<DiagramAdapter['edit']>>;
+  try {
+    result = await diagrams.edit(current, signal, { onSave: save });
+  } catch (reason) {
+    failed(reason);
+    return;
+  }
+  if (signal.aborted) return;
+  if (result.ok) onFinish(result.value);
+  else failed(result.error.message);
+}
+
 /**
  * Opens the host's diagram editor, handing on each diagram a save stores while it stays open
  * (`onSave`) and the one it resolves with (`onStored`); closing the dialog aborts it.
@@ -204,18 +251,17 @@ export function useDiagramEditing(
     const controller = new AbortController();
     running.current = controller;
     setState({ pending: true });
-    const failed = (message?: string) =>
-      setState({ pending: false, error: message ?? labels.diagramFailed });
-    const save = (stored: StoredDiagram) => {
-      if (!controller.signal.aborted) onSave(stored);
-    };
-    diagrams.edit(diagram, controller.signal, { onSave: save }).then((result) => {
-      if (controller.signal.aborted) return undefined;
-      if (!result.ok) return failed(result.error.message);
-      if (result.value) onStored(result.value);
-      setState({ pending: false });
-      return undefined;
-    }, failed);
+    void editHostedDiagram(diagrams, {
+      current: diagram,
+      signal: controller.signal,
+      fallback: labels.diagramFailed,
+      onSave,
+      onFinish: (stored) => {
+        if (stored) onStored(stored);
+        setState({ pending: false });
+      },
+      onError: (error) => setState({ pending: false, error }),
+    });
   };
   return { ...state, edit };
 }

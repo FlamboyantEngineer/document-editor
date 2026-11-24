@@ -1,7 +1,8 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { StoredNode } from './document-format.js';
 import { readMarkdown } from './markdown-read.js';
+import { MAX_MARKDOWN_DEPTH } from './markdown-read-depth.js';
 
 const blocksOf = (markdown: string) => readMarkdown(markdown).file.sections[0]?.content ?? [];
 const text = (value: string, ...marks: string[]): StoredNode => ({
@@ -17,10 +18,6 @@ const linked = (value: string, href: string): StoredNode => ({
 });
 
 describe('reading Markdown edge cases', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('DOCE-IMPORT-4.4 keeps a definition-shaped line inside a longer fence as code', () => {
     const code = ['```', '[foo]: bar', '```'].join('\n');
     expect(blocksOf(['````md', code, '````', '', '[foo]'].join('\n'))).toEqual([
@@ -29,20 +26,13 @@ describe('reading Markdown edge cases', () => {
     ]);
   });
 
-  it('DOCE-IMPORT-4.4 tokenizes each table row once regardless of its column count', () => {
+  it('DOCE-IMPORT-4.4 reads every cell of a wide table', () => {
     const width = 120;
     const row = (cell: string) => Array.from({ length: width }, () => cell).join(' | ');
-    const source = [
-      row('Heading'),
-      row('---'),
-      ...Array.from({ length: 6 }, () => row('Probe')),
-    ].join('\n');
-    const split = vi.spyOn(String.prototype, 'split');
-    const [table] = blocksOf(source);
-    const probeRows = split.mock.contexts.filter((value) => String(value).startsWith('Probe |'));
-    split.mockRestore();
+    const source = [row('Heading'), row('---'), ...Array.from({ length: 6 }, () => row('Probe'))];
+    const [table] = blocksOf(source.join('\n'));
+    expect(table?.content).toHaveLength(8);
     expect(table?.content?.[7]?.content).toHaveLength(width);
-    expect(probeRows).toHaveLength(6);
   });
 
   it('DOCE-IMPORT-4.4 reads a line starting with a code span of three backticks as a paragraph', () => {
@@ -68,6 +58,58 @@ describe('reading Markdown edge cases', () => {
     ]);
   });
 
+  it('DOCE-IMPORT-4.4 keeps prices and prose before a separate formula literal', () => {
+    for (const prose of ['Prices $5-$10. Formula ', 'Price $5. Formula ']) {
+      expect(blocksOf(`${prose}$x$.`)).toEqual([
+        paragraph(text(prose), { type: 'math', attrs: { source: 'x' } }, text('.')),
+      ]);
+    }
+  });
+
+  it('DOCE-IMPORT-4.4 reads nested emphasis, character references and lazy quote lines as CommonMark does', () => {
+    expect(blocksOf('*a **b** c*')).toEqual([
+      paragraph(
+        text('a ', 'italic'),
+        { type: 'text', text: 'b', marks: [{ type: 'italic' }, { type: 'bold' }] },
+        text(' c', 'italic'),
+      ),
+    ]);
+    expect(blocksOf('Caf&eacute; &amp; &#35;')).toEqual([paragraph(text('Café & #'))]);
+    expect(blocksOf('> quote\ncontinued')).toEqual([
+      { type: 'blockquote', content: [paragraph(text('quote continued'))] },
+    ]);
+  });
+
+  it("DOCE-IMPORT-4.4 keeps a footnote's later paragraphs in it and an escaped variable as text", () => {
+    expect(blocksOf('Text[^n].\n\n[^n]: First.\n\n    Second.')).toEqual([
+      paragraph(text('Text'), { type: 'footnote', content: [text('First. Second.')] }, text('.')),
+    ]);
+    expect(blocksOf('\\{{key}} and {{key}}')).toEqual([
+      paragraph(text('{{key}} and '), { type: 'variable', attrs: { key: 'key' } }),
+    ]);
+  });
+
+  it('DOCE-IMPORT-4.4 keeps a task list box in a numbered item as text', () => {
+    expect(blocksOf('1. [x] Done')).toEqual([
+      {
+        type: 'orderedList',
+        content: [{ type: 'listItem', content: [paragraph(text('[x] Done'))] }],
+      },
+    ]);
+  });
+
+  it('DOCE-IMPORT-4.4 reads $$ display math fenced, on one line, in a quote and inline', () => {
+    const block = (source: string): StoredNode => ({ type: 'mathBlock', attrs: { source } });
+    expect(blocksOf('$$\nx^2\n$$\n\n$$y$$')).toEqual([block('x^2'), block('y')]);
+    expect(blocksOf('> $$\n> a\n> $$')).toEqual([{ type: 'blockquote', content: [block('a')] }]);
+    expect(blocksOf('a $$x$$ b')).toEqual([
+      paragraph(text('a '), { type: 'math', attrs: { source: 'x' } }, text(' b')),
+    ]);
+    const labelled = readMarkdown('$$ label\nz\n$$');
+    expect(labelled.file.sections[0]?.content).toEqual([block('z')]);
+    expect(labelled.warnings.map((warning) => warning.detail)).toEqual(['math label']);
+  });
+
   it('DOCE-IMPORT-4.4 reads a link address holding balanced or escaped parentheses', () => {
     expect(blocksOf('[x](a(1)) [y](b\\(2) [z](<c d>)')).toEqual([
       paragraph(linked('x', 'a(1)'), text(' '), linked('y', 'b(2'), text(' '), linked('z', 'c d')),
@@ -81,17 +123,40 @@ describe('reading Markdown edge cases', () => {
     expect(read.warnings.map((warning) => warning.detail)).toEqual(['<constructor>', '<tostring>']);
   });
 
-  it('DOCE-IMPORT-4.4 reads unclosed emphasis in work that grows with the text, not its square', () => {
-    const scans = (count: number) => {
-      const startsWith = vi.spyOn(String.prototype, 'startsWith');
-      const [read] = blocksOf('*a '.repeat(count));
-      const calls = startsWith.mock.calls.length;
-      startsWith.mockRestore();
-      expect(read?.content).toEqual([text('*a '.repeat(count).trim())]);
-      return calls;
+  it('DOCE-IMPORT-4.4 reads unclosed emphasis, links, math, tags and variables, emphasis runs and wide tables in time that grows with the text', () => {
+    // The fastest of three reads, so a pause elsewhere does not count.
+    const time = (markdown: string) => {
+      let best = Infinity;
+      for (let run = 0; run < 3; run += 1) {
+        const start = performance.now();
+        readMarkdown(markdown);
+        best = Math.min(best, performance.now() - start);
+      }
+      return best;
     };
-    // Four times the text: about four times the scans, where rescanning to the end gave sixteen.
-    expect(scans(1000)).toBeLessThan(scans(250) * 6);
+    const wideTable = (columns: number) =>
+      ['| a '.repeat(columns), '|---'.repeat(columns), '| 1 '.repeat(columns)].join('|\n') + '|';
+    expect(time(wideTable(8000)), 'wide table').toBeLessThan(time(wideTable(2000)) * 9 + 5);
+    for (const unit of ['*a ', '**a*', '[a](', '$a ', '<u>a ', '{{a}} {{']) {
+      expect(blocksOf(unit.repeat(10))).toHaveLength(1);
+      // Four times the text: about four times the time, where rescanning to the end gave sixteen.
+      expect(time(unit.repeat(8000)), unit).toBeLessThan(time(unit.repeat(2000)) * 9 + 5);
+    }
+  });
+
+  it('DOCE-IMPORT-4.4 flattens nesting deeper than a document holds, with a warning', () => {
+    const read = readMarkdown(`${'>'.repeat(5000)} deep`);
+    let depth = 0;
+    for (
+      let node = read.file.sections[0]?.content[0];
+      node?.type === 'blockquote';
+      node = node.content?.[0]
+    )
+      depth += 1;
+    expect(depth).toBe(MAX_MARKDOWN_DEPTH);
+    expect(read.warnings.map((warning) => [warning.code, warning.detail])).toEqual([
+      ['content-left-out', 'nesting'],
+    ]);
   });
 
   it('DOCE-IMPORT-4.4 reads unclosed tags without lower-casing the whole text for each', () => {

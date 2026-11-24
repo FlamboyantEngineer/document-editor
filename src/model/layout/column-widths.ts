@@ -8,6 +8,12 @@ export const DEFAULT_TABLE_CELL_MIN_WIDTH = 32;
 
 const sum = (widths: readonly number[]) => widths.reduce((total, width) => total + width, 0);
 
+/** The shares of `room` for columns that keep their proportions. */
+export function proportionColumns(widths: readonly number[], room: number): number[] {
+  const total = sum(widths);
+  return widths.map((width) => (total > 0 ? (width * room) / total : 0));
+}
+
 /**
  * The column widths that fit a width: the columns that grew since `before` shrink, the widest
  * first, by what the total is too much; unchanged when the table fits.

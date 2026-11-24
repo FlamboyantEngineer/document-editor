@@ -23,7 +23,6 @@ import {
   lineMarks,
 } from '../layout-engine/line-marks.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
-import { placedMath } from './engine-math.js';
 import { engineNumbersKey } from './engine-numbers.js';
 import { forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, sectionScope } from './forced-lines.js';
@@ -115,17 +114,19 @@ function drawnNumbers(state: EditorState): PagesLayoutNumber[] {
 }
 
 // Each math node's typeset MathML, or what it shows when invalid, and where the engine placed its
-// layout (DOCE-PAGINATION-12.11), as the pages draw it.
+// layout (DOCE-PAGINATION-12.11), read from the engine as it laid these pages out.
 function drawnMath(
   state: EditorState,
-  typesetOf: (node: ProseMirrorNode) => TypesetMath | null,
+  {
+    typesetOf,
+    engine,
+  }: { typesetOf: (node: ProseMirrorNode) => TypesetMath | null; engine: PagesTextEngine },
 ): PagesLayoutMath[] {
   const math: PagesLayoutMath[] = [];
-  const placed = placedMath(state);
   state.doc.descendants((node, pos) => {
     if (!isMath(node)) return !node.isText;
     const typeset = typesetOf(node);
-    const drawing = placed.get(pos);
+    const drawing = engine.mathOf(node);
     if (typeset) math.push({ ...typeset, pos, ...(drawing ? { drawing } : {}) });
     return false;
   });
@@ -159,7 +160,10 @@ export function pagesLayout(
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
     numbers: drawnNumbers(state),
-    math: drawnMath(state, options.typesetOf ?? ((node) => typesetMathOf(state, node))),
+    math: drawnMath(state, {
+      typesetOf: options.typesetOf ?? ((node) => typesetMathOf(state, node)),
+      engine,
+    }),
     fonts: engine.fonts?.() ?? null,
     language: engine.language ?? '',
     provisional: options.settled === false || engine.provisional(),

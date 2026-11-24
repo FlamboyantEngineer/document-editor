@@ -3,7 +3,12 @@ import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
+import {
+  BASE_TEMPLATE,
+  readDocumentFile,
+  type StoredNode,
+  writeDocumentFile,
+} from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
 import { createEditLock } from './edit-lock.js';
 import {
@@ -175,6 +180,33 @@ describe('search', () => {
     expect(textOf(state)).toBe('dog and cow|cow');
     expect(searchKey.getState(state)?.matches).toEqual([]);
   });
+
+  it.each([
+    ['Replace', replaceMatch],
+    ['Replace All', replaceAllMatches],
+  ] as const)(
+    'DOCE-SEARCH-1.3 keeps a one-character comment anchor through %s',
+    (_label, replace) => {
+      const marks = [{ type: 'comment', attrs: { thread: 'thread-1' } }];
+      const state = stateWith([
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Before ' },
+            { type: 'text', text: 'x', marks },
+            { type: 'text', text: ' after' },
+          ],
+        },
+      ]);
+      const found = run(state, setSearch('x'));
+      const stored = writeDocumentFile(run(found, replace('marked')).doc);
+      expect(stored.sections[0]?.content[0]?.content).toEqual([
+        { type: 'text', text: 'Before ' },
+        { type: 'text', text: 'marked', marks },
+        { type: 'text', text: ' after' },
+      ]);
+    },
+  );
 
   it('DOCE-SEARCH-1.3 goes on to the match after a replacement that holds the query', () => {
     let state = run(stateOf('a cat and a cat'), setSearch('cat'));

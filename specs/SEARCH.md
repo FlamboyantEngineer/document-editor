@@ -20,9 +20,9 @@ Verification: `src/engine/search.test.ts`
 
 ### DOCE-SEARCH-1.3 - Replacing
 
-`replaceMatch(replacement)` shall put the replacement in place of the current match, keeping its marks, and put the caret after it; the first match starting after the replacement becomes current, the first of all when none does, so a replacement that holds the query is not matched again and the match before it is not gone back to. `replaceAllMatches(replacement)` puts it in place of every match, as one change.
+`replaceMatch(replacement)` shall put the replacement in place of the current match, keeping the marks on its first character, including a non-inclusive comment anchor, and put the caret after it; the first match starting after the replacement becomes current, the first of all when none does, so a replacement that holds the query is not matched again and the match before it is not gone back to. `replaceAllMatches(replacement)` puts it in place of every match, as one change, keeping each match’s marks the same way.
 
-Implementation: `src/engine/search.ts`
+Implementation: `src/engine/search.ts`, `src/engine/replace-text.ts`
 Verification: `src/engine/search.test.ts`, `e2e/search.spec.ts`
 
 ### DOCE-SEARCH-1.4 - Locked content

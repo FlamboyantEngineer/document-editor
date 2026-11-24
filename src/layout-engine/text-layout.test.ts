@@ -257,6 +257,7 @@ describe('createTextLayout', () => {
     expect(placed).toHaveBeenCalledWith(atom, {
       ...math,
       box: { width: 400, ascent: 20, descent: 4, scale: 0.5 },
+      end: 0,
     });
     // Math that fits keeps its size.
     const narrow = { math: { ...math.math, width: 100 } };

@@ -3,7 +3,8 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { createWordListProofer, type ProofingIssue } from '../host/index.js';
-import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
+import { createEditLock } from './edit-lock.js';
 import {
   createProofing,
   isProofingPending,
@@ -38,7 +39,7 @@ const paragraph = (...content: StoredNode[]): StoredNode => ({ type: 'paragraph'
 
 const newProofer = () =>
   createWordListProofer({
-    corrections: { teh: ['the'], recieve: ['receive'] },
+    corrections: { teh: ['the'], recieve: ['receive'], x: ['word'] },
     grammar: { 'a apple': { message: 'Use an before a vowel.', suggestions: ['an apple'] } },
   });
 
@@ -154,6 +155,27 @@ describe('proofing', () => {
     expect(next.selection.from).toBe(issue.from);
   });
 
+  it.each([
+    ['Replace', replaceProofingIssue],
+    ['Replace All', replaceAllProofingIssues],
+  ] as const)(
+    'DOCE-PROOFING-2.1 DOCE-PROOFING-2.4 keeps a one-character comment anchor through %s',
+    async (_label, replace) => {
+      const marks = [{ type: 'comment', attrs: { thread: 'thread-1' } }];
+      const state = await checked(
+        stateOf(paragraph(text('Before '), text('x', marks), text(' after'))),
+      );
+      const [issue] = listProofingIssues(state);
+      if (!issue) throw new Error('An issue is marked');
+      const stored = writeDocumentFile(run(state, replace(issue, 'word')).doc);
+      expect(stored.sections[0]?.content[0]?.content).toEqual([
+        text('Before '),
+        text('word', marks),
+        text(' after'),
+      ]);
+    },
+  );
+
   it('DOCE-PROOFING-2.2 DOCE-PROOFING-3.3 DOCE-HOST-1.7 ignores a word everywhere and adds it to the dictionary', async () => {
     const state = await checked(stateOf(paragraph(text('teh and teh and recieve'))));
     const [issue] = listProofingIssues(state);
@@ -246,6 +268,61 @@ describe('proofing', () => {
     expect(countAlikeIssues(state, first)).toBe(2);
     const next = run(state, replaceAllProofingIssues(first, 'the'));
     expect(next.doc.textBetween(0, next.doc.content.size)).toBe('the one and the two, recieve');
+  });
+
+  it('DOCE-PROOFING-2.1 DOCE-PROOFING-2.4 changes only editable occurrences and refuses an entirely protected batch', async () => {
+    const state = await checked(stateOf(paragraph(text('teh teh'))));
+    const [first, second] = listProofingIssues(state);
+    if (!first || !second) throw new Error('Two issues are marked');
+    const lock = (...positions: number[]) =>
+      state.reconfigure({
+        plugins: [
+          ...state.plugins,
+          createEditLock({ isLocked: (_doc, pos) => positions.includes(pos) }),
+        ],
+      });
+    const mixed = lock(first.from + 1);
+    const dispatch = vi.fn();
+    expect(replaceProofingIssue(first, 'the')(mixed, dispatch)).toBe(false);
+    const replaced = run(mixed, replaceAllProofingIssues(first, 'the'));
+    const stored = writeDocumentFile(replaced.doc);
+    expect(stored.sections[0]?.content[0]?.content?.[0]?.text).toBe('teh the');
+    expect(listProofingIssues(replaced).map(({ from }) => from)).toEqual([first.from]);
+
+    const protectedState = lock(first.from + 1, second.from + 1);
+    const replaceAll = replaceAllProofingIssues(first, 'the');
+    expect(replaceAll(protectedState)).toBe(false);
+    expect(replaceAll(protectedState, dispatch)).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('DOCE-PROOFING-2.4 skips a range that becomes protected during a batch', async () => {
+    const state = await checked(stateOf(paragraph(text('teh teh'))));
+    const [first] = listProofingIssues(state);
+    if (!first) throw new Error('An issue is marked');
+    const locked = state.reconfigure({
+      plugins: [
+        ...state.plugins,
+        createEditLock({
+          isLocked: (doc, pos) => pos === first.from + 1 && doc.textContent.endsWith('the'),
+        }),
+      ],
+    });
+    const { doc } = run(locked, replaceAllProofingIssues(first, 'the'));
+    expect(doc.textBetween(0, doc.content.size)).toBe('teh the');
+  });
+
+  it('DOCE-PROOFING-2.4 keeps issues in host-owned content while correcting the body', async () => {
+    const embed: StoredNode = {
+      type: 'embed',
+      attrs: { kind: 'data-set', source: 'sample', label: 'Sample', snapshot: '1' },
+      content: [paragraph(text('teh'))],
+    };
+    const state = await checked(stateOf(embed, paragraph(text('teh'))));
+    const [inEmbed] = listProofingIssues(state);
+    if (!inEmbed) throw new Error('An issue is marked');
+    const { doc } = run(state, replaceAllProofingIssues(inEmbed, 'the'));
+    expect(doc.textBetween(0, doc.content.size, '|')).toBe('teh|the');
   });
 
   it('DOCE-PROOFING-2.5 ignores one issue alone', async () => {

@@ -141,10 +141,13 @@ function rowOf(entry: CatalogEntry, index: number, drawing: Drawing): HTMLElemen
   return row;
 }
 
-// An entry's text, broken where the layout engine starts its lines when it laid the row out, so
-// the browser draws the engine's lines and breaks none of its own.
-function textOf(text: string, starts: readonly number[] | undefined): HTMLSpanElement {
-  const element = span('de-contents__text', '');
+// A text, broken where the layout engine starts its lines when it laid it out, so the browser
+// draws the engine's lines and breaks none of its own.
+function onLines<T extends HTMLElement>(
+  element: T,
+  text: string,
+  starts: readonly number[] | undefined,
+): T {
   if (!starts || starts.length < 2) {
     element.textContent = text;
     if (starts) element.dataset.engineLines = 'true';
@@ -156,6 +159,16 @@ function textOf(text: string, starts: readonly number[] | undefined): HTMLSpanEl
     element.append(text.slice(start, starts[line + 1] ?? text.length));
   });
   return element;
+}
+
+const textOf = (text: string, starts: readonly number[] | undefined) =>
+  onLines(span('de-contents__text', ''), text, starts);
+
+// The title, or the message shown when the list lists nothing, on the engine's lines.
+function blockText(className: string, text: string, starts: readonly number[] | undefined) {
+  const element = document.createElement('div');
+  element.className = className;
+  return onLines(element, text, starts);
 }
 
 // The page box as wide as the layout engine kept room for (DOCE-PAGINATION-10.11).
@@ -208,15 +221,9 @@ export function draw(dom: HTMLElement, node: ProseMirrorNode, drawing: Drawing) 
   if (dom.dataset.deMeasureKey === key) return;
   const parts: HTMLElement[] = [];
   if (node.attrs.showTitle !== false) {
-    const title = document.createElement('div');
-    title.className = 'de-contents__title';
-    title.textContent = drawing.labels.title;
-    parts.push(title);
+    parts.push(blockText('de-contents__title', drawing.labels.title, drawing.drawn?.title));
     if (rows.empty) {
-      const empty = document.createElement('div');
-      empty.className = 'de-contents__empty';
-      empty.textContent = drawing.labels.empty;
-      parts.push(empty);
+      parts.push(blockText('de-contents__empty', drawing.labels.empty, drawing.drawn?.empty));
     }
   }
   const entries = rows.entries.map((entry, index) => drawEntry(entry, index, drawing));

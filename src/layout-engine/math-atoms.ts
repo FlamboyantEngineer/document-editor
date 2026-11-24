@@ -147,21 +147,27 @@ function scaledBox(math: LaidMath, scale: number): ScaledMathBox {
 /** Where a math node was laid out: its layout, and the box and scale it takes on the pages. */
 export interface PlacedMath extends MathLayouts {
   readonly box: ScaledMathBox;
+  /**
+   * The room kept free at the line's end for a display equation's tag or automatic number, the
+   * wider of the two; 0 without either.
+   */
+  readonly end: number;
+  /** How far a display equation's tag sits from its line's end, past its automatic number. */
+  readonly tagEnd?: number;
 }
 
 /** Told the math nodes laid out, with what they were laid out at. */
 export type MathRecorder = (node: ProseMirrorNode, placed: PlacedMath) => void;
 
-/** Places an equation in `available` room: inline only shrinks when wider than its whole line. */
-export function placeMath(
-  laid: MathLayouts,
-  available: number,
-  report?: (scale: number) => void,
-): PlacedMath {
-  const room = available - (laid.tag?.width ?? 0);
-  const scale = fitScale(laid.math.width, downToUnit(room));
-  if (scale < MATH_MIN_REPORTED_SCALE) report?.(scale);
-  return { ...laid, box: scaledBox(laid.math, scale) };
+/**
+ * Places an equation in `available` room less what its line's end keeps (`end`): its tag, or the
+ * room a display equation's block keeps for its tag or automatic number and the gap before it,
+ * the wider of the two. Inline math only shrinks when wider than its whole line.
+ */
+export function placeMath(laid: MathLayouts, available: number, end = 0): PlacedMath {
+  const kept = upToUnit(Math.max(laid.tag?.width ?? 0, end));
+  const scale = fitScale(laid.math.width, downToUnit(available - kept));
+  return { ...laid, box: scaledBox(laid.math, scale), end: kept };
 }
 
 /** Whether a node is math. */

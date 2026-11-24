@@ -10,6 +10,7 @@ import { BASE_TEMPLATE, type TemplateFile } from '../model/index.js';
 import { engineMath } from '../pagination/engine-math.js';
 import { engineNumbers } from '../pagination/engine-numbers.js';
 import { pagesLayout } from '../pagination/pages-layout.js';
+import { createProjectionMap } from '../pagination/projection-map.js';
 import type { DrawnLines } from '../pagination/text-engine-types.js';
 import { drawLayoutPages, renderLayoutPrintPage } from './print-pages.js';
 
@@ -460,7 +461,8 @@ describe("the engine's numbers in static pages", () => {
       ...stubEngine({ headings: new Map([[at, '4']]) }),
       template: BASE_TEMPLATE,
     };
-    const numbers = engineNumbers({ engine: () => engine, canonical: () => doc });
+    const map = createProjectionMap(doc);
+    const numbers = engineNumbers({ engine: () => engine, map: () => map });
     const layout = pagesLayout(pagesState(doc, engine, [numbers]));
     if (!layout) throw new Error('no layout');
     expect(layout.numbers.map((each) => [each.pos, each.number, each.heading])).toEqual([

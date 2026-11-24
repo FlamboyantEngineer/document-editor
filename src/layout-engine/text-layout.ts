@@ -130,6 +130,8 @@ export interface TextLayout extends ContentsLayout {
   ) => ReservedBox[];
   /** A text block's lines at a width. */
   readonly layoutText: (node: ProseMirrorNode, place: TextBlockPlace) => TextBlockLayout;
+  /** A text's width in a block's font, such as a display equation's automatic number. */
+  readonly textWidth: (text: string, node: ProseMirrorNode, scope?: string | null) => number;
   /** How many text runs the engine found prepared, and how many it prepared. */
   readonly stats: () => CacheStats;
 }
@@ -311,6 +313,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   return {
     typography,
     insertedReserved: insertedReservedIn(typography, options.reserve),
+    textWidth: (text, node, scope) => textWidth(text, fontString(typography(node, scope).font)),
     stats: cache.stats,
     ...createContentsLayout({ ...options, cache, strutOf }),
     layoutText(given, place) {

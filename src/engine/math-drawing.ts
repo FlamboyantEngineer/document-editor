@@ -46,6 +46,8 @@ export function mathDrawingHooks(placed: PlacedMath): {
     `--de-math-descent: ${px(box.descent)}`,
     `--de-math-scale: ${String(box.scale)}`,
   ];
+  if (placed.end) lengths.push(`--de-math-end: ${px(placed.end)}`);
+  if (placed.tagEnd) lengths.push(`--de-math-tag-end: ${px(placed.tagEnd)}`);
   if (tag)
     lengths.push(
       `--de-math-tag-width: ${px(tag.width)}`,

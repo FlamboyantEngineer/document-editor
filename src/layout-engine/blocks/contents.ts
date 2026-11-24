@@ -121,6 +121,7 @@ function layText(
     height: result.table.height,
     marginTop: 0,
     marginBottom: role === 'title' ? TITLE_AFTER : 0,
+    measurement: result.table.lines.map((line) => line.from),
   };
 }
 
@@ -139,6 +140,7 @@ export function layContents(context: BlockContext, node: ProseMirrorNode): Laid 
     context.place.width - pixels(settings.padding.left) - pixels(settings.padding.right),
   );
   const blocks: LayoutBlock[] = [];
+  const texts: Partial<Record<'title' | 'empty', readonly number[]>> = {};
   for (const [role, value] of [
     ['title', list.title],
     ['empty', list.empty],
@@ -146,6 +148,7 @@ export function layContents(context: BlockContext, node: ProseMirrorNode): Laid 
     if (value === null) continue;
     const block = layText(context, { node, list, width }, { text: value, role });
     if ('reason' in block) return notLaid(node, block.reason);
+    texts[role] = block.measurement as readonly number[];
     blocks.push(block);
   }
   const heads = blocks.length;
@@ -182,6 +185,6 @@ export function layContents(context: BlockContext, node: ProseMirrorNode): Laid 
     height: stacked.height,
     marginTop: stacked.marginTop,
     marginBottom: stacked.marginBottom,
-    measurement: { rows: placed },
+    measurement: { rows: placed, ...texts },
   });
 }

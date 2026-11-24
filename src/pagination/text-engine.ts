@@ -138,7 +138,8 @@ function engineLayouts(
   const select = measuringWith(measureContext);
   select();
   const host = atomHost(options.measureIn, Boolean(options.view));
-  const math = mathPlaces();
+  const equationOf = (equation: ProseMirrorNode) => numbers().equationOf(equation);
+  const math = mathPlaces(equationOf);
   // The text layout is made after the atom cache it measures atoms with.
   let laying: TextLayout | null = null;
   const typography = () => {
@@ -171,6 +172,7 @@ function engineLayouts(
     metrics: (scope) => blockMetrics(template, scope, sheet),
     labelOf: (caption) => (recorder.labelOf ?? numbers().labelOf)(caption),
     footnoteOf: (entry) => numbers().footnoteOf(entry),
+    equationOf,
     contentsOf: (node) => contents.of(node, numbers().doc),
     pageDigits: () => contents.digits(),
     onMath: math.record,
@@ -303,7 +305,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     lines: selecting(select, (node, place) => tables.lines(node, place)),
     nestedLines: selecting(select, (...at) => nested.lines(...at)),
     provisional: atoms.pending,
-    ...layouts.math.reading(counts.stats),
+    ...layouts.math.reading(counts.stats, () => numbers.current().doc),
     destroy() {
       unsubscribe();
       host.remove();

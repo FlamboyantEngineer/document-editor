@@ -7,17 +7,23 @@ import type { DocumentFile, StoredNode, StoredSection } from '../model/format/do
 import { withMergedChildren } from './merge-children.js';
 import { identifyBlocks } from './merge-identity.js';
 import { mergeOrder } from './merge-order.js';
-import { elementIdOf } from './stored-elements.js';
+import {
+  mergedPlacements,
+  type MovingSide,
+  type Place,
+  type PlacementVersions,
+} from './merge-placements.js';
+import { elementIdOf, sectionKey } from './stored-elements.js';
 import { sameStored as same } from './stored-equality.js';
 
-/** A block both sides changed differently, or one side changed and the other deleted. */
+/** A block or section both sides changed differently, or one side changed and the other deleted. */
 export interface MergeConflict {
-  /** The block's element id. */
+  /** The block's element id or the section's merge key. */
   readonly id: string;
   /** The reader's version, or null when the reader deleted it. */
-  readonly mine: StoredNode | null;
+  readonly mine: StoredNode | StoredSection | null;
   /** The stored version, or null when the other writer deleted it. */
-  readonly theirs: StoredNode | null;
+  readonly theirs: StoredNode | StoredSection | null;
 }
 
 /** A merged document, with its conflicts showing the reader's version, or the edited one. */
@@ -64,54 +70,34 @@ function nodeElement(node: StoredNode): Element {
   return { key, own: children ? own : node, children, value: node, section: false };
 }
 
-// A section is found in each version by its id, or by its place when it has none.
-const sectionKey = (section: StoredSection, index: number) => section.id ?? `#${String(index)}`;
-
 function sectionElement(section: StoredSection, index: number): Element {
   const { content, ...own } = section;
   return { key: sectionKey(section, index), own, children: content, value: section, section: true };
 }
 
-// Where a version holds an element: the element, and the key of the container it is in.
-interface Place {
-  readonly node: StoredNode;
-  readonly parent: string;
-}
-
-type Places = ReadonlyMap<string, Place>;
-
 interface MergeContext {
   conflicts: MergeConflict[];
   /** Each version's elements by id, to find a block a side moved to another container. */
-  places: { base: Places; mine: Places; theirs: Places };
+  places: PlacementVersions;
+  destinations: ReturnType<typeof mergedPlacements>;
 }
 
 // Every element a merge reads by id in a version, with its container: a section, or a node whose
 // children merge one by one.
-function placesOf(file: DocumentFile): Places {
+function placesOf(file: DocumentFile): ReadonlyMap<string, Place> {
   const places = new Map<string, Place>();
-  const walk = (nodes: readonly StoredNode[], parent: string) => {
+  const walk = (nodes: readonly StoredNode[], parent: string, nested: boolean) => {
     for (const node of nodes) {
       const id = elementIdOf(node);
       if (id === null) continue;
-      places.set(id, { node, parent });
-      walk(mergeableChildren(node) ?? [], id);
+      places.set(id, { node, parent, nested });
+      walk(mergeableChildren(node) ?? [], id, true);
     }
   };
-  file.sections.forEach((section, index) => walk(section.content, sectionKey(section, index)));
+  file.sections.forEach((section, index) =>
+    walk(section.content, sectionKey(section, index), false),
+  );
   return places;
-}
-
-type MovingSide = 'mine' | 'theirs';
-
-// The reader's destination wins when both sides moved the element.
-function movedBy(key: string, { places }: MergeContext): MovingSide | undefined {
-  const parent = places.base.get(key)?.parent;
-  if (parent === undefined) return undefined;
-  return (['mine', 'theirs'] as const).find((side) => {
-    const place = places[side].get(key);
-    return place && place.parent !== parent;
-  });
 }
 
 // Conflict alternatives keep their own subtree, with any independently relocated child
@@ -121,7 +107,7 @@ function withoutMoved(element: Element, context: MergeContext): Merged | null {
   const children: StoredNode[] = [];
   for (const child of element.children) {
     const key = elementIdOf(child) ?? '';
-    const side = movedBy(key, context);
+    const side = context.destinations.get(key);
     if (side && context.places[side].get(key)?.parent !== element.key) continue;
     const kept = withoutMoved(nodeElement(child), context);
     if (kept) children.push(kept as StoredNode);
@@ -145,8 +131,8 @@ function mergeOneSided({ base, mine, theirs }: Versions, context: MergeContext):
   if (base && value) {
     context.conflicts.push({
       id: kept.key,
-      mine: mine ? (value as StoredNode) : null,
-      theirs: theirs ? (value as StoredNode) : null,
+      mine: mine ? value : null,
+      theirs: theirs ? value : null,
     });
   }
   return value;
@@ -169,7 +155,7 @@ function mergeBothChanged(
   const kept = withoutMoved(mine, context);
   const other = withoutMoved(theirs, context);
   if (kept || other) {
-    context.conflicts.push({ id: mine.key, mine: kept as StoredNode, theirs: other as StoredNode });
+    context.conflicts.push({ id: mine.key, mine: kept, theirs: other });
   }
   return kept ?? other;
 }
@@ -190,7 +176,7 @@ function versionsAt(here: Versions, key: string, context: MergeContext): Version
   const { places } = context;
   const isSection = [here.base, here.mine, here.theirs].some((each) => each?.section);
   if (isSection) return here;
-  const mover = movedBy(key, context);
+  const mover = context.destinations.get(key);
   if (!mover) return here;
   if (!here[mover]) return null;
   if (!places[mover === 'mine' ? 'theirs' : 'mine'].has(key)) return here;
@@ -270,9 +256,11 @@ function mergeElements(
  */
 export function mergeDocuments(input: MergeInput): DocumentMerge {
   const { base, mine, theirs } = identifyBlocks(input);
+  const places = { base: placesOf(base), mine: placesOf(mine), theirs: placesOf(theirs) };
   const context: MergeContext = {
     conflicts: [],
-    places: { base: placesOf(base), mine: placesOf(mine), theirs: placesOf(theirs) },
+    places,
+    destinations: mergedPlacements(places),
   };
   const read = (file: DocumentFile) => file.sections.map(sectionElement);
   const sections = mergeElements(

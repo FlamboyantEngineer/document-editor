@@ -143,6 +143,37 @@ describe('DiagramDrawing', () => {
     host.save({ assetId: 'late' });
     expect(figuresOf(view)).toEqual([]);
   });
+
+  it.each(['throws', 'rejects'])(
+    'DOCE-OBJECTS-1.4 reports the message and inserts no figure when a new drawing %s',
+    async (failure) => {
+      const view = editorView();
+      const notify = vi.fn();
+      const onClose = vi.fn();
+      const diagrams: DiagramAdapter = {
+        edit: () => {
+          const error = new Error('The drawing service is unavailable.');
+          if (failure === 'throws') throw error;
+          return Promise.reject(error);
+        },
+      };
+      render(
+        <DiagramDrawing
+          view={view}
+          labels={DEFAULT_EDITOR_LABELS}
+          onClose={onClose}
+          diagrams={diagrams}
+          feedback={{ notify }}
+        />,
+      );
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(notify).toHaveBeenCalledWith({
+        tone: 'error',
+        text: 'The drawing service is unavailable.',
+      });
+      expect(figuresOf(view)).toEqual([]);
+    },
+  );
 });
 
 describe('Figure upload', () => {
