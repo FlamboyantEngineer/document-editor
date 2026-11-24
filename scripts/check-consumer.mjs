@@ -2,8 +2,8 @@
 // The packed-consumer check (README, Tested set): packs the built package, installs it into an
 // empty consumer beside the tested set and the git pins, with strict peers and only the overrides a host adds (README), then
 // installs again from the consumer's lock with `npm ci`. Each package the editor shares with the
-// host must be installed once, and the server entries must load in Node. Needs the built package
-// (`npm run build`) and read access to the pinned repositories.
+// host must be installed once, and the client and server entries must load in Node. Needs the
+// built package (`npm run build`) and read access to the pinned repositories.
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -94,9 +94,12 @@ try {
     join(consumer, 'consumer.mjs'),
     `
     import assert from 'node:assert/strict';
+    const client = await import('${manifest.name}');
     const document = await import('${manifest.name}/document');
     const model = await import('${manifest.name}/model');
     const collab = await import('${manifest.name}/collab');
+    assert.equal(typeof client.DocumentEditor, 'function');
+    assert.equal(typeof client.TemplateWorkspace, 'function');
     assert.equal(typeof document.tableFromRows, 'function');
     assert.equal(typeof model.createDocumentSchema, 'function');
     assert.equal(typeof collab.openRoomChangeGuard, 'function');

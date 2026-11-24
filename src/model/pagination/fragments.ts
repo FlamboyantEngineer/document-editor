@@ -11,8 +11,13 @@ import {
   Slice,
 } from 'prosemirror-model';
 import { ReplaceStep, Transform } from 'prosemirror-transform';
+import {
+  type FacingBlocks,
+  matchFragmentParts,
+  partsOfJoin,
+  rememberJoinedParts,
+} from './fragment-parts.js';
 import { mirrorPageMove } from './page-moves.js';
-import { splitPartOf } from './split-part.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -45,24 +50,17 @@ export function isFragment(node: ProseMirrorNode, rules: FragmentRules = FRAGMEN
   return Object.entries(rule.whole).some(([name, value]) => (node.attrs[name] ?? null) !== value);
 }
 
-// A captioned code block or table owns the stable ID on the object inside its figure.
-function heldObjectId(node: ProseMirrorNode): unknown {
-  return node.type.name === 'code_figure' || node.type.name === 'table_figure'
-    ? node.lastChild?.attrs.dataId
-    : null;
-}
-
-// Two nodes of one type, one of them a fragment, that are the same element: they share an id, or
-// their part numbers follow on.
-function sameSplitElement(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
-  if (!isFragment(previous, rules) && !isFragment(next, rules)) return false;
-  const previousObjectId = heldObjectId(previous);
-  const nextObjectId = heldObjectId(next);
-  if (previousObjectId && nextObjectId) return previousObjectId === nextObjectId;
-  const id = previous.attrs.dataId as unknown;
-  if (id && id === next.attrs.dataId) return true;
-  const index = splitPartOf(previous);
-  return index !== null && splitPartOf(next) === index + 1;
+function continuesWithParts(
+  { previous, next }: FacingBlocks,
+  rules: FragmentRules,
+  parts?: ReturnType<typeof partsOfJoin>,
+): boolean {
+  if (previous.type !== next.type) return false;
+  const rule = ruleFor(rules, next.type.name);
+  if (!rule) return false;
+  if (rule.continues) return isFragment(next, rules) && rule.continues(previous, next);
+  if (!parts?.has(next) && !isFragment(previous, rules) && !isFragment(next, rules)) return false;
+  return matchFragmentParts({ previous, next }, parts);
 }
 
 /** Whether `next` is the fragment that follows `previous`. */
@@ -71,11 +69,7 @@ export function continuesFragment(
   next: ProseMirrorNode,
   rules: FragmentRules = FRAGMENT_RULES,
 ): boolean {
-  if (previous.type !== next.type) return false;
-  const rule = ruleFor(rules, next.type.name);
-  if (!rule) return false;
-  if (rule.continues) return isFragment(next, rules) && rule.continues(previous, next);
-  return sameSplitElement(previous, next, rules);
+  return continuesWithParts({ previous, next }, rules);
 }
 
 // Gives the node at `pos` its rule's whole attributes.
@@ -99,13 +93,21 @@ export function makeWhole(tr: Transform, pos: number, rules: FragmentRules = FRA
 
 /** Joins the fragment that starts at `pos` into the block that ends there, by its type's rule. */
 export function joinAt(tr: Transform, pos: number, rules: FragmentRules = FRAGMENT_RULES): void {
-  const previous = tr.doc.resolve(pos).nodeBefore;
+  const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
   if (!previous) return;
   const start = pos - previous.nodeSize;
+  const steps = tr.steps.length;
   const rule = ruleFor(rules, previous.type.name);
   if (rule?.join) rule.join(tr, pos, rules);
   else tr.join(pos);
   makeWhole(tr, start, rules);
+  if (next?.type !== previous.type || rule?.continues) return;
+  const joined = tr.doc.nodeAt(start);
+  // The two blocks must have become one, even if a custom join added content.
+  const end = tr.mapping.slice(steps).map(pos + next.nodeSize, -1);
+  if (joined?.type === previous.type && start + joined.nodeSize === end) {
+    rememberJoinedParts(tr, joined, { previous, next });
+  }
 }
 
 /** Sibling blocks in a transform's document: where the first starts, and the blocks before joins. */
@@ -163,8 +165,8 @@ export function joinFragments(
 // After two containers join at `pos`, their facing children meet one position inside.
 function joinFacingChildren(tr: Transform, inner: number, rules: FragmentRules) {
   const $inner = tr.doc.resolve(inner);
-  const { nodeBefore, nodeAfter } = $inner;
-  if (nodeBefore && nodeAfter && continuesFragment(nodeBefore, nodeAfter, rules)) {
+  const { nodeBefore: previous, nodeAfter: next } = $inner;
+  if (previous && next && continuesWithParts({ previous, next }, rules, partsOfJoin(tr))) {
     joinAt(tr, inner, rules);
   }
 }
@@ -297,7 +299,9 @@ function joinTableFigures(tr: Transform, pos: number, rules: FragmentRules) {
   const header = headerRows(first);
   const rows = later.children;
   const repeats =
-    header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
+    typeof repeated.attrs.continuedText === 'string' &&
+    header.length > 0 &&
+    header.every((row, index) => rows[index] && row.eq(rows[index]));
   // Inside the first table after its rows, to inside the later one before its rows.
   tr.step(new ReplaceStep(pos - 2, pos + 2 + repeated.nodeSize, Slice.empty));
   if (repeats) {

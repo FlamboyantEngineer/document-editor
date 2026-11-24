@@ -760,8 +760,18 @@ test.describe('table fragment stress', () => {
     await openDocument(page, 'table-long-single-header');
     const parts = page.locator('.de-document-editor__content table[data-id]');
     const id = await parts.first().getAttribute('data-id');
-    const ownParts = page.locator(`.de-document-editor__content table[data-id="${id ?? ''}"]`);
-    expect(await ownParts.count()).toBeGreaterThan(3);
+    if (!id) throw new Error('The table has no id');
+    const ownParts = page.locator(`.de-document-editor__content table[data-id="${id}"]`);
+    const originalCount = await ownParts.count();
+    expect(originalCount).toBeGreaterThan(3);
+    const storedRows = async () => {
+      const table = storedNodes(await storedOf(page), 'table').find(
+        (node) => node.attrs?.id === id,
+      );
+      return table?.content?.filter((node) => node.type === 'tableRow') ?? [];
+    };
+    const originalRows = (await storedRows()).map((row) => row.attrs?.id);
+    expect(originalRows.length).toBeGreaterThan(3);
     // The width of each part's first body cell.
     const widths = () =>
       ownParts.evaluateAll((all) =>
@@ -780,10 +790,22 @@ test.describe('table fragment stress', () => {
     await page.mouse.move(border.x + 40, border.y, { steps: 6 });
     // Halfway through the drag, every part shows the new width.
     const during = await widths();
-    expect(during[0]).toBeGreaterThan(Math.round(box.width) + 30);
-    expect(new Set(during).size).toBe(1);
+    const previewWidth = during[0];
+    expect(previewWidth).toBeGreaterThan(Math.round(box.width) + 30);
+    expect(during).toHaveLength(originalCount);
+    expect([...new Set(during)]).toEqual([previewWidth]);
     await page.mouse.up();
-    await expect.poll(widths).toEqual(during);
+    expect(await settle(page)).toBe('settled');
+    // The committed widths can rewrap cells and change the number of parts.
+    const committed = await widths();
+    expect(committed.length).toBeGreaterThan(3);
+    expect([...new Set(committed)]).toEqual([previewWidth]);
+
+    const rows = await storedRows();
+    expect(rows.map((row) => row.attrs?.id)).toEqual(originalRows);
+    expect(rows.map((row) => row.content?.[0]?.attrs?.colwidth)).toEqual(
+      rows.map(() => [previewWidth]),
+    );
   });
 
   test('DOCE-LABS-4.4 lays out both header modes, merged cells and rich cells', async ({

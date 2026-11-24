@@ -130,6 +130,50 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     },
   );
 
+  it.each(['rejects', 'throws'])(
+    'DOCE-OBJECTS-1.4 keeps the dialog and fields usable after an upload %s',
+    async (failure) => {
+      const user = userEvent.setup();
+      const view = editorView();
+      const onClose = vi.fn();
+      const upload = vi
+        .fn<AssetAdapter['upload']>()
+        .mockImplementationOnce(() => {
+          const error = new Error('Image service declined the upload.');
+          if (failure === 'throws') throw error;
+          return Promise.reject(error);
+        })
+        .mockResolvedValueOnce(uploadResult('retried'));
+      render(
+        <FigureDialog
+          view={view}
+          labels={DEFAULT_EDITOR_LABELS}
+          onClose={onClose}
+          assets={{ ...ASSETS, upload }}
+        />,
+      );
+      const dialog = screen.getByRole('dialog');
+      await user.type(within(dialog).getByRole('textbox', { name: 'Caption' }), 'Sketch');
+      await user.upload(uploadInput(), new File(['image'], 'draft.png', { type: 'image/png' }));
+      expect(
+        await within(dialog).findByText('Image service declined the upload.'),
+      ).toBeInTheDocument();
+      expect(within(dialog).getByRole('textbox', { name: 'Caption' })).toHaveValue('Sketch');
+      expect(within(dialog).getByRole('button', { name: 'Insert' })).toBeDisabled();
+      expect(onClose).not.toHaveBeenCalled();
+
+      await user.upload(uploadInput(), new File(['image'], 'retry.png', { type: 'image/png' }));
+      const insert = within(dialog).getByRole('button', { name: 'Insert' });
+      await waitFor(() => expect(insert).toBeEnabled());
+      expect(
+        within(dialog).queryByText('Image service declined the upload.'),
+      ).not.toBeInTheDocument();
+      await user.click(insert);
+      expect(figureAttrs(view)).toMatchObject({ fileAssetId: 'retried', snapshotId: 'retried' });
+      expect(writeMarkup(view.state.doc)).toContain('Sketch');
+    },
+  );
+
   it('DOCE-OBJECTS-1.4 places an image chosen among the host assets, clamped to the page', async () => {
     const user = userEvent.setup();
     const view = editorView();

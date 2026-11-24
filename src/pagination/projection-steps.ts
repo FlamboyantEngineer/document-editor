@@ -143,8 +143,14 @@ function headerEdit(step: RangeStep, doc: ProseMirrorNode) {
 function copyStarts(map: ProjectionMap, edit: NonNullable<ReturnType<typeof headerEdit>>) {
   const starts: number[] = [];
   const original = map.toCanonical(edit.start + 1, 1);
-  map.projection.descendants((node, pos) => {
+  map.projection.descendants((node, pos, parent) => {
     if (node.type.name !== 'table') return !node.isTextblock;
+    if (
+      parent?.type.name === 'table_figure' &&
+      typeof parent.firstChild?.attrs.continuedText !== 'string'
+    ) {
+      return false;
+    }
     const part: unknown = node.attrs.splitPartIndex;
     if (node.attrs.dataId !== edit.id || typeof part !== 'number' || part < 1) return false;
     const copy = node.maybeChild(edit.row);

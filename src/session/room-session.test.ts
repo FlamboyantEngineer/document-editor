@@ -3,7 +3,9 @@ import * as delta from 'lib0/delta';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { positionOf } from '../../test/projection-fixtures.js';
 import { createSessionRooms, type SessionRooms } from '../../test/session-rooms.js';
 import { readContent } from '../collab/delta.js';
 import type * as Activity from '../collab/presence-activity.js';
@@ -381,6 +383,47 @@ describe('createDocumentSession in room mode', () => {
     await vi.waitFor(() => expect(shown(grace).template.page?.size).toBe('US Letter'));
   });
 
+  it('DOCE-SESSION-1.5 DOCE-SESSION-3.5 declines a pending template switch when edit permission is revoked', async () => {
+    const room = roomsFor();
+    const templates = [{ formatVersion: 1 as const, id: 'memo' }];
+    const host = createMemoryHost({ templates });
+    const load = host.templates.load.bind(host.templates);
+    const asked = deferred<void>();
+    const finish = deferred<void>();
+    host.templates.load = async (...args) => {
+      if (args[0] === 'memo') {
+        asked.resolve(undefined);
+        await finish.promise;
+      }
+      return load(...args);
+    };
+    const session = createDocumentSession({
+      host: { ...host, collaboration: room.adapter('ada') },
+      documentId: 'doc',
+      mode: 'room',
+    });
+    sessions.push(session);
+    const peer = openAs('grace', { templates });
+    await Promise.all([session.ready, peer.ready]);
+    const shared = room.providerOf('ada')?.doc;
+    if (!shared) throw new Error('Ada has no room.');
+    const meta = createRoomScope(shared).meta;
+    const original = meta.getAttr('template');
+    const pin = { id: 'memo', revision: 'rev-1' };
+    const change = session.setTemplate(pin);
+    await asked.promise;
+    host.memory.setCapabilities(READ_ONLY_CAPABILITIES);
+    expect(shown(session).editingMode).toBe('read');
+    finish.resolve(undefined);
+
+    expect(await change).toBe(false);
+    expect(meta.getAttr('template')).toEqual(original);
+    expect(shown(session).pin).toBeNull();
+    expect(await peer.setTemplate(pin)).toBe(true);
+    await vi.waitFor(() => expect(shown(session).pin).toEqual(pin));
+    expect(shown(session).editingMode).toBe('read');
+  });
+
   it('DOCE-SESSION-3.5 stores the pin and the content moved to the template in one change', async () => {
     roomsFor({
       formatVersion: 1,
@@ -432,6 +475,47 @@ describe('createDocumentSession in room mode', () => {
     await vi.waitFor(() => expect(seen.at(-1)).toEqual(['memo', true]));
     expect(seen.filter(([pin, moved]) => (pin === 'memo') !== moved)).toEqual([]);
     expect(textOf(shown(ada).state)).toContain('New cover');
+  });
+
+  it('DOCE-SESSION-3.5 shows moved content together with the pin before an editor is mounted', async () => {
+    roomsFor();
+    const templates = [
+      {
+        formatVersion: 1 as const,
+        id: 'memo',
+        sections: [
+          {
+            name: 'cover',
+            required: true,
+            editable: false,
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New cover' }] }],
+          },
+        ],
+      },
+    ];
+    const session = openAs('ada', { templates });
+    expect(await session.ready).toBe(true);
+    session.update((state) => {
+      const caret = positionOf(state.doc, 'Hello') + 2;
+      return state.apply(state.tr.setSelection(TextSelection.create(state.doc, caret)));
+    });
+    const pin = { id: 'memo', revision: 'rev-1' };
+    const seen: [string | null, boolean][] = [];
+    const stop = session.document.subscribe((document) => {
+      if (document)
+        seen.push([document.pin?.id ?? null, textOf(document.state).includes('New cover')]);
+    });
+    try {
+      expect(await session.setTemplate(pin)).toBe(true);
+      expect(shown(session).pin).toEqual(pin);
+      expect(textOf(shown(session).state)).toContain('New cover');
+      expect(textOf(shown(session).state)).toContain('Hello');
+      const { doc, selection } = shown(session).state;
+      expect(selection.head).toBe(positionOf(doc, 'Hello') + 2);
+      expect(seen.filter(([id, moved]) => (id === pin.id) !== moved)).toEqual([]);
+    } finally {
+      stop();
+    }
   });
 
   it('DOCE-SESSION-3.7 connects through a room provider', async () => {

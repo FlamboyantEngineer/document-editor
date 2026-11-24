@@ -21,6 +21,9 @@ const withContent = (type: string, content: StoredNode[], attrs?: Record<string,
   ...(content.length ? { content } : {}),
 });
 
+const blocksOrParagraph = (content: StoredNode[]): StoredNode[] =>
+  content.length ? content : [{ type: 'paragraph' }];
+
 function list(node: List, context: BlockContext): StoredNode {
   const start = node.ordered && node.start !== null && node.start !== undefined && node.start !== 1;
   return {
@@ -28,7 +31,7 @@ function list(node: List, context: BlockContext): StoredNode {
     ...(start ? { attrs: { start: node.start } } : {}),
     content: node.children.map((item) => {
       const checked = typeof item.checked === 'boolean' ? item.checked : null;
-      const content = readBlocks(item.children, context);
+      const content = blocksOrParagraph(readBlocks(item.children, context));
       // A checklist is a bulleted list: a numbered item keeps its box as text.
       if (node.ordered && checked !== null) return withContent('listItem', boxed(content, checked));
       return withContent('listItem', content, checked === null ? undefined : { checked });
@@ -72,7 +75,7 @@ function displayMath(node: RootContent, source: string): StoredNode | null {
 // Fenced `$$` math; text after the opening signs is the block's label, which an equation does not
 // hold.
 function mathBlock(node: MathNode, context: BlockContext): StoredNode {
-  if (node.meta) context.warnings.add('content-left-out', 'math label');
+  if (node.meta) context.warn(node, 'math label');
   return withContent('mathBlock', [], node.value ? { source: node.value } : undefined);
 }
 
@@ -95,7 +98,7 @@ function readBlock(
           withContent('paragraph', readInline(node.children, context)),
       ];
     case 'blockquote':
-      return [withContent('blockquote', readBlocks(node.children, context))];
+      return [withContent('blockquote', blocksOrParagraph(readBlocks(node.children, context)))];
     case 'list':
       return [list(node, context)];
     case 'code':
@@ -113,7 +116,7 @@ function readBlock(
     case 'table':
       return [table(node, context)];
     case 'html':
-      context.warnings.add('content-left-out', 'HTML block');
+      context.warn(node, 'HTML block');
       return [];
     default:
       return [];

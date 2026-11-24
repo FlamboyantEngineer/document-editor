@@ -228,14 +228,19 @@ export function setColumnWidths(
   };
 }
 
-// What a table and its column group show, to put back after a drag that changes nothing.
+// What a table and its column group show before the temporary drag widths.
 function shownStyles(table: HTMLElement) {
-  const columns = [...table.querySelectorAll(':scope > colgroup > col')];
-  const styles = [table, ...columns].map((each) => [each, each.getAttribute('style')] as const);
+  const columns = [...table.querySelectorAll<HTMLElement>(':scope > colgroup > col')];
+  const styles = [table, ...columns].map((element) => ({
+    element,
+    width: element.style.width,
+    priority: element.style.getPropertyPriority('width'),
+    hadStyle: element.hasAttribute('style'),
+  }));
   return () => {
-    for (const [element, style] of styles) {
-      if (style === null) element.removeAttribute('style');
-      else element.setAttribute('style', style);
+    for (const { element, width, priority, hadStyle } of styles) {
+      element.style.setProperty('width', width, priority);
+      if (!hadStyle && !element.style.length) element.removeAttribute('style');
     }
   };
 }
@@ -258,28 +263,33 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
   const resize = { column: at.column, max: roomFor(dom) };
   // Only the last column's border changes the table's outer width.
   const keepFit = at.column < at.map.width - 1;
-  const shown = partsOf(view, dom);
-  const restores = shown.map(shownStyles);
+  // A changed table draws a new column group. Its sizing belongs to that edit once drawn.
+  const previews = partsOf(view, dom).map((table) => {
+    const columns = table.querySelector(':scope > colgroup');
+    return {
+      table,
+      isCurrent: () => table.querySelector(':scope > colgroup') === columns,
+      restore: shownStyles(table),
+    };
+  });
   const restore = () => {
-    for (const each of restores) each();
+    for (const preview of previews) if (preview.isCurrent()) preview.restore();
   };
   const owner = view.dom.ownerDocument;
   const widthsAt = (x: number) => resizeColumns(start, { ...resize, by: x - event.clientX });
   const move = (moved: MouseEvent) => {
     const widths = widthsAt(moved.clientX);
-    for (const each of shown) showWidths(each, widths);
+    for (const preview of previews) if (preview.isCurrent()) showWidths(preview.table, widths);
   };
   const finish = (up: MouseEvent) => {
     owner.removeEventListener('mousemove', move);
     owner.removeEventListener('mouseup', finish);
     if (view.isDestroyed) return;
     const table = endDrag(view);
-    const kept =
-      table >= 0 &&
-      Math.abs(up.clientX - event.clientX) >= 1 &&
+    restore();
+    if (table >= 0 && Math.abs(up.clientX - event.clientX) >= 1) {
       setColumnWidths(table, widthsAt(up.clientX), { keepFit })(view.state, view.dispatch, view);
-    // A drag that kept nothing has the document draw nothing again: put back what it showed.
-    if (!kept) restore();
+    }
   };
   owner.addEventListener('mousemove', move);
   owner.addEventListener('mouseup', finish);
