@@ -1,5 +1,6 @@
 // The verification path alone draws and measures an entire unpaginated HTML column.
 import type { Node } from 'prosemirror-model';
+import { layoutMargin } from '../../../../src/pagination/measure-scale.js';
 import { requireValue } from './fixtures.js';
 import { pageContent, renderBlock } from './html.js';
 import { browserLines } from './natural-lines.js';
@@ -94,8 +95,9 @@ function measure(
     path: report.path,
     width: rect.width,
     height: rect.height,
-    before: Number.parseFloat(marginTop),
-    after: Number.parseFloat(marginBottom),
+    // Margins as the browser lays them out, not as the computed style resolves them.
+    before: layoutMargin(Number.parseFloat(marginTop)),
+    after: layoutMargin(Number.parseFloat(marginBottom)),
     ...actual,
     children: nested,
   };
