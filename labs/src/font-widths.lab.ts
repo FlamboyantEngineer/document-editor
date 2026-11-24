@@ -8,6 +8,7 @@ import {
   createFontFileMeasurer,
   type FontFileMeasurer,
 } from '../../src/layout-engine/font-files/measurer.js';
+import { createMathJaxLayouter } from '../../src/layout-engine/math/mathjax-layouter.js';
 import { reservedBoxes } from '../../src/layout-engine/reserved-boxes.js';
 import { fingerprintLines, type LineFingerprint } from '../../test/font-files-lines.js';
 import {
@@ -15,6 +16,7 @@ import {
   measureReference,
   REFERENCE_FACES,
 } from '../../test/font-files-reference.js';
+import { fingerprintLayouts } from '../../test/math-layouts.js';
 import { requireValue } from './spikes/pretext/fixtures.js';
 
 export interface FontWidthsResult {
@@ -43,6 +45,8 @@ export interface ReservedLine {
 declare global {
   interface Window {
     fontWidths: Promise<FontWidthsResult>;
+    /** The fingerprint of the equations MathJax lays out (DOCE-LABS-7.5). */
+    mathLayouts: Promise<string>;
   }
 }
 
@@ -206,6 +210,10 @@ function show(result: FontWidthsResult) {
   document.documentElement.dataset.labReady = 'true';
 }
 
+// The equations of test/math-layouts.ts laid out by MathJax, as Node lays them out (DOCE-LABS-7.5).
+window.mathLayouts = createMathJaxLayouter().then((layouter) =>
+  layouter ? fingerprintLayouts(layouter) : 'no layouter',
+);
 window.fontWidths = measure();
 window.fontWidths.then(show).catch((error: unknown) => {
   mount('#fw-status').textContent = error instanceof Error ? error.message : String(error);

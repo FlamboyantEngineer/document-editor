@@ -946,6 +946,23 @@ The served faces an editor's pages and each `DocumentViewer` add to their docume
 Implementation: `src/document/font-registry.ts`, `src/pagination/served-fonts.ts`, `src/pagination/served-template.ts`, `src/layout-engine/font-files/faces.ts`, `src/components/document-viewer/document-viewer.tsx`, `src/components/document-editor/use-pages-fonts.ts`, `src/components/document-editor/editor-handle.ts`
 Verification: `src/components/document-viewer/document-viewer.test.tsx`, `e2e/font-lifecycle.spec.ts`
 
+### DOCE-PAGINATION-12.12 - Equations laid out and drawn by MathJax
+
+The layout engine shall size and draw equations with one deterministic layouter, `createMathJaxLayouter()`, so an equation has the same box and the same drawing in every browser, in Node and on every system, and no browser MathML layout is read. The layouter typesets the MathML the editor's math renderer gives (a math tree) with MathJax 4's MathML input and SVG output and the STIX Two math font data (`@mathjax/src` and `@mathjax/mathjax-stix2-font`, optional peers), with no DOM (its lite adaptor), no glyph cache shared between drawings (`fontCache: 'none'`) and no automatic line breaks: an equation never wraps.
+
+- **Loading.** The layouter loads lazily and resolves to null when either package is not installed. The font's glyph ranges past its base data load in `prepare(trees)`, which resolves once every given tree can be laid out, or returns null when nothing is left to load. `layout` is synchronous and never lays an equation out from partial data: there is no provisional first layout that changes once a range arrives.
+- **Box.** `layout(tree, display, sizePx)` gives the natural box from the drawing's view box: its width, its ascent above the baseline and its descent below, in pixels for the font size, each rounded up to 1/64 px once. It never scales: an equation wider than its room is scaled down uniformly by the engine (DOCE-PAGINATION-12.10), from this natural box.
+- **Drawing.** The drawing is an SVG tree of `svg`, `g`, `path`, `rect` and `line` elements with only geometry, fill and stroke attributes, its root carrying its view box and visible overflow, so every renderer draws the same shapes at any size.
+- **Missing glyphs.** Characters the font has no glyph for are left out of the drawing and named in `missing`, so the engine gives that equation its fixed reserved size.
+- **Refusals.** MathML MathJax refuses (an error node) lays nothing out: `layout` gives null.
+- **Cache.** Layouts are kept per tree and display, so each equation is typeset once and its box at another size is the same layout scaled. `key` names the MathJax version and the font, so stored layouts can be told apart when either changes.
+- **Host builds.** MathJax's SVG output imports its default font through `#default-font`; a host's bundler maps it to `@mathjax/mathjax-stix2-font/mjs` (the labs build does it in `scripts/build-labs.mjs`), or MathJax's default font is bundled as well.
+
+MathJax and its STIX Two font data are Apache-2.0 (the packages' `license` fields); the STIX Two outlines the data is drawn from are under the SIL Open Font License 1.1, which allows bundling them with software.
+
+Implementation: `src/layout-engine/math/mathjax-layouter.ts`, `scripts/build-labs.mjs`
+Verification: `src/layout-engine/math/mathjax-layouter.test.ts` (Node, on Linux and Windows for each pull request and weekly on macOS), `e2e/font-widths.spec.ts` (DOCE-LABS-7.5)
+
 ## DOCE-PAGINATION-13 - Print and static pages on the engine's lines
 
 What the pages draw with the text layout engine (DOCE-PAGINATION-11) reaches every output of the document: the pages' layout is handed over as data, and a print drawn from it, or from a snapshot of the pages, holds each page's computed lines.

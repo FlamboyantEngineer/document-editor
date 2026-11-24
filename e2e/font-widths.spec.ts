@@ -27,6 +27,18 @@ test('DOCE-LABS-7.1 measures the reference text from the font files the same on 
   await expect(page.getByRole('status')).toContainText('widths identical to Canvas');
 });
 
+// The equations MathJax lays out, the same in a page on every system as in Node
+// (src/layout-engine/math/mathjax-layouter.test.ts, DOCE-PAGINATION-12.12).
+const MATH_LAYOUTS_FINGERPRINT = '12f43504';
+
+test('DOCE-LABS-7.5 lays equations out with MathJax the same on every machine', async ({
+  page,
+  lab,
+}) => {
+  await lab.open('font-widths');
+  expect(await page.evaluate(() => window.mathLayouts)).toBe(MATH_LAYOUTS_FINGERPRINT);
+});
+
 test('DOCE-LABS-7.1 agrees with Linux Chromium Canvas wherever the served faces have the glyphs', async ({
   page,
   lab,
