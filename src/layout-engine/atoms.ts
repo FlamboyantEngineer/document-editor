@@ -63,7 +63,7 @@ interface AtomCacheOptions {
   readonly measure: AtomMeasurer;
   /**
    * The text a view draws in a leaf atom that the document does not hold, such as a footnote
-   * marker's number (`blockNumbers`); an atom is kept by it as by its content.
+   * marker's number (`numbersByNode`); an atom is kept by it as by its content.
    */
   readonly shownOf?: ((node: ProseMirrorNode) => string | undefined) | undefined;
   /** The most atoms kept; the least recently used go first. 2000 by default. */

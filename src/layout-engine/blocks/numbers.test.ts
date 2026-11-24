@@ -1,16 +1,15 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { readRegressionDocument, readRegressionTemplate } from '../../../test/stored-fixtures.js';
-import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
+import { readDocumentFile, type StoredNode } from '../../model/index.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../../model/templates/base-template.js';
-import { blockNumbers, captionNumbers } from './numbers.js';
+import { captionNumbers } from './numbers.js';
 
 const schema = createDocumentSchema();
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
 const paragraph = (value: string): StoredNode => ({ type: 'paragraph', content: [text(value)] });
-const item = (value: string): StoredNode => ({ type: 'listItem', content: [paragraph(value)] });
 
 function documentOf(content: StoredNode[]): ProseMirrorNode {
   return readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, schema).doc;
@@ -31,7 +30,7 @@ describe('caption labels', () => {
     const file = readRegressionDocument('caption-numbering');
     const template = readRegressionTemplate(file.template?.id ?? 'regression-base');
     const { doc } = readDocumentFile(file, schema);
-    const numbers = blockNumbers(doc, template);
+    const numbers = captionNumbers(doc, template);
     expect(shown(doc, numbers.labelOf).slice(1, 7)).toEqual([
       'Figure 1.1 - ',
       'Table 1.1 - ',
@@ -49,65 +48,7 @@ describe('caption labels', () => {
       content: [{ type: 'figure_caption', content: [text('A view')] }],
     });
     const doc = documentOf([figure(true), figure(false), figure(true)]);
-    const numbers = blockNumbers(doc, BASE_TEMPLATE);
+    const numbers = captionNumbers(doc, BASE_TEMPLATE);
     expect(shown(doc, numbers.labelOf)).toEqual(['Figure 1 - ', 'Figure 2 - ']);
-  });
-
-  it('DOCE-PAGINATION-10.7 gives the same caption labels and key without the other numbers', () => {
-    const file = readRegressionDocument('caption-numbering');
-    const template = readRegressionTemplate(file.template?.id ?? 'regression-base');
-    const { doc } = readDocumentFile(file, schema);
-    const all = blockNumbers(doc, template);
-    const captions = captionNumbers(doc, template);
-    expect(shown(doc, captions.labelOf)).toEqual(shown(doc, all.labelOf));
-    expect(captions.labelsKey).toBe(all.labelsKey);
-    expect(captions).not.toHaveProperty('markerOf');
-  });
-});
-
-describe('list markers', () => {
-  const ordered = (order: number, ...items: StoredNode[]): StoredNode => ({
-    type: 'orderedList',
-    attrs: { start: order },
-    content: items,
-  });
-
-  it('DOCE-PAGINATION-10.7 numbers ordered items from the list’s start, each list on its own', () => {
-    const nested = ordered(1, item('a'), item('b'));
-    const doc = documentOf([
-      ordered(3, { type: 'listItem', content: [paragraph('x'), nested] }, item('y')),
-      { type: 'bulletList', content: [item('z')] },
-    ]);
-    const numbers = blockNumbers(doc, BASE_TEMPLATE);
-    expect(shown(doc, numbers.markerOf)).toEqual(['3. ', '1. ', '2. ', '4. ']);
-  });
-
-  it('DOCE-PAGINATION-10.7 takes the template’s list format, prefix and suffix', () => {
-    const template: TemplateFile = {
-      ...BASE_TEMPLATE,
-      styles: { ...BASE_TEMPLATE.styles, list: { format: 'a)', prefix: '(', suffix: ':' } },
-    };
-    const doc = documentOf([ordered(1, item('a'), item('b'))]);
-    expect(shown(doc, blockNumbers(doc, template).markerOf)).toEqual(
-      ['(a):', '(b):'].map((m) => `${m} `),
-    );
-  });
-});
-
-describe('footnote numbers', () => {
-  it('DOCE-PAGINATION-10.7 numbers footnotes in the order they are first cited', () => {
-    const note = (id: string): StoredNode => ({
-      type: 'footnote',
-      attrs: { id },
-      content: [text(`note ${id}`)],
-    });
-    const doc = documentOf([
-      { type: 'paragraph', content: [text('One'), note('n1'), text(' two'), note('n2')] },
-    ]);
-    const numbers = blockNumbers(doc, BASE_TEMPLATE);
-    const markers = shown(doc, (node) =>
-      node.type.name === 'footnote_reference' ? numbers.footnoteOf(node) : undefined,
-    );
-    expect(markers).toEqual(['1', '2']);
   });
 });

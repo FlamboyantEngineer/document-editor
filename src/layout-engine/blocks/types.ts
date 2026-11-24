@@ -139,7 +139,7 @@ export interface BlockLayoutOptions {
   readonly metrics: (scope: string | null) => BlockMetrics;
   /** The label a caption's line starts with, such as `Table 1.2 - `; none by default. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
-  /** A footnote entry's number (`blockNumbers`); an entry without one is laid out without it. */
+  /** A footnote entry's number (`numbersByNode`); an entry without one is laid out without it. */
   readonly footnoteOf?: ((entry: ProseMirrorNode) => string | undefined) | undefined;
   /** What a list of contents block shows; a list without it is left to the DOM. */
   readonly contentsOf?: ((node: ProseMirrorNode) => ContentsList | undefined) | undefined;
