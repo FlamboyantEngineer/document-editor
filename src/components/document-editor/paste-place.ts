@@ -5,7 +5,7 @@
 // transactions, because the host may show a state the view never dispatched.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { EditorState, NodeSelection, type Selection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, type Selection } from 'prosemirror-state';
 import { Mapping, StepMap } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import { type FigureSource, insertFigure } from '../../engine/index.js';
@@ -72,25 +72,25 @@ function placeIn(place: PastePlace, state: EditorState): Selection {
 }
 
 /**
- * Inserts a figure at a place, in one change, and returns the figure's place, so the next one
- * follows it. A writer who has done nothing since has the figure selected, as when they insert
- * one; one who has written or moved on keeps their selection, or their next key would replace the
- * figure.
+ * Runs an inserting command at a place, in one change, and returns the place it leaves, so the
+ * next insertion follows it. A writer who has done nothing since has what was inserted selected,
+ * as when they insert it themselves; one who has written or moved on keeps their selection, or
+ * their next key would replace it.
  */
-export function insertFigureAt(
-  view: EditorView,
-  place: PastePlace,
-  source: FigureSource,
-): PastePlace {
+export function insertAt(view: EditorView, place: PastePlace, insert: Command): PastePlace {
   const { state } = view;
   const selection = placeIn(place, state);
   const isUntouched = state.doc === place.doc && state.selection.eq(selection);
   let left: PastePlace = { doc: state.doc, selection };
   // The command reads the document and the selection alone, so it runs on a state of just those
   // with the place as its selection; the view's own state then takes the change it made.
-  insertFigure(source)(EditorState.create({ doc: state.doc, selection }), (tr) => {
+  insert(EditorState.create({ doc: state.doc, selection }), (tr) => {
     left = { doc: tr.doc, selection: tr.selection };
     view.dispatch(isUntouched ? tr : tr.setSelection(state.selection.map(tr.doc, tr.mapping)));
   });
   return left;
 }
+
+/** Inserts a figure at a place (`insertAt`). */
+export const insertFigureAt = (view: EditorView, place: PastePlace, source: FigureSource) =>
+  insertAt(view, place, insertFigure(source));

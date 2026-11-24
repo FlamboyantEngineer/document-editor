@@ -4,7 +4,8 @@ import type { DocumentFile } from '../src/model/index.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // Copying math from the context menu (specs/OBJECTS.md DOCE-OBJECTS-1.12): as an equation that
-// pastes back as math, as its LaTeX, and as an image of the drawing the math layout made.
+// pastes back as math, as its LaTeX, and as an image of the drawing the math layout made, which
+// carries the LaTeX and pastes back as math too.
 
 declare global {
   interface Window {
@@ -38,8 +39,18 @@ const DOCUMENT = {
   ],
 } as DocumentFile;
 
-// What the clipboard holds: its text formats, and an image's size in pixels.
-const readClipboard = (page: Page) =>
+// What the clipboard holds: its text formats, and an image's size in pixels. A copy still being
+// written (an image is drawn after the press) makes a read fail with "Clipboard data has changed",
+// so a read is tried again until the clipboard holds still.
+const readClipboard = async (page: Page) => {
+  let formats: Record<string, string> = {};
+  await expect(async () => {
+    formats = await readClipboardOnce(page);
+  }).toPass();
+  return formats;
+};
+
+const readClipboardOnce = (page: Page) =>
   page.evaluate(async () => {
     const formats: Record<string, string> = {};
     for (const entry of await navigator.clipboard.read())
@@ -66,21 +77,31 @@ test.describe('math copy', () => {
     const math = page.locator(`${EDITOR} .de-math`);
     await expect(math).toHaveAttribute('data-math-layout', 'laid');
 
-    await math.click({ button: 'right' });
+    await math.first().click({ button: 'right' });
     await item(page, "Copy equation's LaTeX").click();
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(SOURCE);
 
-    await math.click({ button: 'right' });
+    await math.first().click({ button: 'right' });
     await item(page, 'Copy equation as image').click();
     await expect.poll(async () => Object.keys(await readClipboard(page))).toContain('image/png');
-    const drawn = await math.locator('svg.de-math__drawing').boundingBox();
+    const drawn = await math.first().locator('svg.de-math__drawing').boundingBox();
     const image = await readClipboard(page);
     const [width, height] = (image['image/png'] ?? '').split('x').map(Number);
     expect(Math.abs((width ?? 0) - 2 * (drawn?.width ?? 0))).toBeLessThanOrEqual(2);
     expect(Math.abs((height ?? 0) - 2 * (drawn?.height ?? 0))).toBeLessThanOrEqual(2);
-    expect(image['text/html']).toMatch(/^<img src="data:image\/png;base64,/);
+    expect(image['text/html']).toMatch(
+      /^<img src="data:image\/png;base64,[^"]+".* data-latex="\\frac\{a\}\{b\}">$/,
+    );
+    // The image pastes back as the equation it shows, not as a picture.
+    const images = page.locator(`${EDITOR} img:not(.ProseMirror-separator)`);
+    const imagesBefore = await images.count();
+    await page.locator(EDITOR).getByText('Again').click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('ControlOrMeta+v');
+    await expect(math).toHaveCount(2);
+    await expect(images).toHaveCount(imagesBefore);
 
-    await math.click({ button: 'right' });
+    await math.first().click({ button: 'right' });
     await item(page, 'Copy equation').click();
     await expect
       .poll(async () => (await readClipboard(page))['text/plain'] ?? '')
@@ -88,7 +109,7 @@ test.describe('math copy', () => {
     await page.locator(EDITOR).getByText('Again').click();
     await page.keyboard.press('End');
     await page.keyboard.press('ControlOrMeta+v');
-    await expect(math).toHaveCount(2);
+    await expect(math).toHaveCount(3);
     await expect(math.last()).toHaveAttribute('data-math-layout', 'laid');
   });
 });

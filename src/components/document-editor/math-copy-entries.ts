@@ -68,7 +68,11 @@ export function mathCopyEntries(view: EditorView, labels: DocumentEditorLabels):
         async () =>
           element &&
           drawing &&
-          copyMathImage(drawing, { ...naturalSize(element, drawing), alt: source }),
+          copyMathImage(drawing, {
+            ...naturalSize(element, drawing),
+            source,
+            display: math.node.type.name === 'math_display',
+          }),
       ),
     },
   ];
