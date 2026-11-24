@@ -4,7 +4,7 @@ import { readRegressionDocument, readRegressionTemplate } from '../../../test/st
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../../model/templates/base-template.js';
-import { blockNumbers } from './numbers.js';
+import { blockNumbers, captionNumbers } from './numbers.js';
 
 const schema = createDocumentSchema();
 
@@ -51,6 +51,17 @@ describe('caption labels', () => {
     const doc = documentOf([figure(true), figure(false), figure(true)]);
     const numbers = blockNumbers(doc, BASE_TEMPLATE);
     expect(shown(doc, numbers.labelOf)).toEqual(['Figure 1 - ', 'Figure 2 - ']);
+  });
+
+  it('DOCE-PAGINATION-10.7 gives the same caption labels and key without the other numbers', () => {
+    const file = readRegressionDocument('caption-numbering');
+    const template = readRegressionTemplate(file.template?.id ?? 'regression-base');
+    const { doc } = readDocumentFile(file, schema);
+    const all = blockNumbers(doc, template);
+    const captions = captionNumbers(doc, template);
+    expect(shown(doc, captions.labelOf)).toEqual(shown(doc, all.labelOf));
+    expect(captions.labelsKey).toBe(all.labelsKey);
+    expect(captions).not.toHaveProperty('markerOf');
   });
 });
 

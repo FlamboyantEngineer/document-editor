@@ -5,7 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
-import { blockNumbers } from '../layout-engine/blocks/numbers.js';
+import { captionNumbers } from '../layout-engine/blocks/numbers.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
 import type { TemplateFile } from '../model/index.js';
 import { captionLabelKeys } from './caption-label-keys.js';
@@ -15,7 +15,7 @@ export interface NodeNumbers {
   readonly doc: ProseMirrorNode | null;
   readonly prefixes: ReadonlyMap<ProseMirrorNode, string>;
   readonly paragraphs: ReadonlyMap<ProseMirrorNode, ParagraphNumber>;
-  /** A caption's label (`blockNumbers`). */
+  /** A caption's label (`captionNumbers`). */
   readonly labelOf: (caption: ProseMirrorNode) => string | undefined;
   /** A footnote marker's or entry's number, by its footnote's id. */
   readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
@@ -76,7 +76,7 @@ export function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     const node = doc.nodeAt(pos);
     if (node) numbered.set(node, number);
   }
-  const labels = blockNumbers(doc, template);
+  const labels = captionNumbers(doc, template);
   const footnotes = footnotesOf(doc);
   const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
   // Read when a block is laid out, not for the numbering the pages draw on every change.

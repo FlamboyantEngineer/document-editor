@@ -88,7 +88,7 @@ interface DocumentNumbering {
   readonly headings: ReadonlyMap<number, string>;
   /** The numbered paragraphs, which the browser still draws on its own lines. */
   readonly paragraphs: ReadonlySet<number>;
-  /** A caption's label, as this document's captions show them (`blockNumbers`). */
+  /** A caption's label, as this document's captions show them (`captionNumbers`). */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   /** Every caption's label in order, as one key. */
   readonly labelsKey?: string | undefined;

@@ -15,8 +15,8 @@ import { documentSections } from '../../model/schema/document-structure.js';
 import { templateScopeStyles } from '../../model/templates/template-properties.js';
 import { findTemplateSection } from '../../model/templates/template-sections.js';
 
-/** The numbers of one document, by node. */
-interface BlockNumbers {
+/** The caption labels of one document, by node. */
+interface CaptionNumbers {
   /**
    * A caption's label and the ` - ` after it, as the label line draws it, or linked code's own;
    * none when it shows none.
@@ -24,6 +24,10 @@ interface BlockNumbers {
   labelOf(caption: ProseMirrorNode): string | undefined;
   /** Every caption's label, in the document's order, as one key. */
   readonly labelsKey: string;
+}
+
+/** The numbers of one document, by node. */
+interface BlockNumbers extends CaptionNumbers {
   /** An ordered list item's marker, its space after included; none for any other node. */
   markerOf(item: ProseMirrorNode): string | undefined;
   /** A footnote marker's or entry's number; none for a footnote no marker in its scope cites. */
@@ -103,6 +107,16 @@ function footnoteNumbers(doc: ProseMirrorNode, numbering: FootnoteNumbering) {
 }
 
 /**
+ * The caption labels of a document under its template, each section by its own scope, without the
+ * list markers and footnote numbers `blockNumbers` also counts. Nodes are found by identity, so ask
+ * with the nodes of this `doc`.
+ */
+export function captionNumbers(doc: ProseMirrorNode, template: TemplateFile): CaptionNumbers {
+  const labels = captionLabels(doc, template);
+  return { labelOf: (caption) => labels.get(caption), labelsKey: [...labels.values()].join('|') };
+}
+
+/**
  * The caption labels, ordered list markers and footnote numbers of a document under its template,
  * each section by its own scope. Nodes are found by identity, so ask with the nodes of this `doc`.
  */
@@ -111,12 +125,10 @@ export function blockNumbers(
   template: TemplateFile,
   { footnotes = 'document' }: BlockNumbersOptions = {},
 ): BlockNumbers {
-  const labels = captionLabels(doc, template);
   const markers = listMarkers(doc, template);
   const numbers = footnoteNumbers(doc, footnotes);
   return {
-    labelOf: (caption) => labels.get(caption),
-    labelsKey: [...labels.values()].join('|'),
+    ...captionNumbers(doc, template),
     markerOf: (item) => markers.get(item),
     footnoteOf: (part) => numbers.get(part),
   };
