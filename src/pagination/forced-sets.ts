@@ -145,7 +145,9 @@ export function containerSet(
       const key = linesKey(table);
       keys.push(key);
       const dir = blockDirection(child);
-      locals.push(Decoration.node(offset, end, blockAttrs(table, { dir })));
+      // The lines go with the block's element too, for a node view that draws beside them, such
+      // as a code block's gutter of line numbers.
+      locals.push(Decoration.node(offset, end, blockAttrs(table, { dir }), { forcedLines: table }));
       const set = blockSet(builder, child, { table, key, prefixed: false });
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;

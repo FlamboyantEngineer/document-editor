@@ -1950,6 +1950,13 @@ a.de-contents__entry {
   visibility: hidden;
 }
 
+/* On forced lines the copy breaks where the engine wraps the code's line and nowhere else
+   (DOCE-PAGINATION-11.2). */
+.de-code-gutter__line[data-engine-lines] .de-code-gutter__text {
+  white-space: pre;
+  overflow: hidden;
+}
+
 /* Highlighted code: each token kind in its colour, on linked code's token elements and in the
    highlights code blocks are painted with. A highlight takes colours and lines only, so neither
    changes the layout. Each highlight has a rule of its own, which a browser without them drops. */

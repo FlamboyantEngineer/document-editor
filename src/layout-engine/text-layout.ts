@@ -211,7 +211,7 @@ function codeGutterWidth(node: ProseMirrorNode, font: string): number {
 function lineStarts(
   node: ProseMirrorNode,
   input: { style: BlockTypography; place: TextBlockPlace; codeLineNumbers: boolean | undefined },
-): { firstStart: number; restStart: number; lead?: number | undefined } {
+): { firstStart: number; restStart: number; lead?: number | undefined; inset?: number } {
   const { style, place } = input;
   const font = fontString(style.font);
   if (place.number) {
@@ -225,7 +225,7 @@ function lineStarts(
   }
   const gutter =
     input.codeLineNumbers && node.type.name === 'code_block' ? codeGutterWidth(node, font) : 0;
-  return { firstStart: gutter, restStart: gutter };
+  return { firstStart: gutter, restStart: gutter, inset: gutter };
 }
 
 // The reserved boxes of a word drawn in a text block that is not its content, in the block's font.
@@ -236,18 +236,11 @@ const insertedReservedIn =
     return reserve ? reservedBoxes(word, { offset: 0, font, reserve }) : [];
   };
 
-/** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
-export function createTextLayout(options: TextLayoutOptions): TextLayout {
-  const cache = createLineCache(options.language);
-  const strutOf = createStruts({
-    context: options.measureContext,
-    scale: options.scale,
-    hinted: options.hinted,
-  });
+// Text in another font takes its own font's box at the line height it inherits, as an inline box
+// in Chromium's line does; the line grows to hold the tallest. The boxes are kept by font.
+function fontBoxes(strutOf: ReturnType<typeof createStruts>) {
   const boxes = new Map<string, { width: number; height: number; baseline: number }>();
-  // Text in another font takes its own font's box at the line height it inherits, as an inline
-  // box in Chromium's line does; the line grows to hold the tallest.
-  const boxOf = (style: BlockTypography) => (font: FontStyle) => {
+  return (style: BlockTypography) => (font: FontStyle) => {
     const leading = snapLeading(font.size * style.lineHeight);
     const key = `${fontString(font)} ${String(leading)}`;
     let box = boxes.get(key);
@@ -258,6 +251,17 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     }
     return box;
   };
+}
+
+/** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
+export function createTextLayout(options: TextLayoutOptions): TextLayout {
+  const cache = createLineCache(options.language);
+  const strutOf = createStruts({
+    context: options.measureContext,
+    scale: options.scale,
+    hinted: options.hinted,
+  });
+  const boxOf = fontBoxes(strutOf);
   const typography = (node: ProseMirrorNode, scope?: string | null) =>
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
   // What a block draws before its content in a font of its own: a footnote entry's number, or a
@@ -317,7 +321,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         restStart: starts.restStart,
         block: node,
       });
-      const laid = runs.hidden.length ? { ...table, hidden: runs.hidden } : table;
+      const inset = starts.inset ? { inset: starts.inset } : {};
+      const laid = { ...table, ...inset, ...(runs.hidden.length ? { hidden: runs.hidden } : {}) };
       return { ok: true, table: withReserved(laid, runs, options.reserve) };
     },
   };

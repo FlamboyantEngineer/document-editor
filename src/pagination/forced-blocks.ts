@@ -1,7 +1,8 @@
 // The text blocks a page draws on forced lines (DOCE-PAGINATION-11.2): each paragraph and heading
-// directly in its content, and each paragraph and heading in a table's cells, a list or a quote,
-// on the lines the engine laid it out on with its container. The pages' decorations, the computed lines a test compares
-// with, and the layout handed to a viewer or a print all read them from here.
+// directly in its content, and each paragraph and heading in a table's cells, a list, a quote, a
+// layout section's columns, a script's output or an embed, on the lines the engine laid it out on
+// with its container. The pages' decorations, the computed lines a test compares with, and the
+// layout handed to a viewer or a print all read them from here.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { isContinuationPlaceholder } from '../model/pagination/fragments.js';
@@ -10,7 +11,7 @@ import type { InsertedTexts } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 
 /** The block types drawn on forced lines. */
-const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading']);
+const FORCED_TYPES: ReadonlySet<string> = new Set(['paragraph', 'heading', 'code_block']);
 
 /** The top-level blocks whose text blocks are drawn on forced lines, laid out with them. */
 const NESTED_TYPES: ReadonlySet<string> = new Set([
@@ -20,6 +21,9 @@ const NESTED_TYPES: ReadonlySet<string> = new Set([
   'ordered_list',
   'blockquote',
   'layout_section',
+  'script_block',
+  'embed',
+  'code_figure',
 ]);
 
 /** A text block of a page and the lines it is drawn on, or why the browser draws it. */
@@ -68,8 +72,17 @@ function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): str
   return at.inserted.byBlock.has(node) ? 'inserted words' : null;
 }
 
+// The lines of the text blocks in a container. A code figure's code is laid out alone, at the
+// content width its figure lays it out at, since its caption is left to the browser.
+function linesIn(engine: PagesTextEngine, container: ProseMirrorNode, scope: string | null) {
+  if (container.type.name !== 'code_figure') return engine.nestedLines(container, scope);
+  const code = container.lastChild;
+  const table = code?.type.name === 'code_block' ? engine.lines(code, { scope }) : null;
+  return new Map(code && table ? [[code, table]] : []);
+}
+
 function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedPlace) {
-  const lines = engine.nestedLines(container, at.scope);
+  const lines = linesIn(engine, container, at.scope);
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset) => {
     if (!FORCED_TYPES.has(node.type.name)) return !node.isTextblock;
