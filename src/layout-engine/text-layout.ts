@@ -126,6 +126,7 @@ const TEXT_BLOCKS = new Set([
   'footnote_entry',
   'figure_caption',
   'table_caption',
+  'code_caption',
 ]);
 
 function hasCode(node: ProseMirrorNode): boolean {
@@ -264,9 +265,6 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     stats: cache.stats,
     ...createContentsLayout({ ...options, cache, strutOf }),
     layoutText(node, place) {
-      // A code caption waits for code figure geometry that matches the drawn box (DOCE-PAGINATION-9.11).
-      if (node.type.name === 'code_caption')
-        return { ok: false, reason: 'a code caption is left to its code figure in the DOM' };
       if (!TEXT_BLOCKS.has(node.type.name))
         return { ok: false, reason: `not a text block: ${node.type.name}` };
       const style = typography(node, place.scope);

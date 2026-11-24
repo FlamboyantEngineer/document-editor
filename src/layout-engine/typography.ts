@@ -284,7 +284,9 @@ function ownTypography(
     return { ...code, font, padding: CODE_BLOCK_PADDING };
   }
   const kind = CAPTION_KINDS[node.type.name];
-  return kind ? captionBlock(styles[kind]?.caption, styles, context) : null;
+  // The stylesheet draws a code caption at the left of its box, whatever its alignment.
+  const left = kind === 'codeBlock' ? { alignment: null } : {};
+  return kind ? captionBlock({ ...styles[kind]?.caption, ...left }, styles, context) : null;
 }
 
 /** The object settings each caption reads its fonts and alignment from. */
