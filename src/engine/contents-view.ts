@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Decoration, EditorView } from 'prosemirror-view';
+import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
 import type { CatalogEntry, ContentsListProperties, CustomProperties } from '../model/index.js';
 import { chooseEntryWith } from './contents-keys.js';
 
@@ -30,7 +31,7 @@ export interface ContentsRows {
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
 function measureKey(
   node: ProseMirrorNode,
-  { rows, labels, leaders, showPage, properties, href }: Drawing,
+  { rows, labels, leaders, showPage, properties, href, drawn }: Drawing,
 ): string {
   const text = [
     String(node.attrs.showTitle),
@@ -41,6 +42,7 @@ function measureKey(
     String(showPage),
     rows.separator,
     String(rows.empty),
+    drawn ? JSON.stringify(drawn) : '',
     ...rows.entries.map(
       (entry) =>
         `${String(entry.level)}|${entry.number}|${entry.text}|${String(entry.page)}|${entry.anchor ?? ''}|${entry.target ?? ''}|${entry.heading ? 'h' : ''}|${entry.cites ? (href(entry.cites) ?? '') : ''}`,
@@ -95,6 +97,17 @@ export interface Drawing {
   readonly navigate: (index: number) => void;
   /** Where an entry that stands for a citation opens, or null where it opens nowhere. */
   readonly href: (cites: Readonly<Record<string, unknown>>) => string | null;
+  /** The rows as the layout engine laid them out, which the list is drawn on; none without it. */
+  readonly drawn?: ContentsDrawn | null | undefined;
+}
+
+/** How the layout engine laid a list's rows out, as a decoration hands it to the list's view. */
+export function drawnIn(decorations: readonly Decoration[]): ContentsDrawn | null {
+  for (const decoration of decorations) {
+    const drawn = (decoration.spec as { contentsDrawn?: ContentsDrawn }).contentsDrawn;
+    if (drawn) return drawn;
+  }
+  return null;
 }
 
 // How many times a leader repeats: enough to fill the widest row, as the row clips it on the
@@ -128,6 +141,42 @@ function rowOf(entry: CatalogEntry, index: number, drawing: Drawing): HTMLElemen
   return row;
 }
 
+// An entry's text, broken where the layout engine starts its lines when it laid the row out, so
+// the browser draws the engine's lines and breaks none of its own.
+function textOf(text: string, starts: readonly number[] | undefined): HTMLSpanElement {
+  const element = span('de-contents__text', '');
+  if (!starts || starts.length < 2) {
+    element.textContent = text;
+    if (starts) element.dataset.engineLines = 'true';
+    return element;
+  }
+  element.dataset.engineLines = 'true';
+  starts.forEach((start, line) => {
+    if (line > 0) element.append(document.createElement('br'));
+    element.append(text.slice(start, starts[line + 1] ?? text.length));
+  });
+  return element;
+}
+
+// The page box as wide as the layout engine kept room for (DOCE-PAGINATION-10.11).
+function keepPageRoom(row: HTMLElement, width: number | null | undefined) {
+  if (typeof width === 'number')
+    row.style.setProperty('--de-contents-page-width', `${String(width)}px`);
+}
+
+// A row's number, its separator and its text.
+function appendHead(
+  row: HTMLElement,
+  entry: CatalogEntry,
+  { index, drawing }: { index: number; drawing: Drawing },
+) {
+  if (entry.number) row.append(span('de-contents__number', entry.number));
+  if (entry.number && entry.text && drawing.rows.separator) {
+    row.append(span('de-contents__separator', drawing.rows.separator));
+  }
+  row.append(textOf(entry.text, drawing.drawn?.rows[index]));
+}
+
 function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLElement {
   const row = rowOf(entry, index, drawing);
   const level = entry.level || 1;
@@ -137,11 +186,8 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
   if (entry.anchor) row.id = entry.anchor;
   // The element a printed row links to (DOCE-CONTENTS-2.10).
   if (entry.target) row.dataset.target = entry.target;
-  if (entry.number) row.append(span('de-contents__number', entry.number));
-  if (entry.number && entry.text && drawing.rows.separator) {
-    row.append(span('de-contents__separator', drawing.rows.separator));
-  }
-  row.append(span('de-contents__text', entry.text));
+  appendHead(row, entry, { index, drawing });
+  keepPageRoom(row, drawing.drawn?.pageWidths[level - 1]);
   const character = drawing.leaders[level - 1] ?? null;
   if (character !== null && drawing.showPage) {
     // The leader is drawn from its attribute, so copying the row leaves it out; the space keeps

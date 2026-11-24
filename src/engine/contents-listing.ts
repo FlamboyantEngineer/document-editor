@@ -98,9 +98,9 @@ function grouped(
   return rows;
 }
 
-// The entries a list block shows: those of its kind down to its deepest level, in the range a
-// split part holds.
-function rowsOf(
+/** The entries a list block shows: those of its kind down to its deepest level, in the range a
+ * split part holds. */
+export function rowsOf(
   node: ProseMirrorNode,
   { catalog, kinds }: { catalog: DocumentCatalog; kinds: Kinds },
 ): ContentsRows {

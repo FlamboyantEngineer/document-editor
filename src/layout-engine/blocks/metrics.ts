@@ -16,6 +16,10 @@ import {
   resolveRegionSpacing,
 } from '../../model/templates/template-scopes.js';
 import { findTemplateSection } from '../../model/templates/template-sections.js';
+import {
+  resolveContentsList,
+  type ResolvedContentsList,
+} from '../../model/templates/template-settings.js';
 import { referenceSheetNumbers, type SheetNumbers, sheetPixels } from './sheet-numbers.js';
 
 /** A template scope's block geometry numbers, in CSS pixels. */
@@ -57,6 +61,8 @@ export interface BlockMetrics {
     /** The space between entries. */
     readonly entrySpacing: number;
   };
+  /** A kind of list of contents' settings in the scope. */
+  readonly contents: (kind: string) => ResolvedContentsList;
 }
 
 /** A page region's numbers. */
@@ -149,5 +155,6 @@ export function blockMetrics(
     },
     ...objectNumbers(styles, sheet),
     ...regionNumbers(template, section),
+    contents: (kind) => resolveContentsList(styles.contents, kind),
   };
 }

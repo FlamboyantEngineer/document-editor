@@ -11,16 +11,14 @@ import {
   type EditorView,
   type NodeViewConstructor,
 } from 'prosemirror-view';
+import type { ContentsList } from '../layout-engine/blocks/types.js';
 import {
   abbreviationTargetId,
   type CatalogEntry,
   type ContentsKind,
   contentsListProperties,
-  DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
-  EXTERNAL_DOCUMENT_REFERENCE_TYPE,
   type FontStacks,
-  resolveContentsList,
   type TemplateFile,
 } from '../model/index.js';
 import { type CitationHref, referencePrintHref } from '../model/schema/reference-mark.js';
@@ -34,6 +32,7 @@ import {
   listGroups,
   stateOf,
 } from './contents-listing.js';
+import { kindsOf, listLook, listOf } from './contents-look.js';
 import { hasContents } from './contents-presence.js';
 import {
   type ContentsLabels,
@@ -41,32 +40,14 @@ import {
   copyRows,
   draw,
   type Drawing,
+  drawnIn,
   partRows,
   rowsIn,
 } from './contents-view.js';
 
 export type { ContentsGroup } from './contents-listing.js';
+export { CONTENTS_LABELS } from './contents-look.js';
 export type { ContentsLabels } from './contents-view.js';
-
-/** The labels each default list shows unless a host gives its own. */
-export const CONTENTS_LABELS: Readonly<
-  Record<keyof typeof DEFAULT_CONTENTS_KINDS, ContentsLabels>
-> = {
-  toc: { title: 'Table of Contents', empty: 'No headings found.' },
-  figures: { title: 'Table of Figures', empty: 'No figures found.' },
-  tables: { title: 'Table of Tables', empty: 'No tables found.' },
-  codeBlocks: { title: 'Table of Code Blocks', empty: 'No code listings found.' },
-  equations: { title: 'Table of Equations', empty: 'No equations found.' },
-  references: {
-    title: 'References',
-    empty: 'No references found.',
-    groups: { [EXTERNAL_DOCUMENT_REFERENCE_TYPE]: 'Documents' },
-  },
-  abbreviations: { title: 'Abbreviations', empty: 'No abbreviations found.' },
-};
-
-/** The labels of a kind of list that neither the defaults nor the host label. */
-const UNLABELLED: ContentsLabels = { title: 'Contents', empty: 'Nothing to list.' };
 
 /** How lists of contents are drawn. */
 export interface ContentsOptions {
@@ -154,6 +135,19 @@ export function contentsGroupsAt(state: EditorState, pos: number): ContentsGroup
 }
 
 type GroupsOf = (state: EditorState, node: ProseMirrorNode) => ContentsGroup[];
+type ListOf = (state: EditorState, node: ProseMirrorNode) => ContentsList | undefined;
+
+/**
+ * What the list of contents block shows in a state, as the layout engine lays it out
+ * (DOCE-PAGINATION-10.11); none without a contents plugin.
+ */
+export function contentsListOf(
+  state: EditorState,
+  node: ProseMirrorNode,
+): ContentsList | undefined {
+  const listed = (contentsKey.get(state)?.spec as { listOf?: ListOf } | undefined)?.listOf;
+  return listed?.(state, node);
+}
 
 /** The rows the list of contents at a position shows; none without a contents plugin. */
 export function contentsRowsAt(state: EditorState, pos: number): ContentsRows {
@@ -166,14 +160,9 @@ export function contentsRowsAt(state: EditorState, pos: number): ContentsRows {
 
 // What a list block draws, by its kind: the kind's labels and title, its levels' leaders and
 // custom properties, from the template.
-function drawingWith({
-  template,
-  kinds,
-  labels = {},
-  fontStacks,
-  citationHref,
-}: Omit<ContentsOptions, 'kinds'> & { kinds: Kinds }) {
-  const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
+function drawingWith(options: Omit<ContentsOptions, 'kinds'> & { kinds: Kinds }) {
+  const { citationHref, fontStacks } = options;
+  const look = listLook(options);
   const href = (cites: Readonly<Record<string, unknown>>) =>
     citationHref ? referencePrintHref(cites, citationHref) : null;
   return (
@@ -181,18 +170,13 @@ function drawingWith({
     rows: ContentsRows,
     navigate: (index: number) => void,
   ): Drawing => {
-    const key = kinds.of(node);
-    const kind = kinds.all[key];
-    const list = resolveContentsList(template().styles?.contents, key);
-    const label = { ...(defaults[key] ?? UNLABELLED), ...labels[key] };
+    const { list, labels, leaders, showPage } = look(node);
     return {
       rows,
-      labels: list.title ? { ...label, title: list.title } : label,
-      leaders: list.levels.map((level) =>
-        kind?.leader === false ? null : (level.leader?.character ?? null),
-      ),
+      labels,
+      leaders,
       properties: contentsListProperties(list, fontStacks),
-      showPage: kind?.showPage !== false,
+      showPage,
       navigate,
       href,
     };
@@ -211,18 +195,9 @@ export function createContents({
   fontStacks,
   citationHref,
 }: ContentsOptions): Plugin<ContentsState> {
-  const all: Record<string, ContentsKind> = { ...DEFAULT_CONTENTS_KINDS, ...added };
-  const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
-  const kinds: Kinds = {
-    all,
-    of: (node) => {
-      const type: unknown = node.attrs.tocType;
-      return typeof type === 'string' && Object.hasOwn(all, type) ? type : 'toc';
-    },
-    groupTitle: (key, group) =>
-      labels[key]?.groups?.[group] ?? defaults[key]?.groups?.[group] ?? null,
-  };
+  const kinds = kindsOf(added, labels);
   const drawingFor = drawingWith({ template, kinds, labels, fontStacks, citationHref });
+  const look = listLook({ template, kinds, labels });
   const view: NodeViewConstructor = (...[node, editor, , decorations]) => {
     const dom = document.createElement('div');
     dom.className = 'de-contents';
@@ -237,7 +212,7 @@ export function createContents({
       current = next;
       rows = partRows(rowsIn(decos), next);
       dom.dataset.contentsType = kinds.of(next);
-      draw(dom, next, drawingFor(next, rows, navigate));
+      draw(dom, next, { ...drawingFor(next, rows, navigate), drawn: drawnIn(decos) });
     };
     render(node, decorations);
     return {
@@ -258,6 +233,10 @@ export function createContents({
       const value = contentsKey.getState(state);
       return value ? listGroups(value, node, kinds) : [];
     }) satisfies GroupsOf,
+    listOf: ((state, node) => {
+      const value = contentsKey.getState(state);
+      return value ? listOf(node, { catalog: value.catalog, kinds, look }) : undefined;
+    }) satisfies ListOf,
     state: {
       init: (_config, state) => stateOf({ doc: state.doc, template: template(), kinds, counter }),
       apply: (tr, value) => {

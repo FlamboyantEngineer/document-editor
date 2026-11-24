@@ -61,6 +61,8 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     number: () => undefined,
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
     measureBlock: () => null,
+    pageDigits: () => 3,
+    contentsDrawn: () => null,
     measureRegion: () => null,
     regionLines: () => new Map(),
     nestedLines(container, scope) {
