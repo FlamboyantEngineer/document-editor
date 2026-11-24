@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { fingerprintLayouts, katexTree, mathCases } from '../../../test/math-layouts.js';
-import { createMathJaxLayouter, type MathLayouter, mathMarkup } from './mathjax-layouter.js';
+import type { MathLayouter } from '../math-atoms.js';
+import { createMathJaxLayouter, mathMarkup } from './mathjax-layouter.js';
 
 // The fingerprint DOCE-LABS-7.4 pins in a page on Linux, Windows and macOS; Node gives the same.
 const LAYOUTS_FINGERPRINT = '12f43504';

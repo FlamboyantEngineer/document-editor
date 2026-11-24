@@ -154,8 +154,9 @@ interface PagingSettings {
 }
 
 // The layout engine lays the text out with the template the pages show now, measured with the
-// served fonts, which the pages wait for (DOCE-HOST-1.14.1), and code beside the gutter of line
-// numbers the state's object views draw.
+// served fonts, which the pages wait for (DOCE-HOST-1.14.1), code beside the gutter of line
+// numbers the state's object views draw, and math sized and drawn by MathJax (DOCE-PAGINATION-12.12),
+// loaded with the engine.
 function textLayoutOf(
   { textLayout, fonts: served, markup }: PagingSettings,
   latest: RefObject<DocumentLayoutOptions>,
@@ -170,6 +171,9 @@ function textLayoutOf(
     markup,
     // The values the page variables draw (`ownPlugins`), which the text's variables are laid out in.
     variables: { value: (key: string) => latest.current.variables?.value(key) },
+    mathLayouter: import('../../layout-engine/math/mathjax-layouter.js').then((module) =>
+      module.createMathJaxLayouter(),
+    ),
   };
 }
 

@@ -6,50 +6,12 @@
 // first equation; without them there is no layouter and math takes the reserved box.
 
 import type { MathTree } from '../../engine/math-typeset.js';
-
-/** An equation as MathJax lays it out: its box and its drawing. */
-interface LaidMath {
-  /** The box in CSS pixels at the size asked for, each rounded up to 1/64 px. */
-  readonly width: number;
-  readonly ascent: number;
-  readonly descent: number;
-  /**
-   * The drawing: an `svg` of `g`, `path`, `rect` and `line` elements with only their geometry and colours,
-   * its `viewBox` in thousandths of an em, without a size of its own (the pages size it).
-   */
-  readonly svg: MathTree;
-  /** The characters MathJax has no glyph for, drawn as text; empty when it draws every one. */
-  readonly missing: string;
-}
-
-/** Lays equations out once their glyphs have loaded (`prepare`). */
-export interface MathLayouter {
-  /** MathJax's and its font's versions, for caches and the pages' layout. */
-  readonly key: string;
-  /** Loads what laying `trees` out needs; null when nothing is left to load. */
-  prepare(trees: readonly MathTree[]): Promise<void> | null;
-  /** The equation at `sizePx`; null when it is invalid or its glyphs have not loaded yet. */
-  layout(tree: MathTree, display: boolean, sizePx: number): LaidMath | null;
-}
-
-// The elements and attributes a drawing keeps.
-const SVG_ELEMENTS = new Set(['svg', 'g', 'path', 'rect', 'line']);
-const SVG_ATTRIBUTES = new Set([
-  'viewBox',
-  'transform',
-  'd',
-  'x',
-  'y',
-  'width',
-  'height',
-  'fill',
-  'stroke',
-  'stroke-width',
-  'x1',
-  'y1',
-  'x2',
-  'y2',
-]);
+import {
+  type LaidMath,
+  MATH_DRAWING_ATTRIBUTES,
+  MATH_DRAWING_ELEMENTS,
+  type MathLayouter,
+} from '../math-atoms.js';
 
 // The dash patterns MathJax's stylesheet gives a table's dashed and dotted lines, as attributes.
 const LINE_STYLES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
@@ -123,10 +85,10 @@ function drawingOf(node: LiteNode, missing: string[]): MathTree | null {
     missing.push(...[...(node.children ?? [])].map((child) => child.value ?? ''));
     return null;
   }
-  if (!SVG_ELEMENTS.has(node.kind)) return null;
+  if (!MATH_DRAWING_ELEMENTS.has(node.kind)) return null;
   const attrs: Record<string, string> = {};
   for (const [name, value] of Object.entries(node.attributes ?? {})) {
-    if (SVG_ATTRIBUTES.has(name) && typeof value === 'string') attrs[name] = value;
+    if (MATH_DRAWING_ATTRIBUTES.has(name) && typeof value === 'string') attrs[name] = value;
   }
   for (const name of String(node.attributes?.class ?? '').split(/\s+/u))
     Object.assign(attrs, LINE_STYLES[name]);
@@ -152,14 +114,8 @@ function hasError(node: LiteNode): boolean {
   return (node.children ?? []).some(hasError);
 }
 
-/** An equation's layout in ems: its box and drawing, as MathJax gives them at any size. */
-interface EmLayout {
-  readonly width: number;
-  readonly ascent: number;
-  readonly descent: number;
-  readonly svg: MathTree;
-  readonly missing: string;
-}
+// An equation's layout in ems: its box and drawing, as MathJax gives them at any size.
+type EmLayout = LaidMath;
 
 // The box from the drawing's viewBox (`minX minY width height`, in thousandths of an em).
 function emLayout(container: LiteNode): EmLayout | null {

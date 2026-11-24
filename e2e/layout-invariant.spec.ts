@@ -629,10 +629,12 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // Captions of figures, tables and code are drawn on forced lines and counted too
 // (DOCE-PAGINATION-11.2): the line fingerprints of the documents with captions moved, their planned
 // heights did not.
+// Display equations are sized by MathJax (DOCE-PAGINATION-12.12): caption-numbering's planned
+// heights moved.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '73ff4f55af65f179', heights: '5b4ca33a9e63f4d1' },
+  'caption-numbering': { lines: '73ff4f55af65f179', heights: 'a4bb924a0d7cb5ea' },
   'heading-keep-with-next': { lines: 'f3b2f4d0f58c7941', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are

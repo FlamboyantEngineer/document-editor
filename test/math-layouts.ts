@@ -4,7 +4,7 @@
 
 import katex from 'katex';
 import type { MathTree } from '../src/engine/math-typeset.js';
-import type { MathLayouter } from '../src/layout-engine/math/mathjax-layouter.js';
+import type { MathLayouter } from '../src/layout-engine/math-atoms.js';
 
 /** LaTeX sources: the regression set's, tall ones, and a sweep of KaTeX's functions. */
 export const MATH_SOURCES: readonly string[] = [
