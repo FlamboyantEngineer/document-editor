@@ -19,21 +19,25 @@ interface NestedSource {
   readonly geometry: { layoutBlock(node: ProseMirrorNode, place: BlockPlace): BlockGeometry };
   readonly recorder: LinesRecorder;
   readonly widthOf: (scope: string | null) => number;
+  /** A footnote marker's or entry's number, which its width follows. */
+  readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
   /** The markup the pages are laid out in, by which one holding a suggestion is kept too. */
   readonly markup?: (() => SuggestionMarkup) | undefined;
 }
 
-interface NestedPlace {
-  readonly scope: string | null;
-  /** A footnote marker's number, which its width follows. */
-  readonly footnoteOf: (marker: ProseMirrorNode) => string | undefined;
-}
-
-// The numbers of the footnote markers anywhere in a container, in order.
-function markersKey(node: ProseMirrorNode, footnoteOf: NestedPlace['footnoteOf']): string {
+/**
+ * The numbers of the footnote markers and entries anywhere in a node, in order, as a key: a
+ * marker's or an entry's width follows its number.
+ */
+export function footnoteNumbersKey(
+  node: ProseMirrorNode,
+  footnoteOf: NestedSource['footnoteOf'],
+): string {
   let key = '';
   node.descendants((child) => {
-    if (child.type.name === 'footnote_reference') key += `,${footnoteOf(child) ?? ''}`;
+    const name = child.type.name;
+    if (name === 'footnote_reference' || name === 'footnote_entry')
+      key += `,${footnoteOf(child) ?? ''}`;
   });
   return key;
 }
@@ -50,10 +54,9 @@ export function createNestedLines(source: NestedSource) {
   return {
     lines(
       container: ProseMirrorNode,
-      place: NestedPlace,
+      scope: string | null,
     ): ReadonlyMap<ProseMirrorNode, DrawnLines> {
-      const { scope } = place;
-      const key = `${scope ?? ''}|${markersKey(container, place.footnoteOf)}|${suggestionKey(container, source.markup)}`;
+      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}`;
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
       const { geometry, recorder } = source;

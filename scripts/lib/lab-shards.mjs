@@ -32,6 +32,19 @@ export function recordDurations(log) {
   return Object.fromEntries(Object.entries(durations).sort(([a], [b]) => a.localeCompare(b)));
 }
 
+/**
+ * The mean of each test's recorded and new seconds, for the tests of the new run: a test the new
+ * run does not hold was removed or renamed, and a new test takes its one time.
+ */
+export function averageDurations(recorded, latest) {
+  return Object.fromEntries(
+    Object.entries(latest).map(([name, seconds]) => {
+      const before = recorded[name];
+      return [name, before === undefined ? seconds : Math.round((before + seconds) * 5) / 10];
+    }),
+  );
+}
+
 /** The tests of a `--list --reporter=json` report, by their test-list lines, in report order. */
 export function listedTests(report) {
   const names = [];

@@ -164,9 +164,13 @@ jobs:
           AFTER: ${{ matrix.after }}
           TIMING_READINGS: ${{ runner.temp }}/timing-readings.txt
       # Last, so the readings are the last lines of the timing job's log, which its tail shows.
+      # Before them, how fast this runner is, as the time of a fixed loop in Node: a report to read the
+      # readings by, which scales nothing and fails nothing.
       - name: Timing readings
         if: always() && matrix.name == 'performance'
-        run: cat "$RUNNER_TEMP/timing-readings.txt" 2>/dev/null || echo "No timing readings were written."
+        run: |
+          node -e 'const start = performance.now(); let x = 0; for (let i = 0; i < 2e8; i++) x = (x + i * 7) % 1000003; console.log(`CPU calibration: a fixed loop of 2e8 steps took ${Math.round(performance.now() - start)} ms (${x})`)'
+          cat "$RUNNER_TEMP/timing-readings.txt" 2>/dev/null || echo "No timing readings were written."
 
   font-file-changes:
     # Whether the change reaches the font-file widths: the measurer and the layout engine, its test
