@@ -331,24 +331,18 @@ describe('reading Markdown', () => {
     );
   });
 
-  // Reading the whole regression set, about 320,000 characters, three times, takes mdast a few
-  // seconds on a busy runner: more than a test's default five.
-  it(
-    'DOCE-IMPORT-4.3 reads back what the writer writes for every regression document',
-    { timeout: 30_000 },
-    () => {
-      const schema = createDocumentSchema();
-      const files = readdirSync(documents).filter((name) => name.endsWith('.json'));
-      expect(files.length).toBeGreaterThan(40);
-      for (const name of files) {
-        const file = JSON.parse(readFileSync(join(documents, name), 'utf8')) as DocumentFile;
-        const written = writeMarkdown(file);
-        const read = readMarkdown(written);
-        const again = writeMarkdown(read.file);
-        if (LOSSY[name]) expect(writeMarkdown(readMarkdown(again).file), name).toBe(again);
-        else expect(trimmed(again), name).toBe(trimmed(written));
-        expect(() => readDocumentFile(read.file, schema), name).not.toThrow();
-      }
-    },
-  );
+  it('DOCE-IMPORT-4.3 reads back what the writer writes for every regression document', () => {
+    const schema = createDocumentSchema();
+    const files = readdirSync(documents).filter((name) => name.endsWith('.json'));
+    expect(files.length).toBeGreaterThan(40);
+    for (const name of files) {
+      const file = JSON.parse(readFileSync(join(documents, name), 'utf8')) as DocumentFile;
+      const written = writeMarkdown(file);
+      const read = readMarkdown(written);
+      const again = writeMarkdown(read.file);
+      if (LOSSY[name]) expect(writeMarkdown(readMarkdown(again).file), name).toBe(again);
+      else expect(trimmed(again), name).toBe(trimmed(written));
+      expect(() => readDocumentFile(read.file, schema), name).not.toThrow();
+    }
+  });
 });

@@ -1,216 +1,118 @@
-// Inline math between single dollar signs, as Pandoc reads it, for the Markdown reader: no space
-// just inside either sign and no digit right after the closing one, so a price such as `$5-$10`
-// stays text. A dollar sign a backslash escapes does not close it and stays in its source. The
-// math's source is taken as written, so Markdown inside it, such as `*`, is not read.
+// Math for the Markdown reader, as markdown-it rules. Inline math sits between single dollar signs
+// as Pandoc reads it: no space just inside either sign and no digit right after the closing one,
+// so a price such as `$5-$10` stays text; a dollar sign a backslash escapes does not close it and
+// stays in its source, and Markdown inside it, such as `*`, is not read. `$$…$$` within a line is
+// math too, and display math when it is all its paragraph holds. Display math also sits on lines
+// of its own between `$$` fences; text after the opening signs is the block's label.
 //
 // Whether a dollar sign closes math depends only on the characters beside it, never on where the
-// math opened, so once an opening finds no closing up to the end of its text, no later opening in
-// that text looks again: reading takes work in proportion to the text.
+// math opened: an escaped sign never opens math, since markdown-it's escape rule reads it first.
+// So once an opening finds no closing up to the end of its text, no later opening in that text
+// looks again, and reading takes work in proportion to the text.
 
-import type { Extension as FromMarkdownExtension, Handle } from 'mdast-util-from-markdown';
-import type { Code, Construct, Effects, Extension, State, Tokenizer } from 'micromark-util-types';
+import type { MarkdownIt, StateBlock, StateInline } from 'markdown-it';
 
-const DOLLAR = 36;
-const BACKSLASH = 92;
+const DOLLAR = 0x24;
+const BACKSLASH = 0x5c;
 
-declare module 'micromark-util-types' {
-  interface TokenTypeMap {
-    pandocMath: 'pandocMath';
-    pandocMathSign: 'pandocMathSign';
-    pandocMathData: 'pandocMathData';
-  }
-}
+const isSpace = (code: number) => code === 0x20 || code === 0x09 || code === 0x0a;
+const isDigit = (code: number) => code >= 0x30 && code <= 0x39;
 
-// Line endings (-5 to -3), tabs and virtual spaces (-2, -1) and the space.
-const isSpace = (code: Code) => code !== null && (code < 0 || code === 32);
-const isDigit = (code: Code) => code !== null && code >= 48 && code <= 57;
-
-/** The text after the furthest opening known to have no closing before the end of its text. */
+/** Where in a text the openings that start at or after `from` are known to find no closing. */
 interface Unclosed {
-  from: number;
-  to: number;
+  src: string;
+  single: number;
+  double: number;
 }
 
-// A closing dollar sign: one not followed by a digit.
-const closing: Construct = {
-  tokenize(effects: Effects, ok: State, nok: State): State {
-    return (code) => {
-      effects.enter('pandocMathSign');
-      effects.consume(code);
-      effects.exit('pandocMathSign');
-      return (next) => (isDigit(next) ? nok(next) : ok(next));
-    };
-  },
-  partial: true,
-};
-
-function mathConstruct(unclosed: Unclosed): Construct {
-  const tokenize: Tokenizer = function (effects, ok, nok) {
-    const opened = this.now().offset;
-    let previous: Code = DOLLAR;
-
-    const data = (code: Code): State | undefined => {
-      if (code === null) {
-        unclosed.from = opened;
-        unclosed.to = this.now().offset;
-        return nok(code);
-      }
-      if (code === DOLLAR && !isSpace(previous)) {
-        effects.exit('pandocMathData');
-        return effects.attempt(closing, done, reopen)(code);
-      }
-      if (code < -2) {
-        effects.exit('pandocMathData');
-        effects.enter('lineEnding');
-        effects.consume(code);
-        effects.exit('lineEnding');
-        previous = code;
-        effects.enter('pandocMathData');
-        return data;
-      }
-      effects.consume(code);
-      previous = code;
-      return code === BACKSLASH ? escaped : data;
-    };
-
-    // The character after a backslash, a dollar sign included, belongs to the math.
-    const escaped = (code: Code): State | undefined => {
-      if (code === null || code < -2) return data(code);
-      effects.consume(code);
-      previous = code;
-      return data;
-    };
-
-    const reopen = (code: Code): State | undefined => {
-      effects.enter('pandocMathData');
-      effects.consume(code);
-      previous = code;
-      return data;
-    };
-
-    const done = (code: Code): State | undefined => {
-      effects.exit('pandocMath');
-      return ok(code);
-    };
-
-    return (code) => {
-      if (opened >= unclosed.from && opened <= unclosed.to) return nok(code);
-      effects.enter('pandocMath');
-      effects.enter('pandocMathSign');
-      effects.consume(code);
-      effects.exit('pandocMathSign');
-      return (next) => {
-        if (next === null || next === DOLLAR || isSpace(next)) return nok(next);
-        effects.enter('pandocMathData');
-        return data(next);
-      };
-    };
-  };
-  return { name: 'pandocMath', tokenize };
+// The index of the dollar sign closing single-dollar math opened at `start`, or -1.
+function closingSingle(src: string, start: number, max: number): number {
+  for (let at = start + 1; at < max; at += 1) {
+    const code = src.charCodeAt(at);
+    if (code === BACKSLASH) at += 1;
+    else if (
+      code === DOLLAR &&
+      !isSpace(src.charCodeAt(at - 1)) &&
+      !isDigit(src.charCodeAt(at + 1))
+    )
+      return at;
+  }
+  return -1;
 }
 
-// Math between double dollar signs in a line of text, display math when it is all its paragraph
-// holds; an unclosed opening is looked for once, as above.
-function doubleConstruct(unclosed: Unclosed): Construct {
-  const tokenize: Tokenizer = function (effects, ok, nok) {
-    const opened = this.now().offset;
-    let signs = 0;
-    const data = (code: Code): State | undefined => {
-      if (code === null) {
-        unclosed.from = opened;
-        unclosed.to = this.now().offset;
-        return nok(code);
-      }
-      if (code === DOLLAR) {
-        effects.exit('pandocMathData');
-        return effects.attempt(closingDouble, done, reopen)(code);
-      }
-      return consume(code);
-    };
-    const consume = (code: Code): State | undefined => {
-      if (code !== null && code < -2) {
-        effects.exit('pandocMathData');
-        effects.enter('lineEnding');
-        effects.consume(code);
-        effects.exit('lineEnding');
-        effects.enter('pandocMathData');
-        return data;
-      }
-      effects.consume(code);
-      return code === BACKSLASH ? escaped : data;
-    };
-    const escaped = (code: Code): State | undefined =>
-      code === null || code < -2 ? data(code) : (effects.consume(code), data);
-    const reopen = (code: Code): State | undefined => {
-      effects.enter('pandocMathData');
-      effects.consume(code);
-      return data;
-    };
-    const done = (code: Code): State | undefined => {
-      effects.exit('pandocMath');
-      return ok(code);
-    };
-    const open = (code: Code): State | undefined => {
-      if (code === DOLLAR && signs < 2) {
-        effects.consume(code);
-        signs += 1;
-        return open;
-      }
-      effects.exit('pandocMathSign');
-      if (signs < 2 || code === null || code === DOLLAR) return nok(code);
-      effects.enter('pandocMathData');
-      return consume(code);
-    };
-    return (code) => {
-      if (opened >= unclosed.from && opened <= unclosed.to) return nok(code);
-      effects.enter('pandocMath');
-      effects.enter('pandocMathSign');
-      return open(code);
-    };
-  };
-  return { name: 'pandocDisplayMath', tokenize };
+// Where the math opened at the reading's place closes, or -1, noting an opening that finds no closing.
+function closingOf(state: StateInline, unclosed: Unclosed): number {
+  const { src, pos, posMax: max } = state;
+  if (src.charCodeAt(pos + 1) === DOLLAR) {
+    if (pos >= unclosed.double) return -1;
+    const end = src.indexOf('$$', pos + 2);
+    if (end < 0) unclosed.double = pos;
+    return end === pos + 2 ? -1 : end;
+  }
+  if (pos >= unclosed.single || isSpace(src.charCodeAt(pos + 1))) return -1;
+  const end = closingSingle(src, pos, max);
+  // A link's text is read with a shorter end: only a search to the text's end tells later ones.
+  if (end < 0 && max === src.length) unclosed.single = pos;
+  return end;
 }
 
-// Two closing dollar signs.
-const closingDouble: Construct = {
-  tokenize(effects: Effects, ok: State, nok: State): State {
-    return (code) => {
-      effects.enter('pandocMathSign');
-      effects.consume(code);
-      return (next) => {
-        if (next !== DOLLAR) return nok(next);
-        effects.consume(next);
-        effects.exit('pandocMathSign');
-        return ok;
-      };
-    };
-  },
-  partial: true,
-};
-
-/** The micromark extension reading inline math between single dollar signs, for one document. */
-export function pandocMath(): Extension {
-  return {
-    text: {
-      [DOLLAR]: [doubleConstruct({ from: -1, to: -1 }), mathConstruct({ from: -1, to: -1 })],
-    },
-  };
+function inlineMath(state: StateInline, silent: boolean, unclosed: Unclosed): boolean {
+  const { src, pos, posMax: max } = state;
+  if (src.charCodeAt(pos) !== DOLLAR) return false;
+  if (unclosed.src !== src) Object.assign(unclosed, { src, single: Infinity, double: Infinity });
+  const end = closingOf(state, unclosed);
+  if (end < 0 || end >= max) return false;
+  const signs = src.charCodeAt(pos + 1) === DOLLAR ? 2 : 1;
+  if (!silent) {
+    const token = state.push('math_inline', '', 0);
+    token.content = src.slice(pos + signs, end);
+    token.markup = signs === 2 ? '$$' : '$';
+  }
+  state.pos = end + signs;
+  return true;
 }
 
-const enter: Handle = function (token) {
-  this.enter({ type: 'inlineMath', value: '' }, token);
-};
+// A line, from its first non-space character, at `line` in the block's source.
+const lineText = (state: StateBlock, line: number) =>
+  state.src.slice((state.bMarks[line] ?? 0) + (state.tShift[line] ?? 0), state.eMarks[line]);
 
-const exit: Handle = function (token) {
-  const node = this.stack[this.stack.length - 1];
-  const source = this.sliceSerialize(token);
-  const signs = source.startsWith('$$') ? 2 : 1;
-  if (node?.type === 'inlineMath') node.value = source.slice(signs, -signs);
-  this.exit(token);
-};
+const FENCE = /^\$\$([^$]*)$/;
 
-/** The mdast extension giving each such math an `inlineMath` node with its source. */
-export const pandocMathFromMarkdown: FromMarkdownExtension = {
-  enter: { pandocMath: enter },
-  exit: { pandocMath: exit },
-};
+/** The arguments markdown-it gives a block rule. */
+type BlockRule = [state: StateBlock, start: number, end: number, silent: boolean];
+
+function mathBlock(...[state, start, end, silent]: BlockRule): boolean {
+  if ((state.sCount[start] ?? 0) - state.blkIndent >= 4) return false;
+  const opening = FENCE.exec(lineText(state, start));
+  if (!opening) return false;
+  if (silent) return true;
+  let line = start + 1;
+  let closed = false;
+  for (; line < end; line += 1) {
+    if (state.isEmpty(line) ? false : (state.sCount[line] ?? 0) < state.blkIndent) break;
+    if (
+      /^\$\$\s*$/.test(lineText(state, line)) &&
+      (state.sCount[line] ?? 0) - state.blkIndent < 4
+    ) {
+      closed = true;
+      break;
+    }
+  }
+  const token = state.push('math_block', '', 0);
+  token.content = state.getLines(start + 1, line, state.sCount[start] ?? 0, false);
+  token.info = (opening[1] ?? '').trim();
+  token.map = [start, line];
+  state.line = line + (closed ? 1 : 0);
+  return true;
+}
+
+/** The inline and block math rules, giving `math_inline` and `math_block` tokens. */
+export function math(md: MarkdownIt): void {
+  const unclosed: Unclosed = { src: '', single: Infinity, double: Infinity };
+  md.inline.ruler.before('escape', 'math_inline', (state: StateInline, silent: boolean) =>
+    inlineMath(state, silent, unclosed),
+  );
+  md.block.ruler.before('fence', 'math_block', mathBlock, {
+    alt: ['paragraph', 'reference', 'blockquote', 'list'],
+  });
+}
