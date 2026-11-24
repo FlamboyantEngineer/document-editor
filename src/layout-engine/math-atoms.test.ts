@@ -56,13 +56,22 @@ describe('math atoms sized from their layout', () => {
     expect(fitScale(300, 100)).toBe(Math.floor((65_536 * 100) / 300) / 65_536);
     expect(fitScale(100, 0)).toBe(0);
     const laid = { math: { width: 400, ascent: 14, descent: 4, svg: mathOf([]), missing: '' } };
-    const report = vi.fn<(scale: number) => void>();
-    const placed = placeMath(laid, 100, report);
+    const placed = placeMath(laid, 100);
     expect(placed.box).toEqual({ width: 100, ascent: 3.5, descent: 1, scale: 0.25 });
-    expect(report).toHaveBeenCalledWith(0.25);
+    expect(placed.end).toBe(0);
     expect(MATH_MIN_REPORTED_SCALE).toBe(0.5);
-    expect(placeMath(laid, 300, report).box.scale).toBe(0.75);
-    expect(report).toHaveBeenCalledTimes(1);
+    expect(placeMath(laid, 300).box.scale).toBe(0.75);
+  });
+
+  it('DOCE-PAGINATION-12.10 fits a display equation into its line less its automatic number, or its tag where wider', () => {
+    const svg = mathOf([]);
+    const laid = { math: { width: 400, ascent: 14, descent: 4, svg, missing: '' } };
+    const numbered = placeMath(laid, 240, 40);
+    expect(numbered.box.scale).toBe(0.5);
+    expect(numbered.end).toBe(40);
+    // The end keeps the wider of the two, rounded up to the layout unit.
+    const tag = { width: 60.001, ascent: 10, descent: 3, svg, missing: '' };
+    expect(placeMath({ ...laid, tag }, 240, 40).end).toBe(60.015625);
   });
 
   it('DOCE-PAGINATION-12.10 fits a tagged equation into its line less the tag, which stays unscaled', () => {
@@ -72,6 +81,7 @@ describe('math atoms sized from their layout', () => {
     const placed = placeMath(laid, 200);
     expect(placed.box.scale).toBe(0.5);
     expect(placed.tag).toBe(tag);
+    expect(placed.end).toBe(40);
   });
 
   it('DOCE-PAGINATION-12.10 sizes typeset math from its layout at its font size, without the DOM', () => {

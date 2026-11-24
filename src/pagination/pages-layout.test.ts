@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
 import { readPagesDocument } from '../document/pages-layout.js';
+import { placeMath } from '../layout-engine/math-atoms.js';
 import { forcedLinesKey } from './forced-lines.js';
 import { pagesLayout } from './pages-layout.js';
 
@@ -84,6 +86,23 @@ describe('pagesLayout', () => {
     const first = layout?.variables[0]?.pos ?? 0;
     expect(doc.nodeAt(first - 1)?.type.name).toBe('template_variable');
     expect(JSON.parse(JSON.stringify(layout))).toEqual(layout);
+  });
+
+  it('DOCE-PAGINATION-12.11 carries each equation where the engine placed it as it laid the pages out', () => {
+    const laid = standInMathLayouter().layouter.layout(mathOf(['x']), false, 20);
+    if (!laid) throw new Error('the stand-in refused');
+    const placed = placeMath({ math: laid }, 600);
+    const atom = node('math_inline', null, [text('x')]);
+    const doc = pagesDocument([page([node('paragraph', null, [text('a'), atom])])]);
+    let placing = false;
+    const engine = { ...stubEngine(), mathOf: () => (placing ? placed : null) };
+    const state = pagesState(doc, engine);
+    // Placed after the state was made, as the pages are laid out after a transaction.
+    placing = true;
+    const layout = pagesLayout(state, {
+      typesetOf: () => ({ state: 'ready', math: mathOf(['x']) }),
+    });
+    expect(layout?.math).toEqual([expect.objectContaining({ drawing: placed })]);
   });
 
   it('DOCE-PAGINATION-13.10 holds the language the engine laid the pages out in', () => {

@@ -1,12 +1,14 @@
 // A document's numbers by node, for the pages' text layout engine to lay its blocks out with: each
-// heading's prefix, each numbered paragraph's number, each caption's label and each footnote's
-// number, and the key a kept block's numbers must match (DOCE-PAGINATION-10.7, 11.1).
+// heading's prefix, each numbered paragraph's number, each caption's label, each footnote's
+// number and each display equation's, and the key a kept block's numbers must match (DOCE-PAGINATION-10.7, 11.1).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
+import { DEFAULT_CONTENTS_KINDS } from '../model/contents/contents-kinds.js';
+import { catalogDocument } from '../model/contents/document-catalog.js';
 import type { TemplateFile } from '../model/index.js';
 import { captionLabelKeys } from './caption-label-keys.js';
 
@@ -19,6 +21,8 @@ export interface NodeNumbers {
   readonly labelOf: (caption: ProseMirrorNode) => string | undefined;
   /** A footnote marker's or entry's number, by its footnote's id. */
   readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
+  /** A display equation's automatic number, such as `(3)`. */
+  readonly equationOf: (equation: ProseMirrorNode) => string | undefined;
   /** The numbers as one key, which a kept block's must match. */
   readonly keyOf: (node: ProseMirrorNode) => string;
 }
@@ -30,6 +34,7 @@ const NO_NUMBERS: NodeNumbers = {
   paragraphs: new Map(),
   labelOf: () => undefined,
   footnoteOf: () => undefined,
+  equationOf: () => undefined,
   keyOf: () => '',
 };
 
@@ -52,6 +57,22 @@ function footnotesOf(doc: ProseMirrorNode) {
     }
   }
   return { byId, byBlock };
+}
+
+const EQUATIONS = { equations: DEFAULT_CONTENTS_KINDS.equations };
+
+// Each display equation's number, in document order as the pages draw them (`engineNumbers`).
+function equationsOf(doc: ProseMirrorNode, template: TemplateFile) {
+  const numbers = (catalogDocument(doc, template, EQUATIONS).equations ?? []).map(
+    (entry) => entry.number,
+  );
+  const byNode = new Map<ProseMirrorNode, string>();
+  doc.descendants((node) => {
+    if (node.type.name !== 'math_display') return !node.isTextblock;
+    byNode.set(node, numbers[byNode.size] ?? '');
+    return false;
+  });
+  return byNode;
 }
 
 /** The numbers of the footnote markers a text block holds, as a key. */
@@ -84,14 +105,20 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     let captions: ReadonlyMap<ProseMirrorNode, string> | null = null;
     const captionKey = (node: ProseMirrorNode) =>
       (captions ??= captionLabelKeys(doc, (caption) => labels.labelOf(caption))).get(node) ?? '';
+    let equations: ReadonlyMap<ProseMirrorNode, string> | null = null;
+    const equationOf = (node: ProseMirrorNode) =>
+      node.type.name === 'math_display'
+        ? (equations ??= equationsOf(doc, template)).get(node) || undefined
+        : undefined;
     return {
       doc,
       prefixes,
       paragraphs: numbered,
       labelOf: (caption) => labels.labelOf(caption),
       footnoteOf,
+      equationOf,
       keyOf: (node) =>
-        `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}`,
+        `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${captionKey(node)}|${equationOf(node) ?? ''}`,
     };
   };
   const numbering = {

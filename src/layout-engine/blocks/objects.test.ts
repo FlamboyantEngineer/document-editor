@@ -129,7 +129,26 @@ describe('equations, rules and markup', () => {
     expect(placed).toHaveBeenCalledWith(equation, {
       ...math,
       box: { width: 560, ascent: 15, descent: 6, scale: 0.5 },
+      end: 40,
     });
+  });
+
+  it('DOCE-PAGINATION-12.10 fits a display equation into its line less its automatic number', () => {
+    const svg = { tag: 'svg', attrs: {}, children: [] };
+    const math = { math: { width: 1120, ascent: 30, descent: 12, svg, missing: '' } };
+    const placed = vi.fn();
+    const equation = node('math_display', null, [schema.text('x')]);
+    const { layout } = standInBlockLayout({
+      measure: () => ({ size: { width: 1120, height: 42, math } }),
+      onMath: placed,
+      equationOf: (of) => (of === equation ? '(4)' : undefined),
+    });
+    layout.layoutBlock(equation, place);
+    // The number takes 30px at the stand-in's ten a character: 570px are left.
+    expect(placed).toHaveBeenCalledWith(
+      equation,
+      expect.objectContaining({ box: expect.objectContaining({ width: 570 }) as unknown, end: 30 }),
+    );
   });
 
   it('DOCE-PAGINATION-10.4 gives a rule its border, half its text size (12px) above and below, and a page break no height', () => {
