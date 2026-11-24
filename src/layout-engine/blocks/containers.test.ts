@@ -158,4 +158,14 @@ describe('layout sections', () => {
     const block = blockOf(layout.layoutBlock(section, place));
     expect(block.height).toBe(4 * 18 + 12);
   });
+
+  it("DOCE-PAGINATION-10.3 keeps a preset's tracks when fewer columns fill them", () => {
+    // A delete across columns can leave one column in a third and two thirds: it keeps its third.
+    const column = node('layout_column', null, [paragraph(100)]);
+    const one = node('layout_section', { preset: 'third-two-thirds' }, [column]);
+    const two = node('layout_section', { preset: 'third-two-thirds' }, [column, column]);
+    expect(blockOf(layout.layoutBlock(one, place)).height).toBe(
+      blockOf(layout.layoutBlock(two, place)).height,
+    );
+  });
 });
