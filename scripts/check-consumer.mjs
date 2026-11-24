@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The packed-consumer check (README, Tested set): packs the built package, installs it into an
-// empty consumer beside the tested set and the git pins, with strict peers and no overrides, then
+// empty consumer beside the tested set and the git pins, with strict peers and only the overrides a host adds (README), then
 // installs again from the consumer's lock with `npm ci`. Each package the editor shares with the
 // host must be installed once, and the client and server entries must load in Node. Needs the
 // built package (`npm run build`) and read access to the pinned repositories.
@@ -31,6 +31,16 @@ for (const [name, version] of Object.entries(tested.packages)) {
   if (range && /^\d/.test(range))
     assert.equal(range, version, `${name}: peer ${range}, tested ${version}.`);
 }
+
+// The overrides the README asks a host to add, as a host writes them: a `$name` reference, which
+// npm resolves against the host's own dependencies, becomes the range this package accepts.
+const hostOverrides = JSON.parse(
+  JSON.stringify(manifest.overrides ?? {}, (_, value) =>
+    typeof value === 'string' && value.startsWith('$')
+      ? (manifest.peerDependencies[value.slice(1)] ?? manifest.dependencies[value.slice(1)])
+      : value,
+  ),
+);
 
 // Every copy of `name` under `directory`'s node_modules, nested ones included.
 async function copiesOf(directory, name, found = []) {
@@ -64,6 +74,7 @@ try {
         ...pins,
         ...tested.packages,
       },
+      overrides: hostOverrides,
     }),
   );
   const strict = ['--strict-peer-deps', '--no-audit', '--no-fund'];
