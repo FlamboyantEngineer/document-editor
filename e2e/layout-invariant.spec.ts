@@ -602,7 +602,7 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // and their text blocks' lines, `heights` each page's used and free room and each block's planned
 // top and height.
 // Recorded with Chromium's Canvas on Linux; the CI runner's fingerprints are the reference.
-// The paragraphs in tables' cells and lists' items, and the text blocks of headers, footers and
+// The paragraphs in tables' cells, lists' items and quotes, and the text blocks of headers, footers and
 // footnote areas, are on forced lines and counted too (DOCE-PAGINATION-11.2); the top-level
 // blocks' line fingerprints did not move.
 const PINNED: Readonly<
@@ -613,8 +613,8 @@ const PINNED: Readonly<
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '4e3d3bcb8a9c1793', heights: 'f9afd020ec769c5d' },
-  'oversized-blocks': { lines: 'da3f869e9e7e0dca', heights: 'f3be75ce06ce1c8d' },
+  'long-mixed': { lines: 'e4722aba4e2257a4', heights: 'f9afd020ec769c5d' },
+  'oversized-blocks': { lines: '099d7db6e6aea74c', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: '19718eeba63c6a81' },
 };
 
