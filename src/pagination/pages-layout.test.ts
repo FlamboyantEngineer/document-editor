@@ -45,15 +45,28 @@ describe('pagesLayout', () => {
     }
   });
 
-  it('DOCE-PAGINATION-13.2 leaves linked code, which a static drawing draws from its markup, out of the blocks', () => {
+  it('DOCE-PAGINATION-13.2 gives linked code with the marks of its code, and code beside a gutter with it', () => {
     const doc = pagesDocument([
       page([
         paragraph('aaaaaaaaaabb', { dataId: 'p1' }),
         node('linked_code_block', { dataId: 'lk', code: 'abcdefghijklmn' }),
       ]),
     ]);
-    const layout = pagesLayout(pagesState(doc, stubEngine()));
-    expect(layout?.blocks.map(({ pos }) => doc.nodeAt(pos)?.type.name)).toEqual(['paragraph']);
+    const plain = pagesLayout(pagesState(doc, stubEngine()));
+    const blocks = plain?.blocks.map(({ pos, lines, gutter }) => ({
+      type: doc.nodeAt(pos)?.type.name,
+      lines,
+      gutter,
+    }));
+    expect(blocks).toEqual([
+      { type: 'paragraph', lines: 2, gutter: undefined },
+      { type: 'linked_code_block', lines: 2, gutter: undefined },
+    ]);
+    const code = plain?.blocks[1]?.marks.filter((mark) => /de-forced-lines__end/u.test(mark.class));
+    // Its first line wraps at the tenth character, as the engine laid it out.
+    expect(code?.map(({ to }) => to)).toEqual([10]);
+    const inset = pagesLayout(pagesState(doc, stubEngine({ inset: 24 })));
+    expect(inset?.blocks[1]?.gutter).toBe(true);
   });
 
   it('DOCE-PAGINATION-13.2 holds the pages document and each variable as the pages show it', () => {

@@ -57,9 +57,8 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
     const forced = region
       ? regionBlocksOf(engine, node, { pos, scope, shown: pageVariablesKey.getState(state) })
       : forcedBlocksOf(engine, node, place);
-    for (const { node: block, pos: at, table, prefix, owner } of forced) {
-      // Linked code's lines are drawn by its view; a static drawing draws it from its markup.
-      if (!table || owner) continue;
+    for (const { node: block, pos: at, table, prefix } of forced) {
+      if (!table) continue;
       const indent = prefix ? firstLineIndent(table) : null;
       const rtl = drawnDirection(directions, { node: block, pos: at }) === 'rtl';
       blocks.push({
@@ -69,6 +68,8 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
         ...(indent ? { style: indent } : {}),
         ...(rtl ? { direction: 'rtl' as const } : {}),
         marks: lineMarks(block, table, { prefixed: Boolean(prefix) }),
+        // Code laid out beside a gutter of line numbers is drawn with it.
+        ...((table.inset ?? 0) > 0 ? { gutter: true as const } : {}),
       });
     }
     return false;

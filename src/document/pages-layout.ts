@@ -10,7 +10,10 @@ import type { FontFiles } from '../host/font-files.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { LineMark } from '../layout-engine/line-marks.js';
 
-/** A top-level paragraph or heading of a page, drawn on the engine's lines. */
+/**
+ * A text block of a page drawn on the engine's lines: a paragraph or heading, top-level or nested, a
+ * code block, or linked code, drawn on the lines of the code it is laid out as.
+ */
 export interface PagesLayoutBlock {
   /** Where it is in the pages' document. */
   readonly pos: number;
@@ -25,8 +28,13 @@ export interface PagesLayoutBlock {
   readonly style?: string | undefined;
   /** `rtl` when it is drawn right to left (DOCE-PAGINATION-9.12); absent when left to right. */
   readonly direction?: 'rtl' | undefined;
-  /** The marks that draw its lines, by offset in its content. */
+  /** The marks that draw its lines, by offset in its content, or in linked code's code. */
   readonly marks: readonly LineMark[];
+  /**
+   * Whether code, a code block or linked code, is drawn with its gutter of line numbers beside its
+   * lines, as the pages drew it (DOCE-OBJECTS-3.1); absent otherwise.
+   */
+  readonly gutter?: true | undefined;
 }
 
 /** A variable's value as the pages show it, at the position inside the variable. */

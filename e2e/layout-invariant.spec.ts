@@ -15,6 +15,7 @@ import {
   readDrawnPages,
 } from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
+import { loadWrappedLinkedCode } from './wrapped-linked-code.js';
 
 // The one-result invariant (specs/LABS.md DOCE-LABS-8): with `textLayout: 'pretext'`, the lines and
 // pages the layout engine computed are the ones the editor draws. For every document of the
@@ -143,30 +144,7 @@ test.describe('DOCE-LABS-8.1 computed lines and pages are the drawn ones', () =>
   test('DOCE-LABS-8.1 linked code whose lines the engine wraps', async ({ page }) => {
     for (const zoom of [50, 100, 175]) {
       await open(page, 'linked-code', zoom);
-      // Long lines, highlighted, one with an emoji no served font draws, from line 998 so the
-      // gutter widens to four digits.
-      const code = [
-        `export const readings = [${Array.from({ length: 40 }, (_, at) => String(at)).join(', ')}];`,
-        'const short = 1;',
-        `// ${'station 🛰 '.repeat(14)}`,
-        '',
-        `const text = "${'wrapped words '.repeat(12)}";\n`,
-      ].join('\n');
-      await page.evaluate(
-        (linked) => {
-          const file = window.regressionLab.stored();
-          const section = file?.sections[0];
-          if (!file || !section) throw new Error('The regression lab holds no document');
-          const content = section.content.map((block) =>
-            block.type === 'linkedCode'
-              ? { ...block, attrs: { ...block.attrs, ...linked } }
-              : block,
-          );
-          window.regressionLab.load({ ...file, sections: [{ ...section, content }] });
-        },
-        { code, language: 'typescript', startLine: 998 },
-      );
-      await waitForLab(page);
+      await loadWrappedLinkedCode(page);
       await page.evaluate(() => window.regressionLab.drawAllLines(true));
       await settle(page);
       const wraps = page.locator('.linked-code-block.de-forced-lines code .de-forced-lines__end');
