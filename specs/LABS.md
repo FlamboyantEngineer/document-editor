@@ -359,6 +359,13 @@ The font-widths lab shall lay out texts of characters no served face has (Ethiop
 Implementation: `labs/src/font-widths.lab.ts`, `labs/reference/document.css`
 Verification: `e2e/font-widths.spec.ts`
 
+### DOCE-LABS-7.5 - Equations laid out the same everywhere
+
+The font-widths lab shall lay out the equations of `test/math-layouts.ts` (the regression set's math, tall equations and a sweep of what KaTeX typesets, each inline and displayed, as the MathML KaTeX gives the editor) with the MathJax layouter (DOCE-PAGINATION-12.12) and show the fingerprint of their boxes and drawings at 16 px. It shall equal the fingerprint Node gives on every machine; the weekly workflow runs it on macOS and Windows with DOCE-LABS-7.1.
+
+Implementation: `labs/src/font-widths.lab.ts`, `test/math-layouts.ts`, `scripts/build-labs.mjs`
+Verification: `e2e/font-widths.spec.ts`
+
 ## DOCE-LABS-8 - One layout result
 
 ### DOCE-LABS-8.1 - Computed lines and pages are the drawn ones

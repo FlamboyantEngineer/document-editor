@@ -47,6 +47,20 @@ for (const file of readdirSync(scriptFonts).filter((name) => /\.(woff|json)$/u.t
 const harfBuzz = join(dirname(require.resolve('harfbuzzjs')), 'harfbuzz.wasm');
 copyFileSync(harfBuzz, join(fontsDir, 'harfbuzz.wasm'));
 
+// MathJax's SVG output imports its default font (New CM) through the `#default-font` import map;
+// the layouter draws with STIX2 (DOCE-PAGINATION-12.12), so the import goes to STIX2's data and New
+// CM is never bundled.
+const stix2Dir = dirname(require.resolve('@mathjax/mathjax-stix2-font/package.json'));
+/** @type {import('esbuild').Plugin} */
+const mathJaxFont = {
+  name: 'mathjax-default-font',
+  setup(build) {
+    build.onResolve({ filter: /^#default-font\// }, ({ path }) => ({
+      path: join(stix2Dir, 'mjs', path.slice('#default-font/'.length)),
+    }));
+  },
+};
+
 /** @type {import('esbuild').BuildOptions} */
 const options = {
   entryPoints: {
@@ -71,6 +85,7 @@ const options = {
   define: { 'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production') },
   legalComments: 'none',
   logLevel: 'info',
+  plugins: [mathJaxFont],
 };
 
 // The settings every page applies from its head before the body is parsed: a classic script, since

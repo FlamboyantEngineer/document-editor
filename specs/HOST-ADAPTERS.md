@@ -123,6 +123,13 @@ The measurer falls back to no system font. A character none of a font's served f
 Implementation: `src/layout-engine/font-files/measure-context.ts`
 Verification: `src/layout-engine/font-files/measurer.test.ts`
 
+#### DOCE-HOST-1.14.4 - The math font in a host's build
+
+Math on Pretext pages is laid out and drawn by MathJax with the STIX Two font data (DOCE-PAGINATION-12.12), which install with the package and load with the first equation; the host serves no math font. MathJax's SVG output imports its default font through its own `#default-font` import, which no package setting can redirect, so a host's bundler shall map `#default-font` to `@mathjax/mathjax-stix2-font/mjs` (for example webpack's `resolve.alias`, Vite's `resolve.alias` or an esbuild plugin). Without the mapping the build still works and the equations are the same, drawn with STIX Two, but MathJax's default font (New Computer Modern) is bundled too, unused, in the chunk loaded with the first equation. The repository's labs build and bundle check use the mapping, so the sizes the bundle check records are the mapped ones.
+
+Implementation: `scripts/build-labs.mjs`, `scripts/check-bundle-size.mjs`
+Verification: `scripts/check-bundle-size.mjs` (`npm run check:bundle-size`, its `mathjax-stix2` load)
+
 ### DOCE-HOST-1.15 - Diagrams
 
 The host's optional `diagrams` adapter shall open its own diagram editor on a figure's diagram (`edit(diagram, signal)`), or on a new one when given null, and resolve with the diagram it stored: the asset holding its drawing, the snapshot the figure names and its size in pixels, or null when the writer cancels. Each save the host's editor makes while it stays open shall go to `options.onSave` with the diagram stored, and the editor applies it at once: a new diagram's first save inserts its figure, and a save of the same asset pins the figures showing it to the new snapshot (`pinFigureSnapshot`). The editor aborts the signal when its dialog closes or the drawing is dismissed. Without it the editor offers no diagrams (DOCE-OBJECTS-1.4).

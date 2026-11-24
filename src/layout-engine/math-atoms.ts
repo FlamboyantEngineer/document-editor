@@ -102,6 +102,9 @@ export const MATH_DRAWING_ATTRIBUTES: ReadonlySet<string> = new Set([
   'fill',
   'stroke',
   'stroke-width',
+  'stroke-dasharray',
+  'stroke-linecap',
+  'overflow',
 ]);
 
 /** The scale below which a fitted equation is listed with its scale, as hard to read. */

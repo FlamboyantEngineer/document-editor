@@ -46,10 +46,14 @@ const ON_FIRST_USE = [
 
 // What the editor loads on first use whose size is on record with no budget, by the request of its
 // `import()` (DOCE-ENTRY-2.6): the text layout engine, in no consumer's initial code, and the
-// measurer of a host's font files.
+// measurer of a host's font files, and MathJax's equation layouter with its STIX2 data
+// (DOCE-PAGINATION-12.12).
 const ON_RECORD = [
   { name: 'text-layout-engine', request: '(^|/)text-engine\\.js$' },
   { name: 'font-file-measurer', request: '/font-files/host-fonts\\.js$' },
+  { name: 'math-layouter', request: '/math/mathjax-layouter\\.js$' },
+  // MathJax's SVG output with the STIX2 data it loads as its default font; glyph ranges load later.
+  { name: 'mathjax-stix2', request: '^@mathjax/src/js/output/svg\\.js$' },
 ];
 
 const use = (/** @type {string[]} */ names) => `import { ${names.join(', ')} } from ${ENTRY};
@@ -101,7 +105,11 @@ async function bundle(workDir, { name, entry, record = [] }) {
     cache: false,
     devtool: false,
     externals: EXTERNALS,
-    resolve: { modules: [join(root, 'node_modules')] },
+    resolve: {
+      modules: [join(root, 'node_modules')],
+      // MathJax's default font is STIX2, as a host maps it (DOCE-PAGINATION-12.12).
+      alias: { '#default-font': join(root, 'node_modules/@mathjax/mathjax-stix2-font/mjs') },
+    },
     performance: { hints: false },
     // Run the production minifier in this worker rather than spawning unbounded workers.
     optimization: { minimizer: [new TerserPlugin({ parallel: false })] },
