@@ -219,18 +219,35 @@ async function printed_(page: Page) {
 }
 
 // In the pages under a root: how many lines the paragraph holding math is drawn on, and the line
-// its text after the math starts on, counted from 0, from the line boxes of its characters.
+// its text after the math starts on, counted from 0. Lines are told apart by where they start: the
+// math's box and the text's character boxes, a new line wherever one starts below the last one's
+// bottom, so the count does not depend on how tall the math makes a line.
 const secondLineAfterMath = (page: Page, root: string) =>
   page.evaluate((under) => {
     const block = document.querySelector(`${under} .pm-page-content > p`);
     const after = block?.lastChild;
-    if (!block || !after || after.nodeType !== Node.TEXT_NODE) throw new Error('no paragraph');
-    const box = block.getBoundingClientRect();
-    const range = document.createRange();
-    range.setStart(after, 0);
-    range.setEnd(after, 1);
-    const line = Math.round(box.height / 18);
-    return { lines: line, xxx: Math.floor((range.getBoundingClientRect().top - box.top) / 18) };
+    const math = block?.querySelector('.de-math');
+    if (!block || !math || !after || after.nodeType !== Node.TEXT_NODE)
+      throw new Error('no paragraph');
+    const boxOf = (offset: number) => {
+      const range = document.createRange();
+      range.setStart(after, offset);
+      range.setEnd(after, offset + 1);
+      return range.getBoundingClientRect();
+    };
+    const text = after.textContent ?? '';
+    const boxes = [math.getBoundingClientRect(), ...Array.from(text, (_, offset) => boxOf(offset))];
+    let lines = 1;
+    let bottom = boxes[0]?.bottom ?? 0;
+    let xxx = 0;
+    boxes.forEach((box, index) => {
+      if (index > 0 && box.top >= bottom - 0.5) {
+        lines += 1;
+        bottom = box.bottom;
+      } else bottom = Math.max(bottom, box.bottom);
+      if (index === 1) xxx = lines - 1;
+    });
+    return { lines, xxx };
   }, root);
 
 // Each math element drawn in the pages under a root: inline or display, its state, its MathML's
