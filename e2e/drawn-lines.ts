@@ -87,8 +87,10 @@ export function readDrawnLines(
         // A footnote entry's number is drawn before its content, which a print copy no longer marks
         // as not editable.
         if (node.parentElement?.closest('.pm-footnote-entry-number')) return false;
+        // So is code's gutter and linked code's caption line, which a print copy no longer marks
+        // as not editable.
         const beside = node.parentElement?.closest(
-          '[contenteditable="false"], .ProseMirror-widget',
+          '[contenteditable="false"], .ProseMirror-widget, .de-code-gutter, .doc-linked-code-caption-line',
         );
         return !beside || !block.contains(beside) || beside === block;
       };
@@ -239,11 +241,11 @@ interface TextBlockLines {
 }
 
 /**
- * The code blocks and linked code the editor's pages draw on forced lines whose gutter of line numbers is not drawn
+ * The code blocks and linked code the pages draw on forced lines, the editor's by default, whose gutter of line numbers is not drawn
  * on their lines: each number whose row is not the first row of its line of code, and each gutter
  * that does not end where its code does, as `id: what`.
  */
-export function misplacedLineNumbers(page: Page): Promise<string[]> {
+export function misplacedLineNumbers(page: Page, pagesIn: PagesIn = 'editor'): Promise<string[]> {
   return page.evaluate((pages) => {
     const misplaced: string[] = [];
     const range = document.createRange();
@@ -299,5 +301,5 @@ export function misplacedLineNumbers(page: Page): Promise<string[]> {
         );
     }
     return misplaced;
-  }, PAGES.editor);
+  }, pagesSelector(pagesIn));
 }

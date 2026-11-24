@@ -25,6 +25,7 @@ import {
   readPagesDocument,
 } from './pages-layout.js';
 import { type PrintPageOptions, ROOT_CLASS } from './print.js';
+import { codeContent, drawCodeParts, isCode } from './print-code.js';
 import {
   addLinks,
   allow,
@@ -138,6 +139,7 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
       if (name === 'page_section') sectionHooks(element, node, options.template);
       const block = blocks.get(pos);
       if (block) forcedHooks(element, block);
+      if (block && isCode(node)) drawCodeParts(element, node, block);
       const number = numbers.get(pos);
       if (number) numberHooks(element, number);
       if (isMath(node)) mathHooks(element, node, math.get(pos));
@@ -149,6 +151,7 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
     },
     content(node, pos) {
       const block = blocks.get(pos);
+      if (block && isCode(node)) return codeContent(node, block);
       if (block) return linesContent(node, block.marks, { pos, drawing });
       const value = node.type.name === 'template_variable' ? values.get(pos + 1) : undefined;
       // A variable shows the value the pages showed, before its own content, as its widget did.

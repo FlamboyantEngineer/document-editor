@@ -18,6 +18,7 @@ import type { LineTable } from '../layout-engine/line-table.js';
 import { normalizeSignatureVector } from '../model/index.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
+import { firstCodeLine, gutterText } from './code-drawing.js';
 import { drawGutter, forcedLinesIn } from './code-gutter.js';
 import { paintCodeHighlights } from './code-highlighting.js';
 import { drawLinkedCode } from './linked-code.js';
@@ -27,19 +28,6 @@ export function lineNumbers(code: string, first = 1): string {
   const count = code.split('\n').length;
   return Array.from({ length: count }, (_, index) => String(first + index)).join('\n');
 }
-
-const firstLine = (node: ProseMirrorNode) => {
-  const linked = node.type.name === 'linked_code_block';
-  const value = Number(linked ? node.attrs.startLine : node.attrs.codeLineStart);
-  return Number.isInteger(value) && value > 0 ? value : 1;
-};
-
-// The code a gutter numbers. Linked code's text is drawn as it is, so a line feed at its end starts
-// no line, where a code block's view draws the line after it.
-const codeText = (node: ProseMirrorNode) =>
-  node.type.name === 'linked_code_block'
-    ? String(node.attrs.code ?? '').replace(/\n$/u, '')
-    : node.textContent;
 
 const sameAttrs = (a: ProseMirrorNode, b: ProseMirrorNode) =>
   JSON.stringify(a.attrs) === JSON.stringify(b.attrs);
@@ -77,7 +65,7 @@ function codeView(
     if (code && next.type.name === 'linked_code_block' && lines !== drawnOn)
       drawLinkedCode(code, next, lines);
     drawnOn = lines;
-    if (numbered) drawGutter(gutter, codeText(next), { first: firstLine(next), lines });
+    if (numbered) drawGutter(gutter, gutterText(next), { first: firstCodeLine(next), lines });
   };
   draw(node, drawing.decorations);
   return {
