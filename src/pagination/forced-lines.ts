@@ -54,6 +54,12 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       if (kept !== DecorationSet.empty) children.push(offset, end, kept);
       return;
     }
+    // A list of contents is drawn by its node view, on the rows the engine laid out.
+    if (child.type.name === 'toc_block') {
+      const drawn = builder.engine.contentsDrawn(child, at.name);
+      if (drawn) locals.push(Decoration.node(offset, end, {}, { contentsDrawn: drawn }));
+      return;
+    }
     const place = {
       pos,
       scope: at.name,

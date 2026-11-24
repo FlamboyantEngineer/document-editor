@@ -4,6 +4,8 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { ChildLayout, LayoutBlock } from '../../model/index.js';
 import type { AtomCache } from '../atoms.js';
+import type { ContentsRow, ContentsRowPlace, ContentsRowTable } from '../contents-row.js';
+import type { LineTable } from '../line-table.js';
 import type { VariableTexts } from '../runs.js';
 import type { TextBlockLayout, TextBlockPlace } from '../text-layout.js';
 import type { BlockTypography } from '../typography.js';
@@ -19,6 +21,71 @@ export interface BlockTextLayout {
     scope?: string | null,
   ): Pick<BlockTypography, 'marginTop' | 'marginBottom'>;
   layoutText(node: ProseMirrorNode, place: TextBlockPlace): TextBlockLayout;
+  /** A list of contents row's lines and boxes; a list is left to the DOM without it. */
+  layoutContentsRow?(row: ContentsRow, place: ContentsRowPlace): ContentsRowLayout;
+  /** A text's width in a list of contents level's font, as its row sizes it. */
+  contentsTextWidth?(text: string, level: ContentsTextLevel): number;
+  /** A list of contents' title or empty message on lines; a list is left to the DOM without it. */
+  layoutContentsText?(text: string, place: ContentsTextPlace): ContentsTextLayout;
+}
+
+/** A list of contents row laid out, or why it cannot be. */
+export type ContentsRowLayout =
+  ({ readonly ok: true } & ContentsRowTable) | { readonly ok: false; readonly reason: string };
+
+/** Which list of contents level's font a text is in. */
+interface ContentsTextLevel {
+  readonly kind: string;
+  readonly level: number;
+  readonly scope?: string | null | undefined;
+}
+
+/** Where a list of contents' title or empty message is laid out. */
+export interface ContentsTextPlace {
+  readonly width: number;
+  readonly kind: string;
+  readonly scope?: string | null | undefined;
+  readonly role: 'title' | 'empty';
+}
+
+/** A list of contents' title or empty message on lines, or why it cannot be. */
+export type ContentsTextLayout =
+  | { readonly ok: true; readonly table: LineTable }
+  | { readonly ok: false; readonly reason: string };
+
+/** One row a list of contents shows. */
+export interface ContentsListEntry {
+  /** Its level, 1 to 6; a group heading's 0 is drawn as level 1. */
+  readonly level: number;
+  readonly number: string;
+  readonly text: string;
+  /** Whether it is a group's heading, drawn bold and without a page. */
+  readonly heading?: boolean | undefined;
+}
+
+/** What a list of contents block shows, as its node view draws it. */
+export interface ContentsList {
+  /** Its kind (`toc`, `figures` or a host's), whose template settings it takes. */
+  readonly kind: string;
+  /** Its title, or null when it shows none, as a split list's later parts. */
+  readonly title: string | null;
+  /** What it shows when it lists nothing, under its title; null when it lists something. */
+  readonly empty: string | null;
+  /** The rows it shows, in order. */
+  readonly entries: readonly ContentsListEntry[];
+  /** The text between an entry's number and its text. */
+  readonly separator: string;
+  readonly showPage: boolean;
+  /** Whether each level, from level 1, draws a leader before its page. */
+  readonly leaders: readonly boolean[];
+}
+
+/** How the pages draw a list of contents block. */
+export interface ContentsDrawn {
+  /** Each level's page box width in CSS pixels, from level 1; null where rows show no page. */
+  readonly pageWidths: readonly (number | null)[];
+  /** Where each row's text starts each of its lines, by offset in its text. */
+  readonly rows: readonly (readonly number[])[];
 }
 
 /** Which part of a page a block is laid out in; a header's and a footer's blocks take no margins. */
@@ -74,6 +141,13 @@ export interface BlockLayoutOptions {
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   /** A footnote entry's number (`blockNumbers`); an entry without one is laid out without it. */
   readonly footnoteOf?: ((entry: ProseMirrorNode) => string | undefined) | undefined;
+  /** What a list of contents block shows; a list without it is left to the DOM. */
+  readonly contentsOf?: ((node: ProseMirrorNode) => ContentsList | undefined) | undefined;
+  /**
+   * How many digits a list of contents keeps room for in each page number (DOCE-PAGINATION-10.11):
+   * every row's page box is this many of its font's `0`, whatever its page reads; 3 by default.
+   */
+  readonly pageDigits?: (() => number) | undefined;
 }
 
 /** Block geometry. */

@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { layLayoutSection, layList, layPlainContainer, layQuote } from './containers.js';
+import { layContents } from './contents.js';
 import { type BlockContext, type BlockParent, type Laid, notLaid } from './context.js';
 import type { BlockMetrics } from './metrics.js';
 import {
@@ -42,6 +43,7 @@ const LAYS: Readonly<Record<string, Lay>> = {
   page_break: (_context, node) => layPageBreak(node),
   kept_block: layMarkupBlock,
   dynamic_template: layMarkupBlock,
+  toc_block: layContents,
 };
 
 /** Creates block geometry over a text layout, an atom cache and the template's numbers. */

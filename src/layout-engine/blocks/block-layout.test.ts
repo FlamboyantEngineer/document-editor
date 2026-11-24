@@ -23,7 +23,8 @@ const names = readdirSync(documents)
   .filter((name) => name.endsWith('.json'))
   .map((name) => name.slice(0, -'.json'.length));
 
-// What the engine leaves to the DOM for now, by node type.
+// What the stand-in leaves to the DOM, by node type: a list of contents takes its rows from the
+// pages' engine (DOCE-PAGINATION-10.11).
 const LEFT_TO_THE_DOM = new Set(['toc_block']);
 
 function expectChildrenInside(children: readonly ChildLayout[], height: number) {
