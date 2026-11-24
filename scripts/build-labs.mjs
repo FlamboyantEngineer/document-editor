@@ -69,7 +69,6 @@ const options = {
     // The same on the base library's shadcn/ui stylesheet, with the editor's shadcn/ui retouch.
     shadcn: join(labsDir, 'shadcn.css'),
     chrome: join(labSourceDir, 'chrome', 'mount.tsx'),
-    'pretext-pagination-worker': join(labSourceDir, 'spikes', 'pretext', 'worker.ts'),
     ...Object.fromEntries(labs.map(({ name, file }) => [name, file])),
   },
   outdir,
@@ -98,7 +97,20 @@ const bootOptions = {
   format: 'iife',
 };
 
-const builds = [options, bootOptions];
+// The prediction worker, built on its own: a chunk it shared with the pages would run the pages'
+// modules in a scope without a DOM, such as the browser build of the HTML entity decoder that
+// Markdown reading uses, so it takes the packages' worker builds instead.
+/** @type {import('esbuild').BuildOptions} */
+const workerOptions = {
+  ...options,
+  entryPoints: {
+    'pretext-pagination-worker': join(labSourceDir, 'spikes', 'pretext', 'worker.ts'),
+  },
+  splitting: false,
+  conditions: ['worker'],
+};
+
+const builds = [options, bootOptions, workerOptions];
 
 if (watch) {
   const contexts = await Promise.all(builds.map((build) => esbuild.context(build)));
