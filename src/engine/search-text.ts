@@ -4,7 +4,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { type RegionKind, regionKind } from '../model/index.js';
-import { isPositionLocked } from './edit-lock.js';
+import { isEditRangeLocked } from './edit-lock.js';
 import { isHostContentAt } from './host-content.js';
 
 /** How a query matches. */
@@ -85,16 +85,20 @@ export function searchedText(
 
 type Query = { readonly query: string; readonly options: SearchOptions };
 
-// Each match of a pattern in one text block.
-function blockMatches(node: ProseMirrorNode, pos: number, regexp: RegExp): SearchMatch[] {
+// Add each distinct document range matched in one text block.
+function appendBlockMatches(
+  matches: SearchMatch[],
+  { node, pos, regexp }: { node: ProseMirrorNode; pos: number; regexp: RegExp },
+) {
   const { text, spans } = searchedText(node, pos);
-  const matches: SearchMatch[] = [];
   for (const match of text.matchAll(regexp)) {
     const first = spans[match.index];
     const last = spans[match.index + match[0].length - 1];
-    if (first && last) matches.push({ from: first.from, to: last.to });
+    if (!first || !last) continue;
+    const previous = matches.at(-1);
+    if (previous?.from === first.from && previous.to === last.to) continue;
+    matches.push({ from: first.from, to: last.to });
   }
-  return matches;
 }
 
 /**
@@ -108,7 +112,7 @@ export function findMatches(doc: ProseMirrorNode, { query, options }: Query): Se
   doc.descendants((node, pos) => {
     if (skipped.has(regionKind(node))) return false;
     if (!node.isTextblock) return true;
-    matches.push(...blockMatches(node, pos, regexp));
+    appendBlockMatches(matches, { node, pos, regexp });
     return false;
   });
   return matches;
@@ -134,7 +138,7 @@ export function findMatchesInBlocks(
     for (let depth = $pos.depth; shown && depth > 0; depth -= 1) {
       if (skipped.has(regionKind($pos.node(depth)))) shown = false;
     }
-    if (node && shown) matches.push(...blockMatches(node, pos, regexp));
+    if (node && shown) appendBlockMatches(matches, { node, pos, regexp });
   }
   return matches;
 }
@@ -144,7 +148,7 @@ export function findMatchesInBlocks(
  * mention or a value the document shows, none of it is locked and it is not the host's content.
  */
 export function isMatchReplaceable(state: EditorState, match: SearchMatch): boolean {
-  if (isPositionLocked(state, match.from) || isPositionLocked(state, match.to - 1)) return false;
+  if (isEditRangeLocked(state, match)) return false;
   // A match sits in one text block, so its start tells whether an embed or an output holds it.
   if (isHostContentAt(state.doc, match.from)) return false;
   let plain = true;

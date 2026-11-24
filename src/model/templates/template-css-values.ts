@@ -72,6 +72,33 @@ const GENERIC_FONT_FAMILIES = new Set([
   'fangsong',
 ]);
 
+/** A CSS font stack's family tokens in order, with quotes around quoted names retained. */
+export function splitFontFamilies(stack: string): string[] {
+  const families: string[] = [];
+  let start = 0;
+  let quote: string | null = null;
+  for (let index = 0; index < stack.length; index += 1) {
+    const character = stack[index];
+    if (character === '\\') {
+      index += 1;
+    } else if (quote) {
+      if (character === quote) quote = null;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === ',') {
+      families.push(stack.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  families.push(stack.slice(start).trim());
+  return families.filter(Boolean);
+}
+
+/** The first family of a font stack, unquoted. */
+export function firstFamily(family: string): string {
+  return (splitFontFamilies(family)[0] ?? '').replace(/^["']|["']$/g, '');
+}
+
 // One font name of an authored stack, made safe to write in a `font-family` declaration inside a
 // style element: quotes, breakout characters and control characters go; a generic family or a bare
 // identifier stays unquoted, and any other name is quoted.
@@ -102,5 +129,5 @@ export function resolveFontStack(
   const raw = (typeof font === 'string' ? font.trim() : '') || fallback;
   const hosted = Object.hasOwn(fontStacks, raw) ? fontStacks[raw] : undefined;
   if (hosted) return hosted;
-  return raw.split(',').map(sanitizeFontFamily).filter(Boolean).join(', ') || fallback;
+  return splitFontFamilies(raw).map(sanitizeFontFamily).filter(Boolean).join(', ') || fallback;
 }

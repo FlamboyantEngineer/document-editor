@@ -5,6 +5,7 @@
 import { Mark, type Node as ProseMirrorNode } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
 import { FRAGMENT_RULES, type FragmentRules } from './fragments.js';
+import { invertPageJoin } from './page-moves.js';
 import { joinSectionPages } from './page-transform.js';
 
 function sameValue(left: unknown, right: unknown): boolean {
@@ -107,12 +108,7 @@ function resplit({ tr, target, rules }: Repagination, pos: number) {
   const targetJoined = scratch.doc.nodeAt(pos);
   if (!joined || !targetJoined || !sameStructure(joined, targetJoined)) return false;
   copyAttrs(tr, pos, targetJoined);
-  for (let index = scratch.steps.length - 1; index >= 0; index -= 1) {
-    const step = scratch.steps[index];
-    const doc = scratch.docs[index];
-    if (!step || !doc || tr.maybeStep(step.invert(doc)).failed) return false;
-  }
-  return true;
+  return invertPageJoin(tr, scratch);
 }
 
 function repaginateSection(job: Repagination, pos: number) {

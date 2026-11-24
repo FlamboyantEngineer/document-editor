@@ -31,7 +31,7 @@ async function proofedView(value: string, inTable = false) {
     documentSchema,
   ).doc;
   const proofer = createWordListProofer({
-    corrections: { teh: ['the', 'ten'] },
+    corrections: { teh: ['the', 'ten'], extra: [''] },
     grammar: { 'a error': { message: 'Use an.', suggestions: [] } },
   });
   const view = new EditorView(document.createElement('div'), {
@@ -131,6 +131,35 @@ describe('proofing entries', () => {
     );
     expect(menu?.type !== 'section' && menu?.type !== 'separator' && menu?.label).toBe('Writing');
     expect(JSON.stringify(shape([menu as MenuEntry]))).toContain('Skip');
+  });
+
+  it('DOCE-PROOFING-3.2 puts the localized Delete label on empty suggestions', async () => {
+    const view = await proofedView('extra text extra');
+    const [issue] = listProofingIssues(view.state);
+    const labels = { ...DEFAULT_EDITOR_LABELS, delete: 'Remove text' };
+    expect(
+      shape(
+        proofingEntries(
+          view,
+          { proofingIssue: issue ?? null, proofingMark: true },
+          {
+            labels,
+            editable: true,
+          },
+        ),
+      ),
+    ).toEqual([
+      {
+        Spelling: [
+          { section: 'Spelling', items: ['Remove text'] },
+          { 'Replace all': ['Remove text'] },
+          'Ignore',
+          'Ignore all',
+          'Add to dictionary',
+          'Turn off this rule (disabled)',
+        ],
+      },
+    ]);
   });
 
   it('DOCE-PROOFING-3.2 leads a table cell menu with the Spelling submenu, keeping the table actions', async () => {

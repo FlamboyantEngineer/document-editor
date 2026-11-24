@@ -33,6 +33,32 @@ describe('loadPagesFonts', () => {
     });
   });
 
+  it('DOCE-HOST-1.14.2 keeps usable faces during initial and incremental loads', async () => {
+    const bytes = new Uint8Array(44);
+    new DataView(bytes.buffer).setUint32(0, 0x774f4646);
+    const files = (families: readonly string[]) =>
+      ok<FontFiles>({
+        ...filesOf(families),
+        faces: [
+          { bytes, family: 'Damaged', style: 'normal', weight: 400 },
+          ...filesOf(families).faces,
+        ],
+      });
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve(ok([])),
+      shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())),
+      files: (families) => Promise.resolve(files(families)),
+    };
+    const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc });
+    if (served.phase !== 'pretext') throw new Error('expected usable fonts');
+    expect(served.isFontServed('Lab Geist')).toBe(true);
+    expect(await served.add(['Lab Geist Mono'])).toBe(true);
+    expect(served.isFontServed('Lab Geist Mono')).toBe(true);
+    expect(served.isFontServed('Damaged')).toBe(false);
+    expect(served.files().faces.every((face) => face.family !== 'Damaged')).toBe(true);
+    served.destroy();
+  });
+
   it('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.5 measures with the served faces and asks only for families not asked yet', async () => {
     const asked: string[][] = [];
     const fonts: FontsAdapter = {

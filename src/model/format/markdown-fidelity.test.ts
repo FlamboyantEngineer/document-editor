@@ -34,6 +34,16 @@ describe('writeMarkdown fidelity', () => {
     expect(written([paragraph(text('`tick', 'code'))])).toBe('`` `tick ``\n');
   });
 
+  it('DOCE-FORMAT-4.4 writes a code block with more backtick runs than a call can take', () => {
+    const tick = String.fromCharCode(96);
+    const body = (tick + ' ').repeat(150_000) + tick.repeat(2);
+    const [open, writtenBody, close] = written([
+      { type: 'codeBlock', content: [text(body)] },
+    ]).split('\n');
+    expect([open, close]).toEqual([tick.repeat(3), tick.repeat(3)]);
+    expect(writtenBody === body).toBe(true);
+  });
+
   it('DOCE-FORMAT-4.4 writes a link address and title so that nothing in them ends the link', () => {
     const linked = (href: string, title?: string): StoredNode => ({
       type: 'text',

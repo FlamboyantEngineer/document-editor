@@ -27,32 +27,22 @@ function checklistBox(item: StoredNode): string {
   return run(`${checked ? CHECKLIST_BOXES.ticked : CHECKLIST_BOXES.clear} `);
 }
 
-/** Where a list is: its depth, and the number of the numbered list it is in, if any. */
-interface ListPlace {
-  readonly depth: number;
-  readonly number: number | null;
-}
-
 // A list's items: each item's first paragraph numbered at the list's depth, its other blocks under
-// it, and its nested lists one level deeper.
-function listOf(node: StoredNode, writing: Writing, place: ListPlace): string {
+// it, and its nested lists one level deeper. Every ordered list has its own starting number.
+function listOf(node: StoredNode, writing: Writing, depth = 0): string {
   const { numbering, numbers } = writing.counting;
-  const ordered = node.type === 'orderedList';
   const start = typeof node.attrs?.start === 'number' ? node.attrs.start : 1;
-  const number = !ordered
-    ? numbers.bullets
-    : (place.number ??
-      addNumberedList(numbering, numbers, { start, level: Math.min(place.depth, 8) }));
-  const level = Math.min(place.depth, 8);
+  const level = Math.min(depth, 8);
+  const number =
+    node.type === 'bulletList'
+      ? numbers.bullets
+      : addNumberedList(numbering, numbers, { start, level });
   const inner = { ...writing, structural: false };
   return keptContent(node.content, writing.suggestions)
     .map((item) =>
       keptContent(item.content, writing.suggestions)
         .map((child, index) => {
-          if (isList(child)) {
-            const nested = child.type === node.type && ordered ? number : null;
-            return listOf(child, writing, { depth: place.depth + 1, number: nested });
-          }
+          if (isList(child)) return listOf(child, writing, depth + 1);
           if (child.type !== 'paragraph') return writeBlocks([child], inner);
           const properties = index === 0 ? numberingProperties(number, level) : '';
           const box = index === 0 ? checklistBox(item) : '';
@@ -113,8 +103,8 @@ function contentsOf(node: StoredNode): string {
 const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => string>> = {
   paragraph: writeParagraph,
   heading: writeHeading,
-  bulletList: (node, writing) => listOf(node, writing, { depth: 0, number: null }),
-  orderedList: (node, writing) => listOf(node, writing, { depth: 0, number: null }),
+  bulletList: listOf,
+  orderedList: listOf,
   blockquote: (node, writing) =>
     writeBlocks(node.content, { ...writing, structural: false }).replace(
       /<w:p>(?!<w:pPr><w:pStyle)(<w:pPr>)?/g,

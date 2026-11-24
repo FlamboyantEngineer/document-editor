@@ -34,13 +34,14 @@ describe('table nodes', () => {
       textColor: '#333',
       backgroundColor: '#eee',
     });
-    const columns = '<colgroup><col><col style="width: 120px;"></colgroup>';
+    const columns =
+      '<colgroup><col><col style="width: var(--doc-table-column-width, 120px); --doc-table-column-cap: min(120px, calc(var(--doc-table-column-room) * 0.5));"></colgroup>';
     const caption =
       '<div class="doc-caption-line doc-table-caption-line" data-caption-kind="table">' +
       '<span class="doc-caption-text" data-doc-caption-text="true">Prices</span>' +
       '<span class="doc-caption-continued" data-doc-caption-continued="true"></span></div>';
     const table = html
-      .replace(' data-caption-text="Prices"', '')
+      .replace(' data-caption-text="Prices"', ' data-table-columns="mixed"')
       .replace('<tbody>', `${columns}<tbody>`);
     const written = `<div class="doc-table-figure">${caption}${table}</div>`;
     expect(roundTrip(html)).toBe(written);
@@ -117,7 +118,18 @@ describe('table nodes', () => {
     ]);
     const [, partly, partColumns] = render(sized(100), sized(null));
     expect(partly).not.toHaveProperty('style');
-    expect(partColumns).toEqual(['colgroup', ['col', { style: 'width:100px' }], ['col']]);
+    expect(partly).toMatchObject({ 'data-table-columns': 'mixed' });
+    expect(partColumns).toEqual([
+      'colgroup',
+      [
+        'col',
+        {
+          style:
+            'width:var(--doc-table-column-width, 100px);--doc-table-column-cap:min(100px, calc(var(--doc-table-column-room) * 0.5))',
+        },
+      ],
+      ['col'],
+    ]);
   });
 
   it('DOCE-SCHEMA-3.5 sizes an aligned table from its first row', () => {

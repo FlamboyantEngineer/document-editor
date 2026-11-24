@@ -19,7 +19,7 @@ import type { LayoutPace } from './layout-pace.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
 import type { MeasureCache } from './measure-cache.js';
-import { showOnPages } from './page-map.js';
+import type { createPageMapScope } from './page-map.js';
 import type { PagedProjectionOptions } from './projection.js';
 import {
   copyMeta,
@@ -49,6 +49,7 @@ export interface Session {
   readonly options: PagedProjectionOptions;
   readonly rules: FragmentRules;
   readonly cache: MeasureCache;
+  readonly pageMaps: ReturnType<typeof createPageMapScope>;
   readonly cells: ReturnType<typeof holdCellSelection>;
   readonly counts: { refused: number; relaid: number };
   readonly ghost: MeasuringView;
@@ -97,10 +98,9 @@ function setProjection(session: Session, state: EditorState): void {
 // Records the pages a canonical document is shown on, with the session's map when it holds the
 // positions between them, so reading the pages joins none of them (DOCE-PAGINATION-7.18).
 function showPages(session: Session, canonical: ProseMirrorNode): void {
-  const { map, rules } = session;
-  const pages = session.projection.doc;
-  const exact = map.projection === pages && canonical === session.shown;
-  showOnPages(canonical, { pages, rules, positions: exact ? map : undefined });
+  const { map, rules, pageMaps, projection, shown } = session;
+  const positions = map.projection === projection.doc && canonical === shown ? map : undefined;
+  pageMaps.show(canonical, { pages: projection.doc, rules, positions });
 }
 
 // The view that renders the projection, when a transaction may go through it now: not while it

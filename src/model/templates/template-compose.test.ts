@@ -118,6 +118,22 @@ describe('composing imported documents', () => {
     ]);
   });
 
+  it('DOCE-IMPORT-3.3 preserves widths when a web template has no fit target', () => {
+    const template: TemplateFile = {
+      formatVersion: 1,
+      id: 'article',
+      page: { margins: { left: '24px', right: '24px' } },
+    };
+    const file = composeDocumentFile([table(200, 400)], {
+      template,
+      tables: 'fill',
+      newId: counter(),
+    });
+    expect(
+      file.sections[0]?.content[0]?.content?.[0]?.content?.map((cell) => cell.attrs?.colwidth),
+    ).toEqual([[200], [400]]);
+  });
+
   it('DOCE-IMPORT-3.6 finds the appendix section by name or label, unless it is the target', () => {
     const template = TEMPLATE([]);
     expect(findAppendixSection(template)).toBe('annexes');

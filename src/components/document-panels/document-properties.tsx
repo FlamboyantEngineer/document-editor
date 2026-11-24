@@ -90,7 +90,7 @@ function DocumentRows(described: Described) {
   const sections = documentSections(state.doc).length;
   // The pages and words the status bar counts. The pages a projection shows the state on change
   // as it lays them out, the state unchanged.
-  const pages = pageMap(state);
+  const pages = pageMap(state, context.view);
   const statistics = useMemo(() => documentStatistics(state, pages), [state, pages]);
   return (
     <PropertySection id="document" title={labels.document} actions={extraActions(described)}>

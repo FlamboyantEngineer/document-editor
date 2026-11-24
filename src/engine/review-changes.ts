@@ -36,8 +36,8 @@ function contentOf(fragment: Fragment): Fragment {
       node.isText ? node.mark(marks) : node.type.create(node.attrs, contentOf(node.content), marks),
     );
   });
-  // Appending joins neighbouring text that only an anchor kept apart.
-  return nodes.reduce((content, node) => content.append(Fragment.from(node)), Fragment.empty);
+  // Fragment assembly joins neighbouring text that only an anchor kept apart.
+  return Fragment.fromArray(nodes);
 }
 
 const idOf = (value: unknown): string[] => (typeof value === 'string' && value ? [value] : []);

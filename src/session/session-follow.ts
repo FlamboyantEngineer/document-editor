@@ -6,6 +6,7 @@ import type { EditorHost, SavedState } from '../host/adapters.js';
 import { type EditorCapabilities, resolveEditingMode } from '../host/capabilities.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import type { SessionDocument } from './document-session.js';
+import { samePin } from './open-document.js';
 import type { WritableStore } from './value-store.js';
 
 /** What a session follows, and what it does when each changes. */
@@ -17,8 +18,6 @@ interface SessionFollowers {
   onLeave: () => void;
   /** In room mode, what the connection's phase lets the reader do (DOCE-SESSION-3.4). */
   gate?: (() => ConnectionGate | null) | undefined;
-  /** Called with the capabilities the host grants whenever they change, before they are shown. */
-  onGranted?: ((capabilities: EditorCapabilities) => void) | undefined;
 }
 
 /**
@@ -47,12 +46,16 @@ function followTemplate(
   pin: TemplatePin,
   pinned: SavedState | null,
 ) {
+  let active = true;
   const stop = host.templates?.subscribe?.(pin.id, (latest) => {
     const current = document.get();
-    if (current?.pin?.id !== pin.id) return;
+    if (!active || !current || !samePin(current.pin, pin)) return;
     document.set({ ...current, templateUpdate: newerTemplate(pinned, latest) });
   });
-  return stop ?? (() => undefined);
+  return () => {
+    active = false;
+    stop?.();
+  };
 }
 
 /**
@@ -60,11 +63,12 @@ function followTemplate(
  * template the document pins, again whenever the pin changes.
  */
 export function followSession(followers: SessionFollowers) {
-  const { host, documentId, document, onLeave, gate, onGranted } = followers;
+  const { host, documentId, document, onLeave, gate } = followers;
+  let latest: EditorCapabilities | null = null;
   const stops: (() => void)[] = [];
   stops.push(
     host.permissions.subscribe?.(documentId, (capabilities) => {
-      onGranted?.(capabilities);
+      latest = capabilities;
       const current = document.get();
       if (current) document.set(withCapabilities(current, capabilities, gate?.()));
     }) ?? (() => undefined),
@@ -76,6 +80,7 @@ export function followSession(followers: SessionFollowers) {
   );
   let stopTemplate: () => void = () => undefined;
   return {
+    granted: (loaded: EditorCapabilities) => latest ?? loaded,
     followTemplate: (pin: TemplatePin | null, pinned: SavedState | null) => {
       stopTemplate();
       stopTemplate = pin ? followTemplate(followers, pin, pinned) : () => undefined;

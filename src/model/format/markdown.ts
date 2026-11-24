@@ -55,7 +55,9 @@ export function writeMarkdown(file: DocumentFile, options: MarkdownOptions = {})
     ? `# ${escapeHeadingEnd(escapeText(options.title.trim()))}`
     : null;
   const body = blocks(content, writing);
-  const notes = writing.footnotes.map((note, index) => `[^${String(index + 1)}]: ${note}`);
+  const notes = writing.footnotes.map(
+    (note, index) => `[^${String(index + 1)}]: ${note.replaceAll('\n', '\n    ')}`,
+  );
   const threads = options.threads?.length
     ? threadsOf(content, options.threads, options.person)
     : null;

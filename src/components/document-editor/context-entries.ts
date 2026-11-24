@@ -70,6 +70,8 @@ export interface ContextEntriesOptions {
   readonly suggesting?: boolean | undefined;
   /** Uploads the images Paste finds on the clipboard, while the host stores assets. */
   readonly images?: FigurePasteOptions | null | undefined;
+  /** Whether the host still shows the same editable document. */
+  readonly isClipboardCurrent?: (() => boolean) | undefined;
 }
 
 function suggestionEntries(view: EditorView, { labels, suggestionPolicy }: ContextEntriesOptions) {

@@ -1,6 +1,6 @@
-import type { Mark, Node } from 'prosemirror-model';
+import { Fragment, type Mark, type Node } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import {
   addMarkInOrder,
@@ -93,6 +93,30 @@ describe('mark order', () => {
     expect(ordered.childCount).toBe(1);
     expect(ids(ordered.firstChild)).toEqual(['c1', 'c2']);
     expect(orderDocumentMarks(ordered)).toBe(ordered);
+  });
+
+  it('DOCE-SCHEMA-5.1 rebuilds changed fragments in work proportional to their child count', () => {
+    const copied = (count: number) => {
+      const changed = paragraphWith([comment('c2'), comment('c1')]);
+      const unchanged = paragraphWith([]);
+      const doc = nodes.page_content?.create(null, [
+        changed,
+        ...Array<Node>(count - 1).fill(unchanged),
+      ]);
+      if (!doc) throw new Error('Expected a page content node');
+      const append = vi.spyOn(Fragment.prototype, 'append');
+      const ordered = orderDocumentMarks(doc);
+      const childVisits = append.mock.contexts.reduce<number>(
+        (sum, fragment) => sum + (fragment as Fragment).childCount,
+        0,
+      );
+      append.mockRestore();
+      expect(ordered.childCount).toBe(count);
+      expect(ids(ordered.firstChild?.lastChild)).toEqual(['c1', 'c2']);
+      expect(ordered.lastChild).toBe(unchanged);
+      return childVisits;
+    };
+    expect(copied(2000)).toBeLessThanOrEqual(copied(500) * 5 + 2000);
   });
 
   it('DOCE-SCHEMA-5.1 orders the marks of an inline node that holds content, as of a run', () => {

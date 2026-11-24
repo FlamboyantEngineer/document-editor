@@ -113,6 +113,54 @@ async function readDraft(drafts: ReturnType<typeof createMemoryDrafts>): Promise
 }
 
 describe('room-mode drafts', () => {
+  it('DOCE-SESSION-6.7 keeps the latest state after a lifecycle save and a slow preceding write', async () => {
+    const provider = openProvider(startServer(), new Y.Doc());
+    const connection = asConnection(provider);
+    await connection.whenSynced;
+    provider.disconnect();
+    const drafts = createMemoryDrafts();
+    const put = drafts.put.bind(drafts);
+    const held: (() => void)[] = [];
+    const writes = vi.spyOn(drafts, 'put').mockImplementation(async (...args) => {
+      if (held.length === 0) await new Promise<void>((resolve) => held.push(resolve));
+      return put(...args);
+    });
+    let onLifecycle: ((event: LifecycleEvent) => void) | undefined;
+    const kept = keepRoomDrafts({
+      documentId: 'doc',
+      drafts,
+      connection,
+      lifecycle: {
+        subscribe: (onEvent) => {
+          onLifecycle = onEvent;
+          return () => {
+            onLifecycle = undefined;
+          };
+        },
+      },
+    });
+    write(provider.doc, 0, 'First');
+    const first = kept.flush();
+    expect(held).toHaveLength(1);
+    write(provider.doc, 5, ', second');
+    onLifecycle?.('hidden');
+    write(provider.doc, 13, ', third');
+    kept.stop();
+    expect(writes).toHaveBeenCalledTimes(1);
+
+    held[0]?.();
+    await first;
+    await vi.waitFor(async () => {
+      const restored = new Y.Doc();
+      try {
+        expect(restoreRoomDraft(restored, await readDraft(drafts))).toBe(true);
+        expect(textOf(restored)).toContain('First, second, third');
+      } finally {
+        restored.destroy();
+      }
+    });
+  });
+
   it('DOCE-SESSION-6.7 keeps the state, the unconfirmed changes and the confirmed base', async () => {
     const createSocket = startServer();
     const drafts = createMemoryDrafts();

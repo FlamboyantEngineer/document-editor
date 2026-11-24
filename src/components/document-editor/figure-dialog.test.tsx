@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../../test/deferred.js';
 import { documentSchema, writeMarkup } from '../../../test/document-markup.js';
 import type { AssetAdapter, DiagramAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode } from '../../model/index.js';
@@ -69,8 +70,66 @@ const ASSETS: AssetAdapter = {
     }),
 };
 
+function uploadResult(id: string): Awaited<ReturnType<AssetAdapter['upload']>> {
+  return { ok: true, value: { id, url: '', name: `${id}.png`, mediaType: 'image/png' } };
+}
+
+function uploadInput(): HTMLInputElement {
+  const input = screen.getByRole('dialog').querySelector<HTMLInputElement>('input[type="file"]');
+  if (!input) throw new Error('The image upload input is missing.');
+  return input;
+}
+
 // Each case renders the dialog's fields and lists, which a busy runner takes seconds to draw.
 describe('FigureDialog', { timeout: 15_000 }, () => {
+  it.each(['upload', 'picker', 'address'])(
+    'DOCE-OBJECTS-1.4 keeps the later %s choice when an older upload finishes',
+    async (choice) => {
+      const user = userEvent.setup();
+      const view = editorView();
+      const older = deferred<Awaited<ReturnType<AssetAdapter['upload']>>>();
+      const newer = deferred<Awaited<ReturnType<AssetAdapter['upload']>>>();
+      const upload = vi.fn<AssetAdapter['upload']>((file) =>
+        file.name === 'older.png' ? older.promise : newer.promise,
+      );
+      render(
+        <FigureDialog
+          view={view}
+          labels={DEFAULT_EDITOR_LABELS}
+          onClose={() => {}}
+          assets={{ ...ASSETS, upload }}
+        />,
+      );
+      const file = (name: string) => new File(['image'], `${name}.png`, { type: 'image/png' });
+      await user.upload(uploadInput(), file('older'));
+      let source = { fileAssetId: 'newer', src: '' };
+      if (choice === 'upload') {
+        await user.upload(uploadInput(), file('newer'));
+        await act(async () => newer.resolve(uploadResult('newer')));
+      } else if (choice === 'picker') {
+        await user.click(screen.getByRole('button', { name: 'Choose an image…' }));
+        const picker = await screen.findByRole('group', { name: 'Choose an image…' });
+        await user.click(await within(picker).findByRole('row', { name: 'Wide panel' }));
+        await user.click(within(picker).getByRole('button', { name: 'Insert' }));
+        source = { fileAssetId: 'wide', src: '' };
+      } else {
+        const url = 'https://example.com/latest.png';
+        await user.click(screen.getByRole('textbox', { name: 'Image address' }));
+        await user.paste(url);
+        source = { fileAssetId: '', src: url };
+      }
+      await act(async () => older.resolve(uploadResult('older')));
+      expect(upload.mock.calls[0]?.[1]?.aborted).toBe(true);
+      const preview = screen.getByRole('figure', { name: 'Preview' });
+      expect(within(preview).getByRole('presentation')).toHaveAttribute(
+        'src',
+        source.src || ASSETS.resolveUrl(source.fileAssetId),
+      );
+      await user.click(screen.getByRole('button', { name: 'Insert' }));
+      expect(figureAttrs(view)).toMatchObject(source);
+    },
+  );
+
   it('DOCE-OBJECTS-1.4 places an image chosen among the host assets, clamped to the page', async () => {
     const user = userEvent.setup();
     const view = editorView();

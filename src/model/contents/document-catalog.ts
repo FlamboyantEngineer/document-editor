@@ -4,9 +4,11 @@
 // gives each kind its entries in reading order, each with its number as the stylesheet prints it,
 // its text, its level, its position and its page.
 
-import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
 import { headingNumberText, objectNumberText } from '../numbering/numbering-text.js';
+import { splitPartOf } from '../pagination/split-part.js';
+import { trackTableHeaderCopies } from '../pagination/table-header-copies.js';
 import { documentSections, type RegionKind, sectionRegions } from '../schema/document-structure.js';
 import {
   NUMBERED_OBJECT_KINDS,
@@ -19,12 +21,14 @@ import {
 import { templateScopeStyles } from '../templates/template-properties.js';
 import { sectionRestartsNumbering } from '../templates/template-scopes.js';
 import { findTemplateSection } from '../templates/template-sections.js';
+import { arrangeEntries } from './catalog-entries.js';
+import { type CatalogFootnotes, catalogFootnotes } from './catalog-footnotes.js';
+import { catalogMarks } from './catalog-marks.js';
 import {
   type CatalogEntry,
   type ContentsKind,
   DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
-  entryParts,
   headingLevel,
   nodeEntry,
 } from './contents-kinds.js';
@@ -59,6 +63,11 @@ interface Counting {
   /** Whether a kind lists marks or inline nodes, so the walk enters textblocks. */
   readonly inline: boolean;
   readonly catalog: Record<string, CatalogEntry[]>;
+  readonly footnotes: CatalogFootnotes | null;
+  readonly marks: ReturnType<typeof catalogMarks>;
+  readonly headerCopy: ReturnType<typeof trackTableHeaderCopies>;
+  readonly markerPositions: Map<CatalogEntry, number>;
+  footnoteMarker: number | null;
   readonly doc: ProseMirrorNode;
   /** Where counting stops: nodes from this position on are not counted. */
   readonly end: number;
@@ -80,6 +89,20 @@ const zeroObjects = (): Record<NumberedObjectKind, number> => ({
   codeBlock: 0,
   equation: 0,
 });
+
+const unnumberedTableAncestors = new Set(['list_item', 'table_cell', 'table_header']);
+
+function isNumberedTable(doc: ProseMirrorNode, pos: number, parent: ProseMirrorNode | null) {
+  if (parent?.type.name === 'table_figure') {
+    if ((splitPartOf(parent) ?? 0) > 0) return false;
+    if (typeof parent.firstChild?.attrs.continuedText === 'string') return false;
+  }
+  const $pos = doc.resolve(pos);
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if (unnumberedTableAncestors.has($pos.node(depth).type.name)) return false;
+  }
+  return true;
+}
 
 // Counts a heading, and gives the number it shows.
 function countHeading(node: ProseMirrorNode, counting: Counting): string {
@@ -118,6 +141,11 @@ function countObject(node: ProseMirrorNode, counting: Counting): string | null {
   );
 }
 
+function addEntry(entry: CatalogEntry, counting: Counting, marker = counting.footnoteMarker) {
+  if (marker !== null) counting.markerPositions.set(entry, marker);
+  counting.catalog[entry.kind]?.push(entry);
+}
+
 // Adds a node's entry to each kind of list that lists it.
 function list(
   [node, pos, numbered]: readonly [ProseMirrorNode, number, string | null],
@@ -127,53 +155,51 @@ function list(
   for (const [key, kind] of counting.kinds) {
     if (!kind.nodes.includes(node.type.name) || kind.include?.(node) === false) continue;
     const entry = nodeEntry([key, kind], [node, pos, numbered, parent], counting.page);
-    counting.catalog[key]?.push(entry);
+    addEntry(entry, counting);
   }
 }
 
-// Adds an entry for each run of a textblock's text that carries a mark a kind lists.
-function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
-  for (const [key, kind] of counting.kinds) {
-    if (!kind.marks?.length) continue;
-    let open: { mark: Mark; node: ProseMirrorNode; pos: number; text: string } | null = null;
-    const close = () => {
-      if (!open || kind.include?.(open.node, open.mark) === false) return;
-      counting.catalog[key]?.push({
-        kind: key,
-        level: kind.level?.(open.node, open.mark) ?? 0,
-        number: kind.number?.(open.node, open.mark) ?? '',
-        text: kind.text?.(open.node, open.mark) ?? open.text,
-        pos: open.pos,
-        page: counting.page,
-        ...entryParts(kind, open.node, open.mark),
-      });
-    };
-    block.forEach((child, offset) => {
-      const mark = child.marks.find((each) => kind.marks?.includes(each.type.name));
-      if (open && mark && open.mark.eq(mark)) {
-        open.text += child.textContent;
-        return;
-      }
-      close();
-      open = mark ? { mark, node: child, pos: start + offset, text: child.textContent } : null;
-    });
-    close();
-  }
+function listMarks(block: ProseMirrorNode, pos: number, counting: Counting) {
+  counting.marks?.read(block, { pos, page: counting.page, marker: counting.footnoteMarker });
+}
+
+function listFootnote(marker: ProseMirrorNode, pos: number, counting: Counting) {
+  const note = counting.footnotes?.take(marker);
+  if (!note) return;
+  counting.footnoteMarker = pos;
+  list([note.node, note.pos, null], counting, note.parent);
+  listMarks(note.node, note.pos + 1, counting);
+  note.node.forEach((child, offset) => {
+    list([child, note.pos + 1 + offset, null], counting, note.node);
+  });
+  counting.footnoteMarker = null;
+}
+
+function canList(
+  node: ProseMirrorNode,
+  parent: ProseMirrorNode | null,
+  at: { doc: ProseMirrorNode; pos: number },
+) {
+  if ((splitPartOf(node) ?? 0) > 0 || node.attrs.codeBlockContinued === true) return false;
+  if (node.type.name === 'heading') return isStructuralHeading(at.doc, at.pos);
+  if (node.type.name === 'table') return isNumberedTable(at.doc, at.pos, parent);
+  return true;
 }
 
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
   content.descendants((node, offset, parent) => {
-    if (start + offset >= counting.end) return false;
+    const pos = start + offset;
+    if (pos >= counting.end || counting.headerCopy(node, parent, pos) !== null) return false;
     if (counting.firstContents === null && isTableOfContents(node)) {
-      counting.firstContents = start + offset;
+      counting.firstContents = pos;
     }
-    const isHeading = node.type.name === 'heading';
-    // The title and a heading set in a list, a table or a quote are neither numbered nor listed.
-    if (!isHeading || isStructuralHeading(counting.doc, start + offset)) {
-      const numbered = isHeading ? countHeading(node, counting) : countObject(node, counting);
-      list([node, start + offset, numbered], counting, parent);
+    if (canList(node, parent, { doc: counting.doc, pos })) {
+      const numbered =
+        node.type.name === 'heading' ? countHeading(node, counting) : countObject(node, counting);
+      list([node, pos, numbered], counting, parent);
     }
-    if (node.isTextblock && counting.inline) listMarks(node, start + offset + 1, counting);
+    if (node.type.name === 'footnote_reference') listFootnote(node, pos, counting);
+    if (node.isTextblock && counting.inline) listMarks(node, pos + 1, counting);
     return !node.isTextblock || counting.inline;
   });
 }
@@ -200,20 +226,30 @@ export function catalogDocument(
   template: TemplateFile,
   kinds: Readonly<Record<string, ContentsKind>> = DEFAULT_CONTENTS_KINDS,
 ): DocumentCatalog {
+  const named = Object.entries(kinds);
+  const withNotes =
+    listsInline(doc, kinds) ||
+    Object.values(kinds).some((kind) => kind.nodes.includes('footnote_entry'));
   const counting: Counting = {
     scope: scopeOf(template, null),
     headings: [0, 0, 0, 0, 0, 0],
     objects: zeroObjects(),
     page: 0,
-    kinds: Object.entries(kinds),
-    inline: listsInline(doc, kinds),
+    kinds: named,
+    inline: withNotes,
     catalog: Object.fromEntries(Object.keys(kinds).map((key) => [key, []])),
+    footnotes: withNotes ? catalogFootnotes(doc) : null,
+    marks: catalogMarks(doc, named),
+    headerCopy: trackTableHeaderCopies(),
+    footnoteMarker: null,
+    markerPositions: new Map(),
     doc,
     end: Infinity,
     firstContents: null,
   };
   countSections(template, counting);
-  return arrangeEntries(counting.catalog, kinds, counting.firstContents);
+  counting.marks?.forEach((entry, marker) => addEntry(entry, counting, marker));
+  return arrangeEntries(counting.catalog, kinds, counting);
 }
 
 /** The counters a position is under: each heading level's and each numbered object kind's. */
@@ -239,6 +275,11 @@ export function numberingCountersAt(
     kinds: [],
     inline: false,
     catalog: {},
+    footnotes: null,
+    marks: null,
+    headerCopy: trackTableHeaderCopies(),
+    footnoteMarker: null,
+    markerPositions: new Map(),
     doc,
     end: pos,
     firstContents: null,
@@ -283,44 +324,4 @@ function countSections(template: TemplateFile, counting: Counting) {
       countBlocks(content.node, content.pos + 1, counting);
     }
   }
-}
-
-// Each kind's entries: after the first table of contents if it asks, without those it drops, then
-// its first one of each identity alone if it asks, in the order it asks, group by group if it groups them.
-function arrangeEntries(
-  catalog: DocumentCatalog,
-  kinds: Readonly<Record<string, ContentsKind>>,
-  firstContents: number | null,
-): DocumentCatalog {
-  return Object.fromEntries(
-    Object.entries(catalog).map(([key, entries]) => {
-      const kind = kinds[key];
-      let arranged = [...entries];
-      if (kind?.after && firstContents !== null) {
-        arranged = arranged.filter((entry) => entry.pos > firstContents);
-      }
-      if (kind?.drop) arranged = kind.drop(arranged);
-      if (kind?.unique) {
-        const seen = new Set<string>();
-        arranged = arranged.filter((entry) => {
-          const key = entry.identity ?? `${entry.number}\u0000${entry.text}`;
-          return !seen.has(key) && seen.add(key);
-        });
-      }
-      if (kind?.sort) arranged.sort(kind.sort);
-      if (kind?.group) arranged.sort(byGroup(kind.groups ?? []));
-      return [key, arranged];
-    }),
-  );
-}
-
-// Orders entries group by group, the groups a kind names first, in its order, then the others by
-// their names; an entry keeps its place in its group.
-function byGroup(groups: readonly string[]) {
-  const rank = (entry: CatalogEntry) => {
-    const index = groups.indexOf(entry.group ?? '');
-    return index < 0 ? groups.length : index;
-  };
-  return (a: CatalogEntry, b: CatalogEntry) =>
-    rank(a) - rank(b) || (a.group ?? '').localeCompare(b.group ?? '');
 }

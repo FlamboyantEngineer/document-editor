@@ -1,6 +1,6 @@
-import type { Node } from 'prosemirror-model';
+import { Fragment, type Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import {
@@ -99,5 +99,33 @@ describe('review-only changes', () => {
     expect(suggest && state.apply(suggest).doc.eq(state.doc)).toBe(true);
     const deletion = suggestTransaction(state.tr.delete(at, at + 5), state, { author: 'w' });
     expect(deletion && state.apply(deletion).doc.eq(state.doc)).toBe(true);
+  });
+
+  it('DOCE-COMMENTS-1.13 compares wide review ranges in work proportional to their child count', () => {
+    const copied = (count: number) => {
+      const { doc } = readDocumentFile(
+        {
+          formatVersion: 1,
+          sections: [
+            { content: Array.from({ length: count }, (_, index) => paragraph(String(index))) },
+          ],
+        },
+        documentSchema,
+      );
+      const state = EditorState.create({ doc });
+      const mark = state.schema.marks.comment_highlight?.create({ commentId: 'thread' });
+      if (!mark) throw new Error('Expected a comment mark');
+      const tr = state.tr.addMark(0, doc.content.size, mark);
+      const append = vi.spyOn(Fragment.prototype, 'append');
+      const result = reviewChangeOf(tr);
+      const childVisits = append.mock.contexts.reduce<number>(
+        (sum, fragment) => sum + (fragment as Fragment).childCount,
+        0,
+      );
+      append.mockRestore();
+      expect(result).toEqual({ threads: ['thread'], suggestions: [] });
+      return childVisits;
+    };
+    expect(copied(2000)).toBeLessThanOrEqual(copied(500) * 5 + 2000);
   });
 });

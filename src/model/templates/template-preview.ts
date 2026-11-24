@@ -110,10 +110,12 @@ export function templatePreviewPrevious(
   preview: DocumentFile,
   words: TemplatePreviewText = DEFAULT_TEMPLATE_PREVIEW_TEXT,
 ): DocumentFile {
+  const main = preview.sections.findIndex((each) => each.name === null);
+  const sample = main === -1 ? preview.sections.length - 1 : main;
   return {
     ...preview,
-    sections: preview.sections.map((each) =>
-      each.name === null ? { ...each, content: olderChanges(each.content, words) } : each,
+    sections: preview.sections.map((each, index) =>
+      index === sample ? { ...each, content: olderChanges(each.content, words) } : each,
     ),
   };
 }

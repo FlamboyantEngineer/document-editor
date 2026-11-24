@@ -42,6 +42,24 @@ function pageAt(tr: Transform, sectionPos: number, index: number) {
   return page && pos !== undefined ? { page, pos } : null;
 }
 
+// Per-page numbering can draw the same entry on both pages; the joined page keeps its first copy.
+function dropRepeatedEntries(
+  tr: Transform,
+  entries: ProseMirrorNode['content'],
+  nextNotes: number,
+) {
+  const first = new Set<unknown>();
+  entries.forEach((entry) => first.add(entry.attrs.footnoteId));
+  const remove: { from: number; to: number }[] = [];
+  tr.doc.nodeAt(nextNotes)?.forEach((entry, offset) => {
+    const id: unknown = entry.attrs.footnoteId;
+    if (!id || !first.has(id)) return;
+    const from = nextNotes + 1 + offset;
+    remove.push({ from, to: from + entry.nodeSize });
+  });
+  for (const { from, to } of remove.reverse()) tr.delete(from, to);
+}
+
 // Moves page `index`'s content and footnotes onto the end of the page before it, which keeps its
 // own header and the later page's footer. Gives where the two pages' blocks now meet, or null.
 function mergeIntoPrevious(tr: Transform, sectionPos: number, index: number): number | null {
@@ -59,7 +77,10 @@ function mergeIntoPrevious(tr: Transform, sectionPos: number, index: number): nu
   // The later page's footnotes come after its content, so copying the entries there first moves
   // nothing the deletion reaches.
   const entries = tr.doc.nodeAt(notes)?.content;
-  if (entries?.size) tr.insert(nextNotes + 1, entries);
+  if (entries?.size) {
+    dropRepeatedEntries(tr, entries, nextNotes);
+    tr.insert(nextNotes + 1, entries);
+  }
   const contentEnd = content + (tr.doc.nodeAt(content)?.nodeSize ?? 2) - 1;
   tr.delete(contentEnd, nextContent + 1);
   return contentEnd;

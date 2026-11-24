@@ -4,7 +4,9 @@
 // the same way; a block both sides changed differently is a conflict for the reader to settle.
 
 import type { DocumentFile, StoredNode, StoredSection } from '../model/format/document-format.js';
+import { withMergedChildren } from './merge-children.js';
 import { identifyBlocks } from './merge-identity.js';
+import { mergeOrder } from './merge-order.js';
 import { elementIdOf } from './stored-elements.js';
 import { sameStored as same } from './stored-equality.js';
 
@@ -70,38 +72,6 @@ function sectionElement(section: StoredSection, index: number): Element {
   return { key: sectionKey(section, index), own, children: content, value: section, section: true };
 }
 
-// The keys `one` holds in an order `base` does not: a block moved.
-function reordered(base: readonly string[], one: readonly string[]): boolean {
-  const kept = new Set(one);
-  const common = base.filter((key) => kept.has(key));
-  const inBase = new Set(base);
-  return !same(
-    common,
-    one.filter((key) => inBase.has(key)),
-  );
-}
-
-// The merged order: the side that moved blocks gives the order, the reader's when both or neither
-// did; each kept block the other side places is put after the block before it on that side.
-function mergeOrder(
-  keys: { base: string[]; mine: string[]; theirs: string[] },
-  kept: ReadonlySet<string>,
-): string[] {
-  const theirsLead = reordered(keys.base, keys.theirs) && !reordered(keys.base, keys.mine);
-  const [lead, other] = theirsLead ? [keys.theirs, keys.mine] : [keys.mine, keys.theirs];
-  const order = lead.filter((key) => kept.has(key));
-  let after = -1;
-  for (const key of other) {
-    const at = order.indexOf(key);
-    if (at >= 0) after = at;
-    else if (kept.has(key)) {
-      order.splice(after + 1, 0, key);
-      after += 1;
-    }
-  }
-  return order;
-}
-
 // Where a version holds an element: the element, and the key of the container it is in.
 interface Place {
   readonly node: StoredNode;
@@ -132,40 +102,76 @@ function placesOf(file: DocumentFile): Places {
   return places;
 }
 
+type MovingSide = 'mine' | 'theirs';
+
+// The reader's destination wins when both sides moved the element.
+function movedBy(key: string, { places }: MergeContext): MovingSide | undefined {
+  const parent = places.base.get(key)?.parent;
+  if (parent === undefined) return undefined;
+  return (['mine', 'theirs'] as const).find((side) => {
+    const place = places[side].get(key);
+    return place && place.parent !== parent;
+  });
+}
+
+// Conflict alternatives keep their own subtree, with any independently relocated child
+// omitted so selecting a conflicting version cannot bring back a second copy.
+function withoutMoved(element: Element, context: MergeContext): Merged | null {
+  if (!element.children) return element.value;
+  const children: StoredNode[] = [];
+  for (const child of element.children) {
+    const key = elementIdOf(child) ?? '';
+    const side = movedBy(key, context);
+    if (side && context.places[side].get(key)?.parent !== element.key) continue;
+    const kept = withoutMoved(nodeElement(child), context);
+    if (kept) children.push(kept as StoredNode);
+  }
+  return withMergedChildren(element.value, children);
+}
+
+function mergeRetained(kept: Element, side: MovingSide, context: MergeContext): Merged | null {
+  if (!kept.children) return kept.value;
+  const lists = { base: [], mine: [], theirs: [], [side]: kept.children };
+  return withMergedChildren(kept.value, mergeChildren(lists, context));
+}
+
 // An element one side no longer holds: gone when the side that holds it left it as it was, kept
 // when it is new, and a conflict when one side deleted it and the other changed it.
 function mergeOneSided({ base, mine, theirs }: Versions, context: MergeContext): Merged | null {
   const kept = mine ?? theirs;
-  if (!kept || (base && same(base.value, kept.value))) return null;
-  if (!base) return kept.value;
-  context.conflicts.push({
-    id: kept.key,
-    mine: (mine?.value as StoredNode | undefined) ?? null,
-    theirs: (theirs?.value as StoredNode | undefined) ?? null,
-  });
-  return kept.value;
+  if (!kept) return null;
+  if (base && same(withoutMoved(base, context), withoutMoved(kept, context))) return null;
+  const value = mergeRetained(kept, mine ? 'mine' : 'theirs', context);
+  if (base && value) {
+    context.conflicts.push({
+      id: kept.key,
+      mine: mine ? (value as StoredNode) : null,
+      theirs: theirs ? (value as StoredNode) : null,
+    });
+  }
+  return value;
 }
 
-// An element both sides changed: a container merges its own settings and its children; anything
-// else, or a container whose own settings both changed, conflicts.
+// An element both sides changed: a container merges its settings and children. Competing
+// settings on a block are a conflict, without putting a moved child back in its old container.
 function mergeBothChanged(
   { base, mine, theirs }: { base: Element | null; mine: Element; theirs: Element },
   context: MergeContext,
-): Merged {
+): Merged | null {
   const own = mergeOwn(base?.own, mine.own, theirs.own) ?? (mine.section ? mine.own : undefined);
   if (own !== undefined && mine.children && theirs.children) {
     const children = mergeChildren(
       { base: base?.children ?? [], mine: mine.children, theirs: theirs.children },
       context,
     );
-    return { ...(own as object), content: children } as Merged;
+    return withMergedChildren(own as Merged, children);
   }
-  context.conflicts.push({
-    id: mine.key,
-    mine: mine.value as StoredNode,
-    theirs: theirs.value as StoredNode,
-  });
-  return mine.value;
+  const kept = withoutMoved(mine, context);
+  const other = withoutMoved(theirs, context);
+  if (kept || other) {
+    context.conflicts.push({ id: mine.key, mine: kept as StoredNode, theirs: other as StoredNode });
+  }
+  return kept ?? other;
 }
 
 // The three versions of one element, null where a version does not hold it.
@@ -180,15 +186,11 @@ interface Versions {
 // its versions wherever each holds them; in any other container it is left out. Read container by
 // container it would be deleted in one and new in the other, and kept in both once the other side
 // changed it. A block the other side holds no more stays where it was moved, as a new block does.
-function versionsAt(here: Versions, key: string, { places }: MergeContext): Versions | null {
-  const base = places.base.get(key);
+function versionsAt(here: Versions, key: string, context: MergeContext): Versions | null {
+  const { places } = context;
   const isSection = [here.base, here.mine, here.theirs].some((each) => each?.section);
-  if (!base || isSection) return here;
-  const movedBy = (side: 'mine' | 'theirs') => {
-    const place = places[side].get(key);
-    return place !== undefined && place.parent !== base.parent;
-  };
-  const mover = (['mine', 'theirs'] as const).find(movedBy);
+  if (isSection) return here;
+  const mover = movedBy(key, context);
   if (!mover) return here;
   if (!here[mover]) return null;
   if (!places[mover === 'mine' ? 'theirs' : 'mine'].has(key)) return here;
@@ -207,8 +209,8 @@ function mergeElement(versions: Versions, context: MergeContext): Merged | null 
   // A container merges child by child even when one side left it as it was: a block the other
   // side moved into it brings along what the first changed in it, in its old container.
   if (mine.children && theirs.children) return mergeBothChanged({ base, mine, theirs }, context);
-  if (base && same(base.value, theirs.value)) return mine.value;
-  if (base && same(base.value, mine.value)) return theirs.value;
+  if (base && same(base.value, theirs.value)) return mergeRetained(mine, 'mine', context);
+  if (base && same(base.value, mine.value)) return mergeRetained(theirs, 'theirs', context);
   return mergeBothChanged({ base, mine, theirs }, context);
 }
 

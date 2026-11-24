@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TemplateFile } from '../model/index.js';
-import { servedTemplate } from './served-template.js';
+import { renameTemplateFonts, servedTemplate } from './served-template.js';
 
 const template = {
   styles: {
@@ -20,6 +20,15 @@ describe('servedTemplate', () => {
       codeBlock: { background: '#eee', font: 'Lab Mono' },
     });
     expect(drawn.sections?.[0]?.styles).toEqual({ paragraph: { font: 'Lab Mono' } });
+  });
+
+  it('DOCE-PAGINATION-12.5 DOCE-PAGINATION-12.8 resolves and aliases families within a stack in order', () => {
+    const styles = { paragraph: { font: 'A Family, "Another, Face", serif' } };
+    const served = servedTemplate({ ...template, styles }, { serif: 'Lab Serif' });
+    const aliased = renameTemplateFonts(served, (font) =>
+      font === 'A Family' ? 'A Family de-2' : font,
+    );
+    expect(aliased.styles?.paragraph?.font).toBe('A Family de-2, "Another, Face", Lab Serif');
   });
 
   it('DOCE-PAGINATION-12.5 keeps a generic no family is served for, and the template without any', () => {

@@ -1,12 +1,15 @@
-import type * as Y from '@y/y';
+import * as Y from '@y/y';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { createSessionRooms, type SessionRooms } from '../../test/session-rooms.js';
+import { documentToYjs } from '../collab/convert.js';
 import { readContent } from '../collab/delta.js';
 import { openRoomChangeGuard } from '../collab/room-change-guard.js';
 import { createMemoryHost } from '../host/memory-host.js';
+import type { RoomReload } from '../host/session-adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import {
   createDocumentSession,
@@ -87,6 +90,43 @@ function openAs(person: string, onRoomReload?: (reload: RoomReloadNotice) => voi
   return session;
 }
 
+// A connection that swaps its Y.Doc and notifies anyone already following reloads.
+function replaceable(room: SessionRooms) {
+  const adapter = room.adapter('ada');
+  const connect = adapter.connect.bind(adapter);
+  let replay: ((reload: RoomReload<Y.Doc>) => void) | undefined;
+  let replacement: Y.Doc | null = null;
+  adapter.connect = async (...args) => {
+    const opened = await connect(...args);
+    if (!opened.ok) return opened;
+    return {
+      ok: true,
+      value: {
+        ...opened.value,
+        get doc() {
+          return replacement ?? opened.value.doc;
+        },
+        onReload: (onReload) => {
+          replay = onReload;
+          return () => {
+            replay = undefined;
+          };
+        },
+      },
+    };
+  };
+  return {
+    adapter,
+    reload: (doc: Y.Doc) => {
+      const previous = replacement ?? room.providerOf('ada')?.doc;
+      if (!previous) throw new Error('The room did not open.');
+      replacement = doc;
+      replay?.({ reason: 'conflict', doc, previous });
+      return previous;
+    },
+  };
+}
+
 const stateOf = (session: DocumentSession) => {
   const document = session.document.get();
   if (!document) throw new Error('The session has no document.');
@@ -132,6 +172,122 @@ const roomText = (room: SessionRooms) => {
 };
 
 describe('a room that refuses a change for its merge', () => {
+  it('DOCE-SESSION-3.2 opens the replacement room when its first template load was still pending', async () => {
+    const original = { id: 'memo', revision: 'rev-1' };
+    const replacement = { id: 'letter', revision: 'rev-1' };
+    rooms = createSessionRooms({
+      documents: [{ id: 'doc', content: { ...DOCUMENT, template: original } }],
+    });
+    const { adapter, reload } = replaceable(rooms);
+    const templates = [
+      { formatVersion: 1 as const, id: original.id },
+      { formatVersion: 1 as const, id: replacement.id, page: { size: 'US Letter' as const } },
+    ];
+    const host = createMemoryHost({ templates });
+    const load = host.templates.load.bind(host.templates);
+    const asked = deferred<void>();
+    const finish = deferred<void>();
+    host.templates.load = async (...args) => {
+      if (args[0] === original.id) {
+        asked.resolve(undefined);
+        await finish.promise;
+      }
+      return load(...args);
+    };
+    const session = createDocumentSession({
+      host: { ...host, collaboration: adapter },
+      documentId: 'doc',
+      mode: 'room',
+    });
+    sessions.push(session);
+    await asked.promise;
+    const shared = new Y.Doc();
+    Y.applyUpdate(
+      shared,
+      documentToYjs(
+        {
+          ...DOCUMENT,
+          template: replacement,
+          sections: [{ content: [paragraph('a0000001', 'Replacement')] }],
+        },
+        { schema: documentSchema },
+      ),
+    );
+    const previous = reload(shared);
+    expect(session.document.get()).toBeNull();
+    finish.resolve(undefined);
+
+    expect(await session.ready).toBe(true);
+    expect(textOf(stateOf(session))).toBe('Replacement');
+    expect(session.document.get()).toMatchObject({
+      pin: replacement,
+      template: { id: replacement.id, page: { size: 'US Letter' } },
+    });
+    session.update((state) => state.apply(state.tr.insertText('New ')));
+    expect(readContent(documentSchema, shared.get('content'))?.textContent).toBe('New Replacement');
+    expect(readContent(documentSchema, previous.get('content'))?.textContent).toBe('IntroOneTwo');
+    session.close();
+    shared.destroy();
+  });
+
+  it('DOCE-SESSION-3.11 DOCE-SESSION-1.5 reloads content under the replacement room’s pin and follows it', async () => {
+    const old = { formatVersion: 1 as const, id: 'memo', page: { size: 'A4' as const } };
+    const next = { formatVersion: 1 as const, id: 'letter', page: { size: 'US Letter' as const } };
+    const original = { ...DOCUMENT, template: { id: old.id, revision: 'rev-1' } };
+    rooms = createSessionRooms({ documents: [{ id: 'doc', content: original }] });
+    const { adapter, reload } = replaceable(rooms);
+    const host = createMemoryHost({ templates: [old, next] });
+    const templates = host.templates;
+    if (!templates) throw new Error('The host has no templates.');
+    const load = templates.load.bind(templates);
+    const held: (() => void)[] = [];
+    templates.load = async (...args) => {
+      if (args[0] === next.id) await new Promise<void>((resolve) => held.push(resolve));
+      return load(...args);
+    };
+    const session = createDocumentSession({
+      host: { ...host, collaboration: adapter },
+      documentId: 'doc',
+      mode: 'room',
+    });
+    sessions.push(session);
+    expect(await session.ready).toBe(true);
+    expect((await templates.save(old.id, { template: old, baseRevision: 'rev-1' })).ok).toBe(true);
+    expect(session.document.get()?.templateUpdate).not.toBeNull();
+
+    const template = { id: next.id, revision: 'rev-1' };
+    const update = documentToYjs(
+      {
+        ...DOCUMENT,
+        template,
+        sections: [{ content: [paragraph('a0000001', 'Replacement')] }],
+      },
+      { schema: documentSchema },
+    );
+    const shared = new Y.Doc();
+    Y.applyUpdate(shared, update);
+    reload(shared);
+    expect(plainText(stateOf(session).doc)).not.toContain('Replacement');
+    expect(session.document.get()?.editingMode).toBe('read');
+    held.shift()?.();
+    await vi.waitFor(() => expect(session.reloads.get()?.reason).toBe('conflict'));
+    expect(plainText(stateOf(session).doc)).toBe('Replacement');
+    expect(session.document.get()).toMatchObject({
+      pin: template,
+      template: { id: next.id, page: next.page },
+      templateUpdate: null,
+      editingMode: 'edit',
+    });
+    const saved = await templates.save(next.id, { template: next, baseRevision: 'rev-1' });
+    if (!saved.ok) throw new Error('The template could not be saved.');
+    expect(session.document.get()?.templateUpdate).toEqual({
+      revision: saved.value.revision,
+      sequence: saved.value.sequence,
+    });
+    session.close();
+    shared.destroy();
+  });
+
   it('DOCE-SESSION-3.11 DOCE-COLLAB-7.4 shows the room’s content again, keeps the caret and the connection, and tells the host', async () => {
     const room = guardedRooms();
     const reloads: RoomReloadNotice[] = [];

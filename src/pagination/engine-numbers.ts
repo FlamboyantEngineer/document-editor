@@ -9,9 +9,9 @@ import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
-import { DEFAULT_CONTENTS_KINDS } from '../model/contents/contents-kinds.js';
 import { catalogDocument } from '../model/contents/document-catalog.js';
 import type { TemplateFile } from '../model/format/template-format.js';
+import { trackTableHeaderCopies } from '../model/pagination/table-header-copies.js';
 import { CAPTION_HOLDER_TYPES, isCaptionNode } from '../model/schema/caption-content.js';
 import { isContinued } from './block-directions.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -24,7 +24,7 @@ interface ObjectNumbers {
   readonly equations: readonly string[];
 }
 
-const EQUATIONS = { equations: DEFAULT_CONTENTS_KINDS.equations };
+const EQUATIONS = { equations: { nodes: ['math_display'] } };
 
 const idOf = (node: ProseMirrorNode | null | undefined) => {
   const id = node?.attrs.dataId as unknown;
@@ -56,6 +56,33 @@ export function objectNumbers(doc: ProseMirrorNode, template: TemplateFile): Obj
 
 const css = (value: string) => `"${value.replace(/["\\]/gu, (char) => `\\${char}`)}"`;
 
+const unnumberedRegions = new Set(['page_header', 'page_footer', 'page_footnotes']);
+
+// Only the occurrence in the body takes a number. A repeated row draws that same number at its
+// corresponding offset and does not consume the next equation's number.
+function drawingEquations(doc: ProseMirrorNode, equations: readonly string[]) {
+  const headerCopy = trackTableHeaderCopies();
+  const originals = new Map<number, string>();
+  let repeated: { start: number; end: number; original: number } | null = null;
+  let equation = 0;
+  return (node: ProseMirrorNode, pos: number, parent: ProseMirrorNode | null) => {
+    if (repeated && pos >= repeated.end) repeated = null;
+    if (!repeated) {
+      const original = headerCopy(node, parent, pos);
+      if (original !== null) repeated = { start: pos, end: pos + node.nodeSize, original };
+    }
+    if (node.type.name !== 'math_display') return undefined;
+    if (repeated) return originals.get(repeated.original + pos - repeated.start);
+    const at = doc.resolve(pos);
+    for (let depth = at.depth; depth > 0; depth -= 1) {
+      if (unnumberedRegions.has(at.node(depth).type.name)) return undefined;
+    }
+    const value = equations[equation++];
+    if (value) originals.set(pos, value);
+    return value;
+  };
+}
+
 // The decorations drawing a page document's numbers: a heading's as `data-number`, a caption's and
 // an equation's as `--de-number`, which the stylesheet's generated content reads. Each says its
 // number in its spec, for what draws the pages without a view (`pagesLayout`).
@@ -65,7 +92,7 @@ function numberDecorations(
   objects: ObjectNumbers,
 ): DecorationSet {
   const found: Decoration[] = [];
-  let equation = 0;
+  const equation = drawingEquations(doc, objects.equations);
   const number = (pos: number, node: ProseMirrorNode, value: string) =>
     found.push(
       Decoration.node(
@@ -76,6 +103,7 @@ function numberDecorations(
       ),
     );
   doc.descendants((node, pos, parent) => {
+    const equationNumber = equation(node, pos, parent);
     if (node.type.name === 'heading') {
       const value = isContinued(node) ? '' : (headings.get(pos) ?? '');
       found.push(
@@ -89,9 +117,7 @@ function numberDecorations(
       return false;
     }
     if (node.type.name === 'math_display') {
-      const value = objects.equations[equation];
-      equation += 1;
-      if (value) number(pos, node, value);
+      if (equationNumber) number(pos, node, equationNumber);
       return false;
     }
     const caption = isCaptionNode(node) || node.type.name === 'linked_code_block';

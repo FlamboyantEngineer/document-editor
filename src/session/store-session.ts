@@ -22,12 +22,13 @@ import { createSessionDrafts } from './drafts.js';
 import type { MergeConflict } from './merge.js';
 import {
   loadPinnedTemplate,
+  openCurrentDocument,
   type OpenedDocument,
   openStoredDocument,
   readStored,
 } from './open-document.js';
 import { createPendingEdits } from './pending-edits.js';
-import { followSession } from './session-follow.js';
+import { followSession, withCapabilities } from './session-follow.js';
 import type { SessionStatus } from './status.js';
 import { createStoreRefresh } from './store-refresh.js';
 import { createStoreSaving, storeBaseline } from './store-saving.js';
@@ -91,7 +92,7 @@ export function createSessionStores(
   let loaded: TemplateFile | null = null;
   const context: SessionStateContext = {
     template: () => {
-      const template = document.get()?.template ?? loaded;
+      const template = loaded ?? document.get()?.template;
       if (!template) throw new Error('The session has no template yet.');
       return template;
     },
@@ -104,8 +105,14 @@ export function createSessionStores(
     const shown = document.get();
     return shown ? { doc: shown.state.doc, pin: shown.pin } : null;
   };
-  const setLoaded = (template: TemplateFile) => {
+  const withTemplate = <T>(template: TemplateFile, build: () => T): T => {
+    const previous = loaded;
     loaded = template;
+    try {
+      return build();
+    } finally {
+      loaded = previous;
+    }
   };
   return {
     status,
@@ -115,7 +122,7 @@ export function createSessionStores(
     reloads,
     context,
     current,
-    setLoaded,
+    withTemplate,
     pending,
   };
 }
@@ -131,7 +138,15 @@ const templateAsks = new WeakMap<SessionStores, number>();
  * another change was asked for since, whichever load ends first.
  */
 export async function changeTemplate(
-  { host, signal }: { host: DocumentSessionOptions['host']; signal: AbortSignal },
+  {
+    host,
+    signal,
+    isCurrent,
+  }: {
+    host: DocumentSessionOptions['host'];
+    signal: AbortSignal;
+    isCurrent?: () => boolean;
+  },
   stores: SessionStores,
   pin: TemplatePin | null,
 ) {
@@ -139,10 +154,10 @@ export async function changeTemplate(
   const ask = (templateAsks.get(stores) ?? 0) + 1;
   templateAsks.set(stores, ask);
   const loaded = await loadPinnedTemplate(host, pin, signal);
-  if (templateAsks.get(stores) !== ask) return null;
+  if (signal.aborted || templateAsks.get(stores) !== ask || isCurrent?.() === false) return null;
   const shown = document.get();
   if (!loaded.ok) status.set({ ...status.get(), error: loaded.error });
-  if (!loaded.ok || !shown || signal.aborted) return null;
+  if (!loaded.ok || !shown) return null;
   document.set({ ...shown, template: loaded.value.template, pin, templateUpdate: null });
   return { doc: shown.state.doc, saved: loaded.value.saved };
 }
@@ -156,6 +171,7 @@ function sessionParts(
     signal: AbortSignal;
     session: () => DocumentSession;
     saving: () => StoreSaving | null;
+    followTemplate: ReturnType<typeof followSession>['followTemplate'];
   },
 ) {
   const { schema } = options;
@@ -168,7 +184,14 @@ function sessionParts(
     setTemplate: (pin) => parts.session().setTemplate(pin),
     saving,
   });
-  const refresh = createStoreRefresh({ ...options, ...stores, schema, signal, saving });
+  const refresh = createStoreRefresh({
+    ...options,
+    ...stores,
+    schema,
+    signal,
+    saving,
+    followTemplate: parts.followTemplate,
+  });
   return { drafts, refresh };
 }
 
@@ -198,6 +221,57 @@ const storePause = (
   resume: () => Promise.resolve(!signal.aborted),
 });
 
+interface StoreLoad {
+  signal: AbortSignal;
+  drafts: ReturnType<typeof createSessionDrafts>;
+  refresh: ReturnType<typeof createStoreRefresh>;
+  follow: ReturnType<typeof followSession>;
+  setSaving: (saver: StoreSaving) => void;
+}
+
+async function loadStore(
+  options: DocumentSessionOptions & { schema: Schema },
+  stores: SessionStores,
+  { drafts, refresh, follow, signal, setSaving }: StoreLoad,
+): Promise<boolean> {
+  const { host, documentId } = options;
+  const { status, document, context } = stores;
+  const opened = await openCurrentDocument(
+    () => openStoredDocument(host, documentId, signal),
+    refresh.hasNewer,
+    drafts.load,
+  );
+  if (signal.aborted) return false;
+  const read = opened.ok
+    ? stores.withTemplate(opened.value.template.template, () =>
+        readOpened(opened.value, { ...options, context }),
+      )
+    : opened;
+  if (!read.ok || !opened.ok) {
+    status.set({ ...status.get(), load: 'failed', error: read.ok ? null : read.error });
+    return false;
+  }
+  setSaving(
+    createStoreSaving(
+      {
+        host,
+        documentId,
+        status,
+        current: stores.current,
+        autosaveDelay: options.autosaveDelay ?? DEFAULT_AUTOSAVE_DELAY,
+        onConflict: refresh.onConflict,
+      },
+      storeBaseline(read.value.state.doc, opened.value.stored),
+    ),
+  );
+  document.set(withCapabilities(read.value, follow.granted(opened.value.capabilities)));
+  follow.followTemplate(read.value.pin, opened.value.template.saved);
+  if (refresh.hasNewer(opened.value.stored.sequence)) await refresh.takeLatest();
+  if (signal.aborted) return false;
+  status.set({ ...status.get(), load: 'ready' });
+  return true;
+}
+
 /** Opens a document from the host's document store (DOCE-SESSION-1, DOCE-SESSION-2). */
 export function createStoreSession(options: DocumentSessionOptions): DocumentSession {
   const { host, documentId } = options;
@@ -210,47 +284,18 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     signal: controller.signal,
     session: () => session,
     saving: () => saving,
+    followTemplate: (pin, saved) => follow.followTemplate(pin, saved),
   });
-  const onLeave = () => void saving?.flush();
-  const follow = followSession({ host, documentId, document, onLeave });
+  const follow = followSession({ host, documentId, document, onLeave: () => void saving?.flush() });
 
-  const load = async () => {
-    const opened = await openStoredDocument(host, documentId, controller.signal);
-    if (opened.ok) await drafts.load(opened.value.stored);
-    if (controller.signal.aborted) return false;
-    const context = stores.context;
-    if (opened.ok) stores.setLoaded(opened.value.template.template);
-    const read = opened.ok ? readOpened(opened.value, { ...options, schema, context }) : opened;
-    if (!read.ok || !opened.ok) {
-      status.set({ ...status.get(), load: 'failed', error: read.ok ? null : read.error });
-      return false;
-    }
-    document.set(read.value);
-    const autosaveDelay = options.autosaveDelay ?? DEFAULT_AUTOSAVE_DELAY;
-    saving = createStoreSaving(
-      {
-        host,
-        documentId,
-        status,
-        current: stores.current,
-        autosaveDelay,
-        onConflict: refresh.onConflict,
-      },
-      storeBaseline(read.value.state.doc, opened.value.stored),
-    );
-    follow.followTemplate(read.value.pin, opened.value.template.saved);
-    stopRefresh = refresh.follow();
-    status.set({ ...status.get(), load: 'ready' });
-    return true;
-  };
+  const stopRefresh = options.signal?.aborted ? () => undefined : refresh.follow();
 
-  let stopRefresh = () => undefined as void;
   const close = () => {
     options.signal?.removeEventListener('abort', close);
+    drafts.close();
     controller.abort();
     stopRefresh();
     saving?.close();
-    drafts.close();
     follow.stop();
   };
   // A signal aborted before the session was made closes it at once, before it opens anything.
@@ -261,7 +306,17 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     documentId,
     mode: 'store',
     ...{ status, document, conflicts, connection: stores.connection, reloads: stores.reloads },
-    ready: controller.signal.aborted ? Promise.resolve(false) : load(),
+    ready: controller.signal.aborted
+      ? Promise.resolve(false)
+      : loadStore({ ...options, schema }, stores, {
+          drafts,
+          refresh,
+          follow,
+          signal: controller.signal,
+          setSaving: (saver) => {
+            saving = saver;
+          },
+        }),
     update: (update) => commitState({ document, saving }, update),
     setTemplate: async (pin) => {
       const changed = await changeTemplate({ host, signal: controller.signal }, stores, pin);

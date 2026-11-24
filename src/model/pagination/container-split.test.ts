@@ -1,4 +1,5 @@
-import type { Node } from 'prosemirror-model';
+import { Fragment, type Node } from 'prosemirror-model';
+import { TableMap } from 'prosemirror-tables';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import {
@@ -8,6 +9,7 @@ import {
   LAYOUT_RULES,
   type LayoutBlock,
   layoutNextPage,
+  readDocumentFile,
   splitContainer,
   type SplitContext,
   splitLayoutSection,
@@ -15,7 +17,9 @@ import {
   splitListItem,
   splitTableWith,
   type TextMeasurement,
+  writeStoredContent,
 } from '../index.js';
+import { firstRowColumnWidths } from '../schema/object-layout.js';
 import { splitTableFigureWith } from './table-split.js';
 
 const context: SplitContext = {
@@ -173,6 +177,49 @@ describe('container splits', () => {
     expect(createLayoutRules({ repeatTableHeader: false }).table?.split).toBeTypeOf('function');
   });
 
+  it('DOCE-PAGINATION-4.5 keeps the continuation grid when a header cell spans into the body', () => {
+    const cell = (text: string, type = 'table_cell', rowspan = 1) =>
+      node(type, { rowspan, colwidth: text === 'A' ? [100] : null }, [paragraph(text)]);
+    const row = (...cells: Node[]) => node('table_row', null, cells);
+    const table = node('table', { dataId: 't1' }, [
+      row(cell('A', 'table_header', 2), cell('B', 'table_header')),
+      row(cell('C')),
+      row(cell('D', 'table_header'), cell('E', 'table_header')),
+      row(cell('F'), cell('G')),
+    ]);
+    const figure = node('table_figure', { dataId: 'figure1' }, [
+      node('table_caption', null, [documentSchema.text('Spanning table')]),
+      table,
+    ]);
+    const block = {
+      ...measured(figure, 92, rows(4, 20)),
+      measurement: { children: rows(4, 20), caption: 12 },
+    };
+    const split = splitTableFigureWith(true)(block, 52);
+    const head = split?.head.node;
+    const tail = split?.tail[0]?.node;
+    if (!head?.lastChild || !tail?.lastChild) throw new Error('Expected two table fragments');
+    expect(TableMap.get(head.lastChild)).toMatchObject({ width: 2, height: 2, problems: null });
+    expect(TableMap.get(tail.lastChild)).toMatchObject({ width: 2, height: 2, problems: null });
+    expect(tail.textBetween(0, tail.content.size)).toBe('DEFG');
+    expect(tail.firstChild?.attrs.continuedText).toBeNull();
+    expect(split?.tail[0]?.height).toBe(40);
+    const again = split?.tail[0] ? splitTableFigureWith(true)(split.tail[0], 20) : null;
+    expect(again?.head.height).toBe(20);
+    expect(again?.tail[0]?.height).toBe(20);
+    expect(again?.tail[0]?.node.firstChild?.attrs.continuedText).toBeNull();
+    expect(firstRowColumnWidths(tail.lastChild)).toEqual([100, 0]);
+    expect(tail.lastChild.firstChild?.firstChild?.attrs.colwidth).toBeNull();
+    const [stored] = writeStoredContent(Fragment.from(tail));
+    if (!stored) throw new Error('Expected a stored table');
+    expect(stored.attrs).not.toHaveProperty('projectedColumnWidths');
+    const supplied = { ...stored, attrs: { ...stored.attrs, projectedColumnWidths: [2, 2] } };
+    expect(() =>
+      readDocumentFile({ formatVersion: 1, sections: [{ content: [supplied] }] }, documentSchema),
+    ).toThrow(/projectedColumnWidths/u);
+    expect(joinFragments([head, tail])[0]?.eq(figure)).toBe(true);
+  });
+
   it('DOCE-PAGINATION-4.5 splits a table with its caption, a later part repeating its text, and joins it back', () => {
     const row = (cell: string, text: string) =>
       node('table_row', null, [node(cell, null, [paragraph(text)])]);
@@ -192,16 +239,17 @@ describe('container splits', () => {
       expect([head?.attrs.splitPartIndex, tail?.attrs.splitPartIndex]).toEqual([0, 1]);
       expect(head?.firstChild).toBe(caption);
       expect(head?.lastChild?.attrs.splitPartIndex).toBe(0);
-      // The later part's caption is empty, showing the caption's text, and carries no id.
-      expect(tail?.firstChild?.attrs).toMatchObject({ continuedText: 'Totals', dataId: null });
+      expect(tail?.firstChild?.attrs).toMatchObject({
+        continuedText: repeat ? 'Totals' : null,
+        dataId: null,
+      });
       expect(tail?.firstChild?.content.size).toBe(0);
       expect(tail?.lastChild?.textContent).toBe(repeat ? 'NameTwoThree' : 'TwoThree');
       const [joined] = joinFragments([head, tail].filter((part): part is Node => Boolean(part)));
       expect(joined?.eq(figure)).toBe(true);
-      // A later part split again repeats the caption's text too.
       const again = split?.tail[0];
       const last = again ? splitTableFigureWith(repeat)(again, 40)?.tail[0]?.node : undefined;
-      expect(last?.firstChild?.attrs.continuedText).toBe('Totals');
+      expect(last?.firstChild?.attrs.continuedText).toBe(repeat ? 'Totals' : null);
     }
     expect(createLayoutRules().table_figure?.split).toBeTypeOf('function');
   });

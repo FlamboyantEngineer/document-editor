@@ -57,10 +57,12 @@ export interface Mirrored {
   readonly map: ProjectionMap;
 }
 
-function sameRanges(left: StepMap, right: StepMap): boolean {
+// A mirror recovers offsets inside the new ranges. A browser step can remove page wrappers
+// along with the old text while its canonical step inserts the same content.
+function sameInsertions(left: StepMap, right: StepMap): boolean {
   const sizes = (map: StepMap) => {
     const all: number[] = [];
-    map.forEach((...ends) => all.push(ends[1] - ends[0], ends[3] - ends[2]));
+    map.forEach((...ends) => all.push(ends[3] - ends[2]));
     return all.join(',');
   };
   return sizes(left) === sizes(right);
@@ -106,7 +108,7 @@ function mapFrom(
       const before = edit.projectionStep.getMap();
       const after = edit.canonicalStep.getMap();
       return extended(
-        { before: before.invert(), after, mirror: sameRanges(before, after) },
+        { before: before.invert(), after, mirror: sameInsertions(before, after) },
         { projection: edit.projection, canonical: edit.canonical },
       );
     },

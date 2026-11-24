@@ -101,6 +101,41 @@ const storedText = async (host: EditorHost) => {
 };
 
 describe('store-mode merges', () => {
+  it('DOCE-SESSION-4.1 saves the reader’s edit inside the new section another writer moved it to', async () => {
+    const host = hostWithoutFeed();
+    const session = open(host);
+    await session.ready;
+    typeAt(session, 'First', ', mine');
+    const content = {
+      ...DOCUMENT,
+      sections: [
+        { name: null, content: [paragraph('a0000002', 'Second')] },
+        { id: 's0000002', name: 'New section', content: [paragraph('a0000001', 'First')] },
+      ],
+    };
+    expect(await host.documents.save('doc', { content, baseRevision: 'rev-1' })).toMatchObject({
+      ok: true,
+    });
+    expect(await session.flush()).toBe(true);
+    expect(session.conflicts.get()).toEqual([]);
+    const reopened = open(host);
+    expect(await reopened.ready).toBe(true);
+    expect(paragraphs(reopened)).toEqual(['Second', 'First, mine']);
+    expect(await host.documents.load('doc')).toMatchObject({
+      ok: true,
+      value: {
+        content: {
+          sections: [
+            { name: null },
+            { name: 'New section', content: [{ content: [{ text: 'First, mine' }] }] },
+          ],
+        },
+      },
+    });
+    session.close();
+    reopened.close();
+  });
+
   it('DOCE-SESSION-4.1 merges a conflicting save that changed other blocks, without a prompt', async () => {
     const host = hostWithoutFeed();
     const session = open(host);
@@ -227,6 +262,42 @@ describe('store-mode merges', () => {
     await vi.waitFor(() => expect(session.conflicts.get()).toEqual([]));
     expect(session.status.get()).toMatchObject({ error: null, dirty: false });
   });
+});
+
+it('DOCE-SESSION-1.5 DOCE-SESSION-7.1 follows the template a remote save pinned', async () => {
+  const old = { formatVersion: 1 as const, id: 'memo', page: { size: 'A4' as const } };
+  const next = { formatVersion: 1 as const, id: 'letter', page: { size: 'US Letter' as const } };
+  const host = createMemoryHost({
+    documents: [
+      { id: 'doc', content: { ...DOCUMENT, template: { id: old.id, revision: 'rev-1' } } },
+    ],
+    templates: [old, next],
+  });
+  const templates = host.templates;
+  if (!templates) throw new Error('The host has no templates.');
+  const session = open(host);
+  expect(await session.ready).toBe(true);
+  const newerOld = await templates.save(old.id, { template: old, baseRevision: 'rev-1' });
+  expect(newerOld.ok).toBe(true);
+  expect(session.document.get()?.templateUpdate).not.toBeNull();
+
+  const template = { id: next.id, revision: 'rev-1' };
+  await saveAsAnotherWriter(host, { id: 'a0000001', text: 'First, changed', template });
+  await vi.waitFor(() =>
+    expect(session.document.get()).toMatchObject({
+      pin: template,
+      template: { id: next.id, page: next.page },
+      templateUpdate: null,
+    }),
+  );
+  expect(paragraphs(session)).toEqual(['First, changed', 'Second']);
+  const newRevision = await templates.save(next.id, { template: next, baseRevision: 'rev-1' });
+  if (!newRevision.ok) throw new Error('The template could not be saved.');
+  expect(session.document.get()?.templateUpdate).toEqual({
+    revision: newRevision.value.revision,
+    sequence: newRevision.value.sequence,
+  });
+  session.close();
 });
 
 describe('store-mode refresh', () => {

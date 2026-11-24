@@ -66,7 +66,7 @@ export function useFindBar(
     if (!find) return null;
     const scope = find === 'pane' ? 'pane' : 'find';
     return (mode: FindBarMode = 'find') => {
-      // With `find: 'pane'` the side panel's search pane takes the request, while one holds it.
+      // With `find: 'pane'` a side panel takes the request when it can show the search pane.
       if (scope === 'pane' && !panes.focusSearch(mode)) return false;
       const seed = view ? searchSeed(view.state) : null;
       if (view && seed) {

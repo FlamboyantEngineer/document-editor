@@ -57,6 +57,47 @@ test.describe('side panels lab', () => {
     await expect(navigation(page).getByRole('textbox', { name: /replace/i })).toBeFocused();
   });
 
+  test('DOCE-SEARCH-2.2 leaves find to the browser until the search panel has room', async ({
+    lab,
+    page,
+  }) => {
+    await page.setViewportSize({ width: 760, height: 800 });
+    await lab.open('panels');
+    const usePane = page.getByLabel('Find keys open the search pane');
+    await usePane.focus();
+    await page.keyboard.press('Space');
+    await expect(usePane).toBeChecked();
+    const panel = navigation(page);
+    const doc = page.getByRole('textbox', { name: 'Sample document' });
+    await expect(panel).toHaveAttribute('data-collapse-forced', 'true');
+    const handled: boolean[] = [];
+    await page.exposeFunction('recordFindKey', (prevented: boolean) => {
+      handled.push(prevented);
+    });
+    await doc.evaluate((element) => {
+      element.ownerDocument.addEventListener('keydown', (event) => {
+        if (event.key !== 'f' || !(event.ctrlKey || event.metaKey)) return;
+        const record = (
+          window as typeof window & {
+            recordFindKey?: (prevented: boolean) => Promise<void>;
+          }
+        ).recordFindKey;
+        void record?.(event.defaultPrevented);
+      });
+    });
+    await doc.focus();
+    await page.keyboard.press('ControlOrMeta+f');
+    await expect.poll(() => handled).toEqual([false]);
+    await expect(panel.getByRole('searchbox')).toHaveCount(0);
+
+    await page.setViewportSize({ width: 1450, height: 800 });
+    await expect(panel).not.toHaveAttribute('data-collapse-forced');
+    await expect(doc).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+f');
+    await expect.poll(() => handled).toEqual([false, true]);
+    await expect(panel.getByRole('searchbox')).toBeFocused();
+  });
+
   test('DOCE-LABS-3.6 remembers the panel left to itself across reloads', async ({ lab, page }) => {
     await lab.open('panels');
     await page.getByLabel('Controlled by the host').uncheck();

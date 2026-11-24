@@ -15,6 +15,8 @@ const paragraph = (text: string): StoredNode => ({
   content: text ? [{ type: 'text', text }] : [],
 });
 
+const textOf = (state: EditorState) => state.doc.textBetween(0, state.doc.content.size);
+
 // The state with the caret at the end of the first text block.
 function atFirstEnd(state: EditorState): EditorState {
   let end = -1;
@@ -68,9 +70,29 @@ describe('the content limit', () => {
   it('DOCE-EDITING-10.2 limits the characters', () => {
     const plugins = createDocumentEditing(documentSchema, { limit: { characters: 5 } });
     const state = atFirstEnd(EditorState.create({ doc: docOf(paragraph('abcd')), plugins }));
-    const textOf = (next: EditorState) => next.doc.textBetween(0, next.doc.content.size);
     expect(textOf(state.apply(state.tr.insertText('e')))).toBe('abcde');
     expect(textOf(state.apply(state.tr.insertText('ef')))).toBe('abcd');
+  });
+
+  it('DOCE-EDITING-10.2 checks the word count even when replacing text of the same or shorter length', () => {
+    const plugins = createDocumentEditing(documentSchema, { limit: { words: 1 } });
+    const state = atFirstEnd(EditorState.create({ doc: docOf(paragraph('abcde')), plugins }));
+    const end = state.selection.from;
+    const splitWord = (to: number) => state.tr.insertText(' ', end - 3, to);
+    expect(textOf(state.apply(splitWord(end - 2)))).toBe('abcde');
+    expect(textOf(state.apply(splitWord(end - 1)))).toBe('abcde');
+    expect(textOf(state.apply(markRemote(splitWord(end - 1))))).toBe('ab e');
+  });
+
+  it('DOCE-EDITING-10.2 checks each configured limit when a remote change is already over one', () => {
+    const plugins = createDocumentEditing(documentSchema, {
+      limit: { words: 1, characters: 9 },
+    });
+    const state = atFirstEnd(EditorState.create({ doc: docOf(paragraph('abcde')), plugins }));
+    const remote = state.apply(markRemote(state.tr.insertText(' fg')));
+    expect(textOf(remote.apply(remote.tr.insertText('h')))).toBe('abcde fgh');
+    expect(textOf(remote.apply(remote.tr.insertText('hi')))).toBe('abcde fg');
+    expect(textOf(remote.apply(remote.tr.insertText(' h')))).toBe('abcde fg');
   });
 });
 

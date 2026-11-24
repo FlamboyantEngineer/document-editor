@@ -1,11 +1,12 @@
 // A paragraph's inline content as Markdown: text in its formats and link, line breaks, math,
 // footnote references, abbreviations, mentions, variables and images.
 
+import { joinText } from '../../../import/stored-inline.js';
 import { storedCaptionOf } from '../../schema/caption-content.js';
 import { safeHref } from '../../schema/dom-attributes.js';
 import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
-import { assetAddress, variableText } from '../writer-values.js';
+import { assetAddress } from '../writer-values.js';
 import { codeSpan, escapeText, linkAddress, linkTitle, mathText } from './escape.js';
 import { text, type Writing } from './writing.js';
 
@@ -38,9 +39,14 @@ function marksOf(node: StoredNode, writing: Writing): readonly StoredMark[] {
   return [...marks.filter((mark) => !FORMATS.has(mark.type)), ...before];
 }
 
+const writtenMarks = (node: StoredNode, writing: Writing) =>
+  marksOf(node, writing).filter(
+    (mark) => FORMATS.has(mark.type) || (mark.type === 'link' && safeHref(mark.attrs?.href)),
+  );
+
 // A text node's Markdown, in its marks and its link.
 function markedText(node: StoredNode, writing: Writing): string {
-  const marks = marksOf(node, writing);
+  const marks = node.marks ?? [];
   const isCode = marks.some((mark) => mark.type === 'code');
   // The spaces at the edges stay outside the markers: `**Hello **world` is not emphasis. Code
   // keeps its own spaces.
@@ -81,9 +87,10 @@ function mathOf(node: StoredNode, writing: Writing): string {
 // A variable as the text the host gives, escaped, or as its key in braces when it gives none,
 // which reads back as the variable.
 function variableOf(node: StoredNode, writing: Writing): string {
-  const value = variableText(node, writing.values);
-  const token = `{{${text(node.attrs?.key)}}}`;
-  return value === token && /^\{\{[\w.-]+\}\}$/.test(token) ? token : escapeText(value);
+  const key = text(node.attrs?.key);
+  const value = writing.values.variable?.(key);
+  const token = `{{${key}}}`;
+  return value == null && /^[\w.-]+$/.test(key) ? token : escapeText(value ?? token);
 }
 
 // An abbreviation as it shows: short, or its expansion with the short form after it.
@@ -96,7 +103,6 @@ function abbreviationOf(node: StoredNode): string {
 
 // An inline node's Markdown.
 function inlineOf(node: StoredNode, writing: Writing): string {
-  if (isLeftOut(node, writing.suggestions)) return '';
   switch (node.type) {
     case 'text':
       return markedText(node, writing);
@@ -108,7 +114,9 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'image':
       return imageOf(node, writing);
     case 'footnote': {
-      writing.footnotes.push(inlines(node.content, writing));
+      writing.footnotes.push(
+        inlines(node.content, { ...writing, inTable: false, inHeading: false }),
+      );
       return `[^${String(writing.footnotes.length)}]`;
     }
     case 'abbreviation':
@@ -119,15 +127,24 @@ function inlineOf(node: StoredNode, writing: Writing): string {
       return variableOf(node, writing);
     case 'embed_inline':
       // An inline embed is written as the text it shows, in the text style around it.
-      return markedText({ ...node, type: 'text', text: text(node.attrs?.text) }, writing);
+      return markedText(
+        { ...node, text: text(node.attrs?.text), marks: writtenMarks(node, writing) },
+        writing,
+      );
     default:
       return inlines(node.content, writing);
   }
 }
 
 /** Inline content as Markdown. */
-export const inlines = (content: readonly StoredNode[] | undefined, writing: Writing): string =>
-  (content ?? []).map((node) => inlineOf(node, writing)).join('');
+export function inlines(content: readonly StoredNode[] | undefined, writing: Writing): string {
+  const visible = (content ?? [])
+    .filter((node) => !isLeftOut(node, writing.suggestions))
+    .map((node) => (node.type === 'text' ? { ...node, marks: writtenMarks(node, writing) } : node));
+  return joinText(visible)
+    .map((node) => inlineOf(node, writing))
+    .join('');
+}
 
 // Stored inline content with every text in italics, as a caption is written.
 const italicized = (content: readonly StoredNode[]): StoredNode[] =>

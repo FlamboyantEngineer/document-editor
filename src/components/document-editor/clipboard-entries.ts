@@ -15,21 +15,22 @@ interface ClipboardEntriesOptions {
   readonly editable: boolean;
   /** Uploads pasted images, while the host stores assets. */
   readonly images?: FigurePasteOptions | null | undefined;
+  readonly isClipboardCurrent?: (() => boolean) | undefined;
 }
 
 const clipboardOf = (view: EditorView) =>
   view.dom.ownerDocument.defaultView?.navigator.clipboard ?? null;
 
 // Writes the selection to the clipboard as the editor copies it, both formats where the window's
-// clipboard takes them, and deletes it for a cut once the clipboard has it. A refused write copies
-// nothing and cuts nothing.
-async function copySelection(view: EditorView, cut: boolean): Promise<void> {
+// clipboard takes them. A cut deletes the range once it was copied and is still the edit target.
+async function copySelection(view: EditorView, canCut?: () => boolean): Promise<void> {
   const { dom, text } = view.serializeForClipboard(view.state.selection.content());
   const copied = await copyRichText(
     { text, html: dom.innerHTML },
     { owner: view.dom, clipboard: clipboardOf(view), fallback: false },
   );
-  if (cut && copied !== 'failed') view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
+  if (copied !== 'failed' && canCut?.())
+    view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
 }
 
 // A clipboard image as the file a paste would carry; the clipboard gives it no name.
@@ -55,25 +56,34 @@ async function clipboardContent(items: ClipboardItems): Promise<PastedContent> {
 // from the keyboard would, else its text.
 async function paste(
   view: EditorView,
-  { plain, images }: { plain: boolean; images: FigurePasteOptions | null },
+  {
+    plain,
+    images,
+    isCurrent,
+  }: {
+    plain: boolean;
+    images: FigurePasteOptions | null;
+    isCurrent: () => boolean;
+  },
 ): Promise<void> {
   const clipboard = clipboardOf(view);
   if (!clipboard) return;
   if (!plain && typeof clipboard.read === 'function') {
     const content = await clipboardContent(await clipboard.read());
-    if (view.isDestroyed || (images && pasteImages(view, content, images))) return;
+    if (!isCurrent() || (images && pasteImages(view, content, { ...images, isCurrent }))) return;
     if (content.html) {
       view.pasteHTML(content.html);
       return;
     }
   }
   const text = await clipboard.readText();
-  if (text && !view.isDestroyed) view.pasteText(text);
+  if (text && isCurrent()) view.pasteText(text);
 }
 
 // Runs a clipboard action with the document focused; a refused clipboard changes nothing.
-function clipboardAction(view: EditorView, action: () => Promise<void>) {
+function clipboardAction(view: EditorView, action: () => Promise<void>, canStart?: () => boolean) {
   return () => {
+    if (view.isDestroyed || canStart?.() === false) return;
     view.focus();
     action().catch(() => undefined);
   };
@@ -81,8 +91,15 @@ function clipboardAction(view: EditorView, action: () => Promise<void>) {
 
 /** The Cut, Copy, Paste and Paste as plain text entries for the view's selection. */
 export function clipboardEntries(view: EditorView, options: ClipboardEntriesOptions): MenuEntry[] {
-  const { labels, editable, images = null } = options;
-  const { empty } = view.state.selection;
+  const { labels, editable, images = null, isClipboardCurrent } = options;
+  const { doc, selection } = view.state;
+  const isCurrent = () =>
+    editable &&
+    !view.isDestroyed &&
+    view.editable &&
+    isClipboardCurrent?.() !== false &&
+    view.state.doc === doc &&
+    view.state.selection.eq(selection);
   const clipboard = clipboardOf(view);
   const canPaste = editable && typeof clipboard?.readText === 'function';
   return [
@@ -90,16 +107,16 @@ export function clipboardEntries(view: EditorView, options: ClipboardEntriesOpti
       id: 'cut',
       label: labels.cut,
       shortcut: 'Ctrl+X',
-      isDisabled: !editable || empty || !clipboard,
-      onAction: clipboardAction(view, () => copySelection(view, true)),
+      isDisabled: !editable || selection.empty || !clipboard,
+      onAction: clipboardAction(view, () => copySelection(view, isCurrent), isCurrent),
     },
     {
       id: 'copy',
       label: labels.copy,
       icon: CopyGlyph,
       shortcut: 'Ctrl+C',
-      isDisabled: empty || !clipboard,
-      onAction: clipboardAction(view, () => copySelection(view, false)),
+      isDisabled: selection.empty || !clipboard,
+      onAction: clipboardAction(view, () => copySelection(view)),
     },
     {
       id: 'paste',
@@ -107,14 +124,22 @@ export function clipboardEntries(view: EditorView, options: ClipboardEntriesOpti
       icon: ClipboardGlyph,
       shortcut: 'Ctrl+V',
       isDisabled: !canPaste,
-      onAction: clipboardAction(view, () => paste(view, { plain: false, images })),
+      onAction: clipboardAction(
+        view,
+        () => paste(view, { plain: false, images, isCurrent }),
+        isCurrent,
+      ),
     },
     {
       id: 'paste-text',
       label: labels.pasteAsText,
       shortcut: 'Ctrl+Shift+V',
       isDisabled: !canPaste,
-      onAction: clipboardAction(view, () => paste(view, { plain: true, images })),
+      onAction: clipboardAction(
+        view,
+        () => paste(view, { plain: true, images, isCurrent }),
+        isCurrent,
+      ),
     },
   ];
 }

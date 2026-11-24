@@ -15,6 +15,7 @@ import type {
 import type { DocumentFile } from '../model/format/document-format.js';
 import { readDocumentFile } from '../model/format/document-format-convert.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
+import { accessDrafts } from '../session/draft-access.js';
 import { type MergeConflict, mergeDocuments } from '../session/merge.js';
 import { resolveMergeConflict } from '../session/merge-conflicts.js';
 import { createTrailingTimer } from '../utils/trailing-timer.js';
@@ -116,6 +117,7 @@ export function captureRoomDraft(
  */
 export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   const { documentId, drafts, connection } = options;
+  const access = accessDrafts(drafts, documentId);
   const { doc } = connection;
   const now = options.now ?? (() => new Date());
   const delay = options.delay ?? DEFAULT_DELAY;
@@ -132,7 +134,7 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   const keep = () => {
     timer.cancel();
     if (stopped) return Promise.resolve();
-    return drafts.put(documentId, capture()).then(() => undefined);
+    return access.put(capture());
   };
   const timer = createTrailingTimer(delay, () => void keep());
   const schedule = () => {

@@ -150,6 +150,44 @@ describe('createDocumentSession in store mode', () => {
     expect(shown(session).editingMode).toBe('read');
   });
 
+  it('DOCE-SESSION-1.4 DOCE-SESSION-7.1 opens on a newer save and revoked permissions after a delayed template', async () => {
+    const host = createMemoryHost({
+      documents: [
+        { id: 'doc', content: { ...DOCUMENT, template: { id: 'memo', revision: 'rev-1' } } },
+      ],
+      templates: [{ formatVersion: 1, id: 'memo' }],
+    });
+    const templates = host.templates;
+    if (!templates) throw new Error('The host has no templates.');
+    const load = templates.load.bind(templates);
+    const held: (() => void)[] = [];
+    templates.load = async (...args) => {
+      if (args[0] === 'memo') await new Promise<void>((resolve) => held.push(resolve));
+      return load(...args);
+    };
+    const session = open(host);
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+
+    const newer = structuredClone(DOCUMENT);
+    const paragraph = newer.sections[0]?.content[0];
+    if (!paragraph) throw new Error('The document has no paragraph.');
+    paragraph.content = [{ type: 'text', text: 'Newer save' }];
+    expect(
+      await host.documents.save('doc', { content: newer, baseRevision: 'rev-1' }),
+    ).toMatchObject({ ok: true });
+    // Keep the capability lookup stale to verify the subscription event wins.
+    host.permissions.capabilities = () => Promise.resolve(FULL_CAPABILITIES);
+    host.memory.setCapabilities(READ_ONLY_CAPABILITIES);
+    held.shift()?.();
+
+    expect(await session.ready).toBe(true);
+    const doc = shown(session).state.doc;
+    expect(doc.textBetween(0, doc.content.size)).toBe('Newer save');
+    expect(shown(session).editingMode).toBe('read');
+    expect(shown(session).capabilities).toEqual(READ_ONLY_CAPABILITIES);
+    session.close();
+  });
+
   it('DOCE-SESSION-1.5 tells of a newer template and pins another', async () => {
     const host = createMemoryHost({
       documents: [

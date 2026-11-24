@@ -67,10 +67,8 @@ export interface PageMetrics {
   margins: { top: number; right: number; bottom: number; left: number };
 }
 
-function scopeOf(template: TemplateFile, section: TemplateSection | null | undefined) {
-  const styles = templateScopeStyles(template, section);
-  const page = mergeTemplateSettings<PageSettings>(template.page ?? {}, section?.page);
-  return { styles, page };
+function scopePage(template: TemplateFile, section: TemplateSection | null) {
+  return mergeTemplateSettings<PageSettings>(template.page ?? {}, section?.page);
 }
 
 /**
@@ -96,7 +94,10 @@ export function templatePageMetrics(
   template: TemplateFile,
   section: TemplateSection | null = null,
 ): PageMetrics {
-  const { page } = scopeOf(template, section);
+  return pageMetrics(scopePage(template, section));
+}
+
+function pageMetrics(page: PageSettings): PageMetrics {
   const size = PAGE_SIZE_DIMENSIONS[page.size ?? ''];
   const landscape = page.orientation === 'landscape';
   const width = pixels(landscape ? size?.height : size?.width);
@@ -114,17 +115,20 @@ export function templatePageMetrics(
   };
 }
 
-function pageProperties(metrics: PageMetrics): CustomProperties {
+function pageProperties(page: PageSettings): CustomProperties {
+  const metrics = pageMetrics(page);
   const px = (value: number) => `${String(value)}px`;
-  if (!metrics.width || !metrics.height) return {};
-  return {
-    '--doc-page-width': px(metrics.width),
-    '--doc-page-height': px(metrics.height),
-    '--doc-page-margin-top': px(metrics.margins.top),
-    '--doc-page-margin-right': px(metrics.margins.right),
-    '--doc-page-margin-bottom': px(metrics.margins.bottom),
-    '--doc-page-margin-left': px(metrics.margins.left),
-  };
+  const properties: CustomProperties = {};
+  if (metrics.width && metrics.height) {
+    properties['--doc-page-width'] = px(metrics.width);
+    properties['--doc-page-height'] = px(metrics.height);
+  }
+  for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+    const margin = lengthToCssPx(page.margins?.[side]);
+    if (margin !== null) properties[`--doc-page-margin-${side}`] = margin;
+    else if (metrics.width && metrics.height) properties[`--doc-page-margin-${side}`] = '0px';
+  }
+  return properties;
 }
 
 const OBJECT_COUNTERS: Readonly<Record<NumberedObjectKind, readonly [string, string]>> = {
@@ -210,9 +214,9 @@ export function templateProperties(
   template: TemplateFile,
   { section = null, fontStacks }: TemplatePropertiesOptions = {},
 ): CustomProperties {
-  const { styles } = scopeOf(template, section);
+  const styles = templateScopeStyles(template, section);
   const properties: CustomProperties = {
-    ...pageProperties(templatePageMetrics(template, section)),
+    ...pageProperties(scopePage(template, section)),
     ...textStyleProperties(styles, fontStacks),
     ...numberingProperties(styles),
     ...buildCaptionPlacementVariables(styles),

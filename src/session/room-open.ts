@@ -2,10 +2,11 @@
 // collaboration adapter, its first sync, and the room's shared document bound for the session. The
 // binding, and with it the realtime library, loads only now (DOCE-SESSION-3.1).
 
-import type { Schema } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { EditorHost, HostError, HostResult } from '../host/adapters.js';
 import type { EditorCapabilities } from '../host/capabilities.js';
 import type { DocumentDraft, RoomConnection, RoomState } from '../host/session-adapters.js';
+import { accessDrafts } from './draft-access.js';
 import { failure, loadCapabilities } from './open-document.js';
 import type { RoomBinding } from './room-binding.js';
 import { roomRefusal } from './room-status.js';
@@ -32,17 +33,29 @@ export interface OpenedRoom {
   draft: RoomDraft | null;
   /** Why the editor stopped following the room: content its schema cannot read; null until then. */
   unreadable: WritableStore<HostError | null>;
+  /** Whether a replacement room document is waiting for its template. */
+  reloading: WritableStore<boolean>;
 }
 
 /** An error as a failure of the room's: its content cannot be read, or it cannot be reached. */
 export const roomFailure = (error: unknown): HostError =>
   failure('unavailable', error instanceof Error ? error.message : undefined);
 
+/** The room's content, or why the schema cannot read it. */
+export function roomContent(binding: RoomBinding): HostResult<ProseMirrorNode | null> {
+  try {
+    return { ok: true, value: binding.content() };
+  } catch (error) {
+    return { ok: false, error: roomFailure(error) };
+  }
+}
+
 const ABORTED = failure('unavailable', 'The session was closed.');
 
 // The reader's room draft of the document, kept through a reload, if any.
 async function roomDraft(host: EditorHost, documentId: string): Promise<RoomDraft | undefined> {
-  const kept = await host.drafts?.get(documentId, 'room');
+  if (!host.drafts) return undefined;
+  const kept = await accessDrafts(host.drafts, documentId).get('room');
   return kept?.ok && kept.value?.mode === 'room' ? kept.value : undefined;
 }
 
@@ -114,7 +127,15 @@ export async function openRoom(
       onUnreadable: (error) => unreadable.set(roomFailure(error)),
     });
   const binding = rebind(connection.doc);
-  const opened = { connection, binding, rebind, capabilities, draft: draft ?? null, unreadable };
+  const opened = {
+    connection,
+    binding,
+    rebind,
+    capabilities,
+    draft: draft ?? null,
+    unreadable,
+    reloading: createValueStore(false),
+  };
   return { ok: true, value: opened };
 }
 

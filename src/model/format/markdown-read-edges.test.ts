@@ -29,6 +29,22 @@ describe('reading Markdown edge cases', () => {
     ]);
   });
 
+  it('DOCE-IMPORT-4.4 tokenizes each table row once regardless of its column count', () => {
+    const width = 120;
+    const row = (cell: string) => Array.from({ length: width }, () => cell).join(' | ');
+    const source = [
+      row('Heading'),
+      row('---'),
+      ...Array.from({ length: 6 }, () => row('Probe')),
+    ].join('\n');
+    const split = vi.spyOn(String.prototype, 'split');
+    const [table] = blocksOf(source);
+    const probeRows = split.mock.contexts.filter((value) => String(value).startsWith('Probe |'));
+    split.mockRestore();
+    expect(table?.content?.[7]?.content).toHaveLength(width);
+    expect(probeRows).toHaveLength(6);
+  });
+
   it('DOCE-IMPORT-4.4 reads a line starting with a code span of three backticks as a paragraph', () => {
     expect(blocksOf('```code``` then text\n\nNext')).toEqual([
       paragraph(text('code', 'code'), text(' then text')),

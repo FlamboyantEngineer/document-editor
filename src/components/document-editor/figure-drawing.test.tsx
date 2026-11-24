@@ -180,9 +180,10 @@ describe('Figure upload', () => {
     expect(upload).not.toHaveBeenCalled();
     await user.upload(input, new File([new Uint8Array(16)], 'small.png', { type: 'image/png' }));
     await waitFor(() =>
-      expect(upload).toHaveBeenCalledWith(expect.any(File), undefined, {
+      expect(upload).toHaveBeenCalledWith(expect.any(File), expect.any(AbortSignal), {
         current: { assetId: 'old', snapshotId: 'old-3' },
       }),
     );
+    expect(upload.mock.calls[0]?.[1]?.aborted).toBe(false);
   });
 });

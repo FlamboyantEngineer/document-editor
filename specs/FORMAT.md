@@ -124,7 +124,7 @@ Verification: `src/model/format/markdown.test.ts`
 
 ### DOCE-FORMAT-4.2 - Suggestions and escapes
 
-The suggestions shall be written as if accepted, or rejected when asked (`suggestions`), and the characters Markdown reads as formatting escaped in text, a dollar sign and a double brace among them, so that text never reads back as math or a variable. What Markdown would read at the start of a line as a block, a heading's number sign, a list item's marker or number, or a rule, shall be escaped there, also after a line break; the spaces at the edges of formatted or linked text shall be written outside its markers; and a pipe in code or math inside a table shall be escaped, so it does not end the cell.
+The suggestions shall be written as if accepted, or rejected when asked (`suggestions`), and the characters Markdown reads as formatting escaped in text, a dollar sign and a double brace among them, so that text never reads back as math or a variable. What Markdown would read at the start of a line as a block, a heading's number sign, a list item's marker or number, or a rule, shall be escaped there, also after a line break; the spaces at the edges of formatted or linked text shall be written outside its markers; and a pipe in code or math inside a table shall be escaped, so it does not end the cell. Adjacent text with identical written formats shall use one set of delimiters, including runs split by a comment anchor.
 
 Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
 Verification: `src/model/format/markdown.test.ts`, `src/model/format/markdown-round-trip.test.ts`
@@ -138,17 +138,17 @@ Verification: `src/model/format/markdown.test.ts`, `src/engine/suggested-tables.
 
 ### DOCE-FORMAT-4.4 - Fidelity
 
-Code shall be fenced by a run of backticks longer than any it holds, three at least for a block, and a code span that starts or ends with a backtick padded with a space. A quote's blank lines shall keep its marker, so that its paragraphs and the blank lines of its code stay in one quote; a line break in a heading shall be written `<br>`, as a heading is one line; the spaces a paragraph starts with shall be left out, as Markdown reads a paragraph without them and four of them as code. In inline math, a dollar sign no backslash escapes shall be escaped, and empty inline math left out. A link's address shall be written so that nothing in it ends the link: a space, a control character or a backslash percent-encoded and a parenthesis escaped, with the link's title quoted after it; a code span keeps its link. An entity reference in text and a heading's closing run of number signs shall be escaped. A table's merged cell shall be written in its first place, and the places it covers left empty, so each row is as wide as the table; a cell's paragraphs and line breaks shall be joined by `<br>` on its one line. A figure or image stored by asset shall be written at the address `values.asset({ id, revision })` gives (`assetAddress`, DOCE-FORMAT-5.3), else at its own `src`, and a figure with no address as its caption alone.
+Code shall be fenced by a run of backticks longer than any it holds, three at least for a block, and a code span that starts or ends with a backtick padded with a space. A quote's blank lines shall keep its marker, so that its paragraphs and the blank lines of its code stay in one quote; a line break in a heading shall be written `<br>`, as a heading is one line; the spaces a paragraph starts with shall be left out, as Markdown reads a paragraph without them and four of them as code. In inline math, a dollar sign no backslash escapes shall be escaped, and empty inline math left out. A link's address shall be written so that nothing in it ends the link: a space, a control character or a backslash percent-encoded and a parenthesis escaped, with the link's title quoted after it; a code span keeps its link. An entity reference in text and a heading's closing run of number signs shall be escaped. A footnote definition shall indent its continuation lines, keeping all of its line breaks in the note. Choosing a code fence shall take work proportional to the code length, even with many backtick runs. A table's merged cell shall be written in its first place, and the places it covers left empty, so each row is as wide as the table; a cell's paragraphs and line breaks shall be joined by `<br>` on its one line. A figure or image stored by asset shall be written at the address `values.asset({ id, revision })` gives (`assetAddress`, DOCE-FORMAT-5.3), else at its own `src`, and a figure with no address as its caption alone.
 
-Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/tables.ts`, `src/model/format/writer-values.ts`
+Implementation: `src/model/format/markdown.ts`, `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/tables.ts`, `src/model/format/writer-values.ts`
 Verification: `src/model/format/markdown-fidelity.test.ts`, `src/model/format/markdown-round-trip.test.ts`
 
 ### DOCE-FORMAT-4.5 - Values and format changes
 
-A variable shall be written as the text `values.variable(key)` gives, escaped, or as its key in braces when it gives none (`variableText`, DOCE-FORMAT-5.3), which reads back as the variable. A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept; a template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
+A variable shall be written as the text `values.variable(key)` gives, escaped, or as its key in braces when it gives none (DOCE-FORMAT-5.3), which reads back as the variable. A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept. Tags and entities in a variable value shall be written as literal text. A template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
 
 Implementation: `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
-Verification: `src/model/format/markdown-fidelity.test.ts`
+Verification: `src/model/format/markdown-fidelity.test.ts`, `src/model/format/markdown-round-trip.test.ts`
 
 ### DOCE-FORMAT-4.6 - Title and front matter
 
@@ -238,7 +238,7 @@ Verification: `src/model/format/docx/comments.test.ts`, `src/model/format/docx-r
 
 ### DOCE-FORMAT-5.8 - Reading back a written document
 
-A document the writer writes shall read back with the library's reader (`readDocx`, DOCE-IMPORT) into the same template sections, blocks, heading levels, paragraph levels and styles, and footnotes, except for the content the writer writes with a loss: columns as their blocks, scripts and template blocks as their content, lists of contents other than the table of contents, linked code as code, display math as a paragraph, figures as placeholders, and quotes nested in quotes written flat.
+A document the writer writes shall read back with the library's reader (`readDocx`, DOCE-IMPORT) into the same template sections, blocks, heading levels, paragraph levels and styles, footnotes, merged table cells and ordered list starts at each supported level. With `suggestions: 'rejected'`, runs shall use the formats and links recorded before their suggested formatting changes. The writer flattens columns, scripts and template blocks into their content. It leaves out lists of contents other than the table of contents, writes linked code as code, writes display math as a paragraph, represents figures with placeholders, and flattens nested quotes.
 
 Implementation: `src/model/format/docx.ts`
 Verification: `src/model/format/docx-round-trip.test.ts`
@@ -348,9 +348,9 @@ Verification: `src/document/stored-elements.test.ts`, `e2e/automation-lab.spec.t
 
 ### DOCE-FORMAT-9.2 - Document text
 
-`storedDocumentText(file, schema)` shall give a stored document's text, one line per text block in reading order, each section's footnotes' text after its content: text as it is, a line break as one, and an inline object as the text search reads it as (`shownText`), or nothing when it shows none. An object's caption, where it shows one, shall be a line before the object's own text, and a linked code block's code a line per line of code, since a reader sees both. It shall read the text with every suggestion accepted, leaving out text a suggestion deletes, and leave out blocks without text and nodes the schema cannot read.
+`storedDocumentText(file, schema)` shall give a stored document's text, one line per text block in reading order, each section's footnotes' text after its content: text as it is, a line break as one, and an inline object as the text search reads it as (`shownText`), or nothing when it shows none. An object's caption, where it shows one, shall be a line before the object's own text, and a linked code block's code a line per line of code, since a reader sees both. It shall read the text with every suggestion accepted, leaving out deleted blocks and inline content. A footnote shall be kept only when a surviving marker cites it. It shall also leave out blocks without text and nodes the schema cannot read.
 
-Implementation: `src/document/stored-text.ts`, `src/engine/search-text.ts`
+Implementation: `src/document/stored-text.ts`, `src/document/accepted-text.ts`, `src/engine/search-text.ts`
 Verification: `src/document/stored-text.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.3 - Citations
@@ -418,7 +418,7 @@ Verification: `src/document/stored-threads.test.ts`
 
 ### DOCE-FORMAT-9.12 - Authored content
 
-`authoredContent(file, { headings, attrs, leaveOutput })` shall give a stored document's authored content as canonical JSON text, with object keys sorted, that a host hashes, and the heading ids it did not find (`missing`). It shall leave out comment anchors and contributor marks, the attributes that record who wrote (`author`, `aiSession`), which thread discusses a suggestion (`thread`) and when and how a script ran (`renderedAt`, `provenance`, `signatures`), the stored attributes named in `attrs`, such as a host's element state, and the output of each script whose source `leaveOutput` names; text nodes beside one another with the same marks shall read as one. With `headings`, it shall read only the span of each named heading at a section's top that is not the title: from the heading to the next such heading of its level or above, across sections.
+`authoredContent(file, { headings, attrs, leaveOutput })` shall give a stored document's authored content as canonical JSON text, with object keys sorted, that a host hashes, and the heading ids it did not find (`missing`). It shall leave out comment anchors and contributor marks, the attributes that record who wrote (`author`, `aiSession`), which thread discusses a suggestion (`thread`) and when and how a script ran (`renderedAt`, `provenance`, `signatures`), the stored attributes named in `attrs`, such as a host's element state, and the output of each script whose source `leaveOutput` names; text nodes beside one another with the same marks shall read as one. With `headings`, it shall read only the span of each named heading at a section's top that is not the title: from the heading to the next such heading of its level or above, across sections. A named heading inside another requested span is found, and overlapping spans shall be read once.
 
 Implementation: `src/document/authored-content.ts`, `src/session/stored-equality.ts`
 Verification: `src/document/authored-content.test.ts`

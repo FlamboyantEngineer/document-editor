@@ -11,7 +11,9 @@ import type { TemplatePin } from '../model/format/template-format.js';
 import { createTrailingTimer } from '../utils/trailing-timer.js';
 import { storedContentKey } from './dirty.js';
 import type { SessionDocument } from './document-session.js';
+import { accessDrafts } from './draft-access.js';
 import { readStored, samePin } from './open-document.js';
+import type { PendingEdits } from './pending-edits.js';
 import type { SessionStatus } from './status.js';
 import type { createStoreSaving } from './store-saving.js';
 import { createValueStore, type ValueStore, type WritableStore } from './value-store.js';
@@ -48,7 +50,7 @@ const sameContent = (one: DocumentFile, other: DocumentFile) =>
 /** The drafts of a store-mode document (DOCE-SESSION-6). */
 function createStoreDrafts(context: StoreDraftsContext) {
   const { host, documentId } = context;
-  const adapter = host.drafts;
+  const adapter = host.drafts && accessDrafts(host.drafts, documentId);
   const now = context.now ?? (() => new Date());
   // Whether the adapter may hold a draft of this document.
   let kept = false;
@@ -67,14 +69,14 @@ function createStoreDrafts(context: StoreDraftsContext) {
       baseRevision: context.revision(),
       savedAt: now().toISOString(),
     };
-    void adapter.put(documentId, draft);
+    void adapter.put(draft);
   };
   const { schedule, cancel } = createTrailingTimer(context.delay, keepNow);
   const clear = () => {
     cancel();
     if (!adapter || !kept || held || closed) return;
     kept = false;
-    void adapter.clear(documentId, 'store');
+    void adapter.clear('store');
   };
 
   return {
@@ -85,10 +87,11 @@ function createStoreDrafts(context: StoreDraftsContext) {
     read: async (
       stored: StoredDocument,
     ): Promise<{ draft: StoreDraft; offer: DraftOffer } | null> => {
-      const read = await adapter?.get(documentId, 'store');
+      const read = await adapter?.get('store');
       const draft = read?.ok ? read.value : null;
       if (draft?.mode !== 'store' || closed) return null;
       kept = true;
+      held = false;
       if (sameContent(draft.content, stored.content)) {
         clear();
         return null;
@@ -131,6 +134,7 @@ interface SessionDraftsContext {
   delay: number;
   document: WritableStore<SessionDocument | null>;
   status: ValueStore<SessionStatus>;
+  pending: PendingEdits;
   createState: (doc: ProseMirrorNode) => EditorState;
   setTemplate: (pin: TemplatePin | null) => Promise<boolean>;
   /** The session's saving, once the document is loaded. */
@@ -210,7 +214,7 @@ async function showDraft(
  * restored or discarded (DOCE-SESSION-6).
  */
 export function createSessionDrafts(context: SessionDraftsContext) {
-  const { document, saving } = context;
+  const { document, pending, saving } = context;
   const offer = createValueStore<DraftOffer | null>(null);
   let offered: StoreDraft | null = null;
   const kept = createStoreDrafts({
@@ -224,18 +228,25 @@ export function createSessionDrafts(context: SessionDraftsContext) {
   });
   const unsaved = () => saving()?.hasUnsavedChanges() ?? false;
   // A new document is kept after a pause while unsaved, and a saved one's draft removed.
-  let doc = document.get()?.state.doc;
+  let previous = document.get();
+  const keepNow = () => {
+    pending.commit();
+    kept.keepNow(unsaved());
+  };
   const stops = [
     document.subscribe((shown) => {
-      if (shown?.state.doc === doc) return;
-      doc = shown?.state.doc;
+      const changed =
+        shown?.state.doc !== previous?.state.doc ||
+        !samePin(shown?.pin ?? null, previous?.pin ?? null);
+      previous = shown;
+      if (!changed) return;
       kept.changed(true);
     }),
     context.status.subscribe((status) => {
       if (!status.dirty) kept.changed(false);
     }),
     context.host.lifecycle?.subscribe((event) => {
-      if (event === 'hidden' || event === 'leaving') kept.keepNow(unsaved());
+      if (event === 'hidden' || event === 'leaving') keepNow();
     }) ?? (() => undefined),
   ];
   const end = (discard: boolean) => {
@@ -265,6 +276,7 @@ export function createSessionDrafts(context: SessionDraftsContext) {
       offer.set(read?.offer ?? null);
     },
     close: () => {
+      keepNow();
       for (const stop of stops) stop();
       kept.close();
     },

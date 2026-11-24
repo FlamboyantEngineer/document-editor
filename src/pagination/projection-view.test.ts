@@ -14,7 +14,8 @@ import {
   textOf,
   TEXTS,
 } from '../../test/projection-fixtures.js';
-import { joinDocumentPages, sameStructure } from '../model/index.js';
+import { createContents } from '../engine/contents.js';
+import { BASE_TEMPLATE, joinDocumentPages, sameStructure } from '../model/index.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { canonicalView } from './canonical-view.js';
 import { type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
@@ -103,18 +104,52 @@ describe('projection view', () => {
     const { projection, drain } = mount();
     const { view } = projection;
     const before = projection.state;
-    expect(pageMap(before).canonical).toBe(projection.map.canonical);
+    expect(pageMap(before, view).canonical).toBe(projection.map.canonical);
     view.dispatch(view.state.tr.insertText('New ', positionOf(view.state.doc, 'Epsilon')));
-    const typed = pageMap(projection.state);
+    const typed = pageMap(projection.state, projection.view);
     expect(typed.projection).toBe(view.state.doc);
     expect(typed.canonical).toBe(projection.map.canonical);
     expect(typed.pageAt(positionOf(projection.state.doc, 'New Epsilon'))?.number).toBe(3);
-    expect(pageMap(before).projection).not.toBe(view.state.doc);
+    expect(pageMap(before, view).projection).not.toBe(view.state.doc);
     drain();
-    expect(pageMap(projection.state).canonical).toBe(projection.map.canonical);
-    expect(pageMap(projection.state).pageAt(positionOf(projection.state.doc, 'Beta'))?.number).toBe(
-      1,
-    );
+    expect(pageMap(projection.state, projection.view).canonical).toBe(projection.map.canonical);
+    expect(
+      pageMap(projection.state, projection.view).pageAt(positionOf(projection.state.doc, 'Beta'))
+        ?.number,
+    ).toBe(1);
+  });
+
+  it('DOCE-PAGINATION-7.18 keeps page numbers and references separate in two projections', () => {
+    const contents = createContents({ template: () => BASE_TEMPLATE });
+    const initial = canonicalState([contents]);
+    const first = positionOf(initial.doc, 'Alpha');
+    const last = positionOf(initial.doc, 'Epsilon');
+    const tr = initial.tr.setNodeMarkup(last - 1, documentSchema.nodes.heading, {
+      dataId: 'last-heading',
+      level: 1,
+    });
+    tr.insert(first - 1, documentSchema.node('toc_block'));
+    const state = initial.apply(tr);
+    const wide = mount({ state, pageHeight: 2200 }).projection;
+    const narrow = mount({ state, pageHeight: 500 }).projection;
+
+    const reading = (projection: typeof wide) => {
+      const view = projection.canonicalView(projection.view);
+      const map = pageMap(state, view);
+      return {
+        pages: map.pages().length,
+        current: map.pageAt(positionOf(state.doc, 'Epsilon'))?.number,
+        target: map.pageOf('last-heading')?.number,
+        reference: view.dom.querySelector('.de-contents__page')?.textContent,
+      };
+    };
+    expect(wide.state.doc).toBe(narrow.state.doc);
+    expect(reading(wide)).toEqual({ pages: 1, current: 1, target: 1, reference: '1' });
+    expect(reading(narrow)).toEqual({ pages: 4, current: 4, target: 4, reference: '4' });
+    narrow.destroy();
+    expect(pageMap(state, narrow.view).pages()).toHaveLength(1);
+    expect(reading(wide)).toEqual({ pages: 1, current: 1, target: 1, reference: '1' });
+    wide.destroy();
   });
 
   it('DOCE-PAGINATION-7.11 shows on the pages what the canonical plugins append to input', () => {
@@ -548,7 +583,7 @@ describe('projection view', () => {
     await ready;
     drain();
     expect(projection.layoutState()).toBe('settled');
-    expect(pageMap(projection.state).pages()).toHaveLength(3);
+    expect(pageMap(projection.state, projection.view).pages()).toHaveLength(3);
     expect(projection.stats()).toMatchObject({ layouts: 2 });
   });
 });
@@ -696,6 +731,22 @@ describe('projection layouts', () => {
     drain();
     expect(projection.layoutState()).toBe('settled');
     expect(states).toEqual(['settled', 'pending', 'settled']);
+  });
+
+  it('DOCE-PAGINATION-7.6 resolves pending readiness requests when the projection is destroyed', async () => {
+    const states: string[] = [];
+    const { projection, next } = mount({ onLayoutStateChange: (state) => states.push(state) });
+    const first = projection.whenSettled();
+    const second = projection.whenSettled();
+    next();
+    expect(projection.layoutState()).toBe('pending');
+    projection.destroy();
+    await expect(Promise.all([first, second, projection.whenSettled()])).resolves.toEqual([
+      'failed',
+      'failed',
+      'failed',
+    ]);
+    expect(states).toEqual([]);
   });
 
   it('DOCE-PAGINATION-7.6 fails when a layout throws, and lays out again when asked', async () => {

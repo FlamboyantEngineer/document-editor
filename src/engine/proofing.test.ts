@@ -27,7 +27,7 @@ import {
   selectNextProofingIssue,
   setProofingLanguage,
 } from './proofing-commands.js';
-import { segmentsOf } from './proofing-text.js';
+import { proofingTextKey, segmentsOf } from './proofing-text.js';
 
 const text = (value: string, marks?: StoredNode['marks']): StoredNode => ({
   type: 'text',
@@ -73,7 +73,7 @@ async function checked(state: EditorState): Promise<EditorState> {
   );
   const results = new Map<string, readonly SourcedIssue[]>(
     texts.map((value, index) => [
-      value,
+      proofingTextKey({ text: value, language: null }),
       (found[index] ?? []).map((issue: ProofingIssue) => ({ ...issue, source: 0 })),
     ]),
   );
@@ -145,6 +145,15 @@ describe('proofing', () => {
     expect(replaceProofingIssue(issue, 'The')(next)).toBe(false);
   });
 
+  it('DOCE-PROOFING-2.1 deletes an issue for an empty suggestion', async () => {
+    const state = await checked(stateOf(paragraph(text('teh.'))));
+    const [issue] = listProofingIssues(state);
+    if (!issue) throw new Error('An issue is marked');
+    const next = run(state, replaceProofingIssue(issue, ''));
+    expect(next.doc.textBetween(0, next.doc.content.size)).toBe('.');
+    expect(next.selection.from).toBe(issue.from);
+  });
+
   it('DOCE-PROOFING-2.2 DOCE-PROOFING-3.3 DOCE-HOST-1.7 ignores a word everywhere and adds it to the dictionary', async () => {
     const state = await checked(stateOf(paragraph(text('teh and teh and recieve'))));
     const [issue] = listProofingIssues(state);
@@ -194,7 +203,7 @@ describe('proofing', () => {
     const stale = (await checked(state)).tr;
     const results = new Map([
       [
-        'Teh report',
+        proofingTextKey({ text: 'Teh report', language: null }),
         [{ from: 0, to: 3, kind: 'spelling' as const, suggestions: ['The'], source: 0 }],
       ],
     ]);

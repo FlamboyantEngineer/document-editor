@@ -3,6 +3,7 @@
 // and style (CSS Fonts 4, font matching). Only served faces count; a family with none is skipped,
 // as a page skips a family it has no face for. Nothing falls back to the system's fonts.
 
+import { splitFontFamilies } from '../../model/templates/template-css-values.js';
 import type { HarfBuzz, HarfBuzzFace } from './harfbuzz.js';
 
 /** A font file the host serves, with the descriptors of its `@font-face` rule. */
@@ -95,10 +96,7 @@ export function parseFont(font: string): FontRequest | null {
     else if (/^\d+$/u.test(word)) weight = Number(word);
     else if (word in keywordWeights) weight = keywordWeights[word] ?? weight;
   }
-  const families = list
-    .split(',')
-    .map((family) => family.trim())
-    .filter(Boolean);
+  const families = splitFontFamilies(list);
   const pixels = Number(size);
   if (!families.length || !Number.isFinite(pixels)) return null;
   return { italic, weight, size: pixels, families };

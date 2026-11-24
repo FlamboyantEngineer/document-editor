@@ -119,6 +119,20 @@ describe('script blocks', () => {
     view.destroy();
   });
 
+  it('DOCE-OBJECTS-4.2 reports a bare table row and preserves the previous script output', async () => {
+    const view = viewWith('one');
+    await runScripts(view, runner);
+    const before = view.state.doc;
+    const content: StoredContent = [
+      { type: 'tableRow', content: [{ type: 'tableCell', content: [{ type: 'paragraph' }] }] },
+    ];
+    const invalid = { run: () => Promise.resolve({ ok: true as const, value: { content } }) };
+    await expect(runScripts(view, invalid)).resolves.toEqual(['a0000001']);
+    expect(view.state.doc).toBe(before);
+    expect(scriptsState(view.state).failed.get('a0000001')).toContain('its block cannot hold');
+    view.destroy();
+  });
+
   it('DOCE-OBJECTS-4.2 records a runner that throws as a failure and ends the run', async () => {
     const broken = {
       run: ({ source }: { source: string }) => {

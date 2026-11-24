@@ -66,23 +66,24 @@ export function citedNumber(_node: ProseMirrorNode, mark?: Mark): string {
  * A cited document's title; or the text formatted for the whole document, or the paper citation
  * of a work with authors; or, for a citation that recorded none of its parts, the text it reads.
  */
-export function citedText(node: ProseMirrorNode, mark?: Mark): string {
+export function citedText(node: ProseMirrorNode, mark?: Mark, runText = node.textContent): string {
   const formatted = formattedOf(mark);
   if (formatted) return formatted;
   const parts = partsOf(mark);
   if (parts.authors) return paperText(parts);
   if (parts.title || citedNumber(node, mark)) return parts.title;
-  return node.textContent.trim();
+  return runText.trim();
 }
 
 /**
  * What makes two citations one entry: the document they cite, by its reference type and target,
  * or its number and title when it recorded no target, and the revision they cite.
  */
-export function citedIdentity(node: ProseMirrorNode, mark?: Mark): string {
+export function citedIdentity(node: ProseMirrorNode, mark?: Mark, runText?: string): string {
   const attrs = mark?.attrs ?? {};
   const parts = partsOf(mark);
-  const target = attrText(attrs.targetId) || `${parts.number}\u0000${citedText(node, mark)}`;
+  const target =
+    attrText(attrs.targetId) || `${parts.number}\u0000${citedText(node, mark, runText)}`;
   const revision = parts.revision || attrText(attrs.libraryRevisionId);
   return [attrText(attrs.refType), target, revision].join('\u0000');
 }
@@ -94,9 +95,13 @@ export const citedGroup = (_node: ProseMirrorNode, mark?: Mark) => attrText(mark
  * Where a citation sorts in its group: those that recorded a number first, then by publisher,
  * number, revision and text.
  */
-export function citedOrder(node: ProseMirrorNode, mark?: Mark): readonly string[] {
+export function citedOrder(
+  node: ProseMirrorNode,
+  mark?: Mark,
+  runText?: string,
+): readonly string[] {
   const { publisher, number, revision } = partsOf(mark);
-  return [number ? '0' : '1', publisher, number, revision, citedText(node, mark)];
+  return [number ? '0' : '1', publisher, number, revision, citedText(node, mark, runText)];
 }
 
 /** The citation's attributes, which say where its entry opens. */

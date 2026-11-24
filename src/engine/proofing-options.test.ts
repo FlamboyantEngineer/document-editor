@@ -1,3 +1,4 @@
+import { Schema } from 'prosemirror-model';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -18,13 +19,18 @@ import {
   type ProofingOptions,
 } from './proofing.js';
 import {
+  countAlikeIssues,
   disableProofingRule,
   ignoreProofingIssue,
+  ignoreProofingOnce,
   listDocumentIssues,
   listProofingIssues,
+  replaceAllProofingIssues,
   replaceProofingIssue,
+  revealSelectedProofingIssue,
   selectNextProofingIssue,
 } from './proofing-commands.js';
+import { proofingTextKey } from './proofing-text.js';
 import { isTechnicalToken } from './proofing-tokens.js';
 
 const text = (value: string, marks?: StoredNode['marks']): StoredNode => ({
@@ -251,6 +257,76 @@ describe('proofing options', () => {
     expect(checks.map((texts) => texts.length)).toEqual([50, 50, 20]);
   });
 
+  it.each([
+    { batch: 2, batchLength: 80, textLength: 4 },
+    { batch: 50, batchLength: 7, textLength: 80 },
+  ])(
+    'DOCE-PROOFING-1.5 bounds provider calls after segmenting one long block (%j)',
+    async (limits) => {
+      const { proofer, checks } = recordingProofer(wordsIn({ teh: {} }));
+      const value = 'teh '.repeat(8);
+      const view = viewOf(docOf(paragraph(text(value))), { proofer, ...limits });
+      await vi.waitFor(() => expect(isProofingPending(view.state)).toBe(false));
+      expect(marked(view.state)).toEqual(Array.from({ length: 8 }, () => 'teh'));
+      expect(
+        checks
+          .flat()
+          .map((input) => input.text)
+          .join(''),
+      ).toBe(value);
+      for (const call of checks) {
+        expect(call.length).toBeLessThanOrEqual(limits.batch);
+        expect(call.reduce((size, input) => size + input.text.length, 0)).toBeLessThanOrEqual(
+          limits.batchLength,
+        );
+      }
+    },
+  );
+
+  it('DOCE-PROOFING-1.2 DOCE-PROOFING-1.5 caches identical paragraphs by effective language', async () => {
+    const spec = documentSchema.spec.nodes.get('paragraph');
+    if (!spec) throw new Error('A paragraph spec is required');
+    const schema = new Schema({
+      nodes: documentSchema.spec.nodes.update('paragraph', {
+        ...spec,
+        attrs: { ...spec.attrs, lang: { default: null } },
+      }),
+      marks: documentSchema.spec.marks,
+    });
+    const same = paragraph(text('teh.'));
+    const state = EditorState.create({
+      doc: schema.nodeFromJSON(docOf(same, same, same).toJSON()),
+    });
+    const positions: number[] = [];
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'paragraph') positions.push(pos);
+    });
+    const [first, second, third] = positions;
+    if (first === undefined || second === undefined || third === undefined)
+      throw new Error('Three paragraphs are required');
+    const requests: ProofingText[] = [];
+    const proofer: ProoferAdapter = {
+      check: (texts) => {
+        requests.push(...texts);
+        return Promise.resolve(
+          texts.map(({ language }) => (language === 'en' ? wordsIn({ teh: {} })('teh.') : [])),
+        );
+      },
+    };
+    const doc = state.tr
+      .setNodeAttribute(second, 'lang', 'fr')
+      .setNodeAttribute(third, 'lang', 'en').doc;
+    const view = viewOf(doc, { proofer, language: 'en' });
+    await vi.waitFor(() => expect(isProofingPending(view.state)).toBe(false));
+    expect(requests).toEqual([
+      { text: 'teh.', language: 'en' },
+      { text: 'teh.', language: 'fr' },
+    ]);
+    expect(listProofingIssues(view.state).map(({ from }) => from)).toEqual([first + 1, third + 1]);
+    view.dispatch(view.state.tr.setNodeAttribute(first, 'lang', 'fr'));
+    expect(listProofingIssues(view.state).map(({ from }) => from)).toEqual([third + 1]);
+  });
+
   it('DOCE-PROOFING-1.2 drops the late answer of a check the document outran', async () => {
     const answers: ((issues: ProofingIssue[][]) => void)[] = [];
     const proofer: ProoferAdapter = {
@@ -265,7 +341,11 @@ describe('proofing options', () => {
     view.dispatch(view.state.tr.insertText('x', 1));
     answers[0]?.([[{ from: 0, to: 3, kind: 'spelling', suggestions: [] }]]);
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(proofingKey.getState(view.state)?.results.has('teh')).toBe(false);
+    expect(
+      proofingKey
+        .getState(view.state)
+        ?.results.has(proofingTextKey({ text: 'teh', language: null })),
+    ).toBe(false);
   });
 
   it('DOCE-PROOFING-1.1 checks list items, table cells and link text, and leaves out atoms', async () => {
@@ -356,6 +436,61 @@ describe('the next issue', () => {
     view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)));
     expect(next(view)).toBe('teh');
     expect(proofingKey.getState(view.state)?.visited?.from).toBe(view.state.selection.from);
+  });
+
+  it('DOCE-PROOFING-2.3 DOCE-PROOFING-2.5 visits and ignores individual occurrences and providers', async () => {
+    const { proofer, checks } = recordingProofer(wordsIn({ teh: {} }));
+    const same = paragraph(text('teh.'));
+    const view = viewOf(docOf(same, same), { proofer: [proofer, proofer] });
+    await vi.waitFor(() => expect(listProofingIssues(view.state)).toHaveLength(4));
+    const issues = listProofingIssues(view.state);
+    const [first] = issues;
+    if (!first) throw new Error('An issue is marked');
+    const visited = issues.map(() => {
+      selectNextProofingIssue(view.state, view.dispatch);
+      return revealSelectedProofingIssue(view)?.issue.key;
+    });
+    expect(visited).toEqual(issues.map(({ key }) => key));
+    expect(new Set(visited).size).toBe(4);
+    ignoreProofingOnce(first)(view.state, view.dispatch);
+    expect(listProofingIssues(view.state)).toEqual(issues.slice(1));
+
+    const { state } = view;
+    const newParagraph = state.schema.node('paragraph', null, state.schema.text('teh.'));
+    view.dispatch(state.tr.insert(state.doc.resolve(first.from).before(), newParagraph));
+    await vi.waitFor(() => expect(listProofingIssues(view.state)).toHaveLength(5));
+    const moved = listProofingIssues(view.state).filter(
+      ({ from }) => from === first.from + newParagraph.nodeSize,
+    );
+    expect(moved.map(({ source }) => source)).toEqual([1]);
+    expect(checks).toHaveLength(2);
+  });
+
+  it('DOCE-PROOFING-2.4 replaces one range only once when two providers report it', async () => {
+    const { proofer } = recordingProofer(wordsIn({ teh: {} }));
+    const same = paragraph(text('teh.'));
+    const view = viewOf(docOf(same, same), { proofer: [proofer, proofer] });
+    await vi.waitFor(() => expect(listProofingIssues(view.state)).toHaveLength(4));
+    const [first] = listProofingIssues(view.state);
+    if (!first) throw new Error('An issue is marked');
+    expect(countAlikeIssues(view.state, first)).toBe(2);
+    expect(replaceAllProofingIssues(first, 'their')(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.textBetween(0, view.state.doc.content.size, '|')).toBe('their.|their.');
+  });
+
+  it('DOCE-PROOFING-2.4 deletes non-overlapping ranges from the first occurrence onward', async () => {
+    const { proofer } = recordingProofer(() => [
+      { from: 0, to: 3, kind: 'grammar', suggestions: [''] },
+      { from: 1, to: 4, kind: 'grammar', suggestions: [''] },
+      { from: 5, to: 8, kind: 'grammar', suggestions: [''] },
+    ]);
+    const view = viewOf(docOf(paragraph(text('aaaa aaaa.'))), { proofer });
+    await vi.waitFor(() => expect(listProofingIssues(view.state)).toHaveLength(3));
+    const [first] = listProofingIssues(view.state);
+    if (!first) throw new Error('An issue is marked');
+    expect(replaceAllProofingIssues(first, '')(view.state, view.dispatch)).toBe(true);
+    const { doc } = view.state;
+    expect(doc.textBetween(0, doc.content.size)).toBe('a a.');
   });
 
   it('DOCE-PROOFING-2.3 goes on after an issue visited last that is gone', async () => {
