@@ -4,6 +4,7 @@
 // (DOCE-PAGINATION-10.2, 10.4).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { isTextMeasurement } from '../../model/pagination/text-split.js';
 import { deriveLinkedCodeBlockCaption } from '../../model/schema/caption-text.js';
 import { parseObjectLayout } from '../../model/schema/object-layout.js';
 import { type BlockContext, type Laid, laid, notLaid } from './context.js';
@@ -102,10 +103,16 @@ export function layCodeFigure(context: BlockContext, figure: ProseMirrorNode): L
     if (!line.ok) return line;
     above = line.block.height + 2 * metrics.captionGap + metrics.captionRule;
   }
+  // Each part of a split code figure draws the caption again, so it is part of the room every
+  // part takes beyond its lines.
+  const { measurement } = body.block;
   return laid({
     ...body.block,
     node: figure,
     height: above + body.block.height,
+    ...(isTextMeasurement(measurement)
+      ? { measurement: { ...measurement, overhead: (measurement.overhead ?? 0) + above } }
+      : {}),
   });
 }
 

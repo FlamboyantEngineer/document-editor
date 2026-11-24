@@ -63,6 +63,16 @@ describe('typography', () => {
     expect(at('8pt', 1.5)).toBe(16);
   });
 
+  it('DOCE-PAGINATION-9.2 truncates a margin to the layout unit, as Chromium draws it', () => {
+    const margins = (spaceBefore: string, spaceAfter: string) =>
+      blockTypography(first('<p>a</p>', 'paragraph'), {
+        template: { ...BASE_TEMPLATE, styles: { paragraph: { spaceBefore, spaceAfter } } },
+      });
+    // 8pt is 10.667px, which Chromium keeps as 682/64 px; 14pt is 18.667px, kept as 1194/64 px.
+    expect(margins('8pt', '14pt')).toMatchObject({ marginTop: 10.65625, marginBottom: 18.65625 });
+    expect(margins('6pt', '0.5em')).toMatchObject({ marginTop: 8, marginBottom: 6 });
+  });
+
   it('DOCE-PAGINATION-9.2 resolves a relative paragraph size once, against the default size', () => {
     const at = (size: string) =>
       blockTypography(first('<p>a</p>', 'paragraph'), {

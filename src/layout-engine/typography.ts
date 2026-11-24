@@ -128,7 +128,8 @@ function spacing(
   key: 'spaceBefore' | 'spaceAfter',
   size: number,
 ) {
-  return snap(resolveLength(text?.[key], size) ?? 0);
+  // Chromium keeps a margin as layout units, dropping what is left over (10.667px is 10.656px).
+  return snapLeading(resolveLength(text?.[key], size) ?? 0);
 }
 
 // Settings over others, where the settings on top set a value.

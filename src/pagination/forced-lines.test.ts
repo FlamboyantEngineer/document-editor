@@ -249,7 +249,7 @@ describe('forcedLines', () => {
     ]);
   });
 
-  it("DOCE-PAGINATION-11.2 marks a code figure's code, laid out alone, with its lines for its view, and leaves its caption", () => {
+  it("DOCE-PAGINATION-11.2 marks a code figure's code with the lines its figure was laid out with", () => {
     const code = create('code_block', { dataId: 'k1' }, [documentSchema.text('abcdefghijklmnop')]);
     const figure = create('code_figure', null, [
       create('code_caption', null, [documentSchema.text('Listing')]),
@@ -260,8 +260,9 @@ describe('forcedLines', () => {
     const doc = pagesDoc([[figure]]);
     const state = stateWith(doc, engine);
     const at = positionOf(doc, 'abcdefghijklmnop');
-    expect(nested).not.toHaveBeenCalled();
-    expect(calls.map(({ text }) => text)).toEqual(['abcdefghijklmnop']);
+    // The figure is laid out whole, its caption with its code.
+    expect(nested).toHaveBeenCalledWith(figure, 'Body');
+    expect(calls.map(({ text }) => text)).toEqual(['Listing', 'abcdefghijklmnop']);
     const block = decorations(state)
       .find()
       .find((each) => each.from === at);

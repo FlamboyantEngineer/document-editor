@@ -72,17 +72,8 @@ function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): str
   return at.inserted.byBlock.has(node) ? 'inserted words' : null;
 }
 
-// The lines of the text blocks in a container. A code figure's code is laid out alone, at the
-// content width its figure lays it out at, since its caption is left to the browser.
-function linesIn(engine: PagesTextEngine, container: ProseMirrorNode, scope: string | null) {
-  if (container.type.name !== 'code_figure') return engine.nestedLines(container, scope);
-  const code = container.lastChild;
-  const table = code?.type.name === 'code_block' ? engine.lines(code, { scope }) : null;
-  return new Map(code && table ? [[code, table]] : []);
-}
-
 function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedPlace) {
-  const lines = linesIn(engine, container, at.scope);
+  const lines = engine.nestedLines(container, at.scope);
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset) => {
     if (!FORCED_TYPES.has(node.type.name)) return !node.isTextblock;
