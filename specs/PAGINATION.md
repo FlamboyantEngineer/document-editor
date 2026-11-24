@@ -364,6 +364,13 @@ As the writer types, the pages shall be laid out again, with the caret where the
 Implementation: `src/model/pagination/repaginate.ts`, `labs/src/pagination.lab.ts`
 Verification: `e2e/pagination.spec.ts`
 
+### DOCE-PAGINATION-6.7 - Joining as the pages meet
+
+Joining a section's pages (DOCE-PAGINATION-6.1) shall give the same whole document and the same mapping of every position as joining the pages first and then their blocks' fragments in reading order, at a cost that grows with the blocks times the log of the pages rather than with the blocks times the fragments. The pages join in pairs, round after round; each run of fragments joins where its two pages meet, read from the pages before any step, and a page whose one block continues on both sides holds back the join after it until the rounds are done, so every join meets the next fragment as the page split it. A page without blocks, or two fragments of one block on one page, takes the joins in reading order. Repaginating (DOCE-PAGINATION-6.3) copies the target's attributes in one walk over the joined pages.
+
+Implementation: `src/model/pagination/page-transform.ts`, `src/model/pagination/repaginate.ts`
+Verification: `src/model/pagination/page-transform.test.ts`
+
 ## DOCE-PAGINATION-7 - Showing a document on pages
 
 ### DOCE-PAGINATION-7.1 - Laying the pages out
