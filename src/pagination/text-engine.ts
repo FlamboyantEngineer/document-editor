@@ -279,8 +279,9 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let lines = new WeakMap<ProseMirrorNode, KeptLines>();
   const counts = createCounts();
   const widthOf = contentWidths(template);
-  const nested = createNestedLines({ geometry, recorder, widthOf, markup: options.markup });
-  const regions = createRegionLines({ geometry, recorder, widthOf, markup: options.markup });
+  const footnoteOf = (part: ProseMirrorNode) => numbers.footnoteOf(part);
+  const laying = { geometry, recorder, widthOf, footnoteOf, markup: options.markup };
+  const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
     lines = new WeakMap();
@@ -335,9 +336,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       lines.set(node, { key, table });
       return table;
     },
-    nestedLines: selecting(select, (container, scope) =>
-      nested.lines(container, { scope, footnoteOf: numbers.footnoteOf }),
-    ),
+    nestedLines: selecting(select, (...at) => nested.lines(...at)),
     provisional: atoms.pending,
     stats: counts.stats,
     destroy() {

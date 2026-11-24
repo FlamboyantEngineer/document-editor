@@ -13,7 +13,12 @@ function footerRegions() {
       return { ok: true, height: 10, gap: 0, children: [], provisional: false };
     },
   };
-  const regions = createRegionLines({ geometry, recorder: { lines: null }, widthOf: () => 100 });
+  const regions = createRegionLines({
+    geometry,
+    recorder: { lines: null },
+    widthOf: () => 100,
+    footnoteOf: () => undefined,
+  });
   const lay = (page: number, pages: number) =>
     regions.lay(
       footer,
@@ -57,5 +62,33 @@ describe('the laid header and footer regions', () => {
     expect(laidOut()).toBe(laid);
     lay(2, 1);
     expect(laidOut()).toBe(laid + 1);
+  });
+
+  it('DOCE-PAGINATION-11.10 lays a footnote area out again when its entries are numbered again', () => {
+    let laidOut = 0;
+    const geometry = {
+      layoutRegion: (): RegionGeometry => {
+        laidOut += 1;
+        return { ok: true, height: 10, gap: 0, children: [], provisional: false };
+      },
+    };
+    let number = '1';
+    const regions = createRegionLines({
+      geometry,
+      recorder: { lines: null },
+      widthOf: () => 100,
+      footnoteOf: () => number,
+    });
+    const entry = documentSchema.node('footnote_entry', { footnoteId: 'n1' }, [
+      documentSchema.text('A note'),
+    ]);
+    const area = documentSchema.node('page_footnotes', null, [entry]);
+    regions.lay(area, null);
+    regions.lay(area, null);
+    expect(laidOut).toBe(1);
+    // Footnotes were added before it: the same entry now draws a wider number.
+    number = '10';
+    regions.lay(area, null);
+    expect(laidOut).toBe(2);
   });
 });

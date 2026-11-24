@@ -21,6 +21,8 @@ export function node(name: string, attrs: Record<string, unknown> | null, conten
 export interface PageRegions {
   readonly header?: Node[];
   readonly footer?: Node[];
+  /** The footnote area's entries. */
+  readonly footnotes?: Node[];
   readonly pageNumber?: number;
   readonly totalPages?: number;
 }
@@ -31,7 +33,7 @@ export function page(blocks: Node[], regions: PageRegions = {}) {
   return node('page', null, [
     node('page_header', numbers, regions.header ?? []),
     node('page_content', null, blocks),
-    node('page_footnotes', null, []),
+    node('page_footnotes', null, regions.footnotes ?? []),
     node('page_footer', numbers, regions.footer ?? []),
   ]);
 }

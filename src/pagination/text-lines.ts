@@ -6,7 +6,7 @@ import type { EditorState } from 'prosemirror-state';
 import { footnoteNumberOf, footnoteNumbersKey } from '../engine/footnote-numbers.js';
 import { type ForcedBlock, forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
-import { FORCED_REGIONS, regionBlocksOf } from './forced-regions.js';
+import { FORCED_REGIONS, type ForcedRegion, regionBlocksOf } from './forced-regions.js';
 import { insertedTexts } from './inserted-texts.js';
 import { pageVariablesKey } from './page-variables.js';
 
@@ -37,8 +37,8 @@ export interface BlockTextLines {
   readonly reason?: string | undefined;
   /** Whether it is inside a top-level block, such as a paragraph in a table's cell. */
   readonly nested?: true | undefined;
-  /** The page region it is in, when it is in a header or footer rather than the content. */
-  readonly region?: 'header' | 'footer' | undefined;
+  /** The page region it is in, when it is in a header, footer or footnote area. */
+  readonly region?: ForcedRegion | undefined;
 }
 
 /** A page's top-level text blocks, in order. */
@@ -55,15 +55,11 @@ interface Reading {
   readonly variableAt: (pos: number) => string;
 }
 
-function blockOf(
-  reading: Reading,
-  block: ForcedBlock,
-  region?: 'header' | 'footer',
-): BlockTextLines {
+function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): BlockTextLines {
   const { node, pos, table, reason } = block;
   const id: unknown = node.attrs.dataId;
   const elementId = typeof id === 'string' ? id : '';
-  // A header's or footer's block is whole on each page it repeats on.
+  // A header's, footer's or footnote area's block is whole on the page it is drawn on.
   const split = Boolean(elementId) && !region;
   const start = split ? (reading.before.get(elementId) ?? 0) : 0;
   if (split) reading.before.set(elementId, start + node.content.size);
@@ -146,8 +142,8 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
       blocks = [];
       pages.push({ blocks });
     }
-    if (FORCED_REGIONS.has(name)) {
-      const region = name === 'page_header' ? 'header' : 'footer';
+    const region = FORCED_REGIONS.get(name);
+    if (region) {
       for (const block of regionBlocksOf(engine, node, { pos, scope, shown }))
         blocks.push(blockOf(reading, block, region));
       return false;
