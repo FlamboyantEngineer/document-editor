@@ -8,6 +8,17 @@ import type { LayoutBlock, SplitBlock } from './page-layout.js';
 
 type Split = (block: LayoutBlock, fitting: number) => SplitBlock | null;
 
+// The caption each later part's caption repeats, which numbers it.
+const repeats = new WeakMap<ProseMirrorNode, ProseMirrorNode>();
+
+/**
+ * The caption a later part's caption repeats, which holds no text and no element id of its own, so
+ * its label is the one the caption it repeats shows; undefined for any other node.
+ */
+export function repeatedCaptionOf(caption: ProseMirrorNode): ProseMirrorNode | undefined {
+  return repeats.get(caption);
+}
+
 /**
  * How much taller a later part's caption is than the first part's (`continuedCaption` of the
  * holder's measurement); 0 when the measurement does not say.
@@ -47,6 +58,7 @@ export function splitHeldWith(splitObject: Split): Split {
     const shown: unknown = caption.attrs.continuedText;
     const text = typeof shown === 'string' ? shown : caption.textContent;
     const repeated = caption.type.create({ continuedText: text });
+    repeats.set(repeated, caption);
     const growth = continuedCaptionOf(block.measurement);
     return {
       head: { ...split.head, node: holder(split.head.node, caption) },
