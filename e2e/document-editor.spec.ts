@@ -156,7 +156,7 @@ test.describe('document editor lab', () => {
     ).not.toContain('flow-root');
     const filled = await pages(page).first().boundingBox();
     expect(filled?.width ?? 0).toBeGreaterThan(paged?.width ?? 0);
-    await page.getByLabel('Page width').check();
+    await page.getByLabel('Web width').selectOption('page');
     await expect(editor(page)).toHaveAttribute('data-web-width', 'page');
     const shown = await pages(page).first().boundingBox();
     const content = await page
@@ -166,6 +166,46 @@ test.describe('document editor lab', () => {
     expect(shown?.width).toBeCloseTo(paged?.width ?? 0, 0);
     expect(content?.x).toBeCloseTo(shown?.x ?? 0, 0);
     expect(content?.width).toBeCloseTo(shown?.width ?? 0, 0);
+  });
+
+  test('DOCE-LAYOUT-4.5 shows each section as an endless page at its page width, inset by its margins', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const paged = await pages(page).first().boundingBox();
+    const pagedContent = await page
+      .locator('.de-document-editor__content .pm-page-content')
+      .first()
+      .boundingBox();
+    await page.getByLabel('Web layout').check();
+    await page.getByLabel('Web width').selectOption('sheet');
+    await expect(editor(page)).toHaveAttribute('data-web-width', 'sheet');
+    const sheet = pages(page).first();
+    const shown = await sheet.boundingBox();
+    const content = await page
+      .locator('.de-document-editor__content .pm-page-content')
+      .first()
+      .boundingBox();
+    expect(shown?.width).toBeCloseTo(paged?.width ?? 0, 0);
+    expect((content?.x ?? 0) - (shown?.x ?? 0)).toBeCloseTo(
+      (pagedContent?.x ?? 0) - (paged?.x ?? 0),
+      0,
+    );
+    expect(content?.width).toBeCloseTo(pagedContent?.width ?? 0, 0);
+    expect(shown?.height ?? 0).toBeGreaterThan(paged?.height ?? 0);
+    expect(await sheet.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
+    await page.setViewportSize({ width: Math.round((paged?.width ?? 0) * 0.75), height: 800 });
+    const narrow = await sheet.boundingBox();
+    const narrowContent = await page
+      .locator('.de-document-editor__content .pm-page-content')
+      .first()
+      .boundingBox();
+    expect(narrow?.width ?? 0).toBeLessThan(shown?.width ?? 0);
+    expect((narrowContent?.x ?? 0) - (narrow?.x ?? 0)).toBeCloseTo(
+      (pagedContent?.x ?? 0) - (paged?.x ?? 0),
+      0,
+    );
   });
 
   test('DOCE-EDITOR-2.3 reads the document without taking edits, keeping its text', async ({
