@@ -124,10 +124,10 @@ describe('reading Markdown edge cases', () => {
   });
 
   it('DOCE-IMPORT-4.4 reads unclosed emphasis, links, math, tags and variables, emphasis runs and wide tables in time that grows with the text', () => {
-    // The fastest of three reads, so a pause elsewhere does not count.
+    // The fastest of five reads, so a pause elsewhere does not count.
     const time = (markdown: string) => {
       let best = Infinity;
-      for (let run = 0; run < 3; run += 1) {
+      for (let run = 0; run < 5; run += 1) {
         const start = performance.now();
         readMarkdown(markdown);
         best = Math.min(best, performance.now() - start);
@@ -136,11 +136,14 @@ describe('reading Markdown edge cases', () => {
     };
     const wideTable = (columns: number) =>
       ['| a '.repeat(columns), '|---'.repeat(columns), '| 1 '.repeat(columns)].join('|\n') + '|';
-    expect(time(wideTable(8000)), 'wide table').toBeLessThan(time(wideTable(2000)) * 9 + 5);
+    // Sixteen times the text: about sixteen to twenty times the time, where rescanning to the end
+    // gives 256. The wide margin keeps a slow or busy runner from failing a linear reader.
+    const grows = (label: string, small: string, large: string) =>
+      expect(time(large), label).toBeLessThan(time(small) * 64 + 5);
+    grows('wide table', wideTable(1000), wideTable(16000));
     for (const unit of ['*a ', '**a*', '[a](', '$a ', '<u>a ', '{{a}} {{']) {
       expect(blocksOf(unit.repeat(10))).toHaveLength(1);
-      // Four times the text: about four times the time, where rescanning to the end gave sixteen.
-      expect(time(unit.repeat(8000)), unit).toBeLessThan(time(unit.repeat(2000)) * 9 + 5);
+      grows(unit, unit.repeat(1000), unit.repeat(16000));
     }
   });
 
