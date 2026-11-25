@@ -24,7 +24,7 @@ async function rightClick(page: Page, target: ReturnType<Page['locator']>) {
 }
 
 test.describe('full editor lab host options', () => {
-  test('DOCE-LABS-3.8 DOCE-PROOFING-1.8 DOCE-PROOFING-2.8 turns proofing off and on, and keeps the reader decisions', async ({
+  test('DOCE-LABS-3.12 DOCE-PROOFING-1.8 DOCE-PROOFING-2.8 turns proofing off and on, and keeps the reader decisions', async ({
     lab,
     page,
   }) => {
