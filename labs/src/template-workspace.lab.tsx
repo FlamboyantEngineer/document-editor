@@ -17,7 +17,7 @@
 
 import { createSafeStorage, LockGlyph, UiProvider } from '@flamboyantengineer/ui-components/core';
 import { EditorState } from 'prosemirror-state';
-import { type ReactNode, useEffect,useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
