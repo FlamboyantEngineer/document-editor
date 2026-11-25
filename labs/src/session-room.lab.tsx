@@ -50,6 +50,9 @@ const READERS = [
 
 type Reader = (typeof READERS)[number];
 
+// Everyone the readers' hosts can name: the readers and the assistant that suggested words.
+const PEOPLE = [...READERS, { id: 'drafting-assistant', name: 'Drafting assistant' }];
+
 const LOG = createRoomLog();
 const GUARD = createGuardControls({ ada: WRITER_RIGHTS, grace: WRITER_RIGHTS });
 
@@ -68,7 +71,7 @@ const FIELD_ROOMS = createSessionRooms({
 });
 
 const MEMORY = new Map<string, MemoryHost>(
-  READERS.map((person) => [person.id, createMemoryHost({ person, people: [...READERS] })]),
+  READERS.map((person) => [person.id, createMemoryHost({ person, people: PEOPLE })]),
 );
 
 const hostOf = (person: Reader): EditorHost => ({
