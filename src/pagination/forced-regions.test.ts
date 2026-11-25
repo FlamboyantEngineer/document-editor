@@ -106,4 +106,38 @@ describe('forcedRegions', () => {
       { region: 'footnotes', lines: [{ from: 0, to: 6, text: 'A note' }] },
     ]);
   });
+
+  it('DOCE-PAGINATION-10.7 draws a footnote area again once its footnotes are numbered otherwise, on unchanged pages', () => {
+    // An entry numbered 10 wraps where one numbered 9 does not: its marker is wider.
+    let numbersVersion = 0;
+    const [narrow, wide] = [stubEngine({ perLine: 10 }), stubEngine({ perLine: 3 })];
+    const engine: PagesTextEngine = {
+      ...narrow,
+      numbersVersion: () => numbersVersion,
+      regionLines(region, scope) {
+        const lines = new Map<Node, DrawnLines>();
+        const base = numbersVersion ? wide : narrow;
+        region.forEach((child) => {
+          const table = base.lines(child, { scope });
+          if (table) lines.set(child, table);
+        });
+        return lines;
+      },
+    };
+    const entry = node('footnote_entry', { footnoteId: 'n1' }, [documentSchema.text('A note')]);
+    const doc = pagesDocument(
+      [page([node('paragraph', null, [documentSchema.text('Body')])], { footnotes: [entry] })],
+      'Body',
+    );
+    let state = stateWith(doc, engine);
+    const drawn = () =>
+      regionAttrs(state)
+        .filter((attrs) => attrs.class === 'de-forced-lines')
+        .map((attrs) => attrs['data-lines']);
+    expect(drawn()).toEqual(['1']);
+    // The next layout numbers the document again, and leaves the pages as they were.
+    numbersVersion = 1;
+    state = state.apply(state.tr.setMeta('layout', true));
+    expect(drawn()).toEqual(['2']);
+  });
 });

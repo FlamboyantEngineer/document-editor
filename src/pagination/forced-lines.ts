@@ -34,6 +34,8 @@ import type { PagesTextEngine } from './text-engine-types.js';
 export interface ForcedLinesState {
   readonly engine: PagesTextEngine | null;
   readonly version: number;
+  /** How often the engine's footnotes were numbered otherwise when the lines were drawn. */
+  readonly numbers: number;
   readonly decorations: DecorationSet;
   /** The pages drawn on forced lines, by index; null for every page. */
   readonly drawn: ReadonlySet<number> | null;
@@ -176,6 +178,9 @@ interface ForcedLinesSource {
   readonly redraw?: (() => void) | undefined;
 }
 
+// How often an engine's footnotes were numbered otherwise.
+const numbersOf = (engine: PagesTextEngine | null) => engine?.numbersVersion?.() ?? 0;
+
 type ContentBuilder = Builder & { readonly doc: ProseMirrorNode };
 
 // An ordinary text edit leaves the headings, numbered paragraph eligibility and caption nodes
@@ -293,6 +298,7 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
     return {
       engine: engine(),
       version: version(),
+      numbers: numbersOf(engine()),
       decorations: made.decorations,
       ...drawn,
       inserted: words,
@@ -314,7 +320,12 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
     state: {
       init: (_config, state) => build(state),
       apply(tr, value) {
-        const fresh = value.engine !== source.engine() || value.version !== source.version();
+        // A layout that numbers the footnotes otherwise draws the lines again, though it leaves the
+        // pages as they were (DOCE-PAGINATION-10.7).
+        const fresh =
+          value.engine !== source.engine() ||
+          value.version !== source.version() ||
+          value.numbers !== numbersOf(source.engine());
         const meta: unknown = tr.getMeta(forcedLinesKey);
         const redrawn = meta !== undefined;
         if (isDrawAll(meta)) all = meta.drawAll;
