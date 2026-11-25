@@ -385,3 +385,139 @@ test.describe('served fonts', () => {
     });
   }
 });
+
+// Editing on the engine's lines: what the forced-lines spike showed on its own lab (DOCE-LABS-6.1,
+// withdrawn), shown on the editor's pages.
+test.describe('editing on the engine lines', () => {
+  const settle = (page: Page) =>
+    page.evaluate(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return window.stressLab.whenSettled();
+    });
+
+  async function expectOnLines(page: Page) {
+    await settle(page);
+    const laid = await readLines(page);
+    expect(laid.wrapped).toEqual([]);
+    expect(laid.mismatched).toEqual([]);
+  }
+
+  // Each drawn line of a block, but its last: how far its first and last characters stand in from
+  // the block's text column, spaces left out. The column is the block's box less its end overhang.
+  const lineInsets = (page: Page, selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const left = box.left + parseFloat(style.paddingLeft);
+        const right = box.right - parseFloat(style.paddingRight) - 8;
+        const lines = new Map<number, { left: number; right: number }>();
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const range = document.createRange();
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = node.nodeValue ?? '';
+          for (let at = 0; at < text.length; at += 1) {
+            if (/\s/u.test(text[at] ?? '')) continue;
+            range.setStart(node, at);
+            range.setEnd(node, at + 1);
+            const rect = range.getBoundingClientRect();
+            if (rect.width === 0) continue;
+            const top = Math.round(rect.top + rect.height / 2);
+            const line = lines.get(top) ?? { left: Infinity, right: -Infinity };
+            lines.set(top, {
+              left: Math.min(line.left, rect.left),
+              right: Math.max(line.right, rect.right),
+            });
+          }
+        }
+        return [...lines.entries()]
+          .sort(([a], [b]) => a - b)
+          .slice(0, -1)
+          .map(([, line]) => ({ before: line.left - left, after: right - line.right }));
+      });
+
+  test('DOCE-PAGINATION-11.2 fills the column with each wrapped justified line and centres each centred one', async ({
+    page,
+  }) => {
+    await open(page, 'inline-geometry', true);
+    const justified = await lineInsets(page, '.pm-page-content > p.justified.de-forced-lines');
+    expect(justified.length, 'wrapped justified lines').toBeGreaterThan(2);
+    for (const line of justified) {
+      expect(Math.abs(line.before), 'a justified line starts at the edge').toBeLessThan(1);
+      expect(Math.abs(line.after), 'a justified line ends at the edge').toBeLessThan(1);
+    }
+    // A centred title long enough to wrap: it draws no number before its first line.
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const text = 'A centred title on the lines the engine laid it out on, '.repeat(4);
+      const title = {
+        type: 'heading',
+        attrs: { title: true, id: 'title' },
+        content: [{ type: 'text', text }],
+      };
+      window.regressionLab.load({ ...file, sections: [{ ...section, content: [title] }] });
+    });
+    await waitForLab(page);
+    await settle(page);
+    const centred = await lineInsets(page, '.pm-page-content > h1.de-forced-lines');
+    expect(centred.length, 'wrapped centred lines').toBeGreaterThan(1);
+    for (const line of centred)
+      expect(Math.abs(line.before - line.after), 'a centred line sits mid column').toBeLessThan(1);
+  });
+
+  test('DOCE-PAGINATION-7.11 copies text across a forced line break without a line break', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await open(page, 'long-mixed', true);
+    const id = await page.evaluate(
+      () =>
+        window.regressionLab
+          .textLines()[0]
+          ?.blocks.find((each) => (each.lines?.length ?? 0) > 2 && each.part === 0)?.elementId,
+    );
+    if (!id) throw new Error('no paragraph of three lines on the first page');
+    const paragraph = page.locator(`.de-forced-lines[data-id="${id}"]`).first();
+    await paragraph.scrollIntoViewIfNeeded();
+    const box = await paragraph.boundingBox();
+    if (!box) throw new Error('the paragraph is not drawn');
+    // Mid first line, then one line down: the selection runs across the forced break.
+    await paragraph.click({ position: { x: box.width / 2, y: 6 } });
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('ControlOrMeta+c');
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied.length).toBeGreaterThan(10);
+    expect(copied).not.toContain('\n');
+    // Pasted at the start of the paragraph, the text is laid out on its lines again.
+    await paragraph.click({ position: { x: 1, y: 6 } });
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ControlOrMeta+v');
+    await expect(paragraph).toContainText(copied.trim());
+    await expectOnLines(page);
+  });
+
+  test('DOCE-PAGINATION-9.12 edits text in both directions on its forced lines', async ({
+    page,
+  }) => {
+    await open(page, 'line-breaks-and-writing-systems', true);
+    const mixed = page.locator('.de-forced-lines[data-id="c0474524"]').first();
+    await mixed.getByText(/שלום/u).first().click();
+    await page.keyboard.type('א');
+    await page.keyboard.press('End');
+    // Words in both directions, until the paragraph wraps.
+    for (let at = 0; at < 6; at += 1) await page.keyboard.type(' more words שלום עולם and then');
+    await expectOnLines(page);
+    expect(Number(await mixed.getAttribute('data-lines'))).toBeGreaterThan(1);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('End');
+    await page.keyboard.type(' עוד');
+    await expect(mixed).toContainText('א');
+    await expect(mixed).toContainText('עוד');
+    await expectOnLines(page);
+  });
+});
