@@ -8,7 +8,8 @@ import type { EditorView } from 'prosemirror-view';
 import { keepNodeSelected } from './caption-editing.js';
 import { laidOutFigureSize } from './figure-measure.js';
 import { nodeAtSelection, storedLayout } from './object-commands.js';
-import { laidOutColumnWidths, writeColumnWidths } from './table-resize.js';
+import { laidOutColumnWidths } from './table-laid-out.js';
+import { writeColumnWidths } from './table-resize.js';
 
 /** Sets the size of the figure selected, in whole pixels of at least 1; a fitted figure leaves the fit. */
 export function setFigureSize(size: { width: number; height: number }): Command {

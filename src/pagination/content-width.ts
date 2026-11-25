@@ -1,0 +1,10 @@
+// The width of a section's page content, which the engine lays a section's top-level blocks out in.
+
+import { findTemplateSection, type TemplateFile, templatePageMetrics } from '../model/index.js';
+
+/** The width of a section's page content, inside its margins. */
+export function sectionContentWidth(template: TemplateFile, scope: string | null): number {
+  const section = findTemplateSection(template, scope);
+  const { width, margins } = templatePageMetrics(template, section);
+  return width - margins.left - margins.right;
+}
