@@ -10,13 +10,7 @@ import {
   renderMathElement,
 } from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import {
-  createMathTypesets,
-  isMath,
-  mathTree,
-  type MathTypesets,
-  type TypesetMath,
-} from './math-typeset.js';
+import { isMath, mathTree, type TypesetMath } from './math-typeset.js';
 
 /** What math that does not typeset shows in place of its MathML, inline and as a block. */
 export interface InvalidMathText {
@@ -32,10 +26,15 @@ export interface TypesetAnswer {
 }
 
 /** Typesets math once per source, keeping what it typeset as. */
-export interface MathTypesetter extends MathTypesets {
+export interface MathTypesetter {
+  /** What a math node's source was typeset as, or null before it is. */
+  of(node: ProseMirrorNode): TypesetMath | null;
   /** What a source typesets as, typeset once and shared by every view that asks. */
   typeset(display: boolean, latex: string, ownerDocument: Document): Promise<TypesetAnswer>;
-  /** Settles once every math node of a document is typeset; null when all of it is already. */
+  /**
+   * Settles once every math node of a document is typeset; null when all of it is already. What
+   * the document's math typeset as is kept until another document is readied, whatever its count.
+   */
   ready(doc: ProseMirrorNode, ownerDocument: Document): Promise<void> | null;
 }
 
@@ -46,11 +45,13 @@ interface MathTypesetterOptions {
   readonly timeout: { readonly ms: number; readonly message: string };
 }
 
+// How many sources are kept besides those of the document readied last: the latest typeset, as
+// math is typed and edited.
+const KEPT = 2000;
+
 const keyOf = (display: boolean, latex: string) => `${display ? 'display' : 'inline'}\n${latex}`;
-const sourceOf = (key: string): [boolean, string] => [
-  key.startsWith('display\n'),
-  key.slice(key.indexOf('\n') + 1),
-];
+const keyOfNode = (node: ProseMirrorNode) =>
+  keyOf(node.type.name === 'math_display', node.textContent);
 
 /** Typesets math with a renderer, at most `timeout.ms` for each source. */
 export function createMathTypesetter({
@@ -58,47 +59,51 @@ export function createMathTypesetter({
   invalid,
   timeout,
 }: MathTypesetterOptions): MathTypesetter {
-  const kept = createMathTypesets();
+  const answers = new Map<string, TypesetAnswer>();
   const asked = new Map<string, Promise<TypesetAnswer>>();
+  // The sources of the document readied last, which are never let go.
+  let held = new Set<string>();
+  const keep = (key: string, settled: TypesetAnswer) => {
+    answers.delete(key);
+    answers.set(key, settled);
+    for (const each of answers.keys()) {
+      if (answers.size <= KEPT + held.size) break;
+      if (!held.has(each)) answers.delete(each);
+    }
+  };
   const invalidAs = (display: boolean, message: string): TypesetAnswer => ({
     typeset: { state: 'invalid', text: display ? invalid.display : invalid.inline, message },
     element: null,
   });
   const answer = (display: boolean, latex: string, ownerDocument: Document) => {
     const owner = ownerDocument.defaultView;
+    let deadline: number | undefined;
     const late = new Promise<TypesetAnswer>((resolve) => {
       const message = `${timeout.message} (${String(timeout.ms / 1000)} s)`;
-      owner?.setTimeout(() => resolve(invalidAs(display, message)), timeout.ms);
+      deadline = owner?.setTimeout(() => resolve(invalidAs(display, message)), timeout.ms);
     });
     // The base library typesets and keeps only MathML's allowed parts; it never throws.
     const typeset = renderMathElement(latex, {
       displayMode: display,
       renderer: render,
       ownerDocument,
-    }).then((result): TypesetAnswer =>
-      result.ok
+    }).then((result): TypesetAnswer => {
+      owner?.clearTimeout(deadline);
+      return result.ok
         ? { typeset: { state: 'ready', math: mathTree(result.element) }, element: result.element }
-        : invalidAs(display, result.message),
-    );
-    return Promise.race([typeset, late]).then((settled) => {
-      kept.keep(display, latex, settled.typeset);
-      return settled;
+        : invalidAs(display, result.message);
     });
+    return Promise.race([typeset, late]);
   };
-  // The elements typeset, by source, as long as `kept` holds what they typeset as.
-  const elements = new Map<string, Element | null>();
   const typeset = (display: boolean, latex: string, ownerDocument: Document) => {
     const key = keyOf(display, latex);
-    const done = kept.find(display, latex);
-    const element = elements.get(key);
-    if (done && element !== undefined) return Promise.resolve({ typeset: done, element });
+    const done = answers.get(key);
+    if (done) return Promise.resolve(done);
     let found = asked.get(key);
     if (!found) {
       found = answer(display, latex, ownerDocument).then((settled) => {
         asked.delete(key);
-        elements.set(key, settled.element);
-        for (const each of elements.keys())
-          if (!kept.find(...sourceOf(each))) elements.delete(each);
+        keep(key, settled);
         return settled;
       });
       asked.set(key, found);
@@ -106,18 +111,21 @@ export function createMathTypesetter({
     return found;
   };
   return {
-    keep: kept.keep,
-    of: kept.of,
-    find: kept.find,
+    of: (node) => (isMath(node) ? (answers.get(keyOfNode(node))?.typeset ?? null) : null),
     typeset,
     ready(doc, ownerDocument) {
+      const sources = new Set<string>();
       const waits: Promise<TypesetAnswer>[] = [];
       doc.descendants((node) => {
         if (!isMath(node)) return true;
-        if (kept.of(node) === null)
+        const key = keyOfNode(node);
+        if (sources.has(key)) return false;
+        sources.add(key);
+        if (!answers.has(key))
           waits.push(typeset(node.type.name === 'math_display', node.textContent, ownerDocument));
         return false;
       });
+      held = sources;
       return waits.length ? Promise.all(waits).then(() => undefined) : null;
     },
   };

@@ -590,6 +590,24 @@ describe('projection view', () => {
 });
 
 describe('projection layouts', () => {
+  it('DOCE-PAGINATION-10.8 lays out a document holding more math than the typesets keep', async () => {
+    const render = (source: string) => ({
+      ok: true as const,
+      mathml: `<math><mn>${source}</mn></math>`,
+    });
+    const { projection, drain } = mount({ state: canonicalState([createMathViews({ render })]) });
+    const { layouts } = projection.stats();
+    const math = Array.from({ length: 2100 }, (_, index) =>
+      documentSchema.node('math_inline', null, [documentSchema.text(String(index))]),
+    );
+    const at = positionOf(projection.state.doc, 'Alpha');
+    edit(projection, (state) => layoutNow(state.tr.insert(at, math)));
+    await vi.waitFor(() => {
+      drain();
+      expect(projection.stats().layouts).toBe(layouts + 1);
+    });
+  });
+
   it('DOCE-PAGINATION-10.8 lays new math out once it is typeset, and not again when it is drawn', async () => {
     let answer: (value: { ok: true; mathml: string }) => void = () => undefined;
     const render = () =>
