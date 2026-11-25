@@ -34,16 +34,12 @@ interface AnchorCheck {
   permissions: GuardPermissions;
   /** The content before the change, for a reading fitted to the schema (DOCE-COLLAB-7.4). */
   before: Node | null;
-}
-
-// The shared content's positions for a reading of it; null for a reading fitted to the schema,
-// whose structure is not the shared content's.
-function positionsOf(scope: RoomScope, content: Node) {
-  try {
-    return createGuardPositions(scope.content, content);
-  } catch {
-    return null;
-  }
+  /**
+   * Whether the content is the reading fitted to the schema of a change the exact replay refused,
+   * whose structure is not the shared content's. An exact reading whose positions cannot be built
+   * throws, and the change is refused.
+   */
+  fitted: boolean;
 }
 
 const textOf = (content: Node, { from, to }: { from: number; to: number }) =>
@@ -56,7 +52,7 @@ export function hasGuardAnchors(
   options: AnchorCheck,
 ): boolean {
   if (!content || !anchors.length || options.permissions.manageProposals) return true;
-  const positions = positionsOf(options.scope, content);
+  const positions = options.fitted ? null : createGuardPositions(options.scope.content, content);
   const remaining = new Map(
     listSuggestions(content).map((suggestion) => [suggestion.id, suggestion]),
   );
