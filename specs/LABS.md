@@ -120,7 +120,7 @@ Verification: `e2e/text-layout.performance.spec.ts`
 
 ### DOCE-LABS-3.1 - The template editor beside a document
 
-The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once. Host options mark the template as never saved, fail its parent's load, disable the editor and put a table in the header and footer; the lab offers its own fonts, reports section renames, and shows the template it holds as JSON, read only.
+The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once. Host options mark the template as never saved, fail its parent's load, disable the editor, put a table in the header and footer, hide the scope picker (`showsScopePicker`) and leave the scope to the editor from the template's first section (`defaultScope`); a host's save says under the id field why a template without an id cannot be saved and focuses it (`idError`, `idInputRef`); the lab offers its own fonts and its own code fonts (`codeFonts`), shows the state of the editor's drafts as it reports it (`onDraftsChange`), reports section renames, and shows the template it holds as JSON, read only.
 
 Implementation: `labs/src/template-editor.lab.tsx`, `labs/template-editor.html`
 Verification: `e2e/template-editor.spec.ts`
@@ -166,6 +166,13 @@ The template content lab shall show a template's preview in parts beside the tem
 
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
+
+### DOCE-LABS-3.8 - The template workspace
+
+The template workspace lab shall show the template workspace over the in-memory host's template store: templates in folders, a pinned web-layout template, saves and conflicts, copies, deletes, history and restore, and the workspace's own preview beside the side panel. Host options let the host hold the template open and the version shown, as a route does (`templateId`, `revision`, `onTemplateIdChange`, `onRevisionChange`), picked with a template picker of the host's own (`TemplatePicker`) and shown as the route; start at a template's first version (`defaultRevision`); draw the host's own preview, which names the template, layout and scope it is handed (`renderPreview`); lay the parts out in the host's own frame, the properties and history side by side (`renderLayout`); start the side panel expanded (`defaultPanelExpanded`); and remember the pane shown under a key the host names, in the page's storage (`panelPersistKey`).
+
+Implementation: `labs/src/template-workspace.lab.tsx`, `labs/template-workspace.html`
+Verification: `e2e/template-workspace.spec.ts`
 
 ### DOCE-LABS-3.10 - Comments with a host's options
 
