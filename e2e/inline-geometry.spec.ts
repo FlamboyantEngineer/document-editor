@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { DocumentFile } from '../src/model/index.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // Inline geometry on the engine's lines (specs/PAGINATION.md DOCE-PAGINATION-9.3, 9.6, 11.2,
@@ -225,6 +226,70 @@ test.describe('inline geometry on the engine’s lines', () => {
         .poll(async () => (await deleted.allTextContents()).join(''))
         .toContain(text.trim());
       await drawnAsPlanned(page);
+    });
+  });
+  test.describe('inline embeds', () => {
+    type Stored = DocumentFile['sections'][number]['content'][number];
+    const embed = (text: string) =>
+      ({ type: 'embed_inline', attrs: { kind: 'cell', source: 'book!B2', text } }) as Stored;
+    const words = (value: string) => ({ type: 'text', text: value }) as Stored;
+    // A paragraph with an embed mid-line, and a long one with an embed after every few words, so
+    // some end a wrapped line and the next words start the line after.
+    const content: Stored[] = [
+      {
+        type: 'paragraph',
+        content: [words('Units sold '), embed('1,204 units'), words(' so far.')],
+      },
+      {
+        type: 'paragraph',
+        content: Array.from({ length: 24 }, (_, at) => [
+          words(at % 2 ? ' and then a few more words ' : ' with words around the value '),
+          embed(`Q${String((at % 4) + 1)} total`),
+        ]).flat(),
+      },
+    ] as Stored[];
+
+    test('DOCE-PAGINATION-9.5 draws an inline embed’s stored text on the engine’s lines, whole, mid-line and at a line’s end', async ({
+      page,
+    }) => {
+      await page.goto('regression.html?document=minimal-paragraph&debug');
+      await waitForLab(page);
+      const file = { formatVersion: 1, sections: [{ name: null, content }] } as DocumentFile;
+      await page.evaluate((stored) => window.regressionLab.load(stored), file);
+      await page.waitForFunction(() => window.regressionLab.layout() !== null);
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      await expect.poll(() => page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+      expect(await offPlan(page)).toEqual([]);
+      // Each embed sits on one line; at least one ends its line, the text after it on the next.
+      const placed = await page.evaluate(() =>
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            '.de-document-editor__content .pm-page-content .de-embed-inline',
+          ),
+        ].map((element) => {
+          const rects = [...element.getClientRects()].filter((rect) => rect.width > 0);
+          // The first letter after it, in the next text the page draws, past any spaces.
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          walker.currentNode = element.lastChild ?? element;
+          let nextRect: DOMRect | undefined;
+          for (let text = walker.nextNode(); text && !nextRect; text = walker.nextNode()) {
+            const at = (text.textContent ?? '').search(/\S/u);
+            if (at < 0) continue;
+            const letter = document.createRange();
+            letter.setStart(text, at);
+            letter.setEnd(text, at + 1);
+            nextRect = letter.getBoundingClientRect();
+          }
+          const top = rects[0]?.top ?? 0;
+          return {
+            lines: new Set(rects.map((rect) => Math.round(rect.top))).size,
+            endsLine: nextRect ? nextRect.top > top + 4 : false,
+          };
+        }),
+      );
+      expect(placed.length).toBe(25);
+      expect(placed.filter((each) => each.lines !== 1)).toEqual([]);
+      expect(placed.some((each) => each.endsLine)).toBe(true);
     });
   });
 });
