@@ -163,7 +163,34 @@ export interface BlockLayoutOptions {
   readonly equationOf?: ((equation: ProseMirrorNode) => string | undefined) | undefined;
   /** Told each display equation laid out from its layout, with its box and scale. */
   readonly onMath?: MathRecorder | undefined;
+  /** Told each figure's image box and each table's columns and rows as they are laid out. */
+  readonly onObject?: ((node: ProseMirrorNode, box: ObjectBox) => void) | undefined;
 }
+
+/**
+ * Where the engine laid out an object a writer resizes, in CSS pixels at scale 1: a figure's image
+ * box, or a table's column widths and row heights, with the width of the place it was laid out in
+ * (DOCE-PAGINATION-10.12). Resizing reads these, never the drawn element.
+ */
+export type ObjectBox =
+  | {
+      readonly kind: 'figure';
+      readonly width: number;
+      readonly height: number;
+      /** The content width of the place the figure is in. */
+      readonly room: number;
+    }
+  | {
+      readonly kind: 'table';
+      /** Each column's width, a cell spanning columns taking theirs. */
+      readonly columns: readonly number[];
+      /** Each row's height, its cells' padding and the halves of their borders included. */
+      readonly rows: readonly number[];
+      /** A cell's padding and half its border, above and below its content. */
+      readonly edge: number;
+      /** The content width of the place the table is in. */
+      readonly room: number;
+    };
 
 /** Block geometry. */
 export interface BlockLayout {

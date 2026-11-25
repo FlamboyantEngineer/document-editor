@@ -20,6 +20,7 @@ function devicePixelRatio(
     /\/pretext-pagination-fuzz\.spec\.ts$/,
     /\/layout-invariant\.spec\.ts$/,
     /\/canvas-pages\.spec\.ts$/,
+    /\/object-resize\.spec\.ts$/,
   ],
 ) {
   return {

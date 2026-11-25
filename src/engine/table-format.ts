@@ -15,6 +15,7 @@ import {
 } from 'prosemirror-tables';
 import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
+import { rowBoxOf } from '../pagination/object-boxes.js';
 import { applyHeaders, headerKey, selectedLines, tableHeaders } from './table-headers.js';
 import { MIN_ROW_HEIGHT } from './table-pointer.js';
 import type { TableAxis } from './tables.js';
@@ -121,11 +122,33 @@ function rowsToDistribute(state: EditorState): { from: number; to: number } | nu
   return spans ? { from: rect.top, to: rect.bottom } : { from: 0, to: rect.map.height };
 }
 
-// The height of each of some rows: its cells' set height, or its height as laid out in the view.
+// The height each of some rows sets on its cells as the engine laid them out on the pages: the
+// row's less its cells' padding and borders; null when one is not laid out by it.
+function laidOutRowHeights(
+  view: EditorView,
+  table: { node: ProseMirrorNode; start: number },
+  rows: { from: number; to: number },
+): number[] | null {
+  const heights: number[] = [];
+  let missing = false;
+  table.node.forEach((row, offset, index) => {
+    if (index < rows.from || index >= rows.to) return;
+    const box = rowBoxOf(view, table.start + offset + 1);
+    if (box) heights.push(Math.round(box.height - box.edges));
+    else missing = true;
+  });
+  return missing ? null : heights;
+}
+
+// The height each of some rows sets on its cells: on the pages, the height the layout engine laid
+// it out at less its cells' padding and borders (DOCE-PAGINATION-10.12); where the browser lays
+// the table out, its cells' set height, or its height as drawn.
 function rowHeights(state: EditorState, view: EditorView | undefined): number[] {
   const rows = rowsToDistribute(state);
   const found = findTable(state.selection.$from);
   if (!rows || !found) return [];
+  const laid = view ? laidOutRowHeights(view, found, rows) : null;
+  if (laid) return laid;
   const heights: number[] = [];
   const pos = found.start;
   found.node.forEach((row, offset, index) => {

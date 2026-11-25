@@ -6,6 +6,7 @@
 
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { bindViewPages } from './object-boxes.js';
 import { bindPageMaps, pageMap } from './page-map.js';
 import type { ProjectionMap } from './projection-map.js';
 import { canonicalNodeAt } from './selection-mirror.js';
@@ -73,5 +74,9 @@ export function canonicalView(view: EditorView, source: CanonicalViewSource): Ed
     },
   });
   bindPageMaps(canonical, (state) => pageMap(state, view));
+  bindViewPages(canonical, {
+    state: () => view.state,
+    toPages: (pos) => source.map().toProjection(pos, 1),
+  });
   return canonical;
 }

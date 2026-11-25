@@ -306,7 +306,12 @@ test.describe('table handles', () => {
     await page.mouse.move(edge.x, edge.y + 40, { steps: 5 });
     await page.mouse.up();
     await expect(start).toHaveAttribute('data-row-height', /^\d+$/);
+    // The row is laid out at the height it was shown at, its cells' padding and borders kept
+    // beyond the height the row sets (DOCE-PAGINATION-10.12).
     const height = Number(await start.getAttribute('data-row-height'));
-    expect(Math.abs(height - (box.height + 40))).toBeLessThan(8);
+    expect(height).toBeLessThan(box.height + 40);
+    await expect
+      .poll(async () => Math.round((await start.boundingBox())?.height ?? 0))
+      .toBe(Math.round(box.height + 40));
   });
 });

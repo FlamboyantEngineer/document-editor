@@ -19,19 +19,16 @@ import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggest
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import { createTextLayout, type TextLayout } from '../layout-engine/text-layout.js';
-import {
-  findTemplateSection,
-  type LayoutBlock,
-  type TemplateFile,
-  templatePageMetrics,
-} from '../model/index.js';
+import type { LayoutBlock, TemplateFile } from '../model/index.js';
 import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
+import { sectionContentWidth } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { holdNodeNumbers, markerKey, type NodeNumbers } from './node-numbers.js';
 import { numberedText } from './numbered-text.js';
+import { createObjectRecorder } from './object-recorder.js';
 import { createRegionLines } from './region-lines.js';
 import { atomMeasurer, mathPlaces } from './text-engine-atoms.js';
 import { createCounts } from './text-engine-counts.js';
@@ -47,20 +44,13 @@ interface KeptLines {
   readonly table: DrawnLines | null;
 }
 
-// The width of a section's page content, inside its margins.
-function contentWidth(template: TemplateFile, scope: string | null): number {
-  const section = findTemplateSection(template, scope);
-  const { width, margins } = templatePageMetrics(template, section);
-  return width - margins.left - margins.right;
-}
-
 // Each section's content width, computed once per scope.
 function contentWidths(template: TemplateFile): (scope: string | null) => number {
   const widths = new Map<string | null, number>();
   return (scope) => {
     let width = widths.get(scope);
     if (width === undefined) {
-      width = contentWidth(template, scope);
+      width = sectionContentWidth(template, scope);
       widths.set(scope, width);
     }
     return width;
@@ -190,6 +180,7 @@ function engineLayouts(
       refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
     },
   });
+  const objects = createObjectRecorder();
   const geometry = createBlockLayout({
     text: numberedText(text, { numbers, inserted, recorder }),
     atoms,
@@ -200,11 +191,27 @@ function engineLayouts(
     contentsOf: (node) => contents.of(node, numbers().doc),
     pageDigits: () => contents.digits(),
     onMath: math.record,
+    onObject: objects.record,
   });
   laying = text;
   atoms.subscribe(math.forget);
   const labelOf = (caption: ProseMirrorNode) => numbers().labelOf(caption);
-  return { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf, math };
+  return {
+    host,
+    atoms,
+    text,
+    geometry,
+    // The figure and table boxes of a top-level block laid out in its section's content width.
+    objectBoxes:
+      (widthOf: (scope: string | null) => number) =>
+      (block: ProseMirrorNode, scope: string | null) =>
+        objects.boxesOf(() => geometry.layoutBlock(block, { width: widthOf(scope), scope })),
+    select,
+    measureContext,
+    variablesKey,
+    labelOf,
+    math,
+  };
 }
 
 // A way into the engine that measures, setting Pretext's width source to the engine's own first
@@ -281,9 +288,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
   const unsubscribe = atoms.subscribe(() => {
     blocks = new WeakMap();
-    tables.forget();
-    regions.forget();
-    nested.forget();
+    for (const kept of [tables, regions, nested]) kept.forget();
     options.onAtomsSettled();
   });
   return {
@@ -329,6 +334,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     regionLines: selecting(select, (...at) => regions.lay(...at).lines),
     lines: selecting(select, (node, place) => tables.lines(node, place)),
     nestedLines: selecting(select, (...at) => nested.lines(...at)),
+    objectBoxes: selecting(select, layouts.objectBoxes(widthOf)),
     provisional: atoms.pending,
     ...layouts.math.reading(counts.stats, () => numbers.current().doc),
     destroy() {

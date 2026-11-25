@@ -5,12 +5,14 @@
 import { type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { cellAround, TableMap } from 'prosemirror-tables';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { rowBoxOf } from '../pagination/object-boxes.js';
 import {
   type BorderState,
   forgetBorderOnScroll,
   isCellLocked,
   NO_BORDER,
 } from './table-border-hover.js';
+import { pointerScale } from './table-laid-out.js';
 import { MIN_ROW_HEIGHT, setRowHeight } from './table-pointer.js';
 
 // How close to a row's border the pointer picks the border, in pixels.
@@ -90,12 +92,17 @@ function dragRow(view: EditorView, event: MouseEvent, handle: number): void {
   const row = pressed?.parentElement;
   if (!pressed || !row) return;
   const start = event.clientY;
-  const height = pressed.getBoundingClientRect().height;
+  const scale = pointerScale(view);
+  // The row's height as the engine laid it out on the pages (DOCE-PAGINATION-10.12).
+  const laid = rowBoxOf(view, handle);
+  const height = laid?.height ?? pressed.getBoundingClientRect().height / scale;
+  const edges = laid?.edges ?? 0;
   const style = row.getAttribute('style');
   const owner = view.dom.ownerDocument;
-  const heightAt = (y: number) => Math.max(MIN_ROW_HEIGHT, Math.round(height + y - start));
+  const shownAt = (y: number) => Math.max(MIN_ROW_HEIGHT, Math.round(height + (y - start) / scale));
+  const heightAt = (y: number) => Math.max(MIN_ROW_HEIGHT, shownAt(y) - edges);
   const move = (moved: MouseEvent) => {
-    row.style.height = `${String(heightAt(moved.clientY))}px`;
+    row.style.height = `${String(shownAt(moved.clientY))}px`;
   };
   const done = (up: MouseEvent) => {
     owner.removeEventListener('mousemove', move);
