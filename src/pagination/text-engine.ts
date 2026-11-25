@@ -24,6 +24,7 @@ import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
 import { sectionContentWidth } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
+import { hostRuleSizes, refusedAsDrawn, watchedRules } from './host-rules.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { holdNodeNumbers, markerKey, type NodeNumbers } from './node-numbers.js';
@@ -105,28 +106,13 @@ function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
   return new Set([...TEXT_ATOMS].filter((type) => !host.has(type)));
 }
 
-// Whether a block is one a host draws with a node view of its own, or holds one: it takes the room
-// that view shows, which only drawing it tells, so it is measured as drawn.
-function holdsHostBlock(node: ProseMirrorNode, host: ReadonlySet<string>): boolean {
-  if (host.size === 0) return false;
-  let found = host.has(node.type.name);
-  node.descendants((child) => {
-    found ||= child.isBlock && host.has(child.type.name);
-    return !found && !child.isTextblock;
-  });
-  return found;
-}
-
-// Why a block is left to be measured as drawn before the engine lays it out, or null: words
-// inserted outside a text block take room the engine cannot lay out, and a host's view the room it
-// shows.
-function refusedAsDrawn(
-  node: ProseMirrorNode,
-  inserted: InsertedTexts,
-  hostViews: ReadonlySet<string>,
-): string | null {
-  if (inserted.outside.has(node)) return 'inserted words outside a text block';
-  return holdsHostBlock(node, hostViews) ? 'drawn by a host view' : null;
+// The inline atoms laid out as text, with the numbers their footnote markers show.
+function textAtomsOf(options: TextEngineOptions, numbers: () => NodeNumbers) {
+  return {
+    types: textAtomTypes(options),
+    footnoteOf: (marker: ProseMirrorNode) => numbers().footnoteOf(marker),
+    refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
+  };
 }
 
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
@@ -156,11 +142,14 @@ function engineLayouts(
   const math = mathPlaces(equationOf);
   // The text layout is made after the atom cache it measures atoms with.
   let laying: TextLayout | null = null;
-  const typography = () => {
+  const textNow = () => {
     if (!laying) throw new Error('The text layout is not made yet');
-    return laying.typography;
+    return laying;
   };
+  const typography = () => textNow().typography;
   const atoms = createAtomCache({ measure: atomMeasurer(options, { host, typography }) });
+  // The host's nodes its layout rules size, before anything measures them as drawn.
+  const sizes = hostRuleSizes(options, textNow);
   // The stylesheet's own block numbers, read where the pages' content is drawn.
   const sheet = readSheetNumbers(host);
   const text = createTextLayout({
@@ -172,13 +161,10 @@ function engineLayouts(
     codeLineNumbers: options.codeLineNumbers,
     language: options.language ?? '',
     reserve: options.reserve,
-    measureAtom: (node, place) => atoms.measureAtom(node, place),
+    measureAtom: (node, place) =>
+      sizes.inline(node, 0, place?.scope ?? null) ?? atoms.measureAtom(node, place),
     onMath: math.record,
-    textAtoms: {
-      types: textAtomTypes(options),
-      footnoteOf: (marker) => numbers().footnoteOf(marker),
-      refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
-    },
+    textAtoms: textAtomsOf(options, numbers),
   });
   const objects = createObjectRecorder();
   const geometry = createBlockLayout({
@@ -192,6 +178,7 @@ function engineLayouts(
     pageDigits: () => contents.digits(),
     onMath: math.record,
     onObject: objects.record,
+    ruleSizes: sizes,
   });
   laying = text;
   atoms.subscribe(math.forget);
@@ -211,6 +198,7 @@ function engineLayouts(
     variablesKey,
     labelOf,
     math,
+    sizes,
   };
 }
 
@@ -279,18 +267,19 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   });
   const { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf } = layouts;
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
-  const counts = createCounts();
-  const hostViews = new Set(options.hostViews ?? []);
+  const counts = createCounts(layouts.sizes.errors);
+  const rules = watchedRules(options, () => forget());
   const widthOf = contentWidths(template);
   const tables = keptLines(text, { widthOf, markup, numbers: numbers.current, variablesKey });
   const footnoteOf = (part: ProseMirrorNode) => numbers.current().footnoteOf(part);
   const laying = { geometry, recorder, widthOf, footnoteOf, markup, variablesKey, labelOf };
   const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
-  const unsubscribe = atoms.subscribe(() => {
+  // Forgets every layout kept, as when atoms settle or the host's rules size nodes otherwise.
+  const forget = () => {
     blocks = new WeakMap();
     for (const kept of [tables, regions, nested]) kept.forget();
-    options.onAtomsSettled();
-  });
+  };
+  const unsubscribe = atoms.subscribe(() => [forget(), options.onAtomsSettled()]);
   return {
     template,
     fonts: options.fonts,
@@ -309,7 +298,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     ),
     measureBlock(node, scope, inserted = NO_INSERTED) {
       select();
-      const refusal = refusedAsDrawn(node, inserted, hostViews);
+      const refusal = refusedAsDrawn(node, inserted, rules.hostViews());
       if (refusal) {
         counts.refuse(refusal);
         return null;

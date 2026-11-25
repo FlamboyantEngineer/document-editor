@@ -1076,3 +1076,14 @@ A footnote marker the pages draw on more than one page, as a table's repeated he
 
 Implementation: `src/engine/footnote-anchors.ts`, `src/document/print-content.ts`, `src/engine/print-links.ts`
 Verification: `src/engine/footnote-anchors.test.ts`, `src/document/print-pages.test.ts`, `src/engine/print-links.test.ts`, `e2e/footnote-occurrences.spec.ts`
+
+## DOCE-PAGINATION-14 - Sizes worked out ahead
+
+Every size the pages are laid out with comes from the document's content laid out in the served fonts, from a size stored with an object, or from the host's layout rule, worked out before anything is drawn, so the pages are laid out once and alike on every machine. Nothing is laid out again because something finished drawing.
+
+### DOCE-PAGINATION-14.1 - Host nodes sized by their rules
+
+A layout rule's `size` shall give the box of a node of its type from the node alone (`SizeInput`): the width it is given (a block's width, or the line's width for an inline node), its template section, the pages' language and suggestion markup, and `text`, which measures text as the engine lays out a paragraph or code block of it in the served fonts (`width`, and `lines` wrapped at a width, with their count and height), never the browser. It returns a height, and for an inline node a width and a baseline (its bottom by default). The engine shall lay a block of that type out at that height with no margins of its own and no split measurement, ahead of its own layout of the type and though a host view draws it (such a block is not left to be measured as drawn), and an inline node at that box on its line. A sized block is moved whole: the page layout and a container's split shall never split it, whatever `split` its rule holds. A size shall be kept by node, width, section and markup while the rules' sizes stay the same: rules handed in again with the same `size` functions and `sizeKey`s keep every size, and another function or `sizeKey` sizes every node of the rules anew, the blocks laid out with the last ones laid out again. The first node of each type is sized twice; a rule that gives two sizes for it is reported. A rule that throws, or gives no usable size (a height, width or baseline that is not a finite number of 0 or more), is a host error: its node takes no room, and the engine keeps the error by node type (`stats().sizeErrors`), cleared once the type's rule gives a size again.
+
+Implementation: `src/model/pagination/page-layout.ts`, `src/model/pagination/container-split.ts`, `src/layout-engine/rule-sizes.ts`, `src/layout-engine/blocks/block-layout.ts`, `src/pagination/host-rules.ts`, `src/pagination/text-engine.ts`, `src/pagination/text-engine-holder.ts`, `src/components/document-editor/start-paging.ts`
+Verification: `src/pagination/text-engine.test.ts`, `src/model/pagination/page-layout.test.ts`

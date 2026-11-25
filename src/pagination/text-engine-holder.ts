@@ -8,7 +8,7 @@
 import type { EditorView } from 'prosemirror-view';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
-import type { TemplateFile } from '../model/index.js';
+import type { LayoutRules, TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
 import type { PageVariablesOptions } from './page-variables.js';
 import type { PagesFonts, ServedFonts } from './served-fonts.js';
@@ -23,6 +23,8 @@ export interface TextLayoutSetting {
   readonly codeLineNumbers?: (() => boolean) | undefined;
   /** The node types the host draws with node views of its own. */
   readonly hostViews?: readonly string[] | undefined;
+  /** The host's layout rules now, whose `size` sizes its nodes (DOCE-PAGINATION-14.1). */
+  readonly layoutRules?: (() => LayoutRules | undefined) | undefined;
   /** The served fonts the text is measured with; no engine is made without them. */
   readonly fonts: PromiseLike<PagesFonts>;
   /**
@@ -88,9 +90,9 @@ function servedInputs(fonts: ServedFonts) {
 // What the engine takes from the setting beside its template: the host's views, the markup, the
 // variables' values and the math layouter it loaded.
 const settingInputs = (
-  { hostViews, markup, variables }: TextLayoutSetting,
+  { hostViews, layoutRules, markup, variables }: TextLayoutSetting,
   { layouter }: LoadedEngine,
-) => ({ hostViews, markup, variables, mathLayouter: () => layouter });
+) => ({ hostViews, layoutRules, markup, variables, mathLayouter: () => layouter });
 
 // How many times the markup the pages are laid out in has changed, as it is read.
 function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => number {
