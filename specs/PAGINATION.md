@@ -703,6 +703,13 @@ Verification: `src/layout-engine/contents-row.test.ts`
 Implementation: `src/layout-engine/contents-layout.ts`, `src/layout-engine/contents-row.ts`, `src/layout-engine/contents-typography.ts`, `src/layout-engine/text-layout.ts`
 Verification: `src/layout-engine/contents-row.test.ts`
 
+### DOCE-PAGINATION-9.15 - Segmentation in one language
+
+Grapheme clusters shall be found in one fixed language, `en` (`SEGMENTATION_LOCALE`), never the runtime's default, wherever the editor counts, measures or reserves them: caret steps and deletions (`clusterStart`, `clusterEnd`), reserved boxes, math cluster counts and the font-file measurer. `segmentationFingerprint()` shall hash the boundaries of a fixed corpus (`SEGMENTATION_CORPUS`: accents, emoji sequences, Indic conjuncts, Hangul and kana, Thai, Lao, Khmer and Burmese words, both directions, invisible characters) in the runtime, so two runtimes whose segmentation data differs give different fingerprints. The corpus's grapheme and word boundaries in Node shall equal `test/fixtures/segmentation/boundaries.json`, and in Chromium the same but for the differences the file lists: Chromium's Khmer dictionary splits a word that Node's keeps whole, so Khmer lines can break differently between the two.
+
+Implementation: `src/utils/segmentation.ts`, `src/layout-engine/graphemes.ts`, `src/layout-engine/reserved-boxes.ts`, `src/utils/math-text.ts`, `src/layout-engine/font-files/measure-context.ts`
+Verification: `src/utils/segmentation.test.ts`, `e2e/segmentation.spec.ts`
+
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
 
 On the pages, block geometry lays blocks out with no DOM, from the text layout engine's lines (DOCE-PAGINATION-9), the atom cache and the template's numbers, in the shapes the DOM measuring gives the page layout (DOCE-PAGINATION-5.1), so the page packer and the splitters read them unchanged. The rendered document follows these numbers: the template's, and the stylesheet's own, which it states for the engine to read (DOCE-PAGINATION-10.8).

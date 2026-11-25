@@ -4,6 +4,8 @@ import { documentSchema } from '../../../test/document-markup.js';
 import {
   BASE_TEMPLATE,
   catalogDocument,
+  type CatalogEntry,
+  compareOrder,
   numberingCountersAt,
   numberingCounterValues,
   readDocumentFile,
@@ -576,5 +578,22 @@ describe('document catalog', () => {
     expect(catalogDocument(suggested, BASE_TEMPLATE).toc?.map((entry) => entry.text)).toEqual([
       'New scope',
     ]);
+  });
+
+  it('DOCE-CONTENTS-1.4 orders entries in one fixed collation, by number parts and without case', () => {
+    const entry = (order: string): CatalogEntry => ({
+      kind: 'glossary',
+      level: 0,
+      number: '',
+      text: order,
+      pos: 0,
+      page: 1,
+      order: [order],
+    });
+    const sorted = ['item 10', 'Item 2', 'éclair', 'eclair', 'zebra', 'ångström']
+      .map(entry)
+      .sort(compareOrder)
+      .map((each) => each.order?.[0]);
+    expect(sorted).toEqual(['ångström', 'éclair', 'eclair', 'Item 2', 'item 10', 'zebra']);
   });
 });

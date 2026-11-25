@@ -96,15 +96,16 @@ const attrText = (value: unknown) => (typeof value === 'string' ? value : '');
 const isExternal = (_node: ProseMirrorNode, mark?: Mark) =>
   !String(mark?.attrs.refType ?? '').startsWith('internal-');
 
+// Entries are ordered in one fixed language, never the browser's, so a generated list holds the
+// same rows in the same order on every machine (DOCE-CONTENTS-1.4).
+const orderCollator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+
 /** Compares two entries by their `order`, part by part, ignoring case and accents. */
 export function compareOrder(a: CatalogEntry, b: CatalogEntry): number {
   const left = a.order ?? [];
   const right = b.order ?? [];
   for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
-    const delta = (left[index] ?? '').localeCompare(right[index] ?? '', undefined, {
-      sensitivity: 'base',
-      numeric: true,
-    });
+    const delta = orderCollator.compare(left[index] ?? '', right[index] ?? '');
     if (delta !== 0) return delta;
   }
   return 0;
