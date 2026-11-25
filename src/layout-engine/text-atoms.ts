@@ -1,5 +1,5 @@
 // The inline atoms a page draws as plain text in its line: a footnote marker's number, a mention's
-// `@name` and a glossary reference's text. The engine lays each out as text in the font the page
+// `@name`, a glossary reference's text and an inline embed's stored text. The engine lays each out as text in the font the page
 // draws it in, kept whole on one line, as the page cannot break inside an atom (DOCE-PAGINATION-9.5).
 
 import type { RichInlineItem } from '@chenglou/pretext/rich-inline';
@@ -13,6 +13,7 @@ export const TEXT_ATOMS: ReadonlySet<string> = new Set([
   'footnote_reference',
   'mention',
   'abbreviation_reference',
+  'embed_inline',
 ]);
 
 /**
@@ -54,6 +55,12 @@ export function textAtomItem(
     case 'abbreviation_reference': {
       const text = abbreviationDisplayText(node.attrs);
       // Drawn as an underlined link, whose line end Chromium places by its last letter's width.
+      return { text, font: fontString(font), break: 'never', accurateLineEnds: true };
+    }
+    case 'embed_inline': {
+      // Its stored text, drawn with a dotted underline, whose line end Chromium places as a link's.
+      const text = String(node.attrs.text ?? '');
+      if (!text) return { width: 0 };
       return { text, font: fontString(font), break: 'never', accurateLineEnds: true };
     }
     default:

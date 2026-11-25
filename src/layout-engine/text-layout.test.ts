@@ -313,6 +313,24 @@ describe('createTextLayout', () => {
     });
   });
 
+  it('DOCE-PAGINATION-9.5 lays an inline embed out as its stored text, never broken inside', () => {
+    const { nodes } = documentSchema;
+    const embed = (text: string) =>
+      nodes.paragraph?.create(null, [
+        documentSchema.text('aaaa '),
+        ...(nodes.embed_inline ? [nodes.embed_inline.create({ text })] : []),
+      ]);
+    const stored = embed('Q3 total');
+    const empty = embed('');
+    if (!stored || !empty || !nodes.embed_inline) throw new Error('schema lacks inline embeds');
+    expect(table(stored, 400).lines[0]?.width).toBe(27 + 8 * 6 - 3);
+    expect(table(empty, 400).lines[0]?.width).toBe(27);
+    expect(starts(table(stored, 60))).toEqual([
+      [0, 5, 'wrap'],
+      [5, 6, 'end'],
+    ]);
+  });
+
   it('DOCE-PAGINATION-9.5 DOCE-PAGINATION-14.1 tells an inline atom its block, scope and line width', () => {
     const atom = documentSchema.nodes.math_inline?.create(null, documentSchema.text('x'));
     const heading = documentSchema.nodes.heading?.create({ level: 2 }, atom ? [atom] : []);
