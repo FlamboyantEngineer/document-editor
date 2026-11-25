@@ -17,7 +17,7 @@ async function caretAtEnd(page: Page, id: string) {
 }
 
 test.describe('editor options', () => {
-  test('DOCE-LABS-3.8 DOCE-EDITING-10.2 DOCE-EDITOR-5.7 refuses words past the content limit, and shows a collaborator past it', async ({
+  test('DOCE-LABS-3.9 DOCE-EDITING-10.2 DOCE-EDITOR-5.7 refuses words past the content limit, and shows a collaborator past it', async ({
     lab,
     page,
   }) => {
@@ -38,7 +38,7 @@ test.describe('editor options', () => {
     await expect(words.locator('[data-over]')).toHaveAttribute('data-over', 'true');
   });
 
-  test('DOCE-LABS-3.8 DOCE-EDITING-10.3 keeps a paragraph after a section that ends with a table', async ({
+  test('DOCE-LABS-3.9 DOCE-EDITING-10.3 keeps a paragraph after a section that ends with a table', async ({
     lab,
     page,
   }) => {
@@ -59,7 +59,7 @@ test.describe('editor options', () => {
     await expect.poll(() => after('a0f00009')).toBe('P:');
   });
 
-  test('DOCE-LABS-3.8 DOCE-EDITING-3.1 DOCE-EDITING-6.5 turns the typing shortcuts off by group', async ({
+  test('DOCE-LABS-3.9 DOCE-EDITING-3.1 DOCE-EDITING-6.5 turns the typing shortcuts off by group', async ({
     lab,
     page,
   }) => {
@@ -78,7 +78,7 @@ test.describe('editor options', () => {
     await expect(content(page).locator('h2', { hasText: 'Floors' })).toHaveCount(0);
   });
 
-  test('DOCE-LABS-3.8 DOCE-PAGINATION-5.11 keeps tables whole with the host layout rules', async ({
+  test('DOCE-LABS-3.9 DOCE-PAGINATION-5.11 keeps tables whole with the host layout rules', async ({
     lab,
     page,
   }) => {
@@ -96,7 +96,7 @@ test.describe('editor options', () => {
     await expect.poll(parts).toBe(1);
   });
 
-  test('DOCE-LABS-3.8 DOCE-SCHEMA-1.4 DOCE-SCHEMA-3.3 renders with the host presentation and previews assets as of a time', async ({
+  test('DOCE-LABS-3.9 DOCE-SCHEMA-1.4 DOCE-SCHEMA-3.3 renders with the host presentation and previews assets as of a time', async ({
     lab,
     page,
   }) => {
@@ -112,7 +112,7 @@ test.describe('editor options', () => {
     await expect(image).toHaveAttribute('src', /as%20of%202026-01-31/);
   });
 
-  test('DOCE-LABS-3.8 DOCE-SCHEMA-2.3 DOCE-EDITING-1.7 stamps drafts and freezes an approved element', async ({
+  test('DOCE-LABS-3.9 DOCE-SCHEMA-2.3 DOCE-EDITING-1.7 stamps drafts and freezes an approved element', async ({
     lab,
     page,
   }) => {
@@ -146,7 +146,7 @@ test.describe('editor options', () => {
     await expect(paragraph).toContainText('changed');
   });
 
-  test('DOCE-LABS-3.8 DOCE-EDITING-1.4 repairs a document opened with broken element ids', async ({
+  test('DOCE-LABS-3.9 DOCE-EDITING-1.4 repairs a document opened with broken element ids', async ({
     lab,
     page,
   }) => {
@@ -163,7 +163,7 @@ test.describe('editor options', () => {
     await expect(log(page)).toContainText('ids repaired on opening');
   });
 
-  test('DOCE-LABS-3.8 DOCE-ENTRY-2.4 tells the writer a dialog failed to load, and loads it the next time', async ({
+  test('DOCE-LABS-3.9 DOCE-ENTRY-2.4 tells the writer a dialog failed to load, and loads it the next time', async ({
     lab,
     page,
   }) => {
@@ -189,7 +189,7 @@ test.describe('editor options', () => {
     lab.errors.splice(0, lab.errors.length, ...lab.errors.filter((e) => !dropped.includes(e)));
   });
 
-  test('DOCE-LABS-3.8 DOCE-EDITOR-4.20 draws the host status item only when its part of the state changes', async ({
+  test('DOCE-LABS-3.9 DOCE-EDITOR-4.20 draws the host status item only when its part of the state changes', async ({
     lab,
     page,
   }) => {
