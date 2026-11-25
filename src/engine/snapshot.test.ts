@@ -301,16 +301,19 @@ describe('documentSnapshot', () => {
     view.destroy();
   });
 
-  it('DOCE-EDITOR-6.19 prints without the text style of the page around the editor', () => {
+  it('DOCE-EDITOR-6.19 prints without the text style of the page around the editor, in its language', () => {
     const { view, template: sectioned } = sectionedView();
     const around = view.dom.parentElement;
     // Only an element in the document has a computed style, as in a browser.
     if (around) document.body.append(around);
     around?.style.setProperty('font-family', 'Georgia');
     around?.style.setProperty('color', 'rgb(1, 2, 3)');
+    around?.setAttribute('lang', 'fr');
     const snapshot = parse(documentSnapshot(view, { template: sectioned }));
     const root = snapshot.body.firstElementChild as HTMLElement | null;
     expect(root?.getAttribute('style')).toBeNull();
+    // It still carries the language named closest around the pages.
+    expect(snapshot.language).toBe('fr');
     view.destroy();
     around?.remove();
   });

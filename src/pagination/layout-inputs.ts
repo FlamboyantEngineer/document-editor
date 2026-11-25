@@ -64,6 +64,18 @@ function bytesHash(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): string {
   return hash;
 }
 
+// A template is hashed once for as long as it is kept, however many layouts read it.
+const templateHashes = new WeakMap<TemplateFile, string>();
+
+function templateHash(template: TemplateFile): string {
+  let hash = templateHashes.get(template);
+  if (hash === undefined) {
+    hash = hashText(JSON.stringify(template));
+    templateHashes.set(template, hash);
+  }
+  return hash;
+}
+
 const faceKey = (face: FontFaceFile) =>
   [face.family, face.weight, face.style, face.unicodeRange ?? '', bytesHash(face.bytes)].join('|');
 
@@ -84,7 +96,7 @@ export function layoutInputs(input: {
     pretext: PRETEXT_RELEASE,
     shaper: `harfbuzzjs-${HARFBUZZJS_RELEASE}`,
     math: input.math ?? '',
-    template: hashText(JSON.stringify(input.template)),
+    template: templateHash(input.template),
     language: input.language,
     markup: input.markup,
     codeLineNumbers: input.codeLineNumbers ? 'on' : 'off',
