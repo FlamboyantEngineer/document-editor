@@ -17,7 +17,7 @@ import {
   typeFigureSide,
 } from './figure-size.js';
 
-// The size the dialog starts at: the figure's own, else the size it is drawn at.
+// The size the dialog starts at: the figure's own, else the size it is laid out at.
 function startSize(view: DialogProps['view'], node: ProseMirrorNode | null): FigureSize {
   const side = (name: string) => {
     const value: unknown = node?.attrs[name];

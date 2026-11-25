@@ -19,7 +19,7 @@ import {
   repairElementIds,
   type ReviewChange,
 } from '../../engine/index.js';
-import type { VariablesAdapter } from '../../host/index.js';
+import type { FontsAdapter, VariablesAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
 import type { StatusBarItem } from './document-status-bar.js';
@@ -534,6 +534,65 @@ describe('DocumentEditor', () => {
     // it no more than once more.
     expect(root).toHaveAttribute('data-text-layout', 'pretext');
     expect(handle.current?.layoutStats()?.blocksMeasured).toBeLessThanOrEqual(2);
+  });
+
+  it('DOCE-PAGINATION-12.5 lays out and draws a family no host file serves in the served body family, and says so', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const template = { ...TEMPLATE, styles: { paragraph: { font: 'Unserved Face' } } };
+    // The host serves every family asked for but this one.
+    const serve = TEST_FONTS.files?.bind(TEST_FONTS);
+    if (!serve) throw new Error('the test fonts serve no files');
+    const fonts: FontsAdapter = {
+      ...TEST_FONTS,
+      files: (families, options) =>
+        serve(
+          families.filter((family) => family !== 'Unserved Face'),
+          options,
+        ),
+    };
+    const { container } = render(
+      <DocumentEditor
+        state={initial()}
+        onStateChange={() => undefined}
+        template={template}
+        layout="page"
+        aria-label="Report"
+        handleRef={handle}
+        fonts={fonts}
+      />,
+    );
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    const root = container.querySelector('.de-document-editor');
+    expect(root).toHaveAttribute('data-text-layout', 'pretext');
+    expect(await screen.findByText(/Unserved Face shows in a fallback font/u)).toBeInTheDocument();
+    // No style the pages are drawn with names it, so the browser cannot pick a local font of it.
+    const styles = [...document.querySelectorAll('style')].map((style) => style.textContent);
+    expect(styles.join('\n')).not.toContain('Unserved Face');
+    // Nor does a print of the pages.
+    expect(handle.current?.exportSnapshot()).not.toContain('Unserved Face');
+  });
+
+  it('DOCE-PAGINATION-12.5 draws a family a later template names in its own faces once they arrive', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const later = { ...TEMPLATE, styles: { paragraph: { font: 'Later Face' } } };
+    const shown = (template: TemplateFile) => (
+      <DocumentEditor
+        state={initial()}
+        onStateChange={() => undefined}
+        template={template}
+        layout="page"
+        aria-label="Report"
+        handleRef={handle}
+        fonts={TEST_FONTS}
+      />
+    );
+    const { container, rerender } = render(shown(TEMPLATE));
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    rerender(shown(later));
+    const drawn = () => container.querySelector('.de-document-editor')?.getAttribute('style');
+    await waitFor(() => expect(drawn()).toContain('Later Face'));
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    expect(screen.queryByText(/Later Face shows in a fallback font/u)).not.toBeInTheDocument();
   });
 
   it('DOCE-EDITOR-6.12 is settled at once in the web layout', async () => {

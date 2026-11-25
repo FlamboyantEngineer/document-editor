@@ -83,7 +83,7 @@ While the pointer is on a cell's side border, the editor carries `resize-cursor`
 When an edit redraws a column group during a drag, moving the pointer and clearing the preview on release shall preserve the newly drawn sizing.
 
 Implementation: `src/engine/table-resize.ts`, `src/engine/table-border-hover.ts`, `src/engine/object-views.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
-Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`, `e2e/table-widths.spec.ts`, `e2e/regression.spec.ts`
+Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`, `e2e/table-widths.spec.ts`, `e2e/regression.spec.ts`, `src/engine/object-resize.test.ts`
 
 ## DOCE-TABLES-3 - Formatting tables
 
@@ -124,14 +124,14 @@ Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`, `e2e/tabl
 
 ### DOCE-TABLES-3.6 - Row heights
 
-While the pointer is near a row's bottom border in an editable document, from the cell above it or from the cell below it in the same drawn table, the editor shall carry `data-row-resize` and each cell of the row draw a `de-row-resize-handle` along the border; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers offers none. Dragging the border shall show the row at the height it would take, and releasing set the row's height (`setRowHeight`) on each of its cells, never below `MIN_ROW_HEIGHT` (16 pixels); a release where it was pressed sets nothing. The row is the one the pressed cell is in at the release, whatever changed meanwhile, such as rows a collaborator added above it; a cell no longer in the document sets nothing.
+While the pointer is near a row's bottom border in an editable document, from the cell above it or from the cell below it in the same drawn table, the editor shall carry `data-row-resize` and each cell of the row draw a `de-row-resize-handle` along the border; a scroll of anything the editor sits in forgets the border while no drag runs, and a cell a host's lock covers offers none. Dragging the border shall show the row at the height it would take, from the height the engine laid it out at on the pages (DOCE-PAGINATION-10.12) plus the pointer's movement divided by the view's zoom, and releasing set the row's height (`setRowHeight`) on each of its cells, the height of their content: the row's less its cells' padding and borders, never below `MIN_ROW_HEIGHT` (16 pixels); a release where it was pressed sets nothing. The row is the one the pressed cell is in at the release, whatever changed meanwhile, such as rows a collaborator added above it; a cell no longer in the document sets nothing.
 
 Implementation: `src/engine/table-row-resize.ts`, `src/engine/table-pointer.ts`, `src/engine/table-border-hover.ts`
-Verification: `src/engine/table-format.test.ts`, `src/engine/table-row-resize.test.ts`, `e2e/tables.spec.ts`
+Verification: `src/engine/table-format.test.ts`, `src/engine/table-row-resize.test.ts`, `e2e/tables.spec.ts`, `src/engine/object-resize.test.ts`
 
 ### DOCE-TABLES-3.7 - Within the page
 
-After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history, writing each cell's widths as a resize does (DOCE-TABLES-2.4). Dragging the last column's right border shall widen or narrow the table, never wider than the content box the table sits in. A resize starts from the widths the columns are laid out at. Under the layout engine (`textLayout: 'pretext'`) the pages draw tables at the engine's column widths with a fixed table layout (DOCE-PAGINATION-10.5), and resizing and the page-content limit work there as on the DOM's automatic layout, each drawn column as wide as its kept width. A table fitted to the page width (`fit-page-width`) keeps the fit when a border between two of its columns moves, which changes only their proportions, and leaves it, aligned left at the widths it was laid out at, when its last column's border changes its outer width (`setColumnWidths(table, widths, { keepFit })`).
+After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history, writing each cell's widths as a resize does (DOCE-TABLES-2.4). Dragging the last column's right border shall widen or narrow the table, never wider than the content box the table sits in. A resize starts from the widths the columns are laid out at, the engine's on the pages (DOCE-PAGINATION-10.12), and the pointer's movement counts in the document's pixels, divided by the view's zoom. Under the layout engine (`textLayout: 'pretext'`) the pages draw tables at the engine's column widths with a fixed table layout (DOCE-PAGINATION-10.5), and resizing and the page-content limit work there as on the DOM's automatic layout, each drawn column as wide as its kept width. A table fitted to the page width (`fit-page-width`) keeps the fit when a border between two of its columns moves, which changes only their proportions, and leaves it, aligned left at the widths it was laid out at, when its last column's border changes its outer width (`setColumnWidths(table, widths, { keepFit })`).
 
 Implementation: `src/model/layout/column-widths.ts`, `src/engine/table-width.ts`, `src/engine/table-resize.ts`, `src/engine/document-editing.ts`
 Verification: `src/model/layout/column-widths.test.ts`, `src/engine/table-format.test.ts`, `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
@@ -152,10 +152,10 @@ Verification: `src/engine/table-split.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.10 - Equal rows
 
-`distributeRows` shall give the rows the selected cells cover, when they cover more than one, or every row of the table, one height: the average of their heights, each row's height being its cells' set height or its height as laid out, never below `MIN_ROW_HEIGHT`. It is refused while a row has no height or the heights are equal already. The context menu in a cell offers it.
+`distributeRows` shall give the rows the selected cells cover, when they cover more than one, or every row of the table, one height: the average of their heights, each row's height being, on the pages, the height the engine laid it out at less its cells' padding and borders (DOCE-PAGINATION-10.12), and where the browser lays the table out its cells' set height or its height as drawn, never below `MIN_ROW_HEIGHT`. It is refused while a row has no height or the heights are equal already. The context menu in a cell offers it.
 
 Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-format.test.ts`
+Verification: `src/engine/table-format.test.ts`, `src/engine/object-resize.test.ts`
 
 ### DOCE-TABLES-3.11 - Clicks in cells
 
@@ -169,7 +169,7 @@ Verification: `src/engine/table-pointer.test.ts`, `e2e/table-selection.spec.ts`
 `setObjectLayout` aligning a table fitted to the page width left, centred or right shall keep the column widths it was laid out at while fitted, written on its cells, when it runs with the view.
 
 Implementation: `src/engine/object-commands.ts`, `src/engine/table-resize.ts`
-Verification: `src/engine/table-resize.test.ts`
+Verification: `src/engine/table-resize.test.ts`, `src/engine/object-resize.test.ts`
 
 ### DOCE-TABLES-3.13 - The cells a menu acts on
 

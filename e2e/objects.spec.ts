@@ -349,9 +349,11 @@ test.describe('objects', () => {
     const scale = await content(page).evaluate(
       (element) => element.getBoundingClientRect().width / (element as HTMLElement).offsetWidth,
     );
+    // The engine's box in whole pixels no wider than it, the size the figure still fits its place
+    // at (DOCE-PAGINATION-10.12).
     await expect(figure).toHaveAttribute(
       'data-figure-width',
-      String(Math.round(fitted.width / scale)),
+      String(Math.floor(fitted.width / scale)),
     );
     await figure.click({ button: 'right' });
     await item(page, 'Align').click();

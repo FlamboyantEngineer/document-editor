@@ -5,7 +5,7 @@
 // face the browser picks, which no served file measures.
 
 import type { TemplateFile } from '../model/index.js';
-import { splitFontFamilies } from '../model/templates/template-css-values.js';
+import { firstFamily, splitFontFamilies } from '../model/templates/template-css-values.js';
 
 const GENERICS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
 
@@ -77,4 +77,36 @@ export function servedTemplate(
       ...(code ? { codeBlock: { ...styles.codeBlock, font: families.monospace } } : {}),
     },
   };
+}
+
+// A template's value with each font stack whose first family `isServed` refuses as `fallback`,
+// the refused families added to `unserved`.
+function withServed(
+  value: unknown,
+  at: { isServed: (family: string) => boolean; fallback: string; unserved: Set<string> },
+): unknown {
+  if (Array.isArray(value)) return value.map((item) => withServed(item, at));
+  if (!value || typeof value !== 'object') return value;
+  const entries = Object.entries(value).map(([key, child]) => {
+    if (key !== 'font' || typeof child !== 'string') return [key, withServed(child, at)];
+    const first = firstFamily(child);
+    if (!first || at.isServed(first)) return [key, child];
+    at.unserved.add(first);
+    return [key, at.fallback];
+  });
+  return Object.fromEntries(entries);
+}
+
+/**
+ * The template with each font whose first family no host file serves as `fallback`, the served
+ * body family, so the engine and every drawing of the pages lay it out and draw it alike, and the
+ * browser never picks a local font of that name (DOCE-PAGINATION-12.5); and those families.
+ */
+export function servedFamiliesOnly(
+  template: TemplateFile,
+  { isServed, fallback }: { isServed: (family: string) => boolean; fallback: string },
+): { readonly template: TemplateFile; readonly unserved: readonly string[] } {
+  const unserved = new Set<string>();
+  const drawn = withServed(template, { isServed, fallback, unserved }) as TemplateFile;
+  return unserved.size ? { template: drawn, unserved: [...unserved] } : { template, unserved: [] };
 }

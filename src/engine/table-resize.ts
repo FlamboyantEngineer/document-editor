@@ -21,6 +21,7 @@ import {
   isCellLocked,
   NO_BORDER,
 } from './table-border-hover.js';
+import { laidOutWidths, pointerScale, roomFor } from './table-laid-out.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
 
 // How close to a cell's side border the pointer picks the border, in pixels.
@@ -91,40 +92,6 @@ function borderAt(view: EditorView, event: MouseEvent): number {
   const start = $cell.start(-1);
   const index = map.map.indexOf($cell.pos - start);
   return index % map.width === 0 ? -1 : start + (map.map[index - 1] ?? 0);
-}
-
-// The widths a table's columns are laid out at: a column's set width, or the width of a cell that
-// covers only it.
-function laidOutWidths(view: EditorView, at: ReturnType<typeof tableOfCell>): number[] {
-  const { table, pos, map } = at;
-  return Array.from({ length: map.width }, (_, column) => {
-    for (let row = 0; row < map.height; row += 1) {
-      const offset = map.map[row * map.width + column] ?? 0;
-      const cell = table.nodeAt(offset);
-      if (Number(cell?.attrs.colspan) !== 1) continue;
-      const dom = view.nodeDOM(pos + 1 + offset) as Element | null;
-      const width = dom?.getBoundingClientRect?.().width ?? 0;
-      if (width > 0) return Math.round(width);
-    }
-    return DEFAULT_TABLE_CELL_MIN_WIDTH;
-  });
-}
-
-/** The widths the columns of the table at a position before it are laid out at, in pixels. */
-export function laidOutColumnWidths(view: EditorView, table: number): number[] | null {
-  const node = view.state.doc.nodeAt(table);
-  if (node?.type.spec.tableRole !== 'table') return null;
-  return laidOutWidths(view, { table: node, pos: table, map: TableMap.get(node), column: 0 });
-}
-
-// The width of the content box the table sits in, or no limit when it cannot be told.
-function roomFor(table: Element | null): number {
-  const parent = table?.parentElement;
-  if (!parent) return Infinity;
-  const style = parent.ownerDocument.defaultView?.getComputedStyle(parent);
-  const padding = parseFloat(style?.paddingLeft ?? '0') + parseFloat(style?.paddingRight ?? '0');
-  const room = parent.clientWidth - padding;
-  return room > 0 ? room : Infinity;
 }
 
 // Shows column widths while a border is dragged, on the table's column group.
@@ -260,7 +227,8 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
   const dom = view.nodeDOM(at.pos) as HTMLElement | null;
   if (!dom) return;
   const start = laidOutWidths(view, at);
-  const resize = { column: at.column, max: roomFor(dom) };
+  const resize = { column: at.column, max: roomFor(view, at, dom) };
+  const scale = pointerScale(view);
   // Only the last column's border changes the table's outer width.
   const keepFit = at.column < at.map.width - 1;
   // A changed table draws a new column group. Its sizing belongs to that edit once drawn.
@@ -276,7 +244,8 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
     for (const preview of previews) if (preview.isCurrent()) preview.restore();
   };
   const owner = view.dom.ownerDocument;
-  const widthsAt = (x: number) => resizeColumns(start, { ...resize, by: x - event.clientX });
+  const widthsAt = (x: number) =>
+    resizeColumns(start, { ...resize, by: (x - event.clientX) / scale });
   const move = (moved: MouseEvent) => {
     const widths = widthsAt(moved.clientX);
     for (const preview of previews) if (preview.isCurrent()) showWidths(preview.table, widths);

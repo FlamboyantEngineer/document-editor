@@ -2,7 +2,9 @@
 // following in the drawing's proportions while they are locked, clamped to the sizes a page holds,
 // or, in the resize dialog, checked against them.
 
+import { NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { contentRoomOf, objectBoxOf } from '../../pagination/object-boxes.js';
 import type { FigureSizeProblem } from './figure-labels.js';
 
 /** A figure's width and height in pixels; null for a side that follows the drawing. */
@@ -63,18 +65,19 @@ export function clampFigureSize(size: FigureSize, { locked, ratio, bounds }: Fig
   return { width: Math.round(next.width), height: Math.round(next.height) };
 }
 
-// The width of the pages' content: the editor's measuring area in page layout, else the document.
+// The widest a figure at the selection may be: on the pages, the width of the place the engine
+// laid the figure selected out in, or the section's page content (DOCE-PAGINATION-10.12); where
+// the browser lays the document out, the document's width.
 function contentWidth(view: EditorView): number {
-  const root = view.dom.closest('.de-document-editor');
-  const measure = [...(root?.querySelectorAll('.de-document-editor__measure') ?? [])].find(
-    (element) => element.closest('.de-document-editor') === root,
-  );
-  return (measure ?? view.dom).clientWidth;
+  const { selection } = view.state;
+  const box = selection instanceof NodeSelection ? objectBoxOf(view, selection.from) : null;
+  if (box?.kind === 'figure') return box.room;
+  return contentRoomOf(view, selection.from) ?? view.dom.clientWidth;
 }
 
 /** The bounds a figure takes on the document's pages: no wider than their content. */
 export function figureBounds(view: EditorView, bounds: FigureBounds = FIGURE_BOUNDS): FigureBounds {
-  const content = contentWidth(view);
+  const content = Math.floor(contentWidth(view));
   return content > 0 ? { ...bounds, maxWidth: Math.min(bounds.maxWidth, content) } : bounds;
 }
 

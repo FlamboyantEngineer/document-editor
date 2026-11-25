@@ -398,7 +398,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useRoomReloadNotice(props.session, props.feedback, labels.roomChangeRefused);
-  const reach = { root, refs, progress, transactions: engine.transactions };
+  const reach = { root, refs, progress, transactions: engine.transactions, drawn: template };
   const { find, scope, exports } = useHostReach(authored, view, reach);
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const { dialog, open: openDialog, close: closeDialog } = useObjectDialog(editable);
