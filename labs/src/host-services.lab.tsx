@@ -4,7 +4,11 @@
 // while the document is open; font loading (`FontsAdapter`) that is slow or fails; what the editor
 // measures (`TelemetryAdapter`) and tells the reader (`FeedbackAdapter`), logged; and the editor's
 // own lists a host replaces: the zoom levels, the symbol picker's characters and the code
-// languages. Hiding the editor (`active`) keeps it showing what it last showed.
+// languages. Hiding the editor (`active`) keeps it showing what it last showed. Embeds can be pinned
+// to the state they show and repinned from the context menu (`setEmbedPinned`); a linked
+// spreadsheet range is embedded through the bridge (`createLinkedSpreadsheetAdapter`); the fonts can
+// miss the editor's `fontTimeout`, which `onLayoutFailed` logs; and the math typesetter can stop
+// answering, so math shows invalid with the host's reason (`math.timeoutMessage`).
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -15,15 +19,15 @@ import {
   assignElementIds,
   createDocumentEditing,
   createEmbedStatus,
+  embedAt,
   embedStatusAt,
   insertEmbed,
   pasteEmbedsOfKinds,
   refreshEmbedStatus,
+  setEmbedPinned,
   updateEmbed,
 } from '../../src/engine/index.js';
 import type {
-  EmbedContent,
-  EmbedSourceAdapter,
   FeedbackAdapter,
   FontsAdapter,
   TelemetryAdapter,
@@ -35,9 +39,16 @@ import {
   createDocumentSchema,
   readDocumentFile,
   resolveTemplateFile,
-  type StoredContent,
   type TemplateFile,
 } from '../../src/model/index.js';
+import {
+  combineSources,
+  createDataService,
+  createSpreadsheetService,
+  EMBED_KIND,
+  table,
+} from './host-data.js';
+import { embedMenu, LAB_MATH, MathControls, SheetControls } from './host-embed-controls.js';
 import { chapter, heading, text, variable } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { LAB_FONTS } from './served-fonts.js';
@@ -77,122 +88,6 @@ const TEMPLATE = resolveTemplateFile(LAB_TEMPLATE, {
   baseTemplateId: BASE_TEMPLATE_ID,
 });
 
-// ----- Embedded content, as a host's data service keeps it -----
-
-const EMBED_KIND = 'data-set';
-
-interface HostDataSet {
-  label: string;
-  revision: number;
-  rows: readonly (readonly [string, string])[];
-  removed: boolean;
-  denied: boolean;
-}
-
-const table = (rows: readonly (readonly [string, string])[]): StoredContent => [
-  {
-    type: 'table',
-    content: rows.map((row, index) => ({
-      type: 'tableRow',
-      content: row.map((cell) => ({
-        type: index === 0 ? 'tableHeader' : 'tableCell',
-        content: [{ type: 'paragraph', content: cell ? [text(cell)] : [] }],
-      })),
-    })),
-  },
-];
-
-/** The lab's data service: data sets by id, which the controls change as another writer would. */
-function createDataService(onChange: () => void) {
-  const sets = new Map<string, HostDataSet>([
-    [
-      'limits',
-      {
-        label: 'Operating limits',
-        revision: 1,
-        rows: [
-          ['Quantity', 'Limit'],
-          ['Supply voltage', '28 V'],
-          ['Temperature', '70 °C'],
-        ],
-        removed: false,
-        denied: false,
-      },
-    ],
-    [
-      'timings',
-      {
-        label: 'Timings',
-        revision: 1,
-        rows: [
-          ['Step', 'Duration'],
-          ['Start-up', '2 s'],
-        ],
-        removed: false,
-        denied: false,
-      },
-    ],
-  ]);
-  let failNext = false;
-  const contentOf = (id: string, set: HostDataSet): EmbedContent => ({
-    snapshot: `${id}@${String(set.revision)}`,
-    label: set.label,
-    content: table(set.rows),
-  });
-  const adapter: EmbedSourceAdapter = {
-    kinds: [EMBED_KIND],
-    resolve: (embeds) =>
-      Promise.resolve({
-        ok: true,
-        value: embeds.map(({ source }) => {
-          const set = sets.get(source);
-          if (!set || set.removed) return null;
-          if (set.denied) return 'no-access';
-          return { snapshot: `${source}@${String(set.revision)}`, label: set.label };
-        }),
-      }),
-    load: ({ source }) => {
-      const set = sets.get(source);
-      if (failNext) {
-        failNext = false;
-        return Promise.resolve({
-          ok: false,
-          error: { kind: 'unavailable', message: 'The data service is down' },
-        });
-      }
-      if (!set || set.removed) return Promise.resolve({ ok: false, error: { kind: 'not-found' } });
-      if (set.denied) return Promise.resolve({ ok: false, error: { kind: 'denied' } });
-      return Promise.resolve({ ok: true, value: contentOf(source, set) });
-    },
-  };
-  const change = (id: string, update: (set: HostDataSet) => HostDataSet) => {
-    const set = sets.get(id);
-    if (!set) return;
-    sets.set(id, update(set));
-    onChange();
-  };
-  return {
-    adapter,
-    ids: [...sets.keys()],
-    describe: (id: string) => sets.get(id),
-    content: (id: string) => {
-      const set = sets.get(id);
-      return set ? contentOf(id, set) : null;
-    },
-    addRow: (id: string) =>
-      change(id, (set) => ({
-        ...set,
-        revision: set.revision + 1,
-        rows: [...set.rows, [`Row ${String(set.rows.length)}`, `${String(set.revision + 1)}`]],
-      })),
-    toggleRemoved: (id: string) => change(id, (set) => ({ ...set, removed: !set.removed })),
-    toggleDenied: (id: string) => change(id, (set) => ({ ...set, denied: !set.denied })),
-    failNextLoad: () => {
-      failNext = true;
-    },
-  };
-}
-
 // ----- Variables, as a host's document record keeps them -----
 
 function createVariables(initial: Record<string, string>) {
@@ -221,7 +116,7 @@ function createVariables(initial: Record<string, string>) {
 
 // ----- The lab -----
 
-type FontBehaviour = 'load' | 'slow' | 'fail';
+type FontBehaviour = 'load' | 'slow' | 'late' | 'fail';
 
 const ZOOM_LEVELS = [50, 80, 100, 125, 175, 250];
 
@@ -315,11 +210,12 @@ function initialState(): EditorState {
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
     plugins: [
-      createEmbedStatus({ source: DATA.adapter, delay: 200 }),
+      createEmbedStatus({ source: SOURCE, delay: 200 }),
       ...createDocumentEditing(schema, {
         template: () => TEMPLATE,
         author: () => 'lab',
-        pasteFilters: [pasteEmbedsOfKinds(DATA.adapter.kinds)],
+        pasteFilters: [pasteEmbedsOfKinds(SOURCE.kinds)],
+        math: LAB_MATH,
       }),
     ],
   });
@@ -331,6 +227,10 @@ function initialState(): EditorState {
 // What the host changed, which the lab's controls show.
 let hostChanged: () => void = () => undefined;
 const DATA = createDataService(() => hostChanged());
+const SHEET = createSpreadsheetService(() => hostChanged());
+// The one source the embed status and updates ask, each embed of the service of its kind.
+const SOURCE = combineSources(DATA.adapter, SHEET.adapter);
+const EMBED_MENU = embedMenu(SOURCE);
 const VARIABLES = createVariables({
   'document.name': 'Interface control document',
   'document.status': 'Draft',
@@ -344,6 +244,9 @@ function Lab() {
   const [name, setName] = useState('Interface control document');
   const [status, setStatus] = useState('Draft');
   const [fontBehaviour, setFontBehaviour] = useState<FontBehaviour>('load');
+  const [fontTimeout, setFontTimeout] = useState(5000);
+  // Each opening of the editor, which waits for the fonts before it first shows the pages.
+  const [opening, setOpening] = useState(0);
   const [active, setActive] = useState(true);
   const [zoom, setZoom] = useState(100);
   const [log, setLog] = useState<string[]>([]);
@@ -368,9 +271,11 @@ function Lab() {
             error: { kind: 'unavailable', message: 'No fonts' },
           });
         }
-        const wait = fontBehaviour === 'slow' ? 2000 : 0;
+        // As a host's font loading does, it gives up after `timeout`, with no family loaded.
+        const wait = { load: 0, slow: 2000, late: 8000 }[fontBehaviour];
+        const loaded = wait <= timeout ? families : [];
         return new Promise((resolve) =>
-          setTimeout(() => resolve({ ok: true, value: families }), wait),
+          setTimeout(() => resolve({ ok: true, value: loaded }), Math.min(wait, timeout)),
         );
       },
     }),
@@ -400,10 +305,16 @@ function Lab() {
   };
   const takeUpdate = async () => {
     if (!view) return;
-    const taken = await updateEmbed(view, DATA.adapter);
+    const taken = await updateEmbed(view, SOURCE);
     setEmbedReport(taken ? 'Update taken' : 'Nothing taken: select an embed with an update');
   };
   const selectedStatus = embedStatusAt(state);
+  const selected = embedAt(state);
+  const selectedPinned = selected?.node.attrs.pinned === true;
+  const pinSelected = () => {
+    if (!view || !selected) return;
+    setEmbedPinned(selected.pos, !selectedPinned)(view.state, view.dispatch);
+  };
   return (
     <>
       <div className="lab-controls">
@@ -442,9 +353,15 @@ function Lab() {
           </button>{' '}
           <button type="button" onClick={DATA.failNextLoad}>
             Fail the next load
+          </button>{' '}
+          <button type="button" onClick={pinSelected} disabled={!selected}>
+            {selectedPinned
+              ? 'Let the selected embed follow its content'
+              : 'Pin the selected embed'}
           </button>
           <output aria-label="Embed report">
             Selected embed: {selectedStatus ?? 'none or current'}
+            {selectedPinned ? ', pinned' : ''}
             {embedReport ? ` · ${embedReport}` : ''}
           </output>
         </fieldset>
@@ -485,9 +402,24 @@ function Lab() {
             >
               <option value="load">Load at once</option>
               <option value="slow">Load in 2 seconds</option>
+              <option value="late">Load in 8 seconds</option>
               <option value="fail">Fail to load</option>
             </select>
           </label>{' '}
+          <label>
+            Font timeout{' '}
+            <select
+              value={fontTimeout}
+              onChange={(event) => setFontTimeout(Number(event.currentTarget.value))}
+            >
+              <option value={5000}>5 seconds (the default)</option>
+              <option value={1000}>1 second</option>
+              <option value={12000}>12 seconds</option>
+            </select>
+          </label>{' '}
+          <button type="button" onClick={() => setOpening((count) => count + 1)}>
+            Open the editor again
+          </button>{' '}
           <label>
             <input
               type="checkbox"
@@ -497,6 +429,8 @@ function Lab() {
             Editor active
           </label>
         </fieldset>
+        <SheetControls sheet={SHEET} view={view} />
+        <MathControls view={view} />
         <fieldset>
           <legend>What the editor told the host</legend>
           <ol aria-label="Host log">
@@ -519,13 +453,15 @@ function Lab() {
         toolbar
         menubar
         statusBar
-        contextMenu
+        contextMenu={EMBED_MENU}
         find
         active={active}
         zoom={zoom}
         onZoomChange={setZoom}
         zoomLevels={ZOOM_LEVELS}
         fonts={fonts}
+        fontTimeout={fontTimeout}
+        onLayoutFailed={() => record('layout failed: the pages are not shown')}
         variables={VARIABLES.adapter}
         telemetry={telemetry}
         feedback={feedback}
@@ -533,6 +469,7 @@ function Lab() {
         codeLanguages={CODE_LANGUAGES}
         aria-label="Sample document"
         events={{ onMounted: setView }}
+        key={opening}
       />
     </>
   );

@@ -72,9 +72,14 @@ jobs:
         with:
           read-token: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
       # scripts/check.mjs is the one list of gates, shared with `npm run check` locally. The browser
-      # tests run in the labs jobs beside it, and the packed-consumer check in a job of its own.
+      # tests run in the labs jobs beside it, and the packed-consumer check in a job of its own. The
+      # bundle sizes are measured in the step after: beside the unit tests, their webpack builds took
+      # the runner's cores for the tests' first minutes, and tests with a time limit failed on a slow
+      # runner.
       - name: Checks
-        run: npm run check -- --skip test:labs --skip check:consumer --skip test:guard-budgets
+        run: npm run check -- --skip test:labs --skip check:consumer --skip test:guard-budgets --skip check:bundle-size
+      - name: Bundle sizes
+        run: npm run check:bundle-size
 
   consumer:
     # The packed-consumer check: mostly installs, so it runs beside the gates rather than after them.
