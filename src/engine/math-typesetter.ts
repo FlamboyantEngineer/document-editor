@@ -61,8 +61,10 @@ export function createMathTypesetter({
 }: MathTypesetterOptions): MathTypesetter {
   const answers = new Map<string, TypesetAnswer>();
   const asked = new Map<string, Promise<TypesetAnswer>>();
-  // The sources of the document readied last, which are never let go.
+  // The sources of the document readied last, which are never let go, and that document once all
+  // of its math was found typeset, which a layout pass of the same document need not walk again.
   let held = new Set<string>();
+  let whole: ProseMirrorNode | null = null;
   const keep = (key: string, settled: TypesetAnswer) => {
     answers.delete(key);
     answers.set(key, settled);
@@ -114,6 +116,7 @@ export function createMathTypesetter({
     of: (node) => (isMath(node) ? (answers.get(keyOfNode(node))?.typeset ?? null) : null),
     typeset,
     ready(doc, ownerDocument) {
+      if (doc === whole) return null;
       const sources = new Set<string>();
       const waits: Promise<TypesetAnswer>[] = [];
       doc.descendants((node) => {
@@ -126,6 +129,7 @@ export function createMathTypesetter({
         return false;
       });
       held = sources;
+      whole = waits.length ? null : doc;
       return waits.length ? Promise.all(waits).then(() => undefined) : null;
     },
   };
