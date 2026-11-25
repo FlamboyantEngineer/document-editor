@@ -377,6 +377,13 @@ With `clearsActiveOnBlur`, the margin shall make no card active once focus leave
 Implementation: `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/active-card-blur.test.tsx`, `e2e/comments-host-options.spec.ts`
 
+### DOCE-COMMENTS-2.38 - Telling others the reader is writing
+
+While the store tells others who is writing (`setTyping`), a thread's reply box, and a suggestion's once it has a thread, shall tell it the reader is writing in that thread once its draft has text, and that they stopped when the draft is posted or emptied, after `TYPING_IDLE_MS` (4 seconds) without a change, or when the box goes or moves to another thread; each start and stop is told once.
+
+Implementation: `src/components/document-comments/use-typing-signal.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`
+Verification: `src/components/document-comments/reply-typing.test.tsx`, `e2e/comments-host-options.spec.ts`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

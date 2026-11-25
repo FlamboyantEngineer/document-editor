@@ -105,6 +105,21 @@ test.describe('comments lab host options', () => {
     await expect(firstThread(page)).not.toContainText('Grace Hopper is typing…');
   });
 
+  test('DOCE-COMMENTS-2.38 tells the store while the reader writes a reply', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await firstThread(page).getByText('Is one second measured').click();
+    await firstThread(page).getByRole('textbox', { name: 'Reply' }).click();
+    await page.keyboard.type('Ok');
+    await expect(hostLog(page)).toHaveText('Typing in c0ffee01');
+    // Emptying the draft stops it.
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await expect(hostLog(page)).toHaveText(/Typing in c0ffee01\s*Stopped typing in c0ffee01$/);
+  });
+
   test('DOCE-COMMENTS-2.26 retries a failed reply, and offers no retry once it failed for good', async ({
     lab,
     page,
