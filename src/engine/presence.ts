@@ -56,36 +56,56 @@ export interface PlacedPeer extends Peer {
 /** What the presence plugin keeps. */
 export interface PresenceState {
   readonly peers: readonly PlacedPeer[];
+  /** How many colour slots the peers are placed in (`setColorSlots`). */
+  readonly slots: number;
   readonly decorations: DecorationSet;
 }
 
 /** The presence plugin's state; its meta replaces the peers. */
 export const presenceKey = new PluginKey<PresenceState>('presence');
 
-/** How many colour slots a peer without a colour is given one of. */
+/** How many colour slots the people are placed in unless the host sets another count. */
 export const PRESENCE_COLOR_SLOTS = 8;
 
+/** The transaction meta that sets how many colour slots there are (`setColorSlots`). */
+export const COLOR_SLOTS_META = 'colorSlots';
+
+/** A count of colour slots as a whole number of at least one; the default otherwise. */
+export function colorSlotCount(count: number | undefined): number {
+  return count !== undefined && Number.isFinite(count) && count >= 1
+    ? Math.trunc(count)
+    : PRESENCE_COLOR_SLOTS;
+}
+
+/** The count of colour slots a transaction sets, if it sets one. */
+export function colorSlotsSetBy(tr: Transaction): number | undefined {
+  const count = tr.getMeta(COLOR_SLOTS_META) as number | undefined;
+  return count === undefined ? undefined : colorSlotCount(count);
+}
+
 /**
- * Each person's colour slot: the one their id gives or, when a person before them has it, the next
- * free one, people taken in the order the avatars show them (by name, then id), so the people shown
- * have colours no other shown person has while there are no more of them than slots.
+ * Each person's colour slot of `slots`: the one their id gives or, when a person before them has
+ * it, the next free one, people taken in the order the avatars show them (by name, then id), so the
+ * people shown have colours no other shown person has while there are no more of them than slots.
  */
-export function placePeers(peers: readonly Peer[]): PlacedPeer[] {
+export function placePeers(
+  peers: readonly Peer[],
+  slots: number = PRESENCE_COLOR_SLOTS,
+): PlacedPeer[] {
+  const count = colorSlotCount(slots);
   const order = [...new Map(peers.map((peer) => [peer.id, peer])).values()].sort(byName);
   const taken = new Set<number>();
-  const slots = new Map<string, number>();
+  const placed = new Map<string, number>();
   for (const { id } of order) {
-    let slot = getColorIndex(id, PRESENCE_COLOR_SLOTS);
-    for (let tries = 0; taken.has(slot) && tries < PRESENCE_COLOR_SLOTS; tries += 1) {
-      slot = (slot + 1) % PRESENCE_COLOR_SLOTS;
-    }
-    if (taken.size < PRESENCE_COLOR_SLOTS) taken.add(slot);
-    else slot = getColorIndex(id, PRESENCE_COLOR_SLOTS);
-    slots.set(id, slot);
+    let slot = getColorIndex(id, count);
+    for (let tries = 0; taken.has(slot) && tries < count; tries += 1) slot = (slot + 1) % count;
+    if (taken.size < count) taken.add(slot);
+    else slot = getColorIndex(id, count);
+    placed.set(id, slot);
   }
   return peers.map((peer) => ({
     ...peer,
-    slot: slots.get(peer.id) ?? getColorIndex(peer.id, PRESENCE_COLOR_SLOTS),
+    slot: placed.get(peer.id) ?? getColorIndex(peer.id, count),
   }));
 }
 
@@ -183,16 +203,17 @@ export function createPresence(): Plugin<PresenceState> {
   return new Plugin<PresenceState>({
     key: presenceKey,
     state: {
-      init: () => ({ peers: [], decorations: DecorationSet.empty }),
+      init: () => ({ peers: [], slots: PRESENCE_COLOR_SLOTS, decorations: DecorationSet.empty }),
       apply(tr, value) {
         const given = tr.getMeta(presenceKey) as readonly Peer[] | undefined;
-        if (given) {
-          const peers = placePeers(resolvePeers(tr.doc, given));
-          return { peers, decorations: decorate(tr.doc, peers) };
+        const slots = colorSlotsSetBy(tr) ?? value.slots;
+        if (given || slots !== value.slots) {
+          const peers = placePeers(given ? resolvePeers(tr.doc, given) : value.peers, slots);
+          return { peers, slots, decorations: decorate(tr.doc, peers) };
         }
         if (!tr.docChanged || value.peers.length === 0) return value;
         const moved = mapPeers(value.peers, tr);
-        return { peers: moved, decorations: decorate(tr.doc, moved) };
+        return { peers: moved, slots, decorations: decorate(tr.doc, moved) };
       },
     },
     props: { decorations: (state) => presenceKey.getState(state)?.decorations ?? null },
