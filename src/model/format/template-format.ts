@@ -157,6 +157,12 @@ export interface FigureSettings extends CaptionedObjectSettings {
 /** Code block settings. */
 export interface CodeBlockSettings extends CaptionedObjectSettings, TextSettings {
   background?: Color | null;
+  /**
+   * Which code shows a gutter of line numbers, which takes the code's width: all of it (the
+   * default), linked code only, or none. Document-level only, so every view of the document lays
+   * its code out alike (DOCE-OBJECTS-3.1).
+   */
+  lineNumbers?: 'all' | 'linked' | 'none' | null;
 }
 
 /**

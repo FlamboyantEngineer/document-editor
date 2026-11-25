@@ -103,6 +103,7 @@ export const BASE_TEMPLATE: Readonly<TemplateFile> = Object.freeze<TemplateFile>
       defaultWidth: '240px',
     },
     codeBlock: {
+      lineNumbers: 'all',
       font: 'Courier New',
       size: '10px',
       color: '#0f172a',

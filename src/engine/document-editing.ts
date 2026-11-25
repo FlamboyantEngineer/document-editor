@@ -39,7 +39,6 @@ import { createHistoryReveal } from './history-reveal.js';
 import { createListJoins } from './list-joins.js';
 import type { InvalidMathText } from './math-views.js';
 import { type EditingMathOptions, objectPlugins } from './object-plugins.js';
-import type { LineNumbers } from './object-views.js';
 import { createParagraphNumbering } from './paragraph-numbering.js';
 import { boundKeys } from './shortcut-commands.js';
 import {
@@ -91,8 +90,6 @@ export interface DocumentEditingOptions {
    * table, a figure or another block that is no paragraph. Defaults to false.
    */
   trailingParagraph?: boolean | undefined;
-  /** Which code shows line numbers: all of it (the default), linked code only, or none. */
-  lineNumbers?: LineNumbers | undefined;
   /** What math that does not typeset shows, inline and as a block (`DEFAULT_INVALID_MATH_TEXT`). */
   invalidMath?: InvalidMathText | undefined;
   /**

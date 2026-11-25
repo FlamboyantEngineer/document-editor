@@ -160,7 +160,14 @@ const STYLES_SHAPE: SettingShape = {
       },
     },
     figure: { object: { ...CAPTIONED, defaultWidth: 'length' } },
-    codeBlock: { object: { ...CAPTIONED, ...TEXT, background: 'color' } },
+    codeBlock: {
+      object: {
+        ...CAPTIONED,
+        ...TEXT,
+        background: 'color',
+        lineNumbers: { oneOf: ['all', 'linked', 'none'] },
+      },
+    },
     equation: { object: { ...CAPTIONED, wrapper: 'text' } },
     contents: CONTENTS,
     blocks: {

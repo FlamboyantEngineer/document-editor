@@ -286,7 +286,8 @@
           "underline": false,
           "color": "#1f2937"
         }
-      }
+      },
+      "lineNumbers": "linked"
     },
     "equation": {
       "numbering": {
