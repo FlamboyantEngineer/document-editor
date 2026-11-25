@@ -27,10 +27,10 @@ Verification: `src/model/contents/document-catalog.test.ts`
 
 ### DOCE-CONTENTS-1.4 - Ordering and showing a kind's entries
 
-A kind may order its entries (`sort`), such as by their text, in place of document order, and list only the first entry of each identity (`unique`), which a kind gives (`identity`) or is the entry's number and text; a list of the kind shall leave out its entries' page numbers (`showPage: false`) or their leaders (`leader: false`).
+A kind may order its entries (`sort`), such as by their text, in place of document order, and list only the first entry of each identity (`unique`), which a kind gives (`identity`) or is the entry's number and text; a list of the kind shall leave out its entries' page numbers (`showPage: false`) or their leaders (`leader: false`). Sorted entries shall be compared in one fixed collation (`en`, ignoring case and accents, numbers by value), never the browser's language, so a list holds the same rows in the same order on every machine.
 
-Implementation: `src/model/contents/document-catalog.ts`, `src/engine/contents.ts`
-Verification: `src/model/contents/document-catalog.test.ts`, `e2e/contents.spec.ts`
+Implementation: `src/model/contents/document-catalog.ts`, `src/model/contents/contents-kinds.ts`, `src/engine/contents.ts`
+Verification: `src/model/contents/document-catalog.test.ts`, `src/utils/segmentation.test.ts`, `e2e/contents.spec.ts`
 
 ### DOCE-CONTENTS-1.5 - References
 

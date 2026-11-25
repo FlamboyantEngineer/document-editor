@@ -6,7 +6,6 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type AtomMeasurer, createAtomCache } from '../src/layout-engine/atoms.js';
 import { createBlockLayout } from '../src/layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../src/layout-engine/blocks/metrics.js';
-import type { SheetNumbers } from '../src/layout-engine/blocks/sheet-numbers.js';
 import type { BlockTextLayout } from '../src/layout-engine/blocks/types.js';
 import type { LineTable } from '../src/layout-engine/line-table.js';
 import type { MathRecorder } from '../src/layout-engine/math-atoms.js';
@@ -92,7 +91,6 @@ export function standInBlockLayout({
   refuse = [],
   labelOf,
   footnoteOf,
-  sheet,
   onMath,
   equationOf,
   text = standInTextLayout(refuse),
@@ -102,7 +100,6 @@ export function standInBlockLayout({
   refuse?: readonly string[];
   labelOf?: (caption: ProseMirrorNode) => string | undefined;
   footnoteOf?: (entry: ProseMirrorNode) => string | undefined;
-  sheet?: SheetNumbers;
   onMath?: MathRecorder;
   equationOf?: (equation: ProseMirrorNode) => string | undefined;
   /** The text layout, the stand-in's by default. */
@@ -112,7 +109,7 @@ export function standInBlockLayout({
   const layout = createBlockLayout({
     text,
     atoms,
-    metrics: (scope) => blockMetrics(template, scope, sheet),
+    metrics: (scope) => blockMetrics(template, scope),
     labelOf,
     footnoteOf,
     onMath,

@@ -2,6 +2,8 @@
 // operators, text and strings), not its annotation, which holds the source. Math with no layout
 // takes a reserved box of one em per cluster (DOCE-PAGINATION-12.9).
 
+import { graphemeSegmenter } from './segmentation.js';
+
 const TOKEN_TAGS = new Set(['mi', 'mn', 'mo', 'mtext', 'ms']);
 
 /** Typeset MathML as a tree, as the pages' layout keeps it. */
@@ -25,7 +27,5 @@ export function mathTreeText(tree: MathNode): string {
 
 /** How many grapheme clusters `text` holds; at least one, so empty math keeps a box. */
 export function clusterCount(text: string): number {
-  const segmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter() : null;
-  const count = segmenter ? [...segmenter.segment(text)].length : [...text].length;
-  return Math.max(1, count);
+  return Math.max(1, [...graphemeSegmenter().segment(text)].length);
 }

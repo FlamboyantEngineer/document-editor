@@ -208,11 +208,9 @@ div.de-host-view {
 }
 
 /*
- * The stylesheet's own block numbers, which no template setting changes. The rules below draw
- * blocks with them and the layout engine reads them where it measures, so a host stylesheet that
- * sets other values changes both (DOCE-PAGINATION-10.9). Each is a length in an absolute unit or em; em is
- * the page content's text size. They are stated on the editor, so a host's values reach its
- * measuring view too, and on a measuring view standing alone.
+ * The template's block numbers, as the engine lays blocks out with them (DOCE-PAGINATION-10.9). The
+ * template's properties state them on the editor, the viewer and print; these are the defaults, for
+ * pages drawn without them. A host stylesheet draws with the properties and does not set them.
  */
 :where(.de-document-editor, .de-document-editor__measure:not(.de-document-editor *)) {
   --de-quote-indent: 40px;
@@ -240,10 +238,19 @@ div.de-host-view {
   border-width: calc(var(--de-rule-height) / 2);
 }
 
+/*
+ * The page content takes every text property from the template, never from the page around the
+ * editor, so text drawn with no style of its own matches the lines the engine laid out, on screen
+ * and in print (DOCE-EDITOR-6.19).
+ */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content {
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
+  font-weight: var(--doc-paragraph-font-weight, normal);
+  font-style: var(--doc-paragraph-font-style, normal);
   line-height: var(--doc-paragraph-line-height, 1.5);
+  letter-spacing: normal;
+  word-spacing: normal;
 }
 
 /*

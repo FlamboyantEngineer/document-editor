@@ -642,7 +642,7 @@ Verification: `src/layout-engine/text-layout.test.ts`
 
 ### DOCE-PAGINATION-9.6 - Alignment and padding
 
-A line shall start at the block's left padding plus, when the block is centred, half the room its line leaves, and when right-aligned, all of it; a justified line starts at the edge. A code block's lines shall be laid out inside its 8px padding and, with the `codeLineNumbers` option, beside its gutter of line numbers, as the reference stylesheet draws it: as many widths of the code font's zero as its highest line number (from its `codeLineStart`) has digits, at least three, and 14px more, truncated to the layout unit, in from the left of each line, in a table cell too. The pages' engine takes the option from the state's object views, on when they number all code (`lineNumbers: 'all'`, the default), and is made again when that changes.
+A line shall start at the block's left padding plus, when the block is centred, half the room its line leaves, and when right-aligned, all of it; a justified line starts at the edge. A code block's lines shall be laid out inside its 8px padding and, with the `codeLineNumbers` option (the template's `styles.codeBlock.lineNumbers`, DOCE-OBJECTS-3.1), beside its gutter of line numbers, as the reference stylesheet draws it: as many widths of the code font's zero as its highest line number (from its `codeLineStart`) has digits, at least three, and 14px more, truncated to the layout unit, in from the left of each line, in a table cell too. The pages' engine takes the option from the state's object views, on when they number all code (`lineNumbers: 'all'`, the default), and is made again when that changes.
 
 Implementation: `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`, `src/engine/object-views.ts`, `src/pagination/text-engine-holder.ts`
 Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec.ts`
@@ -702,6 +702,13 @@ Verification: `src/layout-engine/contents-row.test.ts`
 
 Implementation: `src/layout-engine/contents-layout.ts`, `src/layout-engine/contents-row.ts`, `src/layout-engine/contents-typography.ts`, `src/layout-engine/text-layout.ts`
 Verification: `src/layout-engine/contents-row.test.ts`
+
+### DOCE-PAGINATION-9.15 - Segmentation in one language
+
+Grapheme clusters shall be found in one fixed language, `en` (`SEGMENTATION_LOCALE`), never the runtime's default, wherever the editor counts, measures or reserves them: caret steps and deletions (`clusterStart`, `clusterEnd`), reserved boxes, math cluster counts and the font-file measurer. `segmentationFingerprint()` shall hash the boundaries of a fixed corpus (`SEGMENTATION_CORPUS`: accents, emoji sequences, Indic conjuncts, Hangul and kana, Thai, Lao, Khmer and Burmese words, both directions, invisible characters) in the runtime, so two runtimes whose segmentation data differs give different fingerprints. The corpus's grapheme and word boundaries in Node shall equal `test/fixtures/segmentation/boundaries.json`, and in Chromium the same but for the differences the file lists: Chromium's Khmer dictionary splits a word that Node's keeps whole, so Khmer lines can break differently between the two.
+
+Implementation: `src/utils/segmentation.ts`, `src/layout-engine/graphemes.ts`, `src/layout-engine/reserved-boxes.ts`, `src/utils/math-text.ts`, `src/layout-engine/font-files/measure-context.ts`
+Verification: `src/utils/segmentation.test.ts`, `e2e/segmentation.spec.ts`
 
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
 
@@ -763,12 +770,12 @@ Verification: `src/layout-engine/blocks/numbers.test.ts`, `src/pagination/node-n
 Implementation: `src/pagination/drawn-atoms.ts`, `src/engine/math-views.ts`
 Verification: `src/pagination/drawn-atoms.test.ts`, `src/engine/math-views.test.ts`, `src/pagination/text-engine-inputs.test.ts`, `e2e/equations-layout.spec.ts`
 
-### DOCE-PAGINATION-10.9 - The stylesheet's own block numbers
+### DOCE-PAGINATION-10.9 - The template's block numbers
 
-The numbers no template setting changes shall be the stylesheet's, stated as custom properties where the page content is drawn and used by its rules: `--de-quote-indent` and `--de-quote-spacing` (a quote's inline and block margins), `--de-rule-height` and `--de-rule-spacing`, `--de-code-padding`, `--de-code-caption-gap` and `--de-code-caption-rule`, `--de-table-caption-padding`, `--de-equation-spacing`, and a layout section's `--de-columns-gap`, `--de-columns-after`, `--de-column-padding` and `--de-column-border`. Each is a length in an absolute unit (px, pt, pc, in, cm, mm, Q) or in `em`, the page content's text size, which the engine counts as the scope's paragraph size. The reference stylesheet states 40px, 1em, 2px, 0.5em, 8px, 4px, 1px, 2px, 6px, 4px, 4px, 5px and 1px, the browser's own quote and rule margins among them. The pages' engine shall read them where it measures its atoms, inside the page content, once for each engine it makes (`readSheetNumbers`), and lay blocks out with them (`blockMetrics(template, scope, numbers)`), so a host stylesheet that states other values changes the drawing and the layout together; a property left out, or stated as anything else (a percentage, `calc()`, `rem`), counts as the reference value.
+The numbers no other template setting gives shall be the template's, in its scope's `styles.blocks` (a section's over the template's): `quoteIndent` and `quoteSpacing` (a quote's inline and block margins), `ruleHeight` and `ruleSpacing`, `codePadding`, `codeCaptionGap` and `codeCaptionRule`, `tableCaptionPadding`, `equationSpacing`, and a layout section's `columnsGap`, `columnsAfter`, `columnPadding` and `columnBorder`. Each is a length in an absolute unit (px, pt, pc, in, cm, mm, Q) or in `em`, the scope's paragraph size; one left out, or stated as anything else (a percentage, `rem`), takes its default: 40px, 1em, 2px, 0.5em, 8px, 4px, 1px, 2px, 6px, 4px, 4px, 5px and 1px. The engine shall lay blocks out with them (`blockMetrics(template, scope)`, `templateBlockNumbers`), and read nothing from the page or its stylesheet. The template's properties (`templateProperties`) shall state the same numbers to the stylesheet as `--de-quote-indent`, `--de-quote-spacing`, `--de-rule-height`, `--de-rule-spacing`, `--de-code-padding`, `--de-code-caption-gap`, `--de-code-caption-rule`, `--de-table-caption-padding`, `--de-equation-spacing`, `--de-columns-gap`, `--de-columns-after`, `--de-column-padding` and `--de-column-border`, always, and as the engine read them (a default for one it could not), so the stylesheet draws blocks with the numbers they were laid out with. The reference stylesheet states the defaults for pages drawn without the template's properties.
 
-Implementation: `src/layout-engine/blocks/sheet-numbers.ts`, `src/layout-engine/blocks/metrics.ts`, `src/pagination/text-engine.ts`, `labs/reference/document.css`
-Verification: `src/layout-engine/blocks/sheet-numbers.test.ts`
+Implementation: `src/model/templates/block-numbers.ts`, `src/model/templates/template-properties.ts`, `src/model/format/template-format-shape.ts`, `src/layout-engine/blocks/metrics.ts`, `labs/reference/document.css`
+Verification: `src/model/templates/block-numbers.test.ts`
 
 ### DOCE-PAGINATION-10.10 - Sizes measured the same on every screen
 
@@ -1076,3 +1083,10 @@ A footnote marker the pages draw on more than one page, as a table's repeated he
 
 Implementation: `src/engine/footnote-anchors.ts`, `src/document/print-content.ts`, `src/engine/print-links.ts`
 Verification: `src/engine/footnote-anchors.test.ts`, `src/document/print-pages.test.ts`, `src/engine/print-links.test.ts`, `e2e/footnote-occurrences.spec.ts`
+
+### DOCE-PAGINATION-13.12 - The layout's inputs and their key
+
+The pages' layout shall carry everything it depended on besides the document (`inputs`), each as a short key, and one key of them all (`inputsKey`, `layoutInputsKey`): the served faces (family, weight, style, range and a hash of each face's bytes), the family each generic stands for, the Pretext release, the shaper's glue release, the math layouter's key, a hash of the resolved template, the language, the suggestion markup, whether code blocks are laid out beside their line numbers, the runtime's segmentation fingerprint (DOCE-PAGINATION-9.15) and the Unicode version of the bidi data. Equal inputs shall give the same key in any runtime, however they were built, and a change of any one input shall change that input's key and the layout's key, so a host that compares the keys of two machines, an editor's and a server's or two writers', learns when they may lay the same document out on different pages and which input differs. The releases named shall be the ones installed.
+
+Implementation: `src/pagination/layout-inputs.ts`, `src/pagination/text-engine.ts`, `src/pagination/pages-layout.ts`, `src/document/pages-layout.ts`
+Verification: `src/pagination/layout-inputs.test.ts`

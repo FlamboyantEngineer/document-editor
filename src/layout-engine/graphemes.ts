@@ -4,14 +4,13 @@
 // in windows that grow until the boundary found cannot depend on text outside them.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { graphemeSegmenter } from '../utils/segmentation.js';
 
 /** The character that stands for an inline node other than text, one per position it takes. */
 export const OBJECT_CHARACTER = '￼';
 
 // How many positions the first window reads; each further window reads twice as many.
 const FIRST_WINDOW = 16;
-
-const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 // Characters after which a boundary depends on text further back: an extender (an Indic conjunct,
 // GB9c, also one carried through a halfwidth voiced sound mark), the zero width joiner (an emoji
@@ -47,7 +46,9 @@ export function clusterStart(block: ProseMirrorNode, at: number, min = 0): numbe
     const from = Math.max(min, at - size);
     if (from === at) return at;
     const text = positionText(block, from, at);
-    const last = segmenter.segment(text).containing(text.length - 1);
+    const last = graphemeSegmenter()
+      .segment(text)
+      .containing(text.length - 1);
     if (!last) return at;
     if (from === min) return from + last.index;
     // The boundary before the cluster stands without the text before the window only when the
@@ -74,7 +75,7 @@ export function clusterEnd(block: ProseMirrorNode, at: number, max = block.conte
     const to = Math.min(max, at + size);
     if (to === at) return at;
     const text = positionText(block, at, to);
-    const first = segmenter.segment(text).containing(0);
+    const first = graphemeSegmenter().segment(text).containing(0);
     if (!first) return at;
     // The boundary after the cluster stands only when the window holds the whole character after
     // it: a cluster that reaches the window's end, or half a pair before it, may go on past it.
