@@ -3,7 +3,7 @@
 // whatever commits a state the writer did not make, such as a layout or proofing results, first
 // has the view read the selection the browser shows.
 
-import { Selection as EditorSelection } from 'prosemirror-state';
+import { Selection as EditorSelection, TextSelection } from 'prosemirror-state';
 import type { DirectEditorProps, EditorView } from 'prosemirror-view';
 
 // The view's reader of DOM changes, which ProseMirror keeps internal.
@@ -52,8 +52,10 @@ function pressBeforeFocus(view: EditorView): void {
 
 // Whether the browser shows no selection of its own in the view as it takes focus: none, one
 // outside it, or a caret at the content's start or before it, where it puts one in an editable
-// element focused with no selection in it.
+// element focused with no selection in it. While the view holds cells or a node selected, which the
+// browser cannot show, whatever it shows is its own placement, never the writer's.
 function showsNoSelection(view: EditorView): boolean {
+  if (!(view.state.selection instanceof TextSelection)) return true;
   const shown = (view as unknown as FocusedView).domSelectionRange();
   const { anchorNode, anchorOffset } = shown;
   if (!anchorNode || !view.dom.contains(anchorNode)) return true;

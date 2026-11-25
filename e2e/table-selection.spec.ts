@@ -118,7 +118,7 @@ test.describe('selecting in tables', () => {
     await expect(table.locator('tr').last().locator('td').first()).toHaveText('Added');
   });
 
-  test('DOCE-TABLES-3.13 DOCE-PAGINATION-7.11 keeps the cells selected after aligning them and adding a column from the menu', async ({
+  test('DOCE-TABLES-3.13 DOCE-PAGINATION-7.11 DOCE-PAGINATION-7.22 keeps the cells selected after aligning them and adding a column from the menu', async ({
     lab,
     page,
   }) => {
