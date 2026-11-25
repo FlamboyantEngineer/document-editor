@@ -173,6 +173,7 @@ jobs:
         run: npm run test:guard-budgets
       - name: Lab browser tests (${{ matrix.name }})
         run: |
+          echo "This runner has $(nproc) cores for the config's workers."
           npx playwright test ${{ matrix.args }} ${{ matrix.shard && '--test-list "$RUNNER_TEMP/tests.txt"' || '' }}
           if [ -n "$THEN" ]; then npx playwright test $THEN; fi
           if [ -n "$AFTER" ]; then npx playwright test $AFTER; fi
