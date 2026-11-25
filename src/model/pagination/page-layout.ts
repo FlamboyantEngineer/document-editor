@@ -49,8 +49,59 @@ export interface MeasureInput {
   readonly scale: number;
 }
 
+/** Text a size rule measures, in the template's paragraph or code block typography. */
+export interface SizeTextOptions {
+  /** The template style the text is set in; `paragraph` by default. */
+  readonly block?: 'paragraph' | 'code_block' | undefined;
+}
+
+/**
+ * Text measured as the pages lay it out: the layout engine's own line breaking, in the fonts the
+ * host serves, never the browser's (DOCE-PAGINATION-14.1).
+ */
+export interface SizeText {
+  /** One line's width. */
+  width(text: string, options?: SizeTextOptions): number;
+  /** The text wrapped at a width: how many lines it takes and how tall they are. */
+  lines(
+    text: string,
+    options: SizeTextOptions & { readonly width: number },
+  ): { readonly count: number; readonly height: number };
+}
+
+/** What a rule sizes a node from: the node alone, the room it is given and the served fonts. */
+export interface SizeInput {
+  readonly node: ProseMirrorNode;
+  /** The width a block is given, or the width of the line an inline node sits on. */
+  readonly width: number;
+  /** The template section it is in; null for the template's own. */
+  readonly scope: string | null;
+  readonly text: SizeText;
+  /** The language the pages are laid out in (a BCP 47 tag); empty for none. */
+  readonly language: string;
+  /** How the pages show suggestions: all of them, or the document as it would be or was. */
+  readonly markup: 'all' | 'final' | 'original';
+}
+
+/** A node's box from its rule: a height, and an inline node's width and baseline. */
+export interface RuleSize {
+  readonly height: number;
+  /** An inline node's width; a block takes its whole width. */
+  readonly width?: number | undefined;
+  /** An inline node's baseline from its top; its bottom by default. */
+  readonly baseline?: number | undefined;
+}
+
 /** How one node type is laid out. */
 export interface LayoutRule {
+  /**
+   * A host node's box, worked out from the node before it is drawn (DOCE-PAGINATION-14.1): pure and
+   * synchronous, so the pages are laid out once and alike everywhere. The node's view is drawn in
+   * that box, clipped. A sized block is moved whole, never split.
+   */
+  readonly size?: ((input: SizeInput) => RuleSize) | undefined;
+  /** Changes when `size` would give other sizes for the same nodes, so none is kept stale. */
+  readonly sizeKey?: string | number | undefined;
   /**
    * Whether a heading before the block stays on the block's page. The heading stays when the block
    * fits after it whole, or its split places a first fragment there: the block's lead.
@@ -58,7 +109,7 @@ export interface LayoutRule {
   readonly keepsWithHeading?: boolean | undefined;
   /** Whether the page ends after the block, as a page break's does. */
   readonly endsPage?: boolean | undefined;
-  /** The block split to fit a height, or null when it cannot split there. */
+  /** The block split to fit a height, or null when it cannot split there; never with `size`. */
   readonly split?:
     ((block: LayoutBlock, height: number, context: SplitContext) => SplitBlock | null) | undefined;
   /**
@@ -134,7 +185,9 @@ function snap(value: number): number {
 }
 
 function ruleFor(rules: LayoutRules, node: ProseMirrorNode): LayoutRule {
-  return (Object.hasOwn(rules, node.type.name) ? rules[node.type.name] : undefined) ?? {};
+  const rule = (Object.hasOwn(rules, node.type.name) ? rules[node.type.name] : undefined) ?? {};
+  // A block its rule sizes is a box moved whole, never split (DOCE-PAGINATION-14.1).
+  return rule.size ? { ...rule, split: undefined } : rule;
 }
 
 /** The height blocks take stacked, with each pair's margins collapsed and no outer margins. */

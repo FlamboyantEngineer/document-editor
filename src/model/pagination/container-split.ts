@@ -82,7 +82,8 @@ const defaultChildSplit: ChildSplit = (block, height, context) => {
   const rule = Object.hasOwn(context.rules, block.node.type.name)
     ? context.rules[block.node.type.name]
     : undefined;
-  return rule?.split?.(block, height, context) ?? null;
+  // A block its rule sizes is moved whole, never split (DOCE-PAGINATION-14.1).
+  return (!rule?.size && rule?.split?.(block, height, context)) || null;
 };
 
 interface SplitRequest {

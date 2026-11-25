@@ -193,7 +193,8 @@ function addAtom(
     item = textAtomItem(child, input.typography, input.textAtoms ?? {});
     if (!item) return `no text for inline ${name}`;
   } else {
-    size = input.measureAtom?.(child, { parent: input.node, scope: input.scope }) ?? null;
+    const place = { parent: input.node, scope: input.scope, width: input.lineWidth };
+    size = input.measureAtom?.(child, place) ?? null;
     if (!size) return `no size for inline ${name}`;
     if (size.math) size = placedInline(child, size.math, input);
     item = { width: size.width };

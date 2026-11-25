@@ -84,6 +84,7 @@ export const STUB_INPUTS: LayoutInputs = {
   codeLineNumbers: 'off',
   segmentation: '',
   unicode: '',
+  rules: '',
 };
 
 export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {

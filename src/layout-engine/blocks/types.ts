@@ -7,6 +7,7 @@ import type { AtomCache } from '../atoms.js';
 import type { ContentsRow, ContentsRowPlace, ContentsRowTable } from '../contents-row.js';
 import type { LineTable } from '../line-table.js';
 import type { MathRecorder } from '../math-atoms.js';
+import type { RuleSizes } from '../rule-sizes.js';
 import type { VariableTexts } from '../runs.js';
 import type { TextBlockLayout, TextBlockPlace } from '../text-layout.js';
 import type { BlockTypography, TextAlign } from '../typography.js';
@@ -165,6 +166,8 @@ export interface BlockLayoutOptions {
   readonly onMath?: MathRecorder | undefined;
   /** Told each figure's image box and each table's columns and rows as they are laid out. */
   readonly onObject?: ((node: ProseMirrorNode, box: ObjectBox) => void) | undefined;
+  /** The nodes the host's layout rules size (DOCE-PAGINATION-14.1), over the engine's own layout. */
+  readonly ruleSizes?: RuleSizes | undefined;
 }
 
 /**

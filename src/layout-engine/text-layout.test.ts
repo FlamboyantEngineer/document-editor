@@ -313,7 +313,7 @@ describe('createTextLayout', () => {
     });
   });
 
-  it('DOCE-PAGINATION-9.5 tells an inline atom its block and scope', () => {
+  it('DOCE-PAGINATION-9.5 DOCE-PAGINATION-14.1 tells an inline atom its block, scope and line width', () => {
     const atom = documentSchema.nodes.math_inline?.create(null, documentSchema.text('x'));
     const heading = documentSchema.nodes.heading?.create({ level: 2 }, atom ? [atom] : []);
     if (!atom || !heading) throw new Error('schema lacks math or headings');
@@ -322,7 +322,11 @@ describe('createTextLayout', () => {
       width: 400,
       scope: 'appendix',
     });
-    expect(measureAtom).toHaveBeenCalledWith(atom, { parent: heading, scope: 'appendix' });
+    expect(measureAtom).toHaveBeenCalledWith(atom, {
+      parent: heading,
+      scope: 'appendix',
+      width: 400,
+    });
   });
 
   it('DOCE-PAGINATION-9.5 lays a template variable out as the text it holds where no values are given', () => {

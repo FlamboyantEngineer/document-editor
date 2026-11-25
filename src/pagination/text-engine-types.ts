@@ -13,7 +13,7 @@ import type { LineTable } from '../layout-engine/line-table.js';
 import type { MathLayouter, PlacedMath } from '../layout-engine/math-atoms.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
-import type { LayoutBlock, TemplateFile } from '../model/index.js';
+import type { LayoutBlock, LayoutRules, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { LayoutInputs } from './layout-inputs.js';
 import type { PageVariablesOptions } from './page-variables.js';
@@ -55,6 +55,11 @@ export interface TextEngineOptions {
   readonly scale?: (() => number) | undefined;
   /** The node types a host draws with node views of its own, measured as drawn, never as text. */
   readonly hostViews?: readonly string[] | undefined;
+  /**
+   * The host's layout rules now: a node whose rule has `size` is laid out at that size, never
+   * measured as drawn (DOCE-PAGINATION-14.1).
+   */
+  readonly layoutRules?: (() => LayoutRules | undefined) | undefined;
   /** The text atoms left to the DOM, with why; `REFUSED_TEXT_ATOMS` by default. */
   readonly refusedTextAtoms?: ReadonlyMap<string, string> | undefined;
   /**
@@ -115,6 +120,11 @@ export interface TextEngineStats {
   readonly reasons: ReadonlyMap<string, number>;
   /** How many equations are scaled to fit below `MATH_MIN_REPORTED_SCALE`. */
   readonly smallMath?: number | undefined;
+  /**
+   * The errors the host's layout rules gave instead of a size, by node type; their nodes take no
+   * room (DOCE-PAGINATION-14.1).
+   */
+  readonly sizeErrors?: ReadonlyMap<string, string> | undefined;
 }
 
 /** A page header's, footer's or footnote area's height, its gap to the content and its children. */

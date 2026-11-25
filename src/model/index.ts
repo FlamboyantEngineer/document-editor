@@ -90,6 +90,10 @@ export type {
   MeasureInput,
   PageHeight,
   PageLayoutOptions,
+  RuleSize,
+  SizeInput,
+  SizeText,
+  SizeTextOptions,
   SplitBlock,
   SplitContext,
 } from './pagination/page-layout.js';

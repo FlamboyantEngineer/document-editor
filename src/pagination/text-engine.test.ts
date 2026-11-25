@@ -3,7 +3,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { findNode, parseMarkup } from '../../test/document-markup.js';
-import { type LayoutBlock, splitParagraph } from '../model/index.js';
+import { type LayoutBlock, type LayoutRules, splitParagraph } from '../model/index.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
@@ -58,6 +58,118 @@ describe('createPagesTextEngine', () => {
     expect(engine.measureBlock(list, null)).toBeNull();
     expect(engine.measureBlock(paragraph(WORDS), null)).not.toBeNull();
     expect(engine.stats().reasons.get('drawn by a host view')).toBe(2);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-14.1 lays a block its host rule sizes out at that size, though a host view draws it', () => {
+    const rules: { current: LayoutRules } = {
+      current: {
+        blockquote: {
+          size: ({ width, text }) => ({
+            height: 10 + text.lines(WORDS, { width: width / 2 }).height,
+          }),
+        },
+      },
+    };
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      hostViews: ['blockquote'],
+      layoutRules: () => rules.current,
+    });
+    const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
+    if (!quote) throw new Error('no quote');
+    const block = engine.measureBlock(quote, null);
+    // Its words wrapped on half the column, as the engine lays a paragraph of them out.
+    const half = engine.measureBlock(paragraph(WORDS), null);
+    expect(block?.height).toBeGreaterThan(10);
+    expect(block?.height).toBeGreaterThan((half?.height ?? 0) + 10);
+    expect(block?.measurement).toBeUndefined();
+    expect(engine.stats().refused).toBe(0);
+    // Rules handed in again with the same size keep the size; another `sizeKey` sizes it anew.
+    rules.current = { blockquote: { ...rules.current.blockquote } };
+    expect(engine.measureBlock(quote, null)).toBe(block);
+    rules.current = { blockquote: { size: () => ({ height: 7 }), sizeKey: 2 } };
+    expect(engine.measureBlock(quote, null)?.height).toBe(7);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-14.1 gives a block whose host rule fails no room, and keeps the error for the host', () => {
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      layoutRules: () => ({
+        blockquote: {
+          size: () => {
+            throw new Error('no chart data');
+          },
+        },
+        horizontal_rule: { size: () => ({ height: Number.NaN }) },
+      }),
+    });
+    const quote = findNode(parseMarkup('<blockquote><p>a</p></blockquote>'), 'blockquote');
+    const rule = findNode(parseMarkup('<hr>'), 'horizontal_rule');
+    if (!quote || !rule) throw new Error('no blocks');
+    expect(engine.measureBlock(quote, null)?.height).toBe(0);
+    expect(engine.measureBlock(rule, null)?.height).toBe(0);
+    expect([...(engine.stats().sizeErrors?.keys() ?? [])]).toEqual([
+      'blockquote',
+      'horizontal_rule',
+    ]);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-14.1 sets an inline node its host rule sizes on its line at that box, in the line’s width', () => {
+    const widths: number[] = [];
+    const tall = { width: 30, height: 80, baseline: 70 };
+    const rules: { current: LayoutRules } = {
+      current: {
+        mention: {
+          size: ({ width }) => {
+            widths.push(width);
+            return tall;
+          },
+        },
+      },
+    };
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      hostViews: ['mention'],
+      layoutRules: () => rules.current,
+    });
+    const person = '<span data-mention-user-id="u1" data-mention-label="Ada">@Ada</span>';
+    const node = findNode(parseMarkup(`<p>aaaa ${person} aaaa</p>`), 'paragraph');
+    const plain = engine.measureBlock(paragraph('aaaa aaaa'), null);
+    if (!node || !plain) throw new Error('no paragraph');
+    const sized = engine.measureBlock(node, null);
+    // The box raises its line: 70 above the baseline and 10 below it, in the column's width.
+    expect(sized?.height).toBeGreaterThanOrEqual(80);
+    expect(widths.length).toBeGreaterThan(0);
+    expect(new Set(widths)).toEqual(new Set([widths[0]]));
+    expect(widths[0]).toBeGreaterThan(400);
+    // A failed rule gives the node a box of nothing: the line is as tall as its text alone.
+    rules.current = { mention: { size: () => ({ height: -1 }), sizeKey: 'broken' } };
+    expect(engine.measureBlock(node, null)?.height).toBe(plain.height);
+    expect(engine.stats().sizeErrors?.has('mention')).toBe(true);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-14.1 reports a host rule that sizes the same node twice otherwise', () => {
+    let calls = 0;
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      layoutRules: () => ({ horizontal_rule: { size: () => ({ height: (calls += 1) }) } }),
+    });
+    const rule = findNode(parseMarkup('<hr>'), 'horizontal_rule');
+    if (!rule) throw new Error('no rule');
+    expect(engine.measureBlock(rule, null)?.height).toBe(0);
+    expect(engine.stats().sizeErrors?.get('horizontal_rule')).toMatch(/two sizes/u);
     engine.destroy();
   });
 

@@ -65,6 +65,15 @@ describe('page layout', () => {
     expect(layoutPages([], { pageHeight: 300 })).toEqual([]);
   });
 
+  it('DOCE-PAGINATION-14.1 moves a block its rule sizes whole, never splitting it', () => {
+    const sized: LayoutRules = {
+      ...splitting,
+      paragraph: { ...splitting.paragraph, size: () => ({ height: 120 }) },
+    };
+    const pages = layoutPages([paragraph(50), paragraph(120)], { pageHeight: 102, rules: sized });
+    expect(heights(pages)).toEqual([[50], [120]]);
+  });
+
   it('DOCE-PAGINATION-2.2 collapses the margins between blocks and leaves out the outer ones', () => {
     const blocks = [
       paragraph(10, { marginTop: 50, marginBottom: 8 }),

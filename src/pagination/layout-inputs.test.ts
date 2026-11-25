@@ -51,6 +51,7 @@ describe('layout inputs', () => {
       markup: { ...base, markup: 'accepted' },
       codeLineNumbers: { ...base, codeLineNumbers: false },
       math: { ...base, math: null },
+      rules: { ...base, rules: { signature: { size: () => ({ height: 20 }), sizeKey: 2 } } },
     };
     for (const [name, changed] of Object.entries(changes)) {
       const inputs = layoutInputs(changed);
@@ -61,6 +62,16 @@ describe('layout inputs', () => {
       expect(differing).toEqual([name]);
       expect(layoutInputsKey(inputs)).not.toBe(key);
     }
+  });
+
+  it('DOCE-PAGINATION-13.12 DOCE-PAGINATION-14.1 keys the sized types by sizeKey, not by function', () => {
+    const sizing = (sizeKey: number) => ({
+      ...base,
+      rules: { signature: { size: () => ({ height: 20 }), sizeKey }, heading: {} },
+    });
+    expect(layoutInputs(sizing(1)).rules).toBe(layoutInputs(sizing(1)).rules);
+    expect(layoutInputs(sizing(1)).rules).not.toBe(layoutInputs(sizing(2)).rules);
+    expect(layoutInputs({ ...base, rules: { heading: {} } }).rules).toBe('');
   });
 
   it('DOCE-PAGINATION-13.12 names the Pretext and harfbuzzjs releases installed', () => {

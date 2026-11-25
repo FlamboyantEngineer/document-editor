@@ -4,7 +4,7 @@
 
 import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import { UNICODE_VERSION } from '../layout-engine/bidi-classes.js';
-import type { TemplateFile } from '../model/index.js';
+import type { LayoutRules, TemplateFile } from '../model/index.js';
 import { segmentationFingerprint } from '../utils/segmentation.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
@@ -34,6 +34,8 @@ export interface LayoutInputs {
   /** The runtime's segmentation data (`segmentationFingerprint`) and the bidi data's Unicode. */
   readonly segmentation: string;
   readonly unicode: string;
+  /** The node types the host's layout rules size, each with its rule's `sizeKey`. */
+  readonly rules: string;
 }
 
 // FNV-1a, 32 bits, as eight hex digits, over text or bytes.
@@ -76,6 +78,14 @@ function templateHash(template: TemplateFile): string {
   return hash;
 }
 
+// The node types a host's rules size and their sizeKeys: what a rule's sizes follow from, the same
+// on every machine running the same host code.
+function sizedRulesKey(rules: LayoutRules | undefined): string {
+  const sized = Object.entries(rules ?? {}).filter(([, rule]) => rule.size);
+  const keys = sized.map(([type, rule]) => `${type}=${String(rule.sizeKey ?? '')}`).sort();
+  return keys.length ? hashText(keys.join('\n')) : '';
+}
+
 const faceKey = (face: FontFaceFile) =>
   [face.family, face.weight, face.style, face.unicodeRange ?? '', bytesHash(face.bytes)].join('|');
 
@@ -87,6 +97,7 @@ export function layoutInputs(input: {
   readonly markup: string;
   readonly codeLineNumbers: boolean;
   readonly math: string | null;
+  readonly rules?: LayoutRules | undefined;
 }): LayoutInputs {
   const faces = (input.fonts?.faces ?? []).map(faceKey).sort();
   const generics = Object.entries(input.fonts?.generics ?? {}).sort(([a], [b]) => (a < b ? -1 : 1));
@@ -102,6 +113,7 @@ export function layoutInputs(input: {
     codeLineNumbers: input.codeLineNumbers ? 'on' : 'off',
     segmentation: segmentationFingerprint(),
     unicode: UNICODE_VERSION,
+    rules: sizedRulesKey(input.rules),
   };
 }
 
@@ -123,5 +135,6 @@ export const engineSources = (options: TextEngineOptions) => ({
       markup: options.markup?.() ?? 'all',
       codeLineNumbers: options.codeLineNumbers ?? false,
       math: options.mathLayouter?.()?.key ?? null,
+      rules: options.layoutRules?.(),
     }),
 });

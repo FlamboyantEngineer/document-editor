@@ -176,6 +176,8 @@ function textLayoutOf(
     template: () => latest.current.template,
     codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
     hostViews: Object.keys(latest.current.nodeViews ?? {}),
+    // The host's rules, which size its own nodes (DOCE-PAGINATION-14.1).
+    layoutRules: () => latest.current.layoutRules,
     markup,
     // The values the page variables draw (`ownPlugins`), which the text's variables are laid out in.
     variables: { value: (key: string) => latest.current.variables?.value(key) },
