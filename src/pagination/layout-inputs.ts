@@ -6,6 +6,7 @@ import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import { UNICODE_VERSION } from '../layout-engine/bidi-classes.js';
 import type { TemplateFile } from '../model/index.js';
 import { segmentationFingerprint } from '../utils/segmentation.js';
+import type { TextEngineOptions } from './text-engine-types.js';
 
 /** The release of the Pretext fork the engine breaks lines with; a test checks it is installed. */
 export const PRETEXT_RELEASE = '1.0.0-fe.7';
@@ -97,3 +98,18 @@ export function layoutInputsKey(inputs: LayoutInputs): string {
   const names = Object.keys(inputs).sort() as (keyof LayoutInputs)[];
   return `1-${hashText(names.map((name) => `${name}=${inputs[name]}`).join('\n'))}`;
 }
+
+/** An engine's template and fonts, and what its layout depends on besides the document. */
+export const engineSources = (options: TextEngineOptions) => ({
+  template: options.template,
+  fonts: options.fonts,
+  inputs: () =>
+    layoutInputs({
+      fonts: options.fonts?.() ?? null,
+      template: options.template,
+      language: options.language ?? '',
+      markup: options.markup?.() ?? 'all',
+      codeLineNumbers: options.codeLineNumbers ?? false,
+      math: options.mathLayouter?.()?.key ?? null,
+    }),
+});
