@@ -44,14 +44,14 @@ Verification: `src/collab/awareness.test.ts`, `e2e/presence.spec.ts`, `src/colla
 Each person shall be `active`, `idle` after `idleAfter` without input of their own (two minutes by default), or `away` while their page is hidden (the host's lifecycle), and active again on their next input, a wheel or touch scroll over the editor, or when the page shows again. Each person's latest activity (`activity`, `PresenceActivity`) shall be `editing` after a change to the content, `reviewing` after a suggestion, a decision on one or a change to a comment's anchor, and `viewing` after a selection or a scroll, `viewing` until then; a change from elsewhere is no activity. Peers carry it (`Peer.activity`) for their avatars and cards (DOCE-COLLAB-1.3). An idle or away peer's caret and selection shall carry `data-presence-status`, and a caret shall be drawn again when its peer's status, name or colour changes, also while it stays where it is.
 
 Implementation: `src/collab/awareness.ts`, `src/engine/presence.ts`, `labs/reference/editor-chrome.css`
-Verification: `src/collab/awareness.test.ts`, `src/engine/presence.test.ts`
+Verification: `src/collab/awareness.test.ts`, `src/engine/presence.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-COLLAB-1.7 - Presence by element address
 
 A host that shares selections without a shared Yjs document (store mode) shall give each peer's selection by address (`at`: an element id and an offset in the element's text, each inline object counting one); setting the peers turns it into positions in the editor's own document, and a peer whose element the document lacks has no caret. `presenceSelection(state)` gives the reader's selection in the same form to share.
 
 Implementation: `src/engine/presence-address.ts`, `src/engine/presence.ts`
-Verification: `src/engine/presence-address.test.ts`
+Verification: `src/engine/presence-address.test.ts`, `e2e/presence.spec.ts`
 
 ## DOCE-COLLAB-2 - Remote changes
 
@@ -157,7 +157,7 @@ Verification: `src/collab/yjs-pending.test.ts`
 When the shared document holds what the editor's schema cannot read, such as a block of a type a newer schema added, as the plugin binds or in a change it takes, the plugin shall stop: it takes no further change from the shared document and sends none to it, since the editor no longer shows what the shared document holds and its changes would land in the wrong places, and no view binds again. It shall tell the host once (`onUnreadable(error)`), and throw the error when the host gave no such callback.
 
 Implementation: `src/collab/sync.ts`, `src/collab/sync-binding.ts`
-Verification: `src/collab/sync.test.ts`, `src/session/room-session.test.ts`
+Verification: `src/collab/sync.test.ts`, `src/session/room-session.test.ts`, `e2e/session-room.spec.ts`
 
 ## DOCE-COLLAB-5 - Connection
 
@@ -224,21 +224,21 @@ Verification: `src/collab/convert.test.ts`
 `watchRoomChanges(doc, { schema })` shall watch a room's Yjs document, and its `classify(transaction, { author })`, called from the room's `afterTransaction`, shall give what an update needs: the set of permissions `needs`, each granted on its own, and `outside`, whether it changes a top-level type other than `content`, `comments` and `meta`. `comment` is needed for a change to `comments`, or to `content` that only adds or removes comment highlights or changes their state; `suggest` for adding suggestions in `author`'s name (suggested insertions, deletions, formatting and block splits) and for withdrawing `author`'s own (deleting text they suggested inserting, taking off a deletion they suggested), including text moved from one of their suggestions to another; `decide` for accepting any suggestion (taking off an insertion mark or a format suggestion, removing text suggested for deletion, clearing a suggested block's attributes) and for withdrawing another writer's (rejecting it); `edit` for any other change to `content`, any change to `meta`, and suggestions added in another writer's name or with no `author`. A suggested footnote is its marker's insertion: its entry comes with a marker the update suggests and goes with a suggested marker it takes away, as the marker's writer's suggestion; footnotes carry no number (DOCE-FOOTNOTES-2.2, DOCE-SUGGESTIONS-1.5). An update needs every permission its parts need, so accepting a suggestion and formatting beside it in one update needs `decide` and `edit`; the formatting a format suggestion carries and the contributor mark an accepted insertion leaves belong to the decision. An update that changes nothing needs nothing. Each update shall be read against the content as it stood before it, which the watch keeps by replaying each change as the binding does, so it holds after a guard reverts an update; and it shall be read the way that needs the least, an edit costing most and a decision more than a suggestion, comparing the content before and after it, so an edit sorts alike however its Yjs change expresses it. Sorting is not the whole of authorization: it does not check whose comment record an update writes, nor that a suggestion's id and text are its writer's. It shall run without a DOM.
 
 Implementation: `src/collab/room-changes.ts`, `src/collab/room-change-walk.ts`, `src/collab/room-change-footnotes.ts`
-Verification: `src/collab/room-changes.test.ts`, `src/collab/room-change-guard-security.test.ts`
+Verification: `src/collab/room-changes.test.ts`, `src/collab/room-change-guard-security.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-COLLAB-6.7 - A room server's write guard
 
 `openRoomChangeGuard(shadow, { schema, permissions, authorOf })` shall open a write guard for a collaboration-tools room server (`RoomWriteRules.openGuard`, COLLAB-SERVER-7.2) on the server's shadow of a room, watching it as `watchRoomChanges` does from the moment the room loads. Its `check({ actor, capabilities, transaction })` shall refuse an update that changes a type outside the room's layout, pass one that needs nothing, and otherwise pass it only when `permissions(actor, capabilities)`, the host's trusted resolver, grants every permission it needs (`edit`, `suggest`, `decide`, `comment`); no permission implies another, so a host that wants edit to cover comment says so in its resolver. The writer's suggestion author shall be `authorOf(actor)`, or the actor's id. Each check shall cost about the update's own size, not the room's. `destroy()` shall stop watching.
 
 Implementation: `src/collab/room-change-guard.ts`
-Verification: `src/collab/room-change-guard.test.ts`
+Verification: `src/collab/room-change-guard.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-COLLAB-6.8 - Seeding and exporting threads
 
 `writeRoomComments(doc, threads, { scope })` shall write stored comment threads into a room that holds none yet, in one transaction, so that `readRoomComments(doc, { scope })` and the room comment store list them as stored: who started each thread and when, its state, who resolved or deleted it and when, its target, change and decision, and its comments with their authors, dates, edits, deletions and reactions. It shall refuse a room that holds threads already and write nothing. A host seeds a room with `writeRoomDocument` and `writeRoomComments`, and stores what `readRoomDocument` and `readRoomComments` give back.
 
 Implementation: `src/collab/comment-seed.ts`
-Verification: `src/collab/comment-seed.test.ts`
+Verification: `src/collab/comment-seed.test.ts`, `e2e/session-room.spec.ts`
 
 ## DOCE-COLLAB-7 - Embedded documents and server enforcement
 
@@ -247,7 +247,7 @@ Verification: `src/collab/comment-seed.test.ts`
 `createRoomScope(doc, key)` selects independent content, metadata, discussion and awareness namespaces within one shared document and provider. Sync, conversion and discussion APIs accept the returned shared handles; room sessions accept `fieldKey`. Full-document defaults keep `content`, `meta`, `comments` and the existing awareness fields. Each field uses the same editing engine and controls in web layout, with optional chrome. Undo tracks only that field's type and origin. Relative positions outside a field never resolve inside it; disposing its presence leaves the other fields intact. Drafts retain the complete transport state and resolve only the selected field when merging into another generation. Hosts lease a shared connection and give independent session document ids to independently persisted field drafts.
 
 Implementation: `src/collab/room-scope.ts`, `src/collab/sync.ts`, `src/collab/convert.ts`, `src/collab/comment-store.ts`, `src/collab/awareness.ts`, `src/collab/relative-positions.ts`, `src/collab/offline.ts`, `src/session/room-binding.ts`, `src/session/document-session.ts`
-Verification: `src/collab/room-scope.test.ts`, `src/collab/awareness.test.ts`
+Verification: `src/collab/room-scope.test.ts`, `src/collab/awareness.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-COLLAB-7.2 - Authoritative pre-application guard
 
@@ -258,24 +258,24 @@ Verification: `src/collab/room-change-guard-security.test.ts`, `src/collab/guard
 
 ### DOCE-COLLAB-7.3 - Guard self-check
 
-The guard returned by `openRoomChangeGuard` shall offer `verify()` for the room server's self-check (collaboration-tools `RoomWriteRules.verifyEvery` and `verifyIdleMs`): it shall read every configured scope's content from the shadow from scratch and return `true` only when each equals the parsed reading the guard keeps by replaying changes, `false` when a reading differs, could not be replayed, or the guard is destroyed. A room server that gets `false` rebuilds the shadow, reopens the guard and reports the drift, so a defect in the kept reading cannot outlive the next verification. Comment records and metadata are read from the shadow at each check and need no verification. The comparison costs a reading of the room and runs only when the server calls it, never on the per-update path.
+The guard returned by `openRoomChangeGuard` shall offer `verify()` for the room server's self-check (collaboration-tools `RoomWriteRules.verifyEvery` and `verifyIdleMs`): it shall read every configured scope's content from the shadow from scratch and return `true` only when each equals the parsed reading the guard keeps by replaying changes, `false` when a reading differs, could not be replayed, or the guard is destroyed. A room server that gets `false` rebuilds the shadow, reopens the guard and reports the drift, so a defect in the kept reading cannot outlive the next verification. Comment records and metadata are read from the shadow at each check and need no verification. The comparison costs a reading of the room and runs only when the server calls it, never on the per-update path. While its kept reading no longer matches the room, as after a trusted write the guard's schema cannot read, the guard places no suggestion anchors, so it throws inside none of the room's later transactions.
 
 Implementation: `src/collab/guard-snapshots.ts`, `src/collab/room-change-guard.ts`
-Verification: `src/collab/guard-self-check.test.ts`
+Verification: `src/collab/guard-self-check.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-COLLAB-7.4 - Changes refused for their merge
 
-A change the guard refuses only because, merged with what the room already holds, it leaves a shape the schema refuses shall be answered as a `conflict` (collaboration-tools `RoomGuardAnswer`, COLLAB-SERVER-7.7), not as a refusal for rights. The guard shall tell the two kinds apart by fitting the merged content in, as a reader's editor does, and judging the writer's rights on that reading: when the fitted change is one the writer may make, the answer is `conflict`; when it is not, or the content cannot be read even fitted, the answer is a refusal, so a writer who may only suggest, or who sends a change outside its rights, is cut off as before whatever the merge. The room server applies, broadcasts and persists nothing of a refused change, tells only its writer, naming the refused change and nothing of other writers' content, and keeps the connection; past the server's bound of such refusals from one connection (`conflictLimit`, ten a minute by default) it cuts the writer off as for rights, so an honest writer with more than ten colliding changes in a minute is cut off as before. Each such refusal rebuilds the server's shadow, a copy of the room, so a connection may cost up to ten copies a minute where a refused write cost one; hosts count them when sizing rooms. The guard's mirror is left as the room holds it, so it equals the room afterwards (DOCE-COLLAB-7.3) and the writer's next change that merges is admitted. The writer's provider gives up the refused change and reloads the document from the room (DOCE-SESSION-3.11). Offline changes reach the room one by one on reconnect, each the local changes made within half a second of each other, so the guard admits those that merge and refuses only the one that collides; a later change that builds on content of a refused one loses what lies inside that content and keeps what lies beside it.
+A change the guard refuses only because, merged with what the room already holds, it leaves a shape the schema refuses shall be answered as a `conflict` (collaboration-tools `RoomGuardAnswer`, COLLAB-SERVER-7.7), not as a refusal for rights. The guard shall tell the two kinds apart by fitting the merged content in, as a reader's editor does, and judging the writer's rights on that reading: when the fitted change is one the writer may make, the answer is `conflict`; when it is not, or the content cannot be read even fitted, the answer is a refusal, so a writer who may only suggest, or who sends a change outside its rights, is cut off as before whatever the merge. The room server applies, broadcasts and persists nothing of a refused change, tells only its writer, naming the refused change and nothing of other writers' content, and keeps the connection; past the server's bound of such refusals from one connection (`conflictLimit`, ten a minute by default) it cuts the writer off as for rights, so an honest writer with more than ten colliding changes in a minute is cut off as before. Each such refusal rebuilds the server's shadow, a copy of the room, so a connection may cost up to ten copies a minute where a refused write cost one; hosts count them when sizing rooms. The guard's mirror is left as the room holds it, so it equals the room afterwards (DOCE-COLLAB-7.3) and the writer's next change that merges is admitted. A fitted reading has no positions in the shared content, so on it another writer's suggestion counts as kept in place when the reading still holds it with its writer and its text. The writer's provider gives up the refused change and reloads the document from the room (DOCE-SESSION-3.11). Offline changes reach the room one by one on reconnect, each the local changes made within half a second of each other, so the guard admits those that merge and refuses only the one that collides; a later change that builds on content of a refused one loses what lies inside that content and keeps what lies beside it.
 
 Implementation: `src/collab/room-change-guard.ts`, `src/collab/guard-snapshots.ts`
-Verification: `src/collab/room-change-guard-security.test.ts`, `src/session/room-reload.test.ts`
+Verification: `src/collab/room-change-guard-security.test.ts`, `src/session/room-reload.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-COLLAB-7.5 - One element for each id
 
 A suggestion's signature names the blocks it holds by their element ids, so every stored element the room holds shall keep a well-formed id of its own (DOCE-SCHEMA-2.3). The guard shall refuse a change after which the room holds more stored elements without a well-formed id than before, or an element id on more nodes than held it before, the drawn regions' included (a footnote entry or a header holds none, so a copy there is refused too, and a writer without edit rights may not change their attributes at all), from any writer: a writer may send either, such as a suggester's block with no id or another's, and honest changes can merge into the second, as two moves of one block or two changes of its type do. Another writer's editor would give an element without an id one at its next structural change, changing the first writer's suggestion, and be refused for it, so one writer's block could otherwise cut others off. The refusal is a `conflict` (DOCE-COLLAB-7.4) when the change is otherwise one the writer may make: nothing of it is applied, so the room keeps its ids whatever the answer, and a writer who is honest but whose merge collides loses one change rather than the connection, while the server's bound cuts off a writer who keeps sending them. What a stored room already holds, an element without an id or an id held twice, does not refuse later changes, and no change may add another copy of it. Each new reading of the room is read once for its ids.
 
 Implementation: `src/collab/guard-element-ids.ts`, `src/collab/room-change-guard.ts`
-Verification: `src/collab/room-change-guard-security.test.ts`
+Verification: `src/collab/room-change-guard-security.test.ts`, `e2e/session-room.spec.ts`
 
 ## Hooks
 

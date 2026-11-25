@@ -82,7 +82,8 @@ function allowedChange(
 ): boolean {
   const { scope } = before;
   const { permissions, actor, author } = options;
-  if (!hasGuardAnchors(before.anchors, after, { scope, actor: author, permissions })) return false;
+  const anchors = { scope, actor: author, permissions, before: before.content };
+  if (!hasGuardAnchors(before.anchors, after, anchors)) return false;
   const version: unknown = scope.meta.getAttr('formatVersion');
   if (version !== undefined && version !== 1) return false;
   if (!permissions.edit && before.meta !== JSON.stringify([...readGuardRecords(scope.meta)]))
