@@ -568,6 +568,8 @@ describe('DocumentEditor', () => {
     // No style the pages are drawn with names it, so the browser cannot pick a local font of it.
     const styles = [...document.querySelectorAll('style')].map((style) => style.textContent);
     expect(styles.join('\n')).not.toContain('Unserved Face');
+    // Nor does a print of the pages.
+    expect(handle.current?.exportSnapshot()).not.toContain('Unserved Face');
   });
 
   it('DOCE-PAGINATION-12.5 draws a family a later template names in its own faces once they arrive', async () => {
