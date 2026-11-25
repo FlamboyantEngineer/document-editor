@@ -21,6 +21,7 @@ import {
   ELEMENT_ID_PATTERN,
   repairElementIds,
 } from './element-ids.js';
+import { canInsertFootnote } from './footnotes.js';
 
 const text = (value: string): StoredNode[] => (value ? [{ type: 'text', text: value }] : []);
 const paragraph = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
@@ -395,6 +396,14 @@ describe('the editing extension', () => {
       const next = run(state, keys[key] as Command);
       expect(next.doc.eq(state.doc)).toBe(true);
     }
+  });
+
+  it('DOCE-FOOTNOTES-1.2 passes the citing places a host gives to the footnotes', () => {
+    const quoted: StoredNode = { type: 'blockquote', content: [paragraph('Quoted')] };
+    const doc = read(quoted);
+    expect(canInsertFootnote(stateAt(doc, 'Quoted'))).toBe(true);
+    const strict = createDocumentEditing(documentSchema, { citingPlaces: ['list_item'] });
+    expect(canInsertFootnote(stateAt(doc, 'Quoted', strict))).toBe(false);
   });
 
   it('DOCE-EDITING-1.4 repairs the element ids a document opens with, out of the history', () => {

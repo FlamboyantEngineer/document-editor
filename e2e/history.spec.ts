@@ -28,6 +28,39 @@ test.describe('history lab', () => {
     await expect(row(page, /Approved/)).toBeVisible();
   });
 
+  test('DOCE-VERSIONS-4.3 lets the host change a named version before it is saved, or save none', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('history');
+    const save = async (name: string) => {
+      await page.getByRole('button', { name: 'Save version…' }).click();
+      await page.getByRole('textbox', { name: 'Name' }).fill(name);
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+    };
+    await page.getByLabel('Before a named version').selectOption('sign');
+    await save('Approved');
+    await expect(row(page, /Approved \(reviewed by Ada\)/)).toBeVisible();
+    await page.getByLabel('Before a named version').selectOption('refuse');
+    const rows = await history(page).getByRole('row').count();
+    await save('Withdrawn');
+    await expect(page.getByRole('dialog').getByRole('alert')).toHaveText('No version was saved.');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(history(page).getByRole('row')).toHaveCount(rows);
+    await expect(row(page, /Withdrawn/)).toHaveCount(0);
+  });
+
+  test('DOCE-VERSIONS-4.6 views a version as soon as it is picked, with the host option', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('history');
+    await page.getByLabel('View on pick').check();
+    await row(page, /First draft/).click();
+    await expect(page.getByLabel('Showing')).toHaveText('rev-2');
+    await expect(editor(page)).toContainText('within one second of detecting it');
+  });
+
   test('DOCE-VERSIONS-5.1 DOCE-VERSIONS-5.3 DOCE-VERSIONS-5.4 views a version with its template and returns', async ({
     lab,
     page,
@@ -67,5 +100,17 @@ test.describe('history lab', () => {
     await expect(editor(page)).toContainText('within one second of detecting it');
     await expect(page.getByLabel('Template shown')).toHaveText('report');
     await expect(history(page).getByRole('row')).toHaveCount(4);
+  });
+
+  test('DOCE-VERSIONS-4.8 offers the host action of a row after its own', async ({ lab, page }) => {
+    await lab.open('history');
+    await row(page, /First draft/)
+      .getByRole('button', { name: /actions/i })
+      .click();
+    const items = page.getByRole('menuitem');
+    await expect(items.last()).toHaveText('Branch from here');
+    await page.getByRole('menuitem', { name: 'Branch from here' }).click();
+    await expect(page.getByLabel('Branched from')).toHaveText('rev-2');
+    await expect(page.getByLabel('Showing')).toHaveText('The document');
   });
 });

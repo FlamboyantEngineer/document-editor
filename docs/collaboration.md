@@ -140,6 +140,8 @@ Plugins that bind to the shared document set `measured: false` in their spec, so
 
 `labs/collab-room.html` shows two writers editing one document in its room, on a collaboration-tools room server in the page (`./testing`'s `connectToServer`), each at their own width and zoom. Either can go offline, edit on their own and come back to merge; each one's undo undoes only their own changes. `e2e/shared-room.spec.ts` checks that both hold the same document after concurrent edits (DOCE-COLLAB-6.4).
 
+`labs/session-room.html` opens two readers' sessions on a guarded room: `openRoomChangeGuard` reads each reader's rights from the page, the margin keeps threads in the room (`createRoomCommentStore`, seeded with `writeRoomComments`), and controls make a change that does not merge (the writer reloads), send a block with another block's id, fail the guard's self-check and write a block the editors cannot read. Below, two fields share one room through a leased connection (DOCE-LABS-3.13).
+
 ## What the binding spike found
 
 The library's binding started as a spike (P0-10), since retired; its code is in the repository's history before this page's lab replaced it. What it found still holds:

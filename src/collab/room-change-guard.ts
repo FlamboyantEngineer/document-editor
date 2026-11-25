@@ -64,7 +64,7 @@ function checkSnapshot(
   const after = exact === undefined ? options.snapshots.fitted(before.scope) : exact;
   if (after === undefined) return false;
   after?.check();
-  if (!allowedChange(before, after, options)) return false;
+  if (!allowedChange(before, after, { ...options, fitted: exact === undefined })) return false;
   // Element ids the change leaves missing or shared are refused as a merge that does not fit:
   // two honest moves of one block can share one (DOCE-COLLAB-7.5).
   return exact === undefined || hasElementIdFault(before.content, after) ? 'conflict' : true;
@@ -78,11 +78,13 @@ function allowedChange(
     actor: string;
     author: string | null;
     permissions: GuardPermissions;
+    fitted: boolean;
   },
 ): boolean {
   const { scope } = before;
-  const { permissions, actor, author } = options;
-  if (!hasGuardAnchors(before.anchors, after, { scope, actor: author, permissions })) return false;
+  const { permissions, actor, author, fitted } = options;
+  const anchors = { scope, actor: author, permissions, before: before.content, fitted };
+  if (!hasGuardAnchors(before.anchors, after, anchors)) return false;
   const version: unknown = scope.meta.getAttr('formatVersion');
   if (version !== undefined && version !== 1) return false;
   if (!permissions.edit && before.meta !== JSON.stringify([...readGuardRecords(scope.meta)]))

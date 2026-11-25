@@ -13,10 +13,10 @@ Verification: `src/engine/footnotes.test.ts`, `e2e/objects.spec.ts`, `e2e/sessio
 
 ### DOCE-FOOTNOTES-1.2 - Where a footnote may be cited
 
-A footnote may be cited in a paragraph of the page's body, in a figure's, table's or code block's caption, and in a paragraph or caption whose every enclosing block, up to the page's content, is a list, a body or header cell of a table, a figure, a table or code block with its caption, a quote or a layout column (`canInsertFootnote`); the footnotes are numbered in reading order, a caption's with the text around it; elsewhere, in a heading, a code block's code, a script block's output, a footnote entry, a page header or footer, or the caption the pages repeat on a later part of a split table or code block, which is not edited, inserting one is refused. `createFootnotes({ citingPlaces })` shall replace those enclosing blocks with the host's list of node type names.
+A footnote may be cited in a paragraph of the page's body, in a figure's, table's or code block's caption, and in a paragraph or caption whose every enclosing block, up to the page's content, is a list, a body or header cell of a table, a figure, a table or code block with its caption, a quote or a layout column (`canInsertFootnote`); the footnotes are numbered in reading order, a caption's with the text around it; elsewhere, in a heading, a code block's code, a script block's output, a footnote entry, a page header or footer, or the caption the pages repeat on a later part of a split table or code block, which is not edited, inserting one is refused. `createFootnotes({ citingPlaces })`, and the same option of the editing plugins (`createDocumentEditing`), shall replace those enclosing blocks with the host's list of node type names.
 
-Implementation: `src/engine/footnote-model.ts`, `src/engine/footnotes.ts`
-Verification: `src/engine/footnotes.test.ts`
+Implementation: `src/engine/footnote-model.ts`, `src/engine/footnotes.ts`, `src/engine/footnote-plugins.ts`
+Verification: `src/engine/footnotes.test.ts`, `src/engine/document-editing.test.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-FOOTNOTES-1.3 - Entries follow their markers
 
