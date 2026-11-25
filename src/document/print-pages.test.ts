@@ -9,6 +9,7 @@ import { placeMath } from '../layout-engine/math-atoms.js';
 import { BASE_TEMPLATE, type TemplateFile } from '../model/index.js';
 import { engineMath } from '../pagination/engine-math.js';
 import { engineNumbers } from '../pagination/engine-numbers.js';
+import { engineObjects } from '../pagination/engine-objects.js';
 import { pagesLayout } from '../pagination/pages-layout.js';
 import { createProjectionMap } from '../pagination/projection-map.js';
 import type { DrawnLines } from '../pagination/text-engine-types.js';
@@ -134,6 +135,41 @@ describe('renderLayoutPrintPage', () => {
     expect(svg?.querySelector('rect')).not.toBeNull();
     // The MathML follows the drawing, for screen readers, copy and find.
     expect(math?.lastElementChild?.localName).toBe('math');
+  });
+
+  it('DOCE-PAGINATION-14.2 draws a sized node in the box the engine laid it out at, as the pages view does', () => {
+    const signature = node('signature', { displayName: 'Ann Lee' });
+    const doc = pagesDocument([page([paragraph([text('a'), signature], { dataId: 'p1' })])]);
+    const box = { inline: true, width: 120, height: 19, baseline: 19 };
+    const engine = {
+      ...stubEngine(),
+      sizedType: (each: Node) => each.type.name === 'signature',
+      objectOf: (each: Node) => (each.type.name === 'signature' ? box : null),
+      objectsVersion: () => 1,
+    };
+    const state = pagesState(doc, engine, [
+      engineObjects({ engine: () => engine, version: () => 0 }),
+    ]);
+    const view = new EditorView(document.createElement('div'), { state, editable: () => false });
+    views.push(view);
+    const layout = pagesLayout(state);
+    expect(layout?.objects).toEqual([{ pos: expect.any(Number) as number, ...box }]);
+    if (!layout) throw new Error('no layout');
+    const printed = new DOMParser().parseFromString(
+      renderLayoutPrintPage(layout, BASE_TEMPLATE),
+      'text/html',
+    );
+    const hooks = (root: ParentNode) => {
+      const element = root.querySelector<HTMLElement>('.de-object-box');
+      return [
+        element?.dataset.objectBox,
+        ...['--de-object-width', '--de-object-height', '--de-object-baseline'].map((name) =>
+          element?.style.getPropertyValue(name),
+        ),
+      ];
+    };
+    expect(hooks(printed)).toEqual(['inline', '120.000px', '19.000px', '19.000px']);
+    expect(hooks(printed)).toEqual(hooks(view.dom));
   });
 
   it('DOCE-PAGINATION-9.12 draws each forced block in the direction the pages view draws it', () => {

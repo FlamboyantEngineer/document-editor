@@ -6,6 +6,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { mathDrawingHooks, mathDrawingTrees } from '../engine/math-drawing.js';
 import { isMath, type MathTree } from '../engine/math-typeset.js';
+import { objectBoxHooks } from '../engine/object-box.js';
 import { elementNumbers } from '../engine/print-links.js';
 import type { PlacedMath } from '../layout-engine/math-atoms.js';
 import {
@@ -24,6 +25,7 @@ import {
   type PagesLayoutBlock,
   type PagesLayoutMath,
   type PagesLayoutNumber,
+  type PagesLayoutObject,
   readPagesDocument,
 } from './pages-layout.js';
 import { type PrintPageOptions, ROOT_CLASS } from './print.js';
@@ -116,6 +118,15 @@ function mathHooks(
   } else if (math?.state === 'invalid') element.children = [{ text: math.text }];
 }
 
+// A node a host rule sized, drawn in the box it was laid out at (DOCE-PAGINATION-14.2).
+function objectHooks(element: PrintElement, box: PagesLayoutObject) {
+  const { class: hook, style, ...attrs } = objectBoxHooks(box);
+  const own = element.attrs.get('class');
+  element.attrs.set('class', own ? `${own} ${hook}` : hook);
+  for (const [name, value] of Object.entries(attrs)) element.attrs.set(name, value);
+  addStyle(element, style);
+}
+
 // The SVG math the engine placed is drawn as, with the placement's hooks on its element.
 function drawingOf(element: PrintElement, placed: PlacedMath): PrintElement[] {
   const { style, ...attrs } = mathDrawingHooks(placed);
@@ -144,6 +155,7 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
   const values = new Map(layout.variables.map((variable) => [variable.pos, variable.text]));
   const numbers = new Map(layout.numbers.map((number) => [number.pos, number]));
   const math = new Map((layout.math ?? []).map((typeset) => [typeset.pos, typeset]));
+  const objects = new Map((layout.objects ?? []).map((object) => [object.pos, object]));
   const drawing: NodeDrawing = {
     draw(node, drawn, pos) {
       const own = options.draw(node, drawn, pos);
@@ -157,6 +169,8 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
       const number = numbers.get(pos);
       if (number) numberHooks(element, number);
       if (isMath(node)) mathHooks(element, node, math.get(pos));
+      const object = objects.get(pos);
+      if (object) objectHooks(element, object);
       const order = Number(node.attrs.order ?? 1);
       // A list's continuation numbers on from the items before it, as the list starts draw it.
       if (name === 'ordered_list' && order > 1)

@@ -112,6 +112,7 @@ export { contentSlice } from './pagination/page-slice.js';
 export type { PageJoinOptions } from './pagination/page-transform.js';
 export { joinDocumentPages, joinSectionPages } from './pagination/page-transform.js';
 export { repaginate, sameStructure } from './pagination/repaginate.js';
+export { SIGNATURE_DRAWING, signatureSize } from './pagination/signature-size.js';
 export { isHeaderRow, leadingHeaderRows, splitTableWith } from './pagination/table-split.js';
 export type {
   TextMeasure,

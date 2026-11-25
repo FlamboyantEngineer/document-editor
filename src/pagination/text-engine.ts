@@ -20,7 +20,13 @@ import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
 import { contentWidths } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
-import { hostRuleSizes, refusedAsDrawn, textAtomsOf, watchedRules } from './host-rules.js';
+import {
+  hostRuleSizes,
+  refusedAsDrawn,
+  sizedReading,
+  textAtomsOf,
+  watchedRules,
+} from './host-rules.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { engineSources } from './layout-inputs.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
@@ -292,6 +298,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     objectBoxes: selecting(select, layouts.objectBoxes(widthOf)),
     provisional: atoms.pending,
     ...layouts.math.reading(counts.stats, () => numbers.current().doc),
+    ...sizedReading(layouts.sizes),
     destroy() {
       unsubscribe();
       host.remove();

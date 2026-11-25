@@ -7,6 +7,7 @@ import { splitContainer, splitList, splitListItem } from './container-split.js';
 import { splitContents } from './contents-split.js';
 import { splitHeldWith } from './held-split.js';
 import { splitLayoutSection } from './layout-section-split.js';
+import { signatureSize } from './signature-size.js';
 import { splitTableFigureWith, splitTableWith } from './table-split.js';
 import { splitCode, splitParagraph } from './text-split.js';
 
@@ -173,6 +174,7 @@ export function createLayoutRules({
     linked_code_block: CODE,
     toc_block: { split: splitContents },
     page_break: { endsPage: true },
+    signature: { size: signatureSize },
   });
 }
 

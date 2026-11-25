@@ -68,12 +68,9 @@ export function createBlockLayout(options: BlockLayoutOptions): BlockLayout {
 
   function layIn(node: ProseMirrorNode, place: BlockPlace, parent: BlockParent): Laid {
     if (!(place.width > 0)) return notLaid(node, 'no width is left for the block');
-    const sized = options.ruleSizes?.size(node, place.width, place.scope ?? null);
+    const height = options.ruleSizes?.block(node, place.width, place.scope ?? null);
     // A block its rule sizes, moved whole; one whose rule failed takes no room (DOCE-PAGINATION-14.1).
-    if (sized) {
-      const height = sized.ok ? sized.size.height : 0;
-      return laid({ node, height, marginTop: 0, marginBottom: 0 });
-    }
+    if (typeof height === 'number') return laid({ node, height, marginTop: 0, marginBottom: 0 });
     const lay = Object.hasOwn(LAYS, node.type.name) ? LAYS[node.type.name] : undefined;
     if (!lay) return notLaid(node, `${node.type.name} is not laid out by the engine yet`);
     return lay(contextOf(place, parent), node);

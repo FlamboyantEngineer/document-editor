@@ -3,7 +3,7 @@
 // laid out with other rules' sizes are laid out again.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { createRuleSizes, ruleSizesKey } from '../layout-engine/rule-sizes.js';
+import { createRuleSizes, type RuleSizes, ruleSizesKey } from '../layout-engine/rule-sizes.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
 import type { InsertedTexts } from './inserted-texts.js';
@@ -78,3 +78,10 @@ export function textAtomsOf(options: TextEngineOptions, numbers: () => NodeNumbe
     refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
   };
 }
+
+/** The engine's readings of the sized nodes: whether a type is sized and each node's box. */
+export const sizedReading = (sizes: RuleSizes) => ({
+  sizedType: (node: ProseMirrorNode) => sizes.sizes(node),
+  objectOf: (node: ProseMirrorNode) => sizes.placed(node),
+  objectsVersion: () => sizes.version(),
+});

@@ -10,6 +10,7 @@ import type {
   PagesLayoutBlock,
   PagesLayoutMath,
   PagesLayoutNumber,
+  PagesLayoutObject,
   PagesLayoutVariable,
 } from '../document/pages-layout.js';
 import { isMath, type TypesetMath } from '../engine/math-typeset.js';
@@ -134,6 +135,20 @@ function drawnMath(
   return math;
 }
 
+const objectsOf = (objects: PagesLayoutObject[]) => (objects.length ? { objects } : {});
+
+// The box each node a host rule sized was laid out at (DOCE-PAGINATION-14.2).
+function drawnObjects(state: EditorState, engine: PagesTextEngine): PagesLayoutObject[] {
+  const objects: PagesLayoutObject[] = [];
+  state.doc.descendants((node, pos) => {
+    if (!engine.sizedType?.(node)) return !node.isText;
+    const box = engine.objectOf?.(node);
+    if (box) objects.push({ pos, ...box });
+    return false;
+  });
+  return objects;
+}
+
 /**
  * Whether pages in a layout state are settled for good: laid out, and with no font loading in the
  * window they measure in, which may move their lines.
@@ -170,6 +185,7 @@ export function pagesLayout(
       typesetOf: options.typesetOf ?? ((node) => typesetMathOf(state, node)),
       engine,
     }),
+    ...objectsOf(drawnObjects(state, engine)),
     fonts: engine.fonts?.() ?? null,
     language: engine.language ?? '',
     ...withInputsKey(engine.inputs()),

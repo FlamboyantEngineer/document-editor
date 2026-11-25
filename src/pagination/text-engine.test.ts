@@ -3,7 +3,13 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { findNode, parseMarkup } from '../../test/document-markup.js';
-import { type LayoutBlock, type LayoutRules, splitParagraph } from '../model/index.js';
+import {
+  LAYOUT_RULES,
+  type LayoutBlock,
+  type LayoutRules,
+  SIGNATURE_DRAWING,
+  splitParagraph,
+} from '../model/index.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
@@ -155,6 +161,29 @@ describe('createPagesTextEngine', () => {
     rules.current = { mention: { size: () => ({ height: -1 }), sizeKey: 'broken' } };
     expect(engine.measureBlock(node, null)?.height).toBe(plain.height);
     expect(engine.stats().sizeErrors?.has('mention')).toBe(true);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-14.2 DOCE-PAGINATION-14.3 sizes a signature by the library’s rule and keeps its box to draw it in', () => {
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      layoutRules: () => LAYOUT_RULES,
+    });
+    const signature = '<span data-signature="u1" data-signature-name="Ann Lee"></span>';
+    const node = findNode(parseMarkup(`<p>aaaa ${signature}</p>`), 'paragraph');
+    const atom = node && findNode(node, 'signature');
+    if (!node || !atom) throw new Error('no signature');
+    expect(engine.sizedType?.(atom)).toBe(true);
+    expect(engine.objectOf?.(atom)).toBeNull();
+    const before = engine.objectsVersion?.() ?? 0;
+    engine.measureBlock(node, null);
+    const box = engine.objectOf?.(atom);
+    expect(box).toMatchObject({ inline: true, width: SIGNATURE_DRAWING.width });
+    expect(box?.baseline).toBe(box?.height);
+    expect(box?.height).toBeGreaterThan(1);
+    expect(engine.objectsVersion?.()).toBeGreaterThan(before);
     engine.destroy();
   });
 

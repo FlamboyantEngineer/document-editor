@@ -2240,23 +2240,51 @@ a.de-contents__entry {
   text-decoration: underline;
 }
 
-/* A signature: its strokes over the signer's name; an unsigned one is a line to sign on. */
+/* A node a layout rule sized (`data-object-box`) takes exactly the box the engine laid it out at
+   (DOCE-PAGINATION-14.2), what it draws clipped to it: an inline one on its line's baseline at
+   `--de-object-baseline` from its top, a block across its column with no margins of its own. */
+.de-object-box {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.de-object-box[data-object-box='inline'] {
+  display: inline-block;
+  inline-size: var(--de-object-width);
+  block-size: var(--de-object-height);
+  vertical-align: calc(var(--de-object-baseline) - var(--de-object-height));
+}
+
+.de-object-box[data-object-box='block'] {
+  display: flow-root;
+  block-size: var(--de-object-height);
+  margin-block: 0;
+}
+
+/* A signature: its strokes over the signer's name in the paragraphs' font, on a line to sign on;
+   an unsigned one is the name on the line. Its box is the one its layout rule gives
+   (DOCE-PAGINATION-14.3): as wide as the drawing or the name, its bottom on the baseline. */
 .de-signature {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  vertical-align: bottom;
-  min-width: 120px;
+  display: inline-block;
+  min-inline-size: 120px;
   border-bottom: 1px solid currentColor;
+  font-family: var(--doc-paragraph-font-family, inherit);
+  font-size: var(--doc-paragraph-font-size, inherit);
+  line-height: var(--doc-paragraph-line-height, inherit);
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
 }
 
 .de-signature svg {
-  width: 120px;
-  height: 48px;
+  display: block;
+  inline-size: 120px;
+  block-size: 48px;
+  margin-inline: auto;
 }
 
 .de-signature__name {
-  font-size: 0.8em;
+  display: block;
 }
 
 /* A script block: its output, marked on the screen as the script's; running, failed or empty. */

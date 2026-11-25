@@ -3,111 +3,35 @@
 // spec, which the math views draw as SVG. A viewer or a print reads the same placements from the
 // pages' layout, so every renderer draws the equation at the box the pages were laid out with.
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
-import { AddMarkStep, RemoveMarkStep, ReplaceStep } from 'prosemirror-transform';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { PluginKey } from 'prosemirror-state';
 import { mathDrawingHooks, type MathDrawingSpec } from '../engine/math-drawing.js';
 import { isMath } from '../engine/math-typeset.js';
-import type { PagesTextEngine } from './text-engine-types.js';
+import {
+  placementsPlugin,
+  type PlacementsSource,
+  type PlacementsState,
+} from './engine-placements.js';
 
 /** The engine math's key: its state is the decorations placing each equation. */
-const engineMathKey = new PluginKey<EngineMathState>('engine-math');
-
-interface EngineMathState {
-  readonly engine: PagesTextEngine | null;
-  readonly version: number;
-  /** The engine's math version the decorations were read at (`mathVersion`). */
-  readonly placed: number;
-  readonly decorations: DecorationSet;
-}
-
-/** What the placements are read from: the engine, once loaded, and a count that moves when it forgets. */
-interface EngineMathSource {
-  readonly engine: () => PagesTextEngine | null;
-  readonly version: () => number;
-}
-
-// Each math node's placement in a document, as node decorations.
-function mathDecorations(doc: ProseMirrorNode, engine: PagesTextEngine | null): DecorationSet {
-  if (!engine) return DecorationSet.empty;
-  const found: Decoration[] = [];
-  doc.descendants((node, pos) => {
-    if (!isMath(node)) return !node.isText;
-    const placed = engine.mathOf(node);
-    if (placed) {
-      const spec: MathDrawingSpec = { mathDrawing: placed };
-      found.push(Decoration.node(pos, pos + node.nodeSize, mathDrawingHooks(placed), spec));
-    }
-    return false;
-  });
-  return found.length ? DecorationSet.create(doc, found) : DecorationSet.empty;
-}
-
-const holdsMath = (doc: ProseMirrorNode, from: number, to: number) => {
-  let found = false;
-  doc.nodesBetween(from, to, (node) => {
-    found ||= isMath(node);
-    return !found;
-  });
-  return found;
-};
-
-// Whether a step leaves every math node as it was, as typing beside math does: the placements
-// then only move. A step that replaces or inserts math, or changes a block, places them again.
-function keepsMath(tr: Transaction, index: number): boolean {
-  const step = tr.steps[index];
-  if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) return true;
-  if (!(step instanceof ReplaceStep)) return false;
-  const { from, to, slice } = step;
-  let inline = !slice.openStart && !slice.openEnd;
-  slice.content.descendants((node) => {
-    inline &&= node.isInline && !isMath(node);
-    return inline;
-  });
-  const doc = tr.docs[index] as ProseMirrorNode;
-  return inline && doc.resolve(from).parent.isTextblock && !holdsMath(doc, from, to);
-}
-
-const placedVersion = (engine: PagesTextEngine | null) => engine?.mathVersion?.() ?? 0;
+const engineMathKey = new PluginKey<PlacementsState>('engine-math');
 
 /**
  * Draws each equation at the box and scale the engine placed it at. The engine places math as it
  * lays the pages out, after a transaction is applied, so the decorations are read again when the
  * view draws a state whose placements moved since (`mathVersion`).
  */
-export function engineMath(source: EngineMathSource): Plugin<EngineMathState> {
-  const build = (doc: ProseMirrorNode): EngineMathState => {
-    const engine = source.engine();
-    const placed = placedVersion(engine);
-    return { engine, version: source.version(), placed, decorations: mathDecorations(doc, engine) };
-  };
-  // The decorations of a state, read again once for placements made after it was built.
-  let reread: { value: EngineMathState; state: EngineMathState } | null = null;
-  const decorationsOf = (doc: ProseMirrorNode, value: EngineMathState | undefined) => {
-    if (!value || value.placed === placedVersion(value.engine)) return value?.decorations;
-    if (reread?.value !== value || reread.state.placed !== placedVersion(value.engine))
-      reread = { value, state: build(doc) };
-    return reread.state.decorations;
-  };
-  return new Plugin<EngineMathState>({
+export const engineMath = (source: PlacementsSource) =>
+  placementsPlugin(source, {
     key: engineMathKey,
-    state: {
-      init: (_config, state) => build(state.doc),
-      apply: (tr, value) => {
-        const fresh =
-          value.engine !== source.engine() ||
-          value.version !== source.version() ||
-          value.placed !== placedVersion(value.engine);
-        if (fresh) return build(tr.doc);
-        if (!tr.docChanged) return value;
-        if (!tr.steps.every((_step, index) => keepsMath(tr, index))) return build(tr.doc);
-        return { ...value, decorations: value.decorations.map(tr.mapping, tr.doc) };
-      },
+    holds: isMath,
+    decorate(node, engine) {
+      const placed = engine.mathOf(node);
+      if (!placed) return null;
+      const spec: MathDrawingSpec = { mathDrawing: placed };
+      return { attrs: mathDrawingHooks(placed), spec };
     },
-    props: { decorations: (state) => decorationsOf(state.doc, engineMathKey.getState(state)) },
+    placed: (engine) => engine?.mathVersion?.() ?? 0,
   });
-}
 
 /** The engine's placement of each math node of a pages' state, by position. */
 export function placedMath(

@@ -1101,3 +1101,17 @@ A layout rule's `size` shall give the box of a node of its type from the node al
 
 Implementation: `src/model/pagination/page-layout.ts`, `src/model/pagination/container-split.ts`, `src/layout-engine/rule-sizes.ts`, `src/layout-engine/blocks/block-layout.ts`, `src/layout-engine/runs.ts`, `src/pagination/host-rules.ts`, `src/pagination/layout-inputs.ts`, `src/pagination/text-engine.ts`, `src/pagination/text-engine-holder.ts`, `src/components/document-editor/start-paging.ts`
 Verification: `src/pagination/text-engine.test.ts`, `src/model/pagination/page-layout.test.ts`, `src/pagination/layout-inputs.test.ts`, `src/layout-engine/text-layout.test.ts`
+
+### DOCE-PAGINATION-14.2 - Sized nodes drawn in their box
+
+Every renderer shall draw a node a layout rule sized in the box the engine laid it out at, so what it draws never moves the pages. The pages shall decorate each such node (`engineObjects`) with `de-object-box`, `data-object-box` (`inline` or `block`) and its box as `--de-object-height`, and for an inline node `--de-object-width` and `--de-object-baseline`, its baseline from the box's top (`objectBoxHooks`), read from the engine as it laid the pages out (`objectOf`); the boxes move with edits that leave every sized node as it was and are read again otherwise, and whenever the engine lays one out at another box after a state was made (`objectsVersion`). Math is placed the same way (`placementsPlugin`, DOCE-PAGINATION-12.11). The pages' layout shall carry each box by position (`PagesLayout.objects`, absent when there is none), and a viewer or print drawn from it shall put the same hooks on the node's element. The reference stylesheet gives the element exactly its box, clipping what it draws: an inline node on its line with its baseline at `--de-object-baseline`, and a block across its column with no margins of its own.
+
+Implementation: `src/engine/object-box.ts`, `src/pagination/engine-placements.ts`, `src/pagination/engine-objects.ts`, `src/pagination/engine-math.ts`, `src/pagination/pages-layout.ts`, `src/document/print-pages.ts`, `labs/reference/document.css`
+Verification: `src/pagination/engine-objects.test.ts`, `src/document/print-pages.test.ts`, `e2e/inline-geometry.spec.ts`
+
+### DOCE-PAGINATION-14.3 - Signatures sized ahead
+
+The library's layout rules (`createLayoutRules`) shall size a signature (`signatureSize`) from its node: its name laid out on one line in the font of the template's paragraphs, under the drawing of its strokes (`SIGNATURE_DRAWING`, 120 by 48 pixels) when it holds a vector, over the rule it is signed on (`SIGNATURE_RULE`, 1 pixel), as wide as the drawing or the name, whichever is wider, with its bottom on the line's baseline. The editor's engine shall size nodes by the library's rules with the host's over them, so a host's rule for `signature` replaces this one. The reference stylesheet draws the signature in that box: the name in the paragraphs' font, centred, unbroken.
+
+Implementation: `src/model/pagination/signature-size.ts`, `src/model/pagination/page-layout.ts`, `src/components/document-editor/start-paging.ts`, `labs/reference/document.css`
+Verification: `src/model/pagination/signature-size.test.ts`
