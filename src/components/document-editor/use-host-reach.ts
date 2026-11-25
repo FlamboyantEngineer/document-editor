@@ -3,6 +3,7 @@
 
 import type { EditorView } from 'prosemirror-view';
 import type { RefObject } from 'react';
+import type { TemplateFile } from '../../model/index.js';
 import { useEditorPanes } from '../document-panels/document-panels.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { useFindBar } from './document-find-bar.js';
@@ -18,6 +19,11 @@ interface HostReachOptions {
   readonly refs: CommentRefs;
   readonly progress: LayoutProgress;
   readonly transactions: TransactionFeed;
+  /**
+   * The template the pages are drawn in (`useShownFonts`), which a snapshot of them prints with, so
+   * the print draws every font as the pages do (DOCE-PAGINATION-12.5).
+   */
+  readonly drawn: TemplateFile;
 }
 
 /**
@@ -27,13 +33,13 @@ interface HostReachOptions {
 export function useHostReach(
   props: DocumentEditorProps,
   view: EditorView | null,
-  { root, refs, progress, transactions }: HostReachOptions,
+  { root, refs, progress, transactions, drawn }: HostReachOptions,
 ) {
   const panes = useEditorPanes(props.comments);
   const find = useFindBar(root, view, { find: props.find, panes });
   useEditorHandle(props.handleRef, view, {
     ...refs,
-    template: props.template,
+    template: drawn,
     layout: progress,
     openFind: find.open,
     panes,

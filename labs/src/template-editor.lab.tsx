@@ -53,7 +53,8 @@ const OWN: TemplateFile = {
   parent: BASE_TEMPLATE_ID,
 };
 
-// The fonts the host offers in the font fields: the lab's served fonts, and Georgia, a system font the field-by-field template uses.
+// The fonts the host offers in the font fields: the lab's served fonts, and Georgia, which the
+// field-by-field template uses and the labs serve.
 const FONTS = ['Geist', 'Source Serif', 'Atkinson Hyperlegible', 'Georgia'];
 // The monospace fonts the host offers in the code font fields: the lab's served Cousine and a system font.
 const CODE_FONTS = ['Cousine', 'Courier New'];

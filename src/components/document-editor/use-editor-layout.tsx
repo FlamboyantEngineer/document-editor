@@ -1,7 +1,7 @@
 // The layout of a document editor: its pages, or its web layout, from the editor's props and
 // served fonts, the view its chrome acts on, and what the surface shows around the document.
 
-import { type RefObject, useEffect, useState } from 'react';
+import { type RefObject, useEffect, useMemo, useState } from 'react';
 import type { LayoutState } from '../../pagination/index.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentEditorContext, type EditorContext } from './editor-context.js';
@@ -65,7 +65,15 @@ export function useEditorLayout(
     reported.missing.length > 0 ? 'failed' : layoutState,
     props,
   );
-  // What the surface shows around the document: the fonts that did not load, and the cover.
-  const surface = { missingFonts: reported.missing, pagesUnavailable: text.reason, firstLayout };
+  // What the surface shows around the document: the fonts that did not load or that no host file
+  // serves, drawn in the served body family instead, and the cover.
+  const missingFonts = useMemo(
+    () =>
+      text.unserved.length
+        ? [...new Set([...reported.missing, ...text.unserved])]
+        : reported.missing,
+    [reported.missing, text.unserved],
+  );
+  const surface = { missingFonts, pagesUnavailable: text.reason, firstLayout };
   return { progress, view, layoutState, surface };
 }

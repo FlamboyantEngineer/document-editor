@@ -8,12 +8,14 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { FontsAdapter } from '../../host/adapters.js';
 import type { FontFiles } from '../../host/font-files.js';
 import type { TemplateFile } from '../../model/index.js';
+import { firstFamily } from '../../model/templates/template-css-values.js';
 import {
   type BrowserLayoutReason,
   loadPagesFonts,
   PAGE_GENERICS,
   type PagesFonts,
   renameTemplateFonts,
+  servedFamiliesOnly,
   type ServedFonts,
   servedTemplate,
   templateFontFamilies,
@@ -33,6 +35,8 @@ export interface PagesFontsState {
   readonly fonts: () => PromiseLike<PagesFonts> | null;
   /** The faces under the families the pages draw them in, for a snapshot of the pages. */
   readonly drawnFiles: () => FontFiles | null;
+  /** The template's families no host file serves, drawn in the served body family instead. */
+  readonly unserved: readonly string[];
 }
 
 interface PagesFontsProps {
@@ -49,14 +53,32 @@ interface Drawn {
 }
 
 const NONE: Drawn = { generics: {}, fonts: null };
+const NO_FAMILIES: readonly string[] = [];
 
-// The template the pages are drawn and laid out in: each generic as its served family, and each
-// served family under the family the editor draws it in.
-function drawnTemplate(template: TemplateFile, drawn: Drawn): TemplateFile {
+// The served family a font no host file serves is drawn in: the template's body family, or the one
+// the host serves for a generic keyword.
+function fallbackFamily(template: TemplateFile, drawn: Drawn, fonts: ServedFonts): string | null {
+  const body = template.styles?.paragraph?.font;
+  const candidates = [body, ...PAGE_GENERICS.map((generic) => drawn.generics[generic])];
+  return candidates.find((family) => family && fonts.isFontServed(firstFamily(family))) ?? null;
+}
+
+// The template the pages are drawn and laid out in: each generic as its served family, each font
+// no host file serves as the served body family, and each served family under the family the
+// editor draws it in; with the families no host file serves.
+function drawnTemplate(
+  template: TemplateFile,
+  drawn: Drawn,
+): { readonly template: TemplateFile; readonly unserved: readonly string[] } {
   const served = servedTemplate(template, drawn.generics);
   const fonts = drawn.fonts;
-  if (!fonts) return served;
-  return renameTemplateFonts(served, (font) => fonts.drawnFamily(font));
+  if (!fonts) return { template: served, unserved: [] };
+  const fallback = fallbackFamily(served, drawn, fonts);
+  const only = fallback
+    ? servedFamiliesOnly(served, { isServed: (family) => fonts.isFontServed(family), fallback })
+    : { template: served, unserved: [] };
+  const renamed = renameTemplateFonts(only.template, (font) => fonts.drawnFamily(font));
+  return { template: renamed, unserved: only.unserved };
 }
 
 /**
@@ -103,12 +125,32 @@ function usePagesFonts(
       });
     };
   }, [asked, fonts, measureIn]);
+  // A family the template newly names is asked of the host before it is drawn in the body family:
+  // once its faces arrive, the template is drawn again with it (DOCE-PAGINATION-12.5).
+  const served = drawn.fonts;
+  // The template whose families were last asked for, settled or not: until then, the
+  // missing-fonts banner names none of its families.
+  const [settledFor, setSettledFor] = useState<TemplateFile | null>(null);
+  useEffect(() => {
+    if (!served) return;
+    const template = props.template;
+    void served.add(templateFontFamilies(template)).then((added) => {
+      setSettledFor(template);
+      if (!added) return;
+      setDrawn((current) =>
+        current.fonts === served ? { generics: { ...served.generics }, fonts: served } : current,
+      );
+    });
+  }, [served, props.template]);
   const textLayout: TextLayoutMode = asked && !reason ? 'pretext' : 'dom';
   const shown = asked ? reason : null;
-  const template = useMemo(
-    () => (asked ? drawnTemplate(props.template, drawn) : props.template),
+  const shownTemplate = useMemo(
+    () =>
+      asked ? drawnTemplate(props.template, drawn) : { template: props.template, unserved: [] },
     [asked, props.template, drawn],
   );
+  const { template } = shownTemplate;
+  const unserved = settledFor === props.template ? shownTemplate.unserved : NO_FAMILIES;
   // The served fonts are read through a ref, so a new template never starts the pages over; a new
   // adapter does, through a new reader (DOCE-PAGINATION-12.7).
   const read = useCallback(() => {
@@ -117,8 +159,8 @@ function usePagesFonts(
   }, [fonts]);
   const drawnFiles = useCallback(() => drawn.fonts?.drawnFiles() ?? null, [drawn]);
   const text = useMemo(
-    () => ({ textLayout, reason: shown, fonts: read, drawnFiles }),
-    [textLayout, shown, read, drawnFiles],
+    () => ({ textLayout, reason: shown, fonts: read, drawnFiles, unserved }),
+    [textLayout, shown, read, drawnFiles, unserved],
   );
   return { text, template };
 }
