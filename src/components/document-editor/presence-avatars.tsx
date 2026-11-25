@@ -10,9 +10,9 @@ import { UserIdentity } from '@flamboyantengineer/ui-components/user-identity';
 import { type ReactNode, useDeferredValue } from 'react';
 import {
   byName,
+  colorSlotsOf,
   listPeers,
   type PlacedPeer,
-  PRESENCE_COLOR_SLOTS,
   scrollToPeer,
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -39,7 +39,15 @@ function doingOf(peer: PlacedPeer, labels: DocumentEditorLabels): string | undef
   return peer.activity ? words[peer.activity] : undefined;
 }
 
-function PresenceCard({ peer, labels }: { peer: PlacedPeer; labels: DocumentEditorLabels }) {
+function PresenceCard({
+  peer,
+  labels,
+  slots,
+}: {
+  peer: PlacedPeer;
+  labels: DocumentEditorLabels;
+  slots: number;
+}) {
   const doing = doingOf(peer, labels);
   return (
     <UserIdentity
@@ -47,7 +55,7 @@ function PresenceCard({ peer, labels }: { peer: PlacedPeer; labels: DocumentEdit
       name={peer.name}
       src={peer.avatar}
       colorIndex={peer.slot}
-      colorCount={PRESENCE_COLOR_SLOTS}
+      colorCount={slots}
       status={peer.status ?? 'active'}
       statusLabel={doing}
       description={
@@ -70,19 +78,24 @@ export function DocumentPresence({ renderCard }: DocumentPresenceProps = {}) {
   if (!editor || !deferred) return null;
   const { view, labels } = editor;
   const peers = [...listPeers(deferred)].sort(byName);
+  const slots = colorSlotsOf(deferred);
   if (peers.length === 0) return null;
   const byId = new Map(peers.map((peer) => [peer.id, peer]));
   const card = (person: AvatarGroupPerson) => {
     const peer = byId.get(person.id);
     if (!peer) return null;
-    return renderCard ? renderCard(peer) : <PresenceCard peer={peer} labels={labels} />;
+    return renderCard ? (
+      renderCard(peer)
+    ) : (
+      <PresenceCard peer={peer} labels={labels} slots={slots} />
+    );
   };
   return (
     <AvatarGroup
       {...hooks.slot('presence')}
       size="xs"
       maxVisible={PRESENCE_VISIBLE}
-      colorCount={PRESENCE_COLOR_SLOTS}
+      colorCount={slots}
       aria-label={labels.presence}
       cardTrigger="hover"
       renderCard={card}

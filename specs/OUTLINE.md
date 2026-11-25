@@ -30,7 +30,7 @@ Verification: `src/engine/outline.test.ts`
 Given highlights by heading element id (`documentOutline(state, template, { highlights })`), such as the sections a review covers, each heading shall carry the highlight it is under: its own, or else the nearest heading's above it; else null.
 
 Implementation: `src/engine/outline.ts`
-Verification: `src/engine/outline.test.ts`
+Verification: `src/engine/outline.test.ts`, `e2e/full-editor-options.spec.ts`
 
 ## DOCE-OUTLINE-2 - The outline panel
 

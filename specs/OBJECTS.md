@@ -53,7 +53,7 @@ Verification: `src/engine/object-commands.test.ts`
 `createMathViews({ render })`, which the editing plugins install, shall draw each inline and display math node (`de-math`, with `data-display`) as its typeset MathML, through the base library's KaTeX renderer by default, in every view, the pages' measuring view too: the LaTeX source shows while it typesets (`data-state="pending"`), the MathML once it has (`ready`), built by the base library's `renderMathElement`, which keeps only MathML's own elements and attributes, and, when it does not typeset (`invalid`), a fixed text saying so in place of the math, `invalid` given to `createMathViews` or `invalidMath` to the editing plugins (`DEFAULT_INVALID_MATH_TEXT` by default, one for inline math and one for a block), with the renderer's reason as its title; the writer corrects it in place or in the math dialog. A math node or an image whose size changes once drawn has the pages measured again (`de-remeasure`).
 
 Implementation: `src/engine/math-views.ts`, `src/pagination/layout-triggers.ts`, `src/utils/remeasure.ts`
-Verification: `src/engine/math-views.test.ts`, `e2e/objects.spec.ts`
+Verification: `src/engine/math-views.test.ts`, `e2e/objects.spec.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-OBJECTS-1.8 - Math as it is typed
 
@@ -206,7 +206,7 @@ Verification: `src/engine/scripts.test.ts`, `src/document/scripts.test.ts`
 An output shall be stale when the runner's inputs key for its script (`inputsKey`, the key of what the script would read now, against the document as it is) differs from the one its output recorded (`provenance.inputs`), or when it recorded none; a runner without `inputsKey` finds no output stale, and a key the runner fails to give leaves its block not stale. `findStaleScripts(doc, runner, { document, ids, signal })` gives the stale blocks' ids, of the blocks with the ids given or of every one, in document order, rejecting with the signal's reason once it aborts, and `findStaleStoredScripts(file, { schema, runner, ids, signal })`, in `./document`, gives those of a stored document with no DOM. `checkStaleScripts(view, runner)` finds the view's stale blocks and marks them `stale` (`data-script-state`, kept in `scriptsState(state).stale`) until they run again with success; the scripts plugin given a runner with inputs keys, and the editor given a `scriptRunner` with them (DOCE-EDITOR-4.8), check once as a document opens.
 
 Implementation: `src/engine/script-staleness.ts`, `src/engine/scripts.ts`, `src/document/scripts.ts`, `src/components/document-editor/script-entries.ts`
-Verification: `src/engine/script-staleness.test.ts`, `src/document/scripts.test.ts`, `src/components/document-editor/script-entries.test.tsx`
+Verification: `src/engine/script-staleness.test.ts`, `src/document/scripts.test.ts`, `src/components/document-editor/script-entries.test.tsx`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-OBJECTS-4.8 - The preview numbered in context
 

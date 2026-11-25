@@ -516,6 +516,9 @@ const hostOption = (page: Page, name: string) =>
   page.getByRole('group', { name: 'Host options' }).getByRole('checkbox', { name });
 const route = (page: Page) => page.getByLabel('Route', { exact: true });
 const banner = (page: Page) => page.getByText('Version 1, read only');
+// What the page's storage holds under a key.
+const stored = (page: Page, key: string) =>
+  page.evaluate((name) => window.localStorage.getItem(name), key);
 // Picks a template in the host's own picker, which routes the workspace to it.
 async function choose(page: Page, name: string) {
   await page.getByRole('button', { name: /Route template/ }).click();
@@ -523,7 +526,7 @@ async function choose(page: Page, name: string) {
 }
 
 test.describe('template workspace lab host options', () => {
-  test('DOCE-TEMPLATE-EDITOR-3.8 DOCE-TEMPLATE-EDITOR-3.12 DOCE-TEMPLATE-EDITOR-3.5 DOCE-LABS-3.8 the host holds the template and version, picked with its own picker', async ({
+  test('DOCE-TEMPLATE-EDITOR-3.8 DOCE-TEMPLATE-EDITOR-3.12 DOCE-LABS-3.8 the host holds the template and version, picked with its own picker', async ({
     lab,
     page,
   }) => {
@@ -548,10 +551,17 @@ test.describe('template workspace lab host options', () => {
     await page.getByRole('button', { name: 'Route to the first version' }).click();
     await expect(banner(page)).toBeVisible();
     await expect(route(page)).toHaveText('/templates/letter@rev-1');
-    await page.getByRole('button', { name: 'Back to the template' }).click();
+    await page.getByRole('button', { name: 'Route to the template' }).click();
     await expect(banner(page)).toBeHidden();
-    // The workspace tells the host the version shown from its own history.
-    await choose(page, 'Report');
+    await expect(route(page)).toHaveText('/templates/letter');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-3.5 DOCE-TEMPLATE-EDITOR-3.12 DOCE-LABS-3.8 tells the host the version shown from its own history', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-workspace');
+    await hostOption(page, 'Host holds the template and version').check();
     await expect(route(page)).toHaveText('/templates/report');
     await showPane(page, 'History');
     const history = page.locator('.de-template-workspace__history');
@@ -559,6 +569,16 @@ test.describe('template workspace lab host options', () => {
     await page.getByRole('menuitem', { name: 'View version' }).click();
     await expect(route(page)).toHaveText('/templates/report@rev-1');
     await page.getByRole('button', { name: 'Back to the template' }).click();
+    await expect(banner(page)).toBeHidden();
+    await expect(route(page)).toHaveText('/templates/report');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-3.12 DOCE-LABS-3.8 routes through the unsaved changes guard and tells the host of a new template', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-workspace');
+    await hostOption(page, 'Host holds the template and version').check();
     await expect(route(page)).toHaveText('/templates/report');
     // Another template by route, through the unsaved changes guard: staying puts the open one back.
     await rename(page, 'Draft report');
@@ -610,8 +630,18 @@ test.describe('template workspace lab host options', () => {
     await pick(page, 'Article');
     await expect(shows).toHaveText('Article, web, document, editable');
     await expect(host.locator('.de-document-editor')).toHaveAttribute('data-layout', 'web');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-3.6 DOCE-TEMPLATE-EDITOR-3.16 DOCE-LABS-3.8 hands the host’s preview a saved version read only, and draws its own without it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-workspace');
+    await hostOption(page, 'Host draws the preview').check();
+    const host = preview(page).getByRole('region', { name: 'Host preview' });
+    const shows = host.getByLabel('Host preview shows');
+    await expect(shows).toHaveText('Report, page, document, editable');
     // A saved version is read only.
-    await pick(page, 'Report');
     await showPane(page, 'History');
     const history = page.locator('.de-template-workspace__history');
     await history.getByRole('row').nth(1).getByRole('button', { name: 'Version actions' }).click();
@@ -650,7 +680,7 @@ test.describe('template workspace lab host options', () => {
     await expect(history.getByRole('row')).toHaveCount(3);
   });
 
-  test('DOCE-TEMPLATE-EDITOR-3.11 DOCE-LABS-3.8 starts the side panel expanded and remembers its pane under the host’s key', async ({
+  test('DOCE-TEMPLATE-EDITOR-3.11 DOCE-LABS-3.8 starts the side panel expanded and remembers its pane under its own key', async ({
     lab,
     page,
   }) => {
@@ -659,13 +689,21 @@ test.describe('template workspace lab host options', () => {
     await hostOption(page, 'Panel starts expanded').check();
     await expect(nameField(page)).toBeVisible();
     await panel(page).getByRole('tab', { name: 'History' }).click();
-    const stored = (key: string) => page.evaluate((name) => window.localStorage.getItem(name), key);
-    await expect.poll(() => stored('de-template-workspace:pane')).toContain('history');
+    await expect.poll(() => stored(page, 'de-template-workspace:pane')).toContain('history');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-3.11 DOCE-LABS-3.8 remembers the side panel’s pane under the host’s key', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-workspace');
+    await hostOption(page, 'Panel starts expanded').check();
+    await expect(nameField(page)).toBeVisible();
     // Under the host's own key, the pane is remembered there; a new workspace opens on it.
     await page.getByRole('textbox', { name: 'Remember the pane under' }).fill('lab-pane');
     await expect(nameField(page)).toBeVisible();
     await panel(page).getByRole('tab', { name: 'History' }).click();
-    await expect.poll(() => stored('lab-pane')).toContain('history');
+    await expect.poll(() => stored(page, 'lab-pane')).toContain('history');
     await hostOption(page, 'Panel starts expanded').uncheck();
     await hostOption(page, 'Panel starts expanded').check();
     await expect(page.locator('.de-template-workspace__history')).toBeVisible();

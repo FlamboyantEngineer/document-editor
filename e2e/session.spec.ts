@@ -182,3 +182,54 @@ test.describe('session status UI', () => {
     await expect(status(page)).toHaveText('ready · saved');
   });
 });
+
+test.describe('session lab templates and drafts', () => {
+  test('DOCE-EDITOR-7.2 offers to bring a document out of step with its template back in line', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await page.getByRole('combobox', { name: 'Document', exact: true }).selectOption('drifted');
+    await expect(editor(page)).toContainText('Draft notice.');
+    const banner = page.locator('[data-banner="template-drift"]');
+    await expect(banner).toContainText('This document is out of step with its template');
+    await expect(banner).toContainText('Notice');
+    await banner.getByRole('button', { name: 'Update from template' }).click();
+    await expect(editor(page)).toContainText('Issued for review.');
+    await expect(editor(page)).not.toContainText('Draft notice.');
+    await expect(banner).toHaveCount(0);
+  });
+
+  test('DOCE-EDITOR-7.6 DOCE-SESSION-1.5 moves the document to a newer template revision saved while it is open', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await page.getByRole('combobox', { name: 'Document', exact: true }).selectOption('pinned');
+    await expect(editor(page)).toContainText('Issued for review.');
+    const banner = page.locator('[data-banner="template-update"]');
+    await expect(banner).toHaveCount(0);
+    await page.getByRole('button', { name: 'Save a newer template revision' }).click();
+    await expect(banner).toContainText('The template has a newer version');
+    await banner.getByRole('button', { name: 'Use the newer version' }).click();
+    await expect(editor(page)).toContainText('Issued for approval.');
+    await expect(banner).toHaveCount(0);
+    await expect(status(page)).toHaveText('ready · saved');
+  });
+
+  test('DOCE-SESSION-6.1 keeps a draft once changes pause for the draft delay', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await page.getByLabel('Save automatically').uncheck();
+    await page.getByLabel('Draft delay').selectOption('2000');
+    const draft = page.getByLabel('Draft', { exact: true });
+    await typeAtEnd(page, ' Later.');
+    await page.waitForTimeout(1000);
+    await expect(draft).toHaveText('none');
+    await expect(draft).toHaveText('kept', { timeout: 5000 });
+    await page.getByRole('button', { name: 'Save now' }).click();
+    await expect(draft).toHaveText('cleared');
+  });
+});

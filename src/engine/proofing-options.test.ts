@@ -222,6 +222,10 @@ describe('proofing options', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(checks).toHaveLength(0);
+    // A change before the host runs it waits for it too.
+    view.dispatch(view.state.tr.insertText('!', view.state.doc.content.size - 1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(checks).toHaveLength(0);
     (start as (() => void) | null)?.();
     await vi.waitFor(() => expect(marked(view.state)).toEqual(['teh']));
     view.destroy();

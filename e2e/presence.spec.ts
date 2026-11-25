@@ -154,4 +154,25 @@ test.describe('presence lab', () => {
       await expect(content(page, name)).toHaveAttribute('contenteditable', 'false');
     }
   });
+
+  test('DOCE-COLLAB-1.7 DOCE-LABS-3.13 shows a selection shared by element address in another copy', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('presence');
+    const copy = (name: string) => page.getByRole('textbox', { name: `${name}’s copy` });
+    const caret = copy('Grace Hopper').locator('.de-presence-caret[data-presence-peer="ada"]');
+    await copy('Ada Lovelace').locator('p', { hasText: 'Each copy finds' }).click();
+    await expect(page.getByLabel('Ada Lovelace’s shared address')).toHaveText(/^b0000002 at \d+$/);
+    // Grace's copy has a paragraph more before it, and still draws Ada's caret in that sentence.
+    await expect(
+      copy('Grace Hopper').locator(
+        'p[data-id="b0000002"] .de-presence-caret[data-presence-peer="ada"]',
+      ),
+    ).toHaveCount(1);
+    // A paragraph only Ada's copy holds gives her no caret in Grace's.
+    await copy('Ada Lovelace').locator('p', { hasText: 'Only Ada' }).click();
+    await expect(page.getByLabel('Ada Lovelace’s shared address')).toHaveText(/^b0000003 at /);
+    await expect(caret).toHaveCount(0);
+  });
 });

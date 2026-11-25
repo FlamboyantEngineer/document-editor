@@ -188,6 +188,27 @@ The comments lab shall set, each with a control, what a host sets on the comment
 Implementation: `labs/src/comments.lab.tsx`, `labs/src/comment-host-options.tsx`, `labs/src/lab-comment-store.ts`, `labs/src/document-editor.lab.tsx`
 Verification: `e2e/comments-host-options.spec.ts`, `e2e/document-editor.spec.ts`
 
+### DOCE-LABS-3.11 - Contributor colours
+
+The contributor colours lab shall show a document written by more writers than the default eight colour slots, with authorship shown, the contributors pane beside it and as many people present, each with a caret, and a choice of the editor's colour slots (8 or 50, DOCE-COLLAB-1.8). The lab's sheet colours as many slots as it sets, so with 50 every writer's text, caret and avatar has a colour no other writer has, and with 8 writers share them.
+
+Implementation: `labs/src/contributor-colors.lab.tsx`, `labs/contributor-colors.html`
+Verification: `e2e/contributor-colors.spec.ts`
+
+### DOCE-LABS-3.12 - Host options in the full editor, history and session labs
+
+The full editor lab shall offer the host's options for the document it shows: proofing turned off and on (`isEnabled`), the first check run when the host says (`scheduleFirstCheck`), the reader's decisions the host keeps and gives back on opening (`ignored`, `disabledRules`, `onDecision`), its own normalising of completion answers (`normalize`), a template pin given to scripts and exports (`templatePin`), a markup choice it turns off saying why (`markupReasons`), a link to one of its records inside a script's output that keeps the selection under a secondary click (`contextMenu.keepSelection`), a script runner that keys its inputs (`scriptInputsKey`), abbreviations brought up to date on opening (`refreshAbbreviationsOnOpen`), and Open again, which gives the editor the document anew for the options read on opening. Its document holds abbreviations with each issue (`createAbbreviationHealth`), math that does not typeset with the host's text for it (`invalidMath`), and tables, which the host may keep footnotes out of (`citingPlaces`); a review scope picks chapters, which the outline highlights with their subheadings (`documentOutline` highlights) and a host decoration marks over the text they head. The history lab shall offer viewing a version as it is picked (`viewOnPick`) and a hook that changes a named version before it is saved, or saves none (`beforeVersion`). The session lab shall open a document pinned to a template, the host saving a newer revision of it while it is open, and one out of step with its template, and set the draft delay (`draftDelay`), showing what the drafts adapter last did.
+
+Implementation: `labs/src/full-editor.lab.tsx`, `labs/src/full-editor-options.tsx`, `labs/src/review-scope.tsx`, `labs/src/history.lab.tsx`, `labs/src/session.lab.tsx`
+Verification: `e2e/full-editor-options.spec.ts`, `e2e/history.spec.ts`, `e2e/session.spec.ts`
+
+### DOCE-LABS-3.13 - Rooms: comments, rights and the write guard
+
+The session-in-a-room lab shall open its two readers' room on an in-page room server whose write guard (`openRoomChangeGuard`) holds each reader to rights the page sets (edit, suggest, decide, comment, moderate comments, label an assistant), which the editor follows as live capabilities or, when asked, does not, so the guard refuses what the rights do not allow and cuts the writer off. Each reader's comments margin keeps its threads in the room (`createRoomCommentStore`), seeded with `writeRoomComments` with a deleted thread and a deleted reply kept as records, and the reader can start a thread as an assistant and export the room's threads (`readRoomComments`). Controls make two changes that do not merge, so the room reloads one writer's document; send a block with another block's id; make the guard's next self-check fail; write a block the editors cannot read; and hide, show or leave each reader's page. An assistant's suggested words can be accepted. A room log lists what the server refused, repaired and reloaded. Below, each reader opens two fields of one room, over one leased connection. The presence lab shows two copies of a document in store mode, each drawing the other's selection given by element address, and the offline lab hides or leaves the store session's page, keeping its draft at once, and fails its next save.
+
+Implementation: `labs/src/session-room.lab.tsx`, `labs/src/room-guard.ts`, `labs/src/room-document.ts`, `labs/src/room-comments.tsx`, `labs/src/room-tools.tsx`, `labs/src/room-fields.tsx`, `labs/src/presence-by-address.tsx`, `labs/src/presence.lab.tsx`, `labs/src/offline.lab.tsx`, `labs/session-room.html`
+Verification: `e2e/session-room.spec.ts`, `e2e/presence.spec.ts`, `e2e/offline.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.

@@ -228,3 +228,86 @@ describe('DOCE-COLLAB-7.3 guard self-check', () => {
     }
   });
 });
+
+// A room holding carol's suggestion and a list, so the guard keeps the suggestion's anchors.
+async function suggestedRoom() {
+  const { applyEdits } = await import('../engine/automation.js');
+  const { readDocumentFile, writeDocumentFile } = await import('../model/index.js');
+  const listed = file('Logged.');
+  listed.sections[0]?.content.push({
+    type: 'bulletList',
+    attrs: { id: 'a0000002' },
+    content: [
+      {
+        type: 'listItem',
+        attrs: { id: 'a0000003' },
+        content: [
+          {
+            type: 'paragraph',
+            attrs: { id: 'a0000004' },
+            content: [{ type: 'text', text: 'One' }],
+          },
+        ],
+      },
+    ],
+  });
+  const state = EditorState.create({ doc: readDocumentFile(listed, schema).doc });
+  const edit = applyEdits(
+    state,
+    [{ op: 'insertText', at: { elementId: 'a0000001', from: 6 }, text: ' now' }],
+    { actor: { id: 'carol', kind: 'human' }, mode: 'suggest', newId: () => 'b0000001' },
+  );
+  if (!edit.ok) throw new Error(edit.error.message);
+  const shadow = new Y.Doc();
+  Y.applyUpdate(shadow, documentToYjs(writeDocumentFile(state.apply(edit.tr).doc), { schema }));
+  return shadow;
+}
+
+describe('a guard whose kept reading the room no longer matches', () => {
+  it('DOCE-COLLAB-7.3 takes later transactions without throwing while the room holds what its schema cannot read', async () => {
+    const shadow = await suggestedRoom();
+    const guard = openRoomChangeGuard(shadow, {
+      schema,
+      permissions: () => ({ edit: true, suggest: true, comment: true, decide: true }),
+    });
+    const { create } = await import('lib0/delta');
+    const below = (type: Y.Type, index: number) => type.get(index) as Y.Type;
+    const body = below(below(below(shadow.get('content'), 0), 0), 1);
+    // A trusted server write of a block a newer schema added, before the list.
+    body.applyDelta(
+      create()
+        .retain(1)
+        .insert([create('hologram').insert('New').done()])
+        .done() as never,
+    );
+    expect(() => shadow.transact(() => shadow.get('meta').setAttr('note', 1))).not.toThrow();
+    expect(guard.verify()).toBe(false);
+    guard.destroy();
+  });
+
+  it('DOCE-COLLAB-7.4 still refuses a change on an exact reading whose shared positions cannot be built', async () => {
+    const shadow = await suggestedRoom();
+    const guard = open(shadow);
+    const answers: unknown[] = [];
+    const listen = (transaction: Y.Transaction) =>
+      answers.push(guard.check({ transaction, actor: { id: 'dave' }, capabilities: new Set() }));
+    shadow.on('afterTransaction', listen);
+    // The kept reading misses the block this change adds, so its structure is no longer the
+    // shared content's: the guard cannot place carol's suggestion, and refuses rather than judge
+    // it by its text.
+    skip.next = true;
+    edit(shadow, (state) =>
+      state.apply(
+        state.tr.insert(
+          start(state) - 1,
+          schema.node('paragraph', { id: 'a0000009' }, [schema.text('Missed.')]),
+        ),
+      ),
+    );
+    shadow.off('afterTransaction', listen);
+    expect(answers).toEqual([false]);
+    expect(guard.verify()).toBe(false);
+    guard.destroy();
+    shadow.destroy();
+  });
+});

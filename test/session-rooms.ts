@@ -9,6 +9,8 @@ import {
 import {
   createMemoryPersistence,
   createRoomServer,
+  type RoomEvents,
+  type RoomLogger,
   type RoomPersistence,
   type RoomServer,
   type RoomWriteRules,
@@ -25,17 +27,25 @@ import type { CollaborationAdapter } from '../src/host/session-adapters.js';
 import type { DocumentFile } from '../src/model/index.js';
 import { documentSchema } from './document-markup.js';
 
+/** A room's first state: a stored document, or a Yjs update the caller built, such as with threads. */
+export type SessionRoomDocument =
+  { id: string; content: DocumentFile } | { id: string; seed: Uint8Array };
+
 /** Rooms for documents, and the readers who may only read them. */
 export interface SessionRoomsOptions {
-  documents: readonly { id: string; content: DocumentFile }[];
+  documents: readonly SessionRoomDocument[];
   /** The people the rooms admit read-only. */
   readers?: readonly string[];
   /** The people the rooms refuse. */
   refused?: readonly string[];
   /** Where the rooms are stored. Defaults to memory; a room that starts over always is. */
   persistence?: RoomPersistence | undefined;
-  /** The rooms' write rules, such as a guard; none by default. */
-  rules?: RoomWriteRules | undefined;
+  /** The rooms' write rules, such as a guard, or each room's; none by default. */
+  rules?: RoomWriteRules | ((room: string) => RoomWriteRules | null) | undefined;
+  /** Where the server reports what an operator should see, such as refused writes. */
+  logger?: RoomLogger | undefined;
+  /** What happens in the rooms, such as a guard repaired after its self-check. */
+  events?: RoomEvents | undefined;
 }
 
 export interface SessionRooms {
@@ -65,15 +75,16 @@ export function roomSeed(content: DocumentFile): Uint8Array {
   return documentToYjs(content, { schema: documentSchema });
 }
 
+type ServerOptions = Pick<
+  SessionRoomsOptions,
+  'readers' | 'refused' | 'persistence' | 'rules' | 'logger' | 'events'
+>;
+
 function startServer(
   documents: SessionRoomsOptions['documents'],
-  {
-    readers = [],
-    refused = [],
-    persistence = createMemoryPersistence(),
-    rules,
-  }: Pick<SessionRoomsOptions, 'readers' | 'refused' | 'persistence' | 'rules'>,
+  { readers = [], refused = [], persistence = createMemoryPersistence(), ...host }: ServerOptions,
 ) {
+  const { rules } = host;
   return createRoomServer({
     storeDebounceMs: 20,
     storeMaxDebounceMs: 100,
@@ -81,7 +92,8 @@ function startServer(
       seeds: {
         seed: (room) => {
           const found = documents.find((document) => document.id === room);
-          return Promise.resolve(found ? roomSeed(found.content) : null);
+          if (!found) return Promise.resolve(null);
+          return Promise.resolve('seed' in found ? found.seed : roomSeed(found.content));
         },
       },
       auth: {
@@ -94,20 +106,18 @@ function startServer(
         },
       },
       persistence,
-      permissions: { rulesFor: () => rules ?? null },
+      permissions: {
+        rulesFor: (room) => (typeof rules === 'function' ? rules(room) : (rules ?? null)),
+      },
+      logger: host.logger,
+      events: host.events,
     },
   });
 }
 
 /** Rooms for `documents` on a room server in this process (DOCE-SESSION-3.7). */
-export function createSessionRooms({
-  documents,
-  readers = [],
-  refused = [],
-  persistence,
-  rules,
-}: SessionRoomsOptions): SessionRooms {
-  let server = startServer(documents, { readers, refused, persistence, rules });
+export function createSessionRooms({ documents, ...options }: SessionRoomsOptions): SessionRooms {
+  let server = startServer(documents, options);
   let paired = connectToServer(server);
   const sockets: PairedSocket[] = [];
   const createSocket: typeof paired.createSocket = (...args) => {
@@ -149,7 +159,7 @@ export function createSessionRooms({
     },
     async startOver(next) {
       await server.close();
-      server = startServer(next, { readers, refused, rules });
+      server = startServer(next, { ...options, persistence: undefined });
       paired = connectToServer(server);
     },
     async close() {
