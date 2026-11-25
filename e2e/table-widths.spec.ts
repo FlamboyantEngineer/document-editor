@@ -38,7 +38,7 @@ const table = (
 const editor = '.lab-document-editor .de-document-editor__content';
 
 async function openWithTables(page: Page, document: DocumentFile) {
-  await page.goto('regression.html?textLayout=pretext');
+  await page.goto('regression.html');
   await waitForLab(page);
   await page.evaluate(([file, settings]) => window.regressionLab.load(file, settings), [
     document,

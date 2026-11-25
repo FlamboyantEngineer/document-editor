@@ -14,6 +14,7 @@ import { TemplateWorkspace } from '../../src/components/index.js';
 import { type AssetAdapter, createMemoryHost } from '../../src/host/index.js';
 import type { TemplateFile } from '../../src/model/index.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const TEMPLATES: TemplateFile[] = [
   { formatVersion: 1, id: 'report', name: 'Report' },
@@ -118,6 +119,7 @@ function Lab() {
       </p>
       <TemplateWorkspace
         store={store}
+        pageFonts={LAB_FONTS}
         defaultTemplateId="report"
         onTemplateIdChange={setOpenId}
         layoutOf={(template) => (template.extensions?.layout === 'web' ? 'web' : 'page')}

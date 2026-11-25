@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { TEST_FONTS } from '../../../test/served-fonts.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import type { FontsAdapter } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
@@ -91,6 +92,7 @@ describe('EditorSurface', () => {
     const loadProgress = createLoadProgress();
     const onLayoutFailed = vi.fn();
     const fonts: FontsAdapter = {
+      ...TEST_FONTS,
       load: () => Promise.resolve({ ok: true, value: [] }),
     };
     const { container } = render(

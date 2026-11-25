@@ -7,6 +7,7 @@ import { createRef, type Ref, useEffect, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { TEST_FONTS } from '../../../test/served-fonts.js';
 import {
   addCommentAnchor,
   createDocumentEditing,
@@ -85,6 +86,7 @@ function Harness({
       editable={editable}
       aria-label="Report"
       handleRef={handleRef}
+      fonts={TEST_FONTS}
     />
   );
 }
@@ -369,6 +371,7 @@ describe('DocumentEditor', () => {
             onStateChange={setState}
             template={TEMPLATE}
             nodeViews={views}
+            fonts={TEST_FONTS}
             aria-label="Report"
           />
         </>
@@ -407,6 +410,7 @@ describe('DocumentEditor', () => {
         onStateChange={() => undefined}
         template={TEMPLATE}
         nodeViews={views}
+        fonts={TEST_FONTS}
         aria-label="Report"
         handleRef={handle}
       />,
@@ -524,9 +528,10 @@ describe('DocumentEditor', () => {
     expect(root).toHaveAttribute('data-layout-state', 'pending');
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     await waitFor(() => expect(root).toHaveAttribute('data-layout-state', 'settled'));
-    // The pages' regions made read-only as the editor mounts lay them out again, measuring nothing
-    // new.
-    expect(handle.current?.layoutStats()).toMatchObject({ layouts: 2, blocksMeasured: 1 });
+    // The layout engine lays the block out; the regions made read-only as the editor mounts measure
+    // it no more than once more.
+    expect(root).toHaveAttribute('data-text-layout', 'pretext');
+    expect(handle.current?.layoutStats()?.blocksMeasured).toBeLessThanOrEqual(2);
   });
 
   it('DOCE-EDITOR-6.12 is settled at once in the web layout', async () => {
@@ -777,6 +782,7 @@ describe('DocumentEditor host layout rules', () => {
           onStateChange={setCurrent}
           template={TEMPLATE}
           layout="page"
+          fonts={TEST_FONTS}
           aria-label="Report"
           handleRef={handle}
           layoutRules={{ paragraph: { endsPage: true } }}
@@ -808,6 +814,7 @@ describe('DocumentEditor host layout rules', () => {
           onStateChange={setCurrent}
           template={TEMPLATE}
           layout="page"
+          fonts={TEST_FONTS}
           aria-label="Report"
           handleRef={handle}
           layoutRules={{ paragraph: { endsPage: ends } }}

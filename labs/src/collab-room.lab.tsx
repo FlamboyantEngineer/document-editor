@@ -4,9 +4,9 @@
 // own, then come back and merge, and either can switch between the pages and the web layout. The
 // page shows the harness the document each writer's editor holds (`window.collabRoom`). With
 // `?document=long`, the document ends with code and a list of contents too long for one page, which
-// the pages split while the room holds each whole. With `?textLayout=pretext`, the writers' pages
-// are laid out by the layout engine, and the probe opens a writer's stored document afresh in a
-// third editor below them, so a test compares each writer's pages with a fresh layout.
+// the pages split while the room holds each whole. The writers' pages are laid out by the layout
+// engine, and the probe opens a writer's stored document afresh in a third editor below them, so a
+// test compares each writer's pages with a fresh layout.
 
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { type RefObject, useEffect, useRef, useState } from 'react';
@@ -58,12 +58,8 @@ function labDocument(): DocumentFile {
   return file;
 }
 
-// How the writers' pages lay their text out: with the layout engine (DOCE-PAGINATION-11), or
-// measured in the DOM with `textLayout=dom`.
-const TEXT_LAYOUT =
-  new URLSearchParams(window.location.search).get('textLayout') === 'dom' ? 'dom' : 'pretext';
-// The writers' served fonts under `textLayout=pretext` (DOCE-HOST-1.14.1).
-const FONTS = TEXT_LAYOUT === 'pretext' ? LAB_FONTS : undefined;
+// The writers' served fonts, which their pages are laid out with (DOCE-HOST-1.14.1).
+const FONTS = LAB_FONTS;
 
 const ROOMS = createSessionRooms({ documents: [{ id: DOCUMENT_ID, content: labDocument() }] });
 
@@ -117,13 +113,13 @@ export interface CollabRoomProbe {
   pageOnlyInRoom(name: string): string[];
   /** The document a writer's editor holds, as stored. */
   stored(name: string): DocumentFile | null;
-  /** With `textLayout=pretext`, a writer's pages' layout (`pagesLayout()`), or null. */
+  /** A writer's pages' layout (`pagesLayout()`), or null. */
   layout(name: string): PagesLayout | null;
-  /** With `textLayout=pretext`, the lines a writer's pages computed (`textLines()`). */
+  /** The lines a writer's pages computed (`textLines()`). */
   textLines(name: string): PageTextLines[];
   /** Resolves once every editor's pages are laid out (`whenSettled`). */
   settled(): Promise<void>;
-  /** With `textLayout=pretext`, draws every page of every editor on the engine's lines. */
+  /** Draws every page of every editor on the engine's lines. */
   drawAllLines(): void;
   /**
    * Where each text block's content is in a writer's document with its pages joined whole, as
@@ -269,7 +265,6 @@ function FreshPane() {
           )
         }
         template={template}
-        textLayout={TEXT_LAYOUT}
         fonts={FONTS}
         aria-label="Fresh document"
         handleRef={handle}
@@ -331,7 +326,6 @@ function WriterPane({ person }: { person: Writer }) {
               onZoomChange={setZoom}
               layout={web ? 'web' : 'page'}
               suggesting={suggesting}
-              textLayout={TEXT_LAYOUT}
               fonts={FONTS}
               handleRef={handle}
             />

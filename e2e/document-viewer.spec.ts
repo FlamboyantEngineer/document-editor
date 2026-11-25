@@ -42,7 +42,7 @@ const SHEETS = `${VIEWER} .pm-page`;
 const plain = (text: string) => text.replaceAll(' ', ' ');
 
 async function open(page: Page, name: RegressionDocumentName, rendering = 'dom') {
-  await page.goto(`regression.html?document=${name}&textLayout=pretext&rendering=${rendering}`);
+  await page.goto(`regression.html?document=${name}&rendering=${rendering}`);
   await waitForLab(page);
   await page.evaluate(async () => {
     await document.fonts.ready;

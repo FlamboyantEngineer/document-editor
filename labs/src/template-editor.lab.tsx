@@ -39,7 +39,7 @@ import {
 } from '../../src/model/index.js';
 import { sampleDocument } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const OWN: TemplateFile = {
   formatVersion: 1,
@@ -226,7 +226,7 @@ function Lab() {
         />
       </div>
       <DocumentEditor
-        {...LAB_TEXT_LAYOUT}
+        fonts={LAB_FONTS}
         state={state}
         onStateChange={setState}
         handleRef={handle}

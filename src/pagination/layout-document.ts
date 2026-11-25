@@ -140,8 +140,18 @@ interface SectionStart {
   readonly shown: Set<string>;
 }
 
+// A number for each set of layout rules, so a section laid out under other rules is laid out again.
+const ruleIds = new WeakMap<LayoutRules, number>();
+let rulesSeen = 0;
+function rulesId(rules: LayoutRules | undefined): number {
+  if (!rules) return 0;
+  if (!ruleIds.has(rules)) ruleIds.set(rules, (rulesSeen += 1));
+  return ruleIds.get(rules) ?? 0;
+}
+
 // What a section's page heights depend on besides its blocks, as a key: its page height, its
-// footnotes and, where its regions show them, its first page's number and the page count.
+// layout rules, its footnotes and, where its regions show them, its first page's number and the
+// page count.
 function fillKey(
   fill: SectionFill,
   start: Pick<SectionStart, 'page' | 'pages'>,
@@ -153,7 +163,8 @@ function fillKey(
     : [];
   const { reads } = fill.regions;
   const numbers = `${reads.current ? start.page : '-'}/${reads.total ? start.pages.join(',') : '-'}`;
-  return [fill.pageHeight, numbers, perPage, fill.area?.overhead ?? '-', ...entries].join('|');
+  const head = [fill.pageHeight, rulesId(fill.rules), numbers, perPage, fill.area?.overhead ?? '-'];
+  return [...head, ...entries].join('|');
 }
 
 function layoutSection(

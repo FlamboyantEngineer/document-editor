@@ -8,8 +8,8 @@ const SFNT_HEADER = 12;
 const SFNT_ENTRY = 16;
 
 async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  const inflated = new Response(bytes).body?.pipeThrough(new DecompressionStream('deflate'));
+  return new Uint8Array(await new Response(inflated).arrayBuffer());
 }
 
 const padded = (length: number) => (length + 3) & ~3;

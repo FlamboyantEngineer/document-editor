@@ -3,8 +3,7 @@ import type { Page } from '@playwright/test';
 import { caretAtEnd, keystrokeWork, openScale, percentile, SIZE } from './budgets.js';
 import { expect, test } from './fixtures.js';
 
-// The layout engine's budgets (specs/LABS.md DOCE-LABS-2.6): on about 300 pages, with
-// `textLayout=pretext`, the first layout, an Enter, a long insert as a paste gives, a range deleted,
+// The layout engine's budgets (specs/LABS.md DOCE-LABS-2.6): on about 300 pages, the first layout, an Enter, a long insert as a paste gives, a range deleted,
 // and typing far down the document after a scroll, each the median of three rounds. The engine
 // becomes the only text layout, so each budget is a time of its own, not one against the DOM's
 // measuring. Three CI runs on 23 November 2026 read first settle 4,195 / 5,855 / 6,078 ms, Enter
@@ -66,7 +65,7 @@ interface Round {
 
 // One round: the document opened, then each edit in turn.
 async function round(lab: Parameters<typeof openScale>[0], page: Page): Promise<Round> {
-  await openScale(lab, page, SIZE.pages300, { textLayout: 'pretext' });
+  await openScale(lab, page, SIZE.pages300);
   const firstSettle = Math.round(
     (await page.evaluate(() => window.stressLab.firstSettledAt)) ?? Number.NaN,
   );

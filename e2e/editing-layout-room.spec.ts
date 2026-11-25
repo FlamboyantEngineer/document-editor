@@ -18,7 +18,7 @@ import {
 import { expect, test } from './fixtures.js';
 
 // Edited pages equal a fresh layout in a shared room (specs/LABS.md DOCE-LABS-9.2): two writers edit
-// one document through a room server, each at their own width and zoom, with `textLayout: 'pretext'`.
+// one document through a room server, each at their own width and zoom.
 // The steps are the single-writer ones (DOCE-LABS-9.1), each made by one of the writers, the
 // other writer's change typed in the other writer's editor, and the room's own: a writer going
 // offline, editing and coming back to merge, both writers typing at once, and a service writing
@@ -220,8 +220,8 @@ test.describe('DOCE-LABS-9.2 edited pages in a shared room equal a fresh layout'
         context,
       }) => {
         test.setTimeout(300_000);
-        const query = document === 'long' ? '&document=long' : '';
-        await page.goto(`collab-room.html?textLayout=pretext${query}`);
+        const query = document === 'long' ? 'document=long' : '';
+        await page.goto(`collab-room.html?${query}`);
         for (const name of NAMES) await expect(status(page, name)).toHaveText(/^ready · /);
         await settle(page);
         const cdp = await context.newCDPSession(page);

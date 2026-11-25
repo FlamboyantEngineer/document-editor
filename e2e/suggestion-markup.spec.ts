@@ -33,7 +33,7 @@ const SHOWN: Readonly<Record<Markup, { insertion: boolean; deletion: boolean }>>
 
 async function open(page: Page, query = '') {
   await page.setViewportSize(ROOMY);
-  await page.goto(`regression.html?document=comments-and-suggestions&textLayout=pretext${query}`);
+  await page.goto(`regression.html?document=comments-and-suggestions${query}`);
   await waitForLab(page);
   // Under load the first layout can still be pending or provisional when the lab is ready.
   await page.evaluate(() => window.stressLab.whenSettled());

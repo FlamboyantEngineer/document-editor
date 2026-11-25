@@ -132,7 +132,7 @@ test.describe('performance', () => {
     lab: Parameters<typeof openScale>[0],
     page: Page,
     size: number,
-    options: { compare?: boolean; textLayout?: 'dom' | 'pretext' } = {},
+    options: { compare?: boolean } = {},
   ) {
     await openScale(lab, page, size, options);
     await caretAtEnd(page, 3);
@@ -146,40 +146,21 @@ test.describe('performance', () => {
     );
   }
 
-  test('DOCE-LABS-2.3 answers each keystroke on 300 pages within its budget', async ({
+  // The pages are laid out with the layout engine (DOCE-PAGINATION-11.5): only those near the
+  // screen are drawn on its lines and the others skip their layout. These hold the typing budgets
+  // the forced-lines spike measured (DOCE-LABS-6.2, withdrawn).
+  test('DOCE-LABS-2.3 DOCE-LABS-6.2 DOCE-PAGINATION-11.5 answers each keystroke on 300 pages within its budget', async ({
     lab,
     page,
   }) => {
     expectMeets(BUDGETS.latency300, await typingWork(lab, page, SIZE.pages300));
   });
 
-  test('DOCE-LABS-2.3 answers each keystroke on 40 pages within its budget', async ({
+  test('DOCE-LABS-2.3 DOCE-LABS-6.2 DOCE-PAGINATION-11.5 answers each keystroke on 40 pages within its budget', async ({
     lab,
     page,
   }) => {
     expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40));
-  });
-
-  // With the layout engine (DOCE-PAGINATION-11.5), only the pages near the screen are drawn on its
-  // lines and the others skip their layout, so the same budgets hold.
-  test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 answers each keystroke on 300 pages within its budget with the layout engine', async ({
-    lab,
-    page,
-  }) => {
-    const options = { textLayout: 'pretext' } as const;
-    expectMeets(BUDGETS.latency300, await typingWork(lab, page, SIZE.pages300, options));
-  });
-
-  // Close to the bar: the pages within half a screen below the frame are drawn on forced lines too
-  // (DOCE-PAGINATION-11.6). Measured in alternating pairs, the engine's keystrokes cost what the
-  // browser's own layout's do (15.7 against 15.5 ms at 40 pages), so a local run can miss by a
-  // millisecond. The engine is not the default until this meets 16 ms.
-  test('DOCE-LABS-2.3 DOCE-PAGINATION-11.5 answers each keystroke on 40 pages within its budget with the layout engine', async ({
-    lab,
-    page,
-  }) => {
-    const options = { textLayout: 'pretext' } as const;
-    expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40, options));
   });
 
   test('DOCE-LABS-2.3 draws each remote keystroke on 300 pages within its budget', async ({

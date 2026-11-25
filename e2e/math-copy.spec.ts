@@ -61,7 +61,7 @@ test.describe('math copy', () => {
     context,
   }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.goto('regression.html?document=minimal-paragraph&textLayout=pretext&debug');
+    await page.goto('regression.html?document=minimal-paragraph&debug');
     await waitForLab(page);
     await page.evaluate((stored) => window.regressionLab.load(stored), DOCUMENT);
     const math = page.locator(`${EDITOR} .de-math`);

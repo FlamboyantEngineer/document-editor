@@ -115,7 +115,7 @@ test.describe('DOCE-LABS-8.12 pages near the screen while scrolling', () => {
   }) => {
     test.setTimeout(240_000);
     // Only the pages near the screen are drawn on the engine's lines, as by default.
-    await page.goto('regression.html?document=long-mixed&textLayout=pretext');
+    await page.goto('regression.html?document=long-mixed');
     await waitForLab(page);
     await settle(page);
     const first = await pagesState(page);

@@ -29,7 +29,7 @@ import {
 } from '../../src/model/index.js';
 import { chapter, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const SECTIONED: TemplateFile = {
   formatVersion: 1,
@@ -174,7 +174,7 @@ function Lab() {
         </button>
       </fieldset>
       <DocumentEditor
-        {...LAB_TEXT_LAYOUT}
+        fonts={LAB_FONTS}
         state={state}
         onStateChange={setState}
         template={TEMPLATE}

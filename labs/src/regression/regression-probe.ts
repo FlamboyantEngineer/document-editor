@@ -47,19 +47,19 @@ export interface RegressionProbe {
   caretAtJoined(at: number): boolean;
   /** The pages as a snapshot for printing (`exportSnapshot`), or null before the editor shows. */
   snapshot(options?: SnapshotProbeOptions): string | null;
-  /** With `textLayout=pretext`, the lines the layout engine computed for each page's text blocks. */
+  /** The lines the layout engine computed for each page's text blocks. */
   textLines(): PageTextLines[];
-  /** With `textLayout=pretext`, the forced blocks the browser drew on other lines (the guard). */
+  /** The forced blocks the browser drew on other lines (the guard). */
   wrappedLines(): WrappedBlock[];
   /**
-   * With `textLayout=pretext`, the pages drawn from their layout without the editor
+   * The pages drawn from their layout without the editor
    * (`renderLayoutPrintPage`), as a standalone page; null without the engine.
    */
   layoutPrint(options?: LayoutPrintProbeOptions): string | null;
-  /** With `textLayout=pretext`, draws every page on the engine's lines, or only those near again. */
+  /** Draws every page on the engine's lines, or only those near again. */
   drawAllLines(all: boolean): void;
   /**
-   * With `textLayout=pretext`, shows the pages' layout in the read-only viewer (`DocumentViewer`)
+   * Shows the pages' layout in the read-only viewer (`DocumentViewer`)
    * under the editor, drawing as many pages beyond the ones in view (all by default); false
    * without the engine.
    */
@@ -75,7 +75,7 @@ export interface RegressionProbe {
   selected(): [number, number] | null;
   /** Gives the editor another fonts adapter while it shows (DOCE-PAGINATION-12.7). */
   setFonts(fonts: LabFonts): void;
-  /** With `textLayout=pretext`, the pages' layout as data (`pagesLayout()`), or null. */
+  /** The pages' layout as data (`pagesLayout()`), or null. */
   layout(markup?: LayoutMarkup): PagesLayout | null;
   /**
    * Opens a stored document afresh, in a new editor, as if the page had just loaded it: on its

@@ -13,7 +13,7 @@ import {
 } from './edit-sequences.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
-// Edited pages match a fresh layout (specs/LABS.md DOCE-LABS-9): with `textLayout: 'pretext'`, after
+// Edited pages match a fresh layout (specs/LABS.md DOCE-LABS-9): after
 // every step of a seeded sequence of edits (typing, IME composition, paste, undo and redo, splits
 // and joins at line and page edges, deletes across pages, marks and styles that change the font,
 // remote changes, zoom changes), what the editor draws equals what a new page draws when it opens the
@@ -56,7 +56,7 @@ async function settleFinal(page: Page, side: 'edited' | 'fresh') {
 }
 
 async function openLab(page: Page, name: RegressionDocumentName) {
-  await page.goto(`regression.html?document=${name}&textLayout=pretext`);
+  await page.goto(`regression.html?document=${name}`);
   await waitForLab(page);
   await page.evaluate(() => window.regressionLab.drawAllLines(true));
   await settle(page);

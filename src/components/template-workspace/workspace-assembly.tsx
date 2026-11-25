@@ -85,6 +85,7 @@ export function workspacePartsOf(assembly: WorkspaceAssembly): TemplateWorkspace
         layout={layout}
         renderPreview={props.renderPreview}
         assets={props.assets}
+        pageFonts={props.pageFonts}
         variables={props.variables}
         scriptRunner={props.scriptRunner}
       />

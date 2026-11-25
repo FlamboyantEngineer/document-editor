@@ -17,7 +17,7 @@ import {
 import { expect, test, waitForLab } from './fixtures.js';
 import { loadWrappedLinkedCode } from './wrapped-linked-code.js';
 
-// The one-result invariant (specs/LABS.md DOCE-LABS-8): with `textLayout: 'pretext'`, the lines and
+// The one-result invariant (specs/LABS.md DOCE-LABS-8): the lines and
 // pages the layout engine computed are the ones the editor draws. For every document of the
 // regression set, at zooms from 50 to 200 percent and at real device pixel ratios of 1, 1.25, 1.5,
 // 1.75, 2 and 3 (the `chromium-dpr-*` projects), each page holds the text blocks the engine put on it, and each
@@ -61,7 +61,7 @@ async function open(
   query = '',
 ) {
   await page.goto(
-    `regression.html?document=${name}&textLayout=pretext&zoom=${String(zoom)}&rendering=${rendering}${query}`,
+    `regression.html?document=${name}&zoom=${String(zoom)}&rendering=${rendering}${query}`,
   );
   await waitForLab(page);
   // Every page on forced lines, not only those near the screen (DOCE-PAGINATION-11.6).
@@ -293,7 +293,7 @@ test.describe('DOCE-LABS-8.4 inline offers keep the drawn lines', () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
-    await page.goto('stress-long.html?textLayout=pretext');
+    await page.goto('stress-long.html');
     await waitForLab(page);
     await settle(page);
     // Lines are forced on the pages near the screen: bring the body text after the contents there.
@@ -560,7 +560,7 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
     test.setTimeout(120_000);
-    await page.goto('stress-scale.html?size=7&textLayout=pretext&suggest');
+    await page.goto('stress-scale.html?size=7&suggest');
     // 300 pages and 500 threads take longer to open than a lab's usual wait.
     await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
       timeout: 90_000,

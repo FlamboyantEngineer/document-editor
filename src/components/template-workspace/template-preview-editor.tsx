@@ -13,7 +13,12 @@ import {
   createDocumentEditing,
   templatePreviewLockOf,
 } from '../../engine/index.js';
-import type { AssetAdapter, ScriptRunnerAdapter, VariablesAdapter } from '../../host/index.js';
+import type {
+  AssetAdapter,
+  FontsAdapter,
+  ScriptRunnerAdapter,
+  VariablesAdapter,
+} from '../../host/index.js';
 import {
   createDocumentSchema,
   readDocumentFile,
@@ -66,6 +71,8 @@ export interface TemplatePreviewEditorProps {
   readonly preview: TemplatePreview;
   /** The host's images, which the toolbar's image button places. */
   readonly assets?: AssetAdapter | undefined;
+  /** The host's fonts the pages are laid out with (DOCE-HOST-1.14.1). */
+  readonly fonts?: FontsAdapter | undefined;
   /** The host's variables, which the variable menu lists after the editor's own. */
   readonly variables?: VariablesAdapter | undefined;
   /** The host's script runner, which previews each template script beside it. */
@@ -118,6 +125,7 @@ function useLatestTemplate(template: TemplateFile, own: TemplateFile | undefined
 export function TemplatePreviewEditor({
   preview,
   assets,
+  fonts,
   variables,
   scriptRunner,
   ...rest
@@ -150,6 +158,7 @@ export function TemplatePreviewEditor({
       onRegionChange={preview.onRegionChange}
       onTemplatePartChange={preview.onTemplatePartChange}
       assets={assets}
+      fonts={fonts}
       variables={variables}
       scriptRunner={scriptRunner}
       toolbar={editable ? TEMPLATE_PREVIEW_TOOLBAR : false}

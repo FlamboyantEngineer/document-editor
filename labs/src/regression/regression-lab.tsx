@@ -65,21 +65,13 @@ const COMPARE =
     ? undefined
     : ({ previous: 'opened', display: COMPARE_QUERY === 'markup' ? 'markup' : 'bars' } as const);
 
-// How the pages lay their text out: by the layout engine on its lines (DOCE-PAGINATION-11), or
-// measured in the DOM with `textLayout=dom`.
-const TEXT_LAYOUT =
-  new URLSearchParams(window.location.search).get('textLayout') === 'dom' ? 'dom' : 'pretext';
-
-// With the layout engine, the lab serves its font files and HarfBuzz (DOCE-HOST-1.14.1); with
-// `fonts=none` it serves neither, and the pages keep the browser's layout; with `fonts=cousine` it
-// serves Cousine's files under every family (DOCE-PAGINATION-12.7).
+// The lab serves its font files and HarfBuzz, which the layout engine lays the pages out with
+// (DOCE-HOST-1.14.1); with `fonts=none` it serves neither, and the document shows in the web layout
+// with an error; with `fonts=cousine` it serves Cousine's files under every family
+// (DOCE-PAGINATION-12.7).
 const FONTS_QUERY = new URLSearchParams(window.location.search).get('fonts');
 const FONTS: LabFonts =
-  TEXT_LAYOUT !== 'pretext' || FONTS_QUERY === 'none'
-    ? 'none'
-    : FONTS_QUERY === 'cousine'
-      ? 'cousine'
-      : 'lab';
+  FONTS_QUERY === 'none' ? 'none' : FONTS_QUERY === 'cousine' ? 'cousine' : 'lab';
 
 const ADAPTERS: Readonly<Record<LabFonts, FontsAdapter | undefined>> = {
   none: undefined,
@@ -196,17 +188,15 @@ function RegressionLab() {
             ))}
           </select>
         </label>
-        {TEXT_LAYOUT === 'pretext' ? (
-          <button
-            type="button"
-            onClick={() => {
-              const layout = handle.current?.pagesLayout();
-              if (layout) showViewer(layout, 1);
-            }}
-          >
-            Show in the viewer
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => {
+            const layout = handle.current?.pagesLayout();
+            if (layout) showViewer(layout, 1);
+          }}
+        >
+          Show in the viewer
+        </button>
       </fieldset>
       <DocumentEditor
         key={`${name}-${String(opening)}`}
@@ -216,7 +206,6 @@ function RegressionLab() {
         layout={LAYOUT}
         markup={MARKUP}
         zoom={zoom}
-        textLayout={TEXT_LAYOUT}
         fonts={ADAPTERS[fonts]}
         rendering={RENDERING}
         compare={COMPARE}

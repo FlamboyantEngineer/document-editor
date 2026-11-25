@@ -1,8 +1,8 @@
 // The editor's banner region, floating over the top of the document between the panels: the host's
 // banners, then the editor's own, telling the writer a change suggest mode could not record, that
 // the document's scripts are running or failed,
-// that the document is out of step with its template and which of the template's fonts did not
-// load. The region scrolls on its own, so a long stack
+// that the document is out of step with its template, which of the template's fonts did not
+// load and that the pages cannot be laid out. The region scrolls on its own, so a long stack
 // never pushes the document; banners that come or go while the reader drags, selects or resizes
 // wait for the gesture to end, so nothing changes under the pointer.
 
@@ -22,6 +22,7 @@ import {
 } from '../../engine/template-sync.js';
 import type { FontsAdapter } from '../../host/index.js';
 import { findTemplateSection, type TemplateFile } from '../../model/index.js';
+import type { BrowserLayoutReason } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import type { EditorSession } from './save-status-item.js';
@@ -52,6 +53,7 @@ export const EDITOR_BANNERS = [
   'template-update',
   'template-drift',
   'fonts-missing',
+  'pages-unavailable',
 ] as const;
 
 const hooks = createHooks('document-editor', ['banners']);
@@ -141,6 +143,8 @@ interface DocumentBannersProps {
   readonly banners: readonly DocumentBanner[] | undefined;
   /** The template's font families that did not load. */
   readonly missingFonts: readonly string[];
+  /** Why the pages cannot be laid out, so the document shows unpaged; null while they can. */
+  readonly pagesUnavailable?: BrowserLayoutReason | null | undefined;
   /** The document's session, whose newer template revision the editor offers. */
   readonly session?: EditorSession | undefined;
 }
@@ -190,6 +194,23 @@ function refusalBanner(
   ];
 }
 
+// Pages that cannot be laid out, as without the fonts the host serves (DOCE-HOST-1.14.1): an error
+// that stays while the document shows unpaged.
+function unavailableBanner(
+  reason: BrowserLayoutReason | null | undefined,
+  labels: DocumentEditorLabels,
+): DocumentBanner[] {
+  if (!reason) return [];
+  return [
+    {
+      id: 'pages-unavailable',
+      tone: 'danger',
+      title: labels.pagesUnavailable,
+      description: labels.pagesUnavailableDetail(reason),
+    },
+  ];
+}
+
 interface BannerDismissal {
   readonly dismissed: ReadonlySet<string>;
   readonly dismiss: (key: string) => () => void;
@@ -205,6 +226,7 @@ function useEditorBanners(props: DocumentBannersProps): DocumentBanner[] {
   const fontsKey = `fonts-missing:${missingFonts.join('\n')}`;
   const update = useTemplateUpdateBanner(props);
   const own: DocumentBanner[] = [
+    ...unavailableBanner(props.pagesUnavailable, labels),
     ...refusalBanner(state, { labels, dismissed, dismiss }),
     ...scriptBanners(state, { labels, dismissed, dismiss }),
     ...(update ? [update] : []),

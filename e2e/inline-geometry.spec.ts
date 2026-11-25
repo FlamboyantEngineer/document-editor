@@ -7,7 +7,7 @@ import { expect, test, waitForLab } from './fixtures.js';
 // and code beside line numbers the pages must draw exactly as the layout engine laid them out.
 
 async function open(page: Page) {
-  await page.goto('regression.html?document=inline-geometry&textLayout=pretext&debug');
+  await page.goto('regression.html?document=inline-geometry&debug');
   await waitForLab(page);
   await page.evaluate(() => window.regressionLab.drawAllLines(true));
 }
@@ -122,9 +122,7 @@ test.describe('inline geometry on the engine’s lines', () => {
 
   test.describe('a comparison’s deleted words', () => {
     async function compare(page: Page) {
-      await page.goto(
-        'regression.html?document=inline-geometry&textLayout=pretext&debug&compare=markup',
-      );
+      await page.goto('regression.html?document=inline-geometry&debug&compare=markup');
       await waitForLab(page);
       await page.evaluate(() => window.regressionLab.drawAllLines(true));
     }
@@ -171,7 +169,7 @@ test.describe('inline geometry on the engine’s lines', () => {
       page,
     }) => {
       await page.goto(
-        'regression.html?document=line-breaks-and-writing-systems&textLayout=pretext&debug&compare=markup',
+        'regression.html?document=line-breaks-and-writing-systems&debug&compare=markup',
       );
       await waitForLab(page);
       await page.evaluate(() => window.regressionLab.drawAllLines(true));

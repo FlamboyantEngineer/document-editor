@@ -4,6 +4,7 @@ import type { AvatarIdentity } from '@flamboyantengineer/ui-components/avatar';
 import type { ReactNode } from 'react';
 import type { RegionChange } from '../../engine/index.js';
 import type {
+  FontsAdapter,
   ScriptRunnerAdapter,
   TemplateStoreAdapter,
   VariablesAdapter,
@@ -98,6 +99,11 @@ export interface TemplateWorkspaceProps {
   readonly renderPreview?: ((preview: TemplatePreview) => ReactNode) | undefined;
   /** The host's images, which the own preview's toolbar places in the template's content. */
   readonly assets?: AssetAdapter | undefined;
+  /**
+   * The host's fonts the own preview's pages are laid out with (DOCE-HOST-1.14.1); without them
+   * the preview shows without pages, in fallback fonts.
+   */
+  readonly pageFonts?: FontsAdapter | undefined;
   /** The host's variables, which the own preview's variable menu lists. */
   readonly variables?: VariablesAdapter | undefined;
   /**

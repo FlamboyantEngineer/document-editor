@@ -9,6 +9,10 @@ if (typeof Element !== 'undefined' && typeof Element.prototype.getAnimations !==
   Element.prototype.getAnimations = () => [];
 }
 
+// jsdom has no compression streams; the font files' WOFF tables are inflated with Node's.
+globalThis.DecompressionStream ??= (await import('node:stream/web'))
+  .DecompressionStream as typeof DecompressionStream;
+
 // Vitest runs without globals, so Testing Library cannot register its own cleanup.
 afterEach(() => {
   cleanup();

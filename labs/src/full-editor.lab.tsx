@@ -57,7 +57,7 @@ import { chapter, heading, sampleDocument, text } from './lab-document.js';
 import { labAssets, labDiagrams } from './lab-figures.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 // The base template with a landscape appendix, so pages of two orientations hold comments.
 const LAB_TEMPLATE: TemplateFile = {
@@ -495,7 +495,7 @@ function Lab() {
         </p>
       </div>
       <DocumentEditor
-        {...LAB_TEXT_LAYOUT}
+        fonts={LAB_FONTS}
         state={state}
         onStateChange={setState}
         template={TEMPLATE}

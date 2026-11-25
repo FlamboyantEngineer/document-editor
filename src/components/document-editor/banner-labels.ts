@@ -1,8 +1,9 @@
 // The text of the editor's own banners: a change suggest mode could not record, the document out of
-// step with its template, and the fonts that did not load.
+// step with its template, the fonts that did not load, and pages that cannot be laid out.
 
 import type { SuggestionRefusalReason } from '../../engine/suggestion-refusal.js';
 import type { SectionDrift } from '../../engine/template-sync.js';
+import type { BrowserLayoutReason } from '../../pagination/index.js';
 
 /** The text of the editor's banners. */
 export interface BannerLabels {
@@ -31,6 +32,10 @@ export interface BannerLabels {
   readonly fontsMissingDetail: (families: readonly string[]) => string;
   /** Shown in place of pages that wait for template fonts that did not load, given them. */
   readonly fontsFailed: (families: readonly string[]) => string;
+  /** The host serves no fonts the pages can be laid out with: the document shows unpaged. */
+  readonly pagesUnavailable: string;
+  /** Why, and what the reader sees instead. */
+  readonly pagesUnavailableDetail: (reason: BrowserLayoutReason) => string;
 }
 
 const list = new Intl.ListFormat('en', { type: 'conjunction' });
@@ -40,6 +45,14 @@ const DRIFT_KINDS: Readonly<Record<SectionDrift['kind'], string>> = {
   unexpected: 'not in the template',
   stale: 'changed',
   misplaced: 'out of order',
+};
+
+const UNAVAILABLE: Readonly<Record<BrowserLayoutReason, string>> = {
+  'no-shaper': 'The host serves no text shaper.',
+  'no-files': 'The host serves no font files.',
+  'shaper-failed': 'The text shaper did not load.',
+  'files-failed': 'The font files did not load.',
+  'no-faces': 'None of the font files could be read.',
 };
 
 const REFUSALS: Readonly<Record<SuggestionRefusalReason, string>> = {
@@ -67,4 +80,7 @@ export const DEFAULT_BANNER_LABELS: BannerLabels = {
   fontsMissingDetail: (families) =>
     `${list.format(families)} ${families.length === 1 ? 'shows' : 'show'} in a fallback font, so pages may break differently.`,
   fontsFailed: (families) => `The document cannot be shown: ${list.format(families)} did not load.`,
+  pagesUnavailable: 'The pages cannot be laid out',
+  pagesUnavailableDetail: (reason) =>
+    `${UNAVAILABLE[reason]} The document shows without pages, in fallback fonts.`,
 };

@@ -48,7 +48,7 @@ import {
 import { chapter, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const DOCUMENT_ID = 'spec';
 
@@ -535,7 +535,7 @@ function Lab() {
       </div>
       {stored && view ? (
         <DocumentEditor
-          {...LAB_TEXT_LAYOUT}
+          fonts={LAB_FONTS}
           key={stored.revision}
           state={view}
           onStateChange={() => undefined}
