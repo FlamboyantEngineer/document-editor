@@ -224,6 +224,34 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
   },
   ...OBJECT_SECTIONS,
   {
+    id: 'blocks',
+    title: 'Block spacing',
+    scope: ['styles', 'blocks'],
+    settings: [
+      strip('', 'Quotes', [
+        cell('Indent', setting('quoteIndent', 'Quote indent', length)),
+        cell('Spacing', setting('quoteSpacing', 'Quote spacing', length)),
+      ]),
+      strip('', 'Rules', [
+        cell('Height', setting('ruleHeight', 'Rule height', length)),
+        cell('Spacing', setting('ruleSpacing', 'Rule spacing', length)),
+      ]),
+      setting('codePadding', 'Code box padding', length),
+      setting('codeCaptionGap', 'Space below a code caption', length),
+      setting('codeCaptionRule', 'Rule below a code caption', length),
+      setting('tableCaptionPadding', 'Table caption padding', length),
+      setting('equationSpacing', 'Space around display math', length),
+      strip('', 'Columns', [
+        cell('Gap', setting('columnsGap', 'Gap between columns', length)),
+        cell('After', setting('columnsAfter', 'Space after columns', length)),
+      ]),
+      strip('', 'Each column', [
+        cell('Padding', setting('columnPadding', 'Column padding', length)),
+        cell('Border', setting('columnBorder', 'Column border', length)),
+      ]),
+    ],
+  },
+  {
     id: 'footnotes',
     title: 'Footnotes',
     pagesOnly: true,

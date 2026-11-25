@@ -1,13 +1,18 @@
 // The numbers block geometry lays blocks out with: the template scope's own (list indentation and
 // spacing, cell padding and borders, caption placement, the paragraph spacing objects take) and
-// the stylesheet's own (a quote's spacing, a code box's padding, a layout section's gap), which the
-// stylesheet states as custom properties (`sheet-numbers.ts`, DOCE-PAGINATION-10.9).
+// the template's block numbers (a quote's spacing, a code box's padding, a layout section's gap),
+// which the template also states to the stylesheet (`block-numbers.ts`, DOCE-PAGINATION-10.9).
 
 import type {
   TemplateFile,
   TemplateSection,
   TemplateStyles,
 } from '../../model/format/template-format.js';
+import {
+  type BlockNumbers,
+  blockPixels,
+  templateBlockNumbers,
+} from '../../model/templates/block-numbers.js';
 import { lengthToCssPx } from '../../model/templates/template-css-values.js';
 import { templateScopeStyles } from '../../model/templates/template-properties.js';
 import {
@@ -20,7 +25,6 @@ import {
   resolveContentsList,
   type ResolvedContentsList,
 } from '../../model/templates/template-settings.js';
-import { referenceSheetNumbers, type SheetNumbers, sheetPixels } from './sheet-numbers.js';
 
 /** A template scope's block geometry numbers, in CSS pixels. */
 export interface BlockMetrics {
@@ -81,7 +85,7 @@ function pixels(length: unknown, fallback = '0px'): number {
 }
 
 // The numbers of objects whose look the template sets by its object styles.
-function objectNumbers(styles: TemplateStyles, sheet: (name: keyof SheetNumbers) => number) {
+function objectNumbers(styles: TemplateStyles, sheet: (name: keyof BlockNumbers) => number) {
   return {
     table: {
       cellPadding: pixels(styles.table?.cellPadding, DEFAULT_CELL_PADDING),
@@ -122,19 +126,15 @@ function regionNumbers(template: TemplateFile, section: TemplateSection | null) 
 }
 
 /**
- * A template scope's block geometry numbers: a section's over the template's, by its name, with the
- * stylesheet's own numbers (by default the reference stylesheet's), its `em` lengths in the
- * scope's paragraph size, which the page content's text is set in.
+ * A template scope's block geometry numbers: a section's over the template's, by its name, its
+ * `em` lengths in the scope's paragraph size, which the page content's text is set in.
  */
-export function blockMetrics(
-  template: TemplateFile,
-  scope: string | null = null,
-  numbers: SheetNumbers = referenceSheetNumbers,
-): BlockMetrics {
+export function blockMetrics(template: TemplateFile, scope: string | null = null): BlockMetrics {
   const section = findTemplateSection(template, scope);
   const styles = templateScopeStyles(template, section);
   const em = pixels(styles.paragraph?.size, `${String(DEFAULT_FONT_SIZE)}px`);
-  const sheet = (name: keyof SheetNumbers) => sheetPixels(numbers[name], em);
+  const numbers = templateBlockNumbers(styles);
+  const sheet = (name: keyof BlockNumbers) => blockPixels(numbers[name], em);
   return {
     em,
     paragraphAfter: pixels(styles.paragraph?.spaceAfter),

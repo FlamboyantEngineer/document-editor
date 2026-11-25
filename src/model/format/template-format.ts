@@ -159,6 +159,39 @@ export interface CodeBlockSettings extends CaptionedObjectSettings, TextSettings
   background?: Color | null;
 }
 
+/**
+ * The numbers of blocks no other setting gives, each a length in an absolute unit or `em`, the
+ * scope's paragraph size; one left out takes its default (DOCE-PAGINATION-10.9).
+ */
+export interface BlockNumberSettings {
+  /** A quote's inline margins; 40px by default. */
+  quoteIndent?: Length | null;
+  /** A quote's block margins; 1em by default. */
+  quoteSpacing?: Length | null;
+  /** A rule's height; 2px by default. */
+  ruleHeight?: Length | null;
+  /** A rule's block margins; 0.5em by default. */
+  ruleSpacing?: Length | null;
+  /** A captioned code box's padding; 8px by default. */
+  codePadding?: Length | null;
+  /** The space between a code caption and its code; 4px by default. */
+  codeCaptionGap?: Length | null;
+  /** The rule between a code caption and its code; 1px by default. */
+  codeCaptionRule?: Length | null;
+  /** The padding around a table's caption; 2px by default. */
+  tableCaptionPadding?: Length | null;
+  /** The space above and below display math; 6px by default. */
+  equationSpacing?: Length | null;
+  /** The gap between a layout section's columns; 4px by default. */
+  columnsGap?: Length | null;
+  /** The space after a layout section; 4px by default. */
+  columnsAfter?: Length | null;
+  /** A layout column's padding; 5px by default. */
+  columnPadding?: Length | null;
+  /** A layout column's border; 1px by default. */
+  columnBorder?: Length | null;
+}
+
 /** Equation settings. */
 export interface EquationSettings extends CaptionedObjectSettings {
   /** The characters around an equation's number, such as `()`; empty for none. */
@@ -233,6 +266,7 @@ export interface TemplateStyles {
   codeBlock?: CodeBlockSettings | null;
   equation?: EquationSettings | null;
   contents?: ContentsSettings | null;
+  blocks?: BlockNumberSettings | null;
   /** Styles a writer applies by name, keyed by a name `CUSTOM_STYLE_NAME` accepts. */
   custom?: Record<string, TextSettings> | null;
 }

@@ -14,7 +14,6 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
-import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
 import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
@@ -171,8 +170,6 @@ function engineLayouts(
     return laying.typography;
   };
   const atoms = createAtomCache({ measure: atomMeasurer(options, { host, typography }) });
-  // The stylesheet's own block numbers, read where the pages' content is drawn.
-  const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
     hidden: () => hiddenSuggestion(options.markup?.() ?? 'all'),
@@ -193,7 +190,7 @@ function engineLayouts(
   const geometry = createBlockLayout({
     text: numberedText(text, { numbers, inserted, recorder }),
     atoms,
-    metrics: (scope) => blockMetrics(template, scope, sheet),
+    metrics: (scope) => blockMetrics(template, scope),
     labelOf: (caption) => (recorder.labelOf ?? numbers().labelOf)(caption),
     footnoteOf: (entry) => numbers().footnoteOf(entry),
     equationOf,

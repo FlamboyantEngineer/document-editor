@@ -163,6 +163,23 @@ const STYLES_SHAPE: SettingShape = {
     codeBlock: { object: { ...CAPTIONED, ...TEXT, background: 'color' } },
     equation: { object: { ...CAPTIONED, wrapper: 'text' } },
     contents: CONTENTS,
+    blocks: {
+      object: {
+        quoteIndent: 'length',
+        quoteSpacing: 'length',
+        ruleHeight: 'length',
+        ruleSpacing: 'length',
+        codePadding: 'length',
+        codeCaptionGap: 'length',
+        codeCaptionRule: 'length',
+        tableCaptionPadding: 'length',
+        equationSpacing: 'length',
+        columnsGap: 'length',
+        columnsAfter: 'length',
+        columnPadding: 'length',
+        columnBorder: 'length',
+      },
+    },
     custom: { record: { object: TEXT } },
   },
 };

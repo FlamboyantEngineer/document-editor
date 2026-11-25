@@ -131,15 +131,15 @@ describe('createPagesTextEngine', () => {
     plain.destroy();
   });
 
-  it('DOCE-PAGINATION-10.9 lays blocks out with the numbers the stylesheet states where it measures', () => {
+  it('DOCE-PAGINATION-10.9 lays blocks out with the template’s numbers, not the page’s stylesheet', () => {
     const measureIn = document.createElement('div');
-    measureIn.style.setProperty('--de-quote-spacing', '30px');
+    measureIn.style.setProperty('--de-quote-spacing', '50px');
     document.body.append(measureIn);
-    const engine = createPagesTextEngine({
-      template: BASE_TEMPLATE,
-      measureIn,
-      onAtomsSettled: () => undefined,
-    });
+    const template = {
+      ...BASE_TEMPLATE,
+      styles: { ...BASE_TEMPLATE.styles, blocks: { quoteSpacing: '30px' } },
+    };
+    const engine = createPagesTextEngine({ template, measureIn, onAtomsSettled: () => undefined });
     const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
     if (!quote) throw new Error('no quote');
     expect(engine.measureBlock(quote, null)).toMatchObject({ marginTop: 30, marginBottom: 30 });
