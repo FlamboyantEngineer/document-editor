@@ -78,9 +78,11 @@ function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
   ];
 }
 
-// The rules the engine sizes nodes by: the library's with the host's over them, made again only
-// when the host passes other rules.
-function engineRules(host: () => LayoutRules | undefined): () => LayoutRules {
+/**
+ * The rules the engine sizes nodes by: the library's with the host's over them, each host rule
+ * replacing the library's for its type whole; made again only when the host passes other rules.
+ */
+export function engineRules(host: () => LayoutRules | undefined): () => LayoutRules {
   let made: { host: LayoutRules | undefined; rules: LayoutRules } | null = null;
   return () => {
     const now = host();
