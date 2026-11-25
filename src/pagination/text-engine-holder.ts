@@ -5,6 +5,7 @@
 // measures with the fonts the host serves (DOCE-HOST-1.14.1), and asks for a family a new
 // template names.
 
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
@@ -105,6 +106,23 @@ function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => numb
   };
 }
 
+// The document the pages' engine was last numbered with.
+interface Counted {
+  doc: ProseMirrorNode | null;
+}
+
+// Numbers an engine made again with the document the one before it was last numbered with, so a
+// region drawn before the next layout draws its footnotes with their numbers
+// (DOCE-PAGINATION-10.7), and gives its `number`, which keeps each document it is numbered with.
+function numberedLike(engine: PagesTextEngine, counted: Counted) {
+  if (counted.doc) engine.number(counted.doc);
+  const count = engine.number.bind(engine);
+  return (doc: ProseMirrorNode) => {
+    counted.doc = doc;
+    count(doc);
+  };
+}
+
 /**
  * Loads and holds a text layout engine; `changed` is told when its atoms' sizes settle or font
  * faces load in the measuring document, which makes the engine again: widths measured before a
@@ -121,6 +139,7 @@ export function holdTextEngine(options: {
   let fonts: PagesFonts | null = null;
   let current: PagesTextEngine | null = null;
   let numbered = false;
+  const counted: Counted = { doc: null };
   let spoken = '';
   let version = 0;
   const markups = markupChanges(options.setting.markup);
@@ -180,7 +199,7 @@ export function holdTextEngine(options: {
         ...settingInputs(options.setting, made),
       });
       // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.10).
-      current = Object.assign(engine, { language });
+      current = Object.assign(engine, { language, number: numberedLike(engine, counted) });
       return current;
     },
     // Another markup keeps the engine, but moves the lines it draws.

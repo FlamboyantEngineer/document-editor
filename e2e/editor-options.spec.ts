@@ -90,8 +90,6 @@ test.describe('editor options', () => {
             `.de-document-editor__content table[data-id="${table.getAttribute('data-id') ?? ''}"]`,
           ).length,
       );
-    // The table is one part until the first layout splits it.
-    await settled(page);
     expect(await parts()).toBe(2);
     await page.getByLabel('Keep tables whole on a page').check();
     await settled(page);

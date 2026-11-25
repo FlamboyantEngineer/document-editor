@@ -120,6 +120,29 @@ describe('createDrawnAtomMeasurer', () => {
     view.destroy();
   });
 
+  it('DOCE-PAGINATION-10.8 loads a figure’s lazy image in the measuring view and reads it once loaded', async () => {
+    stubBoxes();
+    // The image has not loaded, as one a host previews from its address has not on a first visit.
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false);
+    const { view, host } = measuringView(
+      '<figure><img src="plan.png" alt="Plan"><figcaption>Plan</figcaption></figure>',
+    );
+    const cache = createAtomCache({ measure: createDrawnAtomMeasurer({ view: () => view, host }) });
+    const listener = vi.fn();
+    cache.subscribe(listener);
+    const figure = findNode(view.state.doc, 'figure');
+    const image = view.dom.querySelector('img');
+    if (!figure || !image) throw new Error('no figure');
+    expect(image).toHaveAttribute('loading', 'lazy');
+    expect(cache.measureBlockAtom(figure, 400, null)?.provisional).toBe(true);
+    // Out of sight, a lazy image never loads, so the measuring view loads it at once.
+    expect(image).toHaveAttribute('loading', 'eager');
+    image.dispatchEvent(new Event('load'));
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledWith([figure]));
+    expect(cache.measureBlockAtom(figure, 400, null)?.provisional).toBe(false);
+    view.destroy();
+  });
+
   it('DOCE-PAGINATION-10.8 keeps math that typesets slowly provisional for as long as it is drawn', async () => {
     vi.useFakeTimers();
     stubBoxes();

@@ -99,7 +99,11 @@ function captionOf(view: EditorView, node: ProseMirrorNode): HTMLElement | null 
 function stillLoading(element: HTMLElement): HTMLImageElement[] {
   const images = [...element.querySelectorAll('img')];
   if (element.tagName === 'IMG') images.unshift(element as HTMLImageElement);
-  return images.filter((image) => !image.complete);
+  return images.filter((image) => {
+    // The measuring view sits out of sight, where a lazy image never loads.
+    if (image.getAttribute('loading') === 'lazy') image.setAttribute('loading', 'eager');
+    return !image.complete;
+  });
 }
 
 const loaded = (image: HTMLImageElement) =>

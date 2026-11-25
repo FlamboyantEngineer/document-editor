@@ -43,8 +43,8 @@ test.describe('session in a room lab', () => {
     await expect(status(page, 'Ada')).toHaveText(/^ready · /);
     await expect(status(page, 'Grace')).toHaveText(/^ready · /);
     await typeAtEnd(page, 'Ada', ' Always.');
-    await expect.poll(() => textOf(page, 'Grace')).toBe(`${SENTENCE} Always.`);
     await expect.poll(() => textOf(page, 'Ada')).toBe(`${SENTENCE} Always.`);
+    await expect.poll(() => textOf(page, 'Grace')).toBe(`${SENTENCE} Always.`);
     await expect(status(page, 'Ada')).toHaveText('ready · saved');
   });
 
@@ -66,8 +66,8 @@ test.describe('session in a room lab', () => {
     await ada.getByRole('button', { name: 'Go online' }).click();
     await expect(page.getByLabel("Ada's connection")).toHaveText('synced');
     await expect(connectionItem(page, 'Ada')).toHaveText('Connected');
-    await expect.poll(() => textOf(page, 'Grace')).toBe(`${SENTENCE} Later.`);
     await expect.poll(() => textOf(page, 'Ada')).toBe(`${SENTENCE} Later.`);
+    await expect.poll(() => textOf(page, 'Grace')).toBe(`${SENTENCE} Later.`);
     await expect(status(page, 'Ada')).toHaveText('ready · saved');
   });
 });
