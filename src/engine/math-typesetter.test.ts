@@ -40,4 +40,25 @@ describe('createMathTypesetter', () => {
     expect(typesetter.ready(doc, document)).toBeNull();
     expect(math.every((node) => typesetter.of(node)?.state === 'ready')).toBe(true);
   });
+
+  it('DOCE-PAGINATION-10.8 does not walk a document again once its math is found typeset', async () => {
+    const typesetter = createMathTypesetter(
+      options(() => Promise.resolve({ ok: true, mathml: '<math><mi>x</mi></math>' })),
+    );
+    const math = nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = nodes.paragraph?.create(null, math ? [math] : []);
+    const doc = paragraph && documentSchema.topNodeType.createAndFill(null, [paragraph]);
+    if (!doc) throw new Error('The schema has math');
+    const walks = vi.spyOn(doc, 'descendants');
+    await typesetter.ready(doc, document);
+    expect(typesetter.ready(doc, document)).toBeNull();
+    expect(typesetter.ready(doc, document)).toBeNull();
+    expect(walks).toHaveBeenCalledTimes(2);
+    // Another document readied holds its own sources, so the first is walked again.
+    const other = documentSchema.topNodeType.createAndFill();
+    if (!other) throw new Error('The schema has documents');
+    expect(typesetter.ready(other, document)).toBeNull();
+    expect(typesetter.ready(doc, document)).toBeNull();
+    expect(walks).toHaveBeenCalledTimes(3);
+  });
 });
