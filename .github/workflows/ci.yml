@@ -117,26 +117,38 @@ jobs:
       matrix:
         include:
           # The lab tests, the one-result invariant's page checks at ratio 1 and the invariant at the
-          # display scaling ratios 150, 175 and 300 percent, dealt into four shards by their recorded
+          # display scaling ratios 150, 175 and 300 percent, dealt into six shards by their recorded
           # seconds (scripts/lab-shards.mjs, DOCE-LABS-10.1), so the shards end at about the same time.
-          - name: chromium 1 of 4
+          # In one run the slowest runner took four tenths longer than the fastest for tests of equal
+          # recorded time, which no dealing evens out: the slowest shard decides how long a run takes,
+          # so the shards are kept short. The count is also the `--shards` of the plan step below.
+          - name: chromium 1 of 6
             shard: 1
             args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
-          - name: chromium 2 of 4
+          - name: chromium 2 of 6
             shard: 2
             args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
-          - name: chromium 3 of 4
+          - name: chromium 3 of 6
             shard: 3
             args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
-          - name: chromium 4 of 4
+          - name: chromium 4 of 6
             shard: 4
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
+          - name: chromium 5 of 6
+            shard: 5
+            args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
+          - name: chromium 6 of 6
+            shard: 6
             args: --project=chromium --project=chromium-invariant --project=chromium-dpr-1.5 --project=chromium-dpr-1.75 --project=chromium-dpr-3
           # The Pretext closeness tests and the one-result invariant at real device pixel ratios, but
           # for the pages painted into canvases (DOCE-EDITOR-1.9, DOCE-LABS-8.9), which the
-          # performance job runs after its timing tests.
-          - name: device pixel ratios
+          # performance job runs after its timing tests. A job for each ratio: together they ran as
+          # long as a shard.
+          - name: device pixel ratio 1.25
             # Quoted: the arguments are written into the step's script, where a bare `|` is a pipe.
-            args: "--project=chromium-dpr-1.25 --project=chromium-dpr-2 --grep-invert='DOCE-EDITOR-1.9|DOCE-LABS-8.9'"
+            args: "--project=chromium-dpr-1.25 --grep-invert='DOCE-EDITOR-1.9|DOCE-LABS-8.9'"
+          - name: device pixel ratio 2
+            args: "--project=chromium-dpr-2 --grep-invert='DOCE-EDITOR-1.9|DOCE-LABS-8.9'"
           # Without their dependency on the lab tests, which the shards run; the heaviest timing test
           # still runs alone before the others.
           - name: performance
@@ -154,7 +166,7 @@ jobs:
       - run: npm run build:labs
       - name: This shard's tests
         if: matrix.shard
-        run: node scripts/lab-shards.mjs plan --shards 4 --shard ${{ matrix.shard }} --out "$RUNNER_TEMP/tests.txt" -- ${{ matrix.args }}
+        run: node scripts/lab-shards.mjs plan --shards 6 --shard ${{ matrix.shard }} --out "$RUNNER_TEMP/tests.txt" -- ${{ matrix.args }}
       # Guard timing shares only the dedicated performance runner, sequentially with browser budgets.
       - name: Guard functional cases and budgets
         if: matrix.name == 'performance'
