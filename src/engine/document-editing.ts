@@ -37,7 +37,7 @@ import { footnotePlugins } from './footnote-plugins.js';
 import { createHistoryReveal } from './history-reveal.js';
 import { createListJoins } from './list-joins.js';
 import type { InvalidMathText } from './math-views.js';
-import { objectPlugins } from './object-plugins.js';
+import { type EditingMathOptions, objectPlugins } from './object-plugins.js';
 import type { LineNumbers } from './object-views.js';
 import { createParagraphNumbering } from './paragraph-numbering.js';
 import { boundKeys } from './shortcut-commands.js';
@@ -96,6 +96,11 @@ export interface DocumentEditingOptions {
   invalidMath?: InvalidMathText | undefined;
   /** The blocks a paragraph citing a footnote may sit in (`FootnotesOptions.citingPlaces`). */
   citingPlaces?: readonly string[] | undefined;
+  /**
+   * How math is typeset: the renderer, and how long it is waited for before the math shows as
+   * invalid with the host's reason (`MathViewsOptions`).
+   */
+  math?: EditingMathOptions | undefined;
   /** Refuses local changes that take the body past this many words or characters. */
   limit?: ContentLimit | undefined;
   /**

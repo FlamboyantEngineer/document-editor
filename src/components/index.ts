@@ -102,6 +102,7 @@ export {
   SELECTION_TOOLBAR_GROUPS,
   TOOLBAR_GROUPS,
   useDocumentEditor,
+  useDocumentEditorState,
   ZOOM_LEVELS,
 } from './document-editor/index.js';
 export type {
