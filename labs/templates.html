@@ -36,6 +36,27 @@
       </fieldset>
       <div class="de-document-editor__measure" aria-hidden="true" inert></div>
       <div class="lab-pages de-document-editor"></div>
+      <fieldset>
+        <legend>Template file</legend>
+        <p>
+          A template file checked as a server checks one before it stores it: upgraded, validated
+          setting by setting, then read for its required sections, the settings it leaves to the
+          stylesheet and the keyed records it inherits.
+        </p>
+        <label>
+          Template file (JSON)
+          <textarea id="template-file" rows="12" cols="70"></textarea>
+        </label>
+        <div>
+          <button type="button" id="check-template-file">Check the template file</button>
+          <button type="button" id="use-root-template">Check a root template</button>
+          <button type="button" id="missing-settings">List the missing settings</button>
+          <button type="button" id="extension-records">Read the inherited records</button>
+        </div>
+        <section aria-label="Template file checks">
+          <pre id="template-file-output" tabindex="0"></pre>
+        </section>
+      </fieldset>
     </main>
   </body>
 </html>
