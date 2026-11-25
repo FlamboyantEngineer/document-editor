@@ -124,7 +124,8 @@ describe('reading Markdown edge cases', () => {
   });
 
   it('DOCE-IMPORT-4.4 reads unclosed emphasis, links, math, tags and variables, emphasis runs and wide tables in time that grows with the text', () => {
-    // The fastest of five reads, so a pause elsewhere does not count.
+    // The fastest of five reads, so a pause elsewhere does not count. About 1.3 s with every core
+    // busy; the time limit leaves room for a slow runner.
     const time = (markdown: string) => {
       let best = Infinity;
       for (let run = 0; run < 5; run += 1) {
@@ -140,12 +141,12 @@ describe('reading Markdown edge cases', () => {
     // gives 256. The wide margin keeps a slow or busy runner from failing a linear reader.
     const grows = (label: string, small: string, large: string) =>
       expect(time(large), label).toBeLessThan(time(small) * 64 + 5);
-    grows('wide table', wideTable(1000), wideTable(16000));
+    grows('wide table', wideTable(500), wideTable(8000));
     for (const unit of ['*a ', '**a*', '[a](', '$a ', '<u>a ', '{{a}} {{']) {
       expect(blocksOf(unit.repeat(10))).toHaveLength(1);
-      grows(unit, unit.repeat(1000), unit.repeat(16000));
+      grows(unit, unit.repeat(500), unit.repeat(8000));
     }
-  });
+  }, 30_000);
 
   it('DOCE-IMPORT-4.4 flattens nesting deeper than a document holds, with a warning', () => {
     const read = readMarkdown(`${'>'.repeat(5000)} deep`);
