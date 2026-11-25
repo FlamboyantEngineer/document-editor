@@ -125,7 +125,7 @@ Verification: `src/engine/inline-completion.test.ts`
 An answer shall be offered as `normalizeCompletion` makes it, unless the host's `normalize` replaces it: its first line, tabs as spaces and no other control characters, with no space doubling one before or after the caret, and without its end where it repeats, as whole words, what the text after the caret starts with. An answer left with only space, and a failed one, offers nothing.
 
 Implementation: `src/engine/completion-text.ts`, `src/engine/inline-completion.ts`
-Verification: `src/engine/completion-text.test.ts`, `src/engine/inline-completion.test.ts`
+Verification: `src/engine/completion-text.test.ts`, `src/engine/inline-completion.test.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-AUTOMATION-3.9 - The completion toggle
 

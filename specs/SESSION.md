@@ -37,7 +37,7 @@ Verification: `src/session/document-session.test.ts`, `src/session/room-session.
 When the host saves a revision of the pinned template newer than the pinned one (`templates.subscribe`), the session's document shall name it (`templateUpdate`), so the reader may move to it. `setTemplate(pin)` shall load and resolve another template or revision, show it, and count the new pin as a change to save. Of changes asked for in quick succession, as a reader's choice and another writer's pin, the last asked for shows, whichever load ends last; the others resolve false. When a store refresh or room reload changes the pin, the session shall show the resolved template with the new pin, reset the update notice and follow saves of the newly pinned template.
 
 Implementation: `src/session/session-follow.ts`, `src/session/template-change.ts`, `src/session/store-session.ts`, `src/session/store-refresh.ts`, `src/session/room-reload.ts`
-Verification: `src/session/document-session.test.ts`, `src/session/store-refresh.test.ts`, `src/session/room-reload.test.ts`
+Verification: `src/session/document-session.test.ts`, `src/session/store-refresh.test.ts`, `src/session/room-reload.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-1.6 - Sessions in React
 
@@ -219,7 +219,7 @@ Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 In store mode, while the document has unsaved changes, the session shall keep its content in the stored format, with its template pin and the revision it was edited from, through the host's `drafts` adapter once changes pause for `draftDelay` milliseconds (300 by default), so a reload or a crash does not lose it. A change to the template pin alone also schedules a draft. Once a save leaves nothing unsaved, the session shall remove the draft. The session shall apply puts and clears in the order they were requested for a document and read after any outstanding writes from a previous session.
 
 Implementation: `src/session/drafts.ts`, `src/session/draft-access.ts`, `src/session/store-session.ts`, `src/utils/trailing-timer.ts`
-Verification: `src/session/drafts.test.ts`, `src/utils/trailing-timer.test.ts`
+Verification: `src/session/drafts.test.ts`, `src/utils/trailing-timer.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-6.2 - Offering a draft
 

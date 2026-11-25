@@ -167,6 +167,13 @@ The template content lab shall show a template's preview in parts beside the tem
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
 
+### DOCE-LABS-3.8 - Host options in the full editor, history and session labs
+
+The full editor lab shall offer the host's options for the document it shows: proofing turned off and on (`isEnabled`), the first check run when the host says (`scheduleFirstCheck`), the reader's decisions the host keeps and gives back on opening (`ignored`, `disabledRules`, `onDecision`), its own normalising of completion answers (`normalize`), a template pin given to scripts and exports (`templatePin`), a markup choice it turns off saying why (`markupReasons`), a link to one of its records inside a script's output that keeps the selection under a secondary click (`contextMenu.keepSelection`), a script runner that keys its inputs (`scriptInputsKey`), abbreviations brought up to date on opening (`refreshAbbreviationsOnOpen`), and Open again, which gives the editor the document anew for the options read on opening. Its document holds abbreviations with each issue (`createAbbreviationHealth`), math that does not typeset with the host's text for it (`invalidMath`), and tables, which the host may keep footnotes out of (`citingPlaces`); a review scope picks chapters, which the outline highlights with their subheadings (`documentOutline` highlights) and a host decoration marks over the text they head. The history lab shall offer viewing a version as it is picked (`viewOnPick`) and a hook that changes a named version before it is saved, or saves none (`beforeVersion`). The session lab shall open a document pinned to a template, the host saving a newer revision of it while it is open, and one out of step with its template, and set the draft delay (`draftDelay`), showing what the drafts adapter last did.
+
+Implementation: `labs/src/full-editor.lab.tsx`, `labs/src/full-editor-options.tsx`, `labs/src/review-scope.tsx`, `labs/src/history.lab.tsx`, `labs/src/session.lab.tsx`
+Verification: `e2e/full-editor-options.spec.ts`, `e2e/history.spec.ts`, `e2e/session.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.

@@ -113,8 +113,13 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
   }
 
   // The first check waits for the host, or as long as one after a change, so it does not slow the
-  // editor's start.
-  const cancelFirst = options.scheduleFirstCheck?.(() => void run());
+  // editor's start. Until the host runs it, changes, such as the pages laid out, wait for it too.
+  let waitingForHost = false;
+  const cancelFirst = options.scheduleFirstCheck?.(() => {
+    waitingForHost = false;
+    void run();
+  });
+  waitingForHost = Boolean(cancelFirst);
   if (!cancelFirst) schedule(options.delay ?? 500);
   if (!enabled) publishEnabled(view, enabled);
   return {
@@ -130,7 +135,7 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
       if (was !== enabled || proofing?.generation !== proofingKey.getState(previous)?.generation) {
         return restart(0);
       }
-      if (!enabled || !changed) return;
+      if (!enabled || !changed || waitingForHost) return;
       // A collaborator's change waits for the running check rather than aborting it.
       if (proofing?.remoteChange && running) return;
       restart(options.delay ?? 500);

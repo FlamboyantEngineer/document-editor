@@ -300,7 +300,7 @@ Verification: `src/host/memory-host.test.ts`
 The in-memory host shall run scripts with `options.scripts`, giving it the request, and resolve with what it returns as the output's content, recording as its provenance's `inputs` the key `options.scriptInputsKey` gives the script, which it also gives as the runner's `inputsKey`, or an `unavailable` failure with the message of what it throws, give the names of `options.scriptVocabulary` and check a script with `options.checkScript`; without `options.scripts` it has no script runner.
 
 Implementation: `src/host/memory-host.ts`
-Verification: `src/host/memory-host.test.ts`
+Verification: `src/host/memory-host.test.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-HOST-3.10 - Driving an in-memory host
 

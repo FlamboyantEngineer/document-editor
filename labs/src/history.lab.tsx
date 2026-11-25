@@ -1,9 +1,11 @@
 // A document's named versions and history on the in-memory host: the history pane lists the
 // versions, automatic ones folded under named ones; the reader saves and names a version, views one
 // in place of the document with the template it pins, compares two, restores one, and returns to
-// the document with the markup and comments they had before the view.
+// the document with the markup and comments they had before the view. The host's options: a
+// version viewed as soon as it is picked (`viewOnPick`), and a hook that sees each named version
+// before it is saved (`beforeVersion`), adding the reviewer to its name or saving none.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -16,7 +18,11 @@ import {
 } from '../../src/components/index.js';
 import { createMemoryHost, FULL_CAPABILITIES } from '../../src/host/index.js';
 import type { DocumentFile, TemplateFile } from '../../src/model/index.js';
-import type { DocumentSession, DocumentVersions } from '../../src/session/index.js';
+import type {
+  DocumentSession,
+  DocumentVersions,
+  DocumentVersionsOptions,
+} from '../../src/session/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { LAB_FONTS } from './served-fonts.js';
@@ -69,6 +75,59 @@ async function saveHistory() {
 
 type Markup = 'all' | 'final';
 
+// What the host does with a named version before it is saved.
+type BeforeVersion = 'save' | 'sign' | 'refuse';
+
+// The choice the hook reads, since the versions keep the hook they were opened with.
+const CHOSEN = { current: 'save' as BeforeVersion };
+
+const beforeVersion: NonNullable<DocumentVersionsOptions['beforeVersion']> = (version) => {
+  if (CHOSEN.current === 'refuse') return null;
+  if (CHOSEN.current === 'save') return version;
+  return { ...version, label: `${version.label ?? 'Unnamed'} (reviewed by Ada)` };
+};
+
+// The host's options for the history.
+interface HostOptions {
+  viewOnPick: boolean;
+  beforeVersion: BeforeVersion;
+}
+
+function HostControls({
+  options,
+  onChange,
+}: {
+  options: HostOptions;
+  onChange: (options: HostOptions) => void;
+}) {
+  return (
+    <fieldset>
+      <legend>Host</legend>
+      <label>
+        <input
+          type="checkbox"
+          checked={options.viewOnPick}
+          onChange={(event) => onChange({ ...options, viewOnPick: event.target.checked })}
+        />{' '}
+        View on pick
+      </label>{' '}
+      <label>
+        Before a named version{' '}
+        <select
+          value={options.beforeVersion}
+          onChange={(event) =>
+            onChange({ ...options, beforeVersion: event.target.value as BeforeVersion })
+          }
+        >
+          <option value="save">Save it as named</option>
+          <option value="sign">Add the reviewer to its name</option>
+          <option value="refuse">Save none</option>
+        </select>
+      </label>
+    </fieldset>
+  );
+}
+
 // What the reader has beside the document, which a historical view keeps until they return.
 interface ReaderSettings {
   markup: Markup;
@@ -110,9 +169,11 @@ function Settings({
 function History({
   session,
   versions,
+  host,
 }: {
   session: DocumentSession;
   versions: DocumentVersions<ReaderSettings>;
+  host: { options: HostOptions; onChange: (options: HostOptions) => void };
 }) {
   const [settings, setSettings] = useState<ReaderSettings>({ markup: 'all', comments: true });
   const document = useSessionValue(session.document);
@@ -123,6 +184,7 @@ function History({
     <div className="lab-layout">
       <div>
         <Settings settings={settings} onChange={setSettings} />
+        <HostControls options={host.options} onChange={host.onChange} />
         <output aria-label="Showing">
           {view ? view.version.version.revision : 'The document'}
         </output>{' '}
@@ -150,6 +212,7 @@ function History({
           returnTo={settings}
           onReturn={setSettings}
           identity={HOST.identity}
+          viewOnPick={host.options.viewOnPick}
         />
       </aside>
     </div>
@@ -157,15 +220,19 @@ function History({
 }
 
 function Lab() {
+  const [options, setOptions] = useState<HostOptions>({ viewOnPick: false, beforeVersion: 'save' });
   const session = useDocumentSession({
     host: HOST,
     documentId: DOCUMENT_ID,
     mode: 'store',
     autosaveDelay: 800,
   });
-  const versions = useDocumentVersions<ReaderSettings>({ host: HOST, session });
+  useEffect(() => {
+    CHOSEN.current = options.beforeVersion;
+  }, [options.beforeVersion]);
+  const versions = useDocumentVersions<ReaderSettings>({ host: HOST, session, beforeVersion });
   if (!session || versions === null) return null;
-  return <History session={session} versions={versions} />;
+  return <History session={session} versions={versions} host={{ options, onChange: setOptions }} />;
 }
 
 const container = document.querySelector('#lab-editor');
