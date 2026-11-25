@@ -256,6 +256,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   return {
     ...engineSources(options),
     number: numbers.number,
+    numbersVersion: numbers.version,
     numbering: numbers.numbering,
     pageDigits: (count) => contents.pageDigits(count),
     contentsDrawn: selecting(select, (node, scope) =>

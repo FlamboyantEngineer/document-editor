@@ -71,6 +71,8 @@ export function markerKey(node: ProseMirrorNode, footnoteOf: NodeNumbers['footno
 function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const { headings, paragraphs } = documentNumbers(doc, template);
   const labels = captionNumbers(doc, template);
+  let footnotes: ReturnType<typeof footnotesOf> | null = null;
+  const footnotesOnce = () => (footnotes ??= footnotesOf(doc));
   const byNode = (): NodeNumbers => {
     const prefixes = new Map<ProseMirrorNode, string>();
     const numbered = new Map<ProseMirrorNode, ParagraphNumber>();
@@ -82,7 +84,7 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
       const node = doc.nodeAt(pos);
       if (node) numbered.set(node, number);
     }
-    const footnotes = footnotesOf(doc);
+    const footnotes = footnotesOnce();
     const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
     let equations: ReturnType<typeof equationNumbers> | null = null;
     const equationOf = (node: ProseMirrorNode) =>
@@ -112,20 +114,29 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     labelOf: labels.labelOf,
     labelsKey: labels.labelsKey,
   };
-  return { byNode, numbering };
+  // Each footnote's number by its id, in the order the markers first cite them, as one key.
+  const footnotesKey = () =>
+    [...footnotesOnce().byId].map(([id, number]) => `${id}=${number}`).join(',');
+  return { byNode, numbering, footnotesKey };
 }
 
 /** The measured document's numbers and the draw-only numbering of its projections. */
 export function holdNodeNumbers(template: TemplateFile) {
   let numbers = NO_NUMBERS;
+  let footnotes = '';
+  let version = 0;
   const drawn = new WeakMap<ProseMirrorNode, ReturnType<typeof numbersByNode>['numbering']>();
   return {
     current: () => numbers,
+    /** Moves whenever a document is numbered with other footnote numbers than the one before. */
+    version: () => version,
     number(doc: ProseMirrorNode) {
       if (numbers.doc === doc) return;
       const found = numbersByNode(doc, template);
       numbers = found.byNode();
       drawn.set(doc, found.numbering);
+      const key = found.footnotesKey();
+      if (key !== footnotes) [footnotes, version] = [key, version + 1];
     },
     numbering(doc: ProseMirrorNode) {
       const numbering = drawn.get(doc) ?? numbersByNode(doc, template).numbering;

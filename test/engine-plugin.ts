@@ -24,6 +24,7 @@ export function engineHeld(engine: PagesTextEngine): Plugin<ForcedLinesState> {
   const state: ForcedLinesState = {
     engine,
     version: 0,
+    numbers: 0,
     decorations: DecorationSet.empty,
     drawn: null,
     caret: -1,

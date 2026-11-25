@@ -222,6 +222,12 @@ export interface PagesTextEngine {
    * (DOCE-PAGINATION-12.10); null for math measured as drawn.
    */
   mathOf(node: ProseMirrorNode): PlacedMath | null;
+  /**
+   * A count that moves whenever the measured document is numbered with other footnote numbers, as
+   * an edit renumbers them, so what was drawn with the old numbers is drawn again
+   * (DOCE-PAGINATION-10.7).
+   */
+  numbersVersion?(): number;
   /** A count that moves whenever a math node is placed anew or the placements are forgotten. */
   mathVersion?(): number;
   /** Whether a host's layout rule sizes a node's type (DOCE-PAGINATION-14.1). */

@@ -35,6 +35,22 @@ describe('holdNodeNumbers', () => {
     expect(markers).toEqual(['1', '2']);
   });
 
+  it('DOCE-PAGINATION-10.7 moves its version only when a document numbers its footnotes otherwise', () => {
+    const numbers = holdNodeNumbers(BASE_TEMPLATE);
+    const before = numbers.version();
+    const cited = (...ids: string[]) =>
+      documentOf([{ type: 'paragraph', content: [text('One'), ...ids.map(note)] }]);
+    numbers.number(cited('n1', 'n2'));
+    const first = numbers.version();
+    expect(first).toBeGreaterThan(before);
+    // Another document whose footnotes keep their numbers.
+    numbers.number(cited('n1', 'n2'));
+    expect(numbers.version()).toBe(first);
+    // A footnote cited before the others renumbers them.
+    numbers.number(cited('n0', 'n1', 'n2'));
+    expect(numbers.version()).toBe(first + 1);
+  });
+
   it('DOCE-PAGINATION-12.10 gives each display equation the automatic number the pages draw, in its block key', () => {
     const file = readRegressionDocument('caption-numbering');
     const template = readRegressionTemplate(file.template?.id ?? 'regression-base');
