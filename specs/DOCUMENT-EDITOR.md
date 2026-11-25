@@ -669,10 +669,10 @@ Verification: `src/components/document-editor/banners.test.tsx`
 
 ### DOCE-EDITOR-7.3 - Fonts that did not load
 
-When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, after the pages were first shown (before, the pages are not shown, DOCE-EDITOR-4.29), the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing. When the pages cannot be laid out, since the host serves no shaper or font files for them or none can be read (DOCE-PAGINATION-12.5), the editor shall show a `danger` banner that is not dismissed (`pages-unavailable`, `pagesUnavailable`, "The pages cannot be laid out") saying why and that the document shows without pages, in fallback fonts.
+When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, after the pages were first shown (before, the pages are not shown, DOCE-EDITOR-4.29), the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font; it also names each template family no served face has, which the pages draw in the served body family (DOCE-PAGINATION-12.5). Dismissed, it stays hidden until other families are missing. When the pages cannot be laid out, since the host serves no shaper or font files for them or none can be read (DOCE-PAGINATION-12.5), the editor shall show a `danger` banner that is not dismissed (`pages-unavailable`, `pagesUnavailable`, "The pages cannot be laid out") saying why and that the document shows without pages, in fallback fonts.
 
-Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/banner-labels.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `src/components/document-editor/banners.test.tsx`, `e2e/text-layout.spec.ts`
+Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/banner-labels.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-editor-layout.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`, `src/components/document-editor/document-editor.test.tsx`, `e2e/text-layout.spec.ts`
 
 ### DOCE-EDITOR-7.4 - Banners wait for gestures
 

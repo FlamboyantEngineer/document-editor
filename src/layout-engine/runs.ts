@@ -226,8 +226,9 @@ function addVariable(
     at.boxes.push({ from: offset, to: offset + child.nodeSize, width });
     return null;
   }
-  if (!variables && !body) return 'template variable';
-  const text = (variables ? variables.get(key) : body?.text(key)) ?? '';
+  // Without either, as where no page variables draw it (a footnote area), the text it holds.
+  const value = variables ? variables.get(key) : body?.text(key);
+  const text = (variables || body ? value : child.textContent) ?? '';
   addText(run, { item: text ? { text, font, break: 'never' } : { width: 0 }, offset, box: null });
   return null;
 }
