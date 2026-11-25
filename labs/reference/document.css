@@ -238,10 +238,19 @@ div.de-host-view {
   border-width: calc(var(--de-rule-height) / 2);
 }
 
+/*
+ * The page content takes every text property from the template, never from the page around the
+ * editor, so text drawn with no style of its own matches the lines the engine laid out, on screen
+ * and in print (DOCE-EDITOR-6.19).
+ */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content {
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
+  font-weight: var(--doc-paragraph-font-weight, normal);
+  font-style: var(--doc-paragraph-font-style, normal);
   line-height: var(--doc-paragraph-line-height, 1.5);
+  letter-spacing: normal;
+  word-spacing: normal;
 }
 
 /*

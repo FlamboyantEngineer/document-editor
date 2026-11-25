@@ -56,16 +56,6 @@ const EDITING_ATTRIBUTES = [
 const EDITING_ELEMENTS = '.ProseMirror-gapcursor, .ProseMirror-separator';
 const ROOT_CLASS = 'de-document-editor';
 const SHEET_ATTRIBUTE = 'data-print-sheet';
-// The inherited text properties a snapshot takes from around the editor's pages.
-const INHERITED_TEXT = [
-  'font-family',
-  'font-size',
-  'font-weight',
-  'font-style',
-  'line-height',
-  'letter-spacing',
-  'color',
-];
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -150,18 +140,6 @@ function languageAttribute(view: EditorView): string {
   return language ? ` lang="${escapeHtml(language)}"` : '';
 }
 
-// The text style the pages inherit in the editor, from the page it is on, so text the template
-// and stylesheets leave unstyled prints as it shows there rather than in the browser's default.
-function inheritedText(view: EditorView): string {
-  const around = view.dom.parentElement;
-  const computed = around && view.dom.ownerDocument.defaultView?.getComputedStyle(around);
-  if (!computed) return '';
-  return INHERITED_TEXT.map((name) => [name, computed.getPropertyValue(name)] as const)
-    .filter(([, value]) => value)
-    .map(([name, value]) => `${name}: ${value};`)
-    .join(' ');
-}
-
 // The editor root's hooks around the pages, so stylesheets scoped to the editor style them too,
 // without the ones that describe the view; the snapshot is read, never edited, shows the markup
 // it was made with, and is marked as print (`data-print`) for a stylesheet's print overrides.
@@ -173,8 +151,7 @@ function rootMarkup(view: EditorView, pages: string, markup: SnapshotMarkup): st
     .map(({ name, value }) => ` ${name}="${escapeHtml(value)}"`)
     .join('');
   const hooks = `data-mode="reading" data-markup="${markup}" data-print="true"`;
-  const style = escapeHtml(inheritedText(view));
-  return `<div class="${ROOT_CLASS}" ${hooks}${data} style="${style}">${pages}</div>`;
+  return `<div class="${ROOT_CLASS}" ${hooks}${data}>${pages}</div>`;
 }
 
 /**
