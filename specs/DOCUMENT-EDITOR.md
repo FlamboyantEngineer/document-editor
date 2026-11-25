@@ -6,7 +6,7 @@
 
 ### DOCE-EDITOR-1.1 - Showing a document
 
-The editor shall render the state's document as a multi-line text box named by its `aria-label` or `aria-labelledby`, mark its root with its `layout`, how its pages lay text out (`data-text-layout`: `pretext` on pages with the `textLayout: 'pretext'` option and the fonts the host serves, DOCE-PAGINATION-11, `dom` otherwise, with why in `data-text-layout-reason`, DOCE-PAGINATION-12.5) and its mode (`authoring` while editable, `reading` otherwise), and set its template's values (`templateProperties`) on the root as `--doc-*` custom properties for the stylesheet.
+The editor shall render the state's document as a multi-line text box named by its `aria-label` or `aria-labelledby`, mark its root with its `layout`, how its pages lay text out (`data-text-layout`: `pretext` on pages, laid out with the fonts the host serves, DOCE-PAGINATION-11, `dom` in the web layout, and with why in `data-text-layout-reason` when the pages cannot be laid out and the document shows in the web layout instead, DOCE-PAGINATION-12.5) and its mode (`authoring` while editable, `reading` otherwise), and set its template's values (`templateProperties`) on the root as `--doc-*` custom properties for the stylesheet.
 
 Implementation: `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`
@@ -471,7 +471,7 @@ Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/hos
 
 ### DOCE-EDITOR-6.8 - The browser's own checks
 
-The document and its measuring view shall turn the browser's spelling check off (`spellcheck="false"`): the host's proofer checks the text (DOCE-PROOFING). Each page contains its layout and paint. With the layout engine's text layout (`textLayout: 'pretext'`), a page also skips its style and layout while off screen (`content-visibility: auto`, DOCE-PAGINATION-11.6), and the heading and object numbers are the engine's (DOCE-PAGINATION-11.9); with the DOM's, a page never contains its style, so those numbers, CSS counters, count across pages.
+The document and its measuring view shall turn the browser's spelling check off (`spellcheck="false"`): the host's proofer checks the text (DOCE-PROOFING). Each page contains its layout and paint. A page also skips its style and layout while off screen (`content-visibility: auto`, DOCE-PAGINATION-11.6), and the heading and object numbers are the engine's (DOCE-PAGINATION-11.9).
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/document.css`
 Verification: `e2e/document-editor.spec.ts`
@@ -669,10 +669,10 @@ Verification: `src/components/document-editor/banners.test.tsx`
 
 ### DOCE-EDITOR-7.3 - Fonts that did not load
 
-When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, after the pages were first shown (before, the pages are not shown, DOCE-EDITOR-4.29), the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing.
+When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, after the pages were first shown (before, the pages are not shown, DOCE-EDITOR-4.29), the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing. When the pages cannot be laid out, since the host serves no shaper or font files for them or none can be read (DOCE-PAGINATION-12.5), the editor shall show a `danger` banner that is not dismissed (`pages-unavailable`, `pagesUnavailable`, "The pages cannot be laid out") saying why and that the document shows without pages, in fallback fonts.
 
-Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/document-editor.tsx`
-Verification: `src/components/document-editor/banners.test.tsx`
+Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/banner-labels.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`, `e2e/text-layout.spec.ts`
 
 ### DOCE-EDITOR-7.4 - Banners wait for gestures
 
@@ -839,7 +839,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `data-layout`                           | attribute | `page`, `web`                                                          | How the document is laid out.                                                                                      |
 | `data-web-width`                        | attribute | `fill`, `page`, `sheet`                                                | How wide the web layout shows each section (DOCE-LAYOUT-4.4, 4.5).                                                 |
 | `data-text-layout`                      | attribute | `dom`, `pretext`                                                       | How the pages lay text out (DOCE-PAGINATION-11).                                                                   |
-| `data-text-layout-reason`               | attribute | `no-shaper`, `no-files`, `shaper-failed`, `files-failed`, `no-faces`   | Why the pages keep the browser's layout though `textLayout: 'pretext'` was asked for (DOCE-PAGINATION-12.5).       |
+| `data-text-layout-reason`               | attribute | `no-shaper`, `no-files`, `shaper-failed`, `files-failed`, `no-faces`   | Why the pages cannot be laid out, so the document shows in the web layout (DOCE-PAGINATION-12.5).                  |
 | `data-mode`                             | state     | `authoring`, `reading`                                                 | Whether the writer can edit.                                                                                       |
 | `data-scrollable`                       | state     | `true`                                                                 | The editor scrolls the document itself.                                                                            |
 | `data-formatting-marks`                 | state     | `true`                                                                 | Formatting marks show (DOCE-EDITOR-4.25).                                                                          |

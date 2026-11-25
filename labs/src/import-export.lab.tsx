@@ -41,7 +41,7 @@ import {
 } from '../../src/model/index.js';
 import { chapter, heading, text, variable } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 // A template with a locked cover, the body that takes what is read, and an appendix.
 const LAB_TEMPLATE: TemplateFile = {
@@ -459,7 +459,7 @@ function Lab() {
         </fieldset>
       </div>
       <DocumentEditor
-        {...LAB_TEXT_LAYOUT}
+        fonts={LAB_FONTS}
         key={opened.revision}
         state={opened.state}
         onStateChange={(update) =>

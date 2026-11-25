@@ -4,7 +4,7 @@ import { expect, test, waitForLab } from './fixtures.js';
 
 // The served fonts through an editor's and a viewer's life (specs/PAGINATION.md
 // DOCE-PAGINATION-12.7, DOCE-PAGINATION-12.8): the regression lab's long-mixed document with
-// `textLayout=pretext`, served Arimo, Cousine and Tinos, or Cousine's files under every family
+// served Arimo, Cousine and Tinos, or Cousine's files under every family
 // (`fonts=cousine`), so a swapped adapter or a second surface is told apart by its lines and widths.
 
 declare global {
@@ -14,7 +14,7 @@ declare global {
 }
 
 async function open(page: Page, fonts: 'lab' | 'cousine' = 'lab') {
-  await page.goto(`regression.html?document=long-mixed&textLayout=pretext&fonts=${fonts}`);
+  await page.goto(`regression.html?document=long-mixed&fonts=${fonts}`);
   await waitForLab(page);
 }
 
@@ -100,7 +100,7 @@ test.describe('surfaces drawing other files under one family', () => {
   test('DOCE-PAGINATION-12.8 keeps each surface in its own files through mount and unmount', async ({
     page,
   }) => {
-    await page.goto('regression.html?textLayout=pretext');
+    await page.goto('regression.html');
     await waitForLab(page);
     await page.evaluate(() => {
       const text = 'The widths of these letters differ between the two served faces.';

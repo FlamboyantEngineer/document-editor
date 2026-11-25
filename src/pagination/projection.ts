@@ -340,7 +340,9 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
   const live = startSession(options, session);
   current = live;
   const unlisten = remeasureGhost(live);
-  layout(live);
+  // The text is laid out with the layout engine once it loads, never measured before it.
+  if (live.pace.text && live.pace.ready.waiting()) live.pace.readiness.pending();
+  else layout(live);
   const mounted = bindProjectionView(live);
   return {
     get state() {

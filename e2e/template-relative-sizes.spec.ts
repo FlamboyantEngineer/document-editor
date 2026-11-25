@@ -4,13 +4,10 @@ import { expect, test, waitForLab } from './fixtures.js';
 // Relative sizes and caption fallbacks drawn as the text layout engine resolves them (specs/
 // TEMPLATES.md DOCE-TEMPLATES-5.2, specs/PAGINATION.md DOCE-PAGINATION-9.2): with a 150%
 // paragraph at 1.5, the paragraph is 18px at a line height of 27px, an unset heading 1 is 2em of it, 36px,
-// and unset table, figure and code captions take the paragraph's font at its line height, in both
-// text layout modes.
+// and unset table, figure and code captions take the paragraph's font at its line height.
 
-async function open(page: Page, textLayout: 'dom' | 'pretext') {
-  await page.goto(
-    `regression.html?document=caption-numbering&relativeSizes&textLayout=${textLayout}`,
-  );
+async function open(page: Page) {
+  await page.goto('regression.html?document=caption-numbering&relativeSizes');
   await waitForLab(page);
 }
 
@@ -44,19 +41,17 @@ const readSizes = (page: Page) =>
     };
   });
 
-for (const textLayout of ['dom', 'pretext'] as const) {
-  test(`DOCE-TEMPLATES-5.2 DOCE-PAGINATION-9.2 draws relative sizes against the paragraph's, ${textLayout}`, async ({
-    page,
-  }) => {
-    await open(page, textLayout);
-    const sizes = await readSizes(page);
-    expect(sizes.paragraph).toMatchObject({ size: '18px', lineHeight: '27px' });
-    expect(sizes.heading?.size).toBe('36px');
-    for (const kind of ['table', 'figure', 'code'] as const) {
-      const { text, label } = sizes[kind];
-      expect(text, kind).toEqual({ ...sizes.paragraph, weight: sizes.paragraph?.weight });
-      expect(label?.size, kind).toBe('18px');
-      expect(label?.family, kind).toBe(sizes.paragraph?.family);
-    }
-  });
-}
+test("DOCE-TEMPLATES-5.2 DOCE-PAGINATION-9.2 draws relative sizes against the paragraph's", async ({
+  page,
+}) => {
+  await open(page);
+  const sizes = await readSizes(page);
+  expect(sizes.paragraph).toMatchObject({ size: '18px', lineHeight: '27px' });
+  expect(sizes.heading?.size).toBe('36px');
+  for (const kind of ['table', 'figure', 'code'] as const) {
+    const { text, label } = sizes[kind];
+    expect(text, kind).toEqual({ ...sizes.paragraph, weight: sizes.paragraph?.weight });
+    expect(label?.size, kind).toBe('18px');
+    expect(label?.family, kind).toBe(sizes.paragraph?.family);
+  }
+});

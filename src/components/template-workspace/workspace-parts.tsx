@@ -5,7 +5,7 @@ import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { TabsContent } from '@flamboyantengineer/ui-components/tabs';
 import { lazy, type ReactNode, type Ref, Suspense } from 'react';
-import type { ScriptRunnerAdapter, VariablesAdapter } from '../../host/adapters.js';
+import type { FontsAdapter, ScriptRunnerAdapter, VariablesAdapter } from '../../host/adapters.js';
 import type { AssetAdapter } from '../../host/asset-adapters.js';
 import { withTemplatePart } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
@@ -146,6 +146,7 @@ interface PreviewProps extends PartProps {
   readonly layout: DocumentLayout;
   readonly renderPreview?: ((preview: TemplatePreview) => ReactNode) | undefined;
   readonly assets?: AssetAdapter | undefined;
+  readonly pageFonts?: FontsAdapter | undefined;
   readonly variables?: VariablesAdapter | undefined;
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
 }
@@ -181,6 +182,7 @@ export function WorkspacePreview({ workspace, labels, scope, layout, ...props }:
             key={[resolved.id, scope ?? '', layout, viewing?.version.revision ?? ''].join('\n')}
             preview={preview}
             assets={props.assets}
+            fonts={props.pageFonts}
             variables={props.variables}
             scriptRunner={props.scriptRunner}
             aria-label={labels.previewDocument}

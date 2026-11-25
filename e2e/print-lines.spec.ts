@@ -37,7 +37,7 @@ const NAMES: readonly RegressionDocumentName[] = [
 
 async function open(page: Page, name: RegressionDocumentName) {
   await page.setViewportSize(ROOMY);
-  await page.goto(`regression.html?document=${name}&textLayout=pretext`);
+  await page.goto(`regression.html?document=${name}`);
   await waitForLab(page);
 }
 

@@ -15,7 +15,7 @@ import type { DocumentSession } from '../../src/session/index.js';
 import { createSessionRooms } from '../../test/session-rooms.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const DOCUMENT_ID = 'lab';
 
@@ -103,7 +103,7 @@ function Reader({ person }: { person: { id: string; name: string } }) {
       >
         {(props) => (
           <DocumentEditor
-            {...LAB_TEXT_LAYOUT}
+            fonts={LAB_FONTS}
             {...props}
             statusBar
             aria-label={`${person.name}'s document`}

@@ -23,7 +23,7 @@ const EDITOR = '.de-document-editor__content:not(.de-document-viewer *)';
 // The long table with a note on the heading before it and one in its first header cell, under a
 // template that numbers footnotes from 1 on each page.
 async function openNotes(page: Page) {
-  await page.goto('regression.html?document=table-long-repeated-header&textLayout=pretext');
+  await page.goto('regression.html?document=table-long-repeated-header');
   await waitForLab(page);
   await page.evaluate((template) => {
     const file = window.regressionLab.stored();

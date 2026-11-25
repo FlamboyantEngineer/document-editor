@@ -1,4 +1,4 @@
-// The labs' fonts host for `textLayout=pretext` (DOCE-HOST-1.14.1): HarfBuzz and the font files in
+// The labs' fonts host (DOCE-HOST-1.14.1): HarfBuzz and the font files in
 // `labs/build/fonts/`. The regression templates name Arial, Courier New and the generic serif, which
 // the labs serve as Arimo, Cousine and Tinos (as Times New Roman), faces with the same metrics, so
 // documents keep their look on every machine; Lab Geist and Lab Geist Mono are Geist's own. A

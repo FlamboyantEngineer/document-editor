@@ -5,6 +5,7 @@
 import { Announcer } from '@flamboyantengineer/ui-components/announcer';
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import { type ReactNode, type RefObject, useState } from 'react';
+import type { BrowserLayoutReason } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentBanners } from './banners.js';
 import { DebugPane, debugPaneView } from './debug-pane.js';
@@ -39,6 +40,8 @@ interface EditorSurfaceProps {
   readonly openDialog: (dialog: ObjectDialog) => void;
   /** The template's font families that did not load. */
   readonly missingFonts: readonly string[];
+  /** Why the pages cannot be laid out, so the document shows unpaged; null while they can. */
+  readonly pagesUnavailable: BrowserLayoutReason | null;
   /** Where the pages stand against their first layout. */
   readonly firstLayout: FirstLayout;
   /** Where the pages are measured, in page layout; the debugging pane holds its element. */
@@ -113,7 +116,8 @@ function EditorBanners({
   chrome: { props, context, view },
   root,
   missingFonts,
-}: Pick<EditorSurfaceProps, 'chrome' | 'root' | 'missingFonts'>) {
+  pagesUnavailable,
+}: Pick<EditorSurfaceProps, 'chrome' | 'root' | 'missingFonts' | 'pagesUnavailable'>) {
   return (
     <DocumentBanners
       root={root}
@@ -125,6 +129,7 @@ function EditorBanners({
       labels={context.labels}
       banners={props.banners}
       missingFonts={missingFonts}
+      pagesUnavailable={pagesUnavailable}
       session={props.session}
     />
   );
@@ -137,6 +142,7 @@ export function EditorSurface({
   root,
   openDialog,
   missingFonts,
+  pagesUnavailable,
   firstLayout,
   measureIn,
   children,
@@ -182,24 +188,23 @@ export function EditorSurface({
             chrome={chrome}
             root={root}
             missingFonts={firstLayout === 'shown' ? missingFonts : NO_FONTS}
+            pagesUnavailable={pagesUnavailable}
           />
         }
       >
         {props.scrollable ? (
-          <>
-            <ScrollRegion
-              {...hooks.slot('viewport')}
-              ref={setRegion}
-              role="region"
-              aria-label={context.labels.viewport}
-              axis="both"
-              scrollbar={overviewLayers ? 'native' : 'overlay'}
-              overviewLayers={overviewLayers}
-              tabIndex={0}
-            >
-              {content}
-            </ScrollRegion>
-          </>
+          <ScrollRegion
+            {...hooks.slot('viewport')}
+            ref={setRegion}
+            role="region"
+            aria-label={context.labels.viewport}
+            axis="both"
+            scrollbar={overviewLayers ? 'native' : 'overlay'}
+            overviewLayers={overviewLayers}
+            tabIndex={0}
+          >
+            {content}
+          </ScrollRegion>
         ) : (
           content
         )}

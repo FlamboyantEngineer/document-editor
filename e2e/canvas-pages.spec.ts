@@ -54,7 +54,7 @@ test('DOCE-EDITOR-1.9 paints every page into a canvas of its exact device pixels
   // of 1.25 and 19.7 s at 2 on dev, and 26.0 s and 30.8 s on a slower runner, past the default 30 s.
   test.setTimeout(90_000);
   for (const zoom of [50, 75, 100, 125, 150]) {
-    await open(page, `document=long-mixed&textLayout=pretext&zoom=${String(zoom)}`);
+    await open(page, `document=long-mixed&zoom=${String(zoom)}`);
     const pages = page.locator('.de-document-editor__content .pm-page');
     await expect(page.locator(`${CANVAS} > .pm-page`)).toHaveCount(await pages.count());
     const first = page.locator(CANVAS).first();
@@ -67,7 +67,7 @@ test('DOCE-EDITOR-1.9 paints every page into a canvas of its exact device pixels
 });
 
 test('DOCE-EDITOR-1.9 typing edits the page and paints it again', async ({ page }) => {
-  await open(page, 'document=long-mixed&textLayout=pretext');
+  await open(page, 'document=long-mixed');
   const canvas = page.locator(CANVAS).first();
   const paragraph = canvas.locator('.pm-page-content p').first();
   await expect.poll(() => pixelsOf(canvas)).not.toBe('');

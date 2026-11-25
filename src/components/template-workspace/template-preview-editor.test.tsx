@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { TEST_FONTS } from '../../../test/served-fonts.js';
 import { LOADED, saveButton, SLOW, storeOf } from '../../../test/template-workspace.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import type { AssetAdapter, ScriptRunnerAdapter } from '../../host/index.js';
@@ -64,7 +65,13 @@ describe('the workspace’s own preview', () => {
     'DOCE-TEMPLATE-EDITOR-3.16 DOCE-ENTRY-2.5 previews the tab shown, a section alone on its tab',
     async () => {
       const user = userEvent.setup();
-      render(<TemplateWorkspace store={storeOf(REPORT)} defaultTemplateId="report" />);
+      render(
+        <TemplateWorkspace
+          store={storeOf(REPORT)}
+          defaultTemplateId="report"
+          pageFonts={TEST_FONTS}
+        />,
+      );
       const preview = await screen.findByRole('region', { name: 'Template preview' }, LOADED);
       // The preview loads on first use, then shows the sample and each section's two parts.
       await waitFor(
@@ -81,6 +88,15 @@ describe('the workspace’s own preview', () => {
       expect(
         within(preview).getByRole('textbox', { name: 'Template preview document' }),
       ).toBeInTheDocument();
+      // Its pages are laid out with the host's fonts.
+      await waitFor(
+        () =>
+          expect(preview.querySelector('.de-document-editor')).toHaveAttribute(
+            'data-text-layout',
+            'pretext',
+          ),
+        LOADED,
+      );
       await user.click(screen.getByRole('tab', { name: 'Cover page' }));
       await waitFor(
         () => expect(partsShown()).toEqual(['content', 'placeholder', 'sample']),
@@ -143,6 +159,7 @@ function Content({ onLayoutChange }: { onLayoutChange?: () => void }) {
       onStateChange={setState}
       template={REPORT}
       layout="page"
+      fonts={TEST_FONTS}
       onLayoutChange={onLayoutChange}
       onZoomChange={() => undefined}
       zoomLevels={TEMPLATE_PREVIEW_ZOOM_LEVELS}

@@ -222,16 +222,14 @@ export interface DocumentEditorProps
   telemetry?: TelemetryAdapter | undefined;
   /**
    * The host's font faces: the pages load the families the template names through it and stay
-   * pending until they load, fail or time out (DOCE-PAGINATION-5.6).
+   * pending until they load, fail or time out (DOCE-PAGINATION-5.6). The pages are laid out with the
+   * shaper and the font files it serves (`shaper`, `files`, DOCE-HOST-1.14.1); without them the
+   * document shows in the web layout, in fallback fonts, with a banner saying why
+   * (DOCE-PAGINATION-12.5).
    */
   fonts?: FontsAdapter | undefined;
   /** How long the pages wait for the template's fonts, in milliseconds; `FONT_TIMEOUT` by default. */
   fontTimeout?: number | undefined;
-  /**
-   * How the pages lay their text out: measured in the DOM (`dom`, the default), or computed by the
-   * layout engine and drawn on its lines (`pretext`, DOCE-PAGINATION-11). Read when the pages mount.
-   */
-  textLayout?: 'dom' | 'pretext' | undefined;
   /** How the pages are painted: as HTML (`dom`), or each into a canvas (`html-canvas`, DOCE-EDITOR-1.9). */
   rendering?: 'dom' | 'html-canvas' | undefined;
   /**

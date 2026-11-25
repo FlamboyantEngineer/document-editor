@@ -230,7 +230,7 @@ test.describe('table handles', () => {
   }) => {
     // Under the layout engine the pages draw tables at the widths the engine gives their columns
     // (`table-layout: fixed`, DOCE-PAGINATION-10.5); a resize starts from them and keeps them.
-    await page.goto('regression.html?document=table-rich-cells&textLayout=pretext');
+    await page.goto('regression.html?document=table-rich-cells');
     await waitForLab(page);
     const first = cell(page, 'Kind');
     const second = cell(page, 'Content');
@@ -260,7 +260,7 @@ test.describe('table handles', () => {
   test('DOCE-TABLES-3.7 widens the last column no further than the page content on the layout engine’s fixed table layout', async ({
     page,
   }) => {
-    await page.goto('regression.html?document=table-merged-cells&textLayout=pretext');
+    await page.goto('regression.html?document=table-merged-cells');
     await waitForLab(page);
     const table = content(page).locator('table').first();
     const last = table.locator('tr').first().locator('th, td').last();

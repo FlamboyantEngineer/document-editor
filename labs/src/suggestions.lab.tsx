@@ -27,7 +27,7 @@ import {
 } from '../../src/model/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -127,7 +127,7 @@ function Lab() {
           ))}
         </fieldset>
         <DocumentEditor
-          {...LAB_TEXT_LAYOUT}
+          fonts={LAB_FONTS}
           state={state}
           onStateChange={setState}
           template={TEMPLATE}

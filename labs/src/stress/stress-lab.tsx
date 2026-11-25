@@ -96,11 +96,6 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
   return sizes?.find(({ value }) => value === asked)?.value ?? sizes?.[0]?.value ?? 1;
 }
 
-// The text is laid out with the layout engine and drawn on its lines (DOCE-PAGINATION-11);
-// `?textLayout=dom` measures it in the DOM.
-const TEXT_LAYOUT =
-  new URLSearchParams(window.location.search).get('textLayout') === 'dom' ? 'dom' : 'pretext';
-
 // `?rendering=html-canvas` paints each page into a canvas (DOCE-EDITOR-1.9), so the budgets can be
 // measured with it.
 const RENDERING =
@@ -262,8 +257,7 @@ function StressLab({
         onStateChange={setState}
         template={TEMPLATE}
         layout={layout}
-        textLayout={TEXT_LAYOUT}
-        fonts={TEXT_LAYOUT === 'pretext' ? LAB_FONTS : undefined}
+        fonts={LAB_FONTS}
         rendering={RENDERING}
         toolbar={completion ? TOOLBAR : undefined}
         scrollable

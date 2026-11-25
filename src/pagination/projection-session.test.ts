@@ -9,6 +9,7 @@ import {
   stubLayout,
   textOf,
 } from '../../test/projection-fixtures.js';
+import { BASE_TEMPLATE } from '../model/index.js';
 import { createPagedProjection } from './projection.js';
 
 // Counts the times a focused view of the pages scrolls to its selection.
@@ -58,6 +59,23 @@ describe('scrolling to the selection on the pages', () => {
 });
 
 describe('starting the projection', () => {
+  it('DOCE-PAGINATION-12.5 lays nothing out before the layout engine has loaded with the served fonts', () => {
+    stubLayout({});
+    const projection = createPagedProjection({
+      measureIn: document.body.appendChild(document.createElement('div')),
+      state: canonicalState(),
+      pageHeight: 1000,
+      settle: 0,
+      schedule: () => () => undefined,
+      dispatch: () => undefined,
+      onProjection: () => undefined,
+      textLayout: { template: () => BASE_TEMPLATE, fonts: new Promise<never>(() => undefined) },
+    });
+    expect(projection.stats().layouts).toBe(0);
+    expect(projection.layoutState()).toBe('pending');
+    projection.destroy();
+  });
+
   it('DOCE-PAGINATION-7.10 dispatches nothing as it starts, and keeps the canonical selection', () => {
     stubLayout({});
     const start = canonicalState();

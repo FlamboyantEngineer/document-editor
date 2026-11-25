@@ -1,8 +1,8 @@
-// The served fonts of an editor whose pages lay their text out with the layout engine
-// (`textLayout: 'pretext'`, DOCE-HOST-1.14.1): the shaper and the template's faces asked for once,
-// their faces drawn on the pages until the editor goes, the template the pages are drawn in with
-// the served family for each generic keyword (DOCE-PAGINATION-12.5), and the browser's layout,
-// with its reason, when the host serves neither.
+// The served fonts an editor's pages lay their text out with on the layout engine
+// (DOCE-HOST-1.14.1): the shaper and the template's faces asked for once, their faces drawn on the
+// pages until the editor goes, the template the pages are drawn in with the served family for each
+// generic keyword (DOCE-PAGINATION-12.5), and, when the host serves neither, the reason, with the
+// document shown in the web layout in fallback fonts instead of pages.
 
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FontsAdapter } from '../../host/adapters.js';
@@ -24,7 +24,7 @@ import { useReportedFonts } from './banners.js';
 /** The pages' text layout, the served fonts it measures with, and why it is the browser's. */
 export interface PagesFontsState {
   readonly textLayout: TextLayoutMode;
-  /** Why the browser lays the pages out though `textLayout: 'pretext'` was asked for. */
+  /** Why the pages cannot be laid out, so the document shows in the web layout instead. */
   readonly reason: BrowserLayoutReason | null;
   /**
    * The served fonts, read as the pages start; a new reader for each fonts adapter, so the pages
@@ -38,7 +38,6 @@ export interface PagesFontsState {
 interface PagesFontsProps {
   readonly fonts?: FontsAdapter | undefined;
   readonly template: TemplateFile;
-  readonly textLayout?: TextLayoutMode | undefined;
   readonly layout?: 'page' | 'web' | undefined;
 }
 
@@ -68,7 +67,7 @@ function usePagesFonts(
   props: PagesFontsProps,
   measureIn: RefObject<HTMLElement | null>,
 ): { readonly text: PagesFontsState; readonly template: TemplateFile } {
-  const asked = (props.layout ?? 'page') === 'page' && props.textLayout === 'pretext';
+  const asked = (props.layout ?? 'page') === 'page';
   const [reason, setReason] = useState<BrowserLayoutReason | null>(null);
   const [drawn, setDrawn] = useState(NONE);
   const loading = useRef<{ fonts: FontsAdapter | undefined; promise: Promise<PagesFonts> } | null>(
@@ -125,8 +124,9 @@ function usePagesFonts(
 }
 
 /**
- * The editor's props as its pages are drawn, with the template in its served families; the host's
- * fonts, reported as they load; and the pages' text layout.
+ * The editor's props as its pages are drawn, with the template in its served families, and in the
+ * web layout when the pages cannot be laid out without the fonts the host serves; the host's fonts,
+ * reported as they load; and the pages' text layout.
  */
 export function useShownFonts<Props extends PagesFontsProps & { fontTimeout?: number | undefined }>(
   props: Props,
@@ -134,6 +134,8 @@ export function useShownFonts<Props extends PagesFontsProps & { fontTimeout?: nu
 ) {
   const reported = useReportedFonts(props.fonts, props.fontTimeout);
   const { text, template } = usePagesFonts({ ...props, fonts: reported.fonts }, measureIn);
-  const shown = template === props.template ? props : { ...props, template };
+  const unpaged = text.reason ? { layout: 'web' as const } : {};
+  const shown =
+    template === props.template && !text.reason ? props : { ...props, template, ...unpaged };
   return { props: shown, reported, text };
 }

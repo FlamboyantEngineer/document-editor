@@ -77,14 +77,25 @@ function timingFault(name: RegressionDocumentName, mode: Mode, found: GeometryMi
   return SOMETIMES[`${name} ${mode}`]?.[placeOf(found)];
 }
 
-async function open(page: Page, name: RegressionDocumentName, textLayout: Mode) {
-  await page.goto(`regression.html?document=${name}&textLayout=${textLayout}&debug`);
+async function open(page: Page, name: RegressionDocumentName) {
+  await page.goto(`regression.html?document=${name}&debug`);
   await waitForLab(page);
   // Every page on forced lines, not only those near the screen (DOCE-PAGINATION-11.6).
   await page.evaluate(async () => {
     window.regressionLab.drawAllLines(true);
     await new Promise((resolve) => setTimeout(resolve, 100));
     await document.fonts.ready;
+    // Each image settled, loaded or failed: a lazy one on a far page starts only once it is near
+    // the screen, and the pages measured nothing before the layout engine loaded.
+    const images = document.querySelectorAll<HTMLImageElement>('.de-document-editor__content img');
+    for (const image of images) {
+      if (image.complete) continue;
+      image.scrollIntoView({ block: 'center' });
+      await new Promise((resolve) => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', resolve, { once: true });
+      });
+    }
     return window.stressLab.whenSettled();
   });
 }
@@ -97,7 +108,7 @@ test.describe('DOCE-LABS-8.10 planned block geometry is the drawn one', () => {
     for (const mode of MODES) {
       test(`DOCE-LABS-8.10 ${name} with ${mode} text layout`, async ({ page }, testInfo) => {
         test.skip(testInfo.project.name !== 'chromium', 'checked at a device pixel ratio of 1');
-        await open(page, name, mode);
+        await open(page, name);
         const found = await readBlockGeometry(page);
         const known = KNOWN[`${name} ${mode}`] ?? {};
         const unknown = found.filter(
@@ -114,7 +125,7 @@ test.describe('DOCE-LABS-8.10 planned block geometry is the drawn one', () => {
   test('DOCE-PAGINATION-3.6 draws each part of a paragraph split after its hard breaks as planned', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     // Lines of text, each followed by two hard breaks, so splits fall both after a line's text
     // and after the empty line between the breaks.
     await page.evaluate(() => {
@@ -147,7 +158,7 @@ test.describe('DOCE-LABS-8.10 planned block geometry is the drawn one', () => {
   test('DOCE-LABS-8.10 a block drawn taller or lower than planned fails the check', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     expect(await readBlockGeometry(page)).not.toContainEqual(
       expect.objectContaining({ kind: 'overflow' }),
     );

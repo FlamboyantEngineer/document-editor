@@ -5,14 +5,12 @@ import {
 } from '../labs/src/regression/regression-documents.js';
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
-import { overflowingPages } from './block-geometry.js';
 import { drawnNumbers } from './drawn-numbers.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // The pages laid out and drawn with the text layout engine (specs/PAGINATION.md
-// DOCE-PAGINATION-11): each regression document with `textLayout=pretext`, its forced blocks drawn
-// on exactly the lines the engine computed, and no page overflowing that does not with the DOM's
-// measuring.
+// DOCE-PAGINATION-11): each regression document's forced blocks drawn on exactly the lines the
+// engine computed.
 
 declare global {
   interface Window {
@@ -25,27 +23,14 @@ const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 
 // With the layout debugging, whose page room the overflow check reads (DOCE-LABS-8.10), unless
 // `plain`: its height labels take the place of generated numbers.
-async function open(
-  page: Page,
-  name: RegressionDocumentName,
-  textLayout: 'dom' | 'pretext',
-  plain = false,
-) {
-  await page.goto(
-    `regression.html?document=${name}&textLayout=${textLayout}${plain ? '' : '&debug'}`,
-  );
+async function open(page: Page, name: RegressionDocumentName, plain = false) {
+  await page.goto(`regression.html?document=${name}${plain ? '' : '&debug'}`);
   await waitForLab(page);
 }
 
-// What the pages drew: the forced blocks' computed lines, the guard's faults, the engine's lines
-// and the pages whose content the browser drew past their room.
-const readPages = async (page: Page) => ({
-  ...(await readLines(page)),
-  overflow: await overflowingPages(page),
-});
-
-// A header's, footer's or footnote area's block has no element id: it is named by its page, its
-// region and its index in it.
+// What the pages drew: the forced blocks' computed lines, the guard's faults and the engine's
+// lines. A header's, footer's or footnote area's block has no element id: it is named by its page,
+// its region and its index in it.
 const readLines = (page: Page) =>
   page.evaluate(() => {
     const key = (id: string, part: number) => `${id}#${String(part)}`;
@@ -88,26 +73,20 @@ const readLines = (page: Page) =>
 
 test.describe('the layout engine on the pages', () => {
   for (const name of NAMES) {
-    test(`DOCE-PAGINATION-11.2 DOCE-PAGINATION-11.4 draws ${name} on the engine's lines`, async ({
+    test(`DOCE-LABS-6.1 DOCE-PAGINATION-11.2 DOCE-PAGINATION-11.4 draws ${name} on the engine's lines`, async ({
       page,
     }) => {
-      await open(page, name, 'dom');
-      const measured = await readPages(page);
-      expect(measured.forced).toEqual([]);
-      await open(page, name, 'pretext');
-      const laid = await readPages(page);
+      await open(page, name);
+      const laid = await readLines(page);
       expect(laid.wrapped).toEqual([]);
       expect(laid.mismatched).toEqual([]);
-      // Content drawn past its page's room, not the page content's own box, which grows with it
-      // (DOCE-LABS-8.10 names each overflow by its fault).
-      expect(laid.overflow.length).toBeLessThanOrEqual(measured.overflow.length);
     });
   }
 
   test('DOCE-PAGINATION-11.1 DOCE-PAGINATION-11.2 keeps a typed paragraph on the engine lines', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const before = await page.evaluate(() => {
       const block = window.regressionLab
         .textLines()[0]
@@ -123,7 +102,7 @@ test.describe('the layout engine on the pages', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       return window.stressLab.whenSettled();
     });
-    const after = await readPages(page);
+    const after = await readLines(page);
     expect(after.wrapped).toEqual([]);
     expect(after.mismatched).toEqual([]);
     await expect(paragraph).toContainText('lines of this paragraph');
@@ -132,7 +111,7 @@ test.describe('the layout engine on the pages', () => {
   test('DOCE-PAGINATION-9.12 draws a paragraph that starts right to left from the right, on the engine lines', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const id = await page.evaluate(
       () =>
         window.regressionLab
@@ -150,7 +129,7 @@ test.describe('the layout engine on the pages', () => {
       return window.stressLab.whenSettled();
     });
     await expect(paragraph).toHaveAttribute('dir', 'rtl');
-    const after = await readPages(page);
+    const after = await readLines(page);
     expect(after.wrapped).toEqual([]);
     expect(after.mismatched).toEqual([]);
     // Every line starts at the right edge: the rightmost box of each drawn line meets it.
@@ -173,7 +152,7 @@ test.describe('the layout engine on the pages', () => {
   test('DOCE-PAGINATION-11.6 draws on forced lines only the pages near the screen', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const pages = page.locator('.de-document-editor__content .pm-page');
     // The pages holding forced blocks, by index.
     const forcedPages = () =>
@@ -193,7 +172,7 @@ test.describe('the layout engine on the pages', () => {
     // Beside the pages near the end, only the first stays drawn: it holds the caret.
     const far = (await forcedPages()).filter((index) => index > 0 && index < last - 4);
     expect(far).toEqual([]);
-    const after = await readPages(page);
+    const after = await readLines(page);
     expect(after.wrapped).toEqual([]);
     expect(after.mismatched).toEqual([]);
   });
@@ -201,7 +180,7 @@ test.describe('the layout engine on the pages', () => {
   test('DOCE-PAGINATION-11.6 draws a page on forced lines before it scrolls into view', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     // Scrolls the document so a page starts a quarter of a screen below the visible area, and
     // tells whether that page is drawn on forced lines.
     const justBelow = (index: number) =>
@@ -233,7 +212,7 @@ test.describe('the layout engine on the pages', () => {
   });
 
   test('DOCE-PAGINATION-11.6 snapshots every page on the engine lines', async ({ page }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const counts = await page.evaluate(() => {
       const html = window.regressionLab.snapshot() ?? '';
       const snapshot = new DOMParser().parseFromString(html, 'text/html');
@@ -254,7 +233,7 @@ test.describe('the layout engine on the pages', () => {
   test('DOCE-HOST-1.14.2 draws the pages without a synthesised bold or italic', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const synthesis = await page.evaluate(() => {
       const sheet = document.querySelector<HTMLElement>('.de-document-editor__content .pm-page');
       return sheet ? getComputedStyle(sheet).fontSynthesis : null;
@@ -265,7 +244,7 @@ test.describe('the layout engine on the pages', () => {
   test('DOCE-PAGINATION-11.6 keeps every page on the engine lines through a snapshot when the host asked', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const forced = () => page.evaluate(() => document.querySelectorAll('.de-forced-lines').length);
     const computed = await page.evaluate(
       () =>
@@ -283,38 +262,62 @@ test.describe('the layout engine on the pages', () => {
     await expect.poll(forced).toBeLessThan(computed);
   });
 
-  test('DOCE-PAGINATION-11.9 draws every heading, caption and equation number as without the option', async ({
+  test('DOCE-PAGINATION-11.9 draws every heading, caption and equation number the template gives', async ({
     page,
   }) => {
-    await open(page, 'caption-numbering', 'dom', true);
-    const measured = await drawnNumbers(page);
-    expect(measured.flat()).toContain('Figure 3.1 -');
-    await open(page, 'caption-numbering', 'pretext', true);
-    expect(await drawnNumbers(page)).toEqual(measured);
+    await open(page, 'caption-numbering', true);
+    const numbers = (chapter: string, at: string) => [
+      `${chapter}.`,
+      `Figure ${chapter}${at}1 -`,
+      `Table ${chapter}${at}1 -`,
+      `Code Block ${chapter}${at}1 -`,
+      `(Eq. ${chapter}${at}1)`,
+      ...(at === '.'
+        ? [
+            `${chapter}.1`,
+            `Figure ${chapter}.2 -`,
+            `Table ${chapter}.2 -`,
+            `Code Block ${chapter}.2 -`,
+            `(Eq. ${chapter}.2)`,
+          ]
+        : []),
+    ];
+    const drawn = (await drawnNumbers(page)).flat();
+    expect(drawn).toEqual([
+      'i.',
+      'Figure i -',
+      '(Eq. i)',
+      ...numbers('1', '.'),
+      ...numbers('2', '.'),
+      ...numbers('3', '.'),
+      ...numbers('A', '-'),
+    ]);
   });
 
-  test('DOCE-PAGINATION-11.3 gives no computed lines without the option', async ({ page }) => {
-    await open(page, 'long-mixed', 'dom');
+  test('DOCE-PAGINATION-11.3 gives no computed lines in the web layout', async ({ page }) => {
+    await page.goto('regression.html?document=long-mixed&layout=web');
+    await waitForLab(page);
     expect(await page.evaluate(() => window.regressionLab.textLines())).toEqual([]);
   });
 });
 
 test.describe('served fonts', () => {
-  test('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.5 keeps the browser layout and says why when the host serves no shaper', async ({
+  test('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.5 shows the document without pages and says why when the host serves no shaper', async ({
     page,
   }) => {
-    await page.goto('regression.html?document=long-mixed&textLayout=pretext&fonts=none');
+    await page.goto('regression.html?document=long-mixed&fonts=none');
     await waitForLab(page);
     const root = page.locator('.de-document-editor').first();
-    await expect(root).toHaveAttribute('data-text-layout', 'dom');
     await expect(root).toHaveAttribute('data-text-layout-reason', 'no-shaper');
+    await expect(root).toHaveAttribute('data-layout', 'web');
+    await expect(page.getByText('The pages cannot be laid out')).toBeVisible();
     await expect(page.locator('.de-forced-lines')).toHaveCount(0);
   });
 
   test('DOCE-HOST-1.14.2 DOCE-PAGINATION-12.5 draws the pages from the served faces only, never synthesised', async ({
     page,
   }) => {
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const root = page.locator('.de-document-editor').first();
     await expect(root).toHaveAttribute('data-text-layout', 'pretext');
     await expect(root).not.toHaveAttribute('data-text-layout-reason');
@@ -335,7 +338,7 @@ test.describe('served fonts', () => {
     page,
   }) => {
     // The regression base template's paragraphs are in `Serif`, its code in the default monospace.
-    await open(page, 'long-mixed', 'pretext');
+    await open(page, 'long-mixed');
     const family = (selector: string) =>
       page
         .locator(`.de-document-editor__content .pm-page-content ${selector}`)
@@ -356,7 +359,7 @@ test.describe('served fonts', () => {
     test(`DOCE-PAGINATION-12.5 draws every text of ${name}'s pages in a family the host serves`, async ({
       page,
     }) => {
-      await open(page, name, 'pretext');
+      await open(page, name);
       await page.evaluate(() => window.regressionLab.drawAllLines(true));
       // Each element that holds text and its first family, where that family has no served face.
       // Not yet MathML, which the browser draws in its own `math` family and the engine measures as

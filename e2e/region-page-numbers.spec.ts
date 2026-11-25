@@ -45,7 +45,7 @@ function documentOf(paragraphs: number): DocumentFile {
 }
 
 async function open(page: Page, file: DocumentFile, own: TemplateFile) {
-  await page.goto('regression.html?document=minimal-paragraph&textLayout=pretext&debug');
+  await page.goto('regression.html?document=minimal-paragraph&debug');
   await waitForLab(page);
   await page.evaluate(([stored, settings]) => window.regressionLab.load(stored, settings), [
     file,

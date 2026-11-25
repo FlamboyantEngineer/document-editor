@@ -5,6 +5,7 @@ import { DocumentEditor, type DocumentMarkup } from '../../../../src/components/
 import { createDocumentEditing, repairElementIds } from '../../../../src/engine/index.js';
 import { createMemoryHost, type EditingMode } from '../../../../src/host/index.js';
 import { BASE_TEMPLATE, writeDocumentFile } from '../../../../src/model/index.js';
+import { LAB_FONTS } from '../../served-fonts.js';
 import { fixture, readFixture, schema, type Workload } from './fixtures.js';
 
 function openDraft(name: Workload) {
@@ -51,6 +52,7 @@ function FixtureEditor({ draft, ready }: { draft: Draft; ready: () => void }) {
       state={state}
       onStateChange={setState}
       template={BASE_TEMPLATE}
+      fonts={LAB_FONTS}
       author={identity.currentPerson().id}
       editable={mode === 'edit' || mode === 'suggest'}
       suggesting={mode === 'suggest'}

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { TEST_FONTS } from '../../../test/served-fonts.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { type AssetAdapter, createMemoryHost } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
@@ -58,6 +59,7 @@ function Harness({
       onStateChange={setState}
       template={TEMPLATE}
       layout={layout}
+      fonts={TEST_FONTS}
       assets={assets}
       aria-label="Report"
     >

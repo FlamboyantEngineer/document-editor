@@ -66,6 +66,6 @@ export function useEditorLayout(
     props,
   );
   // What the surface shows around the document: the fonts that did not load, and the cover.
-  const surface = { missingFonts: reported.missing, firstLayout };
+  const surface = { missingFonts: reported.missing, pagesUnavailable: text.reason, firstLayout };
   return { progress, view, layoutState, surface };
 }

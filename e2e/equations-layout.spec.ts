@@ -47,7 +47,7 @@ const NARROW = {
 } as TemplateFile;
 
 async function load(page: Page, file: DocumentFile, template?: TemplateFile) {
-  await page.goto('regression.html?document=minimal-paragraph&textLayout=pretext&debug');
+  await page.goto('regression.html?document=minimal-paragraph&debug');
   await waitForLab(page);
   await page.evaluate(([stored, own]) => window.regressionLab.load(stored, own), [
     file,
@@ -239,7 +239,7 @@ test.describe('equations on the engine’s lines', () => {
     page,
   }) => {
     await page.setViewportSize(ROOMY);
-    await page.goto('regression.html?document=math&textLayout=pretext');
+    await page.goto('regression.html?document=math');
     await waitForLab(page);
     await page.evaluate(() => window.regressionLab.drawAllLines(true));
     await expect.poll(() => provisional(page)).toBe(false);

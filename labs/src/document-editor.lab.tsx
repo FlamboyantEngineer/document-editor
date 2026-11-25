@@ -43,7 +43,7 @@ import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -394,7 +394,7 @@ function Lab() {
         <HostPanel report={host.report} handle={handle} />
       </div>
       <DocumentEditor
-        {...LAB_TEXT_LAYOUT}
+        fonts={LAB_FONTS}
         state={state}
         onStateChange={setState}
         template={TEMPLATE}

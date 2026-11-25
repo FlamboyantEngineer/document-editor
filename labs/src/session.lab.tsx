@@ -26,7 +26,7 @@ import type { DocumentFile, StoredNode } from '../../src/model/index.js';
 import { createLoadProgress, type DocumentSession } from '../../src/session/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { LAB_TEXT_LAYOUT } from './lab-text-layout.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 const DOCUMENT_ID = 'lab';
 
@@ -218,7 +218,7 @@ function OpenDocument(props: Omit<ControlsProps, 'session'>) {
       >
         {(props) => (
           <DocumentEditor
-            {...LAB_TEXT_LAYOUT}
+            fonts={LAB_FONTS}
             {...props}
             loadProgress={progress}
             statusBar
