@@ -26,11 +26,15 @@ describe('optional reference presentation', () => {
     expect(shadcn).not.toMatch(/@import [^;]*ui-components/);
     const cache = mkdtempSync(join(tmpdir(), 'document-reference-pack-'));
     let files: string[];
+    // Offline: a fresh cache otherwise makes npm wait on the registry, about 7 s. The pack takes
+    // about 1.5 s alone, but over 10 s on a CI runner busy with every other test file, so it gets a
+    // minute; what it checks is the package's contents, not its speed.
     try {
       execFileSync(
         'npm',
         [
           'pack',
+          '--offline',
           '--ignore-scripts',
           '--foreground-scripts=false',
           '--pack-destination',
@@ -38,7 +42,7 @@ describe('optional reference presentation', () => {
           '--cache',
           join(cache, 'npm-cache'),
         ],
-        { encoding: 'utf8', timeout: 10_000, stdio: 'pipe' },
+        { encoding: 'utf8', timeout: 60_000, stdio: 'pipe' },
       );
       const archives = readdirSync(cache).filter((name) => name.endsWith('.tgz'));
       expect(archives).toHaveLength(1);
@@ -62,7 +66,7 @@ describe('optional reference presentation', () => {
     expect(files).not.toContain('labs/reference.css');
     expect(files).not.toContain('labs/shadcn.css');
     expect(files).not.toContain('labs/lab-pages.css');
-  }, 15_000);
+  }, 90_000);
 });
 
 // The compound each `:has(` is attached to in a stylesheet: the selector text before it, back to
