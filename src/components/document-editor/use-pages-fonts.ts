@@ -124,6 +124,18 @@ function usePagesFonts(
       });
     };
   }, [asked, fonts, measureIn]);
+  // A family the template newly names is asked of the host before it is drawn in the body family:
+  // once its faces arrive, the template is drawn again with it (DOCE-PAGINATION-12.5).
+  const served = drawn.fonts;
+  useEffect(() => {
+    if (!served) return;
+    void served.add(templateFontFamilies(props.template)).then((added) => {
+      if (!added) return;
+      setDrawn((current) =>
+        current.fonts === served ? { generics: { ...served.generics }, fonts: served } : current,
+      );
+    });
+  }, [served, props.template]);
   const textLayout: TextLayoutMode = asked && !reason ? 'pretext' : 'dom';
   const shown = asked ? reason : null;
   const shownTemplate = useMemo(

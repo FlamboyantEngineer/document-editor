@@ -570,6 +570,29 @@ describe('DocumentEditor', () => {
     expect(styles.join('\n')).not.toContain('Unserved Face');
   });
 
+  it('DOCE-PAGINATION-12.5 draws a family a later template names in its own faces once they arrive', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const later = { ...TEMPLATE, styles: { paragraph: { font: 'Later Face' } } };
+    const shown = (template: TemplateFile) => (
+      <DocumentEditor
+        state={initial()}
+        onStateChange={() => undefined}
+        template={template}
+        layout="page"
+        aria-label="Report"
+        handleRef={handle}
+        fonts={TEST_FONTS}
+      />
+    );
+    const { container, rerender } = render(shown(TEMPLATE));
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    rerender(shown(later));
+    const drawn = () => container.querySelector('.de-document-editor')?.getAttribute('style');
+    await waitFor(() => expect(drawn()).toContain('Later Face'));
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    expect(screen.queryByText(/Later Face shows in a fallback font/u)).not.toBeInTheDocument();
+  });
+
   it('DOCE-EDITOR-6.12 is settled at once in the web layout', async () => {
     const handle = createRef<DocumentEditorHandle>();
     const { container } = render(<Harness editable layout="web" handleRef={handle} />);

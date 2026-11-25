@@ -323,14 +323,19 @@ test.describe('template editor lab', () => {
       locator.evaluate((element, property) => getComputedStyle(element)[property], name as 'color');
     // The base template's spacing, in CSS pixels: a heading 2 at 14pt and 7pt, a paragraph at 0pt
     // and 6pt, and a list at 0pt and 6pt.
-    expect(await margins(heading)).toEqual(['18.6667px', '9.33333px']);
-    expect(await margins(heading.locator('xpath=following-sibling::p[1]'))).toEqual(['0px', '8px']);
+    // Polled: the pages are drawn again as a face the lab serves loads.
+    await expect.poll(() => margins(heading)).toEqual(['18.6667px', '9.33333px']);
+    await expect
+      .poll(() => margins(heading.locator('xpath=following-sibling::p[1]')))
+      .toEqual(['0px', '8px']);
     const list = content(page).locator('.pm-page-content > ul').first();
-    expect(await margins(list)).toEqual(['0px', '8px']);
+    await expect.poll(() => margins(list)).toEqual(['0px', '8px']);
     // Its typography and list metrics: a heading 2 of 20px, text of 12px, a list indented 24pt.
-    expect(await css(heading, 'fontSize')).toBe('20px');
-    expect(await css(heading.locator('xpath=following-sibling::p[1]'), 'fontSize')).toBe('12px');
-    expect(await css(list, 'paddingLeft')).toBe('32px');
+    await expect.poll(() => css(heading, 'fontSize')).toBe('20px');
+    await expect
+      .poll(() => css(heading.locator('xpath=following-sibling::p[1]'), 'fontSize'))
+      .toBe('12px');
+    await expect.poll(() => css(list, 'paddingLeft')).toBe('32px');
   });
 
   test('DOCE-TEMPLATE-EDITOR-2.1 DOCE-TEMPLATE-EDITOR-2.3 DOCE-TEMPLATE-EDITOR-2.4 renames, moves and deletes a section, the scope following it by name', async ({

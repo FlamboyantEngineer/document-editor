@@ -1,7 +1,9 @@
 // The labs' fonts host (DOCE-HOST-1.14.1): HarfBuzz and the font files in
 // `labs/build/fonts/`. The regression templates name Arial, Courier New and the generic serif, which
 // the labs serve as Arimo, Cousine and Tinos (as Times New Roman), faces with the same metrics, so
-// documents keep their look on every machine; Lab Geist and Lab Geist Mono are Geist's own. A
+// documents keep their look on every machine; Lab Geist and Lab Geist Mono are Geist's own. The
+// labs' templates also name Georgia, served as Tinos too, so a font written in a template field is
+// the one its preview draws: a family no file serves is drawn in the body family. A
 // generic keyword is answered with the faces of the family it stands for. Every file is fetched
 // once and kept.
 
@@ -25,6 +27,7 @@ const FAMILIES: Families = {
   arial: faces('arimo'),
   'courier new': faces('cousine'),
   'times new roman': faces('tinos'),
+  georgia: faces('tinos'),
   'lab geist': faces('geist'),
   'lab geist mono': faces('geist-mono'),
 };

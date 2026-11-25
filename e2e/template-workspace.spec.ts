@@ -373,12 +373,14 @@ test.describe('template workspace lab', () => {
           [properties, pseudo] as const,
         );
     // A paragraph's face, line height (1.4 of its 12px), alignment and space after (9pt = 12px).
+    // The alignment is the template's; a block on the layout engine's lines draws it from the room
+    // the engine left each line, so the block itself aligns to its start (DOCE-PAGINATION-11.2).
     await expect
       .poll(() =>
         computed('.pm-page-content > p', [
           'font-family',
           'line-height',
-          'text-align',
+          '--doc-paragraph-text-align',
           'margin-bottom',
         ]),
       )
