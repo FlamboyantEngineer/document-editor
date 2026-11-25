@@ -71,9 +71,9 @@ afterEach(async () => {
 });
 
 // Rooms whose guard lets every person edit.
-function guardedRooms() {
+function guardedRooms(content: DocumentFile = DOCUMENT) {
   rooms = createSessionRooms({
-    documents: [{ id: 'doc', content: DOCUMENT }],
+    documents: [{ id: 'doc', content }],
     rules: {
       openGuard: (shadow) =>
         openRoomChangeGuard(shadow as Y.Doc, { schema: documentSchema, permissions: () => EDIT }),
@@ -612,6 +612,49 @@ describe('a room that refuses a change for its merge', () => {
     bobView.dispatch(bobView.state.tr.insertText('Then '));
     await vi.waitFor(() => expect(textOf(adaView.state)).toBe('InThen tro Two'));
     expect(textOf(stateOf(bob))).toBe('InThen tro Two');
+  });
+
+  it('DOCE-COLLAB-7.4 answers a merge that does not fit as a conflict while the room holds another writer’s suggestion', async () => {
+    const suggested = paragraph('a0000007', 'Later');
+    const withSuggestion: DocumentFile = {
+      ...DOCUMENT,
+      sections: [
+        {
+          name: null,
+          content: [
+            ...(DOCUMENT.sections[0]?.content ?? []),
+            {
+              ...suggested,
+              content: [
+                { type: 'text', text: 'Later' },
+                {
+                  type: 'text',
+                  text: ' on',
+                  marks: [{ type: 'insertion', attrs: { id: 'b0000001', author: 'carol' } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const room = guardedRooms(withSuggestion);
+    const reloads: RoomReloadNotice[] = [];
+    const ada = openAs('ada');
+    const bob = openAs('bob', (reload) => reloads.push(reload));
+    await Promise.all([ada.ready, bob.ready]);
+    const adaView = mount(ada);
+    const bobView = mount(bob);
+    room.providerOf('bob')?.disconnect();
+    deleteItem(adaView, 'One');
+    await vi.waitFor(() => expect(roomText(room)).toContain('Two'));
+    deleteItem(bobView, 'Two');
+    room.providerOf('bob')?.connect();
+    // Read on the reading fitted to the schema, Carol's suggestion keeps its text, so the writer
+    // is not cut off.
+    await vi.waitFor(() => expect(reloads).toHaveLength(1));
+    expect(reloads[0]?.reason).toBe('conflict');
+    expect(room.providerOf('bob')?.getState()).toMatchObject({ refusal: null, refusedChanges: 1 });
   });
 
   it('DOCE-SESSION-3.11 DOCE-COLLAB-7.4 sends offline changes one by one: the room keeps those that merge', async () => {

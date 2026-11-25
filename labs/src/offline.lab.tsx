@@ -2,13 +2,14 @@
 // drafts live in the tab's session storage, so a reload finds the unsaved content kept and the
 // session offers it. In room mode, the room server in this page stores its room in session storage
 // too, so a reload opens the room as it was, on the draft the session kept, and sends what was
-// written offline.
+// written offline. The store session's page can be hidden or left, keeping its draft at once, and
+// its next save made to fail.
 
 import {
   createMemoryPersistence,
   type StoredRoomState,
 } from '@flamboyantengineer/collaboration-tools/server';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -59,6 +60,32 @@ const reviver = (_key: string, value: unknown) =>
     ? new Uint8Array(value.bytes as number[])
     : value;
 
+// How many store drafts this page kept, shown beside the store's controls.
+const KEPT = (() => {
+  let count = 0;
+  const listeners = new Set<() => void>();
+  return {
+    add: () => {
+      count += 1;
+      for (const listener of [...listeners]) listener();
+    },
+    get: () => count,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+})();
+
+function KeptCount() {
+  const count = useSyncExternalStore(KEPT.subscribe, KEPT.get, KEPT.get);
+  return (
+    <output aria-label="Times the store kept unsaved changes">{`${String(count)} kept`}</output>
+  );
+}
+
 /** Drafts in the tab's session storage, which survives a reload. */
 function createSessionStorageDrafts(): DraftsAdapter {
   const key = (documentId: string, mode: DocumentDraft['mode']) =>
@@ -70,6 +97,7 @@ function createSessionStorageDrafts(): DraftsAdapter {
     },
     put: (documentId, draft) => {
       sessionStorage.setItem(key(documentId, draft.mode), JSON.stringify(draft, replacer));
+      if (draft.mode === 'store') KEPT.add();
       return done(null);
     },
     clear: (documentId, mode) => {
@@ -203,13 +231,45 @@ function RoomLab() {
   );
 }
 
-function Lab() {
+const DAY = 24 * 60 * 60 * 1000;
+
+// The page's lifecycle as the host tells it (DOCE-HOST-1.20): hidden or left, the session keeps its
+// draft at once, before it saves (DOCE-SESSION-6.6).
+function PageControls() {
+  const [hidden, setHidden] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          HOST.memory.emitLifecycle(hidden ? 'visible' : 'hidden');
+          setHidden(!hidden);
+        }}
+      >
+        {hidden ? 'Show page' : 'Hide page'}
+      </button>{' '}
+      <button type="button" onClick={() => HOST.memory.emitLifecycle('leaving')}>
+        Leave page
+      </button>{' '}
+      <button
+        type="button"
+        onClick={() => HOST.memory.failNext('documents.save', { kind: 'unavailable' })}
+      >
+        Fail the next save
+      </button>
+    </>
+  );
+}
+
+function StoreLab({ lateDrafts }: { lateDrafts: boolean }) {
   const session = useDocumentSession({
     host: HOST,
     documentId: DOCUMENT_ID,
     mode: 'store',
     // Saves only when asked, so a reload leaves the changes unsaved.
-    autosaveDelay: 24 * 60 * 60 * 1000,
+    autosaveDelay: DAY,
+    // Keeps drafts only when the page goes away, when asked.
+    draftDelay: lateDrafts ? DAY : undefined,
   });
   if (!session) return null;
   return (
@@ -219,7 +279,8 @@ function Lab() {
         <button type="button" onClick={() => void session.save()}>
           Save now
         </button>{' '}
-        <SessionStatusLine session={session} label="Session status" />
+        <PageControls /> <SessionStatusLine session={session} label="Session status" />{' '}
+        <KeptCount />
       </fieldset>
       <DraftOffer session={session} />
       <DocumentSessionBoundary
@@ -231,6 +292,24 @@ function Lab() {
       >
         {(props) => <DocumentEditor fonts={LAB_FONTS} {...props} aria-label="Sample document" />}
       </DocumentSessionBoundary>
+    </>
+  );
+}
+
+function Lab() {
+  const [lateDrafts, setLateDrafts] = useState(false);
+  return (
+    <>
+      <label>
+        <input
+          type="checkbox"
+          name="late-drafts"
+          checked={lateDrafts}
+          onChange={(event) => setLateDrafts(event.currentTarget.checked)}
+        />{' '}
+        Keep drafts only when the page is hidden or left
+      </label>
+      <StoreLab key={String(lateDrafts)} lateDrafts={lateDrafts} />
     </>
   );
 }

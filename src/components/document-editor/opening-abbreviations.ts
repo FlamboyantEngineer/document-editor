@@ -2,6 +2,7 @@
 // host that asks: an abbreviation or expansion the glossary has changed since is written again,
 // as one change marked as a cache refresh (`ABBREVIATION_CACHE_REFRESH_META`) that undo leaves.
 
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState } from 'react';
@@ -9,17 +10,23 @@ import { documentAbbreviations, refreshAbbreviations } from '../../engine/index.
 import type { GlossaryAdapter } from '../../host/index.js';
 import { ABBREVIATION_CACHE_REFRESH_META } from '../../model/index.js';
 
-/** What the opening refresh reads: the state's plugins, the glossary and whether it may write. */
+/** What the opening refresh reads: the state given, the glossary and whether it may write. */
 interface OpeningAbbreviationsOptions {
   readonly plugins: readonly Plugin[];
+  /** The document given, which the view may not show yet when a host gives it a new one. */
+  readonly doc: ProseMirrorNode;
   readonly glossary?: GlossaryAdapter | undefined;
   readonly enabled: boolean;
 }
 
-// Brings the view's abbreviations up to date with the glossary now; false when the view went
-// before the glossary answered, so the next view asks again.
-async function refreshOnce(view: EditorView, glossary: GlossaryAdapter): Promise<boolean> {
-  const ids = [...new Set(documentAbbreviations(view.state.doc).map((entry) => entry.id))];
+// Brings the abbreviations of the document given up to date with the glossary now, in the view once
+// it shows it; false when the view went before the glossary answered, so the next view asks again.
+async function refreshOnce(
+  view: EditorView,
+  doc: ProseMirrorNode,
+  glossary: GlossaryAdapter,
+): Promise<boolean> {
+  const ids = [...new Set(documentAbbreviations(doc).map((entry) => entry.id))];
   if (ids.length === 0) return true;
   const resolved = await glossary.resolve(ids).catch(() => null);
   if (view.isDestroyed) return false;
@@ -36,21 +43,21 @@ async function refreshOnce(view: EditorView, glossary: GlossaryAdapter): Promise
  */
 export function useOpeningAbbreviations(
   view: EditorView | null,
-  { plugins, glossary, enabled }: OpeningAbbreviationsOptions,
+  { plugins, doc, glossary, enabled }: OpeningAbbreviationsOptions,
 ): void {
   // The document is known by the first of its state's plugins, as the opening scripts know it.
   const [document] = plugins;
-  const latest = useRef(glossary);
+  const latest = useRef({ glossary, doc });
   useEffect(() => {
-    latest.current = glossary;
-  }, [glossary]);
+    latest.current = { glossary, doc };
+  }, [glossary, doc]);
   const opened = useRef<Plugin | undefined | null>(null);
   const [retries, setRetries] = useState(0);
   useEffect(() => {
-    const source = latest.current;
+    const { glossary: source, doc: given } = latest.current;
     if (!view || !source || !enabled || opened.current === document) return;
     opened.current = document;
-    void refreshOnce(view, source).then((done) => {
+    void refreshOnce(view, given, source).then((done) => {
       if (done || opened.current !== document) return;
       opened.current = null;
       setRetries((count) => count + 1);

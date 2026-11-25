@@ -7,6 +7,7 @@ import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import { Dialog } from '@flamboyantengineer/ui-components/dialog';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
@@ -34,6 +35,7 @@ import { useSessionValue } from '../document-session/document-session.js';
 import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-labels.js';
 import { REVISION_NAME_MAX_LENGTH, type RevisionItem, revisionTime } from './revision-item.js';
 import { RevisionList, useRevisionTimeFormat } from './revision-list.js';
+import { rowActionsOf, type VersionActionTarget } from './version-actions.js';
 
 export interface DocumentHistoryProps<R> {
   /** The document's versions (`createDocumentVersions`). */
@@ -55,6 +57,11 @@ export interface DocumentHistoryProps<R> {
    * for comparing, and its actions offer to view it (`viewRevision`).
    */
   readonly viewOnPick?: boolean | undefined;
+  /**
+   * The host's own entries in a version's row actions, after View, Rename and Restore, such as
+   * branching a new document from that version (DOCE-VERSIONS-4.8).
+   */
+  readonly versionActions?: ((target: VersionActionTarget) => readonly MenuEntry[]) | undefined;
   readonly className?: string | undefined;
 }
 
@@ -278,6 +285,7 @@ export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
         error={list.status === 'failed' ? (list.error?.message ?? list.error?.kind) : undefined}
         onRetry={() => void versions.refresh()}
         {...pickProps}
+        rowActions={rowActionsOf(list.versions, { current, actions: props.versionActions })}
         onRename={
           capabilities.saveVersion
             ? (key, label) => orThrow(versions.rename(String(key), label.trim() || null))
