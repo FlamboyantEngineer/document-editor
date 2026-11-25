@@ -134,9 +134,9 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-LABS-3.3 - Host services mimicked in the page
 
-The host services lab shall mimic in the page each host service that needs a backend, so a person can try it by hand: embedded content the host keeps (`EmbedSourceAdapter`), a table in the body and one in an appendix whose template section sets its own table colors, and one value inline in a heading, which the controls change, remove or deny at the host and the writer checks and takes in again; the host's variables in the page headers (`VariablesAdapter`), changed while the document is open; font loading (`FontsAdapter`) that is immediate, slow or failing; and logs of what the editor measured (`TelemetryAdapter`) and told the reader (`FeedbackAdapter`). The editor shows the host's zoom levels, symbols and code languages, and can be hidden (`active`).
+The host services lab shall mimic in the page each host service that needs a backend, so a person can try it by hand: embedded content the host keeps (`EmbedSourceAdapter`), a table in the body and one in an appendix whose template section sets its own table colors, and one value inline in a heading, which the controls change, remove or deny at the host and the writer checks and takes in again; the host's variables in the page headers (`VariablesAdapter`), changed while the document is open; font loading (`FontsAdapter`) that is immediate, slow or failing; and logs of what the editor measured (`TelemetryAdapter`) and told the reader (`FeedbackAdapter`). The editor shows the host's zoom levels, symbols and code languages, and can be hidden (`active`). An embed can be pinned to the state it shows, and the context menu's host entries on an embed take its update, repin it or let it follow its content (`setEmbedPinned`, `ContextTarget.embed`); a range of a mimicked spreadsheet is embedded through the linked spreadsheet bridge (`createLinkedSpreadsheetAdapter`), and changed, recalculated or denied at the host; the editor waits for the fonts as long as its `fontTimeout` says, opened again to show the pages failing with `onLayoutFailed` logged; and the math typesetter can stop answering, so new math shows as invalid with the host's reason after the editing's `math.timeout`.
 
-Implementation: `labs/src/host-services.lab.tsx`, `labs/host-services.html`
+Implementation: `labs/src/host-services.lab.tsx`, `labs/src/host-data.ts`, `labs/src/host-embed-controls.tsx`, `labs/host-services.html`
 Verification: `e2e/host-services.spec.ts`
 
 ### DOCE-LABS-3.4 - Import and export
@@ -166,6 +166,13 @@ The template content lab shall show a template's preview in parts beside the tem
 
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
+
+### DOCE-LABS-3.8 - Options a host sets on the editing, the schema and the editor
+
+The editor options lab shall give a control for each option a host sets on the editing, the schema and the document editor, on a sample whose sections end with a table: a content limit (`limit`) whose words show against it in the status bar, with a collaborator's paragraph taking the document past it (`data-over`); a trailing paragraph (`trailingParagraph`); the typing shortcuts by group (`typingRules`); the host's layout rules on `DocumentEditor` keeping tables whole on a page (`layoutRules`); the host's schema options: a tooltip attribute, a mention class, the address a stored figure's asset is previewed at and the time the assets show as of, and an identity attribute, the review state of the element lifecycle recipe (docs/recipes/element-lifecycle.md), stamping new elements as drafts and freezing approved ones; a document opened with missing, invalid and repeated element ids, repaired on opening or not (`repairIds`); a dropped connection, through a service worker, failing the next dialog's code, which the editor reports through `feedback` and loads the next time; and a status item of the host's that reads a part of the editor's state (`useDocumentEditorState`) and draws only when that part changes.
+
+Implementation: `labs/src/editor-options.lab.tsx`, `labs/src/editor-options-document.ts`, `labs/src/dialog-network.ts`, `labs/dialog-network-worker.js`, `labs/editor-options.html`
+Verification: `e2e/editor-options.spec.ts`
 
 ## DOCE-LABS-4 - Regression labs
 

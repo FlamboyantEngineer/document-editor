@@ -38,7 +38,7 @@ import { createFootnotes } from './footnotes.js';
 import { createHistoryReveal } from './history-reveal.js';
 import { createListJoins } from './list-joins.js';
 import type { InvalidMathText } from './math-views.js';
-import { objectPlugins } from './object-plugins.js';
+import { type EditingMathOptions, objectPlugins } from './object-plugins.js';
 import type { LineNumbers } from './object-views.js';
 import { createParagraphNumbering } from './paragraph-numbering.js';
 import { boundKeys } from './shortcut-commands.js';
@@ -95,6 +95,11 @@ export interface DocumentEditingOptions {
   lineNumbers?: LineNumbers | undefined;
   /** What math that does not typeset shows, inline and as a block (`DEFAULT_INVALID_MATH_TEXT`). */
   invalidMath?: InvalidMathText | undefined;
+  /**
+   * How math is typeset: the renderer, and how long it is waited for before the math shows as
+   * invalid with the host's reason (`MathViewsOptions`).
+   */
+  math?: EditingMathOptions | undefined;
   /** Refuses local changes that take the body past this many words or characters. */
   limit?: ContentLimit | undefined;
   /**

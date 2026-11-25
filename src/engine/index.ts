@@ -200,6 +200,7 @@ export type { InvalidMathText, MathViewsOptions } from './math-views.js';
 export { createMathViews, DEFAULT_INVALID_MATH_TEXT, DEFAULT_MATH_TIMEOUT } from './math-views.js';
 export { cancelMathEditing, commitMathEditing, mathEditingAt } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
+export type { EditingMathOptions } from './object-plugins.js';
 export { editCaption } from './object-views.js';
 export type { OutlineOptions } from './outline.js';
 export { headingSectionSpan } from './outline.js';
