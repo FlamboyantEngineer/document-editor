@@ -7,7 +7,12 @@
 // (`decideSuggestions`) and lists what changed since the save before (`compareVersions`). The
 // stored-file readers answer a server's questions without an editor: the element with an id, the
 // text, citations, reference targets, required sections and thread anchors; and the host moves the
-// document to a stricter template or decides one suggestion on the stored file.
+// document to a stricter template or decides one suggestion on the stored file. The batches also
+// replace, delete and re-attribute blocks and add a table of rows (`tableFromRows`); the stored-file
+// tools (`automation-stored.tsx`) check and repair ids, change threads, read embeds, writers,
+// authored content and the outline and find stale scripts; and the static render
+// (`automation-render.tsx`) renders the stored document as a standalone page with the server's
+// checks beside it.
 
 import { EditorState } from 'prosemirror-state';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -30,6 +35,7 @@ import {
   runStoredScripts,
   storedCitations,
   storedDocumentText,
+  tableFromRows,
   threadAnchors,
   validateRequiredSections,
 } from '../../src/document/index.js';
@@ -45,6 +51,8 @@ import {
   type TemplateFile,
   writeDocumentFile,
 } from '../../src/model/index.js';
+import { RenderTools } from './automation-render.js';
+import { StoredTools } from './automation-stored.js';
 import { chapter, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
@@ -92,6 +100,16 @@ const STRICT_TEMPLATE = resolveTemplateFile(
 
 const SCHEMA = createDocumentSchema();
 
+// A figure's image as the pages show it, and as a print server reaches it.
+const svg = (fill: string) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="48"><rect width="96" height="48" fill="${fill}"/></svg>`)}`;
+const SHOWN_IMAGE = svg('#3b82f6');
+const PRINT_IMAGE = svg('#16a34a');
+const printImage = (src: string) => (src === SHOWN_IMAGE ? PRINT_IMAGE : null);
+
+// Who opened each thread a suggestion recording no writer is discussed in.
+const THREAD_WRITERS: Readonly<Record<string, string>> = { c0ffee02: 'grace' };
+
 const read = (file: DocumentFile) => readDocumentFile(file, SCHEMA, { unknown: 'keep' }).doc;
 
 // The stored document at first, with element ids as the editor gives them.
@@ -110,6 +128,20 @@ function initialContent(): DocumentFile {
             type: 'script',
             attrs: { source: 'render.paragraph(`Status: ${document.blocks} blocks.`)' },
           },
+          {
+            type: 'script',
+            attrs: { source: 'render.table("Signal | Limit", "Voltage | 28 V", "Current | 4 A")' },
+          },
+          {
+            type: 'embed',
+            attrs: { kind: 'data-set', source: 'tides-7', label: 'Tide table' },
+            content: [{ type: 'paragraph', content: [text('High water at six.')] }],
+          },
+          {
+            type: 'figure',
+            attrs: { src: SHOWN_IMAGE, alt: 'Block diagram', width: 96, height: 48 },
+            content: [{ type: 'caption', content: [text('Block diagram')] }],
+          },
         ],
       },
     ],
@@ -127,6 +159,7 @@ function initialContent(): DocumentFile {
   if (target) {
     body.push({
       type: 'paragraph',
+      attrs: { id: 'c17ed000' },
       content: [
         text('See '),
         { type: 'text', text: 'Timing', marks: [{ type: 'reference', attrs: { target } }] },
@@ -140,6 +173,10 @@ const HOST = createMemoryHost({
   person: { id: 'ada', name: 'Ada Lovelace' },
   documents: [{ id: DOCUMENT_ID, content: initialContent() }],
   scripts: runLabScript,
+  // What a script reads: how many blocks the document holds, so another writer's block makes the
+  // output stale.
+  scriptInputsKey: ({ document }) =>
+    String(document.sections.reduce((sum, section) => sum + section.content.length, 0)),
   scriptVocabulary: LAB_SCRIPT_VOCABULARY,
   checkScript: checkLabScript,
 });
@@ -173,6 +210,49 @@ const EXAMPLES: Record<string, (description: DocumentDescription) => AutomationE
             after: timing.elementId,
             content: [
               { type: 'paragraph', content: [text('Timing is measured at the connector.')] },
+            ],
+          },
+        ]
+      : [];
+  },
+  'Replace the Scope paragraph': ({ blocks }) => {
+    const scope = blocks.findIndex((block) => block.type === 'heading' && block.text === 'Scope');
+    const next = blocks[scope + 1];
+    return next && scope >= 0
+      ? [
+          {
+            op: 'replaceBlock',
+            elementId: next.elementId,
+            content: [{ type: 'paragraph', content: [text('The scope covers every connector.')] }],
+          },
+        ]
+      : [];
+  },
+  'Delete the paragraph after Timing': ({ blocks }) => {
+    const timing = blocks.findIndex((block) => block.type === 'heading' && block.text === 'Timing');
+    const next = blocks[timing + 1];
+    return next && timing >= 0 ? [{ op: 'deleteBlock', elementId: next.elementId }] : [];
+  },
+  'Make the Timing heading level 2': ({ blocks }) => {
+    const timing = blocks.find((block) => block.type === 'heading' && block.text === 'Timing');
+    return timing ? [{ op: 'setAttrs', elementId: timing.elementId, attrs: { level: 2 } }] : [];
+  },
+  'Add a table of rows after Scope': ({ blocks }) => {
+    const scope = blocks.find((block) => block.type === 'heading' && block.text === 'Scope');
+    return scope
+      ? [
+          {
+            op: 'insertBlocks',
+            after: scope.elementId,
+            content: [
+              tableFromRows([
+                [
+                  { text: 'Connector', bold: true },
+                  { text: 'Pins', bold: true },
+                ],
+                [{ text: 'J1' }, { text: '9' }],
+                [{ text: 'Both carry the same shield.', colspan: 2 }],
+              ]),
             ],
           },
         ]
@@ -294,6 +374,34 @@ function Lab() {
     });
     await save(current, content, 'Another writer');
   };
+  // A suggestion that records no writer, in a thread another writer opened.
+  const unattributedSuggestion = async () => {
+    const current = await reload();
+    if (!current) return;
+    const content = structuredClone(current.content);
+    content.sections.at(-1)?.content.push({
+      type: 'paragraph',
+      content: [
+        text('Measured '),
+        {
+          ...text('twice'),
+          marks: [{ type: 'insertion', attrs: { id: '5eed0001', thread: 'c0ffee02' } }],
+        },
+        text(' at the connector.'),
+      ],
+    });
+    await save(current, content, 'A suggestion without its writer');
+  };
+  // Saves a change the stored-file tools make, or reports that there was none to make.
+  const saveChange = async (change: (file: DocumentFile) => DocumentFile | null, what: string) => {
+    const current = await reload();
+    if (!current) return;
+    const changed = change(current.content);
+    if (changed) await save(current, changed, what);
+    else setResult(`${what}: nothing to change`);
+  };
+  const show = (output: unknown) =>
+    setReaderOutput(typeof output === 'string' ? output : JSON.stringify(output, null, 2));
   const runScripts = async () => {
     const current = await reload();
     if (!current || !HOST.scripts) return;
@@ -439,6 +547,9 @@ function Lab() {
           <button type="button" onClick={() => void anotherWriterSaves()}>
             Another writer saves
           </button>{' '}
+          <button type="button" onClick={() => void unattributedSuggestion()}>
+            Add a suggestion without its writer
+          </button>{' '}
           <button type="button" onClick={() => void runScripts()}>
             Run the scripts
           </button>{' '}
@@ -528,10 +639,29 @@ function Lab() {
           <button type="button" onClick={() => void acceptFirst()}>
             Accept the first suggestion only
           </button>
-          <section aria-label="Reader output">
-            <pre tabIndex={0}>{readerOutput}</pre>
-          </section>
         </fieldset>
+        {HOST.scripts ? (
+          <StoredTools
+            stored={stored}
+            previous={previous}
+            schema={SCHEMA}
+            template={TEMPLATE}
+            runner={HOST.scripts}
+            threadWriters={THREAD_WRITERS}
+            save={saveChange}
+            show={show}
+          />
+        ) : null}
+        <RenderTools
+          stored={stored}
+          schema={SCHEMA}
+          template={TEMPLATE}
+          printImage={printImage}
+          show={show}
+        />
+        <section aria-label="Reader output">
+          <pre tabIndex={0}>{readerOutput}</pre>
+        </section>
       </div>
       {stored && view ? (
         <DocumentEditor
