@@ -53,6 +53,7 @@ interface Drawn {
 }
 
 const NONE: Drawn = { generics: {}, fonts: null };
+const NO_FAMILIES: readonly string[] = [];
 
 // The served family a font no host file serves is drawn in: the template's body family, or the one
 // the host serves for a generic keyword.
@@ -127,9 +128,14 @@ function usePagesFonts(
   // A family the template newly names is asked of the host before it is drawn in the body family:
   // once its faces arrive, the template is drawn again with it (DOCE-PAGINATION-12.5).
   const served = drawn.fonts;
+  // The template whose families were last asked for, settled or not: until then, the
+  // missing-fonts banner names none of its families.
+  const [settledFor, setSettledFor] = useState<TemplateFile | null>(null);
   useEffect(() => {
     if (!served) return;
-    void served.add(templateFontFamilies(props.template)).then((added) => {
+    const template = props.template;
+    void served.add(templateFontFamilies(template)).then((added) => {
+      setSettledFor(template);
       if (!added) return;
       setDrawn((current) =>
         current.fonts === served ? { generics: { ...served.generics }, fonts: served } : current,
@@ -143,7 +149,8 @@ function usePagesFonts(
       asked ? drawnTemplate(props.template, drawn) : { template: props.template, unserved: [] },
     [asked, props.template, drawn],
   );
-  const { template, unserved } = shownTemplate;
+  const { template } = shownTemplate;
+  const unserved = settledFor === props.template ? shownTemplate.unserved : NO_FAMILIES;
   // The served fonts are read through a ref, so a new template never starts the pages over; a new
   // adapter does, through a new reader (DOCE-PAGINATION-12.7).
   const read = useCallback(() => {
