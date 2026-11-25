@@ -1,14 +1,13 @@
 // Math as it reads: each inline or display math node drawn as its typeset MathML, through the base
-// library's KaTeX renderer, in every view the plugin runs in, the pages' measuring view too. The
-// LaTeX source shows until the math is typeset; math that does not typeset says so instead, its
-// renderer's reason as its title. A view whose math changes size asks the pages to measure again (`de-remeasure`). The
-// plugin also writes math as it is typed and keeps the math edited in place (`math-input.ts`).
+// library's KaTeX renderer, in every view the plugin runs in, the pages' measuring view too. Each
+// source is typeset once, by the plugin's typesetter (`math-typesetter.ts`), which the pages wait
+// for before laying math out (`mathTypesetReady`). The LaTeX source shows until the math is
+// typeset; math that does not typeset says so instead, its renderer's reason as its title. A view
+// whose math changes size asks the pages to measure again (`de-remeasure`), where they measure it
+// as drawn. The plugin also writes math as it is typed and keeps the math edited in place
+// (`math-input.ts`).
 
-import {
-  type MathRenderer,
-  renderKatexMath,
-  renderMathElement,
-} from '@flamboyantengineer/ui-components/math-preview';
+import { type MathRenderer, renderKatexMath } from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
@@ -23,27 +22,26 @@ import {
   mathInputProps,
   type MathInputState,
 } from './math-input.js';
+import type { TypesetMath } from './math-typeset.js';
 import {
-  createMathTypesets,
-  mathTree,
-  type MathTypesets,
-  type TypesetMath,
-} from './math-typeset.js';
+  createMathTypesetter,
+  type InvalidMathText,
+  type MathTypesetter,
+  type TypesetAnswer,
+} from './math-typesetter.js';
 
-// What a math view draws with: the renderer, what invalid math shows, and where it keeps what it
-// typeset.
+export type { InvalidMathText } from './math-typesetter.js';
+
+// What a math view draws with: the typesetter every view of the plugin shares.
 interface MathDrawing {
-  readonly render: MathRenderer;
-  readonly invalid: InvalidMathText;
-  readonly typesets: MathTypesets;
-  readonly timeout: { readonly ms: number; readonly message: string };
+  readonly typesets: MathTypesetter;
 }
 
-// Draws one math node, typesetting its source and drawing it again when the source changes.
+// Draws one math node as its source typeset, and again when the source changes.
 function mathView(
   node: ProseMirrorNode,
   view: EditorView,
-  { render, invalid, typesets, timeout, decorations }: MathDrawing & Placing,
+  { typesets, decorations }: MathDrawing & Placing,
 ): NodeView {
   const display = node.type.name === 'math_display';
   const owner = view.dom.ownerDocument;
@@ -53,18 +51,17 @@ function mathView(
   dom.contentEditable = 'false';
   let source: string | null = null;
   let current = node;
-  let deadline: number | undefined;
   const drawing = drawnMathIn(dom, decorations);
   const window = owner.defaultView;
   // Shows what the source typeset as, or what invalid math shows and why, and asks the pages to
-  // measure it again.
-  const show = (result: { ok: true; element: Element } | { ok: false; message: string }) => {
-    drawing.show(result.ok ? result.element : null);
-    if (!result.ok) {
-      dom.textContent = display ? invalid.display : invalid.inline;
-      dom.title = result.message;
+  // measure it again where they measure it as drawn.
+  const show = ({ typeset, element }: TypesetAnswer) => {
+    drawing.show(element ? owner.importNode(element, true) : null);
+    if (typeset.state === 'invalid') {
+      dom.textContent = typeset.text;
+      dom.title = typeset.message;
     }
-    dom.dataset.state = result.ok ? 'ready' : 'invalid';
+    dom.dataset.state = typeset.state;
     const Event = window?.CustomEvent;
     if (Event) dom.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
   };
@@ -77,31 +74,8 @@ function mathView(
     dom.textContent = latex;
     dom.dataset.state = 'pending';
     dom.removeAttribute('title');
-    window?.clearTimeout(deadline);
-    // A renderer that has not answered by the deadline shows as invalid, so nothing waits on it
-    // for good (DOCE-PAGINATION-10.8); a later answer is still drawn.
-    deadline = window?.setTimeout(() => {
-      if (source !== latex || dom.dataset.state !== 'pending') return;
-      const message = `${timeout.message} (${String(timeout.ms / 1000)} s)`;
-      const text = display ? invalid.display : invalid.inline;
-      typesets.keep(display, latex, { state: 'invalid', text, message });
-      show({ ok: false, message });
-    }, timeout.ms);
-    // The base library typesets and keeps only MathML's allowed parts; it never throws.
-    void renderMathElement(latex, {
-      displayMode: display,
-      renderer: render,
-      ownerDocument: dom.ownerDocument,
-    }).then((result) => {
-      if (result.ok)
-        typesets.keep(display, latex, { state: 'ready', math: mathTree(result.element) });
-      else {
-        const text = display ? invalid.display : invalid.inline;
-        typesets.keep(display, latex, { state: 'invalid', text, message: result.message });
-      }
-      if (source !== latex) return;
-      window?.clearTimeout(deadline);
-      show(result);
+    void typesets.typeset(display, latex, owner).then((answer) => {
+      if (source === latex) show(answer);
     });
   };
   draw(node);
@@ -116,7 +90,6 @@ function mathView(
     selectNode: () => dom.setAttribute('data-selected', 'true'),
     deselectNode: () => dom.removeAttribute('data-selected'),
     ignoreMutation: () => true,
-    destroy: () => window?.clearTimeout(deadline),
   };
 }
 
@@ -146,18 +119,28 @@ export const commitMathEditing = (latex: string): Command => commitMath(mathView
  * math shows; null before it is typeset or without the views (DOCE-PAGINATION-13.2).
  */
 export function typesetMathOf(state: EditorState, node: ProseMirrorNode): TypesetMath | null {
-  const spec = mathViewsKey.get(state)?.spec as { typesets?: MathTypesets } | undefined;
-  return spec?.typesets?.of(node) ?? null;
+  return typesetterOf(state)?.of(node) ?? null;
+}
+
+// The typesetter of a state's math views, if it runs them.
+const typesetterOf = (state: EditorState) =>
+  (mathViewsKey.get(state)?.spec as { typesets?: MathTypesetter } | undefined)?.typesets ?? null;
+
+/**
+ * Settles once the math views of a state have typeset every math node of a document, which the
+ * pages wait for before laying it out (DOCE-PAGINATION-10.8); null when all of it is typeset, or
+ * the state runs no math views.
+ */
+export function mathTypesetReady(
+  state: EditorState,
+  doc: ProseMirrorNode,
+  ownerDocument: Document,
+): Promise<void> | null {
+  return typesetterOf(state)?.ready(doc, ownerDocument) ?? null;
 }
 
 /** Stops editing math in place, keeping its LaTeX; math left empty is deleted. */
 export const cancelMathEditing: Command = cancelMath(mathViewsKey);
-
-/** What math that does not typeset shows in place of its MathML, inline and as a block. */
-export interface InvalidMathText {
-  readonly inline: string;
-  readonly display: string;
-}
 
 /** What invalid math shows by default. */
 export const DEFAULT_INVALID_MATH_TEXT: InvalidMathText = {
@@ -173,7 +156,8 @@ export interface MathViewsOptions {
   readonly invalid?: InvalidMathText | undefined;
   /**
    * How long the renderer is waited for, in milliseconds, before the math shows as invalid with
-   * `timeoutMessage` as its reason; 30 seconds by default. An answer after it is still drawn.
+   * `timeoutMessage` as its reason; 30 seconds by default. An answer after it is not drawn: the
+   * pages were laid out with the invalid math.
    */
   readonly timeout?: number | undefined;
   /** The reason math the renderer did not answer for shows; English by default. */
@@ -194,10 +178,11 @@ export function createMathViews({
   timeoutMessage = 'The math was not typeset in time',
 }: MathViewsOptions = {}): Plugin {
   const drawing: MathDrawing = {
-    render,
-    invalid,
-    typesets: createMathTypesets(),
-    timeout: { ms: timeout, message: timeoutMessage },
+    typesets: createMathTypesetter({
+      render,
+      invalid,
+      timeout: { ms: timeout, message: timeoutMessage },
+    }),
   };
   return new Plugin<MathInputState>({
     key: mathViewsKey,

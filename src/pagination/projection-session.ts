@@ -13,11 +13,12 @@ import { caretPlace, rememberCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import { redrawRefused } from './dropped-composition.js';
 import type { MeasuringView } from './ghost-view.js';
-import { wantsLayoutNow } from './layout-latency.js';
+import { type Showing, shownBy } from './layout-latency.js';
 import { markLayout } from './layout-marks.js';
 import type { LayoutPace } from './layout-pace.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
+import { waitsForMath } from './math-wait.js';
 import type { MeasureCache } from './measure-cache.js';
 import type { createPageMapScope } from './page-map.js';
 import type { PagedProjectionOptions } from './projection.js';
@@ -239,13 +240,14 @@ export function layout(session: Session): void {
   session.cancelLayout?.();
   session.cancelLayout = null;
   session.edits.cancel();
-  const { view, ghost, pace } = session;
+  const { view, ghost, pace, options } = session;
   if (view?.isDestroyed || ghost.view.isDestroyed) return;
-  const { trace } = session.options;
+  const { trace } = options;
   if (view?.composing) {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
     return requestLayout(session);
   }
+  if (waitsForMath(session, () => requestLayout(session))) return;
   keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
   else if (pace.passes >= LAYOUT_PASSES) {
@@ -287,27 +289,6 @@ export function settleTyping(session: Session): void {
   if (!session.probe.unchanged()) return requestLayout(session);
   writeTrace(session.options.trace, 'skip', () => ({ reason: 'same-height' }));
   session.pace.readiness.laidOut(() => isIdle(session));
-}
-
-/** How a canonical change is shown on the pages. */
-interface Showing {
-  /** Lays the pages out on the next frame, not once the writer pauses (DOCE-PAGINATION-5.7). */
-  readonly now: boolean;
-  /** Scrolls the pages to the selection, as a transaction that made the change asked. */
-  readonly scroll: boolean;
-}
-
-/**
- * How the transactions that made a change show it: laid out at once when one changed the
- * structure, and scrolled to the selection when one asked, as a view of the canonical state does.
- * A change nothing asked to scroll for, such as a collaborator's or a state the host replaced,
- * leaves the pages where the writer reads them.
- */
-export function shownBy(made: readonly Transaction[]): Showing {
-  return {
-    now: made.some(wantsLayoutNow),
-    scroll: made.some((each) => each.scrolledIntoView),
-  };
 }
 
 /**
