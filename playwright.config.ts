@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { CANVAS_PROJECTS, DPR_ZOOMS, SCALING_ZOOMS } from './e2e/invariant-projects.js';
 // @ts-expect-error The scripts are plain JavaScript modules without declarations.
 import { LABS_HOST, LABS_PORT } from './scripts/lib/labs.mjs';
 
@@ -12,6 +13,16 @@ const HTML_IN_CANVAS = '--enable-blink-features=CanvasDrawElement';
 // 8.9), which the `chromium-invariant` project runs at a device pixel ratio of 1.
 const INVARIANT_PAGES = /DOCE-LABS-8\.(1 [a-z-]+ at \d+%|9 [a-z-]+ at \d+% in a canvas)$/;
 
+// The invariant's page checks a real-ratio project does not run: every zoom but its own and, at the
+// ratios of display scaling, the pages painted into a canvas. Left out, not skipped: a skipped test
+// still starts a page, and a run would start some three thousand of them.
+function pageChecksLeftOut(project: string): RegExp[] {
+  const canvas = CANVAS_PROJECTS.includes(project);
+  const zooms = (canvas ? DPR_ZOOMS : SCALING_ZOOMS).join('|');
+  const otherZooms = new RegExp(`DOCE-LABS-8\\.[19] [a-z-]+ at (?!(?:${zooms})%)\\d+%`);
+  return canvas ? [otherZooms] : [otherZooms, /DOCE-LABS-8\.9 [a-z-]+ at \d+% in a canvas$/];
+}
+
 // Chromium at a real device pixel ratio, which changes its layout unit. Playwright's emulated
 // `deviceScaleFactor` does not, so the browser is launched with the ratio and no emulated viewport.
 function devicePixelRatio(
@@ -23,8 +34,9 @@ function devicePixelRatio(
     /\/object-resize\.spec\.ts$/,
   ],
 ) {
+  const name = `chromium-dpr-${String(ratio)}`;
   return {
-    name: `chromium-dpr-${String(ratio)}`,
+    name,
     use: {
       browserName: 'chromium' as const,
       viewport: null,
@@ -38,6 +50,7 @@ function devicePixelRatio(
       },
     },
     testMatch: [...testMatch],
+    grepInvert: pageChecksLeftOut(name),
   };
 }
 

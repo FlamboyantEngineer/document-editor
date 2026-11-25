@@ -286,7 +286,8 @@
           "underline": false,
           "color": "#1f2937"
         }
-      }
+      },
+      "lineNumbers": "linked"
     },
     "equation": {
       "numbering": {
@@ -484,6 +485,21 @@
         "spaceBefore": "0pt",
         "spaceAfter": "6pt"
       }
+    },
+    "blocks": {
+      "quoteIndent": "30pt",
+      "quoteSpacing": "0.75em",
+      "ruleHeight": "1px",
+      "ruleSpacing": "6pt",
+      "codePadding": "6px",
+      "codeCaptionGap": "3px",
+      "codeCaptionRule": "1px",
+      "tableCaptionPadding": "3px",
+      "equationSpacing": "8px",
+      "columnsGap": "6px",
+      "columnsAfter": "6px",
+      "columnPadding": "4px",
+      "columnBorder": "1px"
     }
   },
   "header": {

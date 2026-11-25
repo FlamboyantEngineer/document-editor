@@ -21,6 +21,7 @@ import {
   buildParagraphCounterContent,
   resolveParagraphNumberingConfig,
 } from '../numbering/document-numbering.js';
+import { blockNumberProperties } from './block-numbers.js';
 import { lengthToCssPx, PAGE_SIZE_DIMENSIONS } from './template-css-values.js';
 import {
   NUMBERED_OBJECT_KINDS,
@@ -220,6 +221,7 @@ export function templateProperties(
     ...textStyleProperties(styles, fontStacks),
     ...numberingProperties(styles),
     ...buildCaptionPlacementVariables(styles),
+    ...blockNumberProperties(styles),
     // A section with change bars of its own sets them over the document's, setting by setting,
     // as every other section scope does; one without inherits.
     ...changeBarProperties(

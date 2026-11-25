@@ -15,6 +15,7 @@ import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
 import type { LayoutBlock, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
+import type { LayoutInputs } from './layout-inputs.js';
 import type { PageVariablesOptions } from './page-variables.js';
 
 /** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
@@ -133,6 +134,8 @@ export interface PagesTextEngine {
   readonly fonts?: (() => FontFiles) | undefined;
   /** The language the engine was made to lay the pages out in (DOCE-PAGINATION-9.7), empty for none. */
   readonly language?: string | undefined;
+  /** Everything its layout depends on besides the document (DOCE-PAGINATION-13.12). */
+  inputs(): LayoutInputs;
   /** Counts the measured document's numbered headings and paragraphs, for `measureBlock`. */
   number(doc: ProseMirrorNode): void;
   /** A document's numbered headings and paragraphs, such as the pages'. */
