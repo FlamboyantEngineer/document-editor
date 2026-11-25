@@ -60,3 +60,54 @@ test.describe('templates lab', () => {
     expect(font).toContain('Georgia');
   });
 });
+
+test.describe('template file checks in the templates lab', () => {
+  const checks = async (page: Page) =>
+    JSON.parse(
+      (await page.getByRole('region', { name: 'Template file checks' }).textContent()) ?? 'null',
+    ) as Record<string, unknown>;
+
+  test('DOCE-LABS-3.4 DOCE-FORMAT-2.1 DOCE-FORMAT-2.2 DOCE-FORMAT-2.3 DOCE-FORMAT-2.4 DOCE-TEMPLATES-10.1 DOCE-TEMPLATES-10.3 DOCE-TEMPLATES-10.9 reports what is wrong with a template file', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('templates');
+    await page.getByRole('button', { name: 'Check the template file' }).click();
+    const { errors } = (await checks(page)) as { errors: string[] };
+    for (const expected of [
+      'template.id must use letters, digits, underscores or hyphens',
+      'template.parent must not be the template itself',
+      'template.page.size must be one of',
+      'template.styles.heading1.numbering.format must be a numbering format',
+      'template.header.content: [0]: page_content does not allow image',
+      'template.sections[1].content: [0]: unknown node nothing-known',
+      'template.styles.custom.9 lives must be named with a letter',
+      'template.sections[0].name must use lower-case letters',
+      'template.sections[2].name is used by another section',
+    ]) {
+      expect(errors.some((error) => error.startsWith(expected))).toBe(true);
+    }
+    await page.getByLabel('Template file (JSON)').fill('{"formatVersion": 7}');
+    await page.getByRole('button', { name: 'Check the template file' }).click();
+    expect(await checks(page)).toEqual({ errors: ['template.formatVersion must be 1'] });
+  });
+
+  test('DOCE-LABS-3.4 DOCE-TEMPLATES-4.2 DOCE-TEMPLATES-10.6 DOCE-TEMPLATES-10.7 reads required sections, missing settings and inherited records', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('templates');
+    await page.getByRole('button', { name: 'Check a root template' }).click();
+    expect(await checks(page)).toMatchObject({ errors: [], required: ['cover', 'body'] });
+    await page.getByRole('button', { name: 'List the missing settings' }).click();
+    const missing = await checks(page);
+    expect(missing.root).toContain('styles.paragraph.color');
+    expect(missing.rootCount).toBeGreaterThan(5);
+    expect(missing.resolvedCount).toBe(0);
+    await page.getByRole('button', { name: 'Read the inherited records' }).click();
+    expect(await checks(page)).toEqual({
+      root: { draft: { label: 'Draft' }, final: { label: 'Final' } },
+      child: { final: { label: 'Final' }, reviewed: { label: 'Reviewed' } },
+    });
+  });
+});

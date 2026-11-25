@@ -23,7 +23,7 @@ Verification: `src/engine/presence.test.ts`
 While the document has peers, the toolbar shall show them as avatars (`DocumentPresence`, item `presence`, first in the `mode` group, so just before the editing mode menu; `de-document-editor__presence`, the base library's `AvatarGroup` named by the `presence` label), with their pictures when the host gives them, sorted by name, each in their caret's colour slot, at most `PRESENCE_VISIBLE` (5) before the rest join a count. Each avatar carries the peer's status (`active`, `idle` or `away`, which the host's sheet fades) and names what they are doing (`presenceActivity` labels: Editing, Reviewing, Viewing, Idle, Away). Hovering or focusing an avatar opens their card (`de-document-editor__presence-card`, the base library's `UserIdentity`): their name, picture or initials, email (`data-presence-email`) and what they are doing (`data-presence-activity`); `renderCard(peer)` replaces it. Choosing one scrolls to their caret (`scrollToPeer`): smoothly, by the least distance that leaves the caret `PRESENCE_REVEAL_MARGIN` (24 CSS pixels) from the edges of the view on either axis, and not at all when it already is that far inside; a peer without a caret does not scroll, and the reader's selection stays where it is.
 
 Implementation: `src/components/document-editor/presence-avatars.tsx`, `src/components/document-editor/mode-controls.tsx`, `src/engine/presence.ts`
-Verification: `src/components/document-editor/presence-avatars.test.tsx`, `src/engine/presence.test.ts`, `e2e/collaboration.spec.ts`
+Verification: `src/components/document-editor/presence-avatars.test.tsx`, `src/engine/presence.test.ts`, `e2e/collaboration.spec.ts`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COLLAB-1.4 - Colour slots and stacked carets
 
@@ -111,7 +111,7 @@ Verification: `src/engine/provenance.test.ts`
 `DocumentContributors`, the side panel's `contributors` pane, shall list the document's writers (`documentAuthors`) in one stable row each, ordered by the name they show with and then by id (not by how much they wrote, and with no count), each named by the host's identity adapter (the panel's `identity`, else the editor's comment identity) or by their id, with their colour slot (`data-author`, `data-author-slot`), and publish whether authorship shows (`data-authorship`). A writer the identity adapter names (`data-kind="person"`) shall open a card on hover and keyboard focus over the whole row: the editor's (their name and picture) or `renderCard`'s. Changes the system made (the writer `system`, `data-kind="system"`) shall show as the `systemContributor` label in text only, with no colour, picture or card; a writer the adapter does not name (`data-kind="unresolved"`) has no card; and text with no writer at all (`hasUnattributedText`) shall add a last plain row, `unknownContributor` (`data-kind="unknown"`). With `onAuthorshipChange`, a switch shows or hides authorship by asking the host to change the editor's `authorship`.
 
 Implementation: `src/components/document-panels/document-contributors.tsx`, `src/components/document-panels/built-in-panes.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
-Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`, `e2e/comments-host-options.spec.ts`
 
 ## DOCE-COLLAB-4 - Sync
 

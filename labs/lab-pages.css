@@ -183,6 +183,71 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
   height: auto;
 }
 
+/*
+ * The template workspace lab's host frame (`renderLayout`): the tabs and toolbar in a header, then
+ * the preview beside a side column holding the properties above the history; and the host's own
+ * preview (`renderPreview`), a caption above a document editor.
+ */
+.lab-host-layout,
+.lab-host-layout > .ui-tabs-content,
+.lab-host-layout__body,
+.lab-host-preview {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lab-host-layout__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--ref-border);
+}
+
+.lab-host-layout__header > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.lab-host-layout__columns {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 12px;
+  min-height: 0;
+}
+
+.lab-host-layout__preview {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lab-host-layout__side {
+  overflow: auto;
+  padding: 8px 12px;
+  border-left: 1px solid var(--ref-border);
+  background: var(--ref-raised);
+}
+
+.lab-host-layout__side > h2 {
+  margin: 8px 0 4px;
+  font-size: 0.875rem;
+}
+
+.lab-host-preview > p {
+  margin: 0 0 4px;
+  color: var(--ref-muted);
+  font-size: 0.8125rem;
+}
+
+.lab-host-preview .de-document-editor[data-scrollable] {
+  flex: 1;
+  min-height: 0;
+}
+
 /* The full editor lab's outline and search panels, floating over the document's side. */
 .lab-panels {
   position: fixed;

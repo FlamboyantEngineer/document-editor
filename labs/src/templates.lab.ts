@@ -1,6 +1,7 @@
 // Shows a document styled by a template: the template's custom properties (`templateProperties`)
 // set on the page, a stylesheet that reads them, and pages sized by the template's page metrics.
-// Choosing another template sets its properties and lays the pages out again.
+// Choosing another template sets its properties and lays the pages out again. Below the pages, a
+// template file is checked as a host's server checks one (`template-file-check.ts`).
 
 import { EditorState } from 'prosemirror-state';
 import {
@@ -13,6 +14,7 @@ import {
 } from '../../src/model/index.js';
 import { applyTemplate, bodyHeight, sampleDocument } from './lab-document.js';
 import { labMounts, showOnPages } from './lab-pages.js';
+import { mountTemplateFileCheck } from './template-file-check.js';
 
 const COMPACT: TemplateFile = {
   formatVersion: 1,
@@ -68,3 +70,4 @@ function render(): void {
 }
 
 render();
+mountTemplateFileCheck();
