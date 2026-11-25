@@ -83,7 +83,7 @@ const modeItem = (page: Page, name: string) =>
   reader(page, name).locator('.de-document-editor__status-item[data-status="mode"]');
 
 test.describe('rooms lab: comments, rights and the write guard', () => {
-  test('DOCE-LABS-3.8 DOCE-COMMENTS-2.20 DOCE-COLLAB-6.8 DOCE-COMMENTS-2.32 shows the room’s threads and exports them with their deleted records', async ({
+  test('DOCE-LABS-3.13 DOCE-COMMENTS-2.20 DOCE-COLLAB-6.8 DOCE-COMMENTS-2.32 shows the room’s threads and exports them with their deleted records', async ({
     lab,
     page,
   }) => {

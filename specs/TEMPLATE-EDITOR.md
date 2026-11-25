@@ -151,7 +151,7 @@ Verification: `src/components/template-editor/template-structure.test.tsx`, `src
 The identity rows shall start with the template's id, shown read-only once the host has saved the template. While the host has never saved it (`isNew`), the id may change, committed on Enter or on leaving the field and put back by Escape, may be left empty while it is edited, and is and written as a letter and then up to 63 letters, digits and underscores, other characters becoming underscores and what comes before the first letter left out (`templateIdOf`); while what is typed holds other characters, the field says what an id is written with (`idCharacters`); an id typed with nothing left is refused, saying why (`idEmpty`), and an emptied or refused id empties the template's id, so a host cannot save it until it has one. `idError` says under the field why the id cannot be saved, and `idInputRef` reaches its input, so a host can focus it. The name shall be a draft committed on Enter or on leaving the field and put back by Escape; it may be empty while it is edited, and an emptied name commits the default name (`defaultName`). A name holds at most 120 characters and no control or formatting characters: a character it may not hold is refused as it is typed, and the field says what a name may hold (`nameCharacters`). Both fields show a placeholder while empty (`idPlaceholder`, `namePlaceholder`), and every text is a label a host may replace.
 
 Implementation: `src/components/template-editor/template-identity.tsx`
-Verification: `src/components/template-editor/template-structure.test.tsx`
+Verification: `src/components/template-editor/template-structure.test.tsx`, `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-2.7 - Committing the JSON
 
@@ -223,7 +223,7 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`, `
 `TemplatePicker` (`de-template-picker`) shall offer the templates given, as a template store lists them, in a select field, by name in alphabetical order with the id under it, or by id alone for one without a name, and hand the id of the one picked to `onSelectionChange`.
 
 Implementation: `src/components/template-workspace/template-picker.tsx`
-Verification: `src/components/template-workspace/template-workspace.test.tsx`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.9 - Answers that come back late
 
@@ -251,7 +251,7 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 A host may hold the template open (`templateId`) and the version shown (`revision`), such as from its route, the workspace starting from them: a change of `templateId` opens that template, at `revision` when given, once unsaved changes are saved or discarded (DOCE-TEMPLATE-EDITOR-3.7), and staying calls `onTemplateIdChange` with the open template's id, so the host can put it back; a change of `revision` alone shows that version, or the template with null. New template tells the host that no stored template is open (null). `defaultRevision` shows a version at first.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
-Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.13 - The JSON view
 
@@ -272,7 +272,7 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 `renderLayout` shall receive the workspace's parts (`TemplateWorkspaceParts`): the scope tabs, the toolbar, the messages, the preview, the properties and the history, and the tabs' panel (`panel`), which wraps what a layout shows below the tabs, so a host can place them in its own frame, such as its own side panel and header, in place of the workspace's layout, and show a view of its own, such as a list of its fields with its tab beside the scope tabs, in place of the preview and properties.
 
 Implementation: `src/components/template-workspace/template-workspace-types.ts`, `src/components/template-workspace/template-workspace.tsx`
-Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.16 - The workspace's own preview
 

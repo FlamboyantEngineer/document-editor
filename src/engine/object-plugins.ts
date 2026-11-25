@@ -4,19 +4,23 @@
 import type { RichTextPluginContribution } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { createChecklists } from './checklists.js';
 import { createEmbeds } from './embeds.js';
-import { createMathViews, type InvalidMathText } from './math-views.js';
+import { createMathViews, type InvalidMathText, type MathViewsOptions } from './math-views.js';
 import { createObjectViews, type LineNumbers } from './object-views.js';
 import { createScripts } from './scripts.js';
+
+/** How the editing's math views typeset math, beside what invalid math shows (`invalidMath`). */
+export type EditingMathOptions = Omit<MathViewsOptions, 'invalid'>;
 
 /** The object plugins, with the code's line numbers and the text of math that does not typeset. */
 export const objectPlugins = (options: {
   lineNumbers?: LineNumbers | undefined;
   invalidMath?: InvalidMathText | undefined;
+  math?: EditingMathOptions | undefined;
 }): RichTextPluginContribution[] => [
   {
     name: 'math-views',
     priority: 500,
-    build: () => [createMathViews({ invalid: options.invalidMath })],
+    build: () => [createMathViews({ ...options.math, invalid: options.invalidMath })],
   },
   {
     name: 'object-views',

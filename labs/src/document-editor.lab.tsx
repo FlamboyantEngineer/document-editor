@@ -177,6 +177,12 @@ function Lab() {
   const [selectionToolbar, setSelectionToolbar] = useState(false);
   const [slashMenu, setSlashMenu] = useState(false);
   const [mentions, setMentions] = useState(false);
+  // The last person the writer mentioned, as the host hears of it (`onMention`).
+  const [mentioned, setMentioned] = useState('');
+  const mentionOptions = useMemo(
+    () => ({ ...LAB_MENTIONS, onMention: (person: { name: string }) => setMentioned(person.name) }),
+    [],
+  );
   const [formattingMarks, setFormattingMarks] = useState(false);
   const [caretBlock, setCaretBlock] = useState(false);
   const [tableHandles, setTableHandles] = useState(true);
@@ -290,6 +296,7 @@ function Lab() {
             />{' '}
             Mentions
           </label>
+          <output aria-label="Mentioned">{mentioned}</output>
           <label>
             <input
               type="checkbox"
@@ -407,7 +414,7 @@ function Lab() {
         scrollable={scrollable}
         selectionToolbar={selectionToolbar}
         slashMenu={slashMenu && { emptyLineButton: true }}
-        mentions={mentions ? LAB_MENTIONS : undefined}
+        mentions={mentions ? mentionOptions : undefined}
         placeholderText={slashMenu ? { emptyLine: 'Type / to insert a block' } : undefined}
         formattingMarks={formattingMarks}
         caretBlock={caretBlock}

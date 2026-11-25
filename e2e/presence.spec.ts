@@ -155,7 +155,7 @@ test.describe('presence lab', () => {
     }
   });
 
-  test('DOCE-COLLAB-1.7 DOCE-LABS-3.8 shows a selection shared by element address in another copy', async ({
+  test('DOCE-COLLAB-1.7 DOCE-LABS-3.13 shows a selection shared by element address in another copy', async ({
     lab,
     page,
   }) => {
