@@ -1,7 +1,8 @@
 // A document's named versions and history on the in-memory host: the history pane lists the
 // versions, automatic ones folded under named ones; the reader saves and names a version, views one
 // in place of the document with the template it pins, compares two, restores one, and returns to
-// the document with the markup and comments they had before the view.
+// the document with the markup and comments they had before the view. Each row also offers the
+// host's own action, Branch from here, which the lab reports.
 
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -115,6 +116,7 @@ function History({
   versions: DocumentVersions<ReaderSettings>;
 }) {
   const [settings, setSettings] = useState<ReaderSettings>({ markup: 'all', comments: true });
+  const [branched, setBranched] = useState<string | null>(null);
   const document = useSessionValue(session.document);
   const view = useSessionValue(versions.view);
   if (!document) return <p>Opening the document…</p>;
@@ -129,7 +131,8 @@ function History({
         <output aria-label="Reader settings">
           {`${settings.markup} markup, comments ${settings.comments ? 'shown' : 'hidden'}`}
         </output>{' '}
-        <output aria-label="Template shown">{(shown?.template ?? document.template).id}</output>
+        <output aria-label="Template shown">{(shown?.template ?? document.template).id}</output>{' '}
+        <output aria-label="Branched from">{branched ?? 'No branch'}</output>
         <DocumentHistoryBanner versions={versions} onReturn={setSettings} />
         <DocumentEditor
           fonts={LAB_FONTS}
@@ -150,6 +153,13 @@ function History({
           returnTo={settings}
           onReturn={setSettings}
           identity={HOST.identity}
+          versionActions={({ version }) => [
+            {
+              id: 'branch',
+              label: 'Branch from here',
+              onAction: () => setBranched(version.revision),
+            },
+          ]}
         />
       </aside>
     </div>

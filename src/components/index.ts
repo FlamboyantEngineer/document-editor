@@ -123,6 +123,7 @@ export type {
   DocumentHistoryLabels,
   DocumentHistoryProps,
   HistoricalEditorProps,
+  VersionActionTarget,
 } from './document-panels/index.js';
 export {
   DEFAULT_PANELS_LABELS,

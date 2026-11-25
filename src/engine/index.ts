@@ -53,6 +53,7 @@ export {
   toggleCaption,
 } from './captions.js';
 export { codeTokenizerOf } from './code-highlighting.js';
+export { colorSlotsOf, setColorSlots } from './color-slots.js';
 export { activeCommentThread, commentAnchors, createCommentAnchors } from './comment-anchors.js';
 export type { CommentDraft } from './comment-draft.js';
 export {

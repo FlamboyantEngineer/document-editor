@@ -167,6 +167,13 @@ The template content lab shall show a template's preview in parts beside the tem
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
 
+### DOCE-LABS-3.8 - Contributor colours
+
+The contributor colours lab shall show a document written by more writers than the default eight colour slots, with authorship shown, the contributors pane beside it and as many people present, each with a caret, and a choice of the editor's colour slots (8 or 50, DOCE-COLLAB-1.8). The lab's sheet colours as many slots as it sets, so with 50 every writer's text, caret and avatar has a colour no other writer has, and with 8 writers share them.
+
+Implementation: `labs/src/contributor-colors.lab.tsx`, `labs/contributor-colors.html`
+Verification: `e2e/contributor-colors.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.

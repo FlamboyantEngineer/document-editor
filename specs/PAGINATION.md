@@ -127,7 +127,7 @@ Verification: `src/model/pagination/text-split.test.ts`
 A measured code block shall split at the last line break whose lines fit with the block's height beyond its text, which each fragment repeats (`splitCode`, `planCodeSplit`). Neither fragment shall keep the line break, the second shall not be empty, and it shall be marked continued and number its lines on from the first. A later fragment's caption, which shows the caption's text and holds none (DOCE-PAGINATION-1.1), shall be as tall as that text and the continued suffix are laid out after its label: the code figure's measurement carries how much taller that is than the caption (`continuedCaption`), which the held split adds to each later fragment's height and to the height it repeats (DOCE-PAGINATION-11.2); the reference stylesheet hides its empty text's trailing break, which would start a second line.
 
 Implementation: `src/model/pagination/text-split.ts`
-Verification: `src/model/pagination/text-split.test.ts`
+Verification: `src/model/pagination/text-split.test.ts`, `e2e/code-split-captions.spec.ts`
 
 ### DOCE-PAGINATION-3.4 - Linked code
 
@@ -680,7 +680,7 @@ Verification: `src/layout-engine/footnote-marker.test.ts`
 A figure, table or code caption's typography shall be its object's caption text font in its scope (`figure`, `table` or `codeBlock` caption settings), unset values the paragraph's, at the paragraph's line height and with no margins of its own (its place in the object is the block layout's); a table caption shall be aligned as its caption settings say, others left. A place's `label`, the caption's label, number and separator, shall be laid out before the text on the first line, in the caption label font, unset values the caption text's (`captionLabelFont`); a label family that is not served refuses the block. The renderer draws a caption's label and text in these fonts and at this line height, not in the page's inherited font. The engine shall lay figure, table and code captions out; a code caption at its code figure's content width, at the left of the box whatever its alignment, as the stylesheet draws it inside the code's padding. A later part's caption, which holds no text and shows the first part's (`continuedText`), shall be laid out over that text followed by its kind's continued suffix in its scope (`continuedCaption`, a table's or code's, with its space, as the stylesheet draws it), its line table carrying that text (`text`), which its offsets are in. Where a line breaks inside the label or right after it, as in a narrow cell, the line table shall carry the label's part on each line it starts (`label`), each ending in a line feed but a last one that shares its line with the content.
 
 Implementation: `src/layout-engine/typography.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/continued-caption.ts`, `src/layout-engine/lines.ts`
-Verification: `src/layout-engine/caption-typography.test.ts`, `src/layout-engine/text-layout.test.ts`
+Verification: `src/layout-engine/caption-typography.test.ts`, `src/layout-engine/text-layout.test.ts`, `e2e/code-split-captions.spec.ts`
 
 ### DOCE-PAGINATION-9.12 - Paragraph direction
 

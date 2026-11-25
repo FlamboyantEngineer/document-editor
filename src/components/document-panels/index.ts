@@ -29,3 +29,4 @@ export type { DocumentHistoryLabels } from './history-labels.js';
 export { DEFAULT_HISTORY_LABELS } from './history-labels.js';
 export type { DocumentPanelsLabels } from './panel-labels.js';
 export { DEFAULT_PANELS_LABELS } from './panel-labels.js';
+export type { VersionActionTarget } from './version-actions.js';
