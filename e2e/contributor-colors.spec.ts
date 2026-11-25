@@ -16,7 +16,7 @@ async function distinct(page: Page, selector: string, attribute: string) {
 }
 
 test.describe('contributor colours lab', () => {
-  test('DOCE-LABS-3.8 DOCE-COLLAB-1.8 gives twelve writers colours of their own with 50 slots, and shares 8', async ({
+  test('DOCE-LABS-3.11 DOCE-COLLAB-1.8 gives twelve writers colours of their own with 50 slots, and shares 8', async ({
     lab,
     page,
   }) => {
