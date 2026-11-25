@@ -9,6 +9,7 @@ import {
 import { InlineError } from '@flamboyantengineer/ui-components/inline-error';
 import { Stack } from '@flamboyantengineer/ui-components/layout';
 import { ListView } from '@flamboyantengineer/ui-components/list-row';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { useState } from 'react';
 import { useRevisionActions } from './revision-actions.js';
 import { RevisionDialog } from './revision-dialog.js';
@@ -30,6 +31,8 @@ interface RevisionListProps {
   onView?: ((key: Key) => void) | undefined;
   onRestore?: ((key: Key) => unknown) | undefined;
   onRename?: ((key: Key, label: string) => unknown) | undefined;
+  /** The host's own entries in a version's row actions, after the editor's. */
+  rowActions?: ((key: Key) => readonly MenuEntry[]) | undefined;
   showFilters?: boolean | undefined;
   isLoading?: boolean | undefined;
   error?: string | undefined;
@@ -172,6 +175,7 @@ export function RevisionList(props: RevisionListProps) {
             canView={Boolean(onView)}
             canRename={Boolean(onRename)}
             canRestore={Boolean(onRestore && version.id !== props.currentKey)}
+            hostActions={props.rowActions?.(version.id) ?? []}
             onAction={(action) =>
               action === 'view' ? onView?.(version.id) : model.openDialog(version.id, action)
             }

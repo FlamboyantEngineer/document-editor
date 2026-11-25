@@ -155,4 +155,29 @@ test.describe('offline lab in room mode', () => {
     );
     await expect(roomStatus(page)).toHaveText('ready · saved');
   });
+
+  test('DOCE-SESSION-6.6 DOCE-HOST-1.20 keeps the draft at once when the page is hidden or left, a failed save too', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('offline');
+    await page
+      .getByRole('checkbox', { name: 'Keep drafts only when the page is hidden or left' })
+      .check();
+    await expect(status(page)).toHaveText(/^ready · /);
+    await typeAtEnd(page, ' Hidden.');
+    await expect(page.getByLabel('Times the store kept unsaved changes')).toHaveText('0 kept');
+    // Hidden, the page keeps its draft at once, then saves, which takes the draft away again.
+    await page.getByRole('button', { name: 'Hide page' }).click();
+    await expect(page.getByLabel('Times the store kept unsaved changes')).toHaveText('1 kept');
+    await expect(status(page)).toHaveText('ready · saved');
+    await page.getByRole('button', { name: 'Show page' }).click();
+    await typeAtEnd(page, ' Left.');
+    await page.getByRole('button', { name: 'Fail the next save' }).click();
+    await page.getByRole('button', { name: 'Leave page' }).click();
+    await expect.poll(() => draftHolds(page, 'Left.')).toBe(true);
+    await expect(status(page)).toHaveText(/^ready · error/);
+    await reopen(page);
+    await expect(draft(page)).toBeVisible();
+  });
 });

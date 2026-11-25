@@ -5,7 +5,8 @@
 // working through the automation API, figures and linked code through the host's assets and code
 // source, references and abbreviations through its citations and glossary, and side panels beside
 // the document: the outline and search at its start, the properties and the host's own panes at its
-// end.
+// end. The host's options (full-editor-options.tsx) and a review scope over the outline
+// (review-scope.tsx) sit above it.
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -19,6 +20,7 @@ import {
 } from '../../src/components/index.js';
 import {
   assignElementIds,
+  createAbbreviationHealth,
   createContents,
   createDocumentEditing,
   createInlineCompletion,
@@ -38,6 +40,21 @@ import {
 } from '../../src/model/index.js';
 import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
+import {
+  citingPlaces,
+  DEFAULT_OPTIONS,
+  GLOSSARY_ENTRIES,
+  HostOptionsPanel,
+  INVALID_MATH,
+  LAB_PIN,
+  labRunner,
+  MARKUP_REASONS,
+  normalizeAnswer,
+  proofingOptions,
+  reportingPins,
+  sampleBlocks,
+  withRecordLinks,
+} from './full-editor-options.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HOST_DIALOGS, NOTE_ITEM } from './host-dialogs.js';
 import { labExports } from './host-exports.js';
@@ -57,6 +74,7 @@ import { chapter, heading, sampleDocument, text } from './lab-document.js';
 import { labAssets, labDiagrams } from './lab-figures.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
+import { createReviewScope, ReviewScope } from './review-scope.js';
 import { LAB_FONTS } from './served-fonts.js';
 
 // The base template with a landscape appendix, so pages of two orientations hold comments.
@@ -114,7 +132,7 @@ const CODE = {
   ).join('\n'),
 };
 
-// The glossary abbreviations cite.
+// The glossary abbreviations cite, with an archived entry and two that read the same.
 const GLOSSARY = [
   {
     id: 'glossary-gse',
@@ -125,12 +143,18 @@ const GLOSSARY = [
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
   },
+  ...GLOSSARY_ENTRIES,
 ];
+
+// The key of what a script reads: the document's blocks, as the lab's scripts count them.
+const inputsKey = ({ document }: { document: { sections: { content: unknown[] }[] } }) =>
+  `blocks:${String(document.sections.reduce((sum, section) => sum + section.content.length, 0))}`;
 
 const HOST = createMemoryHost({
   scripts: runLabScript,
   scriptVocabulary: LAB_SCRIPT_VOCABULARY,
   checkScript: checkLabScript,
+  scriptInputsKey: inputsKey,
   code: CODE,
   glossary: GLOSSARY,
   citations: CITATIONS,
@@ -179,7 +203,8 @@ const COMPLETER = {
     Promise.resolve({
       ok: true as const,
       value: {
-        text: before.endsWith('Recovery takes') ? ' less than one second.' : '',
+        // Two lines, which the library offers the first of and the host's normalising joins.
+        text: before.endsWith('Recovery takes') ? ' less than one second.\nIt is logged.' : '',
         session: 'lab-completion',
       },
     }),
@@ -251,6 +276,7 @@ function initialState(): EditorState {
       content: [{ type: 'paragraph', content: [text('Status: saved with the document.')] }],
     },
     { type: 'script', attrs: { id: '5c41b7e2', source: 'render.chart()' } },
+    ...sampleBlocks(),
     {
       type: 'paragraph',
       content: [
@@ -331,16 +357,21 @@ function initialState(): EditorState {
         : []),
       createInlineCompletion({
         provider: COMPLETER,
+        normalize: normalizeAnswer,
         author: () => 'ada',
         delay: 300,
         suggesting: () => SUGGESTING.current,
       }),
-      createProofing({ proofer: PROOFERS, delay: 200 }),
+      createProofing({ proofer: PROOFERS, delay: 200, ...proofingOptions() }),
+      ...(HOST.glossary ? [createAbbreviationHealth({ glossary: HOST.glossary, delay: 200 })] : []),
+      createReviewScope(),
       createPresence(),
       ...createDocumentEditing(schema, {
         template: () => TEMPLATE,
         author: () => 'ada',
         isLocked: isLockedParagraph,
+        invalidMath: INVALID_MATH,
+        citingPlaces: citingPlaces(),
       }),
     ],
   });
@@ -367,6 +398,9 @@ const LABELS = { glossaryNotice: 'Glossary entries are shared by every document.
 // Why the writer may not edit, while the lab restricts editing.
 const RESTRICTED = { edit: 'The host lets this writer only suggest' };
 
+// The context menu, a host record link keeping the selection.
+const CONTEXT_MENU = withRecordLinks(HOST_CONTEXT_MENU);
+
 function Lab() {
   const [state, setState] = useState(initialState);
   const [view, setView] = useState<EditorView | null>(null);
@@ -381,6 +415,15 @@ function Lab() {
   const [panels, setPanels] = useState(true);
   const [authorship, setAuthorship] = useState(false);
   const [markers, setMarkers] = useState(false);
+  const [options, setOptions] = useState(DEFAULT_OPTIONS);
+  // Each opening's options, read once as the document is given anew.
+  const [opened, setOpened] = useState(DEFAULT_OPTIONS);
+  // The template the last script run or export was given.
+  const [templateGiven, setTemplateGiven] = useState('');
+  const runner = useMemo(
+    () => HOST.scripts && labRunner(HOST.scripts, opened.inputsKey, setTemplateGiven),
+    [opened.inputsKey],
+  );
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel(handle);
   // What the host's feedback last told the reader, such as a failed upload.
@@ -400,7 +443,11 @@ function Lab() {
   const comments = HOST.comments;
   const menubar = useMemo(() => hostMenubar(() => setNotice('Saved')), []);
   const exports = useMemo(
-    () => labExports((pages) => setSnapshot(`${String(pages)} pages printed`)),
+    () =>
+      reportingPins(
+        labExports((pages) => setSnapshot(`${String(pages)} pages printed`)),
+        setTemplateGiven,
+      ),
     [],
   );
   return (
@@ -476,6 +523,17 @@ function Lab() {
             Comment markers
           </label>
         </fieldset>
+        <HostOptionsPanel
+          options={options}
+          onChange={setOptions}
+          view={view}
+          templateGiven={templateGiven}
+          onOpenAgain={() => {
+            setOpened(options);
+            setState(initialState());
+          }}
+        />
+        <ReviewScope state={state} view={view} template={TEMPLATE} />
         <AgentPanel view={view} />
         <HostPanel report={host.report} handle={handle} />
         <RevealPanes handle={handle} />
@@ -506,13 +564,16 @@ function Lab() {
         author="ada"
         markup={markup}
         onMarkupChange={setMarkup}
+        markupReasons={options.restrictMarkup ? MARKUP_REASONS : undefined}
+        templatePin={options.templatePin ? LAB_PIN : undefined}
+        refreshAbbreviationsOnOpen={opened.refreshAbbreviations}
         toolbar={TOOLBAR}
         dialogs={DIALOGS}
         labels={LABELS}
         referenceKinds={REFERENCE_KINDS}
         menubar={menubar}
         exports={exports}
-        contextMenu={HOST_CONTEXT_MENU}
+        contextMenu={CONTEXT_MENU}
         scrollable
         statusBar
         authorship={authorship}
@@ -525,7 +586,7 @@ function Lab() {
         codeSource={HOST.codeSource}
         referenceSource={HOST.references}
         glossary={HOST.glossary}
-        scriptRunner={HOST.scripts}
+        scriptRunner={runner}
         feedback={feedback}
         handleRef={handle}
         {...host.notifications}

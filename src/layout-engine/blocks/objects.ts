@@ -80,6 +80,12 @@ export function layFigure(context: BlockContext, figure: ProseMirrorNode): Laid 
     : context.options.atoms.measureBlockAtom(figure, width, context.place.scope);
   const image = fixed ?? measured;
   if (!image) return notLaid(figure, 'the figure has no stored or measured size');
+  context.options.onObject?.(figure, {
+    kind: 'figure',
+    width: image.width,
+    height: image.height,
+    room: width,
+  });
   let caption = 0;
   const line = figure.firstChild;
   if (figure.attrs.captionEnabled !== false && line) {

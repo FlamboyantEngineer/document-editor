@@ -88,6 +88,13 @@ function layTable(context: BlockContext, table: ProseMirrorNode): Laid {
     cells.push({ top: rect.top, bottom: rect.bottom, height: result.height });
   }
   const heights = rowHeights(cells, map.height);
+  context.options.onObject?.(table, {
+    kind: 'table',
+    columns: columns.widths,
+    rows: heights,
+    edge: box.padding + borders.horizontal / 2,
+    room: place.width,
+  });
   let top = 0;
   const rows = heights.map((height) => {
     const row = { top, bottom: top + height };

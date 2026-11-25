@@ -250,6 +250,13 @@ export interface DocumentEditorProps
   /** Shows who wrote what: each writer's text in their colour slot (`data-author-slot`). */
   authorship?: boolean | undefined;
   /**
+   * How many colour slots people are told apart by, one count for the carets, the avatars, the
+   * authorship tints and the contributors pane (`data-presence-slot`, `data-author-slot`, the
+   * avatars' `data-color`); `PRESENCE_COLOR_SLOTS` (8) by default. Give the host's sheet a colour
+   * for each slot.
+   */
+  colorSlots?: number | undefined;
+  /**
    * Repairs the element ids of each document the editor is given while it is editable
    * (`repairElementIds`), telling the host through `onContentChange`; `{ author }` attributes the
    * repaired elements without a writer to that author. Defaults to false.
@@ -391,7 +398,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useRoomReloadNotice(props.session, props.feedback, labels.roomChangeRefused);
-  const reach = { root, refs, progress, transactions: engine.transactions };
+  const reach = { root, refs, progress, transactions: engine.transactions, drawn: template };
   const { find, scope, exports } = useHostReach(authored, view, reach);
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const { dialog, open: openDialog, close: closeDialog } = useObjectDialog(editable);

@@ -185,7 +185,8 @@ describe('the engine on page regions', () => {
     const footer = type('page_footer').create(null, [
       type('paragraph').create(null, [text('Page '), variable]),
     ]);
-    expect(pages.measureRegion(footer, null)).toBeNull();
+    // Without the values, as the text each variable holds.
+    expect(pages.measureRegion(footer, null)?.height).toBeGreaterThan(0);
     const first = pages.measureRegion(footer, null, new Map([['page.current', '1']]));
     expect(first?.height).toBeGreaterThan(0);
     expect(pages.measureRegion(footer, null, new Map([['page.current', '1']]))).toBe(first);
@@ -198,7 +199,7 @@ describe('the engine on page regions', () => {
     if (!paragraph) throw new Error('no paragraph');
     const texts = new Map([['page.current', '12']]);
     expect(pages.regionLines(footer, null, texts).get(paragraph)?.lines).toHaveLength(1);
-    expect(pages.regionLines(footer, null).size).toBe(0);
+    expect(pages.regionLines(footer, null).get(paragraph)?.lines).toHaveLength(1);
     pages.destroy();
   });
 

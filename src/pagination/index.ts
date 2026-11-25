@@ -58,7 +58,12 @@ export {
   type PagesFonts,
   type ServedFonts,
 } from './served-fonts.js';
-export { PAGE_GENERICS, renameTemplateFonts, servedTemplate } from './served-template.js';
+export {
+  PAGE_GENERICS,
+  renameTemplateFonts,
+  servedFamiliesOnly,
+  servedTemplate,
+} from './served-template.js';
 export type { TextLayoutSetting } from './text-engine-holder.js';
 export type { TextEngineStats, TextLayoutMode } from './text-engine-types.js';
 export type { BlockTextLines, ComputedLine, PageTextLines } from './text-lines.js';

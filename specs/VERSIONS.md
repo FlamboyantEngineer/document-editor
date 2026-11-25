@@ -221,6 +221,13 @@ The versions shall follow the session's live capabilities: saving and naming a v
 Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
 Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`
 
+### DOCE-VERSIONS-4.8 - The host's row actions
+
+`DocumentHistory`'s `versionActions(target)` shall add the host's own entries (the base library's `MenuEntry`s) to a version's row actions, after View, Rename and Restore, for each row, folded or not, with the version it is for and whether it is the current one (`VersionActionTarget`), such as branching a new document from that version. A row shows its actions menu while it has any entry, the host's included. The host's entries do what the host does: the history neither views, selects nor restores for them.
+
+Implementation: `src/components/document-panels/document-history.tsx`, `src/components/document-panels/version-actions.ts`, `src/components/document-panels/revision-list.tsx`, `src/components/document-panels/revision-row.tsx`, `labs/src/history.lab.tsx`
+Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+
 ## DOCE-VERSIONS-5 - Historical view
 
 ### DOCE-VERSIONS-5.1 - Viewing a version

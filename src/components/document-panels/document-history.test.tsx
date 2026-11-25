@@ -190,6 +190,54 @@ describe('DocumentHistory', () => {
     expect(screen.queryByRole('row')).not.toBeInTheDocument();
   });
 
+  it('DOCE-VERSIONS-4.8 adds the host’s row actions after its own, for the version of the row', async () => {
+    const { versions } = await openHistory();
+    const user = userEvent.setup();
+    const asked: string[] = [];
+    render(
+      <Host
+        versions={versions}
+        capabilities={{ ...FULL_CAPABILITIES, saveVersion: false, edit: false }}
+        versionActions={({ version, current }) => [
+          {
+            id: 'branch',
+            label: 'Branch from here',
+            onAction: () => asked.push(`${version.revision} ${String(current)}`),
+          },
+        ]}
+      />,
+    );
+    await user.click(within(await row(/Draft/)).getByRole('button', { name: 'Version actions' }));
+    const items = await screen.findAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual(['View version', 'Branch from here']);
+    await user.click(screen.getByRole('menuitem', { name: 'Branch from here' }));
+    expect(asked).toEqual(['rev-2 false']);
+    expect(screen.getByText('Shown current')).toBeVisible();
+  });
+
+  it('DOCE-VERSIONS-4.8 tells the host which row is the current version', async () => {
+    const { versions } = await openHistory();
+    const user = userEvent.setup();
+    const asked: string[] = [];
+    render(
+      <Host
+        versions={versions}
+        versionActions={({ version, current }) => [
+          {
+            id: 'branch',
+            label: 'Branch',
+            onAction: () => asked.push(`${version.revision} ${String(current)}`),
+          },
+        ]}
+      />,
+    );
+    await row(/Draft/);
+    const [first] = screen.getAllByRole('row');
+    await user.click(within(first as HTMLElement).getByRole('button', { name: 'Version actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Branch' }));
+    expect(asked).toEqual(['rev-3 true']);
+  });
+
   it('DOCE-VERSIONS-4.1 follows the versions of the session it is given', async () => {
     const { host, session } = await openHistory();
     function Count() {

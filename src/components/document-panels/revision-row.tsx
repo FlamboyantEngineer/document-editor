@@ -5,6 +5,7 @@ import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
 import { ExpandToggle } from '@flamboyantengineer/ui-components/expand-toggle';
 import { Cluster, Stack } from '@flamboyantengineer/ui-components/layout';
 import { ListViewItem } from '@flamboyantengineer/ui-components/list-row';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { revisionHooks as hooks } from './revision-hooks.js';
 import { type RevisionItem, type RevisionTimeFormat, revisionTitle } from './revision-item.js';
 import type { RevisionLabels } from './revision-labels.js';
@@ -19,6 +20,8 @@ interface RevisionRowProps {
   canView: boolean;
   canRename: boolean;
   canRestore: boolean;
+  /** The host's own entries, after View, Rename and Restore. */
+  hostActions: readonly MenuEntry[];
   labels: RevisionLabels;
   timeFormat: RevisionTimeFormat;
   onAction: (action: 'view' | 'rename' | 'restore') => void;
@@ -57,10 +60,15 @@ export function RevisionRow({
   canView,
   canRename,
   canRestore,
+  hostActions,
   labels,
   timeFormat,
   onAction,
 }: RevisionRowProps) {
+  const items = [
+    ...actionItems({ canView, canRename, canRestore }, { version, labels, onAction }),
+    ...hostActions,
+  ];
   const title = revisionTitle(version, timeFormat);
   const isCurrent = version.id === currentKey;
   const isExpanded = Boolean(version.children?.length) && expanded;
@@ -95,13 +103,13 @@ export function RevisionRow({
         </Stack>
       }
       trailing={
-        canView || canRename || canRestore ? (
+        items.length > 0 ? (
           <DropdownMenu
             {...hooks.slot('actions')}
             label={labels.revisionActions}
             variant="ghost"
             size="sm"
-            items={actionItems({ canView, canRename, canRestore }, { version, labels, onAction })}
+            items={items}
           />
         ) : undefined
       }

@@ -6,7 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { TypesetMath } from '../engine/math-typeset.js';
 import type { FontFiles } from '../host/font-files.js';
-import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
+import type { ContentsDrawn, ObjectBox } from '../layout-engine/blocks/types.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { InsertedText } from '../layout-engine/inserted-text.js';
 import type { LineTable } from '../layout-engine/line-table.js';
@@ -193,6 +193,14 @@ export interface PagesTextEngine {
     scope: string | null,
     labelOf?: (caption: ProseMirrorNode) => string | undefined,
   ): ReadonlyMap<ProseMirrorNode, DrawnLines>;
+  /**
+   * The box of each figure and table in a top-level block of a page's content, as the engine lays
+   * the block out in its section's content width (DOCE-PAGINATION-10.12); none it cannot lay out.
+   */
+  objectBoxes(
+    block: ProseMirrorNode,
+    scope: string | null,
+  ): ReadonlyMap<ProseMirrorNode, ObjectBox>;
   /**
    * Whether an atom the engine measured, such as an image or math, still waits for its final size,
    * so the blocks holding it, and the page breaks after them, may move.

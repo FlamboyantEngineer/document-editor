@@ -116,7 +116,7 @@ Verification: `src/engine/references.test.ts`
 `createAbbreviationHealth({ glossary, delay })` shall resolve the entries the document's abbreviations cite through the host's glossary a moment after each change that adds an entry it has not asked for, or whose last resolve failed (500 milliseconds by default), and mark an abbreviation whose entry the glossary no longer has `missing`, one whose entry is archived `archived`, and one that reads the same abbreviation, ignoring case, as another entry the document cites `duplicate` (`data-abbreviation-issue`, `abbreviationIssueAt`). `abbreviationIssues(doc, answer)` gives those issues from the glossary's answer, judging only the entries it was asked for, and `listAbbreviationIssues(state)` those the state marks. They count in the proofing status and the next issue visits them with the proofing issues (`listDocumentIssues`, DOCE-PROOFING-2.3, DOCE-PROOFING-3.1), each as an issue of category `abbreviation-<issue>`, even while language checking is absent; an abbreviation's own text is never checked for spelling. In an editable document, the context menu on an abbreviation with an issue shall offer to cite another entry through the abbreviation dialog (`relinkAbbreviation` label) and, for a duplicate, each other entry the document cites that reads the same (`useAbbreviation`, `relinkAbbreviation(entry)`, `abbreviationAlternatives`), before its form and turning it into text.
 
 Implementation: `src/engine/abbreviation-health.ts`, `src/engine/abbreviations.ts`, `src/engine/proofing-commands.ts`, `src/components/document-editor/abbreviation-entries.ts`
-Verification: `src/engine/abbreviation-health.test.ts`, `src/engine/proofing-options.test.ts`, `src/components/document-editor/abbreviation-entries.test.ts`
+Verification: `src/engine/abbreviation-health.test.ts`, `src/engine/proofing-options.test.ts`, `src/components/document-editor/abbreviation-entries.test.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-REFERENCES-2.4 - Glossary input on a server
 
@@ -153,7 +153,7 @@ Verification: `e2e/references.spec.ts`, `src/components/document-editor/abbrevia
 With `refreshAbbreviationsOnOpen` and a glossary, the document editor shall, once for each document it is given, however many views it makes of it, resolve the entries the document's abbreviations cite and bring those whose abbreviation or expansion the glossary has changed up to date (`refreshAbbreviations`), as one change marked `ABBREVIATION_CACHE_REFRESH_META` that undo does not take back, for a writer who edits directly. A document whose abbreviations are current, a reader who cannot edit, one who suggests, and an editor without the option write nothing on opening.
 
 Implementation: `src/components/document-editor/opening-abbreviations.ts`
-Verification: `src/components/document-editor/opening-abbreviations.test.tsx`
+Verification: `src/components/document-editor/opening-abbreviations.test.tsx`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-REFERENCES-3.4 - An abbreviation's tooltip from the keyboard
 

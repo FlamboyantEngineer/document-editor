@@ -325,16 +325,24 @@ describe('createTextLayout', () => {
     expect(measureAtom).toHaveBeenCalledWith(atom, { parent: heading, scope: 'appendix' });
   });
 
-  it('DOCE-PAGINATION-9.5 refuses a block that holds a template variable', () => {
-    const variable = documentSchema.nodes.template_variable?.create({ variableKey: 'page.total' });
+  it('DOCE-PAGINATION-9.5 lays a template variable out as the text it holds where no values are given', () => {
+    const variable = documentSchema.nodes.template_variable?.create(
+      { variableKey: 'document.title' },
+      documentSchema.text('bb cc'),
+    );
     const paragraph = documentSchema.nodes.paragraph?.create(null, [
       documentSchema.text('aaaa '),
       ...(variable ? [variable] : []),
     ]);
     if (!paragraph) throw new Error('schema has no paragraph');
-    expect(
-      createTextLayout({ template: BASE_TEMPLATE }).layoutText(paragraph, { width: 60 }),
-    ).toEqual({ ok: false, reason: 'template variable' });
+    const shown = createTextLayout({ template: BASE_TEMPLATE }).layoutText(paragraph, {
+      width: 60,
+    });
+    if (!shown.ok) throw new Error(shown.reason);
+    // Its text stays on one line, as the page cannot break inside the variable.
+    const written = table(block('<p>aaaa bbcc</p>'), 60);
+    expect(shown.table.lines.length).toBe(written.lines.length);
+    expect(shown.table.height).toBe(written.height);
   });
 
   it('DOCE-PAGINATION-9.5 lays a template variable out as the text it shows, unbroken, where its values are known', () => {
@@ -398,11 +406,10 @@ describe('createTextLayout', () => {
       expect(shown.table.lines).toHaveLength(written.lines.length);
     }
     expect(pageBoxWidth(4, font)).toBeGreaterThan(pageBoxWidth(3, font));
-    // In a header or footer, only the page's own values lay the variables out.
-    expect(layoutWith(3).layoutText(paragraph, { width: 600, inRegion: true })).toEqual({
-      ok: false,
-      reason: 'template variable',
-    });
+    // In a region, never the body's values: with none given, the text each variable holds.
+    const inRegion = layoutWith(3).layoutText(paragraph, { width: 600, inRegion: true });
+    if (!inRegion.ok) throw new Error(inRegion.reason);
+    expect(inRegion.table.reserved ?? []).toEqual([]);
   });
 
   it('DOCE-PAGINATION-9.6 aligns lines and pads a code block', () => {

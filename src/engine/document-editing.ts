@@ -33,8 +33,7 @@ import {
   splitBlockKeepingLevel,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
-import { createFootnoteNumbers, unpagedNumbering } from './footnote-numbers.js';
-import { createFootnotes } from './footnotes.js';
+import { footnotePlugins } from './footnote-plugins.js';
 import { createHistoryReveal } from './history-reveal.js';
 import { createListJoins } from './list-joins.js';
 import type { InvalidMathText } from './math-views.js';
@@ -92,6 +91,8 @@ export interface DocumentEditingOptions {
   trailingParagraph?: boolean | undefined;
   /** What math that does not typeset shows, inline and as a block (`DEFAULT_INVALID_MATH_TEXT`). */
   invalidMath?: InvalidMathText | undefined;
+  /** The blocks a paragraph citing a footnote may sit in (`FootnotesOptions.citingPlaces`). */
+  citingPlaces?: readonly string[] | undefined;
   /**
    * How math is typeset: the renderer, and how long it is waited for before the math shows as
    * invalid with the host's reason (`MathViewsOptions`).
@@ -238,13 +239,6 @@ const tableWidth = (template: () => TemplateFile) => ({
   },
 });
 
-// The footnote numbers the state's own view draws, by its template (DOCE-FOOTNOTES-2.2).
-const footnoteNumbersPlugin = (template: (() => TemplateFile) | undefined) => ({
-  name: 'footnote-numbers',
-  priority: 491,
-  build: () => [createFootnoteNumbers({ numbering: () => unpagedNumbering(template?.()) })],
-});
-
 // Numbered paragraphs, when given the template, after the custom styles.
 const paragraphNumberingPlugin = (template: (() => TemplateFile) | undefined) => ({
   name: 'paragraph-numbering',
@@ -297,8 +291,7 @@ export function createDocumentEditingExtension<C = unknown>(
         priority: 480,
         build: () => [createElementIds({ author, isRemote })],
       },
-      { name: 'footnotes', priority: 490, build: () => [createFootnotes({ isRemote })] },
-      footnoteNumbersPlugin(template),
+      ...footnotePlugins(options, isRemote),
       { name: 'comment-draft', priority: 495, build: () => [createCommentDraft()] },
       { name: 'comment-anchors', priority: 496, build: () => [createCommentAnchors()] },
       { name: 'suggestion-refusal', priority: 497, build: () => [createSuggestionRefusal()] },
