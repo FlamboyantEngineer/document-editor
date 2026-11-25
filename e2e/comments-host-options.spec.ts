@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test, waitForLab } from './fixtures.js';
 
-// The comments lab's host options and its store's replies written for the reader (DOCE-LABS-3.8).
+// The comments lab's host options and its store's replies written for the reader (DOCE-LABS-3.10).
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
 const margin = (page: Page) => page.getByRole('list', { name: 'Comments' });

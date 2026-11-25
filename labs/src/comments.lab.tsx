@@ -6,7 +6,7 @@
 // threads, reads comments as Markdown, keeps to an audience and shows mentions without cards. The
 // threads may live in the comments panel alone, and the handle opens a thread at a comment with a
 // reply started, or starts a thread with its text. Mentions may name a group or an assistant, and
-// each comment's menu may offer the host's own copy-link action. The host's options (DOCE-LABS-3.8)
+// each comment's menu may offer the host's own copy-link action. The host's options (DOCE-LABS-3.10)
 // set the cards' gap, header actions, deleting without asking, the text a reply starts with, no
 // active card once focus leaves, moderation, a side panel the threads reveal, its own person cards
 // and Copy link; and the lab's store has an assistant write replies for the reader, which stay

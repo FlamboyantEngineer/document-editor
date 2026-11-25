@@ -167,7 +167,7 @@ The template content lab shall show a template's preview in parts beside the tem
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
 
-### DOCE-LABS-3.8 - Comments with a host's options
+### DOCE-LABS-3.10 - Comments with a host's options
 
 The comments lab shall set, each with a control, what a host sets on the comments and the editor around them: the gap between a page and its cards (`cardGap`), the host's entries ending each thread's and suggestion's header menu (`threadActions`), deleting without asking (`confirmsDelete`), the text a reply starts with (`replyStart`), no active card once focus leaves (`clearsActiveOnBlur`), moderation (the in-memory store's `moderates` and the policy's `moderate`, from the page's `moderator` query, which its control reloads the page with), a side panel with the comments and contributors panes, which the threads reveal (`revealsPane`) and the handle reveals with `onShown`, collaborators' avatars and the contributors opening the host's own person cards (`renderCard`), and Copy link in the menu and its key (`onCopyLink`), with what the editor hands the host shown in a log. Its store wraps the in-memory host's with what a host's backend adds: an assistant writes a reply for the reader that stays pending until the lab finishes it or fails it, for the reader to retry or for good (`settleEntry`), each pending reply shown logged (`onActivityShown`), and another person typing in a thread (`subscribeActivity`). The document editor lab logs the person each mention names (`onMention`).
 

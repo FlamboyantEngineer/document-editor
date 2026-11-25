@@ -1,4 +1,4 @@
-// The comments lab's host options (DOCE-LABS-3.8): what a host sets on the comments margin and the
+// The comments lab's host options (DOCE-LABS-3.10): what a host sets on the comments margin and the
 // editor around it, each with a control, and a log of what the editor told the host.
 
 import { UsersGlyph } from '@flamboyantengineer/ui-components/core';
