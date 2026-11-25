@@ -149,6 +149,7 @@ export function SuggestionCard({
           <DraftComposer
             context={context}
             draftKey={`suggestion:${suggestion.id}`}
+            threadId={thread?.id}
             first={false}
             onSubmit={onReply}
           />

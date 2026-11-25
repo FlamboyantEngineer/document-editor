@@ -31,6 +31,7 @@ import {
 import { resolveThreadPermissions, type ThreadPermissionPolicy } from './thread-permissions.js';
 import type { CommentThreads } from './use-comment-threads.js';
 import { focusCard } from './use-open-cards.js';
+import { useTypingSignal } from './use-typing-signal.js';
 
 export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments-labels.js';
 
@@ -110,9 +111,12 @@ export function DraftComposer({
   onSubmit,
   defaultValue,
   startValue,
+  threadId,
 }: {
   context: CardContext;
   draftKey: string;
+  /** The stored thread the reply goes to, which the store hears the reader writing in. */
+  threadId?: string | undefined;
   first: boolean;
   onSubmit: (text: string) => Promise<unknown>;
   /** The text to begin with, such as a reply a link starts, in place of the kept draft. */
@@ -121,8 +125,11 @@ export function DraftComposer({
   startValue?: string | undefined;
 }) {
   const { labels } = context;
+  const element = useRef<HTMLDivElement>(null);
+  const typing = useTypingSignal(context.comments.setTyping, threadId, element);
   return (
     <CommentComposer
+      ref={element}
       mentions={context.mentions}
       defaultValue={defaultValue ?? startValue}
       // A kept draft would hide the text a host starts the reply with.
@@ -135,7 +142,11 @@ export function DraftComposer({
       // One row, whose buttons show while the reader writes in it.
       minRows={1}
       actionsOnFocus
-      onSubmit={onSubmit}
+      onChange={typing.onChange}
+      onSubmit={(text) => {
+        typing.stop();
+        return onSubmit(text);
+      }}
     />
   );
 }
@@ -344,6 +355,7 @@ export function ThreadCard({
             }
             context={context}
             draftKey={thread.id}
+            threadId={thread.id}
             first={thread.entries.length === 0}
             onSubmit={(text) => comments.reply(thread.id, text)}
             defaultValue={opened?.reply}
