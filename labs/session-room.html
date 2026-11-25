@@ -12,7 +12,7 @@
     <script src="build/boot.js"></script>
     <meta
       name="description"
-      content="Session in a room: two readers open one document in its shared room on an in-process room server."
+      content="Session in a room: two readers open one document in its shared room on an in-process room server, with comments in the room, rights its write guard holds them to, and refused changes."
     />
     <title>Session in a room · Labs</title>
     <script type="module" src="build/chrome.js"></script>
@@ -25,7 +25,10 @@
       <p>
         Two readers open the same document in its shared room, on a room server in this page. What
         one types reaches the other, and the room stores it. Take a reader offline to keep their
-        changes until they come back online.
+        changes until they come back online. The room's write guard holds each reader to the rights
+        set below; let the editor stop following them to see the guard refuse a change. The room
+        keeps its threads, and the room controls make changes that do not merge, break the guard's
+        self-check or write what the editors cannot read. Reload the page to start over.
       </p>
       <div id="lab-editor"></div>
     </main>

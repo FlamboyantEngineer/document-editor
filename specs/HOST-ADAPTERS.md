@@ -142,7 +142,7 @@ Verification: `src/components/document-editor/figure-dialog.test.tsx`, `src/comp
 The host may tell the editor of changes it did not make, each until the editor unsubscribes: a document's new saved state whenever anyone saves it (`documents.subscribe`), the latest saved state of a template whenever it is saved (`templates.subscribe`), a change to a document's versions (`versions.subscribe`), and the reader's new capabilities on a document (`permissions.subscribe`).
 
 Implementation: `src/host/adapters.ts`, `src/host/memory-documents.ts`, `src/host/memory-session.ts`
-Verification: `src/host/memory-host.test.ts`
+Verification: `src/host/memory-host.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-HOST-1.17 - Conflicts with the stored document
 
@@ -170,7 +170,7 @@ Verification: `src/host/memory-host.test.ts`
 The host's optional `lifecycle` adapter shall tell the editor when the page is `hidden`, `visible` again, or being left (`leaving`), as the page's visibility and `pagehide` events say, so the editor reads no page globals.
 
 Implementation: `src/host/session-adapters.ts`, `src/host/memory-session.ts`
-Verification: `src/host/memory-host.test.ts`
+Verification: `src/host/memory-host.test.ts`, `e2e/session-room.spec.ts`, `e2e/offline.spec.ts`
 
 ### DOCE-HOST-1.21 - Mentions
 

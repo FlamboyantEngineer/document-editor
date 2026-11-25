@@ -202,6 +202,13 @@ The full editor lab shall offer the host's options for the document it shows: pr
 Implementation: `labs/src/full-editor.lab.tsx`, `labs/src/full-editor-options.tsx`, `labs/src/review-scope.tsx`, `labs/src/history.lab.tsx`, `labs/src/session.lab.tsx`
 Verification: `e2e/full-editor-options.spec.ts`, `e2e/history.spec.ts`, `e2e/session.spec.ts`
 
+### DOCE-LABS-3.13 - Rooms: comments, rights and the write guard
+
+The session-in-a-room lab shall open its two readers' room on an in-page room server whose write guard (`openRoomChangeGuard`) holds each reader to rights the page sets (edit, suggest, decide, comment, moderate comments, label an assistant), which the editor follows as live capabilities or, when asked, does not, so the guard refuses what the rights do not allow and cuts the writer off. Each reader's comments margin keeps its threads in the room (`createRoomCommentStore`), seeded with `writeRoomComments` with a deleted thread and a deleted reply kept as records, and the reader can start a thread as an assistant and export the room's threads (`readRoomComments`). Controls make two changes that do not merge, so the room reloads one writer's document; send a block with another block's id; make the guard's next self-check fail; write a block the editors cannot read; and hide, show or leave each reader's page. An assistant's suggested words can be accepted. A room log lists what the server refused, repaired and reloaded. Below, each reader opens two fields of one room, over one leased connection. The presence lab shows two copies of a document in store mode, each drawing the other's selection given by element address, and the offline lab hides or leaves the store session's page, keeping its draft at once, and fails its next save.
+
+Implementation: `labs/src/session-room.lab.tsx`, `labs/src/room-guard.ts`, `labs/src/room-document.ts`, `labs/src/room-comments.tsx`, `labs/src/room-tools.tsx`, `labs/src/room-fields.tsx`, `labs/src/presence-by-address.tsx`, `labs/src/presence.lab.tsx`, `labs/src/offline.lab.tsx`, `labs/session-room.html`
+Verification: `e2e/session-room.spec.ts`, `e2e/presence.spec.ts`, `e2e/offline.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.

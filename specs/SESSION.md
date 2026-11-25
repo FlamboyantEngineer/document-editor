@@ -30,7 +30,7 @@ Verification: `src/session/document-session.test.ts`, `src/session/room-session.
 When the host tells the session of new capabilities (`permissions.subscribe`), the session's document shall take them and the editing mode they give (`resolveEditingMode`). When the session is still opening, the latest capability event takes precedence over the initial lookup, in store and room mode.
 
 Implementation: `src/session/session-follow.ts`, `src/session/store-session.ts`, `src/session/room-session.ts`
-Verification: `src/session/document-session.test.ts`, `src/session/room-session.test.ts`
+Verification: `src/session/document-session.test.ts`, `src/session/room-session.test.ts`, `e2e/session-room.spec.ts`
 
 ### DOCE-SESSION-1.5 - Template changes
 
@@ -167,7 +167,7 @@ Verification: `src/session/room-session.test.ts`
 When the room refuses a local change because it does not merge with what the room holds (DOCE-COLLAB-7.4), the connection reports a reload (`RoomConnection.onReload`, from collaboration-tools' `RoomProvider.onReload`) with the reason, the room's document and the writer's previous one, and keeps its socket. The session shall bind the editor to the room's document, show its content under the template its replacement document pins, with each selection endpoint following its text block by element id. When text in the block changes, the session shall map separate edits independently so an endpoint follows surviving text between them, including when the block’s overall length stays the same. For a span the bounded comparison cannot align, the endpoint keeps its relative offset in a replacement of the same width and otherwise follows the replacement boundary. An unchanged text block without an id shall keep its offset when it has a unique match of the same type and content in both documents. An endpoint without a matching block shall move to the nearest available position. A reload waiting for a different template shall pause editing until the content and template can be shown together. The session shall follow the replacement binding’s pin while loading the template. If that pin changes before a successful reload, the session shall retry with the latest pin and show the replacement content only once its current template resolves. A reload shall use the reader’s latest capabilities when it publishes the replacement state. A superseded reload shall leave the newer binding’s gate and notice untouched. The session shall keep the room's draft from the new document, and tell the writer: its `reloads` store holds the notice (`reason`, and the `previous` content) and the host's `onRoomReload` receives it, and the editor shows the `roomChangeRefused` label as a warning through its feedback. Keys typed between the refused change and the reload reach the new document as later changes of their own: what lies beside the refused change is kept and sent, and what lies inside its refused content is dropped with it. A key typed in the frame between the reload and the editor showing the room's document goes to the document the reader had and is dropped too; the notice holds that document as it was when the reload came, the writer's previous content, so nothing is lost silently. The connection stays open and the writer keeps writing on it.
 
 Implementation: `src/session/room-session.ts`, `src/session/room-reload.ts`, `src/session/room-selection.ts`, `src/session/room-text-map.ts`, `src/session/room-open.ts`, `src/collab/room-connection.ts`, `src/components/document-editor/save-status-item.tsx`
-Verification: `src/session/room-reload.test.ts`, `src/session/room-text-map.test.ts`, `src/components/document-editor/save-status-item.test.tsx`
+Verification: `src/session/room-reload.test.ts`, `src/session/room-text-map.test.ts`, `src/components/document-editor/save-status-item.test.tsx`, `e2e/session-room.spec.ts`
 
 ## DOCE-SESSION-4 - Merging another writer's saves
 
@@ -254,7 +254,7 @@ Verification: `src/session/drafts.test.ts`, `e2e/offline.spec.ts`
 When the host's `lifecycle` adapter says the page is hidden or being left, the session shall keep its draft at once, before it flushes, so a save that fails then still leaves the draft. Closing a session also keeps its latest unsaved changes immediately.
 
 Implementation: `src/session/store-session.ts`, `src/session/drafts.ts`
-Verification: `src/session/drafts.test.ts`
+Verification: `src/session/drafts.test.ts`, `e2e/offline.spec.ts`
 
 ### DOCE-SESSION-6.7 - Keeping room-mode drafts
 

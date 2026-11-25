@@ -2,7 +2,8 @@
 // this page, their editors at different widths. Each shows the other's caret and selection on the
 // same text, and the connection's phase in its status bar. Grace's editor opens from a cached
 // state of the room or fresh, online or not, with read-write or read-only access or refused; the
-// room can be replaced by a new generation, which locks both editors.
+// room can be replaced by a new generation, which locks both editors. Below, two copies of a
+// document in store mode show each other's selection by element address.
 
 import {
   createRoomProvider,
@@ -38,6 +39,7 @@ import {
 } from '../../src/model/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { PresenceByAddress } from './presence-by-address.js';
 import { LAB_FONTS } from './served-fonts.js';
 
 const schema = createDocumentSchema();
@@ -309,6 +311,7 @@ function Lab() {
           />
         </section>
       </div>
+      <PresenceByAddress />
     </>
   );
 }
