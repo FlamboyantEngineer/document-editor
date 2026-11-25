@@ -26,11 +26,13 @@ describe('optional reference presentation', () => {
     expect(shadcn).not.toMatch(/@import [^;]*ui-components/);
     const cache = mkdtempSync(join(tmpdir(), 'document-reference-pack-'));
     let files: string[];
+    // Offline: a fresh cache otherwise makes npm wait on the registry, about 7 s of a 10 s budget.
     try {
       execFileSync(
         'npm',
         [
           'pack',
+          '--offline',
           '--ignore-scripts',
           '--foreground-scripts=false',
           '--pack-destination',
