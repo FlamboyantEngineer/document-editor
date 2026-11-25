@@ -17,6 +17,7 @@ import {
   findTemplateSection,
   FRAGMENT_RULES,
   type FragmentRules,
+  LAYOUT_RULES,
   type LayoutRules,
   type TemplateFile,
   templatePageMetrics,
@@ -75,6 +76,20 @@ function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
     ...hosts.filter(measured),
     ...own.filter((plugin) => measured(plugin) && !held.has(plugin.spec.key)),
   ];
+}
+
+/**
+ * The rules the engine sizes nodes by: the library's with the host's over them, each host rule
+ * replacing the library's for its type whole; made again only when the host passes other rules.
+ */
+export function engineRules(host: () => LayoutRules | undefined): () => LayoutRules {
+  let made: { host: LayoutRules | undefined; rules: LayoutRules } | null = null;
+  return () => {
+    const now = host();
+    if (made && made.host === now) return made.rules;
+    made = { host: now, rules: { ...LAYOUT_RULES, ...now } };
+    return made.rules;
+  };
 }
 
 /**
@@ -176,8 +191,9 @@ function textLayoutOf(
     template: () => latest.current.template,
     codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
     hostViews: Object.keys(latest.current.nodeViews ?? {}),
-    // The host's rules, which size its own nodes (DOCE-PAGINATION-14.1).
-    layoutRules: () => latest.current.layoutRules,
+    // The library's rules, which size signatures, with the host's over them, which size its own
+    // nodes (DOCE-PAGINATION-14.1, 14.3).
+    layoutRules: engineRules(() => latest.current.layoutRules),
     markup,
     // The values the page variables draw (`ownPlugins`), which the text's variables are laid out in.
     variables: { value: (key: string) => latest.current.variables?.value(key) },

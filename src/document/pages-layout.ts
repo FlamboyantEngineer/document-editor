@@ -77,6 +77,18 @@ export type PagesLayoutMath = TypesetMath & {
   readonly drawing?: PlacedMath | undefined;
 };
 
+/**
+ * The box a node a host's layout rule sized was laid out at, by position (DOCE-PAGINATION-14.2):
+ * an inline node's width, height and baseline from its top, or a block's height.
+ */
+export interface PagesLayoutObject {
+  readonly pos: number;
+  readonly inline: boolean;
+  readonly width: number;
+  readonly height: number;
+  readonly baseline: number;
+}
+
 /** A document's pages as the editor laid them out on the text layout engine's lines. */
 export interface PagesLayout {
   readonly formatVersion: 1;
@@ -99,6 +111,8 @@ export interface PagesLayout {
    * not typeset yet, is drawn as its source. Absent in a layout of an older library version.
    */
   readonly math?: readonly PagesLayoutMath[] | undefined;
+  /** The boxes of the nodes host rules sized, by position; absent where none was. */
+  readonly objects?: readonly PagesLayoutObject[] | undefined;
   /**
    * The served faces the pages were measured and drawn with, and the family each generic keyword
    * stands for (DOCE-HOST-1.14.1); null when the host serves none. What draws the layout draws

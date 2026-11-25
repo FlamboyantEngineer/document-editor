@@ -292,4 +292,57 @@ test.describe('inline geometry on the engine’s lines', () => {
       expect(placed.some((each) => each.endsLine)).toBe(true);
     });
   });
+  test('DOCE-PAGINATION-14.2 DOCE-PAGINATION-14.3 draws a signature in the box its rule gave it, on the engine’s lines', async ({
+    page,
+  }) => {
+    type Stored = DocumentFile['sections'][number]['content'][number];
+    const vector = {
+      viewBox: { width: 200, height: 80 },
+      paths: [{ d: 'M 10 10 L 190 70', fill: false, strokeWidth: 2 }],
+    };
+    const signature = (label: string, signed: boolean) =>
+      ({
+        type: 'signature',
+        attrs: { person: 'u1', label, ...(signed ? { vector } : {}) },
+      }) as Stored;
+    const words = (value: string) => ({ type: 'text', text: value }) as Stored;
+    const content = [
+      {
+        type: 'paragraph',
+        content: [words('Signed by '), signature('Ann Lee', true), words(' on the day.')],
+      },
+      {
+        type: 'paragraph',
+        content: [words('To sign: '), signature('A reviewer with a long name to sign', false)],
+      },
+    ] as Stored[];
+    await page.goto('regression.html?document=minimal-paragraph&debug');
+    await waitForLab(page);
+    const file = { formatVersion: 1, sections: [{ name: null, content }] } as DocumentFile;
+    await page.evaluate((stored) => window.regressionLab.load(stored), file);
+    await page.waitForFunction(() => window.regressionLab.layout() !== null);
+    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    await expect.poll(() => page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
+    const boxes = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.de-document-editor__content .pm-page-content .de-signature',
+        ),
+      ].map((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        const length = (name: string) => parseFloat(style.getPropertyValue(name));
+        return {
+          box: element.dataset.objectBox,
+          width: Math.abs(rect.width - length('--de-object-width')) < 0.5,
+          height: Math.abs(rect.height - length('--de-object-height')) < 0.5,
+        };
+      }),
+    );
+    expect(boxes).toEqual([
+      { box: 'inline', width: true, height: true },
+      { box: 'inline', width: true, height: true },
+    ]);
+  });
 });

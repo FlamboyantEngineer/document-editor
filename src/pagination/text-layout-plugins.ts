@@ -4,6 +4,7 @@
 import type { Plugin } from 'prosemirror-state';
 import { engineMath } from './engine-math.js';
 import { engineNumbers } from './engine-numbers.js';
+import { engineObjects } from './engine-objects.js';
 import { forcedLines } from './forced-lines.js';
 import { forcedRegions } from './forced-regions.js';
 import type { ProjectionMap } from './projection-map.js';
@@ -23,5 +24,6 @@ export function textLayoutPlugins(
     selectionPagesPlugin(),
     // After the forced lines, whose lines lay their blocks out and so place their math.
     engineMath({ engine, version: () => text.version() }),
+    engineObjects({ engine, version: () => text.version() }),
   ];
 }

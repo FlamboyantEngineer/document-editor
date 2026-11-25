@@ -62,6 +62,7 @@ export type {
   PagesLayoutBlock,
   PagesLayoutMath,
   PagesLayoutNumber,
+  PagesLayoutObject,
   PagesLayoutVariable,
 } from './pages-layout.js';
 export type { PrintPageOptions } from './print.js';

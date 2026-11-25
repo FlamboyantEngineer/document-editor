@@ -1,8 +1,13 @@
 import type { RefObject } from 'react';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { BASE_TEMPLATE, type LayoutRules, type TemplateFile } from '../../model/index.js';
-import { sameRules, sectionRules } from './start-paging.js';
+import {
+  BASE_TEMPLATE,
+  type LayoutRules,
+  signatureSize,
+  type TemplateFile,
+} from '../../model/index.js';
+import { engineRules, sameRules, sectionRules } from './start-paging.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
 
 const section = (sectionName: string) => {
@@ -54,5 +59,20 @@ describe('the layout rules of each section', () => {
     expect(sameRules({ heading }, { heading: { keepsWithHeading: false } })).toBe(true);
     expect(sameRules({ heading }, { heading: { keepsWithHeading: true } })).toBe(false);
     expect(sameRules({ heading }, undefined)).toBe(false);
+  });
+
+  it('DOCE-PAGINATION-14.3 sizes signatures by the library’s rule unless the host passes its own', () => {
+    let host: LayoutRules | undefined;
+    const rules = engineRules(() => host);
+    expect(rules().signature?.size).toBe(signatureSize);
+    expect(rules()).toBe(rules());
+    // A host rule with its own size sizes signatures instead.
+    const size = () => ({ width: 80, height: 30 });
+    host = { signature: { size } };
+    expect(rules().signature?.size).toBe(size);
+    expect(rules().paragraph).toBeDefined();
+    // One without a size replaces the library's whole: signatures are then measured as drawn.
+    host = { signature: { keepsWithHeading: true } };
+    expect(rules().signature).toEqual({ keepsWithHeading: true });
   });
 });

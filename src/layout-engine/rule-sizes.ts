@@ -19,14 +19,32 @@ import type { TextLayout } from './text-layout.js';
 type RuleSized =
   { readonly ok: true; readonly size: RuleSize } | { readonly ok: false; readonly error: string };
 
+/**
+ * The box a node its rule sized was laid out at, which the pages draw it in: an inline node's
+ * width, height and baseline, or a block's height across the width it was given.
+ */
+export interface SizedBox {
+  readonly inline: boolean;
+  readonly width: number;
+  readonly height: number;
+  /** From the box's top. */
+  readonly baseline: number;
+}
+
 /** The sizes of the nodes host rules size. */
 export interface RuleSizes {
   /** Whether a node's type is sized by a rule. */
   sizes(node: ProseMirrorNode): boolean;
   /** A node's size at a width in a scope; null when no rule sizes its type. */
   size(node: ProseMirrorNode, width: number, scope: string | null): RuleSized | null;
-  /** An inline node's box for the text layout; null when no rule sizes it or its rule failed. */
+  /** A block's height at a width in a scope: 0 when its rule failed, null when none sizes it. */
+  block(node: ProseMirrorNode, width: number, scope: string | null): number | null;
+  /** An inline node's box for the text layout: empty when its rule failed, null when none sizes it. */
   inline(node: ProseMirrorNode, width: number, scope: string | null): AtomSize | null;
+  /** The box a node was last laid out at, by its rule; null for one no rule sized. */
+  placed(node: ProseMirrorNode): SizedBox | null;
+  /** A count that moves whenever a node is laid out at another box. */
+  version(): number;
   /** The errors the rules gave, by node type: what the host is told. */
   errors(): ReadonlyMap<string, string>;
 }
@@ -171,16 +189,40 @@ export function createRuleSizes(source: RuleSizeSource): RuleSizes {
     byKey.set(key, sized);
     return sized;
   };
+  // Each node's box as last laid out, and a count that moves when one changes.
+  const placed = new WeakMap<ProseMirrorNode, SizedBox>();
+  let version = 0;
+  const place = (node: ProseMirrorNode, box: SizedBox) => {
+    const was = placed.get(node);
+    if (was && JSON.stringify(was) === JSON.stringify(box)) return;
+    placed.set(node, box);
+    version += 1;
+  };
   return {
     sizes: (node) => Boolean(ruleOf(source.rules(), node)?.size),
     size,
+    block(node, width, scope) {
+      const sized = size(node, width, scope);
+      if (!sized) return null;
+      const height = sized.ok ? sized.size.height : 0;
+      place(node, { inline: false, width, height, baseline: height });
+      return height;
+    },
     inline(node, width, scope) {
       const sized = size(node, width, scope);
       if (!sized) return null;
-      if (!sized.ok) return { width: 0, height: 0, baseline: 0 };
-      const { height } = sized.size;
-      return { width: sized.size.width ?? 0, height, baseline: sized.size.baseline ?? height };
+      const box = sized.ok
+        ? {
+            width: sized.size.width ?? 0,
+            height: sized.size.height,
+            baseline: sized.size.baseline ?? sized.size.height,
+          }
+        : { width: 0, height: 0, baseline: 0 };
+      place(node, { inline: true, ...box });
+      return box;
     },
+    placed: (node) => placed.get(node) ?? null,
+    version: () => version,
     errors: () => errors,
   };
 }

@@ -13,6 +13,7 @@ import type { LineTable } from '../layout-engine/line-table.js';
 import type { MathLayouter, PlacedMath } from '../layout-engine/math-atoms.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
+import type { SizedBox } from '../layout-engine/rule-sizes.js';
 import type { LayoutBlock, LayoutRules, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { LayoutInputs } from './layout-inputs.js';
@@ -223,6 +224,15 @@ export interface PagesTextEngine {
   mathOf(node: ProseMirrorNode): PlacedMath | null;
   /** A count that moves whenever a math node is placed anew or the placements are forgotten. */
   mathVersion?(): number;
+  /** Whether a host's layout rule sizes a node's type (DOCE-PAGINATION-14.1). */
+  sizedType?(node: ProseMirrorNode): boolean;
+  /**
+   * The box a node a host's rule sized was laid out at, which it is drawn in
+   * (DOCE-PAGINATION-14.2); null for any other node and one not laid out yet.
+   */
+  objectOf?(node: ProseMirrorNode): SizedBox | null;
+  /** A count that moves whenever a sized node is laid out at another box. */
+  objectsVersion?(): number;
   stats(): TextEngineStats;
   destroy(): void;
 }
