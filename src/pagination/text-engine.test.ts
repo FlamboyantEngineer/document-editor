@@ -500,6 +500,27 @@ describe('holdTextEngine', () => {
     holder.destroy();
   });
 
+  it('DOCE-PAGINATION-10.7 numbers an engine made again with the document the last one was numbered with', async () => {
+    const holder = holdTextEngine({
+      setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
+      measureIn: document.createElement('div'),
+      changed: () => undefined,
+    });
+    await holder.loaded;
+    const doc = parseMarkup('<p>Body<sup data-footnote-id="a">1</sup></p>');
+    const { nodes } = createDocumentSchema();
+    const entry = nodes.footnote_entry?.create({ footnoteId: 'a' }, doc.type.schema.text('Note a'));
+    const area = entry && nodes.page_footnotes?.create(null, [entry]);
+    if (!area) throw new Error('no footnote area');
+    const drawn = () => [...(holder.engine()?.regionLines(area, null).values() ?? [])];
+    holder.engine()?.number(doc);
+    const numbered = drawn();
+    holder.remeasure();
+    // Drawn before the next layout numbers it, as a region is drawn after the fonts load.
+    expect(drawn()).toEqual(numbered);
+    holder.destroy();
+  });
+
   it('DOCE-PAGINATION-11.1 loads the engine on first use and makes it again for another template', async () => {
     let template = BASE_TEMPLATE;
     const holder = holdTextEngine({
