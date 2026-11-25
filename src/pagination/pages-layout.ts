@@ -28,6 +28,7 @@ import { forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, sectionScope } from './forced-lines.js';
 import { FORCED_REGIONS, regionBlocksOf } from './forced-regions.js';
 import { NO_INSERTED } from './inserted-texts.js';
+import { type LayoutInputs, layoutInputsKey } from './layout-inputs.js';
 import type { LayoutState } from './layout-readiness.js';
 import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -142,6 +143,11 @@ export function layoutSettled(state: LayoutState, measureIn: HTMLElement): boole
   return state === 'settled' && fonts?.status !== 'loading';
 }
 
+// A layout's inputs and their one key.
+function withInputsKey(inputs: LayoutInputs) {
+  return { inputs, inputsKey: layoutInputsKey(inputs) };
+}
+
 /**
  * The layout of a pages' state drawn on the text layout engine's lines, as data a viewer or a print
  * draws without measuring; null when the pages are not laid out with the engine.
@@ -166,6 +172,7 @@ export function pagesLayout(
     }),
     fonts: engine.fonts?.() ?? null,
     language: engine.language ?? '',
+    ...withInputsKey(engine.inputs()),
     provisional: options.settled === false || engine.provisional(),
   };
 }

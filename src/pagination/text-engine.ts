@@ -28,6 +28,7 @@ import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { layoutInputs } from './layout-inputs.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { holdNodeNumbers, markerKey, type NodeNumbers } from './node-numbers.js';
 import { numberedText } from './numbered-text.js';
@@ -253,6 +254,22 @@ function keptLines(
   };
 }
 
+// The engine's template and fonts, and what its layout depends on besides the document
+// (DOCE-PAGINATION-13.12).
+const engineSources = (options: TextEngineOptions) => ({
+  template: options.template,
+  fonts: options.fonts,
+  inputs: () =>
+    layoutInputs({
+      fonts: options.fonts?.() ?? null,
+      template: options.template,
+      language: options.language ?? '',
+      markup: options.markup?.() ?? 'all',
+      codeLineNumbers: options.codeLineNumbers ?? false,
+      math: options.mathLayouter?.()?.key ?? null,
+    }),
+});
+
 /** Creates the pages' text layout engine for a template. */
 export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
   const { template, markup } = options;
@@ -284,8 +301,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     options.onAtomsSettled();
   });
   return {
-    template,
-    fonts: options.fonts,
+    ...engineSources(options),
     number: numbers.number,
     numbering: numbers.numbering,
     pageDigits: (count) => contents.pageDigits(count),

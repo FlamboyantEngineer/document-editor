@@ -1076,3 +1076,10 @@ A footnote marker the pages draw on more than one page, as a table's repeated he
 
 Implementation: `src/engine/footnote-anchors.ts`, `src/document/print-content.ts`, `src/engine/print-links.ts`
 Verification: `src/engine/footnote-anchors.test.ts`, `src/document/print-pages.test.ts`, `src/engine/print-links.test.ts`, `e2e/footnote-occurrences.spec.ts`
+
+### DOCE-PAGINATION-13.12 - The layout's inputs and their key
+
+The pages' layout shall carry everything it depended on besides the document (`inputs`), each as a short key, and one key of them all (`inputsKey`, `layoutInputsKey`): the served faces (family, weight, style, range and a hash of each face's bytes), the family each generic stands for, the Pretext release, the shaper's glue release, the math layouter's key, a hash of the resolved template, the language, the suggestion markup, whether code blocks are laid out beside their line numbers, the runtime's segmentation fingerprint (DOCE-PAGINATION-9.15) and the Unicode version of the bidi data. Equal inputs shall give the same key in any runtime, however they were built, and a change of any one input shall change that input's key and the layout's key, so a host that compares the keys of two machines, an editor's and a server's or two writers', learns when they may lay the same document out on different pages and which input differs. The releases named shall be the ones installed.
+
+Implementation: `src/pagination/layout-inputs.ts`, `src/pagination/text-engine.ts`, `src/pagination/pages-layout.ts`, `src/document/pages-layout.ts`
+Verification: `src/pagination/layout-inputs.test.ts`

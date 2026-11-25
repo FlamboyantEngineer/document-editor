@@ -3,6 +3,7 @@ import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { STUB_INPUTS } from '../../test/pages-fixtures.js';
 import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
 import type { TextLine } from '../layout-engine/line-table.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
@@ -44,6 +45,7 @@ function stubEngine(options: StubOptions = {}) {
   const perLine = options.perLine ?? 10;
   const engine: PagesTextEngine = {
     template: {} as PagesTextEngine['template'],
+    inputs: () => STUB_INPUTS,
     number: () => undefined,
     numbering: () => ({
       headings: options.headings ?? new Map(),
