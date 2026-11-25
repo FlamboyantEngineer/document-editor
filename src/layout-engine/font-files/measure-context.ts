@@ -8,6 +8,7 @@
 // gives the same widths on every machine: the font size in 1/64 px, each glyph's advance in
 // 1/65536 px from FreeType's 16.16 scale, and each word's width kept as a float32.
 
+import { graphemeSegmenter } from '../../utils/segmentation.js';
 import { UNSERVED_CLUSTER_EMS } from '../reserved-boxes.js';
 import { faceFor, zeroWidth } from './cluster-faces.js';
 import { type FaceSet, type FontRequest, type MatchedFace, parseFont } from './faces.js';
@@ -57,7 +58,6 @@ const drawnAsSpace = /[\u2028\u2029]/gu;
 // (measured: zero\u200bwidth is zero plus width). Joiners, the word joiner and the isolates do not.
 const runBreaking = /^[\u00ad\u061c\u180e\u200b\u200e\u200f\u202a-\u202e\ufeff]$/u;
 const noLigatures = ['-liga', '-clig', '-dlig', '-hlig', '-calt'];
-const graphemes = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
 // Kana and ideographs, which Canvas shapes as words of their own (Pretext's isCanvasWordLetter).
 function isCanvasWordLetter(code: number) {
@@ -128,7 +128,7 @@ function trimmedPunctuation(text: string): number[] {
 // A word's pieces: its graphemes put together while they take the same face and script run.
 function piecesOf({ word, offset, runs, faces }: WordInput, problems: MeasureProblems) {
   const pieces: Piece[] = [];
-  for (const { segment, index } of graphemes.segment(word)) {
+  for (const { segment, index } of graphemeSegmenter().segment(word)) {
     const drawn = faceFor(segment, faces, problems.missingGlyphs);
     if (!drawn) continue;
     const { face, reserved } = drawn;

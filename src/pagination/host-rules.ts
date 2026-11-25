@@ -4,8 +4,10 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createRuleSizes, ruleSizesKey } from '../layout-engine/rule-sizes.js';
+import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
 import type { InsertedTexts } from './inserted-texts.js';
+import type { NodeNumbers } from './node-numbers.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
 // Whether a block is one a host draws with a node view of its own, or holds one: it takes the room
@@ -60,4 +62,19 @@ export function hostRuleSizes(options: TextEngineOptions, text: () => TextLayout
     language: options.language ?? '',
     markup: () => options.markup?.() ?? 'all',
   });
+}
+
+// The inline atoms laid out as their text: those the pages draw as the schema does, not a host's.
+function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
+  const host = new Set(options.hostViews ?? []);
+  return new Set([...TEXT_ATOMS].filter((type) => !host.has(type)));
+}
+
+/** The inline atoms laid out as text, with the numbers their footnote markers show. */
+export function textAtomsOf(options: TextEngineOptions, numbers: () => NodeNumbers) {
+  return {
+    types: textAtomTypes(options),
+    footnoteOf: (marker: ProseMirrorNode) => numbers().footnoteOf(marker),
+    refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
+  };
 }

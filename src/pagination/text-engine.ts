@@ -1,8 +1,6 @@
-// The pages' text layout engine, behind the editor's `textLayout: 'pretext'` option: each block's
-// height, margins and lines from the layout engine (`src/layout-engine/`), with no DOM, and the
-// lines of each text block the pages draw. A block the engine cannot lay out yet is left to the
-// DOM measuring, with the reason counted. Results are kept by node, so a keystroke lays out only
-// the block it changed (DOCE-PAGINATION-11). This module is loaded only when the option is on.
+// The pages' text layout engine: each block's height, margins and lines from the layout engine
+// (`src/layout-engine/`), with no DOM, and the lines of each text block the pages draw. Results are
+// kept by node, so a keystroke lays out only the block it changed (DOCE-PAGINATION-11).
 
 import {
   clearCache,
@@ -14,18 +12,17 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
-import { readSheetNumbers } from '../layout-engine/blocks/sheet-numbers.js';
 import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
-import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import { createTextLayout, type TextLayout } from '../layout-engine/text-layout.js';
-import type { LayoutBlock, TemplateFile } from '../model/index.js';
+import type { LayoutBlock } from '../model/index.js';
 import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
-import { sectionContentWidth } from './content-width.js';
+import { contentWidths } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
-import { hostRuleSizes, refusedAsDrawn, watchedRules } from './host-rules.js';
+import { hostRuleSizes, refusedAsDrawn, textAtomsOf, watchedRules } from './host-rules.js';
 import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { engineSources } from './layout-inputs.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { holdNodeNumbers, markerKey, type NodeNumbers } from './node-numbers.js';
 import { numberedText } from './numbered-text.js';
@@ -43,19 +40,6 @@ interface KeptBlock {
 interface KeptLines {
   readonly key: string;
   readonly table: DrawnLines | null;
-}
-
-// Each section's content width, computed once per scope.
-function contentWidths(template: TemplateFile): (scope: string | null) => number {
-  const widths = new Map<string | null, number>();
-  return (scope) => {
-    let width = widths.get(scope);
-    if (width === undefined) {
-      width = sectionContentWidth(template, scope);
-      widths.set(scope, width);
-    }
-    return width;
-  };
 }
 
 // Where the engine measures its atoms: out of sight, beside the view that measures the pages, whose
@@ -100,21 +84,6 @@ export function forgetFontWidths(): void {
   clearCache();
 }
 
-// The inline atoms laid out as their text: those the pages draw as the schema does, not a host's.
-function textAtomTypes(options: TextEngineOptions): ReadonlySet<string> {
-  const host = new Set(options.hostViews ?? []);
-  return new Set([...TEXT_ATOMS].filter((type) => !host.has(type)));
-}
-
-// The inline atoms laid out as text, with the numbers their footnote markers show.
-function textAtomsOf(options: TextEngineOptions, numbers: () => NodeNumbers) {
-  return {
-    types: textAtomTypes(options),
-    footnoteOf: (marker: ProseMirrorNode) => numbers().footnoteOf(marker),
-    refused: options.refusedTextAtoms ?? REFUSED_TEXT_ATOMS,
-  };
-}
-
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
 function engineLayouts(
   options: TextEngineOptions,
@@ -150,8 +119,6 @@ function engineLayouts(
   const atoms = createAtomCache({ measure: atomMeasurer(options, { host, typography }) });
   // The host's nodes its layout rules size, before anything measures them as drawn.
   const sizes = hostRuleSizes(options, textNow);
-  // The stylesheet's own block numbers, read where the pages' content is drawn.
-  const sheet = readSheetNumbers(host);
   const text = createTextLayout({
     template,
     hidden: () => hiddenSuggestion(options.markup?.() ?? 'all'),
@@ -162,7 +129,7 @@ function engineLayouts(
     language: options.language ?? '',
     reserve: options.reserve,
     measureAtom: (node, place) =>
-      sizes.inline(node, 0, place?.scope ?? null) ?? atoms.measureAtom(node, place),
+      sizes.inline(node, place?.width ?? 0, place?.scope ?? null) ?? atoms.measureAtom(node, place),
     onMath: math.record,
     textAtoms: textAtomsOf(options, numbers),
   });
@@ -170,7 +137,7 @@ function engineLayouts(
   const geometry = createBlockLayout({
     text: numberedText(text, { numbers, inserted, recorder }),
     atoms,
-    metrics: (scope) => blockMetrics(template, scope, sheet),
+    metrics: (scope) => blockMetrics(template, scope),
     labelOf: (caption) => (recorder.labelOf ?? numbers().labelOf)(caption),
     footnoteOf: (entry) => numbers().footnoteOf(entry),
     equationOf,
@@ -281,8 +248,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   };
   const unsubscribe = atoms.subscribe(() => [forget(), options.onAtomsSettled()]);
   return {
-    template,
-    fonts: options.fonts,
+    ...engineSources(options),
     number: numbers.number,
     numbering: numbers.numbering,
     pageDigits: (count) => contents.pageDigits(count),

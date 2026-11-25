@@ -7,6 +7,7 @@ import { PAGE_VARIABLES } from '../src/layout-engine/body-variables.js';
 import type { TextLine } from '../src/layout-engine/line-table.js';
 import { type ReservedBox, reservedBoxes } from '../src/layout-engine/reserved-boxes.js';
 import { forcedLines } from '../src/pagination/forced-lines.js';
+import type { LayoutInputs } from '../src/pagination/layout-inputs.js';
 import { createPageVariables } from '../src/pagination/page-variables.js';
 import type { DrawnLines, PagesTextEngine } from '../src/pagination/text-engine-types.js';
 import { documentSchema } from './document-markup.js';
@@ -70,10 +71,27 @@ function pageBoxes(block: Node, width: number | undefined): ReservedBox[] {
   return boxes;
 }
 
+/** The inputs a stub engine reports. */
+export const STUB_INPUTS: LayoutInputs = {
+  fonts: '',
+  generics: '',
+  pretext: '',
+  shaper: '',
+  math: '',
+  template: '',
+  language: '',
+  markup: 'all',
+  codeLineNumbers: 'off',
+  segmentation: '',
+  unicode: '',
+  rules: '',
+};
+
 export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
   const perLine = options.perLine ?? 10;
   return {
     template: {} as PagesTextEngine['template'],
+    inputs: () => STUB_INPUTS,
     number: () => undefined,
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
     measureBlock: () => null,

@@ -15,6 +15,7 @@ import {
   readDrawnPages,
 } from './drawn-lines.js';
 import { expect, test, waitForLab } from './fixtures.js';
+import { CANVAS_PROJECTS, DPR_ZOOMS, SCALING_ZOOMS } from './invariant-projects.js';
 import { loadWrappedLinkedCode } from './wrapped-linked-code.js';
 
 // The one-result invariant (specs/LABS.md DOCE-LABS-8): the lines and
@@ -38,15 +39,8 @@ const NAMES = Object.keys(REGRESSION_DOCUMENTS) as RegressionDocumentName[];
 // `chromium-invariant` project); the ends and the middle at ratios 1.25 and 2; 100 percent at the
 // ratios of display scaling at 150, 175 and 300 percent (the `chromium-dpr-*` projects).
 const ZOOMS = [50, 67, 75, 90, 100, 110, 125, 133, 150, 175, 200] as const;
-const DPR_ZOOMS: readonly number[] = [50, 100, 150];
-const SCALING_ZOOMS: readonly number[] = [100];
 // The pages painted into a canvas, at the status bar's zooms and the first two ratios.
 const CANVAS_ZOOMS = [50, 75, 100, 125, 150] as const;
-const CANVAS_PROJECTS: readonly string[] = [
-  'chromium-invariant',
-  'chromium-dpr-1.25',
-  'chromium-dpr-2',
-];
 
 const FORCED = '.de-forced-lines';
 

@@ -10,6 +10,7 @@ import type { FontFiles } from '../host/font-files.js';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { LabelPart, LineMark } from '../layout-engine/line-marks.js';
 import type { PlacedMath } from '../layout-engine/math-atoms.js';
+import type { LayoutInputs } from '../pagination/layout-inputs.js';
 
 /**
  * A text block of a page drawn on the engine's lines: a paragraph or heading, top-level or nested, a
@@ -110,6 +111,18 @@ export interface PagesLayout {
    * whatever language is around it, as its line breaks, quotes and font fallbacks depend on it.
    */
   readonly language: string;
+  /**
+   * Everything the layout depended on besides the document, each input as a short key
+   * (DOCE-PAGINATION-13.12): the served faces, the shaper, Pretext, the math layouter, the
+   * template, the language, the markup, the code line numbers and the runtime's segmentation data.
+   */
+  readonly inputs: LayoutInputs;
+  /**
+   * One key of `inputs`: two layouts of a document with equal keys are on the same pages, and a
+   * host that compares the keys of two machines, such as an editor and a server, learns when they
+   * may not be.
+   */
+  readonly inputsKey: string;
   /**
    * Whether the layout may still move: the pages are not settled, an atom such as an image or math
    * is still loading, or fonts are. A host prints or keeps the layout once it is false, as after

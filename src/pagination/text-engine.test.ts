@@ -121,6 +121,43 @@ describe('createPagesTextEngine', () => {
     engine.destroy();
   });
 
+  it('DOCE-PAGINATION-14.1 sets an inline node its host rule sizes on its line at that box, in the line’s width', () => {
+    const widths: number[] = [];
+    const tall = { width: 30, height: 80, baseline: 70 };
+    const rules: { current: LayoutRules } = {
+      current: {
+        mention: {
+          size: ({ width }) => {
+            widths.push(width);
+            return tall;
+          },
+        },
+      },
+    };
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      measureIn: document.createElement('div'),
+      onAtomsSettled: () => undefined,
+      hostViews: ['mention'],
+      layoutRules: () => rules.current,
+    });
+    const person = '<span data-mention-user-id="u1" data-mention-label="Ada">@Ada</span>';
+    const node = findNode(parseMarkup(`<p>aaaa ${person} aaaa</p>`), 'paragraph');
+    const plain = engine.measureBlock(paragraph('aaaa aaaa'), null);
+    if (!node || !plain) throw new Error('no paragraph');
+    const sized = engine.measureBlock(node, null);
+    // The box raises its line: 70 above the baseline and 10 below it, in the column's width.
+    expect(sized?.height).toBeGreaterThanOrEqual(80);
+    expect(widths.length).toBeGreaterThan(0);
+    expect(new Set(widths)).toEqual(new Set([widths[0]]));
+    expect(widths[0]).toBeGreaterThan(400);
+    // A failed rule gives the node a box of nothing: the line is as tall as its text alone.
+    rules.current = { mention: { size: () => ({ height: -1 }), sizeKey: 'broken' } };
+    expect(engine.measureBlock(node, null)?.height).toBe(plain.height);
+    expect(engine.stats().sizeErrors?.has('mention')).toBe(true);
+    engine.destroy();
+  });
+
   it('DOCE-PAGINATION-14.1 reports a host rule that sizes the same node twice otherwise', () => {
     let calls = 0;
     const engine = createPagesTextEngine({
@@ -206,15 +243,15 @@ describe('createPagesTextEngine', () => {
     plain.destroy();
   });
 
-  it('DOCE-PAGINATION-10.9 lays blocks out with the numbers the stylesheet states where it measures', () => {
+  it('DOCE-PAGINATION-10.9 lays blocks out with the template’s numbers, not the page’s stylesheet', () => {
     const measureIn = document.createElement('div');
-    measureIn.style.setProperty('--de-quote-spacing', '30px');
+    measureIn.style.setProperty('--de-quote-spacing', '50px');
     document.body.append(measureIn);
-    const engine = createPagesTextEngine({
-      template: BASE_TEMPLATE,
-      measureIn,
-      onAtomsSettled: () => undefined,
-    });
+    const template = {
+      ...BASE_TEMPLATE,
+      styles: { ...BASE_TEMPLATE.styles, blocks: { quoteSpacing: '30px' } },
+    };
+    const engine = createPagesTextEngine({ template, measureIn, onAtomsSettled: () => undefined });
     const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
     if (!quote) throw new Error('no quote');
     expect(engine.measureBlock(quote, null)).toMatchObject({ marginTop: 30, marginBottom: 30 });

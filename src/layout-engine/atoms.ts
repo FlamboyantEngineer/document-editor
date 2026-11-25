@@ -44,6 +44,8 @@ export interface AtomMeasure {
 export interface AtomPlace {
   readonly scope?: string | null | undefined;
   readonly parent?: ProseMirrorNode | undefined;
+  /** The width of the lines the atom is on, which a host's rule sizes it in. */
+  readonly width?: number | undefined;
 }
 
 /** Where an atom is drawn, and the text a view draws in a leaf atom, such as a footnote number. */

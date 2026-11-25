@@ -128,6 +128,7 @@ describe('TEMPLATE_SECTIONS', () => {
       'Figures',
       'Code blocks',
       'Equations',
+      'Block spacing',
       'Footnotes',
       'Contents',
       'Change bars',

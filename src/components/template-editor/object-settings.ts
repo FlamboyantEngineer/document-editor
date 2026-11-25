@@ -95,7 +95,17 @@ export const OBJECT_SECTIONS: readonly TemplateSettingSection[] = [
     id: 'code',
     title: 'Code blocks',
     scope: ['styles', 'codeBlock'],
-    settings: [setting('background', 'Background', color)],
+    settings: [
+      setting('background', 'Background', color),
+      {
+        ...setting(
+          'lineNumbers',
+          'Line numbers',
+          select(['all', 'All code'], ['linked', 'Linked code only'], ['none', 'None']),
+        ),
+        documentOnly: true,
+      },
+    ],
     cards: [
       { id: 'text', title: 'Text', path: [], style: RUNNING_PARTS, code: true },
       ...CAPTIONED,
