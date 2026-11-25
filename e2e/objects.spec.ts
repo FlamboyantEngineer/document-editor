@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures.js';
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
@@ -15,6 +15,21 @@ async function newParagraph(page: Page, heading: string, value: string) {
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await page.keyboard.type(value);
+}
+
+// Where an element is drawn once the pages settled the last change, which can move it, scrolled to
+// the middle of the frame, clear of the status bar.
+async function settledBox(page: Page, target: Locator, scrolled: Locator = target) {
+  await scrolled.evaluate((element) => {
+    element.scrollIntoView({ block: 'center' });
+  });
+  await expect(page.locator('.de-document-editor').first()).toHaveAttribute(
+    'data-layout-state',
+    'settled',
+  );
+  const box = await target.boundingBox();
+  if (!box) throw new Error('The element is drawn');
+  return box;
 }
 
 // Inserts the lab's wide panel image after the heading, through the image picker, with a caption.
@@ -608,17 +623,27 @@ test.describe('objects', () => {
           collapsed: selection?.isCollapsed,
         };
       });
-    const box = await block.boundingBox();
-    if (!box) throw new Error('The code block is drawn');
-    const gutter = await block.locator('.de-code-gutter__number').nth(1).boundingBox();
-    const caption = await block.locator('.doc-caption-line').boundingBox();
-    if (!gutter || !caption) throw new Error('The gutter and caption are drawn');
+    // The block's boxes where it is drawn now: scrolled clear of the status bar, after the pages
+    // drew the last change, which can move it.
+    const boxes = async () => {
+      const box = await settledBox(page, block);
+      const [gutter, caption] = await Promise.all([
+        block.locator('.de-code-gutter__number').nth(1).boundingBox(),
+        block.locator('.doc-caption-line').boundingBox(),
+      ]);
+      if (!gutter || !caption) throw new Error('The gutter and caption are drawn');
+      return { box, gutter, caption };
+    };
     const points = [
-      { x: box.x + 2, y: box.y + box.height - 2 },
-      { x: gutter.x + gutter.width / 2, y: gutter.y + gutter.height / 2 },
+      ({ box }: Awaited<ReturnType<typeof boxes>>) => ({ x: box.x + 2, y: box.y + box.height - 2 }),
+      ({ gutter }: Awaited<ReturnType<typeof boxes>>) => ({
+        x: gutter.x + gutter.width / 2,
+        y: gutter.y + gutter.height / 2,
+      }),
     ];
-    for (const [index, point] of points.entries()) {
+    for (const [index, pointIn] of points.entries()) {
       await content(page).locator('h1', { hasText: 'Power' }).click();
+      const point = pointIn(await boxes());
       await page.mouse.click(point.x, point.y);
       await expect.poll(caret, { message: `press ${String(index)}` }).toEqual({
         inCode: true,
@@ -626,7 +651,8 @@ test.describe('objects', () => {
         collapsed: true,
       });
     }
-    await page.mouse.click(caption.x + caption.width - 4, caption.y + caption.height / 2);
+    const { box, caption } = await boxes();
+    await page.mouse.click(caption.x + caption.width / 2, caption.y + caption.height / 2);
     await expect.poll(caret).toEqual({ inCode: false, inCaption: true, collapsed: true });
     // A drag from the padding selects code text.
     await page.mouse.move(box.x + 2, box.y + box.height - 2);
@@ -647,10 +673,10 @@ test.describe('objects', () => {
     const block = content(page).locator('.doc-code-figure', { hasText: 'alpha();' });
     const line = block.locator('.doc-code-caption-line');
     const caption = line.locator('[data-doc-caption-text]');
-    // The caption is empty, so the press goes on its line, after its label.
-    const box = await line.boundingBox();
-    if (!box) throw new Error('The caption line is drawn');
-    await page.mouse.click(box.x + box.width - 4, box.y + box.height / 2);
+    // The caption is empty, so the press goes on its line, after its label: in its middle, as its
+    // far end can sit under the side panel's resize handle.
+    const box = await settledBox(page, line, block);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await page.keyboard.type('Setup ');
     await page.keyboard.press('ControlOrMeta+B');
     await page.keyboard.type('steps');

@@ -1,10 +1,15 @@
+import { EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { parseMarkup } from '../../test/document-markup.js';
 import { drawKeepingSelection, keepInputAfterFocus } from './dom-selection.js';
 
 // A view whose reader of DOM changes, focus and drawn selection are watched. `shown` tells whether
-// the selection the browser shows is the one the view last read.
-function watchedView({ shown = false } = {}) {
+// the selection the browser shows is the one the view last read; `state` is what the view holds.
+function watchedView({
+  shown = false,
+  state = EditorState.create({ doc: parseMarkup('<p>Text</p>') }),
+} = {}) {
   const flush = vi.fn();
   const focus = vi.fn();
   const view = {
@@ -14,6 +19,7 @@ function watchedView({ shown = false } = {}) {
     focused: false,
     hasFocus: () => true,
     focus,
+    state,
     domSelectionRange: () => getSelection(),
     domObserver: { flush, stop: vi.fn(), start: vi.fn(), currentSelection: { eq: () => shown } },
   };
@@ -79,6 +85,18 @@ describe('keepInputAfterFocus', () => {
     keepInputAfterFocus(undefined).focus?.(view, new FocusEvent('focus'));
     expect(focus).not.toHaveBeenCalled();
     vi.advanceTimersByTime(20);
+    expect(focus).toHaveBeenCalledTimes(1);
+    document.body.replaceChildren();
+  });
+
+  it('DOCE-PAGINATION-7.22 draws a node or cell selection at once whatever the browser shows as it takes focus', () => {
+    const base = EditorState.create({ doc: parseMarkup('<p>Text</p><p>More</p>') });
+    const state = base.apply(base.tr.setSelection(NodeSelection.create(base.doc, 0)));
+    const { view, focus } = watchedView({ state });
+    const text = view.dom.appendChild(document.createTextNode('placed'));
+    document.body.append(view.dom);
+    getSelection()?.setBaseAndExtent(text, 1, text, 4);
+    keepInputAfterFocus(undefined).focus?.(view, new FocusEvent('focus'));
     expect(focus).toHaveBeenCalledTimes(1);
     document.body.replaceChildren();
   });

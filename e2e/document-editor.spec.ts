@@ -614,7 +614,10 @@ test.describe('document editor lab', () => {
       await page.keyboard.type('x');
       await page.keyboard.press('Backspace');
       expect(await content(page).textContent()).toBe(before);
-      // A drag selects too.
+      // A drag selects too, from a caret: one that starts inside a selection drags that selection
+      // instead.
+      await page.mouse.click(point.right - 1, point.y);
+      await expect.poll(selected).toBe('');
       await selectText(page, 'Normal operation');
       await expect.poll(selected).toBe('Normal operation');
     });
