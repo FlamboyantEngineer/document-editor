@@ -6,13 +6,34 @@
 // `extensions.layout`, so it previews as the web layout shows a document, with its margins in
 // pixels; it inherits nothing, keeps its name, and is pinned first in the open dialog. "Save elsewhere" saves the open template as another writer would, so the next
 // save meets a conflict. "Show the stored template" shows the open template as the store holds it.
+//
+// Host options: the host may hold the template open and the version shown, as a route would
+// (`templateId`, `revision`, `onTemplateIdChange`, `onRevisionChange`), picked with a template
+// picker of its own (`TemplatePicker`); start at the open template's first version
+// (`defaultRevision`); draw its own preview (`renderPreview`) or lay the parts out in its own frame
+// (`renderLayout`); start with the side panel expanded (`defaultPanelExpanded`); and remember the
+// pane shown under its own key in the page's storage (`panelPersistKey`). An option read only when
+// the workspace mounts mounts it again.
 
-import { LockGlyph } from '@flamboyantengineer/ui-components/core';
-import { useEffect, useState } from 'react';
+import { createSafeStorage, LockGlyph, UiProvider } from '@flamboyantengineer/ui-components/core';
+import { EditorState } from 'prosemirror-state';
+import { type ReactNode, useEffect,useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { TemplateWorkspace } from '../../src/components/index.js';
-import { type AssetAdapter, createMemoryHost } from '../../src/host/index.js';
-import type { TemplateFile } from '../../src/model/index.js';
+import {
+  DocumentEditor,
+  TemplatePicker,
+  type TemplatePreview,
+  TemplateWorkspace,
+  type TemplateWorkspaceParts,
+} from '../../src/components/index.js';
+import { assignElementIds, createContents, createDocumentEditing } from '../../src/engine/index.js';
+import { type AssetAdapter, createMemoryHost, type TemplateSummary } from '../../src/host/index.js';
+import {
+  createDocumentSchema,
+  readDocumentFile,
+  type TemplateFile,
+  templatePreviewDocument,
+} from '../../src/model/index.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { LAB_FONTS } from './served-fonts.js';
 
@@ -73,6 +94,13 @@ const assets: AssetAdapter = {
   resolveUrl: (id) => (id === 'badge' ? BADGE : ''),
 };
 
+// The page's storage, where the side panel remembers the pane shown.
+const STORAGE = createSafeStorage({
+  getItem: (key) => window.localStorage.getItem(key),
+  setItem: (key, value) => window.localStorage.setItem(key, value),
+  removeItem: (key) => window.localStorage.removeItem(key),
+});
+
 // The folders of the stored templates, by id, read again after each save.
 const folders = new Map<string, readonly string[]>();
 async function readFolders() {
@@ -85,8 +113,197 @@ async function readFolders() {
   }
 }
 
+// The preview document of the template shown, with the editing that keeps the template's styles.
+function hostPreviewState(read: () => TemplateFile) {
+  const schema = createDocumentSchema();
+  const state = EditorState.create({
+    doc: readDocumentFile(templatePreviewDocument(read()), schema).doc,
+    plugins: [
+      createContents({ template: read }),
+      ...createDocumentEditing(schema, { template: read, author: () => 'lab' }),
+    ],
+  });
+  const tr = state.tr;
+  assignElementIds(tr, {});
+  return state.apply(tr.setMeta('addToHistory', false));
+}
+
+// The template the preview's plugins read, kept up with the one shown.
+function useLatest(template: TemplateFile) {
+  const latest = useRef(template);
+  useLayoutEffect(() => {
+    latest.current = template;
+  }, [template]);
+  return () => latest.current;
+}
+
+// The host's own preview (`renderPreview`): a document editor over the template's preview
+// document, named for what the workspace hands it, whose headers and footers are edited in place
+// while the template is editable.
+function HostPreview({ preview }: { preview: TemplatePreview }) {
+  const read = useLatest(preview.template);
+  const [state, setState] = useState(() => hostPreviewState(read));
+  const editable = preview.onRegionChange !== undefined;
+  return (
+    <section className="lab-host-preview" aria-label="Host preview">
+      <p>
+        Host preview of{' '}
+        <output aria-label="Host preview shows">
+          {[
+            preview.template.name ?? preview.template.id,
+            preview.layout,
+            preview.scope ?? 'document',
+            editable ? 'editable' : 'read only',
+          ].join(', ')}
+        </output>
+      </p>
+      <DocumentEditor
+        fonts={LAB_FONTS}
+        state={state}
+        onStateChange={setState}
+        template={preview.template}
+        layout={preview.layout}
+        editable={editable}
+        onRegionChange={preview.onRegionChange}
+        scrollable
+        aria-label="Host preview document"
+      />
+    </section>
+  );
+}
+
+// The host's own frame (`renderLayout`): the tabs and toolbar in its header, and below them, in
+// the tabs' panel, the messages, the preview and a side column holding the properties and the
+// history together.
+function hostLayout(parts: TemplateWorkspaceParts): ReactNode {
+  return (
+    <div className="lab-host-layout" role="group" aria-label="Host layout">
+      <div className="lab-host-layout__header">
+        {parts.tabs}
+        {parts.toolbar}
+      </div>
+      {parts.panel(
+        <div className="lab-host-layout__body">
+          {parts.messages}
+          <div className="lab-host-layout__columns">
+            <div className="lab-host-layout__preview">{parts.preview}</div>
+            <aside className="lab-host-layout__side" aria-label="Host side column">
+              <h2>Properties</h2>
+              {parts.properties}
+              <h2>History</h2>
+              {parts.history}
+            </aside>
+          </div>
+        </div>,
+      )}
+    </div>
+  );
+}
+
+// The host options; those the workspace reads only when it mounts mount it again.
+interface HostOptions {
+  readonly route: boolean;
+  readonly firstVersion: boolean;
+  readonly ownPreview: boolean;
+  readonly ownLayout: boolean;
+  readonly panelExpanded: boolean;
+  readonly paneKey: string;
+}
+
+const OPTIONS: HostOptions = {
+  route: false,
+  firstVersion: false,
+  ownPreview: false,
+  ownLayout: false,
+  panelExpanded: false,
+  paneKey: '',
+};
+
+// The host's route: the template open and the version shown.
+interface Route {
+  readonly id: string | null;
+  readonly revision: string | null;
+}
+
+const routeText = ({ id, revision }: Route) =>
+  id === null ? '/templates/new' : `/templates/${id}${revision ? `@${revision}` : ''}`;
+
+function HostControls({
+  options,
+  onChange,
+  route,
+  onRoute,
+  templates,
+}: {
+  options: HostOptions;
+  onChange: (options: HostOptions) => void;
+  route: Route;
+  onRoute: (route: Route) => void;
+  templates: readonly TemplateSummary[];
+}) {
+  const check = (key: keyof HostOptions, label: string) => (
+    <label>
+      <input
+        type="checkbox"
+        checked={options[key] === true}
+        onChange={(event) => onChange({ ...options, [key]: event.currentTarget.checked })}
+      />{' '}
+      {label}
+    </label>
+  );
+  return (
+    <div className="lab-controls">
+      <fieldset>
+        <legend>Host options</legend>
+        {check('route', 'Host holds the template and version')}{' '}
+        {check('firstVersion', 'Start at the first version')}{' '}
+        {check('ownPreview', 'Host draws the preview')}{' '}
+        {check('ownLayout', 'Host lays the parts out')}{' '}
+        {check('panelExpanded', 'Panel starts expanded')}{' '}
+        <label>
+          Remember the pane under{' '}
+          <input
+            value={options.paneKey}
+            placeholder="de-template-workspace:pane"
+            onChange={(event) => onChange({ ...options, paneKey: event.currentTarget.value })}
+          />
+        </label>
+      </fieldset>
+      <fieldset>
+        <legend>Route</legend>
+        <TemplatePicker
+          label="Route template"
+          placeholder="No template"
+          templates={templates}
+          selectedKey={route.id}
+          onSelectionChange={(id) => onRoute({ id, revision: null })}
+          isDisabled={!options.route}
+        />{' '}
+        <button
+          type="button"
+          disabled={!options.route || route.id === null}
+          onClick={() => onRoute({ ...route, revision: 'rev-1' })}
+        >
+          Route to the first version
+        </button>{' '}
+        <button
+          type="button"
+          disabled={!options.route || route.revision === null}
+          onClick={() => onRoute({ ...route, revision: null })}
+        >
+          Route to the template
+        </button>{' '}
+        <output aria-label="Route">{routeText(route)}</output>
+      </fieldset>
+    </div>
+  );
+}
+
 function Lab() {
   const [openId, setOpenId] = useState<string | null>('report');
+  const [options, setOptions] = useState<HostOptions>(OPTIONS);
+  const [route, setRoute] = useState<Route>({ id: 'report', revision: null });
+  const [templates, setTemplates] = useState<readonly TemplateSummary[]>([]);
   const [, setRead] = useState(0);
   const [stored, setStored] = useState<string | null>(null);
   const showStored = async () => {
@@ -96,7 +313,13 @@ function Lab() {
   };
   useEffect(() => {
     void readFolders().then(() => setRead((count) => count + 1));
+    void store.list().then((listed) => {
+      if (listed.ok) setTemplates(listed.value);
+    });
   }, [openId]);
+  const mount = [options.route, options.firstVersion, options.panelExpanded, options.paneKey].join(
+    '\n',
+  );
   const saveElsewhere = async () => {
     if (!openId) return;
     const loaded = await store.load(openId);
@@ -108,7 +331,14 @@ function Lab() {
     });
   };
   return (
-    <>
+    <UiProvider storage={STORAGE}>
+      <HostControls
+        options={options}
+        onChange={setOptions}
+        route={route}
+        onRoute={setRoute}
+        templates={templates}
+      />
       <p>
         <button type="button" onClick={() => void saveElsewhere()}>
           Save elsewhere
@@ -118,10 +348,38 @@ function Lab() {
         </button>
       </p>
       <TemplateWorkspace
+        key={mount}
         store={store}
         pageFonts={LAB_FONTS}
-        defaultTemplateId="report"
-        onTemplateIdChange={setOpenId}
+        {...(options.route
+          ? { templateId: route.id, revision: route.revision }
+          : {
+              defaultTemplateId: 'report',
+              defaultRevision: options.firstVersion ? 'rev-1' : undefined,
+            })}
+        onTemplateIdChange={(id) => {
+          setOpenId(id);
+          setRoute((now) => (now.id === id ? now : { id, revision: null }));
+        }}
+        onRevisionChange={(revision) => setRoute((now) => ({ ...now, revision }))}
+        renderPreview={
+          options.ownPreview
+            ? (preview) => (
+                <HostPreview
+                  key={[
+                    preview.template.id,
+                    preview.scope ?? '',
+                    preview.layout,
+                    preview.onRegionChange ? 'edit' : 'view',
+                  ].join('\n')}
+                  preview={preview}
+                />
+              )
+            : undefined
+        }
+        renderLayout={options.ownLayout ? hostLayout : undefined}
+        defaultPanelExpanded={options.panelExpanded}
+        panelPersistKey={options.paneKey || undefined}
         layoutOf={(template) => (template.extensions?.layout === 'web' ? 'web' : 'page')}
         isRoot={(template) => template.id === 'article'}
         isNameReadOnly={(template) => template.id === 'article'}
@@ -158,7 +416,7 @@ function Lab() {
         className="lab-template-workspace"
       />
       {stored === null ? null : <pre aria-label="Stored template">{stored}</pre>}
-    </>
+    </UiProvider>
   );
 }
 

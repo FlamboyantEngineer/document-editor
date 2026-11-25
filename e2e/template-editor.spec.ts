@@ -449,3 +449,107 @@ test.describe('template editor lab', () => {
     }
   });
 });
+
+// A host option of the lab, by its label.
+const hostOption = (page: Page, name: string) =>
+  page.getByRole('group', { name: 'Host options' }).getByRole('checkbox', { name });
+
+test.describe('template editor lab host options', () => {
+  test('DOCE-TEMPLATE-EDITOR-2.6 DOCE-LABS-3.1 says under the id why the host cannot save, and focuses it', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    await hostOption(page, 'Never saved').check();
+    const settings = panel(page).first();
+    const id = settings.getByRole('textbox', { name: 'Id', exact: true });
+    await id.fill('');
+    await id.press('Enter');
+    const save = page.getByRole('button', { name: 'Save the template' });
+    await save.click();
+    await expect(settings.getByText('Give the template an id before saving it.')).toBeVisible();
+    await expect(id).toBeFocused();
+    await id.fill('Quarterly report');
+    await id.press('Enter');
+    await expect(id).toHaveValue('Quarterly_report');
+    await expect(settings.getByText('Give the template an id before saving it.')).toBeHidden();
+    await save.click();
+    await expect(page.getByRole('status', { name: 'Template report' })).toHaveText(
+      'Saved Quarterly_report',
+    );
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-1.13 DOCE-LABS-3.1 reports its drafts to the host as pending, invalid and clean', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    const drafts = page.getByRole('status', { name: 'Drafts' });
+    await expect(drafts).toHaveText('clean');
+    const tables = await openSection(panel(page).first(), 'Tables');
+    const padding = tables.getByRole('textbox', { name: 'Cell padding' });
+    await padding.fill('6pt');
+    await expect(drafts).toHaveText('pending');
+    await padding.fill('-2pt');
+    await expect(drafts).toHaveText('invalid');
+    await padding.press('Escape');
+    await expect(drafts).toHaveText('clean');
+    await padding.fill('6pt');
+    await padding.press('Enter');
+    await expect(drafts).toHaveText('clean');
+    await expect(padding).toHaveValue('6pt');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-1.7 DOCE-LABS-3.1 offers the host’s code fonts in the code font field', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    const code = await openSection(panel(page).first(), 'Code blocks');
+    const text = code.locator('.ui-property-card', {
+      has: page.getByRole('button', { name: /^Text\b/ }),
+    });
+    await text
+      .getByRole('button', { name: /^Text\b/ })
+      .first()
+      .click();
+    await text.getByRole('button', { name: /Font$/ }).click();
+    const options = page.getByRole('listbox').getByRole('option');
+    await expect(options.filter({ hasText: /^Cousine$/ })).toHaveCount(1);
+    await expect(options.filter({ hasText: /^Courier New$/ })).toHaveCount(1);
+    // The default monospace list is not offered.
+    await expect(options.filter({ hasText: /^Consolas$/ })).toHaveCount(0);
+    await options.filter({ hasText: /^Cousine$/ }).click();
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-2.1 DOCE-TEMPLATE-EDITOR-3.10 DOCE-LABS-3.1 leaves the scope to the editor and hides its picker', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    const settings = panel(page).first();
+    const add = settings.getByRole('button', { name: 'Add a section' });
+    const name = settings.getByRole('textbox', { name: 'Section name' });
+    await add.click();
+    await add.click();
+    // The lab holds the scope, which follows each section added.
+    await expect(name).toHaveValue('section_2');
+    // Left to the editor, the scope starts at the first section (`defaultScope`).
+    await hostOption(page, 'Editor holds the scope, from the first section').check();
+    await expect(panel(page).first()).toHaveAttribute('data-scope', 'section');
+    await expect(panel(page).first().getByRole('textbox', { name: 'Section name' })).toHaveValue(
+      'section_1',
+    );
+    // A host that draws the scopes itself hides the picker and the section actions.
+    await hostOption(page, 'Hide the scope picker').check();
+    await expect(panel(page).first().getByRole('button', { name: 'Add a section' })).toBeHidden();
+    await expect(
+      panel(page)
+        .first()
+        .getByRole('heading', { name: /^Settings of/ }),
+    ).toBeHidden();
+    await hostOption(page, 'Hide the scope picker').uncheck();
+    await expect(panel(page).first().getByRole('button', { name: 'Add a section' })).toBeVisible();
+  });
+});
