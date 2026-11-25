@@ -40,6 +40,7 @@ import {
   type SectionLayoutRules,
   type SectionPageHeight,
 } from './layout-document.js';
+import { shownBy } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import type { LayoutTraceSink } from './layout-trace.js';
 import { awaitReady, frameIn, settleEdits } from './layout-triggers.js';
@@ -65,7 +66,6 @@ import {
   type Session,
   settleTyping,
   showCanonical,
-  shownBy,
   showsNewerSelection,
   take,
 } from './projection-session.js';

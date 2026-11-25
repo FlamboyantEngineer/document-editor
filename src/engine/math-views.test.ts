@@ -7,7 +7,12 @@ import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js'
 import { placeMath } from '../layout-engine/math-atoms.js';
 import { createDocumentEditing } from './document-editing.js';
 import { mathDrawingHooks } from './math-drawing.js';
-import { createMathViews, DEFAULT_INVALID_MATH_TEXT, typesetMathOf } from './math-views.js';
+import {
+  createMathViews,
+  DEFAULT_INVALID_MATH_TEXT,
+  mathTypesetReady,
+  typesetMathOf,
+} from './math-views.js';
 
 installEditorDom();
 
@@ -99,7 +104,7 @@ describe('typeset math kept for static drawings', () => {
 });
 
 describe('a renderer that does not answer', () => {
-  it('DOCE-PAGINATION-10.8 shows math invalid once its renderer misses the deadline, and a later answer still', async () => {
+  it('DOCE-PAGINATION-10.8 shows math invalid once its renderer misses the deadline, and keeps it so', async () => {
     vi.useFakeTimers();
     let answer: (value: { ok: true; mathml: string }) => void = () => {};
     const render = () =>
@@ -124,12 +129,42 @@ describe('a renderer that does not answer', () => {
     expect(drawn?.textContent).toBe(DEFAULT_INVALID_MATH_TEXT.inline);
     expect(remeasured).toHaveBeenCalledTimes(1);
     expect(typesetMathOf(state, inline)?.state).toBe('invalid');
+    // The pages were laid out with the invalid math, so an answer after the deadline changes nothing.
     answer({ ok: true, mathml: '<math><mi>x</mi></math>' });
     await vi.advanceTimersByTimeAsync(0);
-    expect(drawn?.dataset.state).toBe('ready');
-    expect(remeasured).toHaveBeenCalledTimes(2);
-    expect(typesetMathOf(state, inline)?.state).toBe('ready');
+    expect(drawn?.dataset.state).toBe('invalid');
+    expect(remeasured).toHaveBeenCalledTimes(1);
+    expect(typesetMathOf(state, inline)?.state).toBe('invalid');
     vi.useRealTimers();
+  });
+});
+
+describe('math typeset ahead', () => {
+  it('DOCE-PAGINATION-10.8 typesets each source once for every view, and says when a document is typeset', async () => {
+    const render = vi.fn((source: string) => ({
+      ok: true as const,
+      mathml: `<math><mi>${source}</mi></math>`,
+    }));
+    const plugins = [createMathViews({ render })];
+    const inline = nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = nodes.paragraph?.create(null, inline ? [inline] : []);
+    const doc = paragraph && documentSchema.topNodeType.createAndFill(null, [paragraph]);
+    if (!doc) throw new Error('The schema has math');
+    const state = EditorState.create({ doc, plugins });
+    // The pages wait for the document's math before any view draws it.
+    const ready = mathTypesetReady(state, doc, document);
+    expect(ready).not.toBeNull();
+    await ready;
+    expect(mathTypesetReady(state, doc, document)).toBeNull();
+    view = new EditorView(document.createElement('div'), { state });
+    const other = new EditorView(document.createElement('div'), { state });
+    for (const each of [view, other])
+      await expect
+        .poll(() => each.dom.querySelector<HTMLElement>('.de-math')?.dataset.state)
+        .toBe('ready');
+    expect(other.dom.querySelector('math')?.textContent).toBe('x');
+    expect(render).toHaveBeenCalledTimes(1);
+    other.destroy();
   });
 });
 

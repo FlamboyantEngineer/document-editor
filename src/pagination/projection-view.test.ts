@@ -15,6 +15,7 @@ import {
   TEXTS,
 } from '../../test/projection-fixtures.js';
 import { createContents } from '../engine/contents.js';
+import { createMathViews } from '../engine/math-views.js';
 import { BASE_TEMPLATE, joinDocumentPages, sameStructure } from '../model/index.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { canonicalView } from './canonical-view.js';
@@ -589,6 +590,30 @@ describe('projection view', () => {
 });
 
 describe('projection layouts', () => {
+  it('DOCE-PAGINATION-10.8 lays new math out once it is typeset, and not again when it is drawn', async () => {
+    let answer: (value: { ok: true; mathml: string }) => void = () => undefined;
+    const render = () =>
+      new Promise<{ ok: true; mathml: string }>((resolve) => {
+        answer = resolve;
+      });
+    const { projection, drain } = mount({ state: canonicalState([createMathViews({ render })]) });
+    const { layouts } = projection.stats();
+    const math = documentSchema.node('math_inline', null, [documentSchema.text('x')]);
+    const at = positionOf(projection.state.doc, 'Alpha');
+    edit(projection, (state) => layoutNow(state.tr.insert(at, math)));
+    drain();
+    // The pages wait for the math to be typeset before laying it out.
+    expect(projection.stats().layouts).toBe(layouts);
+    answer({ ok: true, mathml: '<math><mi>x</mi></math>' });
+    await vi.waitFor(() => {
+      drain();
+      expect(projection.stats().layouts).toBe(layouts + 1);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    drain();
+    expect(projection.stats().layouts).toBe(layouts + 1);
+  });
+
   it('DOCE-PAGINATION-7.5 lays out a change that adds a page and numbers the pages again once, with no layout after it', () => {
     const { projection, drain } = mount();
     const pages = pageCount(projection.view.state.doc);

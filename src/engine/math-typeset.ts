@@ -22,6 +22,8 @@ export interface MathTypesets {
   keep(display: boolean, latex: string, typeset: TypesetMath): void;
   /** What a math node's source was typeset as, or null before it is. */
   of(node: ProseMirrorNode): TypesetMath | null;
+  /** What a source was typeset as, or null before it is. */
+  find(display: boolean, latex: string): TypesetMath | null;
 }
 
 // How many sources are kept: the latest typeset, as math is typed and edited.
@@ -51,6 +53,7 @@ export function createMathTypesets(): MathTypesets {
       if (!isMath(node)) return null;
       return kept.get(keyOf(node.type.name === 'math_display', node.textContent)) ?? null;
     },
+    find: (display, latex) => kept.get(keyOf(display, latex)) ?? null,
   };
 }
 

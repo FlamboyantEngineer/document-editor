@@ -24,3 +24,24 @@ export function wantsLayoutNow(tr: Transaction): boolean {
   const event = tr.getMeta('uiEvent') as unknown;
   return event === 'paste' || event === 'drop' || !isInlineTextOnly(tr);
 }
+
+/** How a canonical change is shown on the pages. */
+export interface Showing {
+  /** Lays the pages out on the next frame, not once the writer pauses (DOCE-PAGINATION-5.7). */
+  readonly now: boolean;
+  /** Scrolls the pages to the selection, as a transaction that made the change asked. */
+  readonly scroll: boolean;
+}
+
+/**
+ * How the transactions that made a change show it: laid out at once when one changed the
+ * structure, and scrolled to the selection when one asked, as a view of the canonical state does.
+ * A change nothing asked to scroll for, such as a collaborator's or a state the host replaced,
+ * leaves the pages where the writer reads them.
+ */
+export function shownBy(made: readonly Transaction[]): Showing {
+  return {
+    now: made.some(wantsLayoutNow),
+    scroll: made.some((each) => each.scrolledIntoView),
+  };
+}
