@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 import {
   changeLinesOf,
   listSuggestions,
+  setColorSlots,
   showAuthorship,
   type Suggestion,
   versionChanges,
@@ -138,6 +139,14 @@ function useAuthorship(view: EditorView | null, state: EditorState, shown: boole
   }, [view, shown, plugins]);
 }
 
+// Places people in the host's count of colour slots, once the plugins that place them are installed.
+function useColorSlots(view: EditorView | null, state: EditorState, count: number | undefined) {
+  const { plugins } = state;
+  useEffect(() => {
+    if (view) setColorSlots(count)(view.state, view.dispatch);
+  }, [view, count, plugins]);
+}
+
 /**
  * The notifications of an editor's props, its selection, its suggestions and its change bars, and
  * the authorship it shows.
@@ -151,11 +160,13 @@ export function useReviewNotifications(
     readonly onChangeBarsChange?: ((bars: readonly ChangeBar[]) => void) | undefined;
     readonly onSelectionChange?: DocumentEditorNotifications['onSelectionChange'];
     readonly authorship?: boolean | undefined;
+    readonly colorSlots?: number | undefined;
     readonly template?: TemplateFile | undefined;
     readonly markup?: DocumentMarkup | undefined;
   },
 ) {
   useAuthorship(view, props.state, props.authorship ?? false);
+  useColorSlots(view, props.state, props.colorSlots);
   useSelectionNotification(props.state, props.onSelectionChange);
   useSuggestionsNotification(props.state, props.onSuggestionsChange);
   useChangeLines(view, props.state, {

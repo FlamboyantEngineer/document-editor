@@ -101,4 +101,16 @@ test.describe('history lab', () => {
     await expect(page.getByLabel('Template shown')).toHaveText('report');
     await expect(history(page).getByRole('row')).toHaveCount(4);
   });
+
+  test('DOCE-VERSIONS-4.8 offers the host action of a row after its own', async ({ lab, page }) => {
+    await lab.open('history');
+    await row(page, /First draft/)
+      .getByRole('button', { name: /actions/i })
+      .click();
+    const items = page.getByRole('menuitem');
+    await expect(items.last()).toHaveText('Branch from here');
+    await page.getByRole('menuitem', { name: 'Branch from here' }).click();
+    await expect(page.getByLabel('Branched from')).toHaveText('rev-2');
+    await expect(page.getByLabel('Showing')).toHaveText('The document');
+  });
 });

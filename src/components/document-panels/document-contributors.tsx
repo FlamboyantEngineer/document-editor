@@ -8,10 +8,12 @@ import { Switch } from '@flamboyantengineer/ui-components/switch';
 import { UserIdentity } from '@flamboyantengineer/ui-components/user-identity';
 import { type ReactNode, useMemo } from 'react';
 import {
+  colorSlotsOf,
   type DocumentAuthor,
   documentAuthors,
   hasUnattributedText,
   isAuthorshipShown,
+  PRESENCE_COLOR_SLOTS,
 } from '../../engine/index.js';
 import type { EditorPerson, IdentityAdapter } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -65,9 +67,11 @@ function rowsOf(
 // are plain text, with no colour or picture.
 function ContributorRow({
   row,
+  slots,
   renderCard,
 }: {
   row: Row;
+  slots: number;
   renderCard: DocumentContributorsProps['renderCard'];
 }) {
   const { author, label, person } = row;
@@ -81,6 +85,7 @@ function ContributorRow({
       src={person?.avatarUrl}
       colorKey={author.id}
       colorIndex={author.slot}
+      colorCount={slots}
     />
   );
   return (
@@ -107,7 +112,8 @@ export function DocumentContributors(props: DocumentContributorsProps) {
   const held = useDocumentEditor();
   const context = props.context ?? held;
   const doc = context?.state.doc ?? null;
-  const authors = useMemo(() => (doc ? documentAuthors(doc) : []), [doc]);
+  const slots = context ? colorSlotsOf(context.state) : PRESENCE_COLOR_SLOTS;
+  const authors = useMemo(() => (doc ? documentAuthors(doc, slots) : []), [doc, slots]);
   const unknown = useMemo(() => (doc ? hasUnattributedText(doc) : false), [doc]);
   const people = usePeople(
     props.identity,
@@ -131,7 +137,12 @@ export function DocumentContributors(props: DocumentContributorsProps) {
       {rows.length === 0 && !unknown ? <p>{labels.noContributors}</p> : null}
       <ul {...hooks.slot('list')}>
         {rows.map((row) => (
-          <ContributorRow key={row.author.id} row={row} renderCard={props.renderCard} />
+          <ContributorRow
+            key={row.author.id}
+            row={row}
+            slots={slots}
+            renderCard={props.renderCard}
+          />
         ))}
         {unknown ? (
           <li {...hooks.slot('contributor', { kind: 'unknown' })}>{labels.unknownContributor}</li>

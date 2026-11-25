@@ -188,6 +188,13 @@ The comments lab shall set, each with a control, what a host sets on the comment
 Implementation: `labs/src/comments.lab.tsx`, `labs/src/comment-host-options.tsx`, `labs/src/lab-comment-store.ts`, `labs/src/document-editor.lab.tsx`
 Verification: `e2e/comments-host-options.spec.ts`, `e2e/document-editor.spec.ts`
 
+### DOCE-LABS-3.11 - Contributor colours
+
+The contributor colours lab shall show a document written by more writers than the default eight colour slots, with authorship shown, the contributors pane beside it and as many people present, each with a caret, and a choice of the editor's colour slots (8 or 50, DOCE-COLLAB-1.8). The lab's sheet colours as many slots as it sets, so with 50 every writer's text, caret and avatar has a colour no other writer has, and with 8 writers share them.
+
+Implementation: `labs/src/contributor-colors.lab.tsx`, `labs/contributor-colors.html`
+Verification: `e2e/contributor-colors.spec.ts`
+
 ### DOCE-LABS-3.12 - Host options in the full editor, history and session labs
 
 The full editor lab shall offer the host's options for the document it shows: proofing turned off and on (`isEnabled`), the first check run when the host says (`scheduleFirstCheck`), the reader's decisions the host keeps and gives back on opening (`ignored`, `disabledRules`, `onDecision`), its own normalising of completion answers (`normalize`), a template pin given to scripts and exports (`templatePin`), a markup choice it turns off saying why (`markupReasons`), a link to one of its records inside a script's output that keeps the selection under a secondary click (`contextMenu.keepSelection`), a script runner that keys its inputs (`scriptInputsKey`), abbreviations brought up to date on opening (`refreshAbbreviationsOnOpen`), and Open again, which gives the editor the document anew for the options read on opening. Its document holds abbreviations with each issue (`createAbbreviationHealth`), math that does not typeset with the host's text for it (`invalidMath`), and tables, which the host may keep footnotes out of (`citingPlaces`); a review scope picks chapters, which the outline highlights with their subheadings (`documentOutline` highlights) and a host decoration marks over the text they head. The history lab shall offer viewing a version as it is picked (`viewOnPick`) and a hook that changes a named version before it is saved, or saves none (`beforeVersion`). The session lab shall open a document pinned to a template, the host saving a newer revision of it while it is open, and one out of step with its template, and set the draft delay (`draftDelay`), showing what the drafts adapter last did.

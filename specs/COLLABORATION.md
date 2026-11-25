@@ -6,7 +6,7 @@ The editor shows the other people in a document and takes in their changes. The 
 
 ### DOCE-COLLAB-1.1 - Carets and selections
 
-`createPresence()` shall draw each peer the host sets (`setPeers(state, peers)`, out of the history): a caret (`de-presence-caret`) at the head of their selection with their name (`de-presence-caret__label`), and the text their selection covers (`de-presence-selection`, which also carries their name in `data-presence-name`, so the host's sheet can name them on hover of any part of it). Both carry the peer's id (`data-presence-peer`), a colour slot from it (`data-presence-slot`, one of `PRESENCE_COLOR_SLOTS`) and, when the peer has one, their colour as `--de-presence-color`. A colour is written only when it is a plain CSS colour (`isCssColor`: a hex colour, a colour's name, or a colour function of numbers), since it may be whatever another participant published; any other is left out, and the peer shows in their slot's colour. `listPeers(state)` lists them.
+`createPresence()` shall draw each peer the host sets (`setPeers(state, peers)`, out of the history): a caret (`de-presence-caret`) at the head of their selection with their name (`de-presence-caret__label`), and the text their selection covers (`de-presence-selection`, which also carries their name in `data-presence-name`, so the host's sheet can name them on hover of any part of it). Both carry the peer's id (`data-presence-peer`), a colour slot from it (`data-presence-slot`, one of the editor's colour slots, DOCE-COLLAB-1.8) and, when the peer has one, their colour as `--de-presence-color`. A colour is written only when it is a plain CSS colour (`isCssColor`: a hex colour, a colour's name, or a colour function of numbers), since it may be whatever another participant published; any other is left out, and the peer shows in their slot's colour. `listPeers(state)` lists them.
 
 Implementation: `src/engine/presence.ts`, `src/model/schema/css-color.ts`, `labs/reference/editor-chrome.css`
 Verification: `src/engine/presence.test.ts`, `src/model/schema/css-color.test.ts`, `e2e/collaboration.spec.ts`
@@ -27,7 +27,7 @@ Verification: `src/components/document-editor/presence-avatars.test.tsx`, `src/e
 
 ### DOCE-COLLAB-1.4 - Colour slots and stacked carets
 
-Each peer shall take the colour slot their id gives, or the next one no peer before them has, peers taken in the order the avatars show them (by name, then id, `byName`), so the people shown have colours no other shown person has while there are no more of them than `PRESENCE_COLOR_SLOTS` (`placePeers`). The reader is never a peer, so they take no colour. The slots are the base library's (`getColorIndex` over the ids). Carets at the same position shall carry their place among them (`data-presence-stack`, from 1 for the second) so their labels do not cover each other and the reference sheet offsets each caret sideways by its place, and a peer without a selection is listed without a caret.
+Each peer shall take the colour slot their id gives, or the next one no peer before them has, peers taken in the order the avatars show them (by name, then id, `byName`), so the people shown have colours no other shown person has while there are no more of them than slots (`placePeers(peers, slots)`, `PRESENCE_COLOR_SLOTS` by default). The reader is never a peer, so they take no colour. The slots are the base library's (`getColorIndex` over the ids). Carets at the same position shall carry their place among them (`data-presence-stack`, from 1 for the second) so their labels do not cover each other and the reference sheet offsets each caret sideways by its place, and a peer without a selection is listed without a caret.
 
 Implementation: `src/engine/presence.ts`, `labs/reference/editor-chrome.css`
 Verification: `src/engine/presence.test.ts`
@@ -52,6 +52,13 @@ A host that shares selections without a shared Yjs document (store mode) shall g
 
 Implementation: `src/engine/presence-address.ts`, `src/engine/presence.ts`
 Verification: `src/engine/presence-address.test.ts`
+
+### DOCE-COLLAB-1.8 - The host's count of colour slots
+
+The host shall set how many colour slots people are told apart by with one count for the editor (`DocumentEditor`'s `colorSlots`, or `setColorSlots(count)` on a state of its own, out of the history), a whole number of at least one, `PRESENCE_COLOR_SLOTS` (8) when not given or not one. The carets and selections (DOCE-COLLAB-1.4), the avatars and their cards (DOCE-COLLAB-1.3, the base library's `colorCount`), the authorship tints (DOCE-COLLAB-3.2) and the contributors pane (DOCE-COLLAB-3.4) shall all place people in that count (`colorSlotsOf(state)`), and a new count places them again at once, the presence plugin and the authorship plugin each from the same transaction. With as many slots as people, no two people share a slot. The host's sheet gives each slot its colour; the reference sheet colours eight, and the contributor colours lab (DOCE-LABS-3.11) as many as it sets.
+
+Implementation: `src/engine/color-slots.ts`, `src/engine/presence.ts`, `src/engine/authorship.ts`, `src/components/document-editor/use-change-notifications.ts`, `src/components/document-editor/presence-avatars.tsx`, `src/components/document-panels/document-contributors.tsx`, `labs/src/contributor-colors.lab.tsx`
+Verification: `src/engine/color-slots.test.ts`, `src/components/document-panels/document-contributors.test.tsx`, `e2e/contributor-colors.spec.ts`
 
 ## DOCE-COLLAB-2 - Remote changes
 
@@ -285,7 +292,7 @@ Verification: `src/collab/room-change-guard-security.test.ts`
 | `de-presence-caret__label`              | slot      |                                                                                  | The peer's name above their caret.                                                                              |
 | `de-presence-selection`                 | root      |                                                                                  | The text a peer's selection covers.                                                                             |
 | `data-presence-peer`                    | attribute |                                                                                  | On a caret or selection: the peer's id.                                                                         |
-| `data-presence-slot`                    | attribute | `0`–`7`                                                                          | On a caret or selection: the peer's colour slot.                                                                |
+| `data-presence-slot`                    | attribute | `0` to the colour slots less one (`0`–`7` by default)                            | On a caret or selection: the peer's colour slot.                                                                |
 | `--de-presence-color`                   | property  |                                                                                  | On a caret or selection: the peer's own colour.                                                                 |
 | `data-presence-status`                  | attribute | `idle`, `away`                                                                   | On a caret or selection: the peer is not active.                                                                |
 | `data-presence-name`                    | attribute |                                                                                  | On a selection: the peer's name, for a hover name.                                                              |
@@ -296,7 +303,7 @@ Verification: `src/collab/room-change-guard-security.test.ts`
 | `data-locked`                           | state     |                                                                                  | On the connection status: the phase locks every surface.                                                        |
 | `data-editable`                         | state     |                                                                                  | On the connection status: the reader may change the document.                                                   |
 | `data-author`                           | attribute |                                                                                  | On a writer's text while authorship shows: the writer's id.                                                     |
-| `data-author-slot`                      | attribute | `0`–`7`                                                                          | On a writer's text while authorship shows: their colour slot.                                                   |
+| `data-author-slot`                      | attribute | `0` to the colour slots less one (`0`–`7` by default)                            | On a writer's text while authorship shows: their colour slot.                                                   |
 | `data-author-source`                    | attribute | `generated`                                                                      | On text an agent generated while authorship shows.                                                              |
 | `de-document-contributors`              | root      |                                                                                  | The contributors pane, with `data-authorship`.                                                                  |
 | `de-document-contributors__list`        | slot      |                                                                                  | The list of writers.                                                                                            |

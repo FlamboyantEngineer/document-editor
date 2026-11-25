@@ -4,6 +4,7 @@
 // the document with the markup and comments they had before the view. The host's options: a
 // version viewed as soon as it is picked (`viewOnPick`), and a hook that sees each named version
 // before it is saved (`beforeVersion`), adding the reviewer to its name or saving none.
+// Each row also offers the host's own action, Branch from here, which the lab reports.
 
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -176,6 +177,7 @@ function History({
   host: { options: HostOptions; onChange: (options: HostOptions) => void };
 }) {
   const [settings, setSettings] = useState<ReaderSettings>({ markup: 'all', comments: true });
+  const [branched, setBranched] = useState<string | null>(null);
   const document = useSessionValue(session.document);
   const view = useSessionValue(versions.view);
   if (!document) return <p>Opening the document…</p>;
@@ -191,7 +193,8 @@ function History({
         <output aria-label="Reader settings">
           {`${settings.markup} markup, comments ${settings.comments ? 'shown' : 'hidden'}`}
         </output>{' '}
-        <output aria-label="Template shown">{(shown?.template ?? document.template).id}</output>
+        <output aria-label="Template shown">{(shown?.template ?? document.template).id}</output>{' '}
+        <output aria-label="Branched from">{branched ?? 'No branch'}</output>
         <DocumentHistoryBanner versions={versions} onReturn={setSettings} />
         <DocumentEditor
           fonts={LAB_FONTS}
@@ -213,6 +216,13 @@ function History({
           onReturn={setSettings}
           identity={HOST.identity}
           viewOnPick={host.options.viewOnPick}
+          versionActions={({ version }) => [
+            {
+              id: 'branch',
+              label: 'Branch from here',
+              onAction: () => setBranched(version.revision),
+            },
+          ]}
         />
       </aside>
     </div>
