@@ -451,6 +451,7 @@ describe('DocumentEditor', () => {
           state={state}
           onStateChange={setState}
           template={TEMPLATE}
+          fonts={TEST_FONTS}
           aria-label="Report"
           handleRef={handle}
         />
