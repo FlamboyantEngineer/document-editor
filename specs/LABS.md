@@ -181,6 +181,13 @@ The editor options lab shall give a control for each option a host sets on the e
 Implementation: `labs/src/editor-options.lab.tsx`, `labs/src/editor-options-document.ts`, `labs/src/dialog-network.ts`, `labs/dialog-network-worker.js`, `labs/editor-options.html`
 Verification: `e2e/editor-options.spec.ts`
 
+### DOCE-LABS-3.10 - Comments with a host's options
+
+The comments lab shall set, each with a control, what a host sets on the comments and the editor around them: the gap between a page and its cards (`cardGap`), the host's entries ending each thread's and suggestion's header menu (`threadActions`), deleting without asking (`confirmsDelete`), the text a reply starts with (`replyStart`), no active card once focus leaves (`clearsActiveOnBlur`), moderation (the in-memory store's `moderates` and the policy's `moderate`, from the page's `moderator` query, which its control reloads the page with), a side panel with the comments and contributors panes, which the threads reveal (`revealsPane`) and the handle reveals with `onShown`, collaborators' avatars and the contributors opening the host's own person cards (`renderCard`), and Copy link in the menu and its key (`onCopyLink`), with what the editor hands the host shown in a log. Its store wraps the in-memory host's with what a host's backend adds: an assistant writes a reply for the reader that stays pending until the lab finishes it or fails it, for the reader to retry or for good (`settleEntry`), each pending reply shown logged (`onActivityShown`), and another person typing in a thread (`subscribeActivity`). The document editor lab logs the person each mention names (`onMention`).
+
+Implementation: `labs/src/comments.lab.tsx`, `labs/src/comment-host-options.tsx`, `labs/src/lab-comment-store.ts`, `labs/src/document-editor.lab.tsx`
+Verification: `e2e/comments-host-options.spec.ts`, `e2e/document-editor.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.
