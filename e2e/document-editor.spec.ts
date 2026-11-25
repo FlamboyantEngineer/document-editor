@@ -168,7 +168,7 @@ test.describe('document editor lab', () => {
     expect(content?.width).toBeCloseTo(shown?.width ?? 0, 0);
   });
 
-  test('DOCE-LAYOUT-4.5 shows each section as an endless page at its page width, inset by its margins', async ({
+  test("DOCE-LAYOUT-4.5 shows each section as an endless page at its page width or the host's, inset by its margins", async ({
     lab,
     page,
   }) => {
@@ -195,6 +195,15 @@ test.describe('document editor lab', () => {
     expect(content?.width).toBeCloseTo(pagedContent?.width ?? 0, 0);
     expect(shown?.height ?? 0).toBeGreaterThan(paged?.height ?? 0);
     expect(await sheet.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
+    await page.getByLabel('Max width').selectOption('600px');
+    await expect(editor(page)).toHaveAttribute('style', /--de-web-max-width: 600px/);
+    const capped = await sheet.boundingBox();
+    expect(capped?.width).toBeCloseTo(600, 0);
+    expect((capped?.x ?? 0) + (capped?.width ?? 0) / 2).toBeCloseTo(
+      (shown?.x ?? 0) + (shown?.width ?? 0) / 2,
+      0,
+    );
+    await page.getByLabel('Max width').selectOption('');
     await page.setViewportSize({ width: Math.round((paged?.width ?? 0) * 0.75), height: 800 });
     const narrow = await sheet.boundingBox();
     const narrowContent = await page
@@ -614,7 +623,10 @@ test.describe('document editor lab', () => {
       await page.keyboard.type('x');
       await page.keyboard.press('Backspace');
       expect(await content(page).textContent()).toBe(before);
-      // A drag selects too.
+      // A drag selects too, from a caret: one that starts inside a selection drags that selection
+      // instead.
+      await page.mouse.click(point.right - 1, point.y);
+      await expect.poll(selected).toBe('');
       await selectText(page, 'Normal operation');
       await expect.poll(selected).toBe('Normal operation');
     });

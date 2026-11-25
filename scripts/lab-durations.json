@@ -4237,7 +4237,7 @@
   "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.11 keeps the caret in an empty cell, for a click and a double click": 2.3,
   "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.11 selects a cell content as text with a double click, and a click puts a caret back": 2.3,
   "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.11 selects a cell from its padding and its table with a double click there": 2.1,
-  "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.13 DOCE-PAGINATION-7.11 keeps the cells selected after aligning them and adding a column from the menu": 2.5,
+  "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.13 DOCE-PAGINATION-7.11 DOCE-PAGINATION-7.22 keeps the cells selected after aligning them and adding a column from the menu": 2.5,
   "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.3 DOCE-TABLES-3.8 DOCE-TABLES-3.9 types into the cells that menu inserts and splits add, and sets a header column": 3.5,
   "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.5 DOCE-TABLES-3.11 clears the selected cells when a click puts the caret outside the table": 2,
   "[chromium] › table-selection.spec.ts › selecting in tables › DOCE-TABLES-3.6 highlights a row border from either side and forgets it on scroll": 1.8,

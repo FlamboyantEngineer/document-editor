@@ -110,7 +110,7 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/do
 
 ### DOCE-LAYOUT-4.5 - An endless page
 
-`webWidth` `sheet` shall show each section as an endless page: at most its page width, centred, shrinking with a narrower surface, inset by its template's page margins, and drawn as paper on the surface around it, as the pages are, growing with its content without ever ending. A section whose scope sets no page size shall fill the surface, inset by its margins, as with `fill`.
+`webWidth` `sheet` shall show each section as an endless page: at most its page width, centred, shrinking with a narrower surface, inset by its template's page margins, and drawn as paper on the surface around it, as the pages are, growing with its content without ever ending. A host's `webMaxWidth`, a CSS length published on the root as `--de-web-max-width`, shall take the place of the page width as the widest the endless page shows, for every section. Otherwise a section whose scope sets no page size shall fill the surface, inset by its margins, as with `fill`.
 
-Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/document.css`, `labs/src/document-editor.lab.tsx`
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/root-data.ts`, `labs/reference/document.css`, `labs/src/document-editor.lab.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/document-editor.spec.ts`
