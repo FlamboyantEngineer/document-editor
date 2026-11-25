@@ -523,6 +523,8 @@ test.describe('document editor lab', () => {
     await expect(list).toBeHidden();
     const mention = content(page).locator('[data-mention-user-id="grace"]');
     await expect(mention).toHaveText('@Grace Hopper');
+    // The host hears of the person mentioned (onMention).
+    await expect(page.getByRole('status', { name: 'Mentioned' })).toHaveText('Grace Hopper');
     await page.keyboard.type('today');
     await expect(content(page)).toContainText('Normal operation for @Grace Hopper today');
   });

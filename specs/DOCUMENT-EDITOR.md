@@ -153,7 +153,7 @@ Verification: `e2e/objects.spec.ts`, `src/components/document-editor/contents-en
 With `onCopyLink`, the menu shall offer Copy link after Comment, in a read document too, showing the key the shortcut table binds it to (`copy-link`, by default Mod-Shift-K), and that key, in the document holding focus, shall do the same: each hands the host the address of the element holding the selection (`contentLinkAddress`): its id, with the selected text's offsets in it when text is selected (DOCE-OUTLINE-3.1), so a selection inside a block is kept while the menu is open; the host makes and copies the link. Outside an element with an id, the menu offers no Copy link and the key does nothing.
 
 Implementation: `src/components/document-editor/copy-link.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/editor-body.tsx`, `src/engine/shortcuts.ts`
-Verification: `src/components/document-editor/copy-link.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/copy-link.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`, `e2e/comments-host-options.spec.ts`
 
 ## DOCE-EDITOR-4 - Toolbar and frame
 
@@ -723,7 +723,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `sr
 The editor's handle shall reveal a pane by its id (`revealPane(paneId, { focus })`): the first side panel inside the editor that holds it selects it and expands, as its tab and launcher would, and focus moves into the pane, on its first focusable element or the pane itself, once it shows, unless `focus` is false, including when the panel was forced collapsed and has room again; given `onShown`, the panel calls it with the pane's element once it shows instead, as the find keys do to focus the search pane's query (DOCE-SEARCH-2.2). It returns false when no panel holds the pane.
 
 Implementation: `src/components/document-panels/document-panels.ts`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/editor-scope.tsx`, `src/components/document-editor/use-host-reach.ts`, `labs/src/host-panes.tsx`
-Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-EDITOR-8.3 - The comments pane
 

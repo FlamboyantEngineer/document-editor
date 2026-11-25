@@ -6,10 +6,15 @@
 // threads, reads comments as Markdown, keeps to an audience and shows mentions without cards. The
 // threads may live in the comments panel alone, and the handle opens a thread at a comment with a
 // reply started, or starts a thread with its text. Mentions may name a group or an assistant, and
-// each comment's menu may offer the host's own copy-link action.
+// each comment's menu may offer the host's own copy-link action. The host's options (DOCE-LABS-3.8)
+// set the cards' gap, header actions, deleting without asking, the text a reply starts with, no
+// active card once focus leaves, moderation, a side panel the threads reveal, its own person cards
+// and Copy link; and the lab's store has an assistant write replies for the reader, which stay
+// pending, fail to retry or fail for good, while another person types in a thread.
 
 import { EditorState } from 'prosemirror-state';
-import { useRef, useState } from 'react';
+import type { EditorView } from 'prosemirror-view';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   type CommentActionTarget,
@@ -20,7 +25,7 @@ import {
   type DocumentEditorHandle,
 } from '../../src/components/index.js';
 import type { Suggestion } from '../../src/document/index.js';
-import { assignElementIds, createDocumentEditing } from '../../src/engine/index.js';
+import { assignElementIds, createDocumentEditing, createPresence } from '../../src/engine/index.js';
 import { createMemoryHost, type MentionsAdapter } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
@@ -29,6 +34,17 @@ import {
   readDocumentFile,
   resolveTemplateFile,
 } from '../../src/model/index.js';
+import { startCollaborators } from './collaborators.js';
+import {
+  CommentHostOptions,
+  copyLinkOf,
+  hostCommentOptions,
+  LabPresence,
+  LabSidePanel,
+  useHostLog,
+  useHostOptions,
+} from './comment-host-options.js';
+import { createLabCommentStore, type LabCommentStore } from './lab-comment-store.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { LAB_FONTS } from './served-fonts.js';
@@ -38,10 +54,18 @@ const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   baseTemplateId: BASE_TEMPLATE_ID,
 });
 
+// Whether the reader moderates the comments: the page's `moderator` query, since the store takes
+// it when it is made.
+const MODERATOR = new URLSearchParams(window.location.search).has('moderator');
+
 const HOST = createMemoryHost({
   person: { id: 'ada', name: 'Ada Lovelace' },
-  people: [{ id: 'grace', name: 'Grace Hopper' }],
+  people: [
+    { id: 'grace', name: 'Grace Hopper' },
+    { id: 'helper', name: 'Helper' },
+  ],
   comments: {
+    moderates: MODERATOR,
     threads: {
       lab: [
         {
@@ -118,7 +142,10 @@ function initialState(): EditorState {
   ).doc;
   const state = EditorState.create({
     doc,
-    plugins: createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'ada' }),
+    plugins: [
+      createPresence(),
+      ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'ada' }),
+    ],
   });
   const tr = state.tr;
   assignElementIds(tr, {});
@@ -161,6 +188,15 @@ const othersThreadsReadOnly: NonNullable<DocumentCommentsOptions['threadPermissi
   me,
 ) => ((thread.entries[0]?.author ?? me) === me ? {} : { reply: false, resolve: false });
 
+// A host's policy: the reader moderates the comments while the page says so, and may only react in
+// threads someone else started when the lab asks.
+const threadPolicy =
+  (othersReadOnly: boolean): NonNullable<DocumentCommentsOptions['threadPermissions']> =>
+  (thread, me) => ({
+    ...(othersReadOnly ? othersThreadsReadOnly(thread, me) : {}),
+    ...(MODERATOR ? { moderate: true } : {}),
+  });
+
 // A host's policy: anyone may accept a suggestion, but only its writer may reject it.
 const rejectOnlyOwn = (suggestion: Suggestion, me: string) => ({
   accept: true,
@@ -189,7 +225,20 @@ function Lab() {
   const [markers, setMarkers] = useState(false);
   const [panelFilter, setPanelFilter] = useState('');
   const handle = useRef<DocumentEditorHandle>(null);
-  const comments = HOST.comments;
+  const [host, setHost] = useHostOptions();
+  const [lines, log] = useHostLog();
+  const [comments] = useState<LabCommentStore | undefined>(
+    () =>
+      HOST.comments &&
+      createLabCommentStore(HOST.comments, (threadId, isTyping) =>
+        log(`${isTyping ? 'Typing in' : 'Stopped typing in'} ${threadId}`),
+      ),
+  );
+  const [view, setView] = useState<EditorView | null>(null);
+  useEffect(
+    () => (view && host.collaborators ? startCollaborators(view) : undefined),
+    [view, host.collaborators],
+  );
   const review = {
     format: markdown ? ('markdown-inline' as const) : ('plain' as const),
     audience: audience ? onlyMine : undefined,
@@ -197,8 +246,9 @@ function Lab() {
     placement: pane ? ('pane' as const) : ('margin' as const),
     mentions: groups ? MENTIONS : undefined,
     commentActions: actions ? linkAction : undefined,
-    threadPermissions: othersReadOnly ? othersThreadsReadOnly : undefined,
+    threadPermissions: othersReadOnly || MODERATOR ? threadPolicy(othersReadOnly) : undefined,
     decide: ownRejects ? rejectOnlyOwn : undefined,
+    ...hostCommentOptions(host, log),
   };
   const filter = mine ? 'mine' : resolved ? 'all' : 'open';
   return (
@@ -371,6 +421,17 @@ function Lab() {
           Full cards in the panel
         </label>
       </fieldset>
+      {comments ? (
+        <CommentHostOptions
+          options={host}
+          onChange={setHost}
+          store={comments}
+          moderator={MODERATOR}
+          handle={handle}
+          log={log}
+          lines={lines}
+        />
+      ) : null}
       <DocumentEditor
         fonts={LAB_FONTS}
         state={state}
@@ -379,6 +440,12 @@ function Lab() {
         editable={!reading}
         suggesting={suggesting}
         handleRef={handle}
+        onCopyLink={copyLinkOf(host, log)}
+        panels={
+          host.sidePanel
+            ? { end: <LabSidePanel personCards={host.personCards} identity={HOST.identity} /> }
+            : undefined
+        }
         aria-label="Sample document"
         comments={
           comments && {
@@ -393,12 +460,14 @@ function Lab() {
           }
         }
         events={{
+          onMounted: setView,
           // Where the editor's caret is, so a test knows the editor took a click.
           onSelectionChange: (selection) => {
             document.documentElement.dataset.labCaret = `${String(selection.from)}-${String(selection.to)}`;
           },
         }}
       >
+        {host.collaborators ? <LabPresence personCards={host.personCards} /> : null}
         {(panel || pane) && comments ? (
           <aside className="lab-panels">
             <DocumentCommentsPanel

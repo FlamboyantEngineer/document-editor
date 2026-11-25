@@ -123,7 +123,7 @@ Verification: `src/engine/comment-typing.test.ts`, `e2e/comments.spec.ts`
 Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each person the threads name (who started, wrote, reacted to or decided one, and who is writing in one) resolved by the identity adapter, each person asked about once (`usePeople`); a lookup that fails names no one. Each card (`de-document-comments__card`) sits beside the page its text is on, `cardGap` pixels (20 by default) from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureLayer`), so cards follow each page's edge whatever its size and orientation. By default (`presentation: 'markers'`) the margin shows a marker for each thread and suggestion instead, whose card opens on request (DOCE-COMMENTS-2.23, the base library's icons presentation); with `presentation: 'cards'` every card shows. Resolved threads shall not be shown, unless `filter: 'all'` asks (DOCE-COMMENTS-4.2); their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/utils/use-people.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`, `src/utils/use-people.test.ts`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/utils/use-people.test.ts`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.2 - Starting a thread
 
@@ -144,7 +144,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `sr
 A suggestion's card (the base library's `CommentThread`, named Suggestion) shall open with a post (`de-document-comments__change`) that shows its writer, named by the host's identity whether or not they wrote a comment, and as someone, never by an id, until then, with the time its thread started, what it does (Add, Delete, Replace or splitting the paragraph), the text it deletes and adds (`InlineTextDiff`), and the reactions to its thread as a whole, which the reader toggles (`react` without a comment); the thread's comments follow as replies. A reader who may edit, and is not suggesting, shall get Accept and Reject as icon buttons in the card's header, which decide the suggestion and resolve its thread. The card's header menu holds the host's `threadActions` for the suggestion, also before it has a thread (DOCE-COMMENTS-2.33). The active card shall offer to start the suggestion's thread with a reply, which is stored with the suggestion's id and named on its marks.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/suggestion-card.tsx`, `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-card-headers.test.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-card-headers.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.5 - Readers who may not comment
 
@@ -235,7 +235,7 @@ Verification: `src/components/document-comments/use-comment-threads.test.tsx`
 A thread's card, and the card of a suggestion with its thread, shall show, after its comments, a row for the reader's reply while it is posted, for each reply the store is still writing for the reader, such as an assistant's (an entry with `status` `pending`, with Cancel) or could not (`failed`, with Retry and Cancel, through `settleEntry`), and for each person the store says is writing in it (`subscribeActivity`); such entries show only as rows.
 
 Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`
-Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `src/components/document-comments/document-comments.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.18 - Deciding, updating and reacting to threads
 
@@ -298,7 +298,7 @@ Verification: `src/components/document-comments/comment-opening.test.tsx`, `src/
 A reply being written for the reader that failed (`status: 'failed'`) shall show as an error row with Cancel and Retry, except that one the store marks final (`retryable: false`) shall offer no Retry.
 
 Implementation: `src/host/comment-adapters.ts`, `src/components/document-comments/use-thread-activity.ts`
-Verification: `src/components/document-comments/comment-records.test.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.27 - Comments an assistant wrote
 
@@ -312,14 +312,14 @@ Verification: `src/components/document-comments/comment-records.test.tsx`, `src/
 With `onActivityShown`, a card shall tell the host each reply being written for the reader (`status: 'pending'`) once its row is drawn and painted, once for each card that shows it, so a host may start the work behind the reply only when the reader sees it.
 
 Implementation: `src/components/document-comments/thread-card-hooks.ts`, `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/comment-records.test.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.29 - The text a reply starts with
 
 With `replyStart`, a thread's reply box shall start with the text the host gives for the thread and the reader, such as a mention of the assistant the reader's last comment asked, while nothing is typed and kept for the thread; a reader who may not reply gets no reply box. It starts again after each reply, as the host's text then says.
 
 Implementation: `src/components/document-comments/thread-card-hooks.ts`, `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/comment-records.test.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.30 - Changing a reply
 
@@ -333,7 +333,7 @@ Verification: `src/components/document-comments/thread-permissions.test.ts`, `sr
 A host's thread policy may grant the reader moderation (`moderate`), which the default never gives: a moderator may edit and delete anyone's comments, any reply of a thread, and delete anyone's thread. The in-memory and room stores take it as `moderates`, and the room's write guard as `manageComments`.
 
 Implementation: `src/host/comment-rules.ts`, `src/components/document-comments/thread-permissions.ts`, `src/host/memory-comments.ts`, `src/collab/comment-store.ts`, `src/collab/guard-comments.ts`
-Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/collab/room-change-guard-security.test.ts`
+Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/collab/room-change-guard-security.test.ts`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.32 - Deleted threads and replies kept as records
 
@@ -347,7 +347,7 @@ Verification: `src/components/document-comments/comment-records.test.tsx`, `src/
 A thread's card, in the margin and the panel, shall offer Resolve as an icon button in its header, pending with a spinner while the store answers and taking no second press meanwhile, and, while the thread is resolved, Reopen as an entry of the header menu rather than a button. The opening comment's Edit and Delete, then the host's actions for it (DOCE-COMMENTS-4.11), shall be entries of that header menu, the comment drawing no menu of its own; replies show indented under it. Given `threadActions(target)`, the header menu of each thread's and each suggestion's card shall end with the host's entries for the thread, or for the suggestion while it has no thread (`ThreadActionTarget`), such as copying a link; the menu shows also while the thread is resolved or the reader may not comment. A thread being started shall have a close button in its header, which puts it away as Cancel does. Delete asks for confirmation first, unless `confirmsDelete` is false.
 
 Implementation: `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`, `src/components/document-comments/use-card-context.ts`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/comment-card-headers.test.tsx`, `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-host-seams.test.tsx`
+Verification: `src/components/document-comments/comment-card-headers.test.tsx`, `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-host-seams.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-2.34 - The reply box on the selected card
 
@@ -375,7 +375,7 @@ Verification: `src/components/document-comments/use-suggestion-threads.test.ts`,
 With `clearsActiveOnBlur`, the margin shall make no card active once focus leaves it and its popups, so the active card's emphasis, and the layer's highlight of its text, go with it until a card is focused or the caret moves into an anchor again. Without it, the default, the active card stays active until another becomes active.
 
 Implementation: `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/active-card-blur.test.tsx`
+Verification: `src/components/document-comments/active-card-blur.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ## DOCE-COMMENTS-3 - Comments in the browser
 
@@ -484,7 +484,7 @@ Verification: `src/components/document-comments/comments-panel.test.tsx`
 With `placement: 'pane'`, the editor shall show no margin, leaving the document its whole width, and a comments panel given the same placement shall hold the threads alone: Mod-Alt-M, the context menu's Comment and the handle's `startComment()` start a thread whose composer shows in the panel, and the panel offers Comment on a selection. In an editor whose side panel holds the comments pane (DOCE-EDITOR-8.3), starting a thread so, or opening one (`openThread`), reveals that pane, expanding its panel, without moving focus from the composer. With the margin, `revealsPane` does the same for a thread started, opened or clicked in the text.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`, `src/components/document-editor/editor-body.tsx`, `src/components/document-comments/use-open-cards.ts`
-Verification: `src/components/document-comments/comment-focus.test.tsx`, `src/components/document-panels/document-side-panel.test.tsx`, `e2e/comments.spec.ts`, `src/components/document-comments/comment-review-states.test.tsx`
+Verification: `src/components/document-comments/comment-focus.test.tsx`, `src/components/document-panels/document-side-panel.test.tsx`, `e2e/comments.spec.ts`, `src/components/document-comments/comment-review-states.test.tsx`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-COMMENTS-4.8 - Opening a thread at a comment
 
