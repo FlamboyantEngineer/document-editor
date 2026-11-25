@@ -3,7 +3,9 @@
 // another writer save or change a block, which the session merges or asks about, turn automatic
 // saves off, hide the page, reopen the session and leave it, which the unsaved-changes guard
 // confirms. The load shows its measured progress until the pages are first laid out, and the
-// editor's status bar shows the save status, with Retry.
+// editor's status bar shows the save status, with Retry. The Document picker also opens one pinned
+// to a template, whose newer revision the host can save while it is open, and one out of step with
+// its template; the draft delay sets how long changes pause before the session keeps a draft.
 
 import {
   UnsavedChangesGuard,
@@ -21,8 +23,8 @@ import {
   useSessionTelemetry,
   useSessionValue,
 } from '../../src/components/index.js';
-import { createMemoryHost, type MemoryHost } from '../../src/host/index.js';
-import type { DocumentFile, StoredNode } from '../../src/model/index.js';
+import { createMemoryHost, type DraftsAdapter, type MemoryHost } from '../../src/host/index.js';
+import type { DocumentFile, StoredNode, TemplateFile } from '../../src/model/index.js';
 import { createLoadProgress, type DocumentSession } from '../../src/session/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
@@ -64,10 +66,91 @@ const DOCUMENT: DocumentFile = {
   ],
 };
 
+// A template with a notice section the writer cannot edit, and the notice of its next revision.
+const notice = (words: string): TemplateFile => ({
+  formatVersion: 1,
+  id: 'notice',
+  name: 'Notice',
+  sections: [
+    {
+      name: 'notice',
+      label: 'Notice',
+      required: true,
+      editable: false,
+      content: [{ type: 'paragraph', content: [text(words)] }],
+    },
+  ],
+});
+const NOTICE = notice('Issued for review.');
+const NEWER_NOTICE = notice('Issued for approval.');
+
+// The lab's document pinned to the notice template, its notice section as given.
+const pinnedTo = (words: string): DocumentFile => ({
+  ...DOCUMENT,
+  template: { id: 'notice', revision: 'rev-1' },
+  sections: [
+    ...DOCUMENT.sections,
+    { name: 'notice', content: [{ type: 'paragraph', content: [text(words)] }] },
+  ],
+});
+
+// The documents the picker opens: the lab's own, one pinned to the template, and one whose notice
+// is not the template's.
+const DOCUMENTS = {
+  [DOCUMENT_ID]: 'Unpinned',
+  pinned: 'Pinned to a template',
+  drifted: 'Out of step with its template',
+} as const;
+type DocumentId = keyof typeof DOCUMENTS;
+
 const HOST = createMemoryHost({
   person: { id: 'ada', name: 'Ada Lovelace' },
-  documents: [{ id: DOCUMENT_ID, content: DOCUMENT }],
+  templates: [NOTICE],
+  documents: [
+    { id: DOCUMENT_ID, content: DOCUMENT },
+    { id: 'pinned', content: pinnedTo('Issued for review.') },
+    { id: 'drifted', content: pinnedTo('Draft notice.') },
+  ],
 });
+
+// Saves the template's next revision, as another writer would in the template workspace.
+async function saveNewerTemplate() {
+  const loaded = await HOST.templates.load('notice');
+  if (!loaded.ok) return;
+  await HOST.templates.save('notice', {
+    template: NEWER_NOTICE,
+    baseRevision: loaded.value.revision,
+  });
+}
+
+// What the drafts adapter last did, which the lab shows.
+const DRAFTS = { last: 'none', listeners: new Set<() => void>() };
+const observe = (drafts: DraftsAdapter): DraftsAdapter => ({
+  get: (id, mode) => drafts.get(id, mode),
+  put: (id, draft) => {
+    DRAFTS.last = 'kept';
+    for (const listener of DRAFTS.listeners) listener();
+    return drafts.put(id, draft);
+  },
+  clear: (id, mode) => {
+    DRAFTS.last = 'cleared';
+    for (const listener of DRAFTS.listeners) listener();
+    return drafts.clear(id, mode);
+  },
+});
+
+// The host the session opens on: the lab's, with its drafts observed.
+const SESSION_HOST = { ...HOST, drafts: observe(HOST.drafts) };
+
+function DraftLine() {
+  const [last, setLast] = useState(DRAFTS.last);
+  useEffect(() => {
+    const listener = () => setLast(DRAFTS.last);
+    DRAFTS.listeners.add(listener);
+    return () => void DRAFTS.listeners.delete(listener);
+  }, []);
+  return <output aria-label="Draft">{last}</output>;
+}
 
 // Another writer's save of the stored document as it is now, with the block of an id changed.
 async function saveAsAnotherWriter(host: MemoryHost, change?: StoredNode) {
@@ -131,63 +214,112 @@ interface ControlsProps {
   onReopen: () => void;
   autosave: boolean;
   onAutosaveChange: (autosave: boolean) => void;
+  documentId: DocumentId;
+  onDocumentChange: (id: DocumentId) => void;
+  draftDelay: number;
+  onDraftDelayChange: (delay: number) => void;
 }
 
-function Controls({ session, onReopen, autosave, onAutosaveChange }: ControlsProps) {
-  const [latency, setLatency] = useState(0);
-  useSessionGuard(session, 'Sample document');
+// The document opened, the template's next revision and the draft delay.
+function DocumentControls({
+  documentId,
+  onDocumentChange,
+  draftDelay,
+  onDraftDelayChange,
+}: Pick<ControlsProps, 'documentId' | 'onDocumentChange' | 'draftDelay' | 'onDraftDelayChange'>) {
   return (
     <fieldset>
-      <legend>Store</legend>
+      <legend>Document</legend>
       <label>
-        Latency{' '}
+        Document{' '}
         <select
-          value={latency}
-          onChange={(event) => {
-            const value = Number(event.target.value);
-            setLatency(value);
-            HOST.memory.setLatency(value);
-          }}
+          value={documentId}
+          onChange={(event) => onDocumentChange(event.target.value as DocumentId)}
         >
-          {[0, 300, 1500].map((value) => (
+          {Object.entries(DOCUMENTS).map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>{' '}
+      <button type="button" onClick={() => void saveNewerTemplate()}>
+        Save a newer template revision
+      </button>{' '}
+      <label>
+        Draft delay{' '}
+        <select
+          value={draftDelay}
+          onChange={(event) => onDraftDelayChange(Number(event.target.value))}
+        >
+          {[300, 2000].map((value) => (
             <option key={value} value={value}>{`${String(value)} ms`}</option>
           ))}
         </select>
       </label>{' '}
-      <button
-        type="button"
-        onClick={() => HOST.memory.failNext('documents.save', { kind: 'unavailable' })}
-      >
-        Fail next save
-      </button>{' '}
-      <button type="button" onClick={() => void saveAsAnotherWriter(HOST)}>
-        Save as another writer
-      </button>{' '}
-      <button type="button" onClick={() => void saveAsAnotherWriter(HOST, THEIR_HEADING)}>
-        Another writer edits the heading
-      </button>{' '}
-      <button type="button" onClick={() => void saveAsAnotherWriter(HOST, THEIR_PARAGRAPH)}>
-        Another writer edits the paragraph
-      </button>{' '}
-      <label>
-        <input
-          type="checkbox"
-          checked={autosave}
-          onChange={(event) => onAutosaveChange(event.target.checked)}
-        />{' '}
-        Save automatically
-      </label>{' '}
-      <button type="button" onClick={() => void session.save()}>
-        Save now
-      </button>{' '}
-      <button type="button" onClick={() => HOST.memory.emitLifecycle('hidden')}>
-        Hide page
-      </button>{' '}
-      <button type="button" onClick={onReopen}>
-        Reopen
-      </button>{' '}
-      <LeaveButton /> <SessionStatusLine session={session} /> <LoadMeasures session={session} />
+      <DraftLine />
     </fieldset>
+  );
+}
+
+function Controls({ session, onReopen, autosave, onAutosaveChange, ...document }: ControlsProps) {
+  const [latency, setLatency] = useState(0);
+  useSessionGuard(session, 'Sample document');
+  return (
+    <>
+      <DocumentControls {...document} />
+      <fieldset>
+        <legend>Store</legend>
+        <label>
+          Latency{' '}
+          <select
+            value={latency}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              setLatency(value);
+              HOST.memory.setLatency(value);
+            }}
+          >
+            {[0, 300, 1500].map((value) => (
+              <option key={value} value={value}>{`${String(value)} ms`}</option>
+            ))}
+          </select>
+        </label>{' '}
+        <button
+          type="button"
+          onClick={() => HOST.memory.failNext('documents.save', { kind: 'unavailable' })}
+        >
+          Fail next save
+        </button>{' '}
+        <button type="button" onClick={() => void saveAsAnotherWriter(HOST)}>
+          Save as another writer
+        </button>{' '}
+        <button type="button" onClick={() => void saveAsAnotherWriter(HOST, THEIR_HEADING)}>
+          Another writer edits the heading
+        </button>{' '}
+        <button type="button" onClick={() => void saveAsAnotherWriter(HOST, THEIR_PARAGRAPH)}>
+          Another writer edits the paragraph
+        </button>{' '}
+        <label>
+          <input
+            type="checkbox"
+            checked={autosave}
+            onChange={(event) => onAutosaveChange(event.target.checked)}
+          />{' '}
+          Save automatically
+        </label>{' '}
+        <button type="button" onClick={() => void session.save()}>
+          Save now
+        </button>{' '}
+        <button type="button" onClick={() => HOST.memory.emitLifecycle('hidden')}>
+          Hide page
+        </button>{' '}
+        <button type="button" onClick={onReopen}>
+          Reopen
+        </button>{' '}
+        <LeaveButton /> <SessionStatusLine session={session} /> <LoadMeasures session={session} />
+      </fieldset>
+    </>
   );
 }
 
@@ -196,10 +328,11 @@ const NEVER = 24 * 60 * 60 * 1000;
 
 function OpenDocument(props: Omit<ControlsProps, 'session'>) {
   const session = useDocumentSession({
-    host: HOST,
-    documentId: DOCUMENT_ID,
+    host: SESSION_HOST,
+    documentId: props.documentId,
     mode: 'store',
     autosaveDelay: props.autosave ? 800 : NEVER,
+    draftDelay: props.draftDelay,
   });
   // Each opening has its own load; one given up, as the lab reopens, never moves the next.
   const [progress] = useState(() => createLoadProgress());
@@ -233,13 +366,19 @@ function OpenDocument(props: Omit<ControlsProps, 'session'>) {
 function Lab() {
   const [opened, setOpened] = useState(1);
   const [autosave, setAutosave] = useState(true);
+  const [documentId, setDocumentId] = useState<DocumentId>(DOCUMENT_ID);
+  const [draftDelay, setDraftDelay] = useState(300);
   return (
     <UnsavedChangesGuard shouldConfirmUnload={false}>
       <OpenDocument
-        key={`${String(opened)}-${String(autosave)}`}
+        key={`${String(opened)}-${String(autosave)}-${documentId}-${String(draftDelay)}`}
         onReopen={() => setOpened((count) => count + 1)}
         autosave={autosave}
         onAutosaveChange={setAutosave}
+        documentId={documentId}
+        onDocumentChange={setDocumentId}
+        draftDelay={draftDelay}
+        onDraftDelayChange={setDraftDelay}
       />
     </UnsavedChangesGuard>
   );

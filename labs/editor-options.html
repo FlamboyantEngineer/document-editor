@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="The options a host sets on the editing, the schema and the editor: limits, typing rules, layout rules, presentation, element states, id repair and a dialog that fails to load."
+    />
+    <title>Editor options · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/editor-options.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Editor options</h1>
+      <p>
+        Each option a host sets on the editing, the schema and the editor, with a control. Set a
+        content limit and type past it, or let a collaborator take the document past it; keep a
+        paragraph after a section's last table; turn the typing shortcuts off by group; keep tables
+        whole on a page; show the figures' assets as of another time; approve a paragraph so it
+        cannot change; open a document with broken element ids; and drop the connection before a
+        dialog opens. The status bar's first item is the host's own, drawn only when the block at
+        the caret changes type. The dropped connection is a service worker, which stays registered
+        for this address and passes every other request through.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>

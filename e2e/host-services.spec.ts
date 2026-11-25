@@ -140,4 +140,99 @@ test.describe('host services', () => {
     await expect(log(page)).toContainText('fonts: load Arial');
     await expect(log(page)).toContainText('measure:');
   });
+
+  test('DOCE-LABS-3.3 DOCE-EMBEDS-3.4 pins an embed to the state it shows, and repins it from the context menu', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('host-services');
+    await embed(page).locator('td').first().click();
+    await page.getByRole('button', { name: 'Pin the selected embed' }).click();
+    await expect(embed(page)).toHaveAttribute('data-embed-pinned', 'true');
+    await expect(page.getByRole('status', { name: 'Embed report' })).toContainText('pinned');
+
+    // A pinned embed still says the host has another state.
+    await page.getByRole('button', { name: 'Change Operating limits at the host' }).click();
+    await page.getByRole('button', { name: 'Check embeds with the host' }).click();
+    await expect(embed(page)).toHaveAttribute('data-embed-status', 'update');
+    await embed(page).locator('td').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: "Repin at the host's content" }).click();
+    await expect(embed(page)).toContainText('Row 3');
+    await expect(embed(page)).toHaveAttribute('data-embed-pinned', 'true');
+    await expect(embed(page)).not.toHaveAttribute('data-embed-status');
+
+    await embed(page).locator('td').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Let this embed follow its content' }).click();
+    await expect(embed(page)).not.toHaveAttribute('data-embed-pinned');
+    await embed(page).locator('td').first().click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'Pin this embed at its state' })).toBeVisible();
+    await page.keyboard.press('Escape');
+  });
+
+  test('DOCE-LABS-3.3 DOCE-EMBEDS-1.3 embeds a linked spreadsheet range and takes its recalculated update', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('host-services');
+    await content(page).locator('p').first().click();
+    await page.getByRole('button', { name: 'Insert the budget range' }).click();
+    const sheet = content(page).locator('.de-embed', { hasText: 'Cabling' });
+    await expect(sheet).toContainText('1540');
+    await expect(sheet.locator('th, td').first()).toHaveText('Item');
+
+    await page.getByRole('button', { name: 'Change the cabling cost at the host' }).click();
+    await page.getByRole('button', { name: 'Check embeds with the host' }).click();
+    await expect(sheet).toHaveAttribute('data-embed-status', 'update');
+    await page.getByRole('button', { name: 'Recalculate at the host' }).click();
+    await expect(page.getByRole('button', { name: 'Insert the budget range' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Finish recalculating' }).click();
+    await sheet.locator('td').first().click();
+    await page.getByRole('button', { name: "Take the selected embed's update" }).click();
+    await expect(sheet).toContainText('1560');
+    await expect(sheet).not.toHaveAttribute('data-embed-status');
+
+    await page.getByRole('button', { name: 'Deny access to the budget' }).click();
+    await page.getByRole('button', { name: 'Check embeds with the host' }).click();
+    await expect(sheet).toHaveAttribute('data-embed-status', 'no-access');
+  });
+
+  test('DOCE-LABS-3.3 DOCE-PAGINATION-5.6 DOCE-EDITOR-4.29 DOCE-EDITOR-4.27 waits for fonts as long as the host says, and tells it the layout failed', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('host-services');
+    await page.getByLabel('Font timeout').selectOption('1000');
+    await page.getByRole('combobox', { name: /^Fonts/ }).selectOption('slow');
+    // Opened again, the editor waits for the fonts before it first shows the pages.
+    await page.getByRole('button', { name: 'Open the editor again' }).click();
+    await expect(log(page)).toContainText('(timeout 1000 ms)');
+    await expect(page.locator('.de-document-editor__layout-error')).toBeVisible();
+    await expect(log(page)).toContainText('layout failed: the pages are not shown');
+    await expect(page.locator('.de-document-editor__body')).toHaveAttribute('inert', '');
+
+    // Fonts that load later show the pages.
+    await page.getByRole('combobox', { name: /^Fonts/ }).selectOption('load');
+    await expect(page.locator('.de-document-editor__layout-error')).toHaveCount(0);
+    await expect(page.locator('.de-document-editor__body')).not.toHaveAttribute('inert');
+  });
+
+  test('DOCE-LABS-3.3 DOCE-PAGINATION-10.8 shows math invalid with the host reason when the typesetter stops answering', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('host-services');
+    await content(page).locator('p').first().click();
+    await page.keyboard.press('End');
+    await page.getByRole('button', { name: 'Insert math' }).click();
+    const typeset = content(page).locator('.de-math').last();
+    await expect(typeset).toHaveAttribute('data-state', 'ready');
+
+    await page.getByLabel('The typesetter answers').uncheck();
+    await content(page).locator('p').first().click();
+    await page.keyboard.press('End');
+    await page.getByRole('button', { name: 'Insert math' }).click();
+    const waiting = content(page).locator('.de-math[data-state]:not([data-state="ready"])');
+    await expect(waiting).toHaveAttribute('data-state', 'invalid', { timeout: 8000 });
+    await expect(waiting).toHaveAttribute('title', 'The lab typesetter did not answer (3 s)');
+  });
 });

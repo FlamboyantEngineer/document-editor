@@ -12,7 +12,7 @@
     <script src="build/boot.js"></script>
     <meta
       name="description"
-      content="The template workspace over an in-memory template store: scope tabs, the open dialog with folders, save, conflicts, copies, history and restore, with the workspace's own preview of the tab shown, its image button and its status bar, beside the side panel."
+      content="The template workspace over an in-memory template store: scope tabs, the open dialog with folders, save, conflicts, copies, history and restore, with the workspace's own preview of the tab shown, its image button and its status bar, beside the side panel; and the host's options: a host-held route with its own template picker, a first version, its own preview and layout, and the side panel's start and remembered pane."
     />
     <title>Template workspace · Labs</title>
     <script type="module" src="build/chrome.js"></script>
@@ -27,7 +27,10 @@
         panel holds the Properties and History. Save elsewhere stands for another writer saving the
         same template, so your next save asks you to reload or keep your changes. The Article
         template is for the web layout: it inherits nothing, keeps its name, and has its margins in
-        pixels. Show the stored template shows the open template as the store holds it.
+        pixels. Show the stored template shows the open template as the store holds it. The host
+        options let the host hold the template and version as a route, picked with its own template
+        picker; start at the first version; draw its own preview or lay the parts out in its own
+        frame; start the side panel expanded; and remember the pane under its own key.
       </p>
       <div id="lab-editor" class="lab-editor"></div>
     </main>

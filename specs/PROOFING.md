@@ -58,14 +58,14 @@ Verification: `src/engine/proofing-options.test.ts`
 The document shall be proofed only while its editor is editable and the host's `isEnabled(state)`, when given, is true, so a historical view (DOCE-VERSIONS-5.1), a reading view, a static render and an export are never proofed. When proofing goes off, the running check is aborted, nothing more is checked, nothing is marked, `listProofingIssues` lists none, `isProofingPending` is false and the status shows nothing; the state's `enabled` says so. When it comes back on, the text not checked yet is checked at once.
 
 Implementation: `src/engine/proofing.ts`, `src/engine/proofing-view.ts`, `src/engine/proofing-commands.ts`, `src/components/document-editor/status-items.tsx`
-Verification: `src/engine/proofing-options.test.ts`, `src/components/document-editor/proofing-status.test.tsx`
+Verification: `src/engine/proofing-options.test.ts`, `src/components/document-editor/proofing-status.test.tsx`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-PROOFING-1.9 - The first check
 
-The first check of the whole document shall wait `delay` after the editor starts, or, with `scheduleFirstCheck(run)`, until the host runs it, such as once its pages have painted or the browser is idle; the function it returns cancels it when the editor goes. Checks after a change wait `delay` as before.
+The first check of the whole document shall wait `delay` after the editor starts, or, with `scheduleFirstCheck(run)`, until the host runs it, such as once its pages have painted or the browser is idle, a change before then, such as the pages being laid out, waiting for it too; the function it returns cancels it when the editor goes. Checks after a change wait `delay` as before.
 
 Implementation: `src/engine/proofing-view.ts`
-Verification: `src/engine/proofing-options.test.ts`
+Verification: `src/engine/proofing-options.test.ts`, `e2e/full-editor-options.spec.ts`
 
 ## DOCE-PROOFING-2 - Commands
 
@@ -123,7 +123,7 @@ Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
 The plugin shall start with the words the reader ignores everywhere (`ignored`) and the rules they turned off (`disabledRules`) that the host kept, and tell the host each new one (`onDecision`, `{ kind: 'ignore', word }` or `{ kind: 'disable-rule', rule }`), so the host may keep them, per document or per reader, and give them back the next time; the document's content never holds them. Ignoring one issue alone is not told.
 
 Implementation: `src/engine/proofing.ts`, `src/engine/proofing-commands.ts`
-Verification: `src/engine/proofing-options.test.ts`
+Verification: `src/engine/proofing-options.test.ts`, `e2e/full-editor-options.spec.ts`
 
 ## DOCE-PROOFING-3 - In the editor
 

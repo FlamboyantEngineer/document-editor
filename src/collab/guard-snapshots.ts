@@ -67,7 +67,9 @@ export function watchGuardSnapshots(
   const capture = (scope: RoomScope): GuardSnapshot => ({
     scope,
     content: content.get(scope) ?? null,
-    anchors: captureGuardAnchors(scope, content.get(scope) ?? null),
+    // A reading the replay could not keep matches the shared content no more: its anchors cannot
+    // be placed, and the change is judged on the fitted reading or refused (DOCE-COLLAB-7.4).
+    anchors: invalid.has(scope) ? [] : captureGuardAnchors(scope, content.get(scope) ?? null),
     comments: readGuardRecords(scope.comments),
     meta: JSON.stringify([...readGuardRecords(scope.meta)]),
   });

@@ -6,8 +6,12 @@
 // picking a section scrolls the preview to it. The template's own `extensions.folder` is a host
 // setting in an extension slot. Host options mark the template as never saved, fail its parent's
 // load, disable the editor, put a table in the header and footer, and report renames; the fonts
-// the font fields suggest are the lab's. "Show as JSON" shows the template the editor holds, read
-// only, beside it.
+// the font fields suggest are the lab's, and the code font fields the lab's monospace ones. "Save
+// the template" stands for a host's save: without an id it says why under the id field and focuses
+// it (`idError`, `idInputRef`). The state of the fields' drafts shows as the editor reports it
+// (`onDraftsChange`). The scope picker can be hidden, as a host that draws the scopes itself does,
+// and the scope left to the editor, starting at the template's first section (`defaultScope`).
+// "Show as JSON" shows the template the editor holds, read only, beside it.
 
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -17,6 +21,7 @@ import {
   type DocumentEditorHandle,
   type DocumentLayout,
   TemplateEditor,
+  type TemplateEditorProps,
   type TemplateScope,
   withRegionChange,
 } from '../../src/components/index.js';
@@ -51,6 +56,11 @@ const OWN: TemplateFile = {
 // The fonts the host offers in the font fields: the lab's served fonts, and Georgia, which the
 // field-by-field template uses and the labs serve.
 const FONTS = ['Geist', 'Source Serif', 'Atkinson Hyperlegible', 'Georgia'];
+// The monospace fonts the host offers in the code font fields: the lab's served Cousine and a system font.
+const CODE_FONTS = ['Cousine', 'Courier New'];
+
+// The state of the editor's drafts, as it reports it: clean, pending or invalid.
+type DraftState = Parameters<NonNullable<TemplateEditorProps['onDraftsChange']>>[0];
 
 const resolve = (template: TemplateFile) =>
   resolveTemplateFile(template, {
@@ -124,6 +134,25 @@ function Lab() {
   const [parentFails, setParentFails] = useState(false);
   const [isDisabled, setDisabled] = useState(false);
   const [report, setReport] = useState('none');
+  const [drafts, setDrafts] = useState<DraftState>('clean');
+  const [idError, setIdError] = useState<string | undefined>(undefined);
+  const idInput = useRef<HTMLInputElement>(null);
+  const [hidesScopePicker, setHidesScopePicker] = useState(false);
+  // Whether the editor holds the scope itself, from the template's first section; each change
+  // mounts the editor again, so it starts there.
+  const [editorScope, setEditorScope] = useState<{ held: boolean; mount: number }>({
+    held: false,
+    mount: 0,
+  });
+  const saveTemplate = () => {
+    if (!own.id) {
+      setIdError('Give the template an id before saving it.');
+      idInput.current?.focus();
+      return;
+    }
+    setIdError(undefined);
+    setReport(`Saved ${own.id}`);
+  };
   const handle = useRef<DocumentEditorHandle>(null);
   // The section to show once the preview's pages are drawn.
   const reveal = useRef<TemplateScope>(null);
@@ -180,9 +209,37 @@ function Lab() {
             />{' '}
             Disable the template editor
           </label>{' '}
+          <label>
+            <input
+              type="checkbox"
+              checked={hidesScopePicker}
+              onChange={(e) => setHidesScopePicker(e.currentTarget.checked)}
+            />{' '}
+            Hide the scope picker
+          </label>{' '}
+          <label>
+            <input
+              type="checkbox"
+              checked={editorScope.held}
+              onChange={(e) => {
+                const held = e.currentTarget.checked;
+                setEditorScope(({ mount }) => ({ held, mount: mount + 1 }));
+              }}
+            />{' '}
+            Editor holds the scope, from the first section
+          </label>{' '}
           <button type="button" onClick={() => setOwn(withRegionTables)}>
             Put a table in the header and footer
+          </button>{' '}
+          <button type="button" onClick={saveTemplate}>
+            Save the template
           </button>
+          <p>
+            Drafts:{' '}
+            <output aria-label="Drafts" role="status">
+              {drafts}
+            </output>
+          </p>
           <p>
             Template report:{' '}
             <output aria-label="Template report" role="status">
@@ -202,15 +259,24 @@ function Lab() {
         </button>
         {json ? <pre aria-label="Template JSON">{JSON.stringify(own, null, 2)}</pre> : null}
         <TemplateEditor
+          key={editorScope.mount}
           template={own}
           resolved={resolved}
-          onChange={setOwn}
-          scope={scope}
+          onChange={(next) => {
+            setOwn(next);
+            if (next.id) setIdError(undefined);
+          }}
+          {...(editorScope.held ? { defaultScope: own.sections?.[0]?.name ?? null } : { scope })}
           onScopeChange={(next) => {
             setScope(next);
             const id = previewing ? sectionElement(state, next) : null;
             if (id) handle.current?.revealElement(id, { behavior: 'instant' });
           }}
+          showsScopePicker={!hidesScopePicker}
+          idError={idError}
+          idInputRef={idInput}
+          codeFonts={CODE_FONTS}
+          onDraftsChange={setDrafts}
           parentOptions={[{ id: BASE_TEMPLATE_ID, label: 'Base template' }]}
           parentError={parentFails ? 'The base template could not be loaded.' : undefined}
           isNew={isNew}

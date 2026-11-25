@@ -252,6 +252,7 @@ function useOpeningChanges(view: EditorView | null, props: EditorBodyProps['prop
   useStaleScripts(view, { plugins: state.plugins, runner: props.scriptRunner, enabled: writes });
   useOpeningAbbreviations(view, {
     plugins: state.plugins,
+    doc: state.doc,
     glossary: props.glossary,
     enabled: writes && props.refreshAbbreviationsOnOpen === true,
   });

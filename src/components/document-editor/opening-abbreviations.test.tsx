@@ -80,7 +80,13 @@ describe('refreshing abbreviations on opening', () => {
     const { view, changes } = viewCiting('Ground support');
     const source = glossary();
     const { rerender } = renderHook(
-      ({ plugins }) => useOpeningAbbreviations(view, { plugins, glossary: source, enabled: true }),
+      ({ plugins }) =>
+        useOpeningAbbreviations(view, {
+          plugins,
+          doc: view.state.doc,
+          glossary: source,
+          enabled: true,
+        }),
       { initialProps: { plugins: view.state.plugins } },
     );
     await waitFor(() => expect(expansionOf(view)).toBe('Ground support equipment'));
@@ -98,6 +104,7 @@ describe('refreshing abbreviations on opening', () => {
     renderHook(() =>
       useOpeningAbbreviations(current.view, {
         plugins: current.view.state.plugins,
+        doc: current.view.state.doc,
         glossary: source,
         enabled: true,
       }),
@@ -111,6 +118,7 @@ describe('refreshing abbreviations on opening', () => {
     renderHook(() =>
       useOpeningAbbreviations(off.view, {
         plugins: off.view.state.plugins,
+        doc: off.view.state.doc,
         glossary: unused,
         enabled: false,
       }),
@@ -118,5 +126,40 @@ describe('refreshing abbreviations on opening', () => {
     await Promise.resolve();
     expect(unused.resolve).not.toHaveBeenCalled();
     expect(off.changes).toEqual([]);
+  });
+
+  it('DOCE-REFERENCES-3.3 refreshes a new document given before the view shows it', async () => {
+    const { view, changes } = viewCiting('Ground support');
+    const given = view.state;
+    // The view shows an earlier document, without abbreviations, until the host's new one arrives.
+    const plain = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Plain' }] }],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const earlier = EditorState.create({
+      doc: plain,
+      plugins: createDocumentEditing(documentSchema),
+    });
+    view.updateState(earlier);
+    const source = glossary();
+    renderHook(() =>
+      useOpeningAbbreviations(view, {
+        plugins: given.plugins,
+        doc: given.doc,
+        glossary: source,
+        enabled: true,
+      }),
+    );
+    view.updateState(given);
+    await waitFor(() => expect(expansionOf(view)).toBe('Ground support equipment'));
+    expect(changes).toHaveLength(1);
   });
 });

@@ -1,8 +1,17 @@
 // The full editor lab's scripts: a small language a host might offer, one statement a line.
-// `render.paragraph(text)`, `render.heading(text, level)` and `render.equation(latex)` produce
-// blocks, where the text is a quoted string whose `${document.blocks}` and `${document.title}`
-// read the document. Anything else is a problem the check reports, by its line.
+// `render.paragraph(text)`, `render.heading(text, level)`, `render.equation(latex)` and
+// `render.table(row, row, ...)` produce blocks through the script output builders
+// (`buildScriptParagraph` and the others), where each text is a quoted string whose
+// `${document.blocks}` and `${document.title}` read the document, and a table's row is one string
+// with its cells between `|`, the first row its header. Anything else is a problem the check
+// reports, by its line.
 
+import {
+  buildScriptEquation,
+  buildScriptHeading,
+  buildScriptParagraph,
+  buildScriptTable,
+} from '../../src/document/index.js';
 import type { ScriptDiagnostic, ScriptVocabularyEntry } from '../../src/host/index.js';
 import type { DocumentFile, StoredContent } from '../../src/model/index.js';
 
@@ -41,14 +50,18 @@ export const LAB_SCRIPT_VOCABULARY: readonly ScriptVocabularyEntry[] = [
     description: 'Adds a displayed equation of the LaTeX.',
   },
   {
+    name: 'render.table',
+    kind: 'function',
+    signature: 'render.table(row, ...rows)',
+    description: 'Adds a table, each row a string of cells between |, the first row its header.',
+  },
+  {
     name: 'summary',
     kind: 'snippet',
     description: 'A paragraph counting the blocks.',
     insertText: 'render.paragraph(`The document has ${document.blocks} blocks.`)',
   },
 ];
-
-const text = (value: string) => [{ type: 'text', text: value }];
 
 // The document's values a script's text reads.
 function values(document: DocumentFile) {
@@ -70,6 +83,16 @@ function quoted(argument: string, document: DocumentFile | null): string | null 
   );
 }
 
+// A table's rows, each a quoted string of cells between `|`; null unless every argument is one.
+function tableRows(argumentList: string, document: DocumentFile | null): string[][] | null {
+  const strings = argumentList.match(/(['"`])(?:(?!\1).)*\1/g) ?? [];
+  const rest = strings.reduce((left, string) => left.replace(string, ''), argumentList);
+  if (strings.length === 0 || rest.replace(/[\s,]/g, '')) return null;
+  return strings.map((string) =>
+    (quoted(string, document) ?? '').split('|').map((cell) => cell.trim()),
+  );
+}
+
 type Statement =
   | { readonly ok: true; readonly node: StoredContent[number] | null }
   | { readonly ok: false; readonly message: string };
@@ -81,16 +104,14 @@ function statement(line: string, document: DocumentFile | null): Statement {
   const paragraph = /^render\.paragraph\((.*)\)$/.exec(code);
   const heading = /^render\.heading\((.*),\s*([1-6])\)$/.exec(code);
   const equation = /^render\.equation\((.*)\)$/.exec(code);
+  const table = /^render\.table\((.*)\)$/.exec(code);
   const argument = quoted((paragraph ?? heading ?? equation)?.[1] ?? '', document);
-  if (equation && argument !== null) {
-    return { ok: true, node: { type: 'mathBlock', attrs: { source: argument } } };
-  }
-  if (paragraph && argument !== null) {
-    return { ok: true, node: { type: 'paragraph', content: text(argument) } };
-  }
+  const rows = table ? tableRows(table[1] ?? '', document) : null;
+  if (rows) return { ok: true, node: buildScriptTable(rows, { header: rows.length > 1 }) };
+  if (equation && argument !== null) return { ok: true, node: buildScriptEquation(argument) };
+  if (paragraph && argument !== null) return { ok: true, node: buildScriptParagraph(argument) };
   if (heading && argument !== null) {
-    const level = Number(heading[2]);
-    return { ok: true, node: { type: 'heading', attrs: { level }, content: text(argument) } };
+    return { ok: true, node: buildScriptHeading(argument, { level: Number(heading[2]) }) };
   }
   return { ok: false, message: `Not a statement the lab knows: ${code}` };
 }

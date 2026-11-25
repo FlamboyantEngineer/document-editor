@@ -97,7 +97,7 @@ Verification: `e2e/document-editor.spec.ts`
 A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell, or lands on an element the host keeps the selection for (`contextMenu.keepSelection(element)`, as for a link to a host record inside generated or embedded content), whose press moves no caret either. The menu shall stay open once the button is released, on an object as on text. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it; scrolling the document does not, and the open menu moves with the content it opened on. `contextMenu={false}` leaves the browser's menu.
 Once the menu closes, the document takes focus back when nothing else has it.
 Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`
-Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`, `src/components/document-editor/document-context-menu.test.tsx`
+Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-EDITOR-3.2 - Clipboard and formatting
 
@@ -153,7 +153,7 @@ Verification: `e2e/objects.spec.ts`, `src/components/document-editor/contents-en
 With `onCopyLink`, the menu shall offer Copy link after Comment, in a read document too, showing the key the shortcut table binds it to (`copy-link`, by default Mod-Shift-K), and that key, in the document holding focus, shall do the same: each hands the host the address of the element holding the selection (`contentLinkAddress`): its id, with the selected text's offsets in it when text is selected (DOCE-OUTLINE-3.1), so a selection inside a block is kept while the menu is open; the host makes and copies the link. Outside an element with an id, the menu offers no Copy link and the key does nothing.
 
 Implementation: `src/components/document-editor/copy-link.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/editor-body.tsx`, `src/engine/shortcuts.ts`
-Verification: `src/components/document-editor/copy-link.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/copy-link.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`, `e2e/comments-host-options.spec.ts`
 
 ## DOCE-EDITOR-4 - Toolbar and frame
 
@@ -211,7 +211,7 @@ Verification: `e2e/sections.spec.ts`
 While the editor has a `scriptRunner`, the toolbar's insert group shall offer a Script button, outside a script block, putting an empty script block in at once and opening the script dialog on it, as the `script` key does outside a script block (inside one, the key opens the dialog on it); the dialog edits the script of the script block selected, or inserts one, then runs it; the context menu shall offer, on a script block, to edit its script, run it, or run every script of the document, each disabled while changes are suggested, saying why, since no suggestion tracks a script's output (DOCE-EDITOR-4.17), and the run entries, here and in the Tools menu, disabled while a run is in flight, saying so (`reasonScriptsRunning`), since one run goes at a time (DOCE-OBJECTS-4.2). No script runs when the editor opens a document, whatever its stored refresh policy: the document shows the output its scripts produced last. When the runner keys a script's inputs, the editor checks the outputs for stale ones (DOCE-OBJECTS-4.7) once for each document it is given, however often its layout switches, and only for a writer who edits it directly, so not for a reader nor while changes are suggested, until they edit directly. A run started from a menu that fails as a whole, as when the runner throws instead of answering, shall leave the document as it is. The entries' and banners' text is the editor's labels (`editScript`, `runScript`, `runAllScripts`, `scriptsRunning`, `scriptFailed`), which a host replaces through `labels`. The dialog shall set the script of the block it was opened on where that block is when the script is applied, found by its element id, since the document may change under the dialog; when the block is gone by then, the dialog shall stay open with the script and say so (`scriptBlockGone`). Each script, and each check of a script's inputs, is given the document with the template it pins (`templatePin`), as an export is (DOCE-EDITOR-6.28).
 
 Implementation: `src/components/document-editor/script-dialog.tsx`, `src/components/document-editor/script-entries.ts`, `src/components/document-editor/insert-controls.tsx`
-Verification: `src/components/document-editor/script-entries.test.tsx`, `src/components/document-editor/script-dialog.test.tsx`, `e2e/full-editor.spec.ts`
+Verification: `src/components/document-editor/script-entries.test.tsx`, `src/components/document-editor/script-dialog.test.tsx`, `e2e/full-editor.spec.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-EDITOR-4.9 - The script editor
 
@@ -239,7 +239,7 @@ Verification: `e2e/document-panels.spec.ts`, `src/components/document-editor/edi
 The toolbar's `mode` group shall start with the other people in the document (`presence`, DOCE-COLLAB-1.3). With `onModeChange`, its mode menu (`data-item="mode"`, its trigger showing only the current mode's icon, named by `editingModeControl` then the current mode) and View's Mode submenu shall offer the editing modes `modes` lists, by default Editing, Suggesting and Reading, with Commenting only when listed and the current mode always, each led by its icon, the current one (DOCE-EDITOR-4.4) selected, telling the host the one picked; the host then sets `editable`, `suggesting` and its comments. A mode `modeReasons` gives a reason for is disabled, focusable, and shows the reason, unless it is the current one. With `onMarkupChange`, the `markup` item (`data-item="markup"`, its trigger showing only the current choice's icon, named by `markup` then the current choice) and View's Markup submenu shall offer one choice for suggestions and comparisons, each led by its icon: No markup (`final`), Change bars (`simple`) and Inline (`all`), the current one selected and shown on the trigger; `original` shows as no markup. A markup `markupReasons` gives a reason for is disabled, focusable, and shows the reason, unless it is the current one. The host applies the choice to `markup` and to its comparison's `display`. While the document is read, on pages and in the web layout, the reader still selects text as in an editable one: a double click selects a word, a drag or Shift with an arrow key a range, and typing changes nothing.
 
 Implementation: `src/components/document-editor/mode-controls.tsx`, `src/components/document-editor/editor-context.ts`, `src/components/document-editor/menubar-menus.ts`, `labs/src/full-editor.lab.tsx`
-Verification: `src/components/document-editor/mode-controls.test.tsx`, `e2e/full-editor.spec.ts`, `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/mode-controls.test.tsx`, `e2e/full-editor.spec.ts`, `e2e/document-editor.spec.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-EDITOR-4.13 - The layout menu
 
@@ -614,7 +614,7 @@ Verification: `src/document/print.test.ts`, `src/document/html-output.test.ts`
 With the host's `exports` adapter (DOCE-HOST-1.22), the menubar's File menu shall offer an Export submenu (`exportMenu`) listing its entries in order, each running the export it names with the document as the editor shows it, in the stored format with the template it pins (`content`, `templatePin`), its print snapshot once the pages are ready (`snapshot`, DOCE-EDITOR-6.26) and a fresh signal for that run. The editor shall abort active runs on unmount or when hidden by a React `Activity`. Its export entries shall be ready to run when the activity shows again. An export shall run at most once at a time: its entry is disabled from the moment it starts until its current run ends, and choosing it again meanwhile does nothing. The editor shall tell the reader through the host's `feedback` when an export starts (`info`, `exportStarted`) and how it ends, its file made (`success`, `exportDone`) or failed with the host's reason (`error`, `exportFailed`), and nothing once the editor has unmounted. Without exports the File menu has no Export submenu. The full editor lab exports Markdown, a word processing document and a print snapshot.
 
 Implementation: `src/components/document-editor/use-document-exports.ts`, `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/export-labels.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-exports.ts`
-Verification: `src/components/document-editor/use-document-exports.test.tsx`, `e2e/print.spec.ts`
+Verification: `src/components/document-editor/use-document-exports.test.tsx`, `e2e/print.spec.ts`, `e2e/full-editor-options.spec.ts`
 
 ### DOCE-EDITOR-6.29 - The debugging pane
 
@@ -665,7 +665,7 @@ Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-e
 While the writer can edit and is not suggesting, once the document has rested for half a second the editor shall check it against its template (`templateSectionDrift`, DOCE-SECTIONS-4.2) and, when sections drifted, show a `warning` banner (`template-drift`, `templateDrift`) naming each section by its template label, or its name without one (`templateDriftDetail(drift, nameOf)`), and how it drifted, with an action that brings them back in line (`syncTemplateSections`, `updateFromTemplate`). Dismissed, it stays hidden until the drift changes.
 
 Implementation: `src/components/document-editor/banners.tsx`
-Verification: `src/components/document-editor/banners.test.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`, `e2e/session.spec.ts`
 
 ### DOCE-EDITOR-7.3 - Fonts that did not load
 
@@ -693,7 +693,7 @@ Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-e
 While the writer can edit and the editor's `session` names a newer saved revision of the document's template (`document`, its `pin` and `templateUpdate`, DOCE-SESSION-1.5), the editor shall show an `info` banner (`template-update`, `templateUpdated`) whose action (`updateTemplate`) moves the document to that revision (`setTemplate`) and, once the editor is shown the new template, brings the sections the writer cannot edit in line with it (`syncTemplateSections`) and renders its internal references again as the new revision formats them (`refreshReferences`), in one step for the reader. In a shared room these changes reach the other writers as the mover's edits, once. A session without them offers nothing.
 
 Implementation: `src/components/document-editor/template-update-banner.tsx`, `src/components/document-editor/banners.tsx`, `src/components/document-editor/save-status-item.tsx`
-Verification: `src/components/document-editor/banners.test.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`, `e2e/session.spec.ts`
 
 ### DOCE-EDITOR-7.7 - Scripts running and failed
 
@@ -723,7 +723,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `sr
 The editor's handle shall reveal a pane by its id (`revealPane(paneId, { focus })`): the first side panel inside the editor that holds it selects it and expands, as its tab and launcher would, and focus moves into the pane, on its first focusable element or the pane itself, once it shows, unless `focus` is false, including when the panel was forced collapsed and has room again; given `onShown`, the panel calls it with the pane's element once it shows instead, as the find keys do to focus the search pane's query (DOCE-SEARCH-2.2). It returns false when no panel holds the pane.
 
 Implementation: `src/components/document-panels/document-panels.ts`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/editor-scope.tsx`, `src/components/document-editor/use-host-reach.ts`, `labs/src/host-panes.tsx`
-Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`, `e2e/comments-host-options.spec.ts`
 
 ### DOCE-EDITOR-8.3 - The comments pane
 

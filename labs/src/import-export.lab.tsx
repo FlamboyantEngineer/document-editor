@@ -3,8 +3,10 @@
 // or from Word (`readHtmlContent`), read and composed into a template's section
 // (`composeDocumentFile`), with the reader's warnings; and the open document written as Markdown
 // (`writeMarkdown`, with its title, front matter, comments and suggestions), as a word processing
-// document (`writeDocx`), as HTML (`writeHtml`) or in the stored format, whole or one part of it
-// (`selectStoredContent`).
+// document (`writeDocx`, with its comment threads), as HTML (`writeHtml`) or in the stored format,
+// whole or one part of it (`selectStoredContent`). The reading options and the template tools are
+// in `import-export-options.tsx`; File > Export's PDF entry prints through a print service mimicked
+// in the page (`lab-print-service.ts`).
 
 import { EditorState } from 'prosemirror-state';
 import { useMemo, useState } from 'react';
@@ -29,18 +31,29 @@ import {
   BASE_TEMPLATE_ID,
   createDocumentSchema,
   type DocumentFile,
+  findAppendixSection,
   readDocumentFile,
   readHtmlContent,
   resolveTemplateFile,
   type SuggestionsMode,
   type TemplateFile,
+  upgradeDocumentFile,
   writeDocumentFile,
   writeDocx,
   writeHtml,
   writeMarkdown,
 } from '../../src/model/index.js';
+import {
+  DEFAULT_READ_OPTIONS,
+  ReadOptionControls,
+  type ReadOptions,
+  TemplateTools,
+  UPLOAD_PLACEHOLDER,
+} from './import-export-options.js';
 import { chapter, heading, text, variable } from './lab-document.js';
+import { labPdfExport } from './lab-print-service.js';
 import { markReadyWhenSettled } from './lab-ready.js';
+import { sampleWordDocument } from './lab-word-sample.js';
 import { LAB_FONTS } from './served-fonts.js';
 
 // A template with a locked cover, the body that takes what is read, and an appendix.
@@ -61,7 +74,13 @@ const LAB_TEMPLATE: TemplateFile = {
         },
       ],
     },
-    { name: 'body', label: 'Body', required: true },
+    {
+      name: 'body',
+      label: 'Body',
+      required: true,
+      // A list of the document's tables, by the host's own list token.
+      content: [{ type: 'paragraph', content: [text('{{list_of_limits}}')] }],
+    },
     { name: 'appendix', label: 'Appendix', insertable: true },
   ],
 };
@@ -187,6 +206,12 @@ const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingm
 
 type Part = 'whole' | 'body' | 'appendix';
 
+// The mimicked print service's frame, and whether the lab has made it fail.
+const PRINT_SERVICE: { frame: HTMLIFrameElement | null; failing: boolean } = {
+  frame: null,
+  failing: false,
+};
+
 function Lab() {
   const [opened, setOpened] = useState<Opened>(() => ({
     state: stateOf(sampleFile()),
@@ -205,6 +230,29 @@ function Lab() {
   const [withComments, setWithComments] = useState(true);
   const [part, setPart] = useState<Part>('whole');
   const [written, setWritten] = useState('');
+  const [reading, setReading] = useState<ReadOptions>(DEFAULT_READ_OPTIONS);
+  const [printFails, setPrintFails] = useState(false);
+  const [exported, setExported] = useState('');
+  const [notice, setNotice] = useState('');
+  const feedback = useMemo(
+    () => ({
+      notify: ({ tone, text: message }: { tone: string; text: string }) =>
+        setNotice(`${tone}: ${message}`),
+    }),
+    [],
+  );
+  const [exports] = useState(() => ({
+    entries: [
+      labPdfExport({
+        frame: () => PRINT_SERVICE.frame,
+        failing: () => PRINT_SERVICE.failing,
+        saved: (file, pages, failedImages) =>
+          setExported(
+            `Saved ${file.name} (${file.type}, ${String(file.data.length)} bytes, ${String(pages)} pages, ${String(failedImages.length)} images failed)`,
+          ),
+      }),
+    ],
+  }));
   const values = useMemo(
     () => ({ variable: (key: string) => (key === 'document.title' ? title : null) }),
     [title],
@@ -222,6 +270,8 @@ function Lab() {
       section,
       newId: createElementId,
       author: 'ada',
+      titleVariables: reading.leaveOutTitle ? ['document.title'] : [],
+      tableInset: reading.tableInset,
     });
     setOpened((previous) => ({
       state: stateOf(composed),
@@ -232,11 +282,26 @@ function Lab() {
     }));
   };
   const fail = (report: string) => setOpened((previous) => ({ ...previous, report, warnings: [] }));
+  // A stored document opened as it is, without composing it into the template again.
+  const openAsIs = (file: DocumentFile, report: string) =>
+    setOpened((previous) => ({
+      state: stateOf(file),
+      threads: [],
+      report,
+      warnings: [],
+      revision: previous.revision + 1,
+    }));
 
   const readWord = async (bytes: Uint8Array, name: string) => {
     const read = await readDocx(bytes, {
       template: TEMPLATE,
       limits: smallArchives ? { files: 5 } : DEFAULT_ZIP_LIMITS,
+      textCaptions: reading.textCaptions,
+      appendixSection: reading.appendices
+        ? (findAppendixSection(TEMPLATE, section) ?? undefined)
+        : undefined,
+      imageSource: reading.hostImages ? () => UPLOAD_PLACEHOLDER : undefined,
+      review: reading.keepReview ? 'keep' : 'accept',
     });
     if (!read.ok) {
       fail(`${name} could not be read: ${read.failure} (${read.message})`);
@@ -267,7 +332,7 @@ function Lab() {
       );
     } else if (name.endsWith('.json')) {
       try {
-        const stored = JSON.parse(await file.text()) as DocumentFile;
+        const stored = upgradeDocumentFile(JSON.parse(await file.text())) as DocumentFile;
         open(stored, file.name);
       } catch {
         fail(`${file.name} is not a stored document`);
@@ -294,7 +359,15 @@ function Lab() {
       suggestionList: listSuggestions,
       person: (id) => PEOPLE[id],
     });
-  const word = () => writeDocx(current(), { template: TEMPLATE, suggestions, values });
+  const word = () =>
+    writeDocx(current(), {
+      template: TEMPLATE,
+      suggestions,
+      values,
+      comments: withComments
+        ? { threads: opened.threads, authorName: (id) => PEOPLE[id] ?? null }
+        : undefined,
+    });
 
   return (
     <>
@@ -327,7 +400,14 @@ function Lab() {
             />{' '}
             Allow only 5 files in an archive
           </label>
+          <ReadOptionControls options={reading} onChange={setReading} />
           <div>
+            <button
+              type="button"
+              onClick={() => void readWord(sampleWordDocument(), 'The sample Word document')}
+            >
+              Read the sample Word document
+            </button>{' '}
             <button
               type="button"
               onClick={() => {
@@ -383,6 +463,15 @@ function Lab() {
             ))}
           </ul>
         </fieldset>
+        <TemplateTools
+          state={opened.state}
+          schema={SCHEMA}
+          template={TEMPLATE}
+          html={html}
+          onOpen={openAsIs}
+          onState={(state, report) => setOpened((previous) => ({ ...previous, state, report }))}
+          onReport={(report) => setOpened((previous) => ({ ...previous, report }))}
+        />
         <fieldset>
           <legend>Export</legend>
           <label>
@@ -457,6 +546,37 @@ function Lab() {
             <pre tabIndex={0}>{written}</pre>
           </section>
         </fieldset>
+        <fieldset>
+          <legend>Print service</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={printFails}
+              onChange={(event) => {
+                PRINT_SERVICE.failing = event.currentTarget.checked;
+                setPrintFails(event.currentTarget.checked);
+              }}
+            />{' '}
+            The print service fails
+          </label>{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setExported('');
+              setNotice('');
+            }}
+          >
+            Clear the export
+          </button>{' '}
+          <output aria-label="PDF export">{exported}</output>{' '}
+          <output aria-label="Export feedback">{notice}</output>
+          <iframe
+            ref={(frame) => {
+              PRINT_SERVICE.frame = frame;
+            }}
+            title="Print service page"
+          />
+        </fieldset>
       </div>
       <DocumentEditor
         fonts={LAB_FONTS}
@@ -471,6 +591,8 @@ function Lab() {
         template={TEMPLATE}
         author="ada"
         toolbar
+        exports={exports}
+        feedback={feedback}
         aria-label="Imported document"
       />
     </>

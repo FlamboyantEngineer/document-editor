@@ -102,6 +102,7 @@ export {
   SELECTION_TOOLBAR_GROUPS,
   TOOLBAR_GROUPS,
   useDocumentEditor,
+  useDocumentEditorState,
   ZOOM_LEVELS,
 } from './document-editor/index.js';
 export type {
@@ -123,6 +124,7 @@ export type {
   DocumentHistoryLabels,
   DocumentHistoryProps,
   HistoricalEditorProps,
+  VersionActionTarget,
 } from './document-panels/index.js';
 export {
   DEFAULT_PANELS_LABELS,

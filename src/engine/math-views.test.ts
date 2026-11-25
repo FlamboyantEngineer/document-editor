@@ -133,6 +133,30 @@ describe('a renderer that does not answer', () => {
   });
 });
 
+describe("the editing's math options", () => {
+  it("DOCE-PAGINATION-10.8 waits for the editing's renderer as long as its timeout, with the host's reason", async () => {
+    vi.useFakeTimers();
+    const render = () => new Promise<{ ok: true; mathml: string }>(() => undefined);
+    const plugins = createDocumentEditing(documentSchema, {
+      math: { render, timeout: 2_000, timeoutMessage: 'The typesetter is busy' },
+    });
+    const inline = nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = nodes.paragraph?.create(null, inline ? [inline] : []);
+    const doc = paragraph && documentSchema.topNodeType.createAndFill(null, [paragraph]);
+    if (!doc) throw new Error('The schema has math');
+    view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins }),
+    });
+    const drawn = view.dom.querySelector<HTMLElement>('.de-math');
+    await vi.advanceTimersByTimeAsync(1_999);
+    expect(drawn?.dataset.state).toBe('pending');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(drawn?.dataset.state).toBe('invalid');
+    expect(drawn?.title).toBe('The typesetter is busy (2 s)');
+    vi.useRealTimers();
+  });
+});
+
 describe('math drawn from its layout', () => {
   it('DOCE-PAGINATION-12.11 draws the SVG its decoration places before the typeset MathML, and again when the placement changes', async () => {
     const render = (source: string) => ({
