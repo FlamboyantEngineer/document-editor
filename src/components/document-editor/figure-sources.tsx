@@ -7,10 +7,18 @@ import { FileUpload } from '@flamboyantengineer/ui-components/file-upload';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useEffect, useRef, useState } from 'react';
-import type { AssetAdapter, DiagramAdapter, FoundAsset, StoredDiagram } from '../../host/index.js';
+import type {
+  AssetAdapter,
+  DiagramAdapter,
+  DiagramRef,
+  FoundAsset,
+  StoredDiagram,
+} from '../../host/index.js';
+import type { ImageSize } from '../../model/schema/image-size.js';
 import { useAssetSearch } from './asset-search.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import type { FigureSize } from './figure-size.js';
+import { fileImageSize } from './natural-size.js';
 
 /** The stored asset a figure shows. */
 export interface FigureAsset {
@@ -35,12 +43,21 @@ function failureMessage(reason: unknown, fallback: string): string {
 
 /**
  * Uploads a chosen image through the host's assets, naming the figure's current asset, and hands
- * the stored asset on. A file larger than the host takes is refused before any request.
+ * the stored asset on with the natural size its bytes give. A file larger than the host takes, or
+ * whose size its bytes do not give, is refused before any request.
  */
 export function useFigureUpload(
   assets: AssetAdapter | undefined,
   labels: DocumentEditorLabels,
-  { current, onStored }: { current: FigureAsset | null; onStored: (asset: FigureAsset) => void },
+  {
+    current,
+    ownerDocument,
+    onStored,
+  }: {
+    current: FigureAsset | null;
+    ownerDocument: Document;
+    onStored: (asset: FigureAsset, natural: ImageSize) => void;
+  },
 ) {
   const [upload, setUpload] = useState<Upload | null>(null);
   const running = useRef<AbortController | null>(null);
@@ -72,6 +89,12 @@ export function useFigureUpload(
       ? { current: { assetId: current.fileAssetId, snapshotId: current.snapshotId } }
       : {};
     const store = async () => {
+      const natural = await fileImageSize(file, ownerDocument);
+      if (controller.signal.aborted) return;
+      if (!natural) {
+        failed(labels.imageUnreadable(file.name));
+        return;
+      }
       let result: Awaited<ReturnType<AssetAdapter['upload']>>;
       try {
         result = await assets.upload(file, controller.signal, options);
@@ -86,7 +109,7 @@ export function useFigureUpload(
       }
       const { id, snapshotId } = result.value;
       running.current = null;
-      onStored({ fileAssetId: id, snapshotId: snapshotId ?? id });
+      onStored({ fileAssetId: id, snapshotId: snapshotId ?? id }, natural);
       setUpload({ file, done: true });
     };
     void store();
@@ -100,7 +123,7 @@ type FigureUpload = ReturnType<typeof useFigureUpload>;
 const picked = (asset: FoundAsset): PickedAsset => ({
   asset: { fileAssetId: asset.id, snapshotId: asset.snapshotId ?? asset.id },
   alt: asset.alt ?? '',
-  size: { width: asset.width ?? null, height: asset.height ?? null },
+  size: { width: asset.width, height: asset.height },
   locked: true,
 });
 
@@ -197,7 +220,7 @@ export function ImageSource({
 }
 
 interface DiagramEditRequest {
-  readonly current: StoredDiagram | null;
+  readonly current: DiagramRef | null;
   readonly signal: AbortSignal;
   readonly fallback: string;
   readonly onSave: (diagram: StoredDiagram) => void;
@@ -245,7 +268,7 @@ export function useDiagramEditing(
   });
   const running = useRef<AbortController | null>(null);
   useEffect(() => () => running.current?.abort(), []);
-  const edit = (diagram: StoredDiagram | null) => {
+  const edit = (diagram: DiagramRef | null) => {
     if (!diagrams) return;
     running.current?.abort();
     const controller = new AbortController();

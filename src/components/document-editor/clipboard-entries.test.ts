@@ -3,11 +3,14 @@ import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deferred } from '../../../test/deferred.js';
 import { documentSchema } from '../../../test/document-markup.js';
+import { pngBytes, pngDataUri } from '../../../test/image-files.js';
 import type { AssetAdapter } from '../../host/index.js';
 import { readDocumentFile } from '../../model/index.js';
 import { CONTEXT_MENU_GROUPS, contextGroups } from './context-entries.js';
 import { resolveContextTarget } from './context-target.js';
 import { DEFAULT_EDITOR_LABELS as labels } from './editor-labels.js';
+
+const PNG = pngDataUri();
 
 let view: EditorView | null = null;
 
@@ -18,7 +21,7 @@ afterEach(() => {
 });
 
 // One thing on the clipboard, in each of its flavours.
-const clipboardItem = (flavours: Record<string, string>) => ({
+const clipboardItem = (flavours: Record<string, BlobPart>) => ({
   types: Object.keys(flavours),
   getType: (type: string) => Promise.resolve(new Blob([flavours[type] ?? ''], { type })),
 });
@@ -90,6 +93,7 @@ function setUp(text = 'Before', upload?: AssetAdapter['upload']) {
         failure: labels.uploadFailed,
         uploading: labels.uploading,
         tooLarge: labels.uploadTooLarge,
+        unreadable: labels.imageUnreadable,
         pasteAgain: labels.pasteAgain,
       },
     });
@@ -172,7 +176,7 @@ describe('the context menu clipboard entries', () => {
   });
 
   it('DOCE-EDITOR-3.2 DOCE-EDITOR-4.6 pastes a copied image as a figure, uploaded', async () => {
-    stubClipboard([clipboardItem({ 'image/png': 'image' })]);
+    stubClipboard([clipboardItem({ 'image/png': pngBytes() })]);
     const { shown, uploaded, press } = setUp();
     press('paste');
     await vi.waitFor(() => expect(blocks(shown)).toEqual(['Before', '[image.png]']));
@@ -180,7 +184,7 @@ describe('the context menu clipboard entries', () => {
   });
 
   it('DOCE-EDITOR-3.2 leaves a replacement document untouched when a pasted image finishes uploading', async () => {
-    stubClipboard([clipboardItem({ 'image/png': 'image' })]);
+    stubClipboard([clipboardItem({ 'image/png': pngBytes() })]);
     const stored = deferred<Awaited<ReturnType<AssetAdapter['upload']>>>();
     const { shown, uploaded, press } = setUp('Before', () => stored.promise);
     press('paste');
@@ -192,7 +196,7 @@ describe('the context menu clipboard entries', () => {
   });
 
   it('DOCE-EDITOR-3.2 DOCE-EDITING-5.5 uploads the images that come with pasted HTML', async () => {
-    const html = '<p>, and<img src="data:image/png;base64,iVBORw==" alt="Chart"></p>';
+    const html = '<p>, and<img src="' + PNG + '" alt="Chart"></p>';
     stubClipboard([clipboardItem({ 'text/html': html, 'text/plain': ', and' })]);
     const { shown, uploaded, press } = setUp();
     press('paste');

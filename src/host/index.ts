@@ -48,6 +48,7 @@ export type {
   AssetUploadOptions,
   DiagramAdapter,
   DiagramEditOptions,
+  DiagramRef,
   FoundAsset,
   StoredAsset,
   StoredDiagram,

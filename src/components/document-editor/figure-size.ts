@@ -4,6 +4,8 @@
 
 import { NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { newFigureSize } from '../../engine/figure-defaults.js';
+import type { ImageSize } from '../../model/schema/image-size.js';
 import { contentRoomOf, objectBoxOf } from '../../pagination/object-boxes.js';
 import type { FigureSizeProblem } from './figure-labels.js';
 
@@ -79,6 +81,22 @@ function contentWidth(view: EditorView): number {
 export function figureBounds(view: EditorView, bounds: FigureBounds = FIGURE_BOUNDS): FigureBounds {
   const content = Math.floor(contentWidth(view));
   return content > 0 ? { ...bounds, maxWidth: Math.min(bounds.maxWidth, content) } : bounds;
+}
+
+/**
+ * The size a new figure of an image of a natural size takes at a position of the view's document:
+ * its section's default figure width, the height in the image's proportions, or else the natural
+ * size (`newFigureSize`), then clamped to the page as a whole (`clampFigureSize`).
+ */
+export function newFigureBox(view: EditorView, pos: number, natural: ImageSize): ImageSize {
+  const size = newFigureSize(view.state, pos, natural);
+  const sizing = {
+    locked: true,
+    ratio: natural.width / natural.height,
+    bounds: figureBounds(view),
+  };
+  const clamped = clampFigureSize(size, sizing);
+  return { width: clamped.width ?? size.width, height: clamped.height ?? size.height };
 }
 
 /** The bounds the resize dialog checks: whole pixels from 1, as wide as the page content. */

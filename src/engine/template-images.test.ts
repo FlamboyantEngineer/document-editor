@@ -82,7 +82,13 @@ describe('placing an image asset in template content', () => {
       if (node.type.name === 'horizontal_rule') rule = pos;
     });
     const onRule = state.apply(state.tr.setSelection(NodeSelection.create(doc, rule)));
-    const placed = insertTemplateImage({ id: 'x', name: 'x', mediaType: 'image/png' });
+    const placed = insertTemplateImage({
+      id: 'x',
+      name: 'x',
+      mediaType: 'image/png',
+      width: 8,
+      height: 8,
+    });
     expect(placed(onRule)).toBe(false);
     expect(placed(state)).toBe(true);
   });
