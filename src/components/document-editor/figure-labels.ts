@@ -51,6 +51,10 @@ export interface FigureLabels {
   readonly addressUnreadable: string;
   /** Tells the reader a paste was dropped because the document changed while its images uploaded. */
   readonly pasteAgain: string;
+  /** Tells the reader a paste waits for its images at addresses to load, to find their size. */
+  readonly pastedImagesLoading: string;
+  /** A pasted image at an address that gave no size in time, so it was left out of the paste. */
+  readonly pastedImageLeftOut: (address: string) => string;
 }
 
 // A size in bytes in whole megabytes, or kilobytes below one.
@@ -98,4 +102,7 @@ export const DEFAULT_FIGURE_LABELS: FigureLabels = {
   addressUnreadable:
     'The image at this address could not be read, so its size is unknown. Check the address, or upload the image.',
   pasteAgain: 'The document changed while the images uploaded. Paste them again.',
+  pastedImagesLoading: 'Loading the pasted images…',
+  pastedImageLeftOut: (address) =>
+    `The image at ${address} did not load, so its size is unknown. It was left out of the paste.`,
 };

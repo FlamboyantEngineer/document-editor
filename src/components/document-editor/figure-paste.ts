@@ -41,6 +41,10 @@ export interface FigurePasteOptions {
   readonly unreadable: (name: string) => string;
   /** Asks the reader to paste again: the document changed while the images uploaded. */
   readonly pasteAgain: string;
+  /** Tells the reader the images at addresses of pasted content are loading. */
+  readonly loading?: string | undefined;
+  /** Tells the reader an image at an address gave no size, so it was left out. */
+  readonly leftOut?: ((address: string) => string) | undefined;
   /** Whether the context menu's original paste target still applies after an upload. */
   readonly isCurrent?: (() => boolean) | undefined;
 }
@@ -59,6 +63,8 @@ export function figurePasteOptions(
     tooLarge: labels.uploadTooLarge,
     unreadable: labels.imageUnreadable,
     pasteAgain: labels.pasteAgain,
+    loading: labels.pastedImagesLoading,
+    leftOut: labels.pastedImageLeftOut,
   };
 }
 
@@ -179,6 +185,7 @@ async function pasteWithImages(
 ) {
   const images = pastedImages(html, rtf);
   if (images.length > 0) options.feedback?.notify({ tone: 'info', text: options.uploading });
+  else if (options.loading) options.feedback?.notify({ tone: 'info', text: options.loading });
   const addresses = sizeAddresses(html, view.dom.ownerDocument);
   const stored = await uploadAll(
     view,
@@ -198,7 +205,8 @@ async function pasteWithImages(
     const markup = asset ? figureMarkup(view, asset, image.alt || image.file?.name || '') : '';
     pasted = pasted.replace(image.tag, () => markup);
   });
-  for (const address of sized.missing) refuse(options, options.unreadable(address));
+  for (const address of sized.missing)
+    refuse(options, (options.leftOut ?? options.unreadable)(address));
   if (!view.state.selection.eq(at.selection)) {
     view.dispatch(view.state.tr.setSelection(at.selection));
   }

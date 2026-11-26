@@ -110,6 +110,8 @@ const LABELS = {
   tooLarge: (max: number) => `Larger than ${String(max)} bytes.`,
   unreadable: (name: string) => `No size for ${name}.`,
   pasteAgain: 'Paste again.',
+  loading: 'Loading…',
+  leftOut: (address: string) => `Left out ${address}.`,
 };
 
 // An editor with handlers whose uploads and feedback the test reads; jsdom has no clipboard
@@ -387,9 +389,9 @@ describe('figurePasteHandlers', () => {
         expect(inlineImages(view)).toEqual([['https://example.com/a.png', 300, 200]]),
       );
       expect(textOf(view)).toBe('See  here');
-      // Nothing is uploaded, and nothing is said.
+      // Nothing is uploaded; the writer is told the images load.
       expect(uploaded).toEqual([]);
-      expect(notified).toEqual([]);
+      expect(notified).toEqual([{ tone: 'info', text: 'Loading…' }]);
       view.destroy();
     } finally {
       restore();
@@ -406,7 +408,7 @@ describe('figurePasteHandlers', () => {
     expect(textOf(view)).toBe('Lost and');
     expect(notified).toEqual([
       { tone: 'info', text: 'Uploading…' },
-      { tone: 'error', text: 'No size for https://example.com/lost.png.' },
+      { tone: 'error', text: 'Left out https://example.com/lost.png.' },
     ]);
     view.destroy();
   });
