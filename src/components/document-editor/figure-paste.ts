@@ -43,8 +43,8 @@ export interface FigurePasteOptions {
   readonly pasteAgain: string;
   /** Tells the reader the images at addresses of pasted content are loading. */
   readonly loading?: string | undefined;
-  /** Tells the reader an image at an address gave no size, so it was left out. */
-  readonly leftOut?: ((address: string) => string) | undefined;
+  /** Tells the reader, once for a paste, the images at these addresses gave no size, so were left out. */
+  readonly leftOut?: ((addresses: readonly string[]) => string) | undefined;
   /** Whether the context menu's original paste target still applies after an upload. */
   readonly isCurrent?: (() => boolean) | undefined;
 }
@@ -64,7 +64,7 @@ export function figurePasteOptions(
     unreadable: labels.imageUnreadable,
     pasteAgain: labels.pasteAgain,
     loading: labels.pastedImagesLoading,
-    leftOut: labels.pastedImageLeftOut,
+    leftOut: labels.pastedImagesLeftOut,
   };
 }
 
@@ -205,8 +205,12 @@ async function pasteWithImages(
     const markup = asset ? figureMarkup(view, asset, image.alt || image.file?.name || '') : '';
     pasted = pasted.replace(image.tag, () => markup);
   });
-  for (const address of sized.missing)
-    refuse(options, (options.leftOut ?? options.unreadable)(address));
+  if (sized.missing.length > 0) {
+    refuse(
+      options,
+      options.leftOut?.(sized.missing) ?? options.unreadable(sized.missing.join(', ')),
+    );
+  }
   if (!view.state.selection.eq(at.selection)) {
     view.dispatch(view.state.tr.setSelection(at.selection));
   }

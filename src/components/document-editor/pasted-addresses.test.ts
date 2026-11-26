@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadImagesAt } from '../../../test/image-files.js';
-import { hasUnsizedAddresses, MOST_PASTED_ADDRESSES, sizeAddresses } from './pasted-addresses.js';
+import { DEFAULT_FIGURE_LABELS } from './figure-labels.js';
+import { hasUnsizedAddresses, sizeAddresses } from './pasted-addresses.js';
 
 let restore = () => undefined as void;
 
@@ -46,19 +47,43 @@ describe('pasted images at addresses', () => {
     });
   });
 
-  it('DOCE-EDITING-5.5 loads at most a set number of images for one paste', async () => {
+  it('DOCE-EDITING-5.5 loads every image of a paste, each at the address the document holds', async () => {
     restore = loadImagesAt(8, 6);
-    const decode = vi.spyOn(HTMLImageElement.prototype, 'decode');
-    const count = MOST_PASTED_ADDRESSES + 2;
-    const html = Array.from(
-      { length: count },
+    const loaded: string[] = [];
+    const decode = HTMLImageElement.prototype.decode;
+    vi.spyOn(HTMLImageElement.prototype, 'decode').mockImplementation(function (
+      this: HTMLImageElement,
+    ) {
+      loaded.push(this.src);
+      return decode.call(this);
+    });
+    // The clipboard's HTML escapes an ampersand in an address.
+    const escaped = '<img src="https://example.com/a.png?w=800&amp;h=600">';
+    const many = Array.from(
+      { length: 30 },
       (_, index) => `<img src="https://example.com/${String(index)}.png">`,
-    ).join('');
-    const { missing } = await sizeAddresses(html, document);
-    expect(decode).toHaveBeenCalledTimes(MOST_PASTED_ADDRESSES);
-    expect(missing).toEqual([
-      `https://example.com/${String(MOST_PASTED_ADDRESSES)}.png`,
-      `https://example.com/${String(MOST_PASTED_ADDRESSES + 1)}.png`,
-    ]);
+    );
+    const { html, missing } = await sizeAddresses(escaped + many.join(''), document);
+    const held = document.createElement('template');
+    held.innerHTML = html;
+    expect(held.content.querySelector('img')?.getAttribute('src')).toBe(
+      'https://example.com/a.png?w=800&h=600',
+    );
+    expect(loaded[0]).toBe('https://example.com/a.png?w=800&h=600');
+    expect(loaded).toHaveLength(31);
+    expect(missing).toEqual([]);
+  });
+
+  it('DOCE-EDITING-5.5 names many left-out images once: the first few, then how many more', () => {
+    const addresses = Array.from(
+      { length: 5 },
+      (_, index) => `https://example.com/${String(index)}.png`,
+    );
+    expect(DEFAULT_FIGURE_LABELS.pastedImagesLeftOut(addresses)).toBe(
+      '5 images did not load, so their sizes are unknown, and were left out of the paste: https://example.com/0.png, https://example.com/1.png, https://example.com/2.png and 2 more.',
+    );
+    expect(DEFAULT_FIGURE_LABELS.pastedImagesLeftOut(addresses.slice(0, 1))).toBe(
+      'The image at https://example.com/0.png did not load, so its size is unknown. It was left out of the paste.',
+    );
   });
 });

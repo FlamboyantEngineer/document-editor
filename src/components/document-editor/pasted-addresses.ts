@@ -1,7 +1,6 @@
 // The images of pasted HTML that are only addresses and state no size: each is loaded to find its
 // natural size before the paste, and written with it, since an image without a size has no place in
-// a document (DOCE-SCHEMA-3.14); one that does not load in time, or past the most one paste loads,
-// is left out, and named.
+// a document (DOCE-SCHEMA-3.14); one that does not load in time is left out, and named.
 
 import { wholeSize } from '../../model/schema/image-size.js';
 import { addressImageSize } from './natural-size.js';
@@ -17,11 +16,15 @@ const attributeOf = (tag: string, name: string) =>
 /** How long a paste waits for its images at addresses, in milliseconds. */
 const PASTED_ADDRESS_WAIT_MS = 10_000;
 
-/** The most images at addresses one paste loads; the rest are left out. */
-export const MOST_PASTED_ADDRESSES = 20;
-
 // Only web addresses are loaded: data and file addresses come with the paste's own bytes.
 const isAddress = (src: string) => /^https?:\/\//i.test(src.trim());
+
+// A tag's address as the HTML parser reads it, character references decoded, as the document holds it.
+function addressOf(tag: string, ownerDocument: Document) {
+  const parsed = ownerDocument.createElement('template');
+  parsed.innerHTML = tag;
+  return parsed.content.querySelector('img')?.getAttribute('src')?.trim() ?? '';
+}
 
 // The size an address gives within the wait, or null.
 function sizeInTime(src: string, ownerDocument: Document, waitMs: number) {
@@ -59,8 +62,8 @@ interface SizedAddresses {
 
 /**
  * Pasted HTML whose images at a web address that state no size are written with their natural
- * size, loaded from the address, the first `MOST_PASTED_ADDRESSES` of them, each waited for at
- * most `waitMs`; an image that gives none in time is left out of the HTML and its address named.
+ * size, loaded from the address, all at once, each waited for at most `waitMs`; an image that gives
+ * none in time is left out of the HTML and its address named, as the document would hold it.
  */
 export async function sizeAddresses(
   html: string,
@@ -68,18 +71,15 @@ export async function sizeAddresses(
   waitMs = PASTED_ADDRESS_WAIT_MS,
 ): Promise<SizedAddresses> {
   const tags = [...new Set(unsizedTags(html))];
+  const addresses = tags.map((tag) => addressOf(tag, ownerDocument));
   const sizes = await Promise.all(
-    tags.map((tag, index) =>
-      index < MOST_PASTED_ADDRESSES
-        ? sizeInTime(attributeOf(tag, 'src') ?? '', ownerDocument, waitMs)
-        : null,
-    ),
+    addresses.map((address) => sizeInTime(address, ownerDocument, waitMs)),
   );
   const missing: string[] = [];
   let sized = html;
   tags.forEach((tag, index) => {
     const size = wholeSize(sizes[index]);
-    if (!size) missing.push(attributeOf(tag, 'src') ?? '');
+    if (!size) missing.push(addresses[index] ?? '');
     const written = size
       ? tag
           .replace(/\s(?:width|height)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')

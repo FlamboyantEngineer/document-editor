@@ -111,7 +111,7 @@ const LABELS = {
   unreadable: (name: string) => `No size for ${name}.`,
   pasteAgain: 'Paste again.',
   loading: 'Loading…',
-  leftOut: (address: string) => `Left out ${address}.`,
+  leftOut: (addresses: readonly string[]) => `Left out ${addresses.join(' ')}.`,
 };
 
 // An editor with handlers whose uploads and feedback the test reads; jsdom has no clipboard
@@ -401,14 +401,18 @@ describe('figurePasteHandlers', () => {
   it('DOCE-EDITING-5.5 leaves out a pasted image at an address that does not load, names it, and pastes the rest', async () => {
     // jsdom's images never decode.
     const { view, notified, handlers } = setUp();
-    const html = `<p>Lost <img src="https://example.com/lost.png"> and <img src="${PNG}" alt="Chart"></p>`;
+    const html = `<p>Lost <img src="https://example.com/lost.png"> and <img src="https://example.com/gone.png?a=1&amp;b=2"> and <img src="${PNG}" alt="Chart"></p>`;
     expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
     await vi.waitFor(() => expect(figures(view)).toEqual(['Chart:asset-1']));
     expect(inlineImages(view)).toEqual([]);
-    expect(textOf(view)).toBe('Lost and');
+    expect(textOf(view)).toBe('Lost and and');
+    // One notice for the paste, naming each address as pasted.
     expect(notified).toEqual([
       { tone: 'info', text: 'Uploading…' },
-      { tone: 'error', text: 'Left out https://example.com/lost.png.' },
+      {
+        tone: 'error',
+        text: 'Left out https://example.com/lost.png https://example.com/gone.png?a=1&b=2.',
+      },
     ]);
     view.destroy();
   });
