@@ -23,6 +23,7 @@ import {
   writeRoomDocument,
   yjsToDocument,
 } from './convert.js';
+import { readContent } from './delta.js';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), '../../test/fixtures/documents');
 const documents = readdirSync(fixtures)
@@ -259,6 +260,29 @@ describe('room updates', () => {
     const absolute = Y.createAbsolutePositionFromRelativePosition(position, doc);
     expect(absolute?.type).toBe(paragraphAt(doc, 2));
     expect(absolute?.index).toBe(3);
+  });
+
+  it('DOCE-COLLAB-6.5 DOCE-SCHEMA-3.14 refuses a figure without its size, or keeps it whole as stored', () => {
+    const doc = seeded(three);
+    const before = Y.encodeStateAsUpdate(doc);
+    const figure = {
+      type: 'figure',
+      attrs: { id: 'f0000001', src: 'a.png' },
+      content: [{ type: 'caption' }],
+    };
+    const unsized = small([paragraph('a0000001', 'Alpha'), figure]);
+    // Under the default policy the write throws, naming it, and the room is as it was.
+    expect(() => updateRoomDocument(doc, unsized, { schema, origin: 'server' })).toThrow(
+      'figure has no width or height',
+    );
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+    // Kept, it is a placeholder in the room that reads back as it was stored, never a figure
+    // with a size made up for it.
+    updateRoomDocument(doc, unsized, { schema, origin: 'server', unknown: 'keep' });
+    expect(readRoomDocument(doc, { schema })).toEqual(unsized);
+    expect(JSON.stringify(readContent(schema, doc.get('content'))?.toJSON())).toContain(
+      '"type":"kept_block"',
+    );
   });
 
   it('DOCE-COLLAB-6.5 reaches an editor in the room as one change', () => {

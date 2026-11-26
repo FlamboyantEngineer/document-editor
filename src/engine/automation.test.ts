@@ -240,6 +240,40 @@ describe('automation', () => {
     expect(refused({ paragraphLevel: 2 })).toBeNull();
   });
 
+  it('DOCE-AUTOMATION-1.4 DOCE-SCHEMA-3.14 refuses a figure left without its size, in either mode', () => {
+    const figure: StoredNode = {
+      type: 'figure',
+      attrs: { id: 'f0000001', src: 'a.png', width: 40, height: 30 },
+      content: [{ type: 'caption' }],
+    };
+    const state = stateOf(paragraph('a1a1a1a1', 'Intro'), figure);
+    const refused = (attrs: Record<string, unknown>, mode: 'direct' | 'suggest' = 'direct') => {
+      const edit: AutomationEdit = { op: 'setAttrs', elementId: 'f0000001', attrs };
+      const result = applyEdits(state, [edit], { ...AGENT, mode });
+      return result.ok ? null : result.error;
+    };
+    for (const attrs of [{ width: null }, { height: 0 }, { width: -4 }, { width: undefined }]) {
+      expect(refused(attrs)).toMatchObject({ kind: 'invalid', index: 0 });
+      expect(refused(attrs, 'suggest')?.kind).toBe('invalid');
+    }
+    expect(refused({ width: null })?.message).toBe(
+      'width cannot be set: it must be a positive number of pixels',
+    );
+    expect(refused({ width: undefined })?.message).toBe('width cannot be set: it is required');
+    expect(refused({ width: 80, height: 60 })).toBeNull();
+    // Stored blocks without a size are refused as content the schema cannot read.
+    const unsized = { ...figure, attrs: { id: 'f0000002', src: 'a.png' } };
+    const inserted = applyEdits(
+      state,
+      [{ op: 'insertBlocks', after: 'a1a1a1a1', content: [unsized] }],
+      AGENT,
+    );
+    expect(inserted.ok ? null : inserted.error).toMatchObject({
+      kind: 'invalid',
+      message: 'content[0]: figure has no width or height',
+    });
+  });
+
   it('DOCE-AUTOMATION-1.5 records the changes as suggestions by the actor', () => {
     const state = stateOf(paragraph('a1a1a1a1', 'The log keeps a report.'));
     const { state: next } = apply(
