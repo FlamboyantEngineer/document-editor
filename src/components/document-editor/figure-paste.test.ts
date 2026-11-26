@@ -2,7 +2,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { pngBytes, pngDataUri, pngFile } from '../../../test/image-files.js';
+import { loadImagesAt, pngBytes, pngDataUri, pngFile } from '../../../test/image-files.js';
 import { type AssetAdapter, createMemoryHost } from '../../host/index.js';
 import { readDocumentFile } from '../../model/index.js';
 import { figurePasteHandlers } from './figure-paste.js';
@@ -178,6 +178,30 @@ describe('figurePasteHandlers', () => {
     );
     expect(uploaded).toEqual([]);
     expect(figureSizes(view)).toEqual([]);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 sizes a pasted image its bytes do not size from the image the browser decodes', async () => {
+    const restore = loadImagesAt(300, 200);
+    // jsdom makes object addresses; only its images do not decode.
+    try {
+      const { view, handlers } = setUp();
+      const avif = new File(['....ftypavif'], 'photo.avif', { type: 'image/avif' });
+      expect(handlers.handlePaste(view, pasteOf([avif]))).toBe(true);
+      await vi.waitFor(() => expect(figureSizes(view)).toEqual([[300, 200]]));
+      view.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('DOCE-EDITOR-4.6 refuses a pasted image larger than the host takes before reading it', async () => {
+    const { view, uploaded, notified, handlers } = setUp(undefined, [], 8);
+    handlers.handlePaste(view, pasteOf([pngFile('large.png')]));
+    await vi.waitFor(() =>
+      expect(notified.at(-1)).toEqual({ tone: 'error', text: 'Larger than 8 bytes.' }),
+    );
+    expect(uploaded).toEqual([]);
     view.destroy();
   });
 

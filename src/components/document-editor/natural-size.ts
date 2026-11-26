@@ -1,17 +1,48 @@
 // The natural size of an image the writer brings in, found before it is inserted, so a new figure
-// enters the document with its size: a file's from its own bytes (`imageSizeOf`), an address's from
-// the bytes of a data address or else from the image the browser loads from it.
+// enters the document with its size: from the file's or a data address's own bytes
+// (`imageSizeOf`), or else from the image the browser decodes from it, which also reads the
+// formats the bytes reader does not, such as AVIF, and an SVG the browser sizes itself.
 
 import { type ImageSize, imageSizeOf } from '../../model/schema/image-size.js';
 import { decodeBase64 } from '../../utils/base64.js';
 
-/** A file's natural size, or null when its bytes give none. */
-export async function fileImageSize(file: Blob): Promise<ImageSize | null> {
+/**
+ * A file's natural size: its bytes' (`imageSizeOf`), or else the image a document decodes from it;
+ * null when neither gives one.
+ */
+export async function fileImageSize(
+  file: Blob,
+  ownerDocument: Document,
+): Promise<ImageSize | null> {
+  let bytes: Uint8Array;
   try {
-    return imageSizeOf(new Uint8Array(await file.arrayBuffer()));
+    bytes = new Uint8Array(await file.arrayBuffer());
   } catch {
     return null;
   }
+  const own = imageSizeOf(bytes);
+  const urls = ownerDocument.defaultView?.URL;
+  // A document that makes no object addresses decodes no file.
+  if (own || typeof urls?.createObjectURL !== 'function') return own;
+  const url = urls.createObjectURL(file);
+  try {
+    return await decodedSize(url, ownerDocument);
+  } finally {
+    urls.revokeObjectURL(url);
+  }
+}
+
+// The natural size of the image a document decodes from an address, or null.
+async function decodedSize(src: string, ownerDocument: Document): Promise<ImageSize | null> {
+  const image = ownerDocument.createElement('img');
+  image.src = src;
+  try {
+    await image.decode();
+  } catch {
+    return null;
+  }
+  const { naturalWidth: width, naturalHeight: height } = image;
+  return width > 0 && height > 0 ? { width, height } : null;
 }
 
 const DATA = /^data:([^,]*),/i;
@@ -32,22 +63,13 @@ function dataBytes(src: string): Uint8Array | null {
 
 /**
  * The natural size of the image at an address, or null when it gives none: a data address's from
- * its bytes; another's from the image a document loads, which an address that does not load, or
- * a document that loads no images, leaves without one.
+ * its bytes, or else from the image a document loads from the address, which an address that does
+ * not load, or a document that loads no images, leaves without one.
  */
 export async function addressImageSize(
   src: string,
   ownerDocument: Document,
 ): Promise<ImageSize | null> {
   const bytes = dataBytes(src);
-  if (bytes) return imageSizeOf(bytes);
-  const image = ownerDocument.createElement('img');
-  image.src = src;
-  try {
-    await image.decode();
-  } catch {
-    return null;
-  }
-  const { naturalWidth: width, naturalHeight: height } = image;
-  return width > 0 && height > 0 ? { width, height } : null;
+  return (bytes && imageSizeOf(bytes)) ?? decodedSize(src, ownerDocument);
 }

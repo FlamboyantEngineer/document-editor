@@ -146,6 +146,7 @@ function useFigureFields({ view, labels, assets, diagrams, figureType }: FigureD
   const change = (next: Partial<FigureFields>) => setFields((current) => ({ ...current, ...next }));
   const uploading = useFigureUpload(assets, labels, {
     current: fields.asset,
+    ownerDocument: view.dom.ownerDocument,
     onStored: (asset, natural) => change({ asset, src: '', natural }),
   });
   const takeDiagram = (diagram: StoredDiagram) =>

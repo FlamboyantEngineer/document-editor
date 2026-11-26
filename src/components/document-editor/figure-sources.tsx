@@ -51,9 +51,11 @@ export function useFigureUpload(
   labels: DocumentEditorLabels,
   {
     current,
+    ownerDocument,
     onStored,
   }: {
     current: FigureAsset | null;
+    ownerDocument: Document;
     onStored: (asset: FigureAsset, natural: ImageSize) => void;
   },
 ) {
@@ -87,7 +89,7 @@ export function useFigureUpload(
       ? { current: { assetId: current.fileAssetId, snapshotId: current.snapshotId } }
       : {};
     const store = async () => {
-      const natural = await fileImageSize(file);
+      const natural = await fileImageSize(file, ownerDocument);
       if (controller.signal.aborted) return;
       if (!natural) {
         failed(labels.imageUnreadable(file.name));

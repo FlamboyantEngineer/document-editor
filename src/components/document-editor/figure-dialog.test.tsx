@@ -365,6 +365,8 @@ describe('Figure sizes', () => {
   });
 
   it('DOCE-OBJECTS-1.4 refuses an upload whose bytes give no size, before any request', async () => {
+    // Neither its bytes nor the browser, which decodes no image here, give it a size.
+    restoreImages();
     const user = userEvent.setup();
     const view = editorView();
     const upload = vi.fn(() => Promise.resolve(uploadResult('broken')));

@@ -80,16 +80,18 @@ interface StoredImage {
   readonly natural: ImageSize;
 }
 
-// The natural size of each file, read before any is uploaded: null once a file is missing or its
-// bytes give no size, the reader told which.
+// The natural size of each file, read before any is uploaded: null once a file is missing, larger
+// than the host takes, or gives no size, the reader told why.
 async function sizesOf(
   files: readonly (File | null)[],
-  options: FigurePasteOptions,
+  options: FigurePasteOptions & { readonly ownerDocument: Document },
 ): Promise<ImageSize[] | null> {
   const sizes: ImageSize[] = [];
+  const max = options.assets.maxUploadBytes;
   for (const file of files) {
     if (!file) return refuse(options);
-    const size = await fileImageSize(file);
+    if (max !== undefined && file.size > max) return refuse(options, options.tooLarge(max));
+    const size = await fileImageSize(file, options.ownerDocument);
     if (!size) return refuse(options, options.unreadable(file.name));
     sizes.push(size);
   }
@@ -97,19 +99,18 @@ async function sizesOf(
 }
 
 // Reads the files' sizes, then uploads them one by one, in order: the stored images, or null once
-// one has no size, fails or is larger than the host takes, the reader told why.
+// one is larger than the host takes, has no size or fails, the reader told why.
 async function uploadAll(
+  view: EditorView,
   files: readonly (File | null)[],
   options: FigurePasteOptions,
 ): Promise<StoredImage[] | null> {
-  const sizes = await sizesOf(files, options);
+  const sizes = await sizesOf(files, { ...options, ownerDocument: view.dom.ownerDocument });
   if (!sizes) return null;
   const stored: StoredImage[] = [];
-  const max = options.assets.maxUploadBytes;
   for (const [index, file] of files.entries()) {
     const natural = sizes[index];
     if (!file || !natural) return refuse(options);
-    if (max !== undefined && file.size > max) return refuse(options, options.tooLarge(max));
     const result = await options.assets.upload(file).catch(() => null);
     if (!result?.ok) return refuse(options, result?.error.message);
     const { id, snapshotId } = result.value;
@@ -146,7 +147,7 @@ async function insertFigures(
   options: FigurePasteOptions,
 ) {
   if (await insertMathImages(view, { files, at }, options)) return;
-  const stored = await uploadAll(files, options);
+  const stored = await uploadAll(view, files, options);
   if (!stored || !canTake(view) || options.isCurrent?.() === false) return;
   let place = at;
   stored.forEach((asset, index) => {
@@ -175,6 +176,7 @@ async function pasteWithImages(
   options.feedback?.notify({ tone: 'info', text: options.uploading });
   const images = pastedImages(html, rtf);
   const stored = await uploadAll(
+    view,
     images.map((image) => image.file ?? null),
     options,
   );
