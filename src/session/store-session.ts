@@ -273,6 +273,9 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
   const session: DocumentSession = {
     documentId,
     mode: 'store',
+    get author() {
+      return options.host.identity.currentPerson().id;
+    },
     ...{ status, document, conflicts, connection: stores.connection, reloads: stores.reloads },
     ready: controller.signal.aborted
       ? Promise.resolve(false)

@@ -1,3 +1,4 @@
+import type { RichTextEngineCommit } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { renderHook } from '@testing-library/react';
 import { EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -50,6 +51,34 @@ describe('usePagedEditor', () => {
     result.current.onCanonical(tr, { from: selected, to: after });
     expect(update).toHaveBeenCalledWith(selected);
     expect(update).not.toHaveBeenCalledWith(drawn);
+  });
+
+  it('DOCE-PAGINATION-7.26 gives the pages the state the host takes for a transaction its body rewrote', () => {
+    const from = stateOf('Check the unit');
+    const tr = from.tr.insertText('x', 1);
+    const made = { from, to: from.apply(tr) };
+    let host = from;
+    const onStateChange = (next: (state: EditorState) => EditorState) => {
+      host = next(host);
+    };
+    // As suggesting rewrites typed text: another transaction on the same state.
+    const body = (_tr: Transaction, view: EditorView, commit: RichTextEngineCommit) =>
+      commit.applyDefault(view.state.tr.insertText('y', 1));
+    const { result } = renderHook(() =>
+      usePagedEditor({ state: from, onStateChange, body, events: {} }),
+    );
+    const update = vi.fn();
+    const projection = { state: made.to, update } as unknown as PagedProjection;
+    result.current.targetRef.current = { projection, host: from, view: {} as EditorView };
+    const taken = result.current.onCanonical(tr, made);
+    expect(taken?.state.doc.textContent).toBe('yCheck the unit');
+    expect(host).toBe(taken?.state);
+    // A transaction the body commits as it is leaves the pages' state as they made it.
+    const plain = renderHook(() =>
+      usePagedEditor({ state: from, onStateChange: vi.fn(), body: commitAll, events: {} }),
+    ).result.current;
+    plain.targetRef.current = { projection, host: from, view: {} as EditorView };
+    expect(plain.onCanonical(tr, made)).toBeUndefined();
   });
 });
 

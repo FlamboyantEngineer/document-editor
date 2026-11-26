@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import type { EditorHost } from '../../host/adapters.js';
-import { READ_ONLY_CAPABILITIES } from '../../host/capabilities.js';
+import { FULL_CAPABILITIES, READ_ONLY_CAPABILITIES } from '../../host/capabilities.js';
 import { createMemoryHost } from '../../host/memory-host.js';
 import type { DocumentFile } from '../../model/format/document-format.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
@@ -77,5 +77,26 @@ describe('DocumentSessionBoundary', () => {
     const { container } = render(<Host host={host} documentId="doc" />);
     await screen.findByRole('textbox', { name: 'Report' });
     expect(container.querySelector('.de-document-editor')).toHaveAttribute('data-mode', 'reading');
+  });
+
+  it('DOCE-SESSION-1.6 attributes a suggester’s typed text to the host’s current person', async () => {
+    const user = userEvent.setup();
+    const host = createMemoryHost({
+      documents: [{ id: 'doc', content: DOCUMENT }],
+      person: { id: 'grace', name: 'Grace' },
+      capabilities: { ...FULL_CAPABILITIES, edit: false, decide: false },
+    });
+    render(<Host host={host} documentId="doc" />);
+    await screen.findByRole('textbox', { name: 'Report' });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
+    await user.keyboard('!');
+    await vi.waitFor(async () => {
+      const loaded = await host.documents.load('doc');
+      const paragraph = loaded.ok ? loaded.value.content.sections[0]?.content[0] : undefined;
+      const typed = paragraph?.content?.[0];
+      expect(typed?.text).toBe('!');
+      expect(typed?.marks?.[0]).toMatchObject({ type: 'insertion', attrs: { author: 'grace' } });
+    });
   });
 });
