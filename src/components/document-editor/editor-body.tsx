@@ -260,6 +260,7 @@ function useOpeningChanges(view: EditorView | null, props: EditorBodyProps['prop
   });
   useDocumentValues(view, {
     plugins: state.plugins,
+    values: state.doc.attrs.values,
     variables: props.variables,
     template: props.template,
     enabled: writes,
