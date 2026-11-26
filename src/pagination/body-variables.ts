@@ -5,7 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type BodyVariables, PAGE_VARIABLES } from '../layout-engine/body-variables.js';
-import { fixedVariableText, type PageVariablesOptions } from './page-variables.js';
+import { fixedVariableText } from './page-variables.js';
 
 const NONE: readonly string[] = [];
 
@@ -26,12 +26,21 @@ function variableKeysOf(node: ProseMirrorNode): readonly string[] {
   return keys;
 }
 
-/** What the body text's variables show, from the page variables' values and the page boxes' digits. */
+/**
+ * What the body text's variables show: the texts the document the pages are numbered with stores
+ * (DOCE-FORMAT-1.7), and the digits the lists of contents' page boxes keep room for.
+ */
 export function bodyVariablesOf(
-  values: PageVariablesOptions | undefined,
-  digits: () => number,
+  numbered: () => { readonly doc: ProseMirrorNode | null },
+  contents: { digits(): number },
 ): BodyVariables {
-  return { text: (key) => fixedVariableText(key, values ?? {}) ?? '', digits };
+  return {
+    text: (key) => {
+      const { doc } = numbered();
+      return doc ? (fixedVariableText(key, doc) ?? '') : '';
+    },
+    digits: () => contents.digits(),
+  };
 }
 
 /**

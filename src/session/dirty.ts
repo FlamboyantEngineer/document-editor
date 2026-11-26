@@ -4,7 +4,12 @@
 // leaves a document clean.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { StoredMark, StoredNode, StoredSection } from '../model/format/document-format.js';
+import type {
+  DocumentFile,
+  StoredMark,
+  StoredNode,
+  StoredSection,
+} from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import { elementIdKey } from './stored-elements.js';
 
@@ -62,12 +67,25 @@ const sectionKey = ({ content, ...settings }: StoredSection) => ({
   content: content.map(normalize),
 });
 
-/** The content of stored sections as text two documents compare by. */
-export function storedContentKey(sections: readonly StoredSection[]): string {
-  return JSON.stringify(sections.map(sectionKey));
+// Variable texts as text that does not depend on the order their keys were stored in.
+const valuesKey = (values: DocumentFile['values']) =>
+  values ? Object.entries(values).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)) : null;
+
+/**
+ * The content of a stored document as text two documents compare by: its sections, its language
+ * and the texts its variables show (DOCE-FORMAT-1.7).
+ */
+export function storedContentKey(
+  file: Pick<DocumentFile, 'sections' | 'language' | 'values'>,
+): string {
+  return JSON.stringify({
+    language: file.language ?? null,
+    values: valuesKey(file.values),
+    sections: file.sections.map(sectionKey),
+  });
 }
 
 /** The content of an editor document, as stored, as text two documents compare by. */
 export function contentKey(doc: ProseMirrorNode): string {
-  return storedContentKey(writeDocumentFile(doc).sections);
+  return storedContentKey(writeDocumentFile(doc));
 }

@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode, NodeType, Schema } from 'prosemirror-model';
 import { cloneJson } from '../clone-json.js';
+import { canonicalLanguage, isDocumentValues } from '../document-values.js';
 import { orderDocumentMarks } from '../schema/mark-order.js';
 import {
   DOCUMENT_FORMAT_VERSION,
@@ -83,7 +84,7 @@ function readSection(stored: unknown, at: Located): ProseMirrorNode | null {
 }
 
 // The keys a stored document and a stored section hold.
-const FILE_KEYS = new Set(['formatVersion', 'template', 'sections']);
+const FILE_KEYS = new Set(['formatVersion', 'template', 'language', 'values', 'sections']);
 const SECTION_KEYS = new Set(['id', 'name', 'editable', 'header', 'footer', 'content']);
 
 // A section's settings as its node's attributes; under a lenient policy, a setting of the wrong
@@ -107,6 +108,22 @@ function readSectionAttrs(stored: Attrs, at: Located): Attrs {
     editable: setting('editable', (value) => typeof value === 'boolean') ?? true,
     pageHeader: cloneJson(setting('header', region)),
     pageFooter: cloneJson(setting('footer', region)),
+  };
+}
+
+// What a stored document keeps beside its content, as its top node's attributes (DOCE-FORMAT-1.7);
+// under a lenient policy, a value of the wrong kind is left out and listed.
+function readDocumentAttrs(file: Attrs, context: ReadContext): Attrs {
+  const setting = <T>(key: string, read: (value: unknown) => T | null) => {
+    const value = file[key];
+    if (value === undefined || value === null) return null;
+    const kept = read(value);
+    if (kept === null) report({ context, path: key }, `${key} has the wrong kind of value`);
+    return kept;
+  };
+  return {
+    language: setting('language', canonicalLanguage),
+    values: setting('values', (value) => (isDocumentValues(value) ? cloneJson(value) : null)),
   };
 }
 
@@ -139,7 +156,8 @@ export function readDocumentFile(
     .map((section, index) => readSection(section, { context, path: `sections[${String(index)}]` }))
     .filter((section): section is ProseMirrorNode => section !== null);
   // Overlapping marks of one type read in canonical order, as the editor and a shared room keep them.
-  const doc = orderDocumentMarks(schema.topNodeType.create(null, sections));
+  const attrs = readDocumentAttrs(file, context);
+  const doc = orderDocumentMarks(schema.topNodeType.create(attrs, sections));
   try {
     doc.check();
   } catch (error) {

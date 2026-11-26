@@ -177,20 +177,21 @@ test.describe('print on the layout engine lines', () => {
   });
 });
 
-test('DOCE-PAGINATION-13.10 prints and views the layout in the language the editor laid it out in', async ({
+test('DOCE-PAGINATION-13.10 DOCE-PAGINATION-9.16 prints and views the layout in the document language', async ({
   page,
 }) => {
   await open(page, 'page-breaks-and-rules');
-  // The editor in Turkish on a page in English: the engine is made again in Turkish at the next
-  // layout, which a keystroke asks for.
+  // The document in Turkish, on a template in English.
+  await page.evaluate(() => {
+    const file = window.regressionLab.stored();
+    if (!file) throw new Error('The regression lab holds no document');
+    window.regressionLab.load({ ...file, language: 'tr' });
+  });
+  await waitForLab(page);
+  // The page around the editor names another language, which the layout never takes.
   await page
     .locator('.lab-document-editor')
-    .evaluate((editor) => editor.setAttribute('lang', 'tr'));
-  await page
-    .locator('.de-forced-lines')
-    .first()
-    .click({ position: { x: 1, y: 4 } });
-  await page.keyboard.type('i');
+    .evaluate((editor) => editor.setAttribute('lang', 'de'));
   await page.evaluate(async () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     return window.stressLab.whenSettled();

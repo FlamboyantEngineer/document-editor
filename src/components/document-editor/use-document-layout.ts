@@ -23,7 +23,6 @@ import {
   type CompareSuggestions,
   contentsKey,
   documentSectionsKey,
-  refreshDynamicTemplates,
   refreshVersionChanges,
   type RegionChange,
   renumberFootnotes,
@@ -47,10 +46,10 @@ import {
 } from '../../model/index.js';
 import {
   type CanonicalChange,
+  type CanonicalTaken,
   type LayoutState,
   pageDebugKey,
   type PageDebugParts,
-  pageVariablesKey,
   type TextLayoutMode,
 } from '../../pagination/index.js';
 import type { DocumentEditorDebug } from './document-editor.js';
@@ -149,7 +148,10 @@ export interface DocumentLayoutOptions {
   readonly onTemplatePartChange?: ((change: TemplatePartChange) => void) | undefined;
   /** Runs the previews of the template's script blocks while its content is edited in place. */
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
-  /** The host's variables, shown in the headers, footers and text (`createPageVariables`). */
+  /**
+   * The host's variables, whose texts the document stores for the variables a writer adds
+   * (`createDocumentValues`).
+   */
   readonly variables?: VariablesAdapter | undefined;
   /**
    * The host's React node views, which a projection's ghost renders as the pages do, read when the
@@ -158,8 +160,12 @@ export interface DocumentLayoutOptions {
   readonly nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
   /** Wraps the ghost's React node views in the providers the editor's own views render under. */
   readonly wrapGhost?: ((view: ReactNode) => ReactNode) | undefined;
-  /** Takes each canonical transaction input on the projection's pages makes. */
-  readonly onCanonical?: ((tr: Transaction, made: CanonicalChange) => void) | undefined;
+  /**
+   * Takes each canonical transaction input on the projection's pages makes; gives what another
+   * transaction taken in its place made (`CanonicalTaken`).
+   */
+  readonly onCanonical?:
+    ((tr: Transaction, made: CanonicalChange) => CanonicalTaken | undefined) | undefined;
   /** Told of each layout of the projection's pages. */
   readonly onLayout?: ((tr: Transaction) => void) | undefined;
   /** The kinds of list and labels of the lists of contents the editor draws, when it draws them. */
@@ -202,33 +208,6 @@ const restyleSections = (template: TemplateFile) => (state: EditorState) =>
 
 // A state compared with the older version again, out of the history.
 const recompare = (state: EditorState) => state.apply(refreshVersionChanges(state.tr));
-
-// A state showing the variables' values again, in the text and the template blocks, out of the
-// history.
-const revalue = (state: EditorState) =>
-  state.apply(refreshDynamicTemplates(state.tr.setMeta(pageVariablesKey, true)));
-
-// The host's variables shown again, and the pages measured again, whenever the host says they
-// changed, and when it hands in other variables.
-function useHostVariables(
-  options: DocumentLayoutOptions,
-  { refresh, redraw }: Pick<PagingRefs, 'refresh' | 'redraw'>,
-) {
-  const { variables, onStateChange } = options;
-  const latest = useRef(onStateChange);
-  useEffect(() => {
-    latest.current = onStateChange;
-  });
-  useEffect(() => {
-    const show = () => {
-      latest.current(revalue);
-      redraw.current?.(pageVariablesKey);
-      refresh.current?.();
-    };
-    show();
-    return variables?.subscribe?.(show);
-  }, [variables, refresh, redraw]);
-}
 
 // The pages laid out again when the host hands in other layout rules, so every section, not only
 // those that change next, takes them; rules passed inline with the same entries change nothing.
@@ -354,7 +333,6 @@ export function useDocumentLayout(
     latest.current.onStateChange(recompare);
     refresh.current?.();
   }, [previous, display, suggestions, generated, scopeKey]);
-  useHostVariables(options, { refresh, redraw });
   useHostRules(options.layoutRules, refresh);
   useLayoutDebug(options.debug, options.onStateChange, redraw);
   useRegionsEditable(

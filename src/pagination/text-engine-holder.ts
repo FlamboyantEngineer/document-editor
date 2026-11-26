@@ -1,7 +1,7 @@
 // Holds a projection's text layout engine behind the `textLayout: 'pretext'` option: the engine
 // module loads on first use, so an editor without the option never loads the layout engine, and
 // the engine is made again for each template the pages are laid out with, when code's line
-// numbers are turned on or off, and when the language the pages are drawn in changes. It
+// numbers are turned on or off, and when the language the document is laid out in changes. It
 // measures with the fonts the host serves (DOCE-HOST-1.14.1), and asks for a family a new
 // template names.
 
@@ -9,9 +9,8 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
-import type { LayoutRules, TemplateFile } from '../model/index.js';
+import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
 import { templateFontFamilies } from './fonts.js';
-import type { PageVariablesOptions } from './page-variables.js';
 import type { PagesFonts, ServedFonts } from './served-fonts.js';
 import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -33,8 +32,11 @@ export interface TextLayoutSetting {
    * shown when not given.
    */
   readonly markup?: (() => SuggestionMarkup) | undefined;
-  /** Where the template variables get their values, as the page variables draw them. */
-  readonly variables?: PageVariablesOptions | undefined;
+  /**
+   * The language the document is laid out in now: its own, else its template's
+   * (DOCE-PAGINATION-9.16); the template's, else `en`, when not given. Never the host page's.
+   */
+  readonly language?: (() => string) | undefined;
   /**
    * The math layouter typeset math is sized and drawn from (DOCE-PAGINATION-12.10), awaited with
    * the engine; null, or none, measures math as the browser draws it.
@@ -54,10 +56,6 @@ export interface TextEngineHolder {
   remeasure(): void;
   destroy(): void;
 }
-
-// The language an element's text is drawn in: its own or its nearest ancestor's `lang`, empty for
-// none, as the browser reads it.
-const languageOf = (element: Element) => element.closest('[lang]')?.getAttribute('lang') ?? '';
 
 interface EngineModule {
   readonly createPagesTextEngine: typeof createPagesTextEngine;
@@ -88,12 +86,12 @@ function servedInputs(fonts: ServedFonts) {
   };
 }
 
-// What the engine takes from the setting beside its template: the host's views, the markup, the
-// variables' values and the math layouter it loaded.
+// What the engine takes from the setting beside its template: the host's views, the markup and
+// the math layouter it loaded.
 const settingInputs = (
-  { hostViews, layoutRules, markup, variables }: TextLayoutSetting,
+  { hostViews, layoutRules, markup }: TextLayoutSetting,
   { layouter }: LoadedEngine,
-) => ({ hostViews, layoutRules, markup, variables, mathLayouter: () => layouter });
+) => ({ hostViews, layoutRules, markup, mathLayouter: () => layouter });
 
 // How many times the markup the pages are laid out in has changed, as it is read.
 function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => number {
@@ -180,7 +178,7 @@ export function holdTextEngine(options: {
       if (!made || destroyed || fonts?.phase !== 'pretext') return null;
       const template = options.setting.template();
       const codeLineNumbers = options.setting.codeLineNumbers?.() ?? false;
-      const language = languageOf(options.measureIn);
+      const language = options.setting.language?.() ?? documentLanguage(null, template);
       if (current?.template === template && numbered === codeLineNumbers && language === spoken)
         return current;
       numbered = codeLineNumbers;

@@ -248,4 +248,53 @@ describe('stored sections', () => {
     ]);
     expect(writeDocumentFile(doc).sections).toEqual([{ name: null, content: [] }]);
   });
+
+  it('DOCE-FORMAT-1.7 keeps the document language and its variables texts beside its sections', () => {
+    const stored = {
+      formatVersion: 1,
+      language: 'en-GB',
+      values: { 'document.name': 'Interface notes', 'date.current': '26 November 2026' },
+      sections: [{ name: null, content: [] }],
+    } as const;
+    const { doc } = readDocumentFile(stored, documentSchema);
+    expect(doc.attrs).toMatchObject({ language: 'en-GB', values: stored.values });
+    expect(writeDocumentFile(doc)).toEqual({ ...stored, template: null });
+    // A file stored before them reads with neither, and writes back as it was.
+    const older = {
+      formatVersion: 1,
+      template: null,
+      sections: [
+        {
+          name: null,
+          content: [
+            { type: 'paragraph', content: [{ type: 'variable', attrs: { key: 'document.name' } }] },
+          ],
+        },
+      ],
+    } as const;
+    const read = readDocumentFile(older, documentSchema).doc;
+    expect(read.attrs).toMatchObject({ language: null, values: null });
+    expect(writeDocumentFile(read)).toEqual(older);
+    // Unset, both are left out.
+    const plain = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [] }] },
+      documentSchema,
+    ).doc;
+    expect(Object.keys(writeDocumentFile(plain))).toEqual([
+      'formatVersion',
+      'template',
+      'sections',
+    ]);
+  });
+
+  it('DOCE-FORMAT-1.7 refuses a language or values of the wrong kind, or leaves them out when lenient', () => {
+    const sections = [{ name: null, content: [] }];
+    const wrong = { formatVersion: 1, language: 'en_GB!', values: { a: 1 }, sections };
+    expect(() => readDocumentFile(wrong, documentSchema)).toThrow(
+      'language: language has the wrong kind of value',
+    );
+    const { doc, problems } = readDocumentFile(wrong, documentSchema, { unknown: 'drop' });
+    expect(problems.map((problem) => problem.path)).toEqual(['language', 'values']);
+    expect(doc.attrs).toMatchObject({ language: null, values: null });
+  });
 });

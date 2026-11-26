@@ -1,3 +1,4 @@
+import type { RichTextEngineCommit } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { renderHook } from '@testing-library/react';
 import { EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -50,6 +51,63 @@ describe('usePagedEditor', () => {
     result.current.onCanonical(tr, { from: selected, to: after });
     expect(update).toHaveBeenCalledWith(selected);
     expect(update).not.toHaveBeenCalledWith(drawn);
+  });
+
+  it('DOCE-PAGINATION-7.26 gives the pages the state the host takes for a transaction its body rewrote', () => {
+    const from = stateOf('Check the unit');
+    const tr = from.tr.insertText('x', 1);
+    const made = { from, to: from.apply(tr) };
+    let host = from;
+    const onStateChange = (next: (state: EditorState) => EditorState) => {
+      host = next(host);
+    };
+    // As suggesting rewrites typed text: another transaction on the same state.
+    const body = (_tr: Transaction, view: EditorView, commit: RichTextEngineCommit) =>
+      commit.applyDefault(view.state.tr.insertText('y', 1));
+    const { result } = renderHook(() =>
+      usePagedEditor({ state: from, onStateChange, body, events: {} }),
+    );
+    const update = vi.fn();
+    const projection = { state: made.to, update } as unknown as PagedProjection;
+    result.current.targetRef.current = { projection, host: from, view: {} as EditorView };
+    const taken = result.current.onCanonical(tr, made);
+    expect(taken?.state.doc.textContent).toBe('yCheck the unit');
+    expect(host).toBe(taken?.state);
+    // A transaction the body commits as it is leaves the pages' state as they made it.
+    const plain = renderHook(() =>
+      usePagedEditor({ state: from, onStateChange: vi.fn(), body: commitAll, events: {} }),
+    ).result.current;
+    plain.targetRef.current = { projection, host: from, view: {} as EditorView };
+    expect(plain.onCanonical(tr, made)).toBeUndefined();
+  });
+
+  it('DOCE-PAGINATION-7.26 rewrites a transaction on the state the pages made it on while the host lags', () => {
+    const drawn = stateOf('Check the unit');
+    // The pages' last edit, which the host has not drawn yet: its updater waits.
+    const from = drawn.apply(drawn.tr.insertText('a', 1));
+    const tr = from.tr.insertText('x', 2);
+    const made = { from, to: from.apply(tr) };
+    const waiting: ((state: EditorState) => EditorState)[] = [];
+    const seen: EditorState[] = [];
+    const body = (_tr: Transaction, view: EditorView, commit: RichTextEngineCommit) => {
+      seen.push(view.state);
+      commit.applyDefault(view.state.tr.insertText('y', 2));
+    };
+    const { result } = renderHook(() =>
+      usePagedEditor({
+        state: drawn,
+        onStateChange: (next) => waiting.push(next),
+        body,
+        events: {},
+      }),
+    );
+    const projection = { state: made.to, update: vi.fn() } as unknown as PagedProjection;
+    result.current.targetRef.current = { projection, host: drawn, view: {} as EditorView };
+    const taken = result.current.onCanonical(tr, made);
+    expect(seen[0]).toBe(from);
+    expect(taken?.state.doc.textContent).toBe('ayCheck the unit');
+    // The host, catching up, takes the state the pages hold.
+    expect(waiting.at(-1)?.(from)).toBe(taken?.state);
   });
 });
 

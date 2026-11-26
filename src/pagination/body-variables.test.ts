@@ -15,7 +15,6 @@ import {
 } from '../model/index.js';
 import { hasBodyPageVariable } from './body-variables.js';
 import { layoutDocument } from './layout-document.js';
-import type { PageVariablesOptions } from './page-variables.js';
 import { createPagesTextEngine } from './text-engine.js';
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
@@ -41,30 +40,34 @@ function paragraphOf(doc: ProseMirrorNode): ProseMirrorNode {
   return found;
 }
 
-function engineOf(variables?: PageVariablesOptions) {
+function engineOf() {
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
     measureIn: document.createElement('div'),
     onAtomsSettled: () => undefined,
-    variables,
   });
 }
+
+// A document storing a title's text (DOCE-FORMAT-1.7).
+const titled = (doc: ProseMirrorNode, title: string) =>
+  new Transform(doc).setDocAttribute('values', { 'document.title': title }).doc;
 
 beforeEach(() => {
   installFakeCanvas();
 });
 
 describe('the template variables of the body text', () => {
-  it('DOCE-PAGINATION-11.13 lays a body variable out as the text the page variables draw', () => {
-    let title = 'Notes';
-    const engine = engineOf({ value: () => title });
-    const paragraph = paragraphOf(documentOf());
+  it('DOCE-PAGINATION-11.13 lays a body variable out as the text the document stores', () => {
+    const engine = engineOf();
+    const doc = documentOf();
+    const paragraph = paragraphOf(doc);
+    engine.number(titled(doc, 'Notes'));
     const short = engine.measureBlock(paragraph, null);
     expect(short).not.toBeNull();
     expect(engine.measureBlock(paragraph, null)).toBe(short);
     expect(engine.stats().refused).toBe(0);
-    // Another value lays the block out again, here on more lines.
-    title = 'a much longer title '.repeat(12).trim();
+    // Another stored text lays the same block out again, here on more lines.
+    engine.number(titled(doc, 'a much longer title '.repeat(12).trim()));
     const long = engine.measureBlock(paragraph, null);
     expect(long).not.toBe(short);
     expect(long?.height).toBeGreaterThan(short?.height ?? 0);

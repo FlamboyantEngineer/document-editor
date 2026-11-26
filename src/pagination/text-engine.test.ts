@@ -457,7 +457,7 @@ function served(added: string[] = []): ServedFonts {
 }
 
 describe('holdTextEngine', () => {
-  it('DOCE-PAGINATION-9.7 lays the pages out in the language they are drawn in, and again when it changes', async () => {
+  it('DOCE-PAGINATION-9.16 lays the pages out in the document language, never the page around them', async () => {
     const host = document.createElement('section');
     const measureIn = host.appendChild(document.createElement('div'));
     host.lang = 'zh-Hans';
@@ -467,15 +467,32 @@ describe('holdTextEngine', () => {
       changed: () => undefined,
     });
     await holder.loaded;
+    // Without the document's, the template's: the base template's English.
     const first = holder.engine();
-    expect(first).not.toBeNull();
-    expect(holder.engine()).toBe(first);
+    expect(first?.language).toBe('en');
     host.lang = 'ja';
-    const second = holder.engine();
-    expect(second).not.toBe(first);
-    host.removeAttribute('lang');
-    expect(holder.engine()).not.toBe(second);
+    expect(holder.engine()).toBe(first);
     holder.destroy();
+    let language = 'ja';
+    const named = holdTextEngine({
+      setting: {
+        template: () => BASE_TEMPLATE,
+        fonts: Promise.resolve(served()),
+        language: () => language,
+      },
+      measureIn,
+      changed: () => undefined,
+    });
+    await named.loaded;
+    const japanese = named.engine();
+    expect(japanese?.language).toBe('ja');
+    expect(named.engine()).toBe(japanese);
+    // Another document language makes the engine again (DOCE-PAGINATION-9.7).
+    language = 'th';
+    const thai = named.engine();
+    expect(thai).not.toBe(japanese);
+    expect(thai?.language).toBe('th');
+    named.destroy();
   });
 
   it('DOCE-PAGINATION-11.12 keeps the engine in another markup, its lines moved', async () => {

@@ -9,6 +9,8 @@
       "marks": null,
       "flags": {},
       "attrs": {
+        "language": { "default": null, "validate": "function" },
+        "values": { "default": null, "validate": "function" },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },

@@ -5,6 +5,7 @@
 
 import type { EditorView } from 'prosemirror-view';
 import {
+  documentLanguage,
   findTemplateSection,
   type TemplateFile,
   templatePageMetrics,
@@ -133,11 +134,11 @@ function pagesMarkup(
   return copy.outerHTML;
 }
 
-// The language the pages are shown in, the closest one around them, which picks their fonts'
-// fallbacks, hyphenation and quotes; none when nothing around them names one.
-function languageAttribute(view: EditorView): string {
-  const language = view.dom.closest('[lang]')?.getAttribute('lang');
-  return language ? ` lang="${escapeHtml(language)}"` : '';
+// The language the pages are laid out in, the document's own, else its template's
+// (DOCE-PAGINATION-9.16), which picks their fonts' fallbacks, hyphenation and quotes; never the
+// host page's.
+function languageAttribute(view: EditorView, template: TemplateFile): string {
+  return ` lang="${escapeHtml(documentLanguage(view.state.doc, template))}"`;
 }
 
 // The editor root's hooks around the pages, so stylesheets scoped to the editor style them too,
@@ -170,7 +171,7 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
   const styles = (options.styles ?? []).map((css) => `<style>${css}</style>`).join('');
   return [
     '<!doctype html>',
-    `<html${languageAttribute(view)}><head><meta charset="utf-8">`,
+    `<html${languageAttribute(view, options.template)}><head><meta charset="utf-8">`,
     `<title>${escapeHtml(options.title ?? '')}</title>`,
     `<style>${printRules(options.template, sizes)} :root { ${properties} }</style>`,
     links,

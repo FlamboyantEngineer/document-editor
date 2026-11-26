@@ -1,10 +1,10 @@
 import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { createRef, type Ref, useEffect, useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema, findNode } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { TEST_FONTS } from '../../../test/served-fonts.js';
@@ -736,7 +736,7 @@ describe('DocumentEditor', () => {
     expect(screen.getByRole('textbox', { name: 'Report' })).not.toHaveTextContent('{{author}}');
   });
 
-  it('DOCE-HOST-1.12 DOCE-PAGINATION-8.4 shows the host variables and page numbers', async () => {
+  it('DOCE-HOST-1.12 DOCE-PAGINATION-8.4 stores the host variables as edits and shows them with page numbers', async () => {
     const variable = (key: string): StoredNode => ({ type: 'variable', attrs: { key } });
     const line = (...content: StoredNode[]) => ({ content: [{ type: 'paragraph', content }] });
     const template: TemplateFile = {
@@ -758,14 +758,24 @@ describe('DocumentEditor', () => {
         return () => listeners.delete(onChange);
       },
     };
-    function Shown() {
-      const [state, setState] = useState(initial);
+    const committed = vi.fn<(state: EditorState) => void>();
+    const stored = () => committed.mock.lastCall?.[0].doc.attrs.values as unknown;
+    function Shown({
+      editable = true,
+      start = initial,
+    }: {
+      editable?: boolean;
+      start?: () => EditorState;
+    }) {
+      const [state, setState] = useState(start);
+      useEffect(() => committed(state), [state]);
       return (
         <DocumentEditor
           state={state}
           onStateChange={setState}
           template={template}
           variables={variables}
+          editable={editable}
           aria-label="Report"
         />
       );
@@ -773,13 +783,37 @@ describe('DocumentEditor', () => {
     const { container, unmount } = render(<Shown />);
     const header = () => container.querySelector('.de-document-editor__content .pm-page-header');
     const footer = () => container.querySelector('.de-document-editor__content .pm-page-footer');
+    // Opening stores the text the document had none for, as an edit (DOCE-FORMAT-1.7).
     await waitFor(() => expect(header()).toHaveTextContent('Interface notes'));
+    await waitFor(() => expect(stored()).toEqual({ 'document.name': 'Interface notes' }));
     expect(footer()).toHaveTextContent('Page 1 of 1');
     name = 'Timing notes';
-    for (const listener of listeners) listener();
+    act(() => {
+      for (const listener of listeners) listener();
+    });
     await waitFor(() => expect(header()).toHaveTextContent('Timing notes'));
+    await waitFor(() => expect(stored()).toEqual({ 'document.name': 'Timing notes' }));
     unmount();
     expect(listeners.size).toBe(0);
+    // A reader sees the texts the document stores; the host's change edits nothing.
+    const valued = () => {
+      const doc = initial().doc;
+      return EditorState.create({
+        doc: doc.type.create(
+          { ...doc.attrs, values: { 'document.name': 'Stored name' } },
+          doc.content,
+        ),
+      });
+    };
+    const view = render(<Shown editable={false} start={valued} />);
+    const read = () => view.container.querySelector('.de-document-editor__content .pm-page-header');
+    await waitFor(() => expect(read()).toHaveTextContent('Stored name'));
+    act(() => {
+      for (const listener of listeners) listener();
+    });
+    expect(read()).toHaveTextContent('Stored name');
+    expect(stored()).toEqual({ 'document.name': 'Stored name' });
+    view.unmount();
   });
 
   it('DOCE-FOOTNOTES-2.1 numbers footnotes in each section in the web layout', async () => {

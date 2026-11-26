@@ -2,6 +2,7 @@
 // DOM when it loads, so a server imports it to read, write and check the documents the editor makes.
 
 export * from './contents/document-catalog.js';
+export * from './document-values.js';
 export * from './document-words.js';
 export * from './format/index.js';
 export type { AbbreviationReferenceAttrs, GlossaryEntry } from './glossary.js';

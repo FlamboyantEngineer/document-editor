@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import type { EditorHost } from '../../host/adapters.js';
-import { READ_ONLY_CAPABILITIES } from '../../host/capabilities.js';
+import { FULL_CAPABILITIES, READ_ONLY_CAPABILITIES } from '../../host/capabilities.js';
 import { createMemoryHost } from '../../host/memory-host.js';
 import type { DocumentFile } from '../../model/format/document-format.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
@@ -64,6 +64,54 @@ describe('DocumentSessionBoundary', () => {
     await vi.waitFor(async () => expect(await stored(host)).toContain('!'));
   });
 
+  it('DOCE-SESSION-2.1 DOCE-PAGINATION-8.4 saves the variable texts a writer’s editor stores on opening an older file', async () => {
+    // A file stored before the document kept its variables' texts (DOCE-FORMAT-1.7).
+    const older: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: 'a0000001' },
+              content: [
+                { type: 'text', text: 'About ' },
+                { type: 'variable', attrs: { key: 'document.name' } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const host = createMemoryHost({ documents: [{ id: 'doc', content: older }] });
+    const variables = {
+      value: (key: string) => (key === 'document.name' ? 'Interface notes' : null),
+    };
+    function Writer() {
+      const session = useDocumentSession({
+        host,
+        documentId: 'doc',
+        mode: 'store',
+        autosaveDelay: 0,
+      });
+      if (!session) return null;
+      return (
+        <DocumentSessionBoundary session={session}>
+          {(props) => <DocumentEditor {...props} variables={variables} aria-label="Report" />}
+        </DocumentSessionBoundary>
+      );
+    }
+    render(<Writer />);
+    await screen.findByRole('textbox', { name: 'Report' });
+    // No other edit: the texts alone are a change to save.
+    await vi.waitFor(async () =>
+      expect(JSON.parse(await stored(host))).toMatchObject({
+        values: { 'document.name': 'Interface notes' },
+      }),
+    );
+  });
+
   it('DOCE-SESSION-1.6 shows the error of a document that cannot load', async () => {
     render(<Host host={createMemoryHost()} documentId="missing" />);
     expect(await screen.findByRole('alert')).toHaveTextContent('not-found');
@@ -77,5 +125,26 @@ describe('DocumentSessionBoundary', () => {
     const { container } = render(<Host host={host} documentId="doc" />);
     await screen.findByRole('textbox', { name: 'Report' });
     expect(container.querySelector('.de-document-editor')).toHaveAttribute('data-mode', 'reading');
+  });
+
+  it('DOCE-SESSION-1.6 attributes a suggester’s typed text to the host’s current person', async () => {
+    const user = userEvent.setup();
+    const host = createMemoryHost({
+      documents: [{ id: 'doc', content: DOCUMENT }],
+      person: { id: 'grace', name: 'Grace' },
+      capabilities: { ...FULL_CAPABILITIES, edit: false, decide: false },
+    });
+    render(<Host host={host} documentId="doc" />);
+    await screen.findByRole('textbox', { name: 'Report' });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
+    await user.keyboard('!');
+    await vi.waitFor(async () => {
+      const loaded = await host.documents.load('doc');
+      const paragraph = loaded.ok ? loaded.value.content.sections[0]?.content[0] : undefined;
+      const typed = paragraph?.content?.[0];
+      expect(typed?.text).toBe('!');
+      expect(typed?.marks?.[0]).toMatchObject({ type: 'insertion', attrs: { author: 'grace' } });
+    });
   });
 });

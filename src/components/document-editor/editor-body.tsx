@@ -22,6 +22,7 @@ import { AbbreviationTip } from './abbreviation-tip.js';
 import { copyContentLink } from './copy-link.js';
 import { DebugTooltip } from './debug-tooltip.js';
 import type { DocumentEditorProps } from './document-editor.js';
+import { useDocumentValues } from './document-values.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
 import { editorKeys } from './editor-keys.js';
@@ -245,7 +246,8 @@ function useContentAttributes(props: DocumentEditorProps): Readonly<Record<strin
 const CONTENT_CLASS = 'ui-rich-text-engine-content';
 
 // What opening a document changes, for a writer who edits directly: the scripts that run on
-// opening, and, when the host asks, the abbreviations brought up to date with the glossary.
+// opening, the texts of variables it stores none for, and, when the host asks, the abbreviations
+// brought up to date with the glossary; and the variables' texts, whenever the host's change.
 function useOpeningChanges(view: EditorView | null, props: EditorBodyProps['props']) {
   const { state, editable = true, suggesting = false } = props;
   const writes = editable && !suggesting;
@@ -255,6 +257,12 @@ function useOpeningChanges(view: EditorView | null, props: EditorBodyProps['prop
     doc: state.doc,
     glossary: props.glossary,
     enabled: writes && props.refreshAbbreviationsOnOpen === true,
+  });
+  useDocumentValues(view, {
+    plugins: state.plugins,
+    variables: props.variables,
+    template: props.template,
+    enabled: writes,
   });
 }
 

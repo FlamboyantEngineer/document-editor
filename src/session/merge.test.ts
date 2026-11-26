@@ -323,6 +323,30 @@ describe('mergeDocuments', () => {
     expect(merge.content.template).toEqual({ id: 'report', revision: 'r2' });
   });
 
+  it('DOCE-SESSION-4.1 DOCE-FORMAT-1.7 keeps the language and merges the variable texts key by key', () => {
+    const stored = { language: 'fr', values: { 'document.name': 'Notes', 'date.current': '1' } };
+    const base = { ...BASE, ...stored };
+    const mine = { ...file(ONE, paragraph('a0000002', 'Two, mine'), THREE), ...stored };
+    // Both kept: an edit of the blocks alone keeps what both hold.
+    expect(mergeDocuments({ base, mine, theirs: base }).content).toMatchObject(stored);
+    // Each side changed another text, and the store the language: the merge keeps all three.
+    const refreshed = { ...mine, values: { ...stored.values, 'date.current': '2' } };
+    const theirs = {
+      ...base,
+      language: 'de',
+      values: { ...stored.values, 'document.name': 'Plan' },
+    };
+    expect(mergeDocuments({ base, mine: refreshed, theirs }).content).toMatchObject({
+      language: 'de',
+      values: { 'document.name': 'Plan', 'date.current': '2' },
+    });
+    // The reader's change wins over the store's, and a text one side took out stays out.
+    const cleared = { ...refreshed, language: 'en-GB', values: { 'date.current': '2' } };
+    const merged = mergeDocuments({ base, mine: cleared, theirs }).content;
+    expect(merged.language).toBe('en-GB');
+    expect(merged.values).toEqual({ 'date.current': '2' });
+  });
+
   it('DOCE-SESSION-4.2 reports a block both sides changed, showing the reader’s version', () => {
     const mine = file(ONE, paragraph('a0000002', 'Two, mine'), THREE);
     const theirs = file(ONE, paragraph('a0000002', 'Two, theirs'), THREE);

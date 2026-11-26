@@ -232,6 +232,17 @@ function isEmptyBlock(doc: ProseMirrorNode, [from, to]: readonly [number, number
   return Boolean(node?.isTextblock && !node.content.size && from + node.nodeSize === to);
 }
 
+// Whether every inline node in a range carries a mark of a type.
+function everyInlineMarked(doc: ProseMirrorNode, range: readonly [number, number], type: MarkType) {
+  let marked = true;
+  doc.nodesBetween(...range, (node, pos, parent) => {
+    if (node.isInline && parent?.isTextblock && pos >= range[0] && !type.isInSet(node.marks))
+      marked = false;
+    return marked && !node.isInline;
+  });
+  return marked;
+}
+
 // Suggests one replacement, and gives where the caret goes, or null when it cannot be suggested.
 function suggestReplace(
   suggesting: Suggesting,
@@ -255,7 +266,10 @@ function suggestReplace(
       suggesting.newId();
     tr.insert(at, inline);
     markInserted(suggesting, [at, at + inline.size], group);
-    return at + inline.size;
+    // Inline content the insertion mark cannot hold, such as a variable, cannot be suggested.
+    return everyInlineMarked(tr.doc, [at, at + inline.size], suggesting.insertion)
+      ? at + inline.size
+      : null;
   }
   // A block put in place of an empty text block, as a new block takes a blank line, goes after it.
   if (from !== to)
