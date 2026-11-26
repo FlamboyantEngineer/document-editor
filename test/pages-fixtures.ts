@@ -150,6 +150,6 @@ export function pagesState(doc: Node, engine: PagesTextEngine | null, plugins: P
   const source = { engine: () => engine, version: () => 0 };
   return EditorState.create({
     doc,
-    plugins: [forcedLines(source), createPageVariables({ value: (key) => `<${key}>` }), ...plugins],
+    plugins: [forcedLines(source), createPageVariables(), ...plugins],
   });
 }

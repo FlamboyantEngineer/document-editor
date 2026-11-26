@@ -3,6 +3,7 @@
   "id": "field-report",
   "name": "Field report",
   "parent": "base",
+  "language": "en-GB",
   "page": {
     "size": "A4",
     "orientation": "portrait",

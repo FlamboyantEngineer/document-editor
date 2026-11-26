@@ -1,8 +1,9 @@
 // Every section of the template editor as data, in the order it shows them below the text styles:
-// page setup, paragraph numbering, header and footer, lists, the numbered objects, footnotes,
+// page setup, language, paragraph numbering, header and footer, lists, the numbered objects, footnotes,
 // contents, references and change bars.
 
 import {
+  canonicalLanguage,
   EXTERNAL_DOCUMENT_REFERENCE_TYPE,
   PAGE_SIZE_DIMENSIONS,
   referenceFormatError,
@@ -187,6 +188,23 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
         group: PAPER,
       },
       setting('margins', 'Margins', { type: 'sides', unit: 'page', side: 'margin' }),
+    ],
+  },
+  {
+    // The language text is broken into lines in, when the document names none (DOCE-PAGINATION-9.16).
+    id: 'language',
+    title: 'Language',
+    scope: [],
+    documentOnly: true,
+    settings: [
+      {
+        ...setting('language', 'Language', text),
+        hint: 'A language tag, such as en, en-GB or fr; documents in another language name their own',
+        check: (value: unknown) =>
+          value === '' || value === null || canonicalLanguage(value)
+            ? null
+            : 'Type a language tag, such as en-GB.',
+      },
     ],
   },
   {

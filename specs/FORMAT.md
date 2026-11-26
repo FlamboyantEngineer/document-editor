@@ -27,7 +27,7 @@ Verification: `src/model/format/document-format.test.ts`
 
 ### DOCE-FORMAT-1.4 - Unreadable documents
 
-A stored document that is not an object, has another `formatVersion`, or holds a node, mark or attribute the schema does not know, an attribute value not of the kind its type takes (its `validate`, such as a cell's span, DOCE-SCHEMA-3.5), content its type does not allow, a mark that another mark of its node excludes, or a key the format does not know at its top level (beside `formatVersion`, `template` and `sections`) or in a section (beside `id`, `name`, `editable`, `header`, `footer` and `content`), shall not be read under the default policy (`unknown: 'throw'`): `readDocumentFile` shall throw a `DocumentFormatError` (`isDocumentFormatError`) whose `path` names the first problem, such as `sections[0].content[2]`.
+A stored document that is not an object, has another `formatVersion`, or holds a node, mark or attribute the schema does not know, an attribute value not of the kind its type takes (its `validate`, such as a cell's span, DOCE-SCHEMA-3.5), content its type does not allow, a mark that another mark of its node excludes, or a key the format does not know at its top level (beside `formatVersion`, `template`, `language`, `values` and `sections`) or in a section (beside `id`, `name`, `editable`, `header`, `footer` and `content`), shall not be read under the default policy (`unknown: 'throw'`): `readDocumentFile` shall throw a `DocumentFormatError` (`isDocumentFormatError`) whose `path` names the first problem, such as `sections[0].content[2]`.
 
 Implementation: `src/model/format/document-format-convert.ts`, `src/model/format/document-format-nodes.ts`
 Verification: `src/model/format/document-format.test.ts`, `src/model/format/document-format-convert.test.ts`
@@ -45,6 +45,13 @@ A stored section shall keep its own `id`, `editable: false` when a writer may no
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`, `src/model/format/document-format-write.ts`, `src/model/schema/page-nodes.ts`
 Verification: `src/model/format/document-format.test.ts`
+
+### DOCE-FORMAT-1.7 - Language and variable texts
+
+A stored document shall keep, beside its sections, the language its text is laid out in (`language`, a language tag, written in canonical form; its template's when none, DOCE-PAGINATION-9.16) and the text each variable it shows had when last refreshed (`values`, a record of strings by key, such as `document.name` and `date.current`; never `page.current` or `page.total`, which the layout gives, DOCE-PAGINATION-8.8). Both shall be the top node's attributes (`language`, `values`), so they are saved, shared in a room and versioned with the document, and change only by an edit; each is left out when unset. A language that is not a tag or values that are not a record of strings shall not be read: they throw under the default policy and are left out and listed under a lenient one (DOCE-FORMAT-1.5).
+
+Implementation: `src/model/document-values.ts`, `src/model/schema/core-nodes.ts`, `src/model/format/document-format-convert.ts`, `src/model/format/document-format-write.ts`
+Verification: `src/model/format/document-format.test.ts`, `src/model/document-values.test.ts`
 
 ## DOCE-FORMAT-2 - Templates
 

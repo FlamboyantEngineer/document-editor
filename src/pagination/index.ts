@@ -39,7 +39,6 @@ export type { PageBox } from './page-geometry.js';
 export { pageAtPoint, pageBoxes, pageElements } from './page-geometry.js';
 export type { LaidOutPage, PageMap } from './page-map.js';
 export { createPageMap, pageMap } from './page-map.js';
-export type { PageVariablesOptions, VariableValue } from './page-variables.js';
 export { createPageVariables, pageVariablesKey, refreshPageVariables } from './page-variables.js';
 export type { PaginationStats } from './pagination-stats.js';
 export type {

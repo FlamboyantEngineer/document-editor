@@ -15,7 +15,7 @@ import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { createTextLayout, type TextLayout } from '../layout-engine/text-layout.js';
-import type { LayoutBlock } from '../model/index.js';
+import { documentLanguage, type LayoutBlock } from '../model/index.js';
 import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
 import { contentWidths } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
@@ -106,7 +106,7 @@ function engineLayouts(
   },
 ) {
   // What the body text's variables show, and the key a kept layout of a block holding some matches.
-  const body = bodyVariablesOf(options.variables, () => contents.digits());
+  const body = bodyVariablesOf(numbers, contents);
   const variablesKey = (node: ProseMirrorNode) => bodyVariablesKey(node, body);
   const { template } = options;
   const measureContext = options.measureContext ?? unhintedContext;
@@ -132,7 +132,7 @@ function engineLayouts(
     measureContext,
     isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
-    language: options.language ?? '',
+    language: options.language ?? documentLanguage(null, template),
     reserve: options.reserve,
     measureAtom: (node, place) =>
       sizes.inline(node, place?.width ?? 0, place?.scope ?? null) ?? atoms.measureAtom(node, place),

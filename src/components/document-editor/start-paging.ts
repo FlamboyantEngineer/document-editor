@@ -14,6 +14,7 @@ import type { SuggestionMarkup } from '../../layout-engine/hidden-suggestions.js
 import type { MathLayouter } from '../../layout-engine/math-atoms.js';
 import {
   createLayoutRules,
+  documentLanguage,
   findTemplateSection,
   FRAGMENT_RULES,
   type FragmentRules,
@@ -195,8 +196,8 @@ function textLayoutOf(
     // nodes (DOCE-PAGINATION-14.1, 14.3).
     layoutRules: engineRules(() => latest.current.layoutRules),
     markup,
-    // The values the page variables draw (`ownPlugins`), which the text's variables are laid out in.
-    variables: { value: (key: string) => latest.current.variables?.value(key) },
+    // The document's own language, else its template's (DOCE-PAGINATION-9.16).
+    language: () => documentLanguage(latest.current.state.doc, latest.current.template),
     mathLayouter: import('../../layout-engine/math/mathjax-layouter.js')
       .then((module) => module.createMathJaxLayouter())
       .then(

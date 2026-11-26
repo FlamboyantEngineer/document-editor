@@ -359,6 +359,11 @@ export interface TemplateFile {
   name?: string | null;
   /** The id of the template it inherits from. Without one it inherits the base template. */
   parent?: string | null;
+  /**
+   * The language a document's text is broken into lines in when it names none, a language tag
+   * such as `en-GB`. Document-level only (DOCE-PAGINATION-9.16).
+   */
+  language?: string | null;
   page?: PageSettings | null;
   styles?: TemplateStyles | null;
   header?: RegionSettings | null;

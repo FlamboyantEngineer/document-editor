@@ -1,5 +1,5 @@
 // The plugins a document's layout adds to the editor's own: its page debugging, list starts, page
-// variables and dynamic template content, search, authorship, region
+// variables and dynamic template content, the stored texts of the variables a writer adds, search, authorship, region
 // and template content editing with its script previews, sections, template edit defaults, change
 // lines, version changes, unbreakable citation identifiers, the refresh of abbreviations a writer
 // adds and, unless the host installs its own, its lists of contents.
@@ -12,6 +12,7 @@ import {
   createAuthorship,
   createChangeLines,
   createDocumentSections,
+  createDocumentValues,
   createDynamicTemplates,
   createReferenceIdentifiers,
   createRegionEditing,
@@ -37,8 +38,12 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
       },
     }),
     createListStarts(),
-    createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
-    createDynamicTemplates({ value: (key) => latest.current.variables?.value(key) }),
+    createPageVariables(),
+    createDynamicTemplates(),
+    createDocumentValues(() => ({
+      value: (key) => latest.current.variables?.value(key),
+      template: latest.current.template,
+    })),
     editorContents(latest),
     createSearch(),
     createSearch('pane'),

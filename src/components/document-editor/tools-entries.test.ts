@@ -96,4 +96,41 @@ describe('Tools entries', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(dispatch).not.toHaveBeenCalled();
   });
+
+  it('DOCE-PAGINATION-8.4 stores every variable text again from the Tools menu, as one edit', () => {
+    const { doc } = readDocumentFile(
+      {
+        formatVersion: 1,
+        values: { 'document.name': 'Old name' },
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'variable', attrs: { key: 'document.name' } }],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    const shown = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) }),
+    });
+    view = shown;
+    const context = createEditorContext(shown, shown.state, {
+      editable: true,
+      labels: DEFAULT_EDITOR_LABELS,
+    });
+    const variables = { value: (key: string) => (key === 'document.name' ? 'New name' : null) };
+    const entry = toolsEntries(context, { view: shown, variables }).find(
+      (each) => each.id === 'update-variables',
+    );
+    if (!entry || !('onAction' in entry)) throw new Error('No variables entry.');
+    expect(entry.label).toBe('Update variables and dates');
+    entry.onAction?.();
+    expect(shown.state.doc.attrs.values).toEqual({ 'document.name': 'New name' });
+  });
 });

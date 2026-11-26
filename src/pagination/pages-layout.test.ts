@@ -1,3 +1,4 @@
+import { Transform } from 'prosemirror-transform';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js';
@@ -79,10 +80,14 @@ describe('pagesLayout', () => {
         node('template_variable', { variableKey: 'document.name' }),
       ]),
     ];
-    const doc = pagesDocument([page([paragraph('One')], { footer })]);
+    const values = { 'document.name': 'Interface notes' };
+    const doc = new Transform(
+      pagesDocument([page([paragraph('One')], { footer })]),
+    ).setDocAttribute('values', values).doc;
     const layout = pagesLayout(pagesState(doc, stubEngine()));
+    // The pages document keeps the texts it stores, which the variables show.
     expect(layout && readPagesDocument(layout, documentSchema).eq(doc)).toBe(true);
-    expect(layout?.variables.map((each) => each.text)).toEqual(['1', '<document.name>']);
+    expect(layout?.variables.map((each) => each.text)).toEqual(['1', 'Interface notes']);
     const first = layout?.variables[0]?.pos ?? 0;
     expect(doc.nodeAt(first - 1)?.type.name).toBe('template_variable');
     expect(JSON.parse(JSON.stringify(layout))).toEqual(layout);
