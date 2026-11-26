@@ -120,6 +120,44 @@ describe('createDrawnAtomMeasurer', () => {
     view.destroy();
   });
 
+  it('DOCE-PAGINATION-10.8 loads a block atom’s lazy image in the measuring view and reads it once loaded', async () => {
+    stubBoxes();
+    // The image has not loaded, as one a host previews from its address has not on a first visit.
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false);
+    const element = document.createElement('div');
+    document.body.append(element);
+    const view = new EditorView(element, {
+      state: EditorState.create({ doc: parseMarkup('<div data-dynamic-template="true"></div>') }),
+      editable: () => false,
+      nodeViews: {
+        // Rendered markup that holds an image, as a dynamic template's can.
+        dynamic_template: () => {
+          const dom = document.createElement('div');
+          const image = document.createElement('img');
+          image.setAttribute('src', 'plan.png');
+          image.setAttribute('loading', 'lazy');
+          dom.append(image);
+          return { dom, ignoreMutation: () => true };
+        },
+      },
+    });
+    const host = document.createElement('div');
+    element.append(host);
+    const cache = createAtomCache({ measure: createDrawnAtomMeasurer({ view: () => view, host }) });
+    const listener = vi.fn();
+    cache.subscribe(listener);
+    const block = findNode(view.state.doc, 'dynamic_template');
+    const image = view.dom.querySelector('img');
+    if (!block || !image) throw new Error('no template block');
+    expect(cache.measureBlockAtom(block, 400, null)?.provisional).toBe(true);
+    // Out of sight, a lazy image never loads, so the measuring view loads it at once.
+    expect(image).toHaveAttribute('loading', 'eager');
+    image.dispatchEvent(new Event('load'));
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledWith([block]));
+    expect(cache.measureBlockAtom(block, 400, null)?.provisional).toBe(false);
+    view.destroy();
+  });
+
   it('DOCE-PAGINATION-10.8 keeps math that typesets slowly provisional for as long as it is drawn', async () => {
     vi.useFakeTimers();
     stubBoxes();

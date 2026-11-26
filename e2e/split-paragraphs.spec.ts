@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import type { RegressionDocumentName } from '../labs/src/regression/regression-documents.js';
-import type { DocumentFile, StoredNode } from '../src/model/index.js';
+import { type DocumentFile, PAGE_SAFETY_MARGIN_PX, type StoredNode } from '../src/model/index.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // Paragraphs split across pages, read and edited in the regression lab as a writer sees them:
@@ -26,11 +26,12 @@ interface PartRead {
   readonly text: string;
 }
 
-/** A page: its paragraph parts, and the room left below its last block, in lines of that block. */
+/** A page: its paragraph parts, and the room left below its last block and that block's line. */
 interface PageRead {
   readonly parts: readonly PartRead[];
   readonly lastPart: PartRead | null;
-  readonly spareLines: number;
+  readonly spare: number;
+  readonly lastLine: number;
   readonly overflows: boolean;
 }
 
@@ -55,7 +56,8 @@ function readPages(): PageRead[] {
     return {
       parts: blocks.filter(isPart).map(partOf),
       lastPart: last && isPart(last) ? partOf(last) : null,
-      spareLines: last ? spare / lineHeight(last) : 0,
+      spare,
+      lastLine: last ? lineHeight(last) : 0,
       overflows: body ? body.scrollHeight > body.clientHeight + 1 : false,
     };
   });
@@ -93,8 +95,10 @@ const textOf = async (page: Page, id: string) =>
   (await storedParagraphs(page)).find((each) => each.id === id)?.text ?? '';
 
 // The pages hold their content, every part shows two lines or more, no page shows two parts of
-// one paragraph, and a page whose last block is a part continued on the next page has less than a
-// line to spare, unless one more line there would leave the next part a single line.
+// one paragraph, and a page whose last block is a part continued on the next page has less room
+// left than one more of its lines, unless that line would leave the next part a single line. The
+// planner fits a line into the room less its safety margin (`PAGE_SAFETY_MARGIN_PX`,
+// DOCE-PAGINATION-2), so the room left may be up to that margin more than a line.
 function expectSplitsFill(pages: readonly PageRead[]) {
   expect(pages.filter((each) => each.overflows)).toEqual([]);
   for (const [index, each] of pages.entries()) {
@@ -106,7 +110,9 @@ function expectSplitsFill(pages: readonly PageRead[]) {
     const continues =
       next?.id === each.lastPart?.id && next?.part === (each.lastPart?.part ?? 0) + 1;
     if (continues && (next?.lines ?? 0) > 2) {
-      expect(each.spareLines, `room left on page ${String(index + 1)}`).toBeLessThan(1);
+      expect(each.spare, `room left on page ${String(index + 1)}`).toBeLessThan(
+        each.lastLine + PAGE_SAFETY_MARGIN_PX,
+      );
     }
   }
 }

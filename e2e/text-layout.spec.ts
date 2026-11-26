@@ -266,10 +266,15 @@ test.describe('the layout engine on the pages', () => {
     page,
   }) => {
     await open(page, 'caption-numbering', true);
-    const numbers = (chapter: string, at: string) => [
+    // A table split over two pages draws its caption's number again on its later part, with the
+    // continued suffix and without counting (DOCE-OBJECTS-2.2): the third chapter's first table,
+    // "Sowing dates, seeds", which the fixture's 1 by 1 figures leave at a page end. The entry
+    // follows that page break; a change that moves caption-numbering's pages may move it.
+    const numbers = (chapter: string, at: string, splitTable = false) => [
       `${chapter}.`,
       `Figure ${chapter}${at}1 -`,
       `Table ${chapter}${at}1 -`,
+      ...(splitTable ? [`Table ${chapter}${at}1 -`] : []),
       `Code Block ${chapter}${at}1 -`,
       `(Eq. ${chapter}${at}1)`,
       ...(at === '.'
@@ -289,7 +294,7 @@ test.describe('the layout engine on the pages', () => {
       '(Eq. i)',
       ...numbers('1', '.'),
       ...numbers('2', '.'),
-      ...numbers('3', '.'),
+      ...numbers('3', '.', true),
       ...numbers('A', '-'),
     ]);
   });
