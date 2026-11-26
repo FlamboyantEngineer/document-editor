@@ -51,6 +51,25 @@ describe('mergeDocuments', () => {
     );
   });
 
+  it('DOCE-SESSION-4.1 DOCE-SCHEMA-3.14 keeps a figure stored without its size whole, never sized or dropped', () => {
+    const unsized: StoredNode = {
+      type: 'figure',
+      attrs: { id: 'f0000001', src: 'a.png' },
+      content: [{ type: 'caption', attrs: { id: 'f0000002' } }],
+    };
+    const mine = file(paragraph('a0000001', 'One, mine'), TWO, THREE);
+    const theirs = file(ONE, unsized, TWO, THREE);
+    const merge = mergeDocuments({ base: BASE, mine, theirs });
+    expect(merge.conflicts).toEqual([]);
+    expect(merge.content).toEqual(file(paragraph('a0000001', 'One, mine'), unsized, TWO, THREE));
+    // The session reads it as a placeholder, listed as a problem, and writes it back as stored.
+    const read = readDocumentFile(merge.content, documentSchema, { unknown: 'keep' });
+    expect(read.problems).toEqual([
+      { path: 'sections[0].content[1]', message: 'figure has no width or height', kept: true },
+    ]);
+    expect(read.doc.firstChild?.firstChild?.child(1)?.child(1)?.type.name).toBe('kept_block');
+  });
+
   it('DOCE-SESSION-4.1 keeps blocks either side inserted, each after the block before it', () => {
     const mine = file(ONE, paragraph('b0000001', 'Mine'), TWO, THREE);
     const theirs = file(ONE, TWO, paragraph('c0000001', 'Theirs'), THREE);

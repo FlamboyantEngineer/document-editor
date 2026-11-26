@@ -5,6 +5,7 @@
 
 import type { Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
+import { kindProblem } from '../model/format/document-format-attrs.js';
 import { isEmbed, readStoredContent, type StoredNode } from '../model/index.js';
 import { EMPTY_AI_SESSION } from '../model/schema/dom-attributes.js';
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
@@ -276,7 +277,23 @@ function refusedAttrs(node: ProseMirrorNode, attrs: Readonly<Record<string, unkn
   const identity = new Set(identityAttributesOf(node.type).map(({ name }) => name));
   const defined = node.type.spec.attrs ?? {};
   const name = Object.keys(attrs).find((each) => identity.has(each) || !(each in defined));
-  return name === undefined ? null : refuse('invalid', `${name} cannot be set on an element`);
+  if (name !== undefined) return refuse('invalid', `${name} cannot be set on an element`);
+  return refusedValue(defined, attrs);
+}
+
+// Why a value may not be set: its attribute is required, as a figure's width is, and it is left
+// out, or the value is not of the kind the attribute takes (DOCE-SCHEMA-3.14).
+function refusedValue(
+  defined: Readonly<Record<string, unknown>>,
+  attrs: Readonly<Record<string, unknown>>,
+) {
+  for (const [name, value] of Object.entries(attrs)) {
+    const spec = defined[name];
+    const required = !Object.hasOwn((spec ?? {}) as object, 'default');
+    const problem = value === undefined ? required && 'it is required' : kindProblem(spec, value);
+    if (problem) return refuse('invalid', `${name} cannot be set: ${problem}`);
+  }
+  return null;
 }
 
 function changeBlock(batch: Batch, edit: BlockEdit): Refusal | null {
