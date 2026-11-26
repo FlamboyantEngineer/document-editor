@@ -311,6 +311,9 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
   return {
     documentId,
     mode: 'room',
+    get author() {
+      return host.identity.currentPerson().id;
+    },
     status,
     document,
     // Left to settle: a draft's blocks a new room generation changed too (DOCE-SESSION-6.10).

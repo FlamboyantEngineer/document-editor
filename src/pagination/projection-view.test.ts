@@ -88,7 +88,11 @@ describe('projection view', () => {
 
   it('DOCE-PAGINATION-7.11 routes an edit made on the pages to the canonical state', () => {
     const sent: Transaction[] = [];
-    const { projection, drain } = mount({ dispatch: (tr) => sent.push(tr) });
+    const { projection, drain } = mount({
+      dispatch: (tr) => {
+        sent.push(tr);
+      },
+    });
     const { view } = projection;
     const at = positionOf(view.state.doc, 'Gamma');
     view.dispatch(layoutNow(view.state.tr.insertText('New ', at)));
@@ -315,7 +319,11 @@ describe('projection view', () => {
 
   it('DOCE-PAGINATION-7.12 takes back the state the host made from its own transaction without mirroring it again', () => {
     const sent: Transaction[] = [];
-    const { projection } = mount({ dispatch: (tr) => sent.push(tr) });
+    const { projection } = mount({
+      dispatch: (tr) => {
+        sent.push(tr);
+      },
+    });
     const { view } = projection;
     view.dispatch(view.state.tr.insertText('Typed ', positionOf(view.state.doc, 'Alpha')));
     const shown = view.state.doc;

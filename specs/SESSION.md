@@ -41,7 +41,7 @@ Verification: `src/session/document-session.test.ts`, `src/session/store-refresh
 
 ### DOCE-SESSION-1.6 - Sessions in React
 
-`useDocumentSession(options)` shall open a session while its component is shown, and again when the host, the document id or the mode changes, closing the one before. `DocumentSessionBoundary` shall show its `fallback` while the document loads, `renderError(error)` when it cannot load, and otherwise render its children with the editor's props: the state and `onStateChange`, the template, `editable` and `suggesting` from the editing mode, the capabilities and the session, for a host to spread onto `DocumentEditor`. `useSessionValue(store)` renders again whenever a session store changes.
+`useDocumentSession(options)` shall open a session while its component is shown, and again when the host, the document id or the mode changes, closing the one before. `DocumentSessionBoundary` shall show its `fallback` while the document loads, `renderError(error)` when it cannot load, and otherwise render its children with the editor's props: the state and `onStateChange`, the template, `editable` and `suggesting` from the editing mode, the reader as `author` (`session.author`, the host's current person), so their suggestions are attributed to them, the capabilities and the session, for a host to spread onto `DocumentEditor`. `useSessionValue(store)` renders again whenever a session store changes.
 
 Implementation: `src/components/document-session/document-session.tsx`
 Verification: `src/components/document-session/document-session.test.tsx`

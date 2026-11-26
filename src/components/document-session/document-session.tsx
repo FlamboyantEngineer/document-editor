@@ -25,6 +25,8 @@ export interface DocumentSessionEditorProps {
   editable: boolean;
   /** Whether the reader's changes are suggestions. */
   suggesting: boolean;
+  /** The reader, whom their suggestions are attributed to (DOCE-SESSION-1.6). */
+  author: string | null;
   capabilities: EditorCapabilities;
   session: DocumentSession;
 }
@@ -79,6 +81,7 @@ export function DocumentSessionBoundary(props: DocumentSessionBoundaryProps) {
     template: document.template,
     editable: document.editingMode === 'edit' || document.editingMode === 'suggest',
     suggesting: document.editingMode === 'suggest',
+    author: session.author,
     capabilities: document.capabilities,
     session,
   });

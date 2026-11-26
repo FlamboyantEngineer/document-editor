@@ -13,7 +13,7 @@ import type {
 import { type EditorState, Selection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
-import type { CanonicalChange, PagedProjection } from '../../pagination/index.js';
+import type { CanonicalChange, CanonicalTaken, PagedProjection } from '../../pagination/index.js';
 import type { EngineViewEvents } from './use-editor-engine.js';
 
 /** A projection the editor renders, with the projection state it renders now. */
@@ -92,7 +92,9 @@ function hostStateToShow(
 // longer holds, as after a suggestion rewrote one before it, is dropped and the pages drawn again.
 // Taken as the projection applied it to the state the host still holds, it is that state the
 // projection made, so what the plugins appended, such as new element ids, is the same on both
-// (DOCE-PAGINATION-7.19).
+// (DOCE-PAGINATION-7.19). Another transaction in its place on the same state, as the suggestion
+// it was rewritten as, is applied there at once, and the pages hold what it made
+// (`taken`, DOCE-PAGINATION-7.26).
 function hostCommit(
   tr: Transaction,
   {
@@ -106,15 +108,23 @@ function hostCommit(
     made: CanonicalChange | null;
     own: OwnHostStates;
   },
-): RichTextEngineCommit & { readonly committed: () => boolean } {
+): RichTextEngineCommit & {
+  readonly committed: () => boolean;
+  readonly taken: () => CanonicalTaken | undefined;
+} {
   let committed = false;
-  const apply = (next: Transaction) =>
+  let taken: CanonicalTaken | undefined;
+  const apply = (next: Transaction) => {
+    if (made && next !== tr && next.before === made.from.doc)
+      taken = made.from.applyTransaction(next);
+    const to = next === tr ? made?.to : taken?.state;
     commitOwn(own, onStateChange, (state) => {
-      if (made && next === tr && state === made.from) return made.to;
+      if (made && to && state === made.from) return to;
       if (next.before.eq(state.doc)) return state.apply(next);
       queueMicrotask(() => resync());
       return state;
     });
+  };
   return {
     applyDefault(override) {
       committed = true;
@@ -125,6 +135,7 @@ function hostCommit(
       commitOwn(own, onStateChange, () => next);
     },
     committed: () => committed,
+    taken: () => taken,
   };
 }
 
@@ -212,14 +223,18 @@ export function usePagedEditor(options: PagedEditorOptions) {
     return {
       targetRef,
       own,
-      onCanonical(tr: Transaction, made: CanonicalChange | null = null) {
+      onCanonical(
+        tr: Transaction,
+        made: CanonicalChange | null = null,
+      ): CanonicalTaken | undefined {
         const { view, host: held } = targetRef.current;
-        if (!view) return;
+        if (!view) return undefined;
         const { body, onStateChange, events } = latestRef.current;
         events.onTransaction?.(tr, view);
         const host = hostCommit(tr, { onStateChange, resync, made, own });
         body(tr, held.doc === tr.before ? onHostState(view, held) : view, host);
         if (!host.committed()) resync(made);
+        return host.taken();
       },
       onLayout(tr: Transaction) {
         const { view } = targetRef.current;
