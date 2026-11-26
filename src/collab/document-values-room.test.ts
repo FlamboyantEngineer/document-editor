@@ -5,8 +5,7 @@
 // shows and stores none for.
 
 import type * as Y from '@y/y';
-import type { PluginView } from 'prosemirror-state';
-import { Plugin } from 'prosemirror-state';
+import { Plugin, type PluginView } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import {
   createRelayRoom,
