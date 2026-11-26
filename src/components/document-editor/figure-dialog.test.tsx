@@ -295,7 +295,13 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
       const onClose = vi.fn();
       const view = editorView({
         type: 'figure',
-        attrs: { kind: 'diagram', assetId: 'drawing', assetRevision: 'original' },
+        attrs: {
+          kind: 'diagram',
+          assetId: 'drawing',
+          assetRevision: 'original',
+          width: 40,
+          height: 30,
+        },
       });
       const labels = { ...DEFAULT_EDITOR_LABELS, diagramFailed: 'Try editing the diagram again.' };
       const message = 'The drawing service is unavailable.';

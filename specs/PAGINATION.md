@@ -716,7 +716,7 @@ On the pages, block geometry lays blocks out with no DOM, from the text layout e
 
 ### DOCE-PAGINATION-10.1 - The atom cache
 
-`createAtomCache({ measure })` shall size what only the browser can size (an equation, an unsized image, an embed, a block drawn from stored markup) through the host's measurer once, and keep the size by the atom's content: its type, the attributes that show (element ids, authors and split parts left out), its marks, its content (but not a figure's caption, which the engine lays out as text, so typing in a caption keeps the image's size), the width it is laid out in, to Chromium's layout unit, its section and, for an inline atom, the type and shown attributes of the text block holding it, whose font it takes. `measureAtom(node, { parent, scope })` shall give an inline atom's size, baseline and line alignment, for the text layout engine; `measureBlockAtom(node, width, scope)` a block atom's. An atom the measurer cannot size shall have no size, and the cache shall keep the most recently used atoms up to its limit.
+`createAtomCache({ measure })` shall size what only the browser can size (an equation, an embed, a block drawn from stored markup) through the host's measurer once, and keep the size by the atom's content: its type, the attributes that show (element ids, authors and split parts left out), its marks, its content (but not a figure's caption, which the engine lays out as text, so typing in a caption keeps the image's size), the width it is laid out in, to Chromium's layout unit, its section and, for an inline atom, the type and shown attributes of the text block holding it, whose font it takes. `measureAtom(node, { parent, scope })` shall give an inline atom's size, baseline and line alignment, for the text layout engine; `measureBlockAtom(node, width, scope)` a block atom's. An atom the measurer cannot size shall have no size, and the cache shall keep the most recently used atoms up to its limit.
 
 Implementation: `src/layout-engine/atoms.ts`
 Verification: `src/layout-engine/atoms.test.ts`
@@ -737,7 +737,7 @@ Verification: `src/layout-engine/blocks/containers.test.ts`, `src/layout-engine/
 
 ### DOCE-PAGINATION-10.4 - Figures, code, equations and rules
 
-A figure shall take the image box its stored size fixes (narrowed to the width at its own height, or scaled to the width when set to the page's width) or else its measured atom (the figure as drawn without its caption), and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with the stylesheet's caption gap either side of its caption rule, measured by its code's lines. Linked code shall be laid out as code with its caption, the caption derived from its address and the code its stored lines, and labelled as code. A display equation shall be a measured atom with the stylesheet's equation spacing as margins; a horizontal rule as tall as the stylesheet's rule height, with its rule spacing as margins; a page break no height; a kept block or a dynamic template a measured atom.
+A figure shall take the image box its stored size fixes, which every figure has (DOCE-SCHEMA-3.14): at its size, narrowed to the width when wider, or across the width when set to the page's width, each scaled whole, its height in its proportions, as the stylesheet draws it (`fixedImageBox`); and its caption across the content width unless switched off, with the paragraph's bottom spacing. Code with its caption shall be one box padded as the code is, holding the caption above or below the code with the stylesheet's caption gap either side of its caption rule, measured by its code's lines. Linked code shall be laid out as code with its caption, the caption derived from its address and the code its stored lines, and labelled as code. A display equation shall be a measured atom with the stylesheet's equation spacing as margins; a horizontal rule as tall as the stylesheet's rule height, with its rule spacing as margins; a page break no height; a kept block or a dynamic template a measured atom.
 
 Implementation: `src/layout-engine/blocks/objects.ts`
 Verification: `src/layout-engine/blocks/objects.test.ts`
@@ -1122,3 +1122,10 @@ There shall be no default sizes, with one stated exception (Charles, 2026-11-26)
 
 Implementation: `src/layout-engine/reserved-boxes.ts`, `src/layout-engine/math-atoms.ts`, `src/utils/math-text.ts`, `src/pagination/math-wait.ts`
 Verification: `src/layout-engine/font-files/measurer.test.ts`, `src/layout-engine/math-atoms.test.ts`, `src/pagination/projection-view.test.ts`
+
+### DOCE-PAGINATION-14.5 - Inline images sized ahead
+
+The library's layout rules shall size an inline image (`imageBox`) from its stored width and height, which every image has (DOCE-SCHEMA-3.14), its bottom on its line's baseline, narrowed to its line when wider and scaled whole; a template's own image shall stand across its line, which aligns it, at its image's height, so it sits on a line of its own as it is drawn. The pages draw each image in that box (DOCE-PAGINATION-14.2) and never measure one as drawn.
+
+Implementation: `src/model/pagination/image-box.ts`, `src/model/pagination/page-layout.ts`, `src/model/schema/image-node.ts`
+Verification: `src/model/pagination/image-box.test.ts`

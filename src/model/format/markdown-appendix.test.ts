@@ -34,7 +34,14 @@ const FILE: DocumentFile = {
         ),
         {
           type: 'figure',
-          attrs: { src: 'bed.png', alt: 'Bed', suggestionKind: 'insertion', suggestionId: 's-fig' },
+          attrs: {
+            src: 'bed.png',
+            alt: 'Bed',
+            suggestionKind: 'insertion',
+            suggestionId: 's-fig',
+            width: 40,
+            height: 30,
+          },
         },
       ],
     },

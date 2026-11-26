@@ -64,6 +64,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Site map",
+            "width": 1,
+            "height": 1,
             "id": "ca910007"
           },
           "content": [
@@ -119,6 +121,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 0",
+            "width": 1,
+            "height": 1,
             "id": "ca91000b"
           },
           "content": [
@@ -341,6 +345,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 3",
+            "width": 1,
+            "height": 1,
             "id": "ca91001f"
           },
           "content": [
@@ -682,6 +688,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 1",
+            "width": 1,
+            "height": 1,
             "id": "ca91003f"
           },
           "content": [
@@ -904,6 +912,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 4",
+            "width": 1,
+            "height": 1,
             "id": "ca910053"
           },
           "content": [
@@ -1245,6 +1255,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 2",
+            "width": 1,
+            "height": 1,
             "id": "ca910073"
           },
           "content": [
@@ -1467,6 +1479,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 5",
+            "width": 1,
+            "height": 1,
             "id": "ca910087"
           },
           "content": [
@@ -1813,6 +1827,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plan 7",
+            "width": 1,
+            "height": 1,
             "id": "ca9100a7"
           },
           "content": [

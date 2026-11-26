@@ -21,36 +21,7 @@ const doc = (name: string | null) =>
     documentSchema,
   ).doc;
 
-// The widths of the figures after inserting one at the start of the first section's content.
-function insertFigure(name: string | null, attrs: Record<string, unknown>, remote = false) {
-  const state = EditorState.create({
-    doc: doc(name),
-    plugins: [createFigureDefaults({ template: () => TEMPLATE, isRemote: () => remote })],
-  });
-  let at = -1;
-  state.doc.descendants((node, pos) => {
-    if (at < 0 && node.type.name === 'paragraph') at = pos;
-  });
-  const figure = documentSchema.nodes.figure;
-  if (!figure) throw new Error('The schema has figures');
-  const next = state.apply(
-    state.tr.insert(at, figure.createAndFill(attrs) ?? figure.create(attrs)),
-  );
-  const widths: unknown[] = [];
-  next.doc.descendants((node) => {
-    if (node.type === figure) widths.push(node.attrs.width);
-  });
-  return widths;
-}
-
 describe('figure defaults', () => {
-  it('DOCE-OBJECTS-1.9 gives a new figure without a size its section default width', () => {
-    expect(insertFigure(null, { src: 'a.png' })).toEqual([300]);
-    expect(insertFigure('wide', { src: 'a.png' })).toEqual([576]);
-    expect(insertFigure(null, { src: 'a.png', width: 120 })).toEqual([120]);
-    expect(insertFigure(null, { src: 'a.png' }, true)).toEqual([null]);
-  });
-
   it('DOCE-OBJECTS-1.9 sizes a new figure of an image of a natural size at its section default width, in its proportions', () => {
     const plugins = [createFigureDefaults({ template: () => TEMPLATE })];
     const natural = { width: 800, height: 400 };

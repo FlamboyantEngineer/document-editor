@@ -1,5 +1,7 @@
 // The inline image, including an image a template places from its own files, which renders in a
-// wrapper that aligns it. A template image is stored by its asset and snapshot, never by an
+// wrapper that aligns it. Every image holds its width and height in pixels (`templateImageWidth`
+// and `templateImageHeight`, stored as `width` and `height`): an image without them has no place in
+// a document (DOCE-SCHEMA-3.14). A template image is stored by its asset and snapshot, never by an
 // address: the host's `assetPreviewUrl` gives the address it shows, as of `assetsAsOf`.
 
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
@@ -8,11 +10,9 @@ import {
   type DomAttributes,
   parseTemplateAssetImageAlignment,
   parseTemplateAssetImageNumber,
+  REQUIRED_SIZE,
 } from './dom-attributes.js';
 import { readTooltip, type ResolvedSchemaOptions } from './schema-options.js';
-
-/** A template image's size when it has none of its own. */
-const DEFAULT_TEMPLATE_IMAGE_SIZE = { width: 160, height: 96 };
 
 const templateImageAttrs = {
   templateAssetImage: { default: false },
@@ -20,8 +20,8 @@ const templateImageAttrs = {
   templateSnapshotId: { default: '' },
   templateImageName: { default: '' },
   templateImageMimeType: { default: '' },
-  templateImageWidth: { default: '' },
-  templateImageHeight: { default: '' },
+  templateImageWidth: REQUIRED_SIZE,
+  templateImageHeight: REQUIRED_SIZE,
   templateImageNaturalWidth: { default: '' },
   templateImageNaturalHeight: { default: '' },
   templateImageConstrain: { default: true },
@@ -41,7 +41,7 @@ function readTemplateFile(dom: HTMLImageElement) {
   return { fileId, snapshotId: dom.getAttribute('data-snapshot-id') || match?.[2] || '' };
 }
 
-/** A template image's size, from its own attributes, then the image's size. */
+/** An image's size, from a template image's own attributes, then the image's size. */
 function readTemplateSize(dom: HTMLImageElement, axis: 'width' | 'height'): string | number {
   const value =
     dom.getAttribute(`data-template-image-${axis}`) ||
@@ -51,10 +51,12 @@ function readTemplateSize(dom: HTMLImageElement, axis: 'width' | 'height'): stri
   return parseTemplateAssetImageNumber(value, '');
 }
 
+// An image read from markup, or false for one with no size, which has no place in a document.
 function readImageAttrs(dom: HTMLImageElement, options: ResolvedSchemaOptions) {
   const file = readTemplateFile(dom);
   const width = readTemplateSize(dom, 'width');
   const height = readTemplateSize(dom, 'height');
+  if (width === '' || height === '') return false;
   const wrapper = dom.closest('[data-template-asset-image-wrapper]');
   return {
     // A template image's address is only a preview of its asset, so it is not kept.
@@ -71,11 +73,11 @@ function readImageAttrs(dom: HTMLImageElement, options: ResolvedSchemaOptions) {
     templateImageHeight: height,
     templateImageNaturalWidth: parseTemplateAssetImageNumber(
       dom.getAttribute('data-template-image-natural-width'),
-      width || '',
+      width,
     ),
     templateImageNaturalHeight: parseTemplateAssetImageNumber(
       dom.getAttribute('data-template-image-natural-height'),
-      height || '',
+      height,
     ),
     templateImageConstrain: dom.getAttribute('data-template-image-constrain') !== 'false',
     templateImageAlignment: parseTemplateAssetImageAlignment(
@@ -86,12 +88,14 @@ function readImageAttrs(dom: HTMLImageElement, options: ResolvedSchemaOptions) {
   };
 }
 
-/** The image's own attributes, leaving out those it has no value for. */
+/** The image's own attributes and size, leaving out those it has no value for. */
 function plainImageAttrs(node: ProseMirrorNode, options: ResolvedSchemaOptions): DomAttributes {
   const attrs: Record<string, unknown> = {
     src: node.attrs.src,
     alt: node.attrs.alt,
     [options.tooltipAttribute]: node.attrs.title,
+    width: node.attrs.templateImageWidth,
+    height: node.attrs.templateImageHeight,
     loading: 'lazy',
     decoding: 'async',
   };
@@ -103,14 +107,8 @@ function plainImageAttrs(node: ProseMirrorNode, options: ResolvedSchemaOptions):
 }
 
 function templateImageSize(node: ProseMirrorNode) {
-  const width = parseTemplateAssetImageNumber(
-    node.attrs.templateImageWidth,
-    DEFAULT_TEMPLATE_IMAGE_SIZE.width,
-  );
-  const height = parseTemplateAssetImageNumber(
-    node.attrs.templateImageHeight,
-    DEFAULT_TEMPLATE_IMAGE_SIZE.height,
-  );
+  const width = Number(node.attrs.templateImageWidth);
+  const height = Number(node.attrs.templateImageHeight);
   return {
     width: String(width),
     height: String(height),
@@ -157,7 +155,8 @@ function renderTemplateImage(
     height: size.height,
     loading: 'lazy',
     decoding: 'async',
-    style: `width: ${size.width}px; height: ${size.height}px; object-fit: contain;`,
+    // Narrowed to its line when wider, scaled whole, as the pages lay it out (DOCE-PAGINATION-14.5).
+    style: `width: ${size.width}px; max-width: 100%; height: auto; aspect-ratio: ${size.width} / ${size.height}; object-fit: contain;`,
   };
   if (snapshotId) imageAttrs['data-snapshot-id'] = snapshotId;
   if (templateImageName) imageAttrs['data-template-image-name'] = String(templateImageName);
@@ -168,7 +167,8 @@ function renderTemplateImage(
     'data-template-asset-image-wrapper': 'true',
     'data-template-image-alignment': alignment,
     ...(src ? {} : { 'data-image-missing': 'true' }),
-    style: `display: block; text-align: ${alignment}; line-height: 0;`,
+    // Across its line, which it stands on as the pages lay it out (DOCE-PAGINATION-14.5).
+    style: `display: inline-block; inline-size: 100%; text-align: ${alignment}; line-height: 0;`,
   };
   return ['span', wrapper, ['img', imageAttrs]] as const;
 }

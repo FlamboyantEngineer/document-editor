@@ -141,7 +141,7 @@ function figureItem(labels: DocumentEditorLabels, features: InsertFeatures): Too
     label: labels.figure,
     icon: ImageGlyph,
     kind: 'menu',
-    isEnabled: (context) => can(context, setFigure({ src: 'about:blank' })),
+    isEnabled: (context) => can(context, setFigure({ src: 'about:blank', width: 1, height: 1 })),
     entries: (context) =>
       figureTypes.map((figureType) => ({
         id: `${figureType}-figure`,

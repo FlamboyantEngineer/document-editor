@@ -57,7 +57,7 @@ const FILE: DocumentFile = {
         },
         {
           type: 'figure',
-          attrs: { src: 'board.png', alt: 'Board' },
+          attrs: { src: 'board.png', alt: 'Board', width: 40, height: 30 },
           content: [storedCaption('The board')],
         },
       ],
@@ -132,7 +132,7 @@ describe('writeMarkdown', () => {
           content: [
             {
               type: 'figure',
-              attrs: { src: 'https://example.com/a.png', alt: 'Chart' },
+              attrs: { src: 'https://example.com/a.png', alt: 'Chart', width: 40, height: 30 },
               content: [caption],
             },
             {
@@ -278,8 +278,14 @@ describe('writeMarkdown', () => {
           name: null,
           content: [
             paragraph(text('Kept')),
-            suggested('insertion', { type: 'figure', attrs: { src: 'new.png', alt: 'New' } }),
-            suggested('deletion', { type: 'figure', attrs: { src: 'old.png', alt: 'Old' } }),
+            suggested('insertion', {
+              type: 'figure',
+              attrs: { src: 'new.png', alt: 'New', width: 40, height: 30 },
+            }),
+            suggested('deletion', {
+              type: 'figure',
+              attrs: { src: 'old.png', alt: 'Old', width: 40, height: 30 },
+            }),
             {
               type: 'bulletList',
               content: [

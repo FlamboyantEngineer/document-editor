@@ -33,20 +33,15 @@ describe('figures', () => {
     expect(measure).not.toHaveBeenCalled();
   });
 
-  it('DOCE-PAGINATION-10.4 narrows a wide image and scales one set to the page width', () => {
+  it('DOCE-PAGINATION-10.4 narrows a wide image and scales one set to the page width, each whole', () => {
     const wide = figure({ width: 800, height: 200 });
-    expect(fixedImageBox(wide, 600)).toEqual({ width: 600, height: 200 });
-    const fitted = figure({ width: 800, height: 200, objectLayout: 'fit-page-width' });
-    expect(fixedImageBox(fitted, 600)).toEqual({ width: 600, height: 150 });
-    expect(fixedImageBox(figure({ width: 800 }), 600)).toBeNull();
-  });
-
-  it('DOCE-PAGINATION-10.4 measures an unsized image as an atom, without its caption when off', () => {
-    const { layout } = standInBlockLayout({ measure: () => ({ size: { width: 90, height: 40 } }) });
-    const block = blockOf(layout.layoutBlock(figure({ captionEnabled: false }, 10), place));
-    expect(block.height).toBe(40);
-    const { layout: blind } = standInBlockLayout({ measure: () => null });
-    expect(blind.layoutBlock(figure({}), place)).toMatchObject({ ok: false });
+    expect(fixedImageBox(wide, 600)).toEqual({ width: 600, height: 150 });
+    const fitted = figure({ width: 300, height: 200, objectLayout: 'fit-page-width' });
+    expect(fixedImageBox(fitted, 600)).toEqual({ width: 600, height: 400 });
+    expect(fixedImageBox(figure({ width: 300, height: 200 }), 600)).toEqual({
+      width: 300,
+      height: 200,
+    });
   });
 
   it('DOCE-LABS-4.14 DOCE-PAGINATION-11.2 lays a caption out aligned where its figure is, one across the page width as its own', () => {
@@ -64,14 +59,6 @@ describe('figures', () => {
       layout.layoutBlock(figure({ width: 300, height: 200, objectLayout }, 10), place);
     }
     expect(aligns).toEqual(['center', 'right', 'left', undefined, undefined]);
-  });
-
-  it('DOCE-PAGINATION-10.2 marks a figure whose image still loads as provisional', () => {
-    const settled = new Promise<{ width: number; height: number }>(() => undefined);
-    const { layout } = standInBlockLayout({
-      measure: () => ({ size: { width: 0, height: 0 }, settled }),
-    });
-    expect(layout.layoutBlock(figure({}), place)).toMatchObject({ ok: true, provisional: true });
   });
 });
 

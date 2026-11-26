@@ -31,7 +31,11 @@ const BROKEN = {
     heading1: { numbering: { format: '1-x' } },
     custom: { '9 lives': { font: 'Georgia' } },
   },
-  header: { content: [{ type: 'image', attrs: { src: 'https://example.com/logo.png' } }] },
+  header: {
+    content: [
+      { type: 'image', attrs: { src: 'https://example.com/logo.png', width: 120, height: 40 } },
+    ],
+  },
   sections: [
     { name: 'Body', required: true },
     { name: 'notes', content: [{ type: 'nothing-known', content: [] }] },

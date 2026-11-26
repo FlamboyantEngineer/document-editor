@@ -18,20 +18,19 @@ function sizeAttr(value: unknown): number {
 }
 
 /**
- * A figure's image box from its stored size where that fixes it: one set to the page's width
- * keeps its ratio, a sized one keeps its height and narrows to the width; null otherwise.
+ * A figure's image box from its stored size, which every figure has (DOCE-SCHEMA-3.14): one set to
+ * the page's width takes that width, and one wider than its place is narrowed to it, each scaled
+ * whole, its height in its proportions (DOCE-PAGINATION-10.4).
  */
 export function fixedImageBox(
   figure: ProseMirrorNode,
   available: number,
-): { width: number; height: number } | null {
+): { width: number; height: number } {
   const width = sizeAttr(figure.attrs.width);
   const height = sizeAttr(figure.attrs.height);
-  if (!width || !height) return null;
-  if (parseObjectLayout(figure.attrs.objectLayout) === 'fit-page-width') {
-    return { width: available, height: (height * available) / width };
-  }
-  return { width: Math.min(width, available), height };
+  const fit = parseObjectLayout(figure.attrs.objectLayout) === 'fit-page-width';
+  const shown = fit ? available : Math.min(width, available);
+  return { width: shown, height: width ? (height * shown) / width : 0 };
 }
 
 function atomBlock(context: BlockContext, node: ProseMirrorNode, margins = { top: 0, bottom: 0 }) {
@@ -74,12 +73,7 @@ function figureCaptionAlign(figure: ProseMirrorNode): TextAlign | undefined {
 /** A figure: its image box and, unless switched off, its caption across the content width. */
 export function layFigure(context: BlockContext, figure: ProseMirrorNode): Laid {
   const { width } = context.place;
-  const fixed = fixedImageBox(figure, width);
-  const measured = fixed
-    ? null
-    : context.options.atoms.measureBlockAtom(figure, width, context.place.scope);
-  const image = fixed ?? measured;
-  if (!image) return notLaid(figure, 'the figure has no stored or measured size');
+  const image = fixedImageBox(figure, width);
   context.options.onObject?.(figure, {
     kind: 'figure',
     width: image.width,
@@ -93,15 +87,12 @@ export function layFigure(context: BlockContext, figure: ProseMirrorNode): Laid 
     if (!result.ok) return result;
     caption = result.block.height;
   }
-  return laid(
-    {
-      node: figure,
-      height: image.height + caption,
-      marginTop: 0,
-      marginBottom: context.parent === 'region' ? 0 : context.metrics.paragraphAfter,
-    },
-    measured?.provisional ?? false,
-  );
+  return laid({
+    node: figure,
+    height: image.height + caption,
+    marginTop: 0,
+    marginBottom: context.parent === 'region' ? 0 : context.metrics.paragraphAfter,
+  });
 }
 
 /**

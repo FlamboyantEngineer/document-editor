@@ -45,7 +45,7 @@ describe('caption labels', () => {
   it('DOCE-PAGINATION-10.7 gives a hidden caption no label and counts it out', () => {
     const figure = (captionEnabled: boolean): StoredNode => ({
       type: 'figure',
-      attrs: { src: 'https://example.org/a.png', captionEnabled },
+      attrs: { src: 'https://example.org/a.png', captionEnabled, width: 40, height: 30 },
       content: [{ type: 'figure_caption', content: [text('A view')] }],
     });
     const doc = documentOf([figure(true), figure(false), figure(true)]);

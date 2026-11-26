@@ -234,23 +234,19 @@ export function buildScriptEquation(latex: string): StoredNode {
   return { type: 'mathBlock', ...(latex ? { attrs: { source: latex } } : {}) };
 }
 
-/** A figure a script shows: an image by its address, and its caption. */
+/** A figure a script shows: an image by its address, at its size, and its caption. */
 export interface ScriptFigure {
   readonly src: string;
   readonly alt?: string | undefined;
   readonly caption?: ScriptCaption;
-  /** Its width in pixels; its own when left out. */
-  readonly width?: number | undefined;
+  /** Its width and height in pixels, which every figure has (DOCE-SCHEMA-3.14). */
+  readonly width: number;
+  readonly height: number;
 }
 
-/** A figure showing an image, with its caption (`ScriptCaption`). */
-export function buildScriptFigure({ src, alt, caption, width }: ScriptFigure): StoredNode {
-  const attrs = {
-    src,
-    ...(alt ? { alt } : {}),
-    ...(width ? { width } : {}),
-    ...hiddenCaption(caption),
-  };
+/** A figure showing an image at its size, with its caption (`ScriptCaption`). */
+export function buildScriptFigure({ src, alt, caption, width, height }: ScriptFigure): StoredNode {
+  const attrs = { src, ...(alt ? { alt } : {}), ...hiddenCaption(caption), width, height };
   return { type: 'figure', attrs, content: [storedCaptionFor(caption)] };
 }
 

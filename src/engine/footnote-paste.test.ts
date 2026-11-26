@@ -68,14 +68,14 @@ describe('pasting where footnotes have rules', () => {
     const figured = footnoteState([
       {
         type: 'figure',
-        attrs: { src: 'sample.png' },
+        attrs: { src: 'sample.png', width: 40, height: 30 },
         content: [{ type: 'caption', content: [text('Chart')] }],
       },
       paragraph(text('Body')),
     ]);
     expect(flattenFootnotePaste(inline, caretAt(figured, 'Chart'))).toBe(inline);
     const caption = nodes.figure_caption?.create(null, marker);
-    const figure = nodes.figure?.create({ src: 'sample.png' }, caption);
+    const figure = nodes.figure?.create({ src: 'sample.png', width: 40, height: 30 }, caption);
     if (!figure) throw new Error('No figure');
     const whole = new Slice(Fragment.from(figure), 0, 0);
     expect(markers(flattenFootnotePaste(whole, caretAt(figured, 'Body')))).toBe(1);

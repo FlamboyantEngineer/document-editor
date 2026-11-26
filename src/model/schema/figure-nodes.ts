@@ -3,7 +3,7 @@
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
-import type { DomAttributes } from './dom-attributes.js';
+import { type DomAttributes, REQUIRED_SIZE } from './dom-attributes.js';
 import { createImageNode } from './image-node.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 import { objectLayoutCss, parseObjectLayout } from './object-layout.js';
@@ -12,7 +12,6 @@ import {
   type ResolvedSchemaOptions,
   resolveSchemaOptions,
 } from './schema-options.js';
-import { svgIntrinsicSize } from './svg-size.js';
 
 /** The image a diagram without a stored rendering shows. */
 const DIAGRAM_PLACEHOLDER =
@@ -22,7 +21,8 @@ const DIAGRAM_PLACEHOLDER =
   );
 
 // A size in pixels: a positive number, or none. A figure's size is written into its image's style,
-// so any other text, which could carry declarations of its own, is no size.
+// so any other text, which could carry declarations of its own, is no size. A figure in a document
+// always has one (DOCE-SCHEMA-3.14).
 function sizeOf(value: unknown): number | null {
   const size = typeof value === 'string' ? Number(value) : value;
   return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : null;
@@ -33,8 +33,18 @@ const figureSize = (node: ProseMirrorNode) => ({
   height: sizeOf(node.attrs.height),
 });
 
+// A figure's size in markup: its own, else its image's; null without both sides.
+function readFigureSize(dom: HTMLElement, image: Element | null) {
+  const width = sizeOf(dom.getAttribute('data-figure-width') || image?.getAttribute('width'));
+  const height = sizeOf(dom.getAttribute('data-figure-height') || image?.getAttribute('height'));
+  return width && height ? { width, height } : null;
+}
+
+// A figure read from markup, or false for one with no size, which has no place in a document.
 function readFigureAttrs(dom: HTMLElement) {
-  const image = dom.querySelector(':scope > img');
+  const image = dom.querySelector(':scope > .doc-figure-image > img, :scope > img');
+  const size = readFigureSize(dom, image);
+  if (!size) return false;
   const fileAssetId = dom.getAttribute('data-file-asset-id') || '';
   const snapshotId = dom.getAttribute('data-snapshot-id') || '';
   const src = dom.getAttribute('data-figure-src') || image?.getAttribute('src') || '';
@@ -47,27 +57,34 @@ function readFigureAttrs(dom: HTMLElement) {
     snapshotId,
     alt: image?.getAttribute('alt') || 'figure',
     captionEnabled: dom.getAttribute('data-caption-enabled') !== 'false',
-    width: sizeOf(dom.getAttribute('data-figure-width')),
-    height: sizeOf(dom.getAttribute('data-figure-height')),
+    ...size,
   };
 }
 
-/** The style that sizes and aligns the image, so the caption spans the content width. */
-function imageStyle(node: ProseMirrorNode): string | null {
+/**
+ * The style of the frame that sizes and aligns the image, so the caption spans the content width:
+ * at its size, or across the page's width, and narrowed to its place when wider, scaled whole as
+ * the pages lay it out (DOCE-PAGINATION-10.4). The frame holds the size whether or not the image
+ * loads: a browser draws an image that fails in a box of its own.
+ */
+function frameStyle(node: ProseMirrorNode): string {
   const { width, height } = figureSize(node);
   const layout = parseObjectLayout(node.attrs.objectLayout);
-  if (layout === 'fit-page-width') {
-    const ratio = width && height ? `;aspect-ratio:${String(width)}/${String(height)}` : '';
-    return `display:block;width:100%;height:auto;object-fit:contain${ratio}`;
-  }
-  const size = [
-    width ? `width:${String(width)}px` : '',
-    height ? `height:${String(height)}px` : '',
-    objectLayoutCss(layout),
-  ].filter(Boolean);
-  if (size.length === 0) return null;
-  return `display:block;${size.join(';')};max-width:100%;object-fit:contain`;
+  const across = layout === 'fit-page-width' ? 'width:100%' : `width:${String(width)}px`;
+  const align = layout === 'fit-page-width' ? '' : objectLayoutCss(layout);
+  return [
+    'display:block',
+    across,
+    'max-width:100%',
+    `aspect-ratio:${String(width)}/${String(height)}`,
+    'overflow:hidden',
+    align,
+  ]
+    .filter(Boolean)
+    .join(';');
 }
+
+const IMAGE_STYLE = 'display:block;width:100%;height:100%;object-fit:contain';
 
 /** The stored asset a figure shows, and the address the host previews it at. */
 interface FigureAsset {
@@ -89,8 +106,8 @@ function figureAttrs(node: ProseMirrorNode, asset: FigureAsset | null): DomAttri
   const attrs: DomAttributes = {};
   if (node.attrs.captionEnabled === false) attrs['data-caption-enabled'] = 'false';
   if (layout) attrs['data-object-layout'] = layout;
-  if (width) attrs['data-figure-width'] = String(width);
-  if (height) attrs['data-figure-height'] = String(height);
+  attrs['data-figure-width'] = String(width);
+  attrs['data-figure-height'] = String(height);
   // The asset is written whether or not the host previews it, so it survives a round trip.
   if (asset) {
     attrs['data-file-asset-id'] = String(node.attrs.fileAssetId);
@@ -105,30 +122,16 @@ function figureImageAttrs(node: ProseMirrorNode, previewSrc: string): DomAttribu
   const { figureType, src, alt } = node.attrs;
   const caption = node.textContent;
   const isDiagram = figureType === 'diagram';
-  const style = imageStyle(node);
-  const attrs: DomAttributes = {
+  const { width, height } = figureSize(node);
+  return {
     src: isDiagram ? previewSrc || DIAGRAM_PLACEHOLDER : previewSrc || String(src || ''),
     alt: isDiagram ? caption || 'diagram' : String(alt || 'figure'),
     loading: 'lazy',
     decoding: 'async',
+    style: IMAGE_STYLE,
+    width: String(width),
+    height: String(height),
   };
-  // A diagram always takes the sizing style; an image only when it has a size or alignment.
-  if (style) attrs.style = style;
-  else if (isDiagram) attrs.style = 'display:block;max-width:100%;object-fit:contain';
-  Object.assign(attrs, imageSize(node, attrs.src ?? ''));
-  return attrs;
-}
-
-// The width and height an image is written with: the figure's own, or, for an inline SVG image
-// without one, the size it states, so it is drawn at its size before it loads.
-function imageSize(node: ProseMirrorNode, src: string): DomAttributes {
-  const own = figureSize(node);
-  const size =
-    own.width || own.height || node.attrs.figureType === 'diagram' ? own : svgIntrinsicSize(src);
-  const written: DomAttributes = {};
-  if (size?.width) written.width = String(size.width);
-  if (size?.height) written.height = String(size.height);
-  return written;
 }
 
 function renderFigure(node: ProseMirrorNode, options: ResolvedSchemaOptions) {
@@ -138,8 +141,9 @@ function renderFigure(node: ProseMirrorNode, options: ResolvedSchemaOptions) {
     'data-figure-type': node.attrs.figureType === 'diagram' ? 'diagram' : 'image',
   };
   const image = [
-    'img',
-    { ...figureImageAttrs(node, asset?.previewSrc ?? ''), contenteditable: 'false' },
+    'span',
+    { class: 'doc-figure-image', style: frameStyle(node), contenteditable: 'false' },
+    ['img', figureImageAttrs(node, asset?.previewSrc ?? '')],
   ];
   // The caption is the figure's content, in a slot of its own after the image.
   return ['figure', attrs, image, ['div', { class: 'doc-figure-caption-slot' }, 0]] as const;
@@ -166,8 +170,8 @@ function createFigureNode(options: ResolvedSchemaOptions): NodeSpec {
       snapshotId: { default: '' },
       alt: { default: 'figure' },
       captionEnabled: { default: true },
-      width: { default: null },
-      height: { default: null },
+      width: REQUIRED_SIZE,
+      height: REQUIRED_SIZE,
     },
     parseDOM: [
       {

@@ -77,7 +77,13 @@ describe('script output builders', () => {
   it('DOCE-OBJECTS-4.5 gives tables, figures and code the caption a script writes, or hides it', () => {
     const content = [
       buildScriptTable([['a', '1']], { caption: '  Stock   levels ' }),
-      buildScriptFigure({ src: 'https://example.com/a.png', alt: 'Chart', caption: 'Trend' }),
+      buildScriptFigure({
+        src: 'https://example.com/a.png',
+        alt: 'Chart',
+        caption: 'Trend',
+        width: 40,
+        height: 30,
+      }),
       buildScriptCode('x = 1', { language: 'python', caption: false }),
       buildScriptTable([['b']]),
     ];

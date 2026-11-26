@@ -58,6 +58,7 @@ const DOCUMENT: DocumentFile = {
             src: PANEL,
             alt: 'Fault panel',
             width: 200,
+            height: 100,
           },
           content: [{ type: 'caption', content: [{ type: 'text', text: 'Fault panel' }] }],
         },

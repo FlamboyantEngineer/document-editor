@@ -7,7 +7,10 @@ import { pinFigureSnapshot, setFigureSize } from './figure-commands.js';
 // A document of one figure with the attributes given, the figure selected.
 function figureState(attrs: Record<string, unknown>) {
   const content: StoredNode[] = [
-    { type: 'figure', attrs: { src: 'https://example.com/a.png', ...attrs } },
+    {
+      type: 'figure',
+      attrs: { src: 'https://example.com/a.png', ...attrs, width: 40, height: 30 },
+    },
   ];
   const { doc } = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },

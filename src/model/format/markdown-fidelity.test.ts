@@ -120,12 +120,16 @@ describe('writeMarkdown fidelity', () => {
     const content: StoredNode[] = [
       {
         type: 'figure',
-        attrs: { assetId: 'a1', assetRevision: 'r2', alt: 'Map' },
+        attrs: { assetId: 'a1', assetRevision: 'r2', alt: 'Map', width: 40, height: 30 },
         content: [storedCaption('Site')],
       },
       paragraph(text('Icon '), { type: 'image', attrs: { assetId: 'a2', alt: 'Icon' } }),
       paragraph({ type: 'image', attrs: { src: 'local.png', alt: 'Local' } }),
-      { type: 'figure', attrs: { assetId: 'missing' }, content: [storedCaption('Lost')] },
+      {
+        type: 'figure',
+        attrs: { assetId: 'missing', width: 40, height: 30 },
+        content: [storedCaption('Lost')],
+      },
     ];
     expect(written(content, { values: { asset } })).toBe(
       [

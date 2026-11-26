@@ -256,7 +256,7 @@ describe('suggest mode', () => {
 describe('whole objects while suggesting', () => {
   const captioned = (type: 'figure' | 'table', text: string): StoredNode => ({
     type,
-    ...(type === 'figure' ? { attrs: { src: 'sample.png' } } : {}),
+    ...(type === 'figure' ? { attrs: { src: 'sample.png', width: 40, height: 30 } } : {}),
     content: [
       { type: 'caption', content: text ? [{ type: 'text', text }] : [] },
       ...(type === 'table'
@@ -343,7 +343,7 @@ describe('whole objects while suggesting', () => {
   it('DOCE-SUGGESTIONS-1.4 suggests deleting a figure of the writer’s own text with other text, which names the writer', () => {
     const doc = read(paragraph('Before'), {
       type: 'figure',
-      attrs: { src: 'sample.png' },
+      attrs: { src: 'sample.png', width: 40, height: 30 },
       content: [
         {
           type: 'caption',
@@ -372,7 +372,7 @@ describe('whole objects while suggesting', () => {
     const figureOnly = (caption: StoredNode['content']) =>
       read(paragraph('Before'), {
         type: 'figure',
-        attrs: { src: 'sample.png' },
+        attrs: { src: 'sample.png', width: 40, height: 30 },
         content: [{ type: 'caption', ...(caption ? { content: caption } : {}) }],
       });
     const mark = (type: string, author: string) => ({

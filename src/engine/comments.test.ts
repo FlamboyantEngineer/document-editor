@@ -82,7 +82,11 @@ describe('comment anchors', () => {
       content: [{ type: 'text', text: value }],
     });
     const doc = read(
-      { type: 'figure', attrs: { src: 'sample.png' }, content: [caption('Chart of flow')] },
+      {
+        type: 'figure',
+        attrs: { src: 'sample.png', width: 40, height: 30 },
+        content: [caption('Chart of flow')],
+      },
       {
         type: 'table',
         content: [

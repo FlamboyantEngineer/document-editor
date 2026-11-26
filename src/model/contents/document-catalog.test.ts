@@ -176,7 +176,7 @@ describe('document catalog', () => {
   it('DOCE-CONTENTS-1.2 neither numbers nor lists a figure or code block whose caption is hidden', () => {
     const figure = (caption: string, shown = true): StoredNode => ({
       type: 'figure',
-      attrs: { src: 'a.png', ...(shown ? {} : { captionEnabled: false }) },
+      attrs: { src: 'a.png', ...(shown ? {} : { captionEnabled: false }), width: 40, height: 30 },
       content: [storedCaption(caption)],
     });
     const code = (caption: string, shown = true): StoredNode => ({

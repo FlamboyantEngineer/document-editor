@@ -98,6 +98,18 @@ export function parseTemplateAssetImageNumber(
   return Math.round(numeric * 1000) / 1000;
 }
 
+/**
+ * An image's width or height in pixels: a required attribute, with no default, that only a
+ * positive number holds (DOCE-SCHEMA-3.14).
+ */
+export const REQUIRED_SIZE = {
+  validate(value: unknown): void {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      throw new RangeError('it must be a positive number of pixels');
+    }
+  },
+} as const;
+
 /** A template image's alignment: `center`, `right` or `left`. */
 export function parseTemplateAssetImageAlignment(value: unknown): 'left' | 'center' | 'right' {
   const normalized = String(value || '')

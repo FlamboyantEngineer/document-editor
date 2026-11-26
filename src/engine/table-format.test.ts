@@ -153,7 +153,7 @@ describe('captions', () => {
     expect(captionedAt(state)?.node.attrs.captionEnabled).toBe(true);
     const figure = read({
       type: 'figure',
-      attrs: { src: 'a.png' },
+      attrs: { src: 'a.png', width: 40, height: 30 },
       content: [storedCaption('Board')],
     });
     let selected = EditorState.create({ doc: figure });

@@ -228,7 +228,7 @@ describe('document keys', () => {
     const plugins = createDocumentEditing(documentSchema, { author: () => 'writer' });
     const figure: StoredNode = {
       type: 'figure',
-      attrs: { id: '0000001a', src: 'https://example.test/a.png', alt: 'A' },
+      attrs: { id: '0000001a', src: 'https://example.test/a.png', alt: 'A', width: 40, height: 30 },
     };
     const doc = read(figure, paragraph('Below the figure', { id: '0000001b' }));
     let state = run(stateAt(doc, 'Below', plugins), key('Enter'));

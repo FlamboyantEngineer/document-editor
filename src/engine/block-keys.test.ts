@@ -36,7 +36,13 @@ const read = (...sections: StoredNode[][]) =>
 
 // Blocks that show no text of their own, as Enter and Backspace meet them.
 const OBJECTS: readonly (readonly [string, StoredNode])[] = [
-  ['figure', { type: 'figure', attrs: { src: 'https://example.test/a.png', alt: 'A' } }],
+  [
+    'figure',
+    {
+      type: 'figure',
+      attrs: { src: 'https://example.test/a.png', alt: 'A', width: 40, height: 30 },
+    },
+  ],
   ['page break', { type: 'pageBreak' }],
   ['rule', { type: 'rule' }],
   ['list of contents', { type: 'contents' }],

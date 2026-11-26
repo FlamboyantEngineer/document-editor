@@ -1326,7 +1326,7 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
       footnoteState([
         {
           type: 'figure',
-          attrs: { src: 'https://example.com/a.png' },
+          attrs: { src: 'https://example.com/a.png', width: 40, height: 30 },
           content: [{ type: 'caption', content: [text('Board')] }],
         },
         paragraph(text('Before after.'), note('n1', 'Old')),
@@ -1765,7 +1765,11 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
     const caption = figure?.firstChild;
     const table = figure?.lastChild;
-    const image = createFigure(schema, { src: 'https://example.com/a.png' }, 'Board');
+    const image = createFigure(
+      schema,
+      { src: 'https://example.com/a.png', width: 40, height: 30 },
+      'Board',
+    );
     const block = schema.nodes.paragraph?.create(null, schema.text('Block'));
     if (figure?.type.name !== 'table_figure' || !caption || !table || !image || !block) {
       throw new Error('No table with its caption.');
@@ -1853,7 +1857,12 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
                     ? [
                         {
                           type: 'figure',
-                          attrs: { id: 'f0000001', src: 'https://example.com/a.png' },
+                          attrs: {
+                            id: 'f0000001',
+                            src: 'https://example.com/a.png',
+                            width: 40,
+                            height: 30,
+                          },
                           content: [
                             {
                               type: 'caption',
@@ -2198,7 +2207,12 @@ describe('DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.4 the blocks a pending suggestion h
                 { type: 'paragraph', attrs: { id: 'p0000001' }, content: runs },
                 {
                   type: 'figure',
-                  attrs: { id: 'f0000001', src: 'https://example.com/a.png' },
+                  attrs: {
+                    id: 'f0000001',
+                    src: 'https://example.com/a.png',
+                    width: 40,
+                    height: 30,
+                  },
                   content: [{ type: 'caption', content: [text('Board')] }],
                 },
               ],

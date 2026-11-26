@@ -172,9 +172,9 @@ export interface FigureSource {
   readonly snapshotId?: string | undefined;
   readonly alt?: string | undefined;
   readonly caption?: string | undefined;
-  /** In CSS pixels; the height keeps the image's proportions when only the width is given. */
-  readonly width?: number | null | undefined;
-  readonly height?: number | null | undefined;
+  /** In CSS pixels: a new figure needs both, as every figure has a size (DOCE-SCHEMA-3.14). */
+  readonly width?: number | undefined;
+  readonly height?: number | undefined;
   /** How it sits across the content width; null for the template's default. */
   readonly objectLayout?: 'left' | 'center' | 'right' | 'fit' | null | undefined;
 }
@@ -199,12 +199,17 @@ function figureAttrs(source: FigureSource) {
   );
 }
 
+const isSize = (value: number | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0;
+
 /**
  * Inserts a new figure where a new block goes, after the figure selected when one is; it is
- * selected after, so several inserted in turn follow one another.
+ * selected after, so several inserted in turn follow one another. A source without a width and a
+ * height inserts nothing.
  */
 export function insertFigure(source: FigureSource): Command {
   return (state, dispatch) => {
+    if (!isSize(source.width) || !isSize(source.height)) return false;
     const figure = createFigure(state.schema, figureAttrs(source), source.caption ?? '');
     if (!figure) return false;
     return insertBlock(figure, 'select')(state, dispatch);

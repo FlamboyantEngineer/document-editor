@@ -69,19 +69,21 @@ describe('comparing versions', () => {
     const older = [
       paragraph('a0000001', 'One'),
       paragraph('a0000002', 'Two'),
-      { type: 'figure', attrs: { id: 'a0000003', src: 'one.png', width: 100 } },
+      { type: 'figure', attrs: { id: 'a0000003', src: 'one.png', width: 100, height: 50 } },
     ];
     const newer = [
       paragraph('a0000001', 'One', { level: 2 }),
       paragraph('a0000002', 'Two', { style: 'lead' }),
-      { type: 'figure', attrs: { id: 'a0000003', src: 'two.png', width: 100 } },
+      { type: 'figure', attrs: { id: 'a0000003', src: 'two.png', width: 100, height: 50 } },
     ];
     expect(summary(older, newer).map(([kind]) => kind)).toEqual([
       'modification',
       'formatting',
       'modification',
     ]);
-    const resized = [{ type: 'figure', attrs: { id: 'a0000003', src: 'one.png', width: 200 } }];
+    const resized = [
+      { type: 'figure', attrs: { id: 'a0000003', src: 'one.png', width: 200, height: 50 } },
+    ];
     expect(summary(older.slice(2), resized).map(([kind]) => kind)).toEqual(['formatting']);
   });
 

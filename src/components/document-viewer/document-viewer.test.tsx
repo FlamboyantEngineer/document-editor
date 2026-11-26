@@ -16,7 +16,13 @@ const heading = (value: string): Node =>
   node('heading', { level: 1, dataId: value }, [documentSchema.text(value)]);
 
 const figure = (index: number): Node =>
-  node('figure', { dataId: `f${String(index)}`, src: `image-${String(index)}.png`, alt: '' });
+  node('figure', {
+    dataId: `f${String(index)}`,
+    src: `image-${String(index)}.png`,
+    alt: '',
+    width: 40,
+    height: 30,
+  });
 
 // Ten pages, each with a heading the engine numbers after its page and a paragraph drawn on lines
 // of four characters, and, `withImages`, a figure of an image of its own; `title` starts each heading.

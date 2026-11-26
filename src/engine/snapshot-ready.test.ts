@@ -8,7 +8,10 @@ import { documentSnapshotWhenReady } from './snapshot-ready.js';
 
 // A page with two figures showing the same image and one showing another.
 function figuresView() {
-  const figure = (src: string) => ({ type: 'figure', attrs: { src, alt: 'Chart' } });
+  const figure = (src: string) => ({
+    type: 'figure',
+    attrs: { src, alt: 'Chart', width: 40, height: 30 },
+  });
   const stored = {
     formatVersion: 1,
     sections: [{ name: null, content: [figure('a.png'), figure('a.png'), figure('b.png')] }],

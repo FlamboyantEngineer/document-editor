@@ -44,7 +44,7 @@ describe('writing then reading Markdown', () => {
     const content: StoredNode[] = [
       {
         type: 'figure',
-        attrs: { src: 'https://example.com/a.png', alt: 'Chart' },
+        attrs: { src: 'https://example.com/a.png', alt: 'Chart', width: 40, height: 30 },
         content: [caption],
       },
       { type: 'table', content: [caption, ...body] },

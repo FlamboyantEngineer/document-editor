@@ -26,9 +26,11 @@ describe('DOM atom measurer', () => {
     stubBoxes({ figure: { top: 0, width: 320, height: 180 } });
     const render = vi.fn(() => document.createElement('figure'));
     const measure = createDomAtomMeasurer({ host, render });
-    const figure = schema.node('figure', { src: 'https://example.org/a.png' }, [
-      schema.node('figure_caption'),
-    ]);
+    const figure = schema.node(
+      'figure',
+      { src: 'https://example.org/a.png', width: 40, height: 30 },
+      [schema.node('figure_caption')],
+    );
     expect(measure(figure, 400)).toEqual({ size: { width: 320, height: 180 } });
     expect(render).toHaveBeenCalledWith(figure);
     expect(host.childElementCount).toBe(0);
@@ -42,9 +44,11 @@ describe('DOM atom measurer', () => {
       div: { top: 180, width: 320, height: 20 },
     });
     const measure = createDomAtomMeasurer({ host });
-    const figure = schema.node('figure', { src: 'https://example.org/a.png' }, [
-      schema.node('figure_caption', null, [schema.text('A caption')]),
-    ]);
+    const figure = schema.node(
+      'figure',
+      { src: 'https://example.org/a.png', width: 40, height: 30 },
+      [schema.node('figure_caption', null, [schema.text('A caption')])],
+    );
     expect(measure(figure, 400)?.size).toEqual({ width: 320, height: 180 });
   });
 
@@ -83,7 +87,9 @@ describe('DOM atom measurer', () => {
       return image;
     };
     const measure = createDomAtomMeasurer({ host, render });
-    const figure = schema.node('figure', null, [schema.node('figure_caption')]);
+    const figure = schema.node('figure', { width: 40, height: 30 }, [
+      schema.node('figure_caption'),
+    ]);
     expect(measure(figure, 400)?.settled).toBeInstanceOf(Promise);
   });
 
@@ -103,7 +109,9 @@ describe('DOM atom measurer', () => {
     const cache = createAtomCache({ measure: createDomAtomMeasurer({ host, render }) });
     const listener = vi.fn();
     cache.subscribe(listener);
-    const figure = schema.node('figure', null, [schema.node('figure_caption')]);
+    const figure = schema.node('figure', { width: 40, height: 30 }, [
+      schema.node('figure_caption'),
+    ]);
     expect(cache.measureBlockAtom(figure, 400)).toMatchObject({ height: 24, provisional: true });
     const drawn = image as HTMLImageElement | null;
     expect(drawn?.getAttribute('loading')).toBe('eager');
