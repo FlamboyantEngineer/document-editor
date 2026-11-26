@@ -223,6 +223,11 @@ describe('lenient reading', () => {
     ]);
     expect(findNode(doc, 'paragraph')?.textContent).toBe('A  b');
     expect(findNode(doc, 'figure')?.attrs).toMatchObject({ src: 'c.png', width: 40 });
+    // A session's read keeps them whole, so a save writes them back as they were.
+    const kept = readDocumentFile(file, documentSchema, { unknown: 'keep' });
+    expect(kept.problems.filter((problem) => problem.kept)).toHaveLength(2);
+    const written = writeDocumentFile(kept.doc).sections[0]?.content;
+    expect(written?.slice(0, 2)).toEqual(file.sections[0]?.content.slice(0, 2));
   });
 
   it('DOCE-FORMAT-1.5 still refuses a file that is not a stored document', () => {

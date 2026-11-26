@@ -6,6 +6,7 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
+import * as delta from 'lib0/delta';
 import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
@@ -673,6 +674,37 @@ it('DOCE-COLLAB-7.2 accepts an authorized first document in an empty room', asyn
     expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('First document'));
   } finally {
     await room.close();
+  }
+});
+
+// Inserts a figure, as raw shared content, after the room's first block.
+function insertRawFigure(doc: Y.Doc, attrs: Record<string, unknown>) {
+  const below = (type: Y.Type, index: number) => type.get(index) as Y.Type;
+  const blocks = below(below(below(doc.get('content'), 0), 0), 1);
+  const caption = delta.create('figure_caption').done();
+  const figure = delta.create('figure').setAttrs(attrs).insert([caption]).done();
+  blocks.applyDelta(delta.create().retain(1).insert([figure]).done() as never);
+}
+
+it('DOCE-COLLAB-7.2 DOCE-SCHEMA-3.14 refuses a figure without a size even from a direct editor', async () => {
+  const granted = { edit: true, suggest: true, comment: true, decide: true };
+  const sized = await setup({ granted });
+  try {
+    insertRawFigure(sized.doc, { src: 'a.png', width: 4, height: 3, dataId: 'f0000001' });
+    await sized.provider.whenStored();
+    expect(sized.provider.getState().refusal).toBeNull();
+  } finally {
+    await sized.close();
+  }
+  const unsized = await setup({ granted });
+  try {
+    const before = readContent(schema, unsized.snapshot().get('content'))?.toJSON();
+    insertRawFigure(unsized.doc, { src: 'a.png', dataId: 'f0000001' });
+    await unsized.provider.whenStored();
+    expect(unsized.provider.getState().refusal).toBe('unauthorized-write');
+    expect(readContent(schema, unsized.snapshot().get('content'))?.toJSON()).toEqual(before);
+  } finally {
+    await unsized.close();
   }
 });
 
