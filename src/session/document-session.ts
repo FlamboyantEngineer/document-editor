@@ -103,6 +103,11 @@ export interface SessionConnection {
 export interface DocumentSession {
   readonly documentId: string;
   readonly mode: SessionMode;
+  /**
+   * The reader, whom the editor attributes their changes and suggestions to: the host's current
+   * person (DOCE-SESSION-1.6).
+   */
+  readonly author: string | null;
   readonly status: SessionStatusStore;
   /** The document, its template and the reader's capabilities; null until loaded. */
   readonly document: ValueStore<SessionDocument | null>;

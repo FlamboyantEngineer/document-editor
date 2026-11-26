@@ -550,6 +550,13 @@ A selection the pages have sent, such as the caret a key moved, shall stay when 
 Implementation: `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/use-paged-projection.ts`
 Verification: `src/components/document-editor/pages-view.test.tsx`, `src/components/document-editor/use-paged-projection.test.ts`, `e2e/caret-keys.spec.ts`
 
+### DOCE-PAGINATION-7.26 - One canonical state for a rewritten change
+
+When the editor's dispatch body commits another transaction in place of one the pages made, on the same canonical state, such as the change rewritten as a suggestion or a refused suggestion's notice, the projection's canonical state shall be the state that transaction makes, at once, and the host shall take that same state. The canonical plugins never see the change as the pages made it: a shared document's binding sends a suggester's typed text, or a deleted range, as one change that already carries the suggestion's marks and author, never the plain change first.
+
+Implementation: `src/pagination/canonical-change.ts`, `src/pagination/projection-session.ts`, `src/components/document-editor/use-paged-projection.ts`
+Verification: `src/pagination/projection-session.test.ts`, `src/components/document-editor/use-paged-projection.test.ts`, `e2e/session-room.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

@@ -72,14 +72,19 @@ export interface Session {
 /**
  * Takes a canonical transaction: applied with what the canonical plugins append to it, and handed
  * to the host's `dispatch`. Gives the transactions applied, the appended ones after it; none when a
- * plugin filtered it out.
+ * plugin filtered it out. When the host took another transaction in its place, such as the
+ * transaction rewritten as a suggestion, the canonical state is the one that transaction made, so
+ * the canonical plugins, as a shared document's binding, never see the one the host refused
+ * (DOCE-PAGINATION-7.26).
  */
 export function send(session: Session, tr: Transaction): readonly Transaction[] {
   const from = session.canonical;
-  const { state, transactions } = from.applyTransaction(tr);
-  session.canonical = state;
-  session.options.dispatch?.(tr, { from, to: state });
-  return transactions;
+  const applied = from.applyTransaction(tr);
+  session.canonical = applied.state;
+  const taken = session.options.dispatch?.(tr, { from, to: applied.state });
+  if (!taken) return applied.transactions;
+  session.canonical = taken.state;
+  return taken.transactions;
 }
 
 // The steps of transactions applied one after another, from the document the first starts from.
