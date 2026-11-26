@@ -80,6 +80,35 @@ describe('usePagedEditor', () => {
     plain.targetRef.current = { projection, host: from, view: {} as EditorView };
     expect(plain.onCanonical(tr, made)).toBeUndefined();
   });
+
+  it('DOCE-PAGINATION-7.26 rewrites a transaction on the state the pages made it on while the host lags', () => {
+    const drawn = stateOf('Check the unit');
+    // The pages' last edit, which the host has not drawn yet: its updater waits.
+    const from = drawn.apply(drawn.tr.insertText('a', 1));
+    const tr = from.tr.insertText('x', 2);
+    const made = { from, to: from.apply(tr) };
+    const waiting: ((state: EditorState) => EditorState)[] = [];
+    const seen: EditorState[] = [];
+    const body = (_tr: Transaction, view: EditorView, commit: RichTextEngineCommit) => {
+      seen.push(view.state);
+      commit.applyDefault(view.state.tr.insertText('y', 2));
+    };
+    const { result } = renderHook(() =>
+      usePagedEditor({
+        state: drawn,
+        onStateChange: (next) => waiting.push(next),
+        body,
+        events: {},
+      }),
+    );
+    const projection = { state: made.to, update: vi.fn() } as unknown as PagedProjection;
+    result.current.targetRef.current = { projection, host: drawn, view: {} as EditorView };
+    const taken = result.current.onCanonical(tr, made);
+    expect(seen[0]).toBe(from);
+    expect(taken?.state.doc.textContent).toBe('ayCheck the unit');
+    // The host, catching up, takes the state the pages hold.
+    expect(waiting.at(-1)?.(from)).toBe(taken?.state);
+  });
 });
 
 describe('usePagedView', () => {
