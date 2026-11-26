@@ -183,7 +183,7 @@ describe('pasted equations', () => {
 
   it('DOCE-OBJECTS-1.12 reads an image of math carrying its LaTeX back as math, other images as images', () => {
     const doc = parseMarkup(
-      `<p>Area <img src="a.png" alt="" data-latex="\\pi r^2"> and <img src="b.png" alt="b"></p><img src="c.png" data-latex="${SOURCE}" data-math-display="display">`,
+      `<p>Area <img src="a.png" alt="" data-latex="\\pi r^2"> and <img src="b.png" alt="b" width="8" height="8"></p><img src="c.png" data-latex="${SOURCE}" data-math-display="display">`,
     );
     expect(findNode(doc, 'math_inline')?.textContent).toBe(String.raw`\pi r^2`);
     expect(findNode(doc, 'math_display')?.textContent).toBe(SOURCE);

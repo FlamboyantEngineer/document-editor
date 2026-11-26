@@ -3,7 +3,10 @@ import type { StoredNode } from './document-format.js';
 import { isLeftOut, keptContent } from './left-out.js';
 import { assetAddress, variableText } from './writer-values.js';
 
-const inserted: StoredNode = { type: 'figure', attrs: { suggestionKind: 'insertion' } };
+const inserted: StoredNode = {
+  type: 'figure',
+  attrs: { suggestionKind: 'insertion', width: 40, height: 30 },
+};
 const deleted: StoredNode = { type: 'paragraph', attrs: { suggestionKind: 'deletion' } };
 const insertedText: StoredNode = { type: 'text', text: 'new', marks: [{ type: 'insertion' }] };
 const deletedText: StoredNode = { type: 'text', text: 'old', marks: [{ type: 'deletion' }] };
@@ -42,7 +45,7 @@ describe('writer values', () => {
   it('DOCE-FORMAT-5.3 resolves an asset address, falling back to the stored source', () => {
     const figure: StoredNode = {
       type: 'figure',
-      attrs: { assetId: 'a1', assetRevision: 'r2', src: 'stored.png' },
+      attrs: { assetId: 'a1', assetRevision: 'r2', src: 'stored.png', width: 40, height: 30 },
     };
     const asset = (named: { id: string; revision?: string | undefined }) =>
       `https://assets.example/${named.id}/${named.revision ?? 'latest'}`;

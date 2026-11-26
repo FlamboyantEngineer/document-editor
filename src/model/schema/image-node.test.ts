@@ -35,7 +35,10 @@ describe('template images', () => {
         assetsAsOf: () => asOf,
       },
     });
-    const doc = read(schema, paragraph(image({ assetId: 'logo', assetRevision: 's2', width: 80 })));
+    const doc = read(
+      schema,
+      paragraph(image({ assetId: 'logo', assetRevision: 's2', width: 80, height: 48 })),
+    );
     expect(writeMarkup(doc, schema)).toContain('src="/files/logo/s2"');
     asOf = '2026-01-31T00:00:00Z';
     expect(writeMarkup(doc, schema)).toContain('src="/files/logo/s2?at=2026-01-31T00:00:00Z"');
@@ -48,7 +51,7 @@ describe('template images', () => {
   it('DOCE-SCHEMA-3.3 stores a template image without an address and marks one not found', () => {
     const doc = read(
       documentSchema,
-      paragraph(image({ assetId: 'logo', assetRevision: 's2', width: 80 })),
+      paragraph(image({ assetId: 'logo', assetRevision: 's2', width: 80, height: 48 })),
     );
     const written = writeMarkup(doc);
     expect(written).toContain('data-image-missing="true"');
@@ -59,10 +62,12 @@ describe('template images', () => {
       templateSnapshotId: 's2',
       templateImageWidth: 80,
     });
-    const addressed = parseMarkup('<p><img src="/old/logo.png" data-template-file-id="logo"></p>');
+    const addressed = parseMarkup(
+      '<p><img src="/old/logo.png" data-template-file-id="logo" width="80" height="48"></p>',
+    );
     expect(findNode(addressed, 'image')?.attrs.src).toBe('');
     expect(writeDocumentFile(doc).sections[0]?.content).toEqual([
-      paragraph(image({ assetId: 'logo', assetRevision: 's2', width: 80 })),
+      paragraph(image({ assetId: 'logo', assetRevision: 's2', width: 80, height: 48 })),
     ]);
   });
 
@@ -78,7 +83,10 @@ describe('template images', () => {
               image({ assetId: 'banner' }),
               image({ assetId: 'logo', assetRevision: 's2' }),
             ),
-            { type: 'figure', attrs: { assetId: 'chart', assetRevision: 's1' } },
+            {
+              type: 'figure',
+              attrs: { assetId: 'chart', assetRevision: 's1', width: 40, height: 30 },
+            },
           ],
           footer: { content: [paragraph(image({ src: 'https://example.com/seal.png' }))] },
         },

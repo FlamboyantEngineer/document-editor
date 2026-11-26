@@ -20,6 +20,7 @@ import {
   type StoredTypeMapping,
   type StoredTypeSpec,
 } from './document-format.js';
+import { kindProblem, lacksRequiredAttrs, unreadableMessage } from './document-format-attrs.js';
 import { readFormatRecords } from './format-records.js';
 import type { FootnoteIds } from './stored-footnote-ids.js';
 import { holderAttrsOf } from './stored-table-suggestion.js';
@@ -83,26 +84,6 @@ export function report({ context, path }: Located, message: string, kept = false
 interface ReadTarget {
   type: { name: string; spec: StoredTypeSpec };
   mappings: Readonly<Record<string, StoredTypeMapping>>;
-}
-
-// What is wrong with a value by the kinds its attribute takes (its `validate`, checked as
-// ProseMirror checks it), or null. ProseMirror checks them only once the whole document is built,
-// where a refusal names no place and no policy can read past it.
-function kindProblem(attribute: unknown, value: unknown): string | null {
-  const validate: unknown = isRecord(attribute) ? attribute.validate : undefined;
-  if (typeof validate === 'string') {
-    const kinds = validate.split('|');
-    return kinds.includes(value === null ? 'null' : typeof value)
-      ? null
-      : `it must be ${kinds.join(' or ')}`;
-  }
-  if (typeof validate !== 'function') return null;
-  try {
-    (validate as (value: unknown) => void)(value);
-    return null;
-  } catch (error) {
-    return error instanceof Error ? error.message : 'it is not of its kind';
-  }
 }
 
 function readAttrs(stored: unknown, target: ReadTarget, at: Located): Attrs {
@@ -243,8 +224,9 @@ export function allowedChildren(
 }
 
 /**
- * A node of a type, checked. Under `drop`, it is made of the children and marks the type allows,
- * filled where it needs more; under `keep`, null when it does not hold, so it is kept whole.
+ * A node of a type, checked; null when it lacks an attribute the type requires. Under `drop`, it
+ * is made of the children and marks the type allows, filled where it needs more; under `keep`,
+ * null when it does not hold, so it is kept whole.
  */
 function createNode(
   type: NodeType,
@@ -252,6 +234,7 @@ function createNode(
   { content, at }: { content: readonly Read[]; at: Located },
 ): ProseMirrorNode | null {
   const { policy } = at.context;
+  if (lacksRequiredAttrs(type, attrs)) return null;
   if (policy === 'drop') return type.createAndFill(attrs, allowedChildren(type, content, at));
   try {
     return type.createChecked(attrs, content.filter(isRead));
@@ -306,7 +289,7 @@ function readNode(stored: unknown, at: Located, inline: boolean): ProseMirrorNod
   const type = nodeType(stored, at.context.schema);
   if (!type) return unreadable(stored, at, { inline, message: `unknown node ${stored.type}` });
   const node = readKnownNode(stored, type, at);
-  if (!node) return unreadable(stored, at, { inline, message: `${stored.type} cannot be read` });
+  if (!node) return unreadable(stored, at, { inline, message: unreadableMessage(stored, type) });
   // A mention, a footnote marker or math carries marks as text does: a suggestion, a comment.
   const marks = readMarks(stored, at);
   return marks.length ? node.mark(marks) : node;

@@ -24,6 +24,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Target",
+            "width": 1,
+            "height": 1,
             "id": "c4265650"
           },
           "content": [

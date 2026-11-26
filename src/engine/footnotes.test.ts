@@ -102,7 +102,11 @@ describe('footnotes', () => {
     const caption = (...content: Parameters<typeof paragraph>) => ({ type: 'caption', content });
     let state = footnoteState([
       paragraph(text('Intro'), note('n1', 'First')),
-      { type: 'figure', attrs: { src: 'sample.png' }, content: [caption(text('Chart'))] },
+      {
+        type: 'figure',
+        attrs: { src: 'sample.png', width: 40, height: 30 },
+        content: [caption(text('Chart'))],
+      },
       {
         type: 'table',
         content: [

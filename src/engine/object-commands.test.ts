@@ -114,7 +114,10 @@ describe('object commands', () => {
   });
 
   it('DOCE-OBJECTS-1.1 inserts an empty code block at a caret before a figure, the caret in it', () => {
-    const figure: StoredNode = { type: 'figure', attrs: { src: 'https://example.com/a.png' } };
+    const figure: StoredNode = {
+      type: 'figure',
+      attrs: { src: 'https://example.com/a.png', width: 40, height: 30 },
+    };
     let state = stateOf(paragraph('Before'), figure);
     const end = find(state, 'Before') + 'Before'.length;
     state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, end)));
@@ -176,7 +179,7 @@ describe('object commands', () => {
   it('DOCE-OBJECTS-1.4 inserts a figure, then changes and aligns it', () => {
     let state = run(
       atStart(stateOf(paragraph(''))),
-      setFigure({ src: 'https://example.com/a.png', alt: 'A', width: 320 }),
+      setFigure({ src: 'https://example.com/a.png', alt: 'A', width: 320, height: 160 }),
     );
     const figure = () => (state.selection as NodeSelection).node;
     expect(figure().attrs).toMatchObject({ figureType: 'image', alt: 'A', width: 320 });
@@ -189,7 +192,13 @@ describe('object commands', () => {
   it('DOCE-OBJECTS-1.4 keeps a diagram a diagram and stores fitting the page width', () => {
     let state = run(
       atStart(stateOf(paragraph(''))),
-      insertFigure({ figureType: 'diagram', fileAssetId: 'd1', snapshotId: 's1', width: 400 }),
+      insertFigure({
+        figureType: 'diagram',
+        fileAssetId: 'd1',
+        snapshotId: 's1',
+        width: 400,
+        height: 200,
+      }),
     );
     const figure = () => (state.selection as NodeSelection).node;
     state = run(state, setFigure({ caption: 'Flow', objectLayout: 'right' }));
@@ -206,9 +215,9 @@ describe('object commands', () => {
   it('DOCE-OBJECTS-1.4 inserts figures one after another, never over the one selected', () => {
     let state = run(
       atStart(stateOf(paragraph(''))),
-      insertFigure({ src: 'https://example.com/a.png' }),
+      insertFigure({ src: 'https://example.com/a.png', width: 40, height: 30 }),
     );
-    state = run(state, insertFigure({ src: 'https://example.com/b.png' }));
+    state = run(state, insertFigure({ src: 'https://example.com/b.png', width: 40, height: 30 }));
     const sources: unknown[] = [];
     state.doc.descendants((node) => {
       if (node.type.name === 'figure') sources.push(node.attrs.src);

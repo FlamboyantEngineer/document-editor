@@ -21,7 +21,7 @@ const schema = createDocumentSchema();
 const figureCaption = (id: string, text: string) =>
   node('figure_caption', { dataId: id }, [documentSchema.text(text)]);
 const figure = (id: string, text: string) =>
-  node('figure', { dataId: id }, [figureCaption(`${id}-caption`, text)]);
+  node('figure', { dataId: id, width: 40, height: 30 }, [figureCaption(`${id}-caption`, text)]);
 const equation = (text: string) => node('math_display', null, [documentSchema.text(text)]);
 const headerRow = (nested: boolean) => {
   const math = equation('x');

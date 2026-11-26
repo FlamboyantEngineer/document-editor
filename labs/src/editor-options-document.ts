@@ -60,6 +60,7 @@ const FIGURE: StoredNode = {
     assetRevision: 'r3',
     alt: 'Floor plan',
     width: 240,
+    height: 120,
   },
   content: [{ type: 'caption', content: [text('Floor plan of the ground floor')] }],
 };

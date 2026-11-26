@@ -42,7 +42,12 @@ export function editorKeys({
   const dialogs: (readonly [ShortcutId, ObjectDialog, boolean, Command | null])[] = onDialog
     ? [
         ['reference', { kind: 'reference' }, canInsertReference(state), null],
-        ['figure', { kind: 'figure' }, setFigure({ src: 'about:blank' })(state), null],
+        [
+          'figure',
+          { kind: 'figure' },
+          setFigure({ src: 'about:blank', width: 1, height: 1 })(state),
+          null,
+        ],
         [
           'display-math',
           { kind: 'math', display: true },

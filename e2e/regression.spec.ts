@@ -336,7 +336,7 @@ const ALL_DOCUMENTS: readonly { name: RegressionDocumentName; pages: number }[] 
   { name: 'oversized-blocks', pages: 12 },
   { name: 'page-breaks-and-rules', pages: 4 },
   { name: 'roman-and-alpha-numbering', pages: 6 },
-  { name: 'roman-numbering-coverage', pages: 17 },
+  { name: 'roman-numbering-coverage', pages: 16 },
   { name: 'roman-numbering-stress', pages: 4 },
   { name: 'table-both-header-modes', pages: 8 },
   { name: 'table-long-headerless', pages: 8 },

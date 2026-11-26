@@ -285,27 +285,41 @@ describe('the pages engine and its inputs', () => {
     const left = [...reasons].filter((reason) => reason !== 'template variable');
     expect(left).toEqual([]);
   });
-
   it('DOCE-PAGINATION-11.1 tells that an atom it measured still loads until it settles', async () => {
     const settled = vi.fn();
     const measureIn = document.createElement('div');
     document.body.append(measureIn);
+    const doc = read([{ type: 'dynamic_template', attrs: { source: '<p>Plan</p>' } }]);
+    // A block measured as drawn whose drawing holds an image that has not loaded.
+    const view = new EditorView(measureIn, {
+      state: EditorState.create({ doc }),
+      editable: () => false,
+      nodeViews: {
+        dynamic_template: () => {
+          const dom = document.createElement('div');
+          dom.append(
+            Object.assign(document.createElement('img'), { src: 'https://example.org/a.png' }),
+          );
+          return { dom, ignoreMutation: () => true };
+        },
+      },
+    });
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
       measureIn,
       onAtomsSettled: settled,
+      view: () => view,
     });
-    const image = { type: 'image', attrs: { src: 'https://example.org/a.png' } };
-    const doc = read([paragraph(text('aaaa '), image as StoredNode)]);
     engine.number(doc);
     const [block] = blocksOf(doc);
-    if (!block) throw new Error('no paragraph');
+    if (!block) throw new Error('no template block');
     expect(engine.measureBlock(block, null)).not.toBeNull();
     expect(engine.provisional()).toBe(true);
-    measureIn.querySelector('img')?.dispatchEvent(new Event('load'));
+    view.dom.querySelector('img')?.dispatchEvent(new Event('load'));
     await vi.waitFor(() => expect(settled).toHaveBeenCalled());
     expect(engine.provisional()).toBe(false);
     engine.destroy();
+    view.destroy();
     measureIn.remove();
   });
 });

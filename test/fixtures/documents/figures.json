@@ -24,6 +24,8 @@
           "attrs": {
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Plot plan",
+            "width": 1,
+            "height": 1,
             "id": "511f20aa"
           },
           "content": [
@@ -68,6 +70,8 @@
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Shed",
             "captionEnabled": false,
+            "width": 1,
+            "height": 1,
             "id": "4b1f1738"
           },
           "content": [
@@ -83,6 +87,8 @@
             "assetId": "asset-0001",
             "assetRevision": "rev-3",
             "alt": "Stored asset",
+            "width": 1,
+            "height": 1,
             "id": "4c1f18cb"
           },
           "content": [
@@ -97,6 +103,8 @@
             "layout": "fit-page-width",
             "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
             "alt": "Wide map",
+            "width": 1,
+            "height": 1,
             "id": "4d1f1a5e"
           },
           "content": [

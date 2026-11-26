@@ -325,7 +325,7 @@ describe('forcedLines', () => {
   });
 
   it("DOCE-PAGINATION-11.2 draws figures' and tables' captions on their lines, their indent before the label", () => {
-    const figure = create('figure', { src: 'a.png' }, [
+    const figure = create('figure', { src: 'a.png', width: 40, height: 30 }, [
       create('figure_caption', null, [documentSchema.text('aaaaaaaaaabb')]),
     ]);
     const cell = create('table_cell', null, [paragraph('cc')]);
@@ -429,9 +429,11 @@ describe('forcedLines', () => {
       create('table_caption', null, [documentSchema.text('ff')]),
       table({ captionEnabled: false }),
     ]);
-    const figure = create('figure', { src: 'a.png', captionEnabled: false }, [
-      create('figure_caption', null, [documentSchema.text('hh')]),
-    ]);
+    const figure = create(
+      'figure',
+      { src: 'a.png', captionEnabled: false, width: 40, height: 30 },
+      [create('figure_caption', null, [documentSchema.text('hh')])],
+    );
     // A later part opening with a body row shows no caption.
     const headerless = create('table_figure', { splitPartIndex: 1 }, [
       create('table_caption', null),

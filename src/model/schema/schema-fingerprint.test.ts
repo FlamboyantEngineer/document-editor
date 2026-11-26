@@ -55,7 +55,7 @@ function isValid(attr: AttrSpec, value: unknown): boolean {
 
 /**
  * Samples for attributes whose kind a generic sample does not meet: a cell's alignments and a
- * figure's size are written only as values of their kind.
+ * figure's or an image's size are written only as values of their kind.
  */
 const SAMPLES: Readonly<Record<string, unknown>> = {
   colwidth: [120],
@@ -63,6 +63,8 @@ const SAMPLES: Readonly<Record<string, unknown>> = {
   verticalAlign: 'top',
   width: 320,
   height: 200,
+  templateImageWidth: 160,
+  templateImageHeight: 96,
 };
 
 /** A value unlike an attribute's default, of a kind it takes, so its markup shows where it goes. */

@@ -186,6 +186,50 @@ describe('lenient reading', () => {
     expect(writeDocumentFile(doc).sections[0]?.content).toEqual([cited]);
   });
 
+  it('DOCE-FORMAT-1.5 DOCE-SCHEMA-3.14 drops an image or a figure without a size, and names what it lacks', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      template: null,
+      sections: [
+        {
+          name: 'body',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'A ' },
+                { type: 'image', attrs: { src: 'a.png', width: 16 } },
+                { type: 'text', text: ' b' },
+              ],
+            },
+            { type: 'figure', attrs: { src: 'b.png', width: 0, height: 20 } },
+            { type: 'figure', attrs: { src: 'c.png', width: 40, height: 30 } },
+          ],
+        },
+      ],
+    };
+    expect(() => readDocumentFile(file, documentSchema)).toThrow(
+      'sections[0].content[0].content[1]: image has no height',
+    );
+    const { doc, problems } = readDocumentFile(file, documentSchema, { unknown: 'drop' });
+    expect(problems).toEqual([
+      { path: 'sections[0].content[0].content[1]', message: 'image has no height', kept: false },
+      {
+        path: 'sections[0].content[1]',
+        message: 'attribute width cannot be read: it must be a positive number of pixels',
+        kept: false,
+      },
+      { path: 'sections[0].content[1]', message: 'figure cannot be read', kept: false },
+    ]);
+    expect(findNode(doc, 'paragraph')?.textContent).toBe('A  b');
+    expect(findNode(doc, 'figure')?.attrs).toMatchObject({ src: 'c.png', width: 40 });
+    // A session's read keeps them whole, so a save writes them back as they were.
+    const kept = readDocumentFile(file, documentSchema, { unknown: 'keep' });
+    expect(kept.problems.filter((problem) => problem.kept)).toHaveLength(2);
+    const written = writeDocumentFile(kept.doc).sections[0]?.content;
+    expect(written?.slice(0, 2)).toEqual(file.sections[0]?.content.slice(0, 2));
+  });
+
   it('DOCE-FORMAT-1.5 still refuses a file that is not a stored document', () => {
     expect(() =>
       readDocumentFile({ formatVersion: 2, sections: [] }, documentSchema, { unknown: 'keep' }),

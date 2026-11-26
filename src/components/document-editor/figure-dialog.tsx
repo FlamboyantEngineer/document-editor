@@ -86,7 +86,7 @@ function figureSource(
   const size =
     isUnsized(fields) && natural
       ? newFigureBox(view, view.state.selection.from, natural)
-      : { width: fields.width, height: fields.height };
+      : { width: fields.width ?? undefined, height: fields.height ?? undefined };
   return {
     figureType: fields.figureType,
     src: fields.asset ? '' : fields.src.trim(),
@@ -306,7 +306,8 @@ function drawDiagram({
       return;
     }
     const size = { width: diagram.width, height: diagram.height };
-    const sized = clampFigureSize(size, { locked: true, ratio: sizeRatio(size), bounds });
+    const clamped = clampFigureSize(size, { locked: true, ratio: sizeRatio(size), bounds });
+    const sized = { width: clamped.width ?? size.width, height: clamped.height ?? size.height };
     const asset = {
       fileAssetId: diagram.assetId,
       snapshotId: diagram.snapshotId ?? diagram.assetId,

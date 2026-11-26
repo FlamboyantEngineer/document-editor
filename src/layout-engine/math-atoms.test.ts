@@ -100,7 +100,11 @@ describe('math atoms sized from their layout', () => {
     expect(calls).toEqual([{ text: 'ab', display: false, size: 20 }]);
     expect(inner).not.toHaveBeenCalled();
     // Other atoms, and math not typeset, are measured by the inner measurer.
-    const image = schema.nodes.image?.create({ src: 'https://example.org/a.png' });
+    const image = schema.nodes.image?.create({
+      src: 'https://example.org/a.png',
+      templateImageWidth: 7,
+      templateImageHeight: 7,
+    });
     if (!image) throw new Error('schema has no image');
     expect(measure(image, 0)).toEqual({ size: { width: 7, height: 7 } });
     expect(measure(inline('c'), 0)).toEqual({ size: { width: 7, height: 7 } });

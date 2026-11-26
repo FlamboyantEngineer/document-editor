@@ -127,7 +127,7 @@ function objects(words: TemplatePreviewText): StoredNode[] {
     nestedList('orderedList', words),
     {
       type: 'figure',
-      attrs: { src: FIGURE_SOURCE, alt: words.figure, captionEnabled: true },
+      attrs: { src: FIGURE_SOURCE, alt: words.figure, width: 320, height: 120 },
       content: [storedCaption(words.figure)],
     },
     table(words),

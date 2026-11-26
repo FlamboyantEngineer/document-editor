@@ -229,8 +229,10 @@ describe('template setting rules', () => {
     const errors = validateTemplateFile(
       {
         ...TEMPLATE,
-        header: { content: [image({ src: 'https://example.com/seal.png' })] },
-        sections: [{ name: 'scope', placeholder: [image({ alt: 'Seal' })] }],
+        header: {
+          content: [image({ src: 'https://example.com/seal.png', width: 20, height: 20 })],
+        },
+        sections: [{ name: 'scope', placeholder: [image({ alt: 'Seal', width: 20, height: 20 })] }],
       },
       { schema: documentSchema },
     );
@@ -241,6 +243,13 @@ describe('template setting rules', () => {
     expect(
       validateTemplateFile({ ...TEMPLATE, header: { content: [image({ assetId: 'seal' })] } }),
     ).toEqual([]);
+    // Every image has a size (DOCE-SCHEMA-3.14).
+    expect(
+      validateTemplateFile(
+        { ...TEMPLATE, header: { content: [image({ assetId: 'seal' })] } },
+        { schema: documentSchema },
+      ),
+    ).toEqual(['template.header.content: [0].content[0]: image has no width or height']);
     expect(validateTemplateFile({ ...TEMPLATE, sections: 'none' })).toEqual([
       'template.sections must be a list',
     ]);

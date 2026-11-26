@@ -87,13 +87,15 @@ describe('atom cache', () => {
 
   it('DOCE-PAGINATION-10.1 keys a figure without its caption, which the engine lays out as text', () => {
     const figure = (caption: string) =>
-      schema.node('figure', { src: 'https://example.org/a.png' }, [
+      schema.node('figure', { src: 'https://example.org/a.png', width: 40, height: 30 }, [
         schema.node('figure_caption', null, caption ? schema.text(caption) : undefined),
       ]);
     expect(atomKey(figure('Before'), 300)).toBe(atomKey(figure('After typing'), 300));
-    const other = schema.node('figure', { src: 'https://example.org/b.png' }, [
-      schema.node('figure_caption'),
-    ]);
+    const other = schema.node(
+      'figure',
+      { src: 'https://example.org/b.png', width: 40, height: 30 },
+      [schema.node('figure_caption')],
+    );
     expect(atomKey(other, 300)).not.toBe(atomKey(figure(''), 300));
   });
 
@@ -168,7 +170,7 @@ describe('atom cache', () => {
     const listener = vi.fn();
     cache.subscribe(listener);
     const image = (dataId: string) =>
-      schema.node('figure', { dataId, src: 'https://example.org/a.png' }, [
+      schema.node('figure', { dataId, src: 'https://example.org/a.png', width: 40, height: 30 }, [
         schema.node('figure_caption'),
       ]);
     const [first, second] = [image('aaaaaaaa'), image('bbbbbbbb')];

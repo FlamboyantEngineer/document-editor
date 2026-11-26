@@ -1,17 +1,7 @@
-import { DOMSerializer } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
-import { documentSchema, findNode, parseMarkup } from '../../../test/document-markup.js';
-import { createFigure } from './caption-content.js';
 import { svgIntrinsicSize } from './svg-size.js';
 
 const svg = (root: string) => `data:image/svg+xml,${encodeURIComponent(`<svg ${root}></svg>`)}`;
-
-function written(attrs: Record<string, unknown>): HTMLElement {
-  // A figure as the document holds it, with its caption.
-  const figure = createFigure(documentSchema, attrs);
-  if (!figure) throw new Error('The schema has figures');
-  return DOMSerializer.fromSchema(documentSchema).serializeNode(figure) as HTMLElement;
-}
 
 describe('svgIntrinsicSize', () => {
   it('DOCE-SCHEMA-3.13 reads the size an inline SVG states, by its root or its view box', () => {
@@ -30,18 +20,5 @@ describe('svgIntrinsicSize', () => {
     expect(svgIntrinsicSize(svg('width="50%" height="2em"'))).toBeNull();
     expect(svgIntrinsicSize('https://example.com/a.svg')).toBeNull();
     expect(svgIntrinsicSize('data:image/svg+xml,%E0%A4%A')).toBeNull();
-  });
-
-  it('DOCE-SCHEMA-3.13 writes an unsized inline SVG figure at its size, and stores none', () => {
-    const src = svg('width="120" height="80"');
-    const image = written({ src }).querySelector('img');
-    expect(image).toHaveAttribute('width', '120');
-    expect(image).toHaveAttribute('height', '80');
-    const sized = written({ src, width: 60, height: 40 }).querySelector('img');
-    expect(sized).toHaveAttribute('width', '60');
-    const diagram = written({ src, figureType: 'diagram' }).querySelector('img');
-    expect(diagram).not.toHaveAttribute('width');
-    const read = findNode(parseMarkup(written({ src }).outerHTML), 'figure');
-    expect(read?.attrs).toMatchObject({ width: null, height: null });
   });
 });

@@ -413,14 +413,16 @@ describe('collab sync derived writes', () => {
   });
 });
 
-// Another reader's copy of an editor's shared document, with a block after the first paragraph of
-// a type the editor's schema lacks, as an editor on a newer schema writes.
-function newerCopy(editor: HeadlessEditor): Y.Doc {
+// Another reader's copy of an editor's shared document, with a block after the first paragraph the
+// editor's schema cannot read: by default of a type it lacks, as an editor on a newer schema writes.
+function newerCopy(
+  editor: HeadlessEditor,
+  added: unknown = delta.create('hologram').insert('Seen from every side.').done(),
+): Y.Doc {
   const newer = new Y.Doc();
   Y.applyUpdate(newer, Y.encodeStateAsUpdate(editor.doc));
   const below = (type: Y.Type, index: number) => type.get(index) as Y.Type;
   const blocks = below(below(below(newer.get('content'), 0), 0), 1);
-  const added = delta.create('hologram').insert('Seen from every side.').done();
   blocks.applyDelta(delta.create().retain(1).insert([added]).done() as never);
   return newer;
 }
@@ -465,6 +467,29 @@ describe('collab sync on a shared document its schema cannot read', () => {
     const held = Y.encodeStateAsUpdate(newer);
     typeAtEnd(editor, 0, '!');
     expect(Y.encodeStateAsUpdate(newer)).toEqual(held);
+  });
+
+  it('DOCE-COLLAB-4.7 DOCE-SCHEMA-3.14 stops on a figure held without a size, and drops nothing', () => {
+    const editor = headlessEditor(start());
+    const before = editor.state.doc;
+    // A figure as an editor that wrote no size would send it, with its caption.
+    const unsized = delta
+      .create('figure')
+      .setAttrs({ src: 'a.png' })
+      .insert([delta.create('figure_caption').done()])
+      .done();
+    const told: unknown[] = [];
+    const reader = headlessEditor(start(), {
+      doc: newerCopy(editor, unsized),
+      onUnreadable: (error) => told.push(error),
+    });
+    expect(told).toHaveLength(1);
+    expect(String(told[0])).toMatch(/width/);
+    // The reader neither shows the room nor leaves the figure out of it: it sends nothing.
+    const held = Y.encodeStateAsUpdate(reader.doc);
+    typeAtEnd(reader, 0, '!');
+    expect(Y.encodeStateAsUpdate(reader.doc)).toEqual(held);
+    expect(editor.state.doc.eq(before)).toBe(true);
   });
 
   it('DOCE-COLLAB-4.7 throws what it cannot read when nobody is told, and stops', () => {

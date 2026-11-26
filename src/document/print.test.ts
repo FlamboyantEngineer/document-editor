@@ -41,7 +41,10 @@ const FILE: DocumentFile = {
             { type: 'footnote', attrs: { id: 'n1' }, content: [text('A note.')] },
           ],
         },
-        { type: 'figure', attrs: { id: 'a1000003', src: 'chart.png', alt: 'Chart' } },
+        {
+          type: 'figure',
+          attrs: { id: 'a1000003', src: 'chart.png', alt: 'Chart', width: 40, height: 30 },
+        },
         {
           type: 'paragraph',
           content: [
