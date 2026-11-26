@@ -139,8 +139,8 @@ function hostCommit(
   };
 }
 
-// The canonical view as a transaction's body sees it: on the host's state, which the transaction
-// was made on, as the engine's view holds the state before its own transactions.
+// The canonical view as a transaction's body sees it: on the state the transaction was made on, as
+// the engine's view holds the state before its own transactions.
 function onHostState(view: EditorView, host: EditorState): EditorView {
   return new Proxy(view, {
     get: (target, key) => (key === 'state' ? host : Reflect.get(target, key)),
@@ -232,7 +232,11 @@ export function usePagedEditor(options: PagedEditorOptions) {
         const { body, onStateChange, events } = latestRef.current;
         events.onTransaction?.(tr, view);
         const host = hostCommit(tr, { onStateChange, resync, made, own });
-        body(tr, held.doc === tr.before ? onHostState(view, held) : view, host);
+        // The body sees the state the transaction was made on: the host's, or, while the host has
+        // not yet drawn the one the pages made it on, that one (DOCE-PAGINATION-7.26).
+        const before =
+          held.doc === tr.before ? held : made?.from.doc === tr.before ? made.from : null;
+        body(tr, before ? onHostState(view, before) : view, host);
         if (!host.committed()) resync(made);
         return host.taken();
       },
