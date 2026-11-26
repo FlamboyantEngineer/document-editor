@@ -40,10 +40,15 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
     createListStarts(),
     createPageVariables(),
     createDynamicTemplates(),
-    createDocumentValues(() => ({
-      value: (key) => latest.current.variables?.value(key),
-      template: latest.current.template,
-    })),
+    // A writer who reads or suggests stores no text: no suggestion records the top node's change.
+    createDocumentValues(() =>
+      latest.current.editable === false || latest.current.suggesting
+        ? null
+        : {
+            value: (key) => latest.current.variables?.value(key),
+            template: latest.current.template,
+          },
+    ),
     editorContents(latest),
     createSearch(),
     createSearch('pane'),

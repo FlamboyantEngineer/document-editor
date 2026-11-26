@@ -76,6 +76,8 @@ function variableEntries(context: EditorContext, features: ToolsFeatures): MenuE
     changing(context, {
       id: 'update-variables',
       label: context.labels.updateVariables,
+      // No suggestion records a change of the top node, which stores the texts.
+      suggestable: false,
       run: () => context.run(refreshDocumentValues(source)),
     }),
   ];

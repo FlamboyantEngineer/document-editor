@@ -305,12 +305,24 @@ export function createTypingRules(schema: Schema, options: TypingRulesOptions = 
   return [plugin, lastShortcut(plugin), keymap({ Backspace: undoTypingRule })];
 }
 
+/** What a typing shortcut replaced with its change: the range typed over and the text typed. */
+export interface TypedText {
+  readonly from: number;
+  readonly to: number;
+  readonly text: string;
+}
+
+/** The meta a typing shortcut outside the input rules, such as a closed token, keeps its typed text in. */
+export const TYPED_TEXT = 'typedText';
+
 /**
  * For a transaction a typing shortcut made, the transaction that types its text as written, on
  * the state it was made on; null for any other transaction. A writer whose shortcut cannot be
  * kept, such as one a suggestion cannot record, keeps what they typed.
  */
 export function typedAsWritten(tr: Transaction, state: EditorState): Transaction | null {
+  const shortcut = tr.getMeta(TYPED_TEXT) as TypedText | undefined;
+  if (shortcut) return state.tr.insertText(shortcut.text, shortcut.from, shortcut.to);
   for (const plugin of state.plugins) {
     if (!(plugin.spec as { isInputRules?: boolean }).isInputRules) continue;
     const typed = tr.getMeta(plugin) as { from: number; to: number; text: string } | undefined;

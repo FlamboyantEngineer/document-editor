@@ -13,6 +13,7 @@ import type { Node } from 'prosemirror-model';
 import { EditorState, type Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema as schema } from '../../test/document-markup.js';
+import { createDocumentValues } from '../engine/document-values.js';
 import { assignElementIds } from '../engine/element-ids.js';
 import { idOf } from '../engine/footnote-model.js';
 import { createFootnotes, insertFootnote } from '../engine/footnotes.js';
@@ -476,6 +477,63 @@ describe('room change guard', () => {
     suggester.edit(typeAt('New ', 'Also '), 'suggester');
     await settle();
     expect(suggester.closed).toBe(false);
+    room.handle.release();
+  });
+
+  it('DOCE-COLLAB-6.7 DOCE-FORMAT-1.7 takes a change of the language or variable texts from an editor only', async () => {
+    const room = await serveRoom(2);
+    const editor = joinAs(room, 'editor');
+    await settle();
+    const stored = () => readContent(schema, roomDoc(room.handle).get(CONTENT_TYPE))?.attrs;
+
+    editor.edit((state) =>
+      state.tr
+        .setDocAttribute('values', { 'document.name': 'Interface notes' })
+        .setDocAttribute('language', 'en-GB'),
+    );
+    await settle();
+    expect(editor.closed).toBe(false);
+    expect(stored()).toMatchObject({
+      language: 'en-GB',
+      values: { 'document.name': 'Interface notes' },
+    });
+
+    // A suggestion cannot record a change of the top node, so a suggester may not make one. They
+    // join after the editor's change, so theirs come after it.
+    const suggester = joinAs(room, 'suggester');
+    const commenter = joinAs(room, 'commenter');
+    await settle();
+    suggester.edit((state) => state.tr.setDocAttribute('values', { 'document.name': 'Mine' }));
+    commenter.edit((state) => state.tr.setDocAttribute('language', 'fr'));
+    await settle();
+    expect([suggester.closed, commenter.closed]).toEqual([true, true]);
+    expect(stored()).toMatchObject({
+      language: 'en-GB',
+      values: { 'document.name': 'Interface notes' },
+    });
+    room.handle.release();
+  });
+
+  it('DOCE-COLLAB-6.7 DOCE-PAGINATION-8.8 sends no change of the variable texts from a suggester', async () => {
+    const room = await serveRoom(1);
+    // The editor's plugin stores no text while its writer suggests (`source` gives null).
+    const suggester = joinAs(room, 'suggester', [createDocumentValues(() => null)]);
+    await settle();
+    // A variable is no suggestion's to insert: the insertion mark cannot hold it.
+    const state = EditorState.create({
+      doc: readContent(schema, roomDoc(room.handle).get(CONTENT_TYPE)) ?? undefined,
+    });
+    const variable = schema.nodes.template_variable?.create({ variableKey: 'document.name' });
+    if (!variable) throw new Error('The schema has no variables.');
+    const inserted = state.tr.insert(positionOf(state.doc, 'Paragraph 0'), variable);
+    expect(suggestTransaction(inserted, state, { author: 'suggester' })).toBeNull();
+    // Text the suggester types goes as a suggestion, with no change of the top node.
+    suggester.edit(typeAt('Paragraph 0', 'Typed. '), 'suggester');
+    await settle();
+    expect(suggester.closed).toBe(false);
+    const doc = readContent(schema, roomDoc(room.handle).get(CONTENT_TYPE));
+    expect(doc?.textContent).toContain('Typed. Paragraph 0');
+    expect(doc?.attrs.values).toBeNull();
     room.handle.release();
   });
 });

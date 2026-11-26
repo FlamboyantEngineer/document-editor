@@ -202,9 +202,9 @@ Verification: `src/model/templates/template-preview.test.ts`, `e2e/template-edit
 
 ### DOCE-TEMPLATES-8.3 - Typed tokens
 
-`createVariableTokens()` shall turn a `{{key}}` token a writer types into a live variable of that key as soon as its closing braces are typed, wherever the schema allows a variable. Text in code, other bracketings and an unclosed token shall stay as typed.
+`createVariableTokens()` shall turn a `{{key}}` token a writer types into a live variable of that key as soon as its closing braces are typed, wherever the schema allows a variable. Text in code, other bracketings and an unclosed token shall stay as typed. The change shall carry the text it typed (`TYPED_TEXT`), so `typedAsWritten` gives it as typed for a writer whose variable cannot be kept: a suggestion cannot hold a variable, so a suggester keeps the token as suggested text (DOCE-EDITING-6.6).
 
-Implementation: `src/engine/variable-tokens.ts`
+Implementation: `src/engine/variable-tokens.ts`, `src/engine/typing-rules.ts`
 Verification: `src/engine/variable-tokens.test.ts`
 
 ### DOCE-TEMPLATES-8.4 - Variable catalog

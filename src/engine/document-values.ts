@@ -132,15 +132,18 @@ function insertsVariable(tr: Transaction): boolean {
 /**
  * Stores the text of each variable a writer's edit adds that the document has none for, in the
  * same change, from the source: a variable inserted from the menu, typed, pasted or brought back
- * by undo shows its value at once. Changes out of the history, such as another writer's, are left.
+ * by undo shows its value at once. Changes out of the history, such as another writer's, are left,
+ * and so is every change while `source` gives null, as it does while the writer suggests or reads:
+ * no suggestion records a change of the top node, which a room refuses from a suggester.
  */
-export function createDocumentValues(source: () => ValueSource): Plugin {
+export function createDocumentValues(source: () => ValueSource | null): Plugin {
   return new Plugin({
     appendTransaction(transactions, _old, state) {
       const added = transactions.some(
         (tr) => tr.docChanged && tr.getMeta('addToHistory') !== false && insertsVariable(tr),
       );
-      return added ? valuesChange(state, source(), 'missing') : null;
+      const from = added ? source() : null;
+      return from ? valuesChange(state, from, 'missing') : null;
     },
   });
 }
