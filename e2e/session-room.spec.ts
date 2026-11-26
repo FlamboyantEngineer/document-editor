@@ -22,12 +22,19 @@ const textOf = (page: Page, name: string) =>
     return copy.textContent;
   });
 
+// A reader's editor, around their document.
+const editorRoot = (page: Page, name: string) =>
+  page.locator('.de-document-editor', { has: editor(page, name) });
+
 // Types at the end of a reader's paragraph, placing the caret by clicking past its text once the
-// room's threads show beside it, so the page no longer moves.
+// room's threads show beside it, so the page no longer moves, and once their pages have settled:
+// a reader's editor mounts when their session is ready, after the lab is, and its document is out
+// of the pointer's and the keyboard's reach until its first layout (DOCE-EDITOR-4.27).
 async function typeAtEnd(page: Page, name: string, value: string) {
   await expect(
     page.getByRole('region', { name, exact: true }).getByRole('list', { name: 'Comments' }),
   ).toContainText('Which operator?');
+  await expect(editorRoot(page, name)).toHaveAttribute('data-layout-state', 'settled');
   const box = await paragraph(page, name).boundingBox();
   if (!box) throw new Error('The paragraph is not shown.');
   await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2);
