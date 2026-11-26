@@ -45,6 +45,7 @@ export const BASE_TEMPLATE: Readonly<TemplateFile> = Object.freeze<TemplateFile>
   formatVersion: 1,
   id: BASE_TEMPLATE_ID,
   name: 'Base',
+  language: 'en',
   page: {
     size: 'A4',
     orientation: 'portrait',

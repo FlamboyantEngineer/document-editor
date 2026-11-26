@@ -14,7 +14,7 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../../src/model/index.js';
-import { createPageVariables, pageVariablesKey } from '../../src/pagination/index.js';
+import { createPageVariables } from '../../src/pagination/index.js';
 import { applyTemplate, bodyHeight, sampleDocument, text, variable } from './lab-document.js';
 import { labMounts, showOnPages } from './lab-pages.js';
 
@@ -53,11 +53,11 @@ function render(): void {
   if (!mounts || !name || !tall) return;
   let template = regionsTemplate(false);
   let applied = applyTemplate(template, []);
-  // The variables read the pages, so they run on them, as in the document editor.
-  const variables = createPageVariables({
-    value: (key) => (key === 'document.name' ? name.value : null),
-  });
-  const doc = readDocumentFile(SAMPLE, createDocumentSchema()).doc;
+  // The variables read the pages, so they run on them, as in the document editor; the name's text
+  // is stored in the document, and changed by an edit (DOCE-FORMAT-1.7).
+  const variables = createPageVariables();
+  const named = () => ({ 'document.name': name.value });
+  const doc = readDocumentFile({ ...SAMPLE, values: named() }, createDocumentSchema()).doc;
   const pages = showOnPages(mounts, {
     state: EditorState.create({ doc: setPageRegions(new Transform(doc), template).doc }),
     pageHeight: () => bodyHeight(template),
@@ -66,10 +66,11 @@ function render(): void {
       document.documentElement.dataset.labLaidOut = template.id;
     },
   });
-  // A longer name can wrap the header onto another line, so the pages are measured again.
+  // A longer name can wrap the header onto another line, which the edit lays out again.
   name.addEventListener('input', () => {
-    pages.redraw(pageVariablesKey);
-    pages.refresh({ remeasure: true });
+    pages.dispatch(
+      pages.state.tr.setDocAttribute('values', named()).setMeta('addToHistory', false),
+    );
   });
   tall.addEventListener('change', () => {
     template = regionsTemplate(tall.checked);

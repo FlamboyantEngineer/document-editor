@@ -1,10 +1,10 @@
 import type { Node } from 'prosemirror-model';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
-import { createVariableTokens } from './index.js';
+import { createVariableTokens, typedAsWritten } from './index.js';
 import { repairVariableTokens, VARIABLE_TOKENS_REPAIR } from './variable-tokens.js';
 
 const read = (...content: StoredNode[]) =>
@@ -21,11 +21,18 @@ function endOf(doc: Node, text: string): number {
 }
 
 // Types the text at the end of the block whose text is `at`, as a writer would, a key at a time.
-function typeInto(block: StoredNode, at: string, typed: string): Node {
+// A writer whose dispatch keeps what `keep` gives in place of each change, such as a suggester.
+function typeInto(
+  block: StoredNode,
+  at: string,
+  typed: string,
+  keep: (tr: Transaction, state: EditorState) => Transaction = (tr) => tr,
+): Node {
   const doc = read(block);
   const state = EditorState.create({ doc, plugins: [createVariableTokens()] });
-  const view = new EditorView(document.createElement('div'), {
+  const view: EditorView = new EditorView(document.createElement('div'), {
     state: state.apply(state.tr.setSelection(TextSelection.create(doc, endOf(doc, at)))),
+    dispatchTransaction: (tr) => view.updateState(view.state.apply(keep(tr, view.state))),
   });
   for (const char of typed) {
     const { from, to } = view.state.selection;
@@ -58,6 +65,18 @@ describe('variable tokens', () => {
       ' {{ page.current }} of {{page.total',
     );
     expect(partsOf(doc)).toEqual(['Page ', '[page.current]', ' of {{page.total']);
+  });
+
+  it('DOCE-TEMPLATES-8.3 gives the token as typed for a writer whose variable cannot be kept', () => {
+    // A suggester, whose suggestion cannot hold a variable, keeps the text they typed.
+    const asTyped = (tr: Transaction, state: EditorState) => typedAsWritten(tr, state) ?? tr;
+    const doc = typeInto(
+      { type: 'paragraph', content: [{ type: 'text', text: 'By' }] },
+      'By',
+      ' {{author}}',
+      asTyped,
+    );
+    expect(partsOf(doc)).toEqual(['By {{author}}']);
   });
 
   it('DOCE-TEMPLATES-8.3 keeps other token forms and code as typed', () => {

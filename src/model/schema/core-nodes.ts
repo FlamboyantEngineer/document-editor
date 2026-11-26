@@ -8,6 +8,7 @@ import type {
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { nodes as basicNodes } from 'prosemirror-schema-basic';
 import { bulletList, listItem, orderedList } from 'prosemirror-schema-list';
+import { canonicalLanguage, isDocumentValues } from '../document-values.js';
 import { CUSTOM_STYLE_NAME } from '../format/template-format-values.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 
@@ -119,12 +120,35 @@ function placed(name: keyof typeof DOCUMENT_NODE_ORDER, spec: NodeSpec): RichTex
   return { name, spec, order: DOCUMENT_NODE_ORDER[name] };
 }
 
+// The top node keeps what the document stores beside its content (DOCE-FORMAT-1.7): its language,
+// a canonical tag, and its variables' texts, a record of strings.
+const doc: NodeSpec = {
+  ...basicNodes.doc,
+  content: '(page_section | block | layout)+',
+  attrs: {
+    language: {
+      default: null,
+      validate: (value: unknown) => {
+        if (value !== null && canonicalLanguage(value) !== value)
+          throw new RangeError('A document language is a canonical language tag');
+      },
+    },
+    values: {
+      default: null,
+      validate: (value: unknown) => {
+        if (value !== null && !isDocumentValues(value))
+          throw new RangeError("A document's values are a record of texts");
+      },
+    },
+  },
+};
+
 /** The top node, paragraphs, headings, quotes, rules, text, hard breaks and lists. */
 export const coreNodesExtension: RichTextExtension = {
   name: 'core-nodes',
   nodes: [
     // Layout blocks sit at the top level only, so their group joins `block` here and nowhere else.
-    placed('doc', { ...basicNodes.doc, content: '(page_section | block | layout)+' }),
+    placed('doc', doc),
     placed('paragraph', paragraph),
     placed('blockquote', basicNodes.blockquote),
     placed('horizontal_rule', basicNodes.horizontal_rule),

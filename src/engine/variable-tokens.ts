@@ -4,6 +4,7 @@
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { TYPED_VARIABLE_TOKEN } from '../model/index.js';
+import { TYPED_TEXT, type TypedText } from './typing-rules.js';
 
 /** The variable tokens plugin's key. */
 export const variableTokensKey = new PluginKey('variable-tokens');
@@ -30,7 +31,10 @@ function closeToken(view: EditorView, [from, to]: readonly [number, number], tex
   const match = TYPED_VARIABLE_TOKEN.exec(before + text);
   if (!match?.[1]) return false;
   const start = from - (match[0].length - text.length);
-  view.dispatch(state.tr.replaceWith(start, to, variable.create({ variableKey: match[1] })));
+  // A writer whose variable cannot be kept, as when suggesting, keeps the text they typed.
+  const typed: TypedText = { from, to, text };
+  const tr = state.tr.replaceWith(start, to, variable.create({ variableKey: match[1] }));
+  view.dispatch(tr.setMeta(TYPED_TEXT, typed));
   return true;
 }
 

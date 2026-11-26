@@ -17,7 +17,6 @@ import type { SizedBox } from '../layout-engine/rule-sizes.js';
 import type { LayoutBlock, LayoutRules, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { LayoutInputs } from './layout-inputs.js';
-import type { PageVariablesOptions } from './page-variables.js';
 
 /** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
 export type TextLayoutMode = 'dom' | 'pretext';
@@ -43,8 +42,8 @@ export interface TextEngineOptions {
   readonly codeLineNumbers?: boolean | undefined;
   /**
    * The language the pages are drawn in, which lines break and text is shaped by
-   * (DOCE-PAGINATION-9.7): the `lang` of the element they are in, empty for none, which Chromium
-   * lays out under its default language.
+   * (DOCE-PAGINATION-9.7): the document's own, else its template's (DOCE-PAGINATION-9.16); the
+   * template's, else `en`, when not given. Never the host page's.
    */
   readonly language?: string | undefined;
   /**
@@ -68,12 +67,6 @@ export interface TextEngineOptions {
    * (DOCE-PAGINATION-11.12). All shown when absent.
    */
   readonly markup?: (() => SuggestionMarkup) | undefined;
-  /**
-   * Where the template variables in the pages' text get their values, as the page variables draw
-   * them (`createPageVariables`): a variable whose value is the same on every page is laid out as
-   * its text; one with no value shows none (DOCE-PAGINATION-11.13).
-   */
-  readonly variables?: PageVariablesOptions | undefined;
   /**
    * Lays typeset math out from a math font's data (DOCE-PAGINATION-12.10), so its box and drawing
    * come from one layout on every system; null while there is none. Math is measured as drawn
@@ -143,7 +136,7 @@ export interface PagesTextEngine {
   readonly template: TemplateFile;
   /** The served faces the engine measured with (DOCE-HOST-1.14.1); none with another width source. */
   readonly fonts?: (() => FontFiles) | undefined;
-  /** The language the engine was made to lay the pages out in (DOCE-PAGINATION-9.7), empty for none. */
+  /** The language the engine was made to lay the pages out in (DOCE-PAGINATION-9.7). */
   readonly language?: string | undefined;
   /** Everything its layout depends on besides the document (DOCE-PAGINATION-13.12). */
   inputs(): LayoutInputs;

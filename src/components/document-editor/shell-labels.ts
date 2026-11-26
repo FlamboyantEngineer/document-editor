@@ -30,6 +30,8 @@ export interface ShellLabels {
   readonly reasonSuggesting: string;
   readonly updateReferences: string;
   readonly updateAbbreviations: string;
+  /** Names the Tools entry that stores every variable's text again (DOCE-PAGINATION-8.4). */
+  readonly updateVariables: string;
   /** Tells the writer a dialog that loads on first use could not open; it loads again next time. */
   readonly dialogUnavailable: string;
   /** Names the inline completion toggle. */
@@ -59,6 +61,7 @@ export const DEFAULT_SHELL_LABELS: ShellLabels = {
   reasonSuggesting: 'Not available while suggesting',
   updateReferences: 'Update all references',
   updateAbbreviations: 'Update abbreviations from the glossary',
+  updateVariables: 'Update variables and dates',
   dialogUnavailable: 'The dialog could not be opened. Try again.',
   inlineCompletion: 'Inline completion',
   reasonCompletionUnavailable: 'Completion is not available now',

@@ -247,11 +247,31 @@ function mergeElements(
   return mergeOrder(keys, new Set(results.keys())).flatMap((key) => results.get(key) ?? []);
 }
 
+// One side's change of a value from the base: the reader's when they changed it, else the store's.
+const mergedValue = <T>(base: T, mine: T, theirs: T): T => (same(base, mine) ? theirs : mine);
+
+// The document's language, merged as the pin is, and its variable texts, merged key by key, so two
+// writers who refreshed different variables keep both texts (DOCE-FORMAT-1.7).
+function mergedSettings({ base, mine, theirs }: MergeInput): Partial<DocumentFile> {
+  const language = mergedValue(base.language, mine.language, theirs.language);
+  const keys = new Set([base, mine, theirs].flatMap((file) => Object.keys(file.values ?? {})));
+  const values: Record<string, string> = {};
+  for (const key of keys) {
+    const text = mergedValue(base.values?.[key], mine.values?.[key], theirs.values?.[key]);
+    if (text !== undefined) values[key] = text;
+  }
+  return {
+    ...(language ? { language } : {}),
+    ...(Object.keys(values).length ? { values } : {}),
+  };
+}
+
 /**
  * Merges the reader's changes and the stored ones, both made from `base`, by element id (DOCE-
  * SESSION-4.1). A block both changed differently, or one changed and the other deleted, is a
  * conflict: the merged content shows the reader's version, or the changed one over a deletion.
- * The template pin merges the same way, the reader's winning when both changed it. Blocks without
+ * The template pin and the language merge the same way, the reader's winning when both changed
+ * them, and the variable texts key by key. Blocks without
  * an id are given one first, shared by the versions that hold the same block (`identifyBlocks`).
  */
 export function mergeDocuments(input: MergeInput): DocumentMerge {
@@ -273,6 +293,7 @@ export function mergeDocuments(input: MergeInput): DocumentMerge {
   const content: DocumentFile = {
     formatVersion: mine.formatVersion,
     ...(template ? { template } : {}),
+    ...mergedSettings({ base, mine, theirs }),
     sections,
   };
   return { content, conflicts: context.conflicts };

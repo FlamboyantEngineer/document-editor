@@ -52,6 +52,13 @@ export interface DocumentFile {
   formatVersion: typeof DOCUMENT_FORMAT_VERSION;
   /** The template the document uses. */
   template?: TemplatePin | null;
+  /** The language its text is laid out in, a language tag; its template's when none. */
+  language?: string | null;
+  /**
+   * The text each variable it shows had when last refreshed, by key; a page's number and the page
+   * count are laid out, never stored (DOCE-FORMAT-1.7).
+   */
+  values?: Record<string, string> | null;
   sections: StoredSection[];
 }
 

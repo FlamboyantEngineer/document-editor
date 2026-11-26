@@ -250,6 +250,7 @@ export const TEMPLATE_SHAPE: SettingShape = {
     id: 'text',
     name: 'text',
     parent: 'text',
+    language: 'text',
     page: PAGE_SHAPE,
     styles: STYLES_SHAPE,
     header: REGION,

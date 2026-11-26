@@ -1,5 +1,6 @@
-// The Tools menu: the next proofing issue, updating every reference and, with the host's glossary,
-// every abbreviation, and, while the host runs scripts, running them all. Updates change the
+// The Tools menu: the next proofing issue, updating every reference, every variable's stored text
+// and, with the host's glossary, every abbreviation, and, while the host runs scripts, running them
+// all. Updates change the
 // document, so they wait, with a reason, while the writer cannot edit it.
 
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
@@ -7,11 +8,12 @@ import type { EditorView } from 'prosemirror-view';
 import {
   documentAbbreviations,
   refreshAbbreviations,
+  refreshDocumentValues,
   refreshReferences,
   refreshReferenceStatus,
   selectNextProofingIssue,
 } from '../../engine/index.js';
-import type { GlossaryAdapter, ScriptRunnerAdapter } from '../../host/index.js';
+import type { GlossaryAdapter, ScriptRunnerAdapter, VariablesAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
 import { scriptsWaitReason, startScripts } from './script-entries.js';
@@ -22,6 +24,8 @@ export interface ToolsFeatures {
   /** The template references are formatted by; without it references are not updated. */
   readonly template?: TemplateFile | undefined;
   readonly glossary?: GlossaryAdapter | undefined;
+  /** The host's variables, whose texts, with today's date, the document stores. */
+  readonly variables?: VariablesAdapter | undefined;
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
 }
 
@@ -63,6 +67,22 @@ function changing(
   };
 }
 
+// The entry that stores every variable's text again; it changes nothing when they are up to date.
+function variableEntries(context: EditorContext, features: ToolsFeatures): MenuEntry[] {
+  const { view, template, variables } = features;
+  if (!view) return [];
+  const source = { value: (key: string) => variables?.value(key), template };
+  return [
+    changing(context, {
+      id: 'update-variables',
+      label: context.labels.updateVariables,
+      // No suggestion records a change of the top node, which stores the texts.
+      suggestable: false,
+      run: () => context.run(refreshDocumentValues(source)),
+    }),
+  ];
+}
+
 /** The Tools menu's entries. */
 export function toolsEntries(context: EditorContext, features: ToolsFeatures): MenuEntry[] {
   const { labels } = context;
@@ -85,6 +105,7 @@ export function toolsEntries(context: EditorContext, features: ToolsFeatures): M
           }),
         ]
       : []),
+    ...variableEntries(context, features),
     ...(glossary && view
       ? [
           changing(context, {

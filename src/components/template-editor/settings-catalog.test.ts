@@ -120,6 +120,7 @@ describe('TEMPLATE_SECTIONS', () => {
   it('DOCE-TEMPLATE-EDITOR-1.9 orders the sections from the page setup to the change bars', () => {
     expect(TEMPLATE_SECTIONS.map((section) => section.title)).toEqual([
       'Page setup',
+      'Language',
       'Paragraph numbering',
       'Header & footer',
       'References',
@@ -139,6 +140,6 @@ describe('TEMPLATE_SECTIONS', () => {
     const documentOnly = TEMPLATE_SECTIONS.filter((section) => section.documentOnly).map(
       (section) => section.id,
     );
-    expect(documentOnly).toEqual(['references', 'contents']);
+    expect(documentOnly).toEqual(['language', 'references', 'contents']);
   });
 });

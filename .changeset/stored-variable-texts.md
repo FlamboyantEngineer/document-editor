@@ -1,0 +1,5 @@
+---
+'@flamboyantengineer/document-editor': minor
+---
+
+A document stores the text of each variable it shows other than the page number and page count, such as `document.name` and `date.current`, as `values` beside its sections, and the pages, template blocks, viewer and print show those stored texts; nothing asks the host or the clock while laying out, so every machine and collaborator gets the same pages. The editor stores the texts as edits out of the undo history: on opening for keys it has no text for, whenever the host's `variables` adapter signals a change, when a writer adds a variable, and from the Tools menu's new Update variables and dates entry (`updateVariables` label). New `refreshDocumentValues`, `refreshedValues`, `documentValueKeys` and `createDocumentValues`. `createPageVariables()` and `createDynamicTemplates()` take no options any more, `renderTemplateBlock` takes a function that gives each key's text, and `PageVariablesOptions`, `VariableValue` and `DynamicTemplatesOptions` are removed.

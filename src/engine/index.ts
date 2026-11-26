@@ -109,11 +109,14 @@ export {
 } from './document-sections.js';
 export type { DocumentStatistics } from './document-statistics.js';
 export { documentStatistics } from './document-statistics.js';
-export type {
-  DynamicTemplatesOptions,
-  TemplateBlockTarget,
-  TemplateValue,
-} from './dynamic-templates.js';
+export type { ValueRefresh, ValueSource } from './document-values.js';
+export {
+  createDocumentValues,
+  documentValueKeys,
+  refreshDocumentValues,
+  refreshedValues,
+} from './document-values.js';
+export type { TemplateBlockTarget, TemplateValue } from './dynamic-templates.js';
 export {
   createDynamicTemplates,
   dynamicTemplatesKey,

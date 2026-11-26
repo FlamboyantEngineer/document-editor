@@ -1,6 +1,7 @@
 // Template blocks (`dynamic_template`): a block that shows its template markup with each `{{key}}`
-// token in its text replaced by the variable's value, rendered again whenever a value it tracks
-// changes. The markup is read from an inert document and then as the schema reads markup, so only
+// token in its text replaced by the text the document stores for the variable (DOCE-FORMAT-1.7),
+// rendered again whenever a stored text it tracks changes; nothing is asked of the host or the
+// clock as it renders. The markup is read from an inert document and then as the schema reads markup, so only
 // the document's own nodes render and nothing in it runs or loads; values are inserted as text.
 
 import {
@@ -10,21 +11,12 @@ import {
   type Schema,
 } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
-import { Decoration, DecorationSet, type NodeView } from 'prosemirror-view';
+import { Decoration, DecorationSet, type EditorView, type NodeView } from 'prosemirror-view';
+import { storedValue } from '../model/index.js';
 import { isInlineTextOnly } from './transaction-kind.js';
 
-/** A variable's text, or nothing to show none. */
-export type TemplateValue = (key: string) => string | null | undefined;
-
-/** Where template blocks get their values. */
-export interface DynamicTemplatesOptions {
-  /** The text of a variable other than `date.current`, such as `document.title`. */
-  value?: TemplateValue | undefined;
-  /** The time `date.current` shows, as the locale writes a date. Defaults to now. */
-  now?: (() => Date) | undefined;
-  /** The locale `date.current` is written in. Defaults to the browser's. */
-  locale?: string | undefined;
-}
+/** The text a template block shows for a variable's key; empty for none. */
+export type TemplateValue = (key: string) => string;
 
 const TOKEN = /\{\{\s*([\w.-]+)\s*\}\}/g;
 
@@ -38,16 +30,16 @@ export function templateBlockKeys(node: ProseMirrorNode): string[] {
   return [...new Set(Array.from(source.matchAll(TOKEN), (match) => match[1] ?? ''))];
 }
 
-function valueOf(key: string, options: DynamicTemplatesOptions): string {
-  if (key === 'date.current') {
-    const now = options.now?.() ?? new Date();
-    return new Intl.DateTimeFormat(options.locale, { dateStyle: 'long' }).format(now);
-  }
-  return options.value?.(key) ?? '';
-}
+// The texts a document stores, as a template block in it shows them.
+const storedIn =
+  (doc: ProseMirrorNode): TemplateValue =>
+  (key) =>
+    storedValue(doc, key);
+
+const NO_VALUE: TemplateValue = () => '';
 
 // The markup's body in an inert document, with each token in its text replaced by its value.
-function filledBody(source: string, owner: Document, options: DynamicTemplatesOptions) {
+function filledBody(source: string, owner: Document, valueOf: TemplateValue) {
   const Parser = owner.defaultView?.DOMParser;
   const inert = owner.implementation.createHTMLDocument('');
   const body = Parser ? new Parser().parseFromString(source, 'text/html').body : inert.body;
@@ -56,7 +48,7 @@ function filledBody(source: string, owner: Document, options: DynamicTemplatesOp
   for (let text = walker.nextNode(); text; text = walker.nextNode()) {
     const value = text.nodeValue ?? '';
     if (value.includes('{{')) {
-      text.nodeValue = value.replace(TOKEN, (_token, key: string) => valueOf(key, options));
+      text.nodeValue = value.replace(TOKEN, (_token, key: string) => valueOf(key));
     }
   }
   return body;
@@ -69,15 +61,16 @@ export interface TemplateBlockTarget {
 }
 
 /**
- * A template block's markup rendered with its values: read as the schema reads markup and written
- * as the schema writes it, into the target's document.
+ * A template block's markup rendered with its values, each key's text as `value` gives it, empty
+ * without: read as the schema reads markup and written as the schema writes it, into the target's
+ * document.
  */
 export function renderTemplateBlock(
   source: string,
   { schema, document: owner }: TemplateBlockTarget,
-  options: DynamicTemplatesOptions = {},
+  value: TemplateValue = NO_VALUE,
 ): DocumentFragment {
-  const slice = SchemaParser.fromSchema(schema).parseSlice(filledBody(source, owner, options));
+  const slice = SchemaParser.fromSchema(schema).parseSlice(filledBody(source, owner, value));
   const fragment = owner.createDocumentFragment();
   fragment.append(
     DOMSerializer.fromSchema(schema).serializeFragment(slice.content, { document: owner }),
@@ -86,16 +79,17 @@ export function renderTemplateBlock(
 }
 
 // What a template block shows, by its markup and its values, which renders it again when it moves.
-function renderKey(node: ProseMirrorNode, options: DynamicTemplatesOptions): string {
-  const values = templateBlockKeys(node).map((key) => `${key}=${valueOf(key, options)}`);
+function renderKey(node: ProseMirrorNode, valueOf: TemplateValue): string {
+  const values = templateBlockKeys(node).map((key) => `${key}=${valueOf(key)}`);
   return [String(node.attrs.templateHtml ?? ''), ...values].join('\n');
 }
 
-function decorate(doc: ProseMirrorNode, options: DynamicTemplatesOptions): DecorationSet {
+function decorate(doc: ProseMirrorNode): DecorationSet {
   const decorations: Decoration[] = [];
+  const valueOf = storedIn(doc);
   doc.descendants((node, pos) => {
     if (node.type.name !== 'dynamic_template') return !node.isTextblock;
-    const key = renderKey(node, options);
+    const key = renderKey(node, valueOf);
     decorations.push(Decoration.node(pos, pos + node.nodeSize, { 'data-de-measure-key': key }));
     return false;
   });
@@ -105,32 +99,31 @@ function decorate(doc: ProseMirrorNode, options: DynamicTemplatesOptions): Decor
 /** Marks a transaction that renders the template blocks again, as after a value changed. */
 export const dynamicTemplatesKey = new PluginKey<DecorationSet>('dynamic-templates');
 
-/** Renders the template blocks again, out of the undo history, after a value they show changed. */
+/** Renders the template blocks again, out of the undo history. */
 export function refreshDynamicTemplates(tr: Transaction): Transaction {
   return tr.setMeta(dynamicTemplatesKey, true).setMeta('addToHistory', false);
 }
 
-function templateBlockView(
-  node: ProseMirrorNode,
-  owner: Document,
-  options: DynamicTemplatesOptions,
-) {
+// A template block's view, showing the texts its view's document stores now.
+function templateBlockView(node: ProseMirrorNode, view: EditorView) {
+  const owner = view.dom.ownerDocument;
+  const valueOf: TemplateValue = (key) => storedValue(view.state.doc, key);
   const dom = owner.createElement('div');
   dom.className = 'dynamic-template-block';
   dom.dataset.dynamicTemplate = 'true';
   dom.setAttribute('contenteditable', 'false');
   let shown = '';
   const render = (current: ProseMirrorNode) => {
-    const key = renderKey(current, options);
+    const key = renderKey(current, valueOf);
     if (key === shown) return;
     shown = key;
     const source = String(current.attrs.templateHtml ?? '');
     dom.replaceChildren(
-      renderTemplateBlock(source, { schema: current.type.schema, document: owner }, options),
+      renderTemplateBlock(source, { schema: current.type.schema, document: owner }, valueOf),
     );
   };
   render(node);
-  const view: NodeView = {
+  const nodeView: NodeView = {
     dom,
     update(next) {
       if (next.type !== node.type) return false;
@@ -140,32 +133,30 @@ function templateBlockView(
     ignoreMutation: () => true,
     stopEvent: () => false,
   };
-  return view;
+  return nodeView;
 }
 
 /**
- * Renders each template block's markup with its values, in every view it runs in, so the pages
- * measure what it shows; again when its markup changes, and, after `refreshDynamicTemplates`, when
- * a value it tracks does.
+ * Renders each template block's markup with the texts the document stores, in every view it runs
+ * in, so the pages measure what it shows; again when its markup or a stored text it tracks changes.
  */
-export function createDynamicTemplates(
-  options: DynamicTemplatesOptions = {},
-): Plugin<DecorationSet> {
+export function createDynamicTemplates(): Plugin<DecorationSet> {
   return new Plugin<DecorationSet>({
     key: dynamicTemplatesKey,
     state: {
-      init: (_config, state) => decorate(state.doc, options),
+      init: (_config, state) => decorate(state.doc),
       apply: (tr, set) => {
-        if (tr.getMeta(dynamicTemplatesKey)) return decorate(tr.doc, options);
+        if (tr.getMeta(dynamicTemplatesKey)) return decorate(tr.doc);
         if (!tr.docChanged) return set;
-        // A template block's markup is an attribute, so typed text cannot change what one shows.
-        return isInlineTextOnly(tr) ? set.map(tr.mapping, tr.doc) : decorate(tr.doc, options);
+        // A template block's markup and the stored texts are attributes, so typed text cannot
+        // change what one shows.
+        return isInlineTextOnly(tr) ? set.map(tr.mapping, tr.doc) : decorate(tr.doc);
       },
     },
     props: {
       decorations: (state) => dynamicTemplatesKey.getState(state) ?? null,
       nodeViews: {
-        dynamic_template: (node, view) => templateBlockView(node, view.dom.ownerDocument, options),
+        dynamic_template: (node, view) => templateBlockView(node, view),
       },
     },
   });

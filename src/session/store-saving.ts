@@ -131,7 +131,7 @@ async function saveOnce({ context, state, schedule }: Saver) {
     return;
   }
   state.baseline = {
-    key: storedContentKey(content.sections),
+    key: storedContentKey(content),
     empty: isEmptyDocument(doc),
     repairDue: needsIdRepair(doc),
     revision: result.value.revision,
