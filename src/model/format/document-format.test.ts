@@ -259,6 +259,22 @@ describe('stored sections', () => {
     const { doc } = readDocumentFile(stored, documentSchema);
     expect(doc.attrs).toMatchObject({ language: 'en-GB', values: stored.values });
     expect(writeDocumentFile(doc)).toEqual({ ...stored, template: null });
+    // A file stored before them reads with neither, and writes back as it was.
+    const older = {
+      formatVersion: 1,
+      template: null,
+      sections: [
+        {
+          name: null,
+          content: [
+            { type: 'paragraph', content: [{ type: 'variable', attrs: { key: 'document.name' } }] },
+          ],
+        },
+      ],
+    } as const;
+    const read = readDocumentFile(older, documentSchema).doc;
+    expect(read.attrs).toMatchObject({ language: null, values: null });
+    expect(writeDocumentFile(read)).toEqual(older);
     // Unset, both are left out.
     const plain = readDocumentFile(
       { formatVersion: 1, sections: [{ name: null, content: [] }] },
