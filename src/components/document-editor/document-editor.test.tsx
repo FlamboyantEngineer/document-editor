@@ -3,7 +3,14 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
-import { createRef, type Ref, useEffect, useState } from 'react';
+import {
+  createRef,
+  type Dispatch,
+  type Ref,
+  type SetStateAction,
+  useEffect,
+  useState,
+} from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema, findNode } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
@@ -814,6 +821,52 @@ describe('DocumentEditor', () => {
     expect(read()).toHaveTextContent('Stored name');
     expect(stored()).toEqual({ 'document.name': 'Stored name' });
     view.unmount();
+  });
+
+  it('DOCE-PAGINATION-8.8 stores again a text another writer’s record left out, once', async () => {
+    const template: TemplateFile = {
+      ...TEMPLATE,
+      header: {
+        content: [
+          { type: 'paragraph', content: [{ type: 'variable', attrs: { key: 'document.name' } }] },
+        ],
+      },
+    };
+    const variables: VariablesAdapter = {
+      value: (key) => (key === 'document.name' ? 'Interface notes' : null),
+    };
+    const committed = vi.fn<(state: EditorState) => void>();
+    const stored = () => committed.mock.lastCall?.[0].doc.attrs.values as unknown;
+    const setters = vi.fn<(set: Dispatch<SetStateAction<EditorState>>) => void>();
+    const replace = (values: Record<string, string>) =>
+      setters.mock.lastCall?.[0]((now) =>
+        now.apply(now.tr.setDocAttribute('values', values).setMeta('addToHistory', false)),
+      );
+    function Shown() {
+      const [state, setState] = useState(initial);
+      useEffect(() => committed(state), [state]);
+      useEffect(() => setters(setState), []);
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={template}
+          variables={variables}
+          aria-label="Report"
+        />
+      );
+    }
+    render(<Shown />);
+    await waitFor(() => expect(stored()).toEqual({ 'document.name': 'Interface notes' }));
+    // Another writer's record, kept over this one's in the room, holds only their own text.
+    act(() => replace({ 'date.current': 'Today' }));
+    await waitFor(() =>
+      expect(stored()).toEqual({ 'date.current': 'Today', 'document.name': 'Interface notes' }),
+    );
+    // Once the texts are stored, nothing answers them: no further change is made.
+    const changes = committed.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(committed.mock.calls.length).toBe(changes);
   });
 
   it('DOCE-FOOTNOTES-2.1 numbers footnotes in each section in the web layout', async () => {

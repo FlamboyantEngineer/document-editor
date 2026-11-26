@@ -11,9 +11,13 @@ import { refreshDocumentValues, type ValueRefresh } from '../../engine/index.js'
 import type { VariablesAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 
-/** What the refreshes read: the state's plugins, the host's variables and whether it may write. */
+/**
+ * What the refreshes read: the state's plugins, the texts the document stores now, the host's
+ * variables and whether it may write.
+ */
 interface DocumentValuesOptions {
   readonly plugins: readonly Plugin[];
+  readonly values: unknown;
   readonly variables?: VariablesAdapter | undefined;
   readonly template: TemplateFile;
   readonly enabled: boolean;
@@ -32,19 +36,23 @@ function refresh(view: EditorView, options: DocumentValuesOptions, kind: ValueRe
 /**
  * Fills the texts a document opened stores none for, and refreshes them all whenever the host says
  * a value changed, while `enabled`. The fill runs again with each new set of the state's plugins,
- * as the element id repair does, since a change made while the pages install theirs is dropped;
- * once the texts are stored it changes nothing.
+ * as the element id repair does, since a change made while the pages install theirs is dropped,
+ * and whenever the texts the document stores change: in a room they are one attribute, so of two
+ * writers who each add a variable at once one record is kept, and the other writer's editor stores
+ * the text it lost again (DOCE-PAGINATION-8.8). The fill only adds the texts of keys the document
+ * shows and stores none for, so once they are stored it changes nothing, and it never answers a
+ * record that already holds them.
  */
 export function useDocumentValues(view: EditorView | null, options: DocumentValuesOptions): void {
   const latest = useRef(options);
   useEffect(() => {
     latest.current = options;
   });
-  const { enabled, variables, plugins } = options;
+  const { enabled, variables, plugins, values } = options;
   useEffect(() => {
     if (!view || !enabled) return;
     refresh(view, latest.current, 'missing');
-  }, [view, plugins, enabled]);
+  }, [view, plugins, enabled, values]);
   useEffect(() => {
     if (!view || !enabled) return undefined;
     return variables?.subscribe?.(() => refresh(view, latest.current, 'all'));
