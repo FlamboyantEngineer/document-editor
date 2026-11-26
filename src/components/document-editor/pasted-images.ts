@@ -2,6 +2,8 @@
 // URIs, and the local files a word processor's HTML names, whose bytes only its RTF flavour of the
 // same paste holds, one picture for each such image, in order.
 
+import { decodeBase64 } from '../../utils/base64.js';
+
 /** An image tag of pasted HTML, and the file its bytes make. */
 interface PastedImage {
   /** The tag as the HTML writes it. */
@@ -68,12 +70,7 @@ function decodeDataUri(src: string, index: number): File | null {
   const [, type = '', parameters = '', data = ''] = match;
   try {
     if (!/;base64/i.test(parameters)) return fileOf(decodeURIComponent(data), type, index);
-    const binary = atob(data.replace(/\s+/g, ''));
-    return fileOf(
-      Uint8Array.from(binary, (char) => char.charCodeAt(0)),
-      type,
-      index,
-    );
+    return fileOf(decodeBase64(data), type, index);
   } catch {
     return null;
   }

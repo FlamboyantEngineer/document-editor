@@ -1,10 +1,13 @@
 // The figure dialog: an image (uploaded through the host's assets, chosen among them or by
 // address) or a diagram drawn in the host's diagram editor, previewed, with its alternative text and
 // caption. It changes the figure selected, or inserts one; its size is the resize dialog's, and a
-// chosen asset or a diagram comes in at its own size clamped to the page.
+// chosen asset or a diagram comes in at its own size clamped to the page. A figure without a size
+// takes the size a new figure of its image takes (`newFigureBox`), from the natural size of the
+// file uploaded or of the image at its address, and is applied only once that size is known.
 
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { EditorView } from 'prosemirror-view';
 import { useEffect, useState } from 'react';
 import {
   type FigureSource,
@@ -19,9 +22,16 @@ import type {
   StoredDiagram,
 } from '../../host/index.js';
 import { captionTextOf } from '../../model/schema/caption-content.js';
+import type { ImageSize } from '../../model/schema/image-size.js';
 import { applying, type DialogProps, EditorModal, selectedNode, titleOf } from './dialog-parts.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { clampFigureSize, type FigureBounds, figureBounds, sizeRatio } from './figure-size.js';
+import {
+  clampFigureSize,
+  type FigureBounds,
+  figureBounds,
+  newFigureBox,
+  sizeRatio,
+} from './figure-size.js';
 import {
   DiagramSource,
   editHostedDiagram,
@@ -31,6 +41,7 @@ import {
   useDiagramEditing,
   useFigureUpload,
 } from './figure-sources.js';
+import { addressImageSize } from './natural-size.js';
 import { runCommand } from './table-actions.js';
 
 type FigureType = 'image' | 'diagram';
@@ -55,23 +66,38 @@ function figureFields(node: ProseMirrorNode | null, figureType: FigureType) {
       ? 'fit'
       : attrs.objectLayout) as FigureSource['objectLayout'],
     locked: true,
+    /** The image's natural size, once known: an upload's from its bytes, an address's once read. */
+    natural: null as ImageSize | null,
   };
 }
 
 type FigureFields = ReturnType<typeof figureFields>;
 
-// The figure the fields describe: its stored asset, or the address typed in.
-const figureSource = (fields: FigureFields): FigureSource => ({
-  figureType: fields.figureType,
-  src: fields.asset ? '' : fields.src.trim(),
-  fileAssetId: fields.asset?.fileAssetId ?? '',
-  snapshotId: fields.asset?.snapshotId ?? '',
-  alt: fields.alt.trim() || 'figure',
-  caption: fields.caption,
-  width: fields.width,
-  height: fields.height,
-  ...(fields.objectLayout === undefined ? {} : { objectLayout: fields.objectLayout }),
-});
+// Whether the fields leave the figure without a size of its own.
+const isUnsized = (fields: FigureFields) => fields.width === null && fields.height === null;
+
+// The figure the fields describe: its stored asset, or the address typed in; without a size of its
+// own, the size a new figure of its image takes.
+function figureSource(
+  view: EditorView,
+  fields: FigureFields,
+  natural: ImageSize | null,
+): FigureSource {
+  const size =
+    isUnsized(fields) && natural
+      ? newFigureBox(view, view.state.selection.from, natural)
+      : { width: fields.width, height: fields.height };
+  return {
+    figureType: fields.figureType,
+    src: fields.asset ? '' : fields.src.trim(),
+    fileAssetId: fields.asset?.fileAssetId ?? '',
+    snapshotId: fields.asset?.snapshotId ?? '',
+    alt: fields.alt.trim() || 'figure',
+    caption: fields.caption,
+    ...size,
+    ...(fields.objectLayout === undefined ? {} : { objectLayout: fields.objectLayout }),
+  };
+}
 
 // The image or diagram the figure shows, once there is one; a placeholder until then.
 function FigurePreview({ url, labels }: { url: string; labels: DocumentEditorLabels }) {
@@ -92,7 +118,7 @@ function FigurePreview({ url, labels }: { url: string; labels: DocumentEditorLab
 
 // The fields a stored diagram or a picked asset sets: its source, and its size clamped.
 function diagramFields(diagram: StoredDiagram, fields: FigureFields, bounds: FigureBounds) {
-  const size = { width: diagram.width ?? null, height: diagram.height ?? null };
+  const size = { width: diagram.width, height: diagram.height };
   const sizing = { locked: true, ratio: sizeRatio(size), bounds };
   return {
     asset: { fileAssetId: diagram.assetId, snapshotId: diagram.snapshotId ?? diagram.assetId },
@@ -120,7 +146,7 @@ function useFigureFields({ view, labels, assets, diagrams, figureType }: FigureD
   const change = (next: Partial<FigureFields>) => setFields((current) => ({ ...current, ...next }));
   const uploading = useFigureUpload(assets, labels, {
     current: fields.asset,
-    onStored: (asset) => change({ asset, src: '' }),
+    onStored: (asset, natural) => change({ asset, src: '', natural }),
   });
   const takeDiagram = (diagram: StoredDiagram) =>
     setFields((current) => ({ ...current, ...diagramFields(diagram, current, bounds) }));
@@ -135,7 +161,33 @@ function useFigureFields({ view, labels, assets, diagrams, figureType }: FigureD
   const previewUrl = fields.asset
     ? (assets?.resolveUrl(fields.asset.fileAssetId, fields.asset.snapshotId) ?? '')
     : fields.src.trim();
-  return { node, fields, bounds, change, uploading, editing, previewUrl };
+  const sizing = useNaturalSize({ view, labels }, { fields, url: previewUrl });
+  return { node, fields, bounds, change, uploading, editing, previewUrl, sizing };
+}
+
+// The natural size of the figure's image: an upload's, or else, while the figure has no size of
+// its own, the one read from the image at the preview's address, with the error when it gives none.
+function useNaturalSize(
+  { view, labels }: Pick<FigureDialogProps, 'view' | 'labels'>,
+  { fields, url }: { fields: FigureFields; url: string },
+) {
+  const [read, setRead] = useState<{ url: string; natural: ImageSize | null } | null>(null);
+  const wanted = isUnsized(fields) && fields.natural === null && url !== '';
+  useEffect(() => {
+    if (!wanted) return undefined;
+    let isCurrent = true;
+    void addressImageSize(url, view.dom.ownerDocument).then((natural) => {
+      if (isCurrent) setRead({ url, natural });
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [wanted, url, view]);
+  const found = wanted && read?.url === url ? read : null;
+  return {
+    natural: fields.natural ?? found?.natural ?? null,
+    error: found && !found.natural ? labels.addressUnreadable : null,
+  };
 }
 
 type FigureState = ReturnType<typeof useFigureFields>;
@@ -186,8 +238,10 @@ function pendingStatus({ uploading, editing }: FigureState, labels: DocumentEdit
 export function FigureDialog(props: FigureDialogProps) {
   const { view, labels, onClose } = props;
   const state = useFigureFields(props);
-  const { node, fields, change, uploading, editing, previewUrl } = state;
+  const { node, fields, change, uploading, editing, previewUrl, sizing } = state;
   const missing = !fields.asset && (fields.figureType === 'diagram' || !fields.src.trim());
+  // A figure without a size of its own waits for its image's natural size.
+  const unsized = isUnsized(fields) && sizing.natural === null;
   return (
     <EditorModal
       view={view}
@@ -196,11 +250,11 @@ export function FigureDialog(props: FigureDialogProps) {
       data-figure-type={fields.figureType}
       title={titleOf(node ? labels.editFigure : labels.figure)}
       status={pendingStatus(state, labels)}
-      error={editing.error}
+      error={editing.error ?? sizing.error}
       primaryAction={applying(view, {
         label: node ? labels.applyAction : labels.insertAction,
-        command: setFigure(figureSource(fields)),
-        isDisabled: uploading.pending || editing.pending || missing,
+        command: setFigure(figureSource(view, fields, sizing.natural)),
+        isDisabled: uploading.pending || editing.pending || missing || unsized,
       })}
     >
       <SourceFields {...props} state={state} />
@@ -250,7 +304,7 @@ function drawDiagram({
       runCommand(view, pinFigureSnapshot(diagram));
       return;
     }
-    const size = { width: diagram.width ?? null, height: diagram.height ?? null };
+    const size = { width: diagram.width, height: diagram.height };
     const sized = clampFigureSize(size, { locked: true, ratio: sizeRatio(size), bounds });
     const asset = {
       fileAssetId: diagram.assetId,

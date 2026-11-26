@@ -4,7 +4,13 @@ import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import type { AssetAdapter, DiagramAdapter, DiagramEditOptions } from '../../host/index.js';
+import { pngFile } from '../../../test/image-files.js';
+import type {
+  AssetAdapter,
+  DiagramAdapter,
+  DiagramEditOptions,
+  StoredDiagram,
+} from '../../host/index.js';
 import { readDocumentFile, type StoredNode } from '../../model/index.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { DiagramDrawing, FigureDialog } from './figure-dialog.js';
@@ -38,7 +44,7 @@ const figuresOf = (view: EditorView) => {
 // A diagram editor the test drives: each save, then the end of the editing.
 function hostEditor() {
   let options: DiagramEditOptions | undefined;
-  let finish: (diagram: { assetId: string; snapshotId?: string } | null) => void = () => {};
+  let finish: (diagram: StoredDiagram | null) => void = () => {};
   let signal: AbortSignal | undefined;
   const edit = vi.fn<DiagramAdapter['edit']>((_diagram, abort, given) => {
     options = given;
@@ -49,9 +55,8 @@ function hostEditor() {
   });
   return {
     diagrams: { edit },
-    save: (diagram: { assetId: string; snapshotId?: string; width?: number; height?: number }) =>
-      options?.onSave?.(diagram),
-    finish: (diagram: { assetId: string; snapshotId?: string } | null) => finish(diagram),
+    save: (diagram: StoredDiagram) => options?.onSave?.(diagram),
+    finish: (diagram: StoredDiagram | null) => finish(diagram),
     aborted: () => signal?.aborted,
   };
 }
@@ -82,8 +87,8 @@ describe('DiagramDrawing', () => {
         height: 240,
       }),
     ]);
-    host.save({ assetId: 'drawing', snapshotId: 'two' });
-    host.finish({ assetId: 'drawing', snapshotId: 'three' });
+    host.save({ assetId: 'drawing', snapshotId: 'two', width: 480, height: 240 });
+    host.finish({ assetId: 'drawing', snapshotId: 'three', width: 480, height: 240 });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(figuresOf(view)).toEqual([
       expect.objectContaining({ fileAssetId: 'drawing', snapshotId: 'three' }),
@@ -140,7 +145,7 @@ describe('DiagramDrawing', () => {
     );
     unmount();
     expect(host.aborted()).toBe(true);
-    host.save({ assetId: 'late' });
+    host.save({ assetId: 'late', width: 480, height: 240 });
     expect(figuresOf(view)).toEqual([]);
   });
 
@@ -209,7 +214,7 @@ describe('Figure upload', () => {
     await user.upload(input, new File([new Uint8Array(4096)], 'big.png', { type: 'image/png' }));
     expect(await screen.findByText(/larger than 2 KB/)).toBeInTheDocument();
     expect(upload).not.toHaveBeenCalled();
-    await user.upload(input, new File([new Uint8Array(16)], 'small.png', { type: 'image/png' }));
+    await user.upload(input, pngFile('small.png'));
     await waitFor(() =>
       expect(upload).toHaveBeenCalledWith(expect.any(File), expect.any(AbortSignal), {
         current: { assetId: 'old', snapshotId: 'old-3' },

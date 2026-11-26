@@ -1,8 +1,10 @@
-// New figures at the template's width: a figure the writer inserts, pastes or uploads without a
-// size of its own takes its section's default figure width (`styles.figure.defaultWidth`).
+// New figures at the template's width: a figure the writer inserts, pastes or uploads at its
+// image's natural size takes its section's default figure width (`styles.figure.defaultWidth`),
+// its height in the image's proportions (`newFigureSize`); one brought in without a size of its
+// own takes the width alone.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, type Transaction } from 'prosemirror-state';
+import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import {
   findTemplateSection,
   lengthToCssPx,
@@ -19,12 +21,31 @@ interface FigureDefaultsOptions {
   readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
 }
 
+const figureDefaultsKey = new PluginKey<() => TemplateFile>('figureDefaults');
+
 // The default width of a section's new figures, in pixels; null when the template sets none.
 function defaultWidth(template: TemplateFile, doc: ProseMirrorNode, pos: number): number | null {
   const section = sectionAt(doc.resolve(pos));
   const styles = templateScopeStyles(template, findTemplateSection(template, section?.name));
   const width = Number.parseFloat(lengthToCssPx(styles.figure?.defaultWidth) ?? '');
   return width > 0 ? width : null;
+}
+
+/**
+ * The size a new figure of an image of a natural size takes at a position: its section's default
+ * figure width with the height in the image's proportions, or else the natural size; the natural
+ * size where the editor follows no template's defaults.
+ */
+export function newFigureSize(
+  state: EditorState,
+  pos: number,
+  natural: { readonly width: number; readonly height: number },
+): { width: number; height: number } {
+  const template = figureDefaultsKey.getState(state);
+  const width = template ? defaultWidth(template(), state.doc, pos) : null;
+  return width === null
+    ? { width: natural.width, height: natural.height }
+    : { width, height: (natural.height * width) / natural.width };
 }
 
 // The range of the document after the change that differs from the one before it, or null.
@@ -45,6 +66,8 @@ export function createFigureDefaults({
   isRemote = isRemoteTransaction,
 }: FigureDefaultsOptions): Plugin {
   return new Plugin({
+    key: figureDefaultsKey,
+    state: { init: () => template, apply: (_tr, value) => value },
     appendTransaction(transactions, before, after) {
       const edits = transactions.filter((tr) => isLocalEdit(tr, isRemote));
       if (edits.length === 0 || edits.every(isInlineTextOnly)) return null;

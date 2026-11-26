@@ -1,7 +1,8 @@
-// Images pasted or dropped into the document become figures: all are uploaded through the host's
-// assets first, then inserted in order where they were pasted or dropped (`paste-place.ts`). If
-// any upload fails, or a file is larger than the host takes, nothing is inserted and the reader is
-// told through the host's feedback. Pasted HTML whose images come with the paste, as data URIs or
+// Images pasted or dropped into the document become figures: each file's natural size is read from
+// its bytes, all are uploaded through the host's assets, then inserted in order where they were
+// pasted or dropped (`paste-place.ts`), each at the size a new figure takes there. If a file's
+// size cannot be read, any upload fails, or a file is larger than the host takes, nothing is
+// inserted and the reader is told through the host's feedback. Pasted HTML whose images come with the paste, as data URIs or
 // as a word processor's pictures, is pasted once all its images are uploaded, each a figure, at
 // the selection it was pasted at; an image whose bytes the paste lacks pastes nothing, and if the
 // document changed meanwhile nothing is pasted and the reader is asked to paste again. An image of
@@ -15,8 +16,11 @@ import type { EditorView } from 'prosemirror-view';
 import { insertMath } from '../../engine/index.js';
 import type { AssetAdapter, FeedbackAdapter } from '../../host/index.js';
 import { createFigure } from '../../model/schema/caption-content.js';
+import type { ImageSize } from '../../model/schema/image-size.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { newFigureBox } from './figure-size.js';
+import { fileImageSize } from './natural-size.js';
 import { insertAt, insertFigureAt, type PastePlace } from './paste-place.js';
 import { hasPastedImages, hasPastedMath, hasPastedText, pastedImages } from './pasted-images.js';
 
@@ -30,6 +34,8 @@ export interface FigurePasteOptions {
   readonly uploading: string;
   /** Tells the reader a file is larger than the host takes. */
   readonly tooLarge: (maxBytes: number) => string;
+  /** Tells the reader a file's size could not be read, so it was not inserted. */
+  readonly unreadable: (name: string) => string;
   /** Asks the reader to paste again: the document changed while the images uploaded. */
   readonly pasteAgain: string;
   /** Whether the context menu's original paste target still applies after an upload. */
@@ -48,6 +54,7 @@ export function figurePasteOptions(
     failure: labels.uploadFailed,
     uploading: labels.uploading,
     tooLarge: labels.uploadTooLarge,
+    unreadable: labels.imageUnreadable,
     pasteAgain: labels.pasteAgain,
   };
 }
@@ -66,21 +73,47 @@ const imagesOf = (files: Iterable<File> | null | undefined): File[] =>
 // only, by the time an upload ends.
 const canTake = (view: EditorView) => !view.isDestroyed && view.editable;
 
-// Uploads the files one by one, in order: the stored assets, or null once one fails or is larger
-// than the host takes, the reader told why.
+/** A file stored through the host's assets, with the natural size its bytes give. */
+interface StoredImage {
+  readonly fileAssetId: string;
+  readonly snapshotId: string;
+  readonly natural: ImageSize;
+}
+
+// The natural size of each file, read before any is uploaded: null once a file is missing or its
+// bytes give no size, the reader told which.
+async function sizesOf(
+  files: readonly (File | null)[],
+  options: FigurePasteOptions,
+): Promise<ImageSize[] | null> {
+  const sizes: ImageSize[] = [];
+  for (const file of files) {
+    if (!file) return refuse(options);
+    const size = await fileImageSize(file);
+    if (!size) return refuse(options, options.unreadable(file.name));
+    sizes.push(size);
+  }
+  return sizes;
+}
+
+// Reads the files' sizes, then uploads them one by one, in order: the stored images, or null once
+// one has no size, fails or is larger than the host takes, the reader told why.
 async function uploadAll(
   files: readonly (File | null)[],
   options: FigurePasteOptions,
-): Promise<{ fileAssetId: string; snapshotId: string }[] | null> {
-  const stored = [];
+): Promise<StoredImage[] | null> {
+  const sizes = await sizesOf(files, options);
+  if (!sizes) return null;
+  const stored: StoredImage[] = [];
   const max = options.assets.maxUploadBytes;
-  for (const file of files) {
-    if (!file) return refuse(options);
+  for (const [index, file] of files.entries()) {
+    const natural = sizes[index];
+    if (!file || !natural) return refuse(options);
     if (max !== undefined && file.size > max) return refuse(options, options.tooLarge(max));
     const result = await options.assets.upload(file).catch(() => null);
     if (!result?.ok) return refuse(options, result?.error.message);
     const { id, snapshotId } = result.value;
-    stored.push({ fileAssetId: id, snapshotId: snapshotId ?? id });
+    stored.push({ fileAssetId: id, snapshotId: snapshotId ?? id, natural });
   }
   return stored;
 }
@@ -121,13 +154,11 @@ async function insertFigures(
   });
 }
 
-// A stored image of pasted HTML written as a figure's markup.
-function figureMarkup(
-  view: EditorView,
-  asset: { fileAssetId: string; snapshotId: string },
-  alt: string,
-) {
-  const node = createFigure(view.state.schema, { ...asset, alt });
+// A stored image of pasted HTML written as a figure's markup, at the size a new figure takes where
+// it is pasted.
+function figureMarkup(view: EditorView, { natural, ...asset }: StoredImage, alt: string) {
+  const size = newFigureBox(view, view.state.selection.from, natural);
+  const node = createFigure(view.state.schema, { ...asset, ...size, alt });
   if (!node) return '';
   const container = view.dom.ownerDocument.createElement('div');
   container.append(DOMSerializer.fromSchema(view.state.schema).serializeNode(node));

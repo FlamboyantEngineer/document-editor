@@ -23,9 +23,9 @@ export interface FoundAsset extends StoredAsset {
   thumbnailUrl?: string | undefined;
   /** A description the alternative text starts from. */
   alt?: string | undefined;
-  /** The asset's own size in pixels. */
-  width?: number | undefined;
-  height?: number | undefined;
+  /** The asset's own size in pixels, which a figure or a template image placing it takes. */
+  width: number;
+  height: number;
 }
 
 /** One page of the assets a search finds; a `cursor` means another page follows. */
@@ -69,15 +69,19 @@ export interface AssetAdapter {
   resolveUrl(assetId: string, snapshotId?: string, at?: { readonly asOf: string | null }): string;
 }
 
-/** A diagram a figure shows: the stored asset holding its drawing and source, and its size. */
-export interface StoredDiagram {
+/** The diagram a figure shows: the stored asset holding its drawing and source. */
+export interface DiagramRef {
   /** The asset's id; the figure renders it through `assets.resolveUrl`. */
   assetId: string;
   /** The stored snapshot the figure names; defaults to the asset's id. */
   snapshotId?: string | undefined;
+}
+
+/** A diagram the host's editor stored, with its size. */
+export interface StoredDiagram extends DiagramRef {
   /** The drawing's own size in pixels, which a new figure takes. */
-  width?: number | undefined;
-  height?: number | undefined;
+  width: number;
+  height: number;
 }
 
 /** What the editor hands the host's diagram editor besides the diagram. */
@@ -95,7 +99,7 @@ export interface DiagramAdapter {
    * dialog closes.
    */
   edit(
-    diagram: StoredDiagram | null,
+    diagram: DiagramRef | null,
     signal: AbortSignal,
     options?: DiagramEditOptions,
   ): Promise<HostResult<StoredDiagram | null>>;
