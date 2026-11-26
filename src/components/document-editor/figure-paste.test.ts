@@ -360,11 +360,54 @@ describe('figurePasteHandlers', () => {
     view.destroy();
   });
 
-  it('DOCE-EDITING-5.5 leaves pasted HTML without such images to the editor', () => {
+  it('DOCE-EDITING-5.5 leaves pasted HTML whose images at an address state their size to the editor', () => {
     const { view, handlers } = setUp();
-    expect(
-      handlers.handlePaste(view, htmlPasteOf('<p><img src="https://example.com/a.png"></p>')),
-    ).toBe(false);
+    const html = '<p><img src="https://example.com/a.png" width="16" height="12"></p>';
+    expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(false);
+    view.destroy();
+  });
+
+  // Each inline image of the document: its address and its size.
+  const inlineImages = (view: EditorView) => {
+    const found: unknown[][] = [];
+    view.state.doc.descendants((node) => {
+      if (node.type.name === 'image')
+        found.push([node.attrs.src, node.attrs.templateImageWidth, node.attrs.templateImageHeight]);
+    });
+    return found;
+  };
+
+  it('DOCE-EDITING-5.5 DOCE-SCHEMA-3.14 loads a pasted image at an address that states no size, and pastes it at its natural size', async () => {
+    const restore = loadImagesAt(300, 200);
+    try {
+      const { view, uploaded, notified, handlers } = setUp();
+      const html = '<p>See <img src="https://example.com/a.png" alt="A" width="0"> here</p>';
+      expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
+      await vi.waitFor(() =>
+        expect(inlineImages(view)).toEqual([['https://example.com/a.png', 300, 200]]),
+      );
+      expect(textOf(view)).toBe('See  here');
+      // Nothing is uploaded, and nothing is said.
+      expect(uploaded).toEqual([]);
+      expect(notified).toEqual([]);
+      view.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('DOCE-EDITING-5.5 leaves out a pasted image at an address that does not load, names it, and pastes the rest', async () => {
+    // jsdom's images never decode.
+    const { view, notified, handlers } = setUp();
+    const html = `<p>Lost <img src="https://example.com/lost.png"> and <img src="${PNG}" alt="Chart"></p>`;
+    expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
+    await vi.waitFor(() => expect(figures(view)).toEqual(['Chart:asset-1']));
+    expect(inlineImages(view)).toEqual([]);
+    expect(textOf(view)).toBe('Lost and');
+    expect(notified).toEqual([
+      { tone: 'info', text: 'Uploading…' },
+      { tone: 'error', text: 'No size for https://example.com/lost.png.' },
+    ]);
     view.destroy();
   });
 });
