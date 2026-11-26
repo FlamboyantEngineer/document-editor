@@ -1,6 +1,7 @@
 // Generic word processing documents, one per feature the import contract covers, built by
 // `buildDocx`. The text is sample text about gardens and weather stations; it means nothing.
 
+import { pngBytes } from '../../image-files.js';
 import { A4, type DocxFixture, paragraph, run, section, style } from './build-docx-fixture.js';
 
 const styleDef = (id: string, name: string, extra = '') =>
@@ -210,6 +211,22 @@ export const IMAGES: DocxFixture = {
     paragraph(
       '<w:r><w:drawing><wp:anchor><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"/></a:graphic></wp:anchor></w:drawing></w:r>',
     ),
+    A4,
+  ].join(''),
+};
+
+/**
+ * Image sizes: a picture whose drawing has no extent, sized from its image's bytes; a legacy VML
+ * picture sized by its shape's style; and a picture nothing sizes, which is left out.
+ */
+export const IMAGE_SIZES: DocxFixture = {
+  media: { 'real.png': pngBytes(30, 20), 'blank.png': new Uint8Array([1, 2, 3]) },
+  body: [
+    paragraph(drawing('rIdreal', 'No extent', '<wp:extent cx="0" cy="0"/>')),
+    paragraph(
+      '<w:r><w:pict><v:shape style="width:72pt;height:36pt"><v:imagedata r:id="rIdreal" o:title="Old"/></v:shape></w:pict></w:r>',
+    ),
+    paragraph(drawing('rIdblank', 'Unsized', '')),
     A4,
   ].join(''),
 };
