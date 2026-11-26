@@ -5,6 +5,7 @@
 
 import type { Token } from 'markdown-it';
 import { joinText, textNode, withMark } from '../../import/stored-inline.js';
+import type { ImageSize } from '../schema/image-size.js';
 import type { StoredMark, StoredNode } from './document-format.js';
 import { deeperThanStored } from './markdown-read-depth.js';
 import type { SourceWarnings } from './markdown-read-warnings.js';
@@ -16,6 +17,8 @@ export interface InlineContext {
   /** Each footnote's stored text once read, by the same id. */
   readonly noteText: Map<number, StoredNode[]>;
   readonly warnings: SourceWarnings;
+  /** An image's natural size by its address, or null for one the reader leaves out. */
+  readonly imageSize: (src: string) => ImageSize | null;
   /** Whether footnote references are read; not inside a footnote's own text. */
   readonly inNote?: boolean | undefined;
 }
@@ -117,6 +120,20 @@ function htmlOf(token: Token, context: InlineContext): StoredNode[] {
 }
 
 // One leaf token's stored inline content in `marks`.
+// An image at its natural size, or nothing, with a warning naming it, when it has none.
+function imageOf(token: Token, context: InlineContext): StoredNode[] {
+  const src = String(token.attrGet('src') ?? '');
+  const size = context.imageSize(src);
+  if (!size) {
+    const name = src.startsWith('data:') ? 'inline image' : src || 'image';
+    context.warnings.add('image-left-out', `${name} (no size)`);
+    return [];
+  }
+  const alt = token.content;
+  const attrs = { src, ...(alt ? { alt } : {}), width: size.width, height: size.height };
+  return [{ type: 'image', attrs }];
+}
+
 function leafOf(token: Token, marks: readonly StoredMark[], context: InlineContext): StoredNode[] {
   switch (token.type) {
     case 'text':
@@ -131,12 +148,8 @@ function leafOf(token: Token, marks: readonly StoredMark[], context: InlineConte
       return [{ type: 'math', attrs: { source: token.content } }];
     case 'variable':
       return [{ type: 'variable', attrs: { key: (token.meta as { key: string }).key } }];
-    case 'image': {
-      const alt = token.content;
-      return [
-        { type: 'image', attrs: { src: token.attrGet('src') ?? '', ...(alt ? { alt } : {}) } },
-      ];
-    }
+    case 'image':
+      return imageOf(token, context);
     case 'footnote_ref':
       return footnoteOf(token, marks, context);
     case 'html_inline':

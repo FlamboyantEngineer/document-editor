@@ -11,12 +11,23 @@ import {
   type ImportWarning,
   type ImportWarnings,
 } from '../../import/import-warnings.js';
+import { dataImageSize, type ImageSize, wholeSize } from '../schema/image-size.js';
 import { DOCUMENT_FORMAT_VERSION, type DocumentFile } from './document-format.js';
 import { readBlocks } from './markdown-read-blocks.js';
 import { flattenDeepNesting } from './markdown-read-depth.js';
 import { math } from './markdown-read-math.js';
 import { variables } from './markdown-read-variables.js';
 import { createSourceWarnings } from './markdown-read-warnings.js';
+
+/** What reading Markdown needs from its host. */
+export interface MarkdownReadOptions {
+  /**
+   * The natural size of the image at an address, such as the host's asset adapter knows it; an
+   * image whose address holds its bytes (a data address) is sized from them. An image neither
+   * sizes is left out with an `image-left-out` warning.
+   */
+  readonly imageSize?: ((src: string) => ImageSize | null | undefined) | undefined;
+}
 
 /** A stored document read from Markdown, and what the reading left out. */
 export interface MarkdownRead {
@@ -73,15 +84,18 @@ function takeNotes(tokens: readonly Token[]) {
 /**
  * Markdown as a stored document of one section (DOCE-IMPORT-4.1), with the warnings for what it
  * left out. Front matter is left out; so are HTML blocks and HTML tags other than the ones for
- * underline, superscript, subscript, strikethrough, emphasis, strong, code and line breaks.
+ * underline, superscript, subscript, strikethrough, emphasis, strong, code and line breaks. An
+ * image takes its natural size from its bytes or `options.imageSize` (in whole pixels, at least
+ * one), or is left out.
  */
-export function readMarkdown(markdown: string): MarkdownRead {
+export function readMarkdown(markdown: string, options: MarkdownReadOptions = {}): MarkdownRead {
   const warnings: ImportWarnings = createImportWarnings();
   const text = markdown.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
   const source = text.replace(/^---\n[\s\S]*?\n(?:---|\.\.\.)\n/, '');
   const { notes, body } = takeNotes(markdownParser().parse(source, {}));
   const met = createSourceWarnings();
-  const blocks = readBlocks(body, { notes, noteText: new Map(), warnings: met });
+  const imageSize = (src: string) => dataImageSize(src) ?? wholeSize(options.imageSize?.(src));
+  const blocks = readBlocks(body, { notes, noteText: new Map(), warnings: met, imageSize });
   met.giveTo(warnings);
   const content = flattenDeepNesting(blocks, warnings);
   return {

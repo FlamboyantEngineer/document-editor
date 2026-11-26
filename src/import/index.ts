@@ -2,7 +2,7 @@
 // content composed into a template's sections, a new document of a template, and part of a stored
 // document taken out. Nothing here reads the DOM, so a server imports this entry beside `./model`.
 
-export type { MarkdownRead } from '../model/format/markdown-read.js';
+export type { MarkdownRead, MarkdownReadOptions } from '../model/format/markdown-read.js';
 export { readMarkdown } from '../model/format/markdown-read.js';
 export type {
   ComposeDocumentOptions,

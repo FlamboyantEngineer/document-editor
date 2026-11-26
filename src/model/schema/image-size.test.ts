@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imageSizeOf } from './image-size.js';
+import { dataImageSize, imageSizeOf, wholeSize } from './image-size.js';
 
 // The bytes of an image file: each part a byte, a list of bytes or text.
 function file(...parts: (number | readonly number[] | string)[]): Uint8Array {
@@ -95,5 +95,22 @@ describe('imageSizeOf', () => {
     expect(imageSizeOf(png(0, 10))).toBeNull();
     expect(imageSizeOf(file([0xff, 0xd8, 0xff, 0xe0], u16(400)))).toBeNull();
     expect(imageSizeOf(new Uint8Array())).toBeNull();
+  });
+
+  it('DOCE-SCHEMA-3.14 reads the size of the image a data address holds', () => {
+    const base64 = `data:image/png;base64,${btoa(String.fromCharCode(...png(12, 6)))}`;
+    expect(dataImageSize(base64)).toEqual({ width: 12, height: 6 });
+    const svg = `data:image/svg+xml,${encodeURIComponent('<svg width="9" height="3"></svg>')}`;
+    expect(dataImageSize(svg)).toEqual({ width: 9, height: 3 });
+    expect(dataImageSize('data:image/png;base64,***')).toBeNull();
+    expect(dataImageSize('https://example.com/a.png')).toBeNull();
+  });
+
+  it('DOCE-SCHEMA-3.14 takes a size another source gives in whole pixels of at least one', () => {
+    expect(wholeSize({ width: 63.6, height: 48.4 })).toEqual({ width: 64, height: 48 });
+    expect(wholeSize({ width: 0.4, height: 10 })).toBeNull();
+    expect(wholeSize({ width: Number.NaN, height: 10 })).toBeNull();
+    expect(wholeSize({ width: -5, height: 10 })).toBeNull();
+    expect(wholeSize(null)).toBeNull();
   });
 });
