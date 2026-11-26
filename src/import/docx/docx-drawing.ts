@@ -30,9 +30,10 @@ const VML_UNITS: Readonly<Record<string, number>> = {
   emu: 1 / EMU_PER_PIXEL,
 };
 
-// A side of a VML shape's style (`width:120pt`) in whole pixels, or null.
+// A side of a VML shape's style (`width:120pt`) in whole pixels, or null, as for a unit with no
+// pixel size such as a percentage. A side with no unit is in pixels.
 function styleSide(style: string, side: 'width' | 'height'): number | null {
-  const match = new RegExp(`(?:^|;)\\s*${side}\\s*:\\s*([\\d.]+)\\s*([a-z]*)`, 'i').exec(style);
+  const match = new RegExp(`(?:^|;)\\s*${side}\\s*:\\s*([\\d.]+)\\s*([^;\\s]*)`, 'i').exec(style);
   const scale = VML_UNITS[(match?.[2] || 'px').toLowerCase()];
   const value = match && scale ? Math.round(Number(match[1]) * scale) : 0;
   return Number.isFinite(value) && value > 0 ? value : null;

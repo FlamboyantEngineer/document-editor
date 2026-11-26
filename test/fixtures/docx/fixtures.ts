@@ -226,6 +226,9 @@ export const IMAGE_SIZES: DocxFixture = {
     paragraph(
       '<w:r><w:pict><v:shape style="width:72pt;height:36pt"><v:imagedata r:id="rIdreal" o:title="Old"/></v:shape></w:pict></w:r>',
     ),
+    paragraph(
+      '<w:r><w:pict><v:shape style="width:100%;height:50%"><v:imagedata r:id="rIdreal"/></v:shape></w:pict></w:r>',
+    ),
     paragraph(drawing('rIdblank', 'Unsized', '')),
     A4,
   ].join(''),

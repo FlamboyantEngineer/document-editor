@@ -205,7 +205,9 @@ describe('reading Markdown', () => {
       'A ![Lost](lost.png) b',
     ].join('\n');
     const { file, warnings } = readMarkdown(markdown, {
-      imageSize: (src) => (src === 'known.png' ? { width: 64, height: 48 } : null),
+      // A host's fractions round to whole pixels, and a side under one pixel is no size.
+      imageSize: (src) =>
+        src === 'known.png' ? { width: 63.6, height: 48.4 } : { width: 0.4, height: 10 },
     });
     const content = file.sections[0]?.content ?? [];
     expect(content.map((block) => [block.type, block.attrs?.width, block.attrs?.height])).toEqual([

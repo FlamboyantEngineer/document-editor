@@ -11,7 +11,7 @@ import {
   type ImportWarning,
   type ImportWarnings,
 } from '../../import/import-warnings.js';
-import { dataImageSize, type ImageSize } from '../schema/image-size.js';
+import { dataImageSize, type ImageSize, wholeSize } from '../schema/image-size.js';
 import { DOCUMENT_FORMAT_VERSION, type DocumentFile } from './document-format.js';
 import { readBlocks } from './markdown-read-blocks.js';
 import { flattenDeepNesting } from './markdown-read-depth.js';
@@ -85,7 +85,8 @@ function takeNotes(tokens: readonly Token[]) {
  * Markdown as a stored document of one section (DOCE-IMPORT-4.1), with the warnings for what it
  * left out. Front matter is left out; so are HTML blocks and HTML tags other than the ones for
  * underline, superscript, subscript, strikethrough, emphasis, strong, code and line breaks. An
- * image takes its natural size from its bytes or `options.imageSize`, or is left out.
+ * image takes its natural size from its bytes or `options.imageSize` (in whole pixels, at least
+ * one), or is left out.
  */
 export function readMarkdown(markdown: string, options: MarkdownReadOptions = {}): MarkdownRead {
   const warnings: ImportWarnings = createImportWarnings();
@@ -93,7 +94,7 @@ export function readMarkdown(markdown: string, options: MarkdownReadOptions = {}
   const source = text.replace(/^---\n[\s\S]*?\n(?:---|\.\.\.)\n/, '');
   const { notes, body } = takeNotes(markdownParser().parse(source, {}));
   const met = createSourceWarnings();
-  const imageSize = (src: string) => dataImageSize(src) ?? options.imageSize?.(src) ?? null;
+  const imageSize = (src: string) => dataImageSize(src) ?? wholeSize(options.imageSize?.(src));
   const blocks = readBlocks(body, { notes, noteText: new Map(), warnings: met, imageSize });
   met.giveTo(warnings);
   const content = flattenDeepNesting(blocks, warnings);

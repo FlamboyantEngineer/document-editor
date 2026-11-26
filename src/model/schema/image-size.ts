@@ -133,6 +133,16 @@ export function imageSizeOf(bytes: Uint8Array): ImageSize | null {
   return isMarkup(bytes) ? svgSize(bytes) : null;
 }
 
+/**
+ * A size another source gives, in whole pixels: null unless both sides are finite and at least one
+ * pixel once rounded.
+ */
+export function wholeSize(size: ImageSize | null | undefined): ImageSize | null {
+  const width = Math.round(Number(size?.width));
+  const height = Math.round(Number(size?.height));
+  return Number.isFinite(width) && Number.isFinite(height) ? sized(width, height) : null;
+}
+
 const DATA = /^data:([^,]*),/i;
 
 /**

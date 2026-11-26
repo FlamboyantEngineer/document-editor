@@ -637,6 +637,8 @@ describe('reading word processing documents', () => {
     ).toEqual([
       ['figure', 30, 20],
       ['figure', 96, 48],
+      // A VML side in a unit with no pixel size (a percentage) falls to the image's bytes.
+      ['figure', 30, 20],
       // The paragraph that held the picture left out stays, as for any image left out.
       ['paragraph', undefined, undefined],
     ]);

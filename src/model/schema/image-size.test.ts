@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dataImageSize, imageSizeOf } from './image-size.js';
+import { dataImageSize, imageSizeOf, wholeSize } from './image-size.js';
 
 // The bytes of an image file: each part a byte, a list of bytes or text.
 function file(...parts: (number | readonly number[] | string)[]): Uint8Array {
@@ -104,5 +104,13 @@ describe('imageSizeOf', () => {
     expect(dataImageSize(svg)).toEqual({ width: 9, height: 3 });
     expect(dataImageSize('data:image/png;base64,***')).toBeNull();
     expect(dataImageSize('https://example.com/a.png')).toBeNull();
+  });
+
+  it('DOCE-SCHEMA-3.14 takes a size another source gives in whole pixels of at least one', () => {
+    expect(wholeSize({ width: 63.6, height: 48.4 })).toEqual({ width: 64, height: 48 });
+    expect(wholeSize({ width: 0.4, height: 10 })).toBeNull();
+    expect(wholeSize({ width: Number.NaN, height: 10 })).toBeNull();
+    expect(wholeSize({ width: -5, height: 10 })).toBeNull();
+    expect(wholeSize(null)).toBeNull();
   });
 });
