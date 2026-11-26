@@ -9,6 +9,7 @@ import {
 } from '../../../test/fixtures/docx/build-docx-fixture.js';
 import {
   COMMENTS,
+  IMAGE_SIZES,
   IMAGES,
   NOTES,
   NUMBERING,
@@ -627,6 +628,23 @@ describe('reading word processing documents', () => {
     ]);
     const hosted = await read(IMAGES, { imageSource: (image) => `asset:${image.path}` });
     expect(blocks(hosted)[1]?.attrs?.src).toBe('asset:word/media/plot.png');
+  });
+
+  it('DOCE-IMPORT-2.8 sizes a picture by its extent, a VML style or its bytes, and leaves out one nothing sizes', async () => {
+    const result = await read(IMAGE_SIZES);
+    expect(
+      blocks(result).map((block) => [block.type, block.attrs?.width, block.attrs?.height]),
+    ).toEqual([
+      ['figure', 30, 20],
+      ['figure', 96, 48],
+      // A VML side in a unit with no pixel size (a percentage) falls to the image's bytes.
+      ['figure', 30, 20],
+      // The paragraph that held the picture left out stays, as for any image left out.
+      ['paragraph', undefined, undefined],
+    ]);
+    expect(result.warnings).toContainEqual(
+      warning('image-left-out', 'word/media/blank.png (no size)', 1),
+    );
   });
 
   it('DOCE-IMPORT-2.9 gives documents that read in the editor and compose into a template', async () => {

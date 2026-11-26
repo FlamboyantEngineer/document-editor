@@ -132,3 +132,33 @@ export function imageSizeOf(bytes: Uint8Array): ImageSize | null {
   if (startsWith(bytes, BMP)) return bmpSize(bytes);
   return isMarkup(bytes) ? svgSize(bytes) : null;
 }
+
+/**
+ * A size another source gives, in whole pixels: null unless both sides are finite and at least one
+ * pixel once rounded.
+ */
+export function wholeSize(size: ImageSize | null | undefined): ImageSize | null {
+  const width = Math.round(Number(size?.width));
+  const height = Math.round(Number(size?.height));
+  return Number.isFinite(width) && Number.isFinite(height) ? sized(width, height) : null;
+}
+
+const DATA = /^data:([^,]*),/i;
+
+/**
+ * The natural size of the image a data address holds, from its bytes (`imageSizeOf`): null for
+ * another address, one that does not decode, or bytes that give no size.
+ */
+export function dataImageSize(src: string): ImageSize | null {
+  const match = DATA.exec(src);
+  if (!match) return null;
+  const body = src.slice(match[0].length);
+  try {
+    const bytes = (match[1] ?? '').toLowerCase().endsWith(';base64')
+      ? Uint8Array.from(atob(body.replace(/\s+/g, '')), (char) => char.charCodeAt(0))
+      : new TextEncoder().encode(decodeURIComponent(body));
+    return imageSizeOf(bytes);
+  } catch {
+    return null;
+  }
+}

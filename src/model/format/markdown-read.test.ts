@@ -11,7 +11,7 @@ import { createDocumentSchema } from '../schema/document-schema.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
 import { readDocumentFile } from './document-format-convert.js';
 import { writeMarkdown } from './markdown.js';
-import { readMarkdown } from './markdown-read.js';
+import { type MarkdownReadOptions, readMarkdown } from './markdown-read.js';
 
 const warning = (code: string, detail: string, count: number) => ({
   code,
@@ -32,7 +32,10 @@ const LOSSY: Readonly<Record<string, string>> = {
 // Spaces at line ends, where the writer leaves the ones around content it does not write.
 const trimmed = (markdown: string) => markdown.replace(/ +$/gm, '');
 
-const blocksOf = (markdown: string) => readMarkdown(markdown).file.sections[0]?.content ?? [];
+// Images at an address the test's host knows are 320 by 240 pixels.
+const SIZES: MarkdownReadOptions = { imageSize: () => ({ width: 320, height: 240 }) };
+const blocksOf = (markdown: string) =>
+  readMarkdown(markdown, SIZES).file.sections[0]?.content ?? [];
 const text = (value: string, ...marks: string[]): StoredNode => ({
   type: 'text',
   text: value,
@@ -181,14 +184,41 @@ describe('reading Markdown', () => {
     expect(table?.content?.[2]?.content?.[1]?.content).toEqual([paragraph(text('4 | 5'))]);
     expect(figure).toEqual({
       type: 'figure',
-      attrs: { src: 'plot.png', alt: 'Plot' },
+      attrs: { src: 'plot.png', alt: 'Plot', width: 320, height: 240 },
       content: [storedCaption('The plot')],
     });
     expect(plain).toEqual({
       type: 'figure',
-      attrs: { src: 'bare.png', alt: 'Bare', captionEnabled: false },
+      attrs: { src: 'bare.png', alt: 'Bare', width: 320, height: 240, captionEnabled: false },
       content: [{ type: 'caption' }],
     });
+  });
+
+  it('DOCE-IMPORT-4.1 sizes an image from its bytes or the host, and leaves out one neither sizes', () => {
+    const gif =
+      'data:image/gif;base64,R0lGODlhCAAEAIAAAP///wAAACH5BAEAAAAALAAAAAAIAAQAAAIEhI+pWAA7';
+    const markdown = [
+      '![Dot](' + gif + ')',
+      '',
+      '![Known](known.png)',
+      '',
+      'A ![Lost](lost.png) b',
+    ].join('\n');
+    const { file, warnings } = readMarkdown(markdown, {
+      // A host's fractions round to whole pixels, and a side under one pixel is no size.
+      imageSize: (src) =>
+        src === 'known.png' ? { width: 63.6, height: 48.4 } : { width: 0.4, height: 10 },
+    });
+    const content = file.sections[0]?.content ?? [];
+    expect(content.map((block) => [block.type, block.attrs?.width, block.attrs?.height])).toEqual([
+      ['figure', 8, 4],
+      ['figure', 64, 48],
+      ['paragraph', undefined, undefined],
+    ]);
+    expect(content[2]).toEqual(paragraph(text('A  b')));
+    expect(warnings).toMatchObject([
+      { code: 'image-left-out', detail: 'lost.png (no size)', count: 1 },
+    ]);
   });
 
   it('DOCE-IMPORT-4.1 completes short table rows at the width and alignment of the header', () => {

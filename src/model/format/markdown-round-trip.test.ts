@@ -12,8 +12,10 @@ const text = (value: string, ...marks: string[]): StoredNode => ({
 const paragraph = (...content: StoredNode[]): StoredNode => ({ type: 'paragraph', content });
 const written = (content: StoredNode[], options?: MarkdownOptions) =>
   writeMarkdown({ formatVersion: 1, sections: [{ name: null, content }] }, options);
+// The host knows the size of every image the tests write.
 const readBack = (content: StoredNode[], options?: MarkdownOptions) =>
-  readMarkdown(written(content, options)).file.sections[0]?.content ?? [];
+  readMarkdown(written(content, options), { imageSize: () => ({ width: 320, height: 240 }) }).file
+    .sections[0]?.content ?? [];
 const code = (value: string): StoredNode => ({ type: 'codeBlock', content: [text(value)] });
 const math = (source: string): StoredNode => ({ type: 'math', attrs: { source } });
 
