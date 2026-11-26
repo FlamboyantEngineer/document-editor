@@ -202,9 +202,9 @@ Verification: `src/model/templates/template-preview.test.ts`, `e2e/template-edit
 
 ### DOCE-TEMPLATES-8.3 - Typed tokens
 
-`createVariableTokens()` shall turn a `{{key}}` token a writer types into a live variable of that key as soon as its closing braces are typed, wherever the schema allows a variable. Text in code, other bracketings and an unclosed token shall stay as typed.
+`createVariableTokens()` shall turn a `{{key}}` token a writer types into a live variable of that key as soon as its closing braces are typed, wherever the schema allows a variable. Text in code, other bracketings and an unclosed token shall stay as typed. The change shall carry the text it typed (`TYPED_TEXT`), so `typedAsWritten` gives it as typed for a writer whose variable cannot be kept: a suggestion cannot hold a variable, so a suggester keeps the token as suggested text (DOCE-EDITING-6.6).
 
-Implementation: `src/engine/variable-tokens.ts`
+Implementation: `src/engine/variable-tokens.ts`, `src/engine/typing-rules.ts`
 Verification: `src/engine/variable-tokens.test.ts`
 
 ### DOCE-TEMPLATES-8.4 - Variable catalog
@@ -260,9 +260,9 @@ Verification: `src/engine/template-script-previews.test.ts`, `e2e/template-conte
 
 ### DOCE-TEMPLATES-9.1 - Rendering a template block
 
-`createDynamicTemplates({ value })` shall render each template block (`dynamic_template`) from its markup, with each `{{key}}` token in its text replaced by the variable's value (`value`, and `date.current` as page variables write it), in every view it runs in, as a block the writer cannot edit inside. It shall render it again when its markup changes, and, after `refreshDynamicTemplates(tr)`, outside the undo history, when a value it tracks changes, giving the block a measure key (`data-de-measure-key`) of its markup and values so the pages measure it again. Rendering shall never change the document. `DocumentEditor` shall install it with the host's `variables` adapter and refresh it when the adapter says a value changed (DOCE-PAGINATION-8.4).
+`createDynamicTemplates()` shall render each template block (`dynamic_template`) from its markup, with each `{{key}}` token in its text replaced by the text the document stores for the variable (DOCE-FORMAT-1.7), `date.current` among them, in every view it runs in, as a block the writer cannot edit inside; nothing is asked of the host or the clock as it renders. It shall render it again when its markup or a stored text it tracks changes, giving the block a measure key (`data-de-measure-key`) of its markup and texts so the pages measure it again; `refreshDynamicTemplates(tr)` renders them again outside the undo history. Rendering shall never change the document. `DocumentEditor` installs it, and stores the texts its blocks show as edits (DOCE-PAGINATION-8.4, 8.8).
 
-Implementation: `src/engine/dynamic-templates.ts`, `src/components/document-editor/use-document-layout.ts`
+Implementation: `src/engine/dynamic-templates.ts`, `src/engine/document-values.ts`
 Verification: `src/engine/dynamic-templates.test.ts`
 
 ### DOCE-TEMPLATES-9.2 - Safe markup

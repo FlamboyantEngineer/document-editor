@@ -152,6 +152,7 @@ function TopChrome({
             zoom: editorZoom(props),
             scriptRunner: props.scriptRunner,
             glossary: props.glossary,
+            variables: props.variables,
             template: props.template,
             shell,
             exports,

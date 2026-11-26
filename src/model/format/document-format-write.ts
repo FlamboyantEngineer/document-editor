@@ -4,6 +4,7 @@
 
 import type { Fragment, Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { cloneJson } from '../clone-json.js';
+import { ownLanguage, storedValues } from '../document-values.js';
 import { FRAGMENT_RULES, type FragmentRules, joinFragments } from '../pagination/fragments.js';
 import { CAPTION_HOLDER_TYPES } from '../schema/caption-content.js';
 import {
@@ -180,6 +181,16 @@ function writeSection(section: ProseMirrorNode | null, content: StoredContent): 
 const isRecord = (value: unknown): value is RegionSettings =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
+// What the document keeps beside its content (DOCE-FORMAT-1.7), each left out when unset.
+function documentAttrs(doc: ProseMirrorNode): Pick<DocumentFile, 'language' | 'values'> {
+  const language = ownLanguage(doc);
+  const values = storedValues(doc);
+  return {
+    ...(language ? { language } : {}),
+    ...(Object.keys(values).length ? { values: { ...values } } : {}),
+  };
+}
+
 /**
  * The stored form of an editor document: its sections' content in order, with every block split
  * across pages joined whole, and the content outside any section as unnamed sections.
@@ -211,5 +222,5 @@ export function writeDocumentFile(
     write(blocks, child, footnotes);
   });
   if (loose.length) write(loose, null);
-  return { formatVersion: DOCUMENT_FORMAT_VERSION, template, sections };
+  return { formatVersion: DOCUMENT_FORMAT_VERSION, template, ...documentAttrs(doc), sections };
 }

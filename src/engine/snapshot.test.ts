@@ -49,12 +49,11 @@ function snapshotView(rootData: Record<string, string>) {
   const root = document.createElement('div');
   root.className = 'de-document-editor';
   for (const [name, value] of Object.entries(rootData)) root.setAttribute(`data-${name}`, value);
-  const plugin = createPageVariables({
-    value: (key) => (key === 'document.name' ? 'Interface notes' : undefined),
-    locale: 'en-US',
-    now: () => new Date(2026, 10, 11),
-  });
-  return new EditorView(root, { state: EditorState.create({ doc, plugins: [plugin] }) });
+  // The texts the document stores for its host value and date (DOCE-FORMAT-1.7).
+  const values = { 'document.name': 'Interface notes', 'date.current': 'November 11, 2026' };
+  const valued = new Transform(doc).setDocAttribute('values', values).doc;
+  const plugin = createPageVariables();
+  return new EditorView(root, { state: EditorState.create({ doc: valued, plugins: [plugin] }) });
 }
 
 // A sectioned document: a portrait body, a landscape appendix, more body and a letter section,
@@ -301,7 +300,7 @@ describe('documentSnapshot', () => {
     view.destroy();
   });
 
-  it('DOCE-EDITOR-6.19 prints without the text style of the page around the editor, in its language', () => {
+  it('DOCE-EDITOR-6.19 prints without the text style or language of the page around the editor', () => {
     const { view, template: sectioned } = sectionedView();
     const around = view.dom.parentElement;
     // Only an element in the document has a computed style, as in a browser.
@@ -312,8 +311,10 @@ describe('documentSnapshot', () => {
     const snapshot = parse(documentSnapshot(view, { template: sectioned }));
     const root = snapshot.body.firstElementChild as HTMLElement | null;
     expect(root?.getAttribute('style')).toBeNull();
-    // It still carries the language named closest around the pages.
-    expect(snapshot.language).toBe('fr');
+    // It carries the document's language, here its template's, never the page's.
+    expect(snapshot.language).toBe('en');
+    view.dispatch(view.state.tr.setDocAttribute('language', 'de-CH'));
+    expect(parse(documentSnapshot(view, { template: sectioned })).language).toBe('de-CH');
     view.destroy();
     around?.remove();
   });

@@ -64,6 +64,54 @@ describe('DocumentSessionBoundary', () => {
     await vi.waitFor(async () => expect(await stored(host)).toContain('!'));
   });
 
+  it('DOCE-SESSION-2.1 DOCE-PAGINATION-8.4 saves the variable texts a writer’s editor stores on opening an older file', async () => {
+    // A file stored before the document kept its variables' texts (DOCE-FORMAT-1.7).
+    const older: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: 'a0000001' },
+              content: [
+                { type: 'text', text: 'About ' },
+                { type: 'variable', attrs: { key: 'document.name' } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const host = createMemoryHost({ documents: [{ id: 'doc', content: older }] });
+    const variables = {
+      value: (key: string) => (key === 'document.name' ? 'Interface notes' : null),
+    };
+    function Writer() {
+      const session = useDocumentSession({
+        host,
+        documentId: 'doc',
+        mode: 'store',
+        autosaveDelay: 0,
+      });
+      if (!session) return null;
+      return (
+        <DocumentSessionBoundary session={session}>
+          {(props) => <DocumentEditor {...props} variables={variables} aria-label="Report" />}
+        </DocumentSessionBoundary>
+      );
+    }
+    render(<Writer />);
+    await screen.findByRole('textbox', { name: 'Report' });
+    // No other edit: the texts alone are a change to save.
+    await vi.waitFor(async () =>
+      expect(JSON.parse(await stored(host))).toMatchObject({
+        values: { 'document.name': 'Interface notes' },
+      }),
+    );
+  });
+
   it('DOCE-SESSION-1.6 shows the error of a document that cannot load', async () => {
     render(<Host host={createMemoryHost()} documentId="missing" />);
     expect(await screen.findByRole('alert')).toHaveTextContent('not-found');

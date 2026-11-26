@@ -4,7 +4,7 @@
 
 import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import { UNICODE_VERSION } from '../layout-engine/bidi-classes.js';
-import type { LayoutRules, TemplateFile } from '../model/index.js';
+import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
 import { segmentationFingerprint } from '../utils/segmentation.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
@@ -131,7 +131,7 @@ export const engineSources = (options: TextEngineOptions) => ({
     layoutInputs({
       fonts: options.fonts?.() ?? null,
       template: options.template,
-      language: options.language ?? '',
+      language: options.language ?? documentLanguage(null, options.template),
       markup: options.markup?.() ?? 'all',
       codeLineNumbers: options.codeLineNumbers ?? false,
       math: options.mathLayouter?.()?.key ?? null,

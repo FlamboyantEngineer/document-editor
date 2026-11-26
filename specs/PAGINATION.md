@@ -568,24 +568,24 @@ Verification: `e2e/page-regions.spec.ts`
 
 ### DOCE-PAGINATION-8.2 - Page variables
 
-`createPageVariables({ value })` shall show the value of each variable in a page header or footer inside it: `page.current` the page's number, `page.total` the document's page count, and any other key the host's `value`, or nothing. `refreshPageVariables(view)` shall show the values again after a host value changed, outside the undo history.
+`createPageVariables()` shall show the value of each variable in a page header or footer inside it: `page.current` the page's number, `page.total` the document's page count, and any other key the text the document stores for it (DOCE-FORMAT-1.7), or nothing. It asks nothing of the host or the clock, so every view, viewer and print of a document shows the same texts; a stored text an edit changes shows at once. `refreshPageVariables(view)` shall show the values again, outside the undo history.
 
 Implementation: `src/pagination/page-variables.ts`
 Verification: `src/pagination/page-variables.test.ts`, `e2e/page-regions.spec.ts`
 
 ### DOCE-PAGINATION-8.3 - Variables in the text
 
-The plugin shall show the variables in the document's text too, `page.current` by the page they are on, counted through the document, and `page.total` the document's page count; and `date.current` shall show today's date (`now`), written long in the plugin's `locale`, wherever it is.
+The plugin shall show the variables in the document's text too, `page.current` by the page they are on, counted through the document, and `page.total` the document's page count; and `date.current`, like any other key, the text the document stores, the date it was last refreshed on (DOCE-PAGINATION-8.8), wherever it is.
 
 Implementation: `src/pagination/page-variables.ts`
 Verification: `src/pagination/page-variables.test.ts`
 
 ### DOCE-PAGINATION-8.4 - Variables in the editor
 
-`DocumentEditor` shall show page variables in both layouts, and in the view it measures in, with the values of the host's `variables` adapter (DOCE-HOST-1.12); when the adapter says a value changed, it shall show the values again, outside the undo history, and lay the pages out again. Page numbers shall be read from the layout's pages (`createPageMap`).
+`DocumentEditor` shall show page variables in both layouts, and in the view it measures in, with the texts the document stores. For a writer who edits directly, it shall store the texts of the host's `variables` adapter (DOCE-HOST-1.12) as edits out of the undo history (DOCE-PAGINATION-8.8): when a document opens, those of the keys it stores none for, so a document already stored opens unchanged, and whenever the adapter says a value changed, every key's; a reader's editor and one suggesting change nothing. The Tools menu shall offer storing every text again (`updateVariables`, DOCE-EDITOR-4.17). Page numbers shall be read from the layout's pages (`createPageMap`).
 
-Implementation: `src/components/document-editor/use-document-layout.ts`, `src/pagination/page-variables.ts`
-Verification: `src/components/document-editor/document-editor.test.tsx`
+Implementation: `src/components/document-editor/document-values.ts`, `src/components/document-editor/tools-entries.ts`, `src/pagination/page-variables.ts`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `src/components/document-editor/tools-entries.test.ts`
 
 ### DOCE-PAGINATION-8.5 - Repeated headers and footers
 
@@ -607,6 +607,13 @@ Every page's copy of its section's header and footer shall take the writer's edi
 
 Implementation: `src/pagination/page-positions.ts`, `src/pagination/selection-mirror.ts`, `src/pagination/projection-layout.ts`
 Verification: `src/pagination/projection-view.test.ts`, `e2e/template-editor.spec.ts`
+
+### DOCE-PAGINATION-8.8 - Stored variable texts
+
+A variable other than `page.current` and `page.total` shall show the text its document stores (DOCE-FORMAT-1.7), so its width, and the lines and pages it may move, are the same on every machine, at any time and for every collaborator; only a page's number and the page count come from the layout. `documentValueKeys(doc, template)` shall give the keys the document shows a stored text for: those of the variables in its text and page regions, of its template blocks (DOCE-TEMPLATES-9.3) and of the template's regions. `refreshDocumentValues(source, refresh)` shall store each key's text as one change, `false` when they already are: the host's `value`, and for `date.current` the date (`now`) written long in `locale`, else the document's language (DOCE-PAGINATION-9.16); `all` writes every key again and keeps no other, `missing` writes only the keys the document stores none for and keeps the rest. `createDocumentValues(source)` shall store, in the same change, the text of each variable a writer's change adds that the document stores none for, whether inserted from the menu, typed, pasted or brought back by undo, so it shows its value at once; a change out of the history, as another writer's or a refresh, is left as it came.
+
+Implementation: `src/engine/document-values.ts`, `src/model/document-values.ts`
+Verification: `src/engine/document-values.test.ts`, `src/components/document-editor/document-editor.test.tsx`
 
 ## DOCE-PAGINATION-9 - Text layout engine
 
@@ -656,7 +663,7 @@ Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec
 
 ### DOCE-PAGINATION-9.7 - Served fonts and language
 
-Given `isFontServed`, a block whose font's first family, or whose inline code's, is not served shall not be laid out, with the reason, so no system font decides a line. Lines shall break, and text be shaped, by the rules of the document's `language`. The pages' engine shall take the language the pages are drawn in: the `lang` of the element they are in or its nearest ancestor with one, empty for none, which Chromium lays out under its default language; the engine shall be made again when that language changes. Pretext's language shall be set only when text of another language is prepared, since setting it drops Pretext's caches.
+Given `isFontServed`, a block whose font's first family, or whose inline code's, is not served shall not be laid out, with the reason, so no system font decides a line. Lines shall break, and text be shaped, by the rules of the document's `language`. The pages' engine shall take the language the document is laid out in (DOCE-PAGINATION-9.16), never the `lang` of the page around it, and shall be made again when that language changes. Pretext's language shall be set only when text of another language is prepared, since setting it drops Pretext's caches.
 
 Implementation: `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`, `src/pagination/text-engine-holder.ts`, `src/pagination/text-engine.ts`
 Verification: `src/layout-engine/text-layout.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/font-widths.spec.ts`
@@ -716,6 +723,13 @@ Grapheme clusters shall be found in one fixed language, `en` (`SEGMENTATION_LOCA
 
 Implementation: `src/utils/segmentation.ts`, `src/layout-engine/graphemes.ts`, `src/layout-engine/reserved-boxes.ts`, `src/utils/math-text.ts`, `src/layout-engine/font-files/measure-context.ts`
 Verification: `src/utils/segmentation.test.ts`, `e2e/segmentation.spec.ts`
+
+### DOCE-PAGINATION-9.16 - The document's language
+
+A document shall be laid out in its own language (`language`, DOCE-FORMAT-1.7), else its template's (`language`, document-level, `en` in the base template), else `en` (`documentLanguage`): a canonical language tag, never empty and never the language of the host's page, since an empty language makes Pretext and Chromium fall back to the browser's default. The editor's engine, its snapshot's `lang` (DOCE-EDITOR-6.19), the layout's `language` and the layout inputs key (DOCE-PAGINATION-13.12) shall all take it. The template editor shall offer the template's language as a document-level setting, refusing what is not a language tag.
+
+Implementation: `src/model/document-values.ts`, `src/pagination/text-engine-holder.ts`, `src/components/document-editor/start-paging.ts`, `src/engine/snapshot.ts`, `src/components/template-editor/settings-catalog.ts`
+Verification: `src/model/document-values.test.ts`, `src/pagination/text-engine.test.ts`, `src/engine/snapshot.test.ts`
 
 ## DOCE-PAGINATION-10 - Block geometry and measured atoms
 

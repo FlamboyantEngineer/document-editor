@@ -1,25 +1,14 @@
 // Shows the values of the variables in page headers and footers and in the document's text: a
-// page's number and the page count, today's date, and any other variable, such as a document
-// property, from the host.
+// page's number and the page count, as the layout numbers the pages, and the text the document
+// stores for every other variable, such as today's date or a document property (DOCE-FORMAT-1.7).
+// Nothing is asked of the host or the clock while the pages are laid out.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { LAYOUT_VARIABLES, storedValue } from '../model/index.js';
 import { createPageMap } from './page-map.js';
-
-/** A variable's text, or nothing to show none. */
-export type VariableValue = (key: string) => string | null | undefined;
-
-/** How page variables get their values. */
-export interface PageVariablesOptions {
-  /** The text of a variable other than `page.current` and `page.total`, such as `document.name`. */
-  value?: VariableValue | undefined;
-  /** The time `date.current` shows, as the locale writes a date. Defaults to now. */
-  now?: (() => Date) | undefined;
-  /** The locale `date.current` is written in. Defaults to the browser's. */
-  locale?: string | undefined;
-}
 
 /** Marks a transaction that shows the variables' values again, as after a host value changed. */
 export const pageVariablesKey = new PluginKey<DecorationSet>('page-variables');
@@ -32,34 +21,19 @@ interface Place {
   readonly pages: number;
 }
 
-// One date format per locale, made once.
-const dateFormats = new Map<string, Intl.DateTimeFormat>();
-function dateFormat(locale: string | undefined): Intl.DateTimeFormat {
-  const key = locale ?? '';
-  let format = dateFormats.get(key);
-  if (!format) {
-    format = new Intl.DateTimeFormat(locale, { dateStyle: 'long' });
-    dateFormats.set(key, format);
-  }
-  return format;
-}
-
 /**
- * The text a variable whose value is the same on every page shows, as the pages draw it; null for
- * the page's own number and the page count.
+ * The text a variable whose value is the same on every page shows, as the pages draw it: the text
+ * the document stores for it (DOCE-FORMAT-1.7); null for the page's own number and the page count.
  */
-export function fixedVariableText(key: string, options: PageVariablesOptions): string | null {
-  if (key === 'page.current' || key === 'page.total') return null;
-  return variableText(key, { page: 0, pages: 0 }, options);
+export function fixedVariableText(key: string, doc: ProseMirrorNode): string | null {
+  if (LAYOUT_VARIABLES.has(key)) return null;
+  return storedValue(doc, key);
 }
 
-function variableText(key: string, place: Place, options: PageVariablesOptions) {
+function variableText(key: string, place: Place, doc: ProseMirrorNode) {
   if (key === 'page.current') return String(place.page);
   if (key === 'page.total') return String(place.pages);
-  if (key === 'date.current') {
-    return dateFormat(options.locale).format(options.now?.() ?? new Date());
-  }
-  return options.value?.(key) ?? '';
+  return storedValue(doc, key);
 }
 
 // The pages of a document, by the position of their page node, numbered through it from 1, as
@@ -82,7 +56,7 @@ function widget(pos: number, text: string, key: string) {
   );
 }
 
-function decorate(doc: ProseMirrorNode, options: PageVariablesOptions): DecorationSet {
+function decorate(doc: ProseMirrorNode): DecorationSet {
   const decorations: Decoration[] = [];
   const places = pagesOf(doc);
   doc.descendants((node, pos) => {
@@ -99,7 +73,7 @@ function decorate(doc: ProseMirrorNode, options: PageVariablesOptions): Decorati
     node.descendants((child, offset) => {
       if (child.type.name !== 'template_variable') return true;
       const key = String(child.attrs.variableKey ?? '');
-      const text = variableText(key, place, options);
+      const text = variableText(key, place, doc);
       // Inside the variable: past the region's start, its offset and the variable's start.
       if (text) decorations.push(widget(pos + offset + 2, text, key));
       return false;
@@ -140,22 +114,22 @@ function editsTextOnly(tr: Transaction): boolean {
 }
 
 /** A plugin that shows each variable's value inside it, in the headers, footers and text. */
-export function createPageVariables(options: PageVariablesOptions = {}): Plugin<DecorationSet> {
+export function createPageVariables(): Plugin<DecorationSet> {
   return new Plugin<DecorationSet>({
     key: pageVariablesKey,
     state: {
-      init: (_config, state: EditorState) => decorate(state.doc, options),
+      init: (_config, state: EditorState) => decorate(state.doc),
       apply(tr, set) {
-        if (tr.getMeta(pageVariablesKey)) return decorate(tr.doc, options);
+        if (tr.getMeta(pageVariablesKey)) return decorate(tr.doc);
         if (!tr.docChanged) return set;
-        return editsTextOnly(tr) ? set.map(tr.mapping, tr.doc) : decorate(tr.doc, options);
+        return editsTextOnly(tr) ? set.map(tr.mapping, tr.doc) : decorate(tr.doc);
       },
     },
     props: { decorations: (state) => pageVariablesKey.getState(state) },
   });
 }
 
-/** Shows the variables' values again, after a value the host gives changed. */
+/** Shows the variables' values again, as after the pages were numbered again. */
 export function refreshPageVariables(view: EditorView): void {
   view.dispatch(view.state.tr.setMeta(pageVariablesKey, true).setMeta('addToHistory', false));
 }
