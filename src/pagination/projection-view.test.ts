@@ -608,7 +608,7 @@ describe('projection layouts', () => {
     });
   });
 
-  it('DOCE-PAGINATION-10.8 lays new math out once it is typeset, and not again when it is drawn', async () => {
+  it('DOCE-PAGINATION-10.8 DOCE-PAGINATION-14.4 lays new math out once it is typeset, and not again when it is drawn', async () => {
     let answer: (value: { ok: true; mathml: string }) => void = () => undefined;
     const render = () =>
       new Promise<{ ok: true; mathml: string }>((resolve) => {

@@ -155,7 +155,7 @@ describe('math atoms sized from their layout', () => {
     expect(size?.math?.tag?.width).toBe(30);
   });
 
-  it('DOCE-PAGINATION-12.10 gives math the layouter refuses or has no glyphs for the reserved box, and lists it', () => {
+  it('DOCE-PAGINATION-12.10 DOCE-PAGINATION-14.4 gives math the layouter refuses or has no glyphs for the reserved box, and lists it', () => {
     const missingAtom = inline('a日');
     const refusedAtom = inline('b');
     const typesets = new Map([
