@@ -45,6 +45,10 @@ export interface FigureLabels {
   /** Under the upload control: the largest image an upload takes; and a file refused for it. */
   readonly uploadLimit: (maxBytes: number) => string;
   readonly uploadTooLarge: (maxBytes: number) => string;
+  /** A file whose natural size its bytes do not give: another format, damaged, or an SVG without one. */
+  readonly imageUnreadable: (name: string) => string;
+  /** The figure dialog's error when the image at the address typed gives no natural size. */
+  readonly addressUnreadable: string;
   /** Tells the reader a paste was dropped because the document changed while its images uploaded. */
   readonly pasteAgain: string;
 }
@@ -89,5 +93,9 @@ export const DEFAULT_FIGURE_LABELS: FigureLabels = {
   uploadLimit: (maxBytes) => `Up to ${sizeOf(maxBytes)}.`,
   uploadTooLarge: (maxBytes) =>
     `The image is larger than ${sizeOf(maxBytes)}, the most an upload takes.`,
+  imageUnreadable: (name) =>
+    `The size of ${name} could not be read: it may be damaged, in a format the editor does not read, or an SVG that states no size.`,
+  addressUnreadable:
+    'The image at this address could not be read, so its size is unknown. Check the address, or upload the image.',
   pasteAgain: 'The document changed while the images uploaded. Paste them again.',
 };

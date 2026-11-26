@@ -1129,3 +1129,10 @@ The library's layout rules (`createLayoutRules`) shall size a signature (`signat
 
 Implementation: `src/model/pagination/signature-size.ts`, `src/model/pagination/page-layout.ts`, `src/components/document-editor/start-paging.ts`, `labs/reference/document.css`
 Verification: `src/model/pagination/signature-size.test.ts`, `src/components/document-editor/start-paging.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/inline-geometry.spec.ts`
+
+### DOCE-PAGINATION-14.4 - The one fixed size: what cannot be measured
+
+There shall be no default sizes, with one stated exception (Charles, 2026-11-26): content the served fonts or the math layouter cannot lay out takes a fixed reserved box, the same for the engine and every drawing, and is reported. A grapheme cluster no served face draws whole takes 1 em of its font's size (`UNSERVED_CLUSTER_EMS`, DOCE-PAGINATION-12.4) and is recorded in `problems.missingGlyphs`; an equation the math layouter cannot lay out, because it failed to load, refused its MathML or has no glyph for a character it draws, takes the reserved box of DOCE-PAGINATION-12.9, its characters without a glyph recorded as missing glyphs and refused math told to `refused`. Nothing else takes a size that is not worked out from its content, a stored size or its host rule: math waiting to be typeset, or for the layouter to load or prepare, keeps the pages waiting (DOCE-PAGINATION-10.8) rather than taking a reserved box meanwhile.
+
+Implementation: `src/layout-engine/reserved-boxes.ts`, `src/layout-engine/math-atoms.ts`, `src/utils/math-text.ts`, `src/pagination/math-wait.ts`
+Verification: `src/layout-engine/font-files/measurer.test.ts`, `src/layout-engine/math-atoms.test.ts`, `src/pagination/projection-view.test.ts`

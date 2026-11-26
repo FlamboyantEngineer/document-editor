@@ -2,9 +2,12 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
+import { loadImagesAt, pngBytes, pngDataUri, pngFile } from '../../../test/image-files.js';
 import { type AssetAdapter, createMemoryHost } from '../../host/index.js';
 import { readDocumentFile } from '../../model/index.js';
 import { figurePasteHandlers } from './figure-paste.js';
+
+const PNG = pngDataUri();
 
 // A view of a document of the paragraphs given, one empty paragraph without any, the caret in the
 // first.
@@ -32,7 +35,7 @@ function pasteOf(files: File[], html = '') {
   } as unknown as ClipboardEvent;
 }
 
-const picture = (name: string) => new File(['image'], name, { type: 'image/png' });
+const picture = (name: string) => pngFile(name);
 
 // A paste of HTML, with its RTF flavour, as the clipboard hands it to the view's handler.
 function htmlPasteOf(html: string, rtf = '') {
@@ -53,6 +56,15 @@ const blocks = (view: EditorView) => {
     else if (node.isTextblock) found.push(node.textContent);
     // A figure's caption is its content.
     return !node.isTextblock && node.type.name !== 'figure';
+  });
+  return found;
+};
+
+// The width and height of each figure of the document, in order.
+const figureSizes = (view: EditorView) => {
+  const found: unknown[][] = [];
+  view.state.doc.descendants((node) => {
+    if (node.type.name === 'figure') found.push([node.attrs.width, node.attrs.height]);
   });
   return found;
 };
@@ -96,6 +108,7 @@ const LABELS = {
   failure: 'The image could not be uploaded.',
   uploading: 'Uploading…',
   tooLarge: (max: number) => `Larger than ${String(max)} bytes.`,
+  unreadable: (name: string) => `No size for ${name}.`,
   pasteAgain: 'Paste again.',
 };
 
@@ -137,9 +150,7 @@ describe('figurePasteHandlers', () => {
     const { assets } = createMemoryHost();
     if (!assets) throw new Error('The memory host stores assets.');
     const handlers = figurePasteHandlers({ ...LABELS, assets });
-    const images = ['one.png', 'two.png', 'three.png'].map(
-      (name) => new File(['image'], name, { type: 'image/png' }),
-    );
+    const images = ['one.png', 'two.png', 'three.png'].map((name) => pngFile(name));
     expect(handlers.handlePaste(view, pasteOf(images))).toBe(true);
     await vi.waitFor(() => {
       const alts: unknown[] = [];
@@ -151,14 +162,65 @@ describe('figurePasteHandlers', () => {
     view.destroy();
   });
 
+  it('DOCE-EDITOR-4.6 inserts a pasted image at its natural size, read from its bytes', async () => {
+    const { view, handlers } = setUp();
+    expect(handlers.handlePaste(view, pasteOf([pngFile('wide.png', 120, 60)]))).toBe(true);
+    await vi.waitFor(() => expect(figureSizes(view)).toEqual([[120, 60]]));
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 inserts none of the pasted images when one has no size its bytes give, and says which', async () => {
+    const { view, uploaded, notified, handlers } = setUp();
+    const unreadable = new File(['not an image'], 'broken.png', { type: 'image/png' });
+    handlers.handlePaste(view, pasteOf([pngFile('first.png'), unreadable]));
+    await vi.waitFor(() =>
+      expect(notified.at(-1)).toEqual({ tone: 'error', text: 'No size for broken.png.' }),
+    );
+    expect(uploaded).toEqual([]);
+    expect(figureSizes(view)).toEqual([]);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 sizes a pasted image its bytes do not size from the image the browser decodes', async () => {
+    const restore = loadImagesAt(300, 200);
+    // jsdom makes object addresses; only its images do not decode.
+    try {
+      const { view, handlers } = setUp();
+      const avif = new File(['....ftypavif'], 'photo.avif', { type: 'image/avif' });
+      expect(handlers.handlePaste(view, pasteOf([avif]))).toBe(true);
+      await vi.waitFor(() => expect(figureSizes(view)).toEqual([[300, 200]]));
+      view.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('DOCE-EDITOR-4.6 refuses a pasted image larger than the host takes before reading it', async () => {
+    const { view, uploaded, notified, handlers } = setUp(undefined, [], 8);
+    handlers.handlePaste(view, pasteOf([pngFile('large.png')]));
+    await vi.waitFor(() =>
+      expect(notified.at(-1)).toEqual({ tone: 'error', text: 'Larger than 8 bytes.' }),
+    );
+    expect(uploaded).toEqual([]);
+    view.destroy();
+  });
+
+  it('DOCE-EDITING-5.5 pastes the images of pasted HTML at their natural sizes', async () => {
+    const { view, handlers } = setUp();
+    const html = '<p>Before <img src="' + pngDataUri(90, 45) + '" alt="Chart"> after</p>';
+    expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
+    await vi.waitFor(() => expect(figureSizes(view)).toEqual([[90, 45]]));
+    view.destroy();
+  });
+
   it('DOCE-EDITING-5.5 uploads the data URI images of pasted HTML and pastes each as a figure', async () => {
     const { view, uploaded, notified, handlers } = setUp();
-    const html = '<p>Before <img src="data:image/png;base64,iVBORw==" alt="Chart"> after</p>';
+    const html = '<p>Before <img src="' + PNG + '" alt="Chart"> after</p>';
     expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
     await vi.waitFor(() => expect(figures(view)).toEqual(['Chart:asset-1']));
     expect(uploaded[0]?.type).toBe('image/png');
     expect([...new Uint8Array(await (uploaded[0] ?? new Blob()).arrayBuffer())]).toEqual([
-      0x89, 0x50, 0x4e, 0x47,
+      ...pngBytes(),
     ]);
     expect(textOf(view)).toBe('Before after');
     expect(notified).toEqual([{ tone: 'info', text: 'Uploading…' }]);
@@ -170,13 +232,15 @@ describe('figurePasteHandlers', () => {
     const html =
       '<p class="MsoNormal"><img src="file:///C:/Temp/clip_image001.png" alt="Logo"></p>';
     const rtf =
-      '{\\rtf1{\\*\\shppict{\\pict{\\*\\picprop}\\picw10\\pich10\\pngblip\n8950 4e47}}' +
+      '{\\rtf1{\\*\\shppict{\\pict{\\*\\picprop}\\picw10\\pich10\\pngblip\n' +
+      [...pngBytes()].map((byte) => byte.toString(16).padStart(2, '0')).join('') +
+      '}}' +
       '{\\nonshppict{\\pict\\wmetafile8\\picw10 0102}}}';
     expect(handlers.handlePaste(view, htmlPasteOf(html, rtf))).toBe(true);
     await vi.waitFor(() => expect(figures(view)).toEqual(['Logo:asset-1']));
     expect(uploaded).toHaveLength(1);
     expect([...new Uint8Array(await (uploaded[0] ?? new Blob()).arrayBuffer())]).toEqual([
-      0x89, 0x50, 0x4e, 0x47,
+      ...pngBytes(),
     ]);
     view.destroy();
   });
@@ -193,8 +257,7 @@ describe('figurePasteHandlers', () => {
           });
     });
     const html =
-      '<p>Kept <img src="data:image/png;base64,iVBORw==" alt="a.png">' +
-      ' <img src="data:image/png;base64,iVBORw==" alt="b.png"></p>';
+      '<p>Kept <img src="' + PNG + '" alt="a.png">' + ' <img src="' + PNG + '" alt="b.png"></p>';
     expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
     await vi.waitFor(() =>
       expect(notified.at(-1)).toEqual({ tone: 'error', text: 'The image could not be uploaded.' }),
@@ -207,19 +270,22 @@ describe('figurePasteHandlers', () => {
   it('DOCE-EDITING-5.5 pastes nothing for an image whose bytes the paste lacks', async () => {
     const { view, uploaded, notified, handlers } = setUp();
     const html =
-      '<p>Kept <img src="data:image/png;base64,iVBORw==" alt="Chart">' +
+      '<p>Kept <img src="' +
+      PNG +
+      '" alt="Chart">' +
       ' <img src="file:///C:/Temp/missing.png"></p>';
     expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
     await vi.waitFor(() => expect(notified.at(-1)).toMatchObject({ tone: 'error' }));
     expect(textOf(view)).toBe('');
-    expect(uploaded).toHaveLength(1);
+    // Every image's size is read before any is uploaded.
+    expect(uploaded).toHaveLength(0);
     view.destroy();
   });
 
   it('DOCE-EDITING-5.5 pastes at the paste selection when only the caret moved, and asks for a new paste when the document changed', async () => {
     const uploads = pendingUploads();
     const { view, notified, handlers } = setUp(uploads.upload, ['One', 'Two']);
-    const html = '<p>New <img src="data:image/png;base64,iVBORw==" alt="Chart"></p>';
+    const html = '<p>New <img src="' + PNG + '" alt="Chart"></p>';
     handlers.handlePaste(view, htmlPasteOf(html));
     view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
     await uploads.finish();
@@ -275,7 +341,7 @@ describe('figurePasteHandlers', () => {
 
   it('DOCE-EDITOR-4.6 DOCE-EDITING-5.5 pastes content with its own images rather than the picture beside it', async () => {
     const { view, uploaded, handlers } = setUp();
-    const html = '<p>Totals <img src="data:image/png;base64,iVBORw==" alt="Chart"></p>';
+    const html = '<p>Totals <img src="' + PNG + '" alt="Chart"></p>';
     expect(handlers.handlePaste(view, pasteOf([picture('rendering.png')], html))).toBe(true);
     await vi.waitFor(() => expect(figures(view)).toEqual(['Chart:asset-1']));
     expect(textOf(view)).toBe('Totals');

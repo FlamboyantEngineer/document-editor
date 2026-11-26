@@ -2,13 +2,21 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deferred } from '../../../test/deferred.js';
 import { documentSchema, writeMarkup } from '../../../test/document-markup.js';
+import { loadImagesAt, pngFile } from '../../../test/image-files.js';
 import type { AssetAdapter, DiagramAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode } from '../../model/index.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { FigureDialog } from './figure-dialog.js';
+
+// Images at an address load at 64 by 32 pixels, as a browser loads them.
+let restoreImages = () => {};
+beforeEach(() => {
+  restoreImages = loadImagesAt(64, 32);
+});
+afterEach(() => restoreImages());
 
 const FIGURE: StoredNode = {
   type: 'figure',
@@ -100,7 +108,7 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
           assets={{ ...ASSETS, upload }}
         />,
       );
-      const file = (name: string) => new File(['image'], `${name}.png`, { type: 'image/png' });
+      const file = (name: string) => pngFile(`${name}.png`);
       await user.upload(uploadInput(), file('older'));
       let source = { fileAssetId: 'newer', src: '' };
       if (choice === 'upload') {
@@ -154,7 +162,7 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
       );
       const dialog = screen.getByRole('dialog');
       await user.type(within(dialog).getByRole('textbox', { name: 'Caption' }), 'Sketch');
-      await user.upload(uploadInput(), new File(['image'], 'draft.png', { type: 'image/png' }));
+      await user.upload(uploadInput(), pngFile('draft.png'));
       expect(
         await within(dialog).findByText('Image service declined the upload.'),
       ).toBeInTheDocument();
@@ -162,7 +170,7 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
       expect(within(dialog).getByRole('button', { name: 'Insert' })).toBeDisabled();
       expect(onClose).not.toHaveBeenCalled();
 
-      await user.upload(uploadInput(), new File(['image'], 'retry.png', { type: 'image/png' }));
+      await user.upload(uploadInput(), pngFile('retry.png'));
       const insert = within(dialog).getByRole('button', { name: 'Insert' });
       await waitFor(() => expect(insert).toBeEnabled());
       expect(
@@ -298,7 +306,10 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
           if (failure === 'throws') throw error;
           return Promise.reject(error);
         })
-        .mockResolvedValueOnce({ ok: true, value: { assetId: 'drawing', snapshotId: 'updated' } });
+        .mockResolvedValueOnce({
+          ok: true,
+          value: { assetId: 'drawing', snapshotId: 'updated', width: 480, height: 240 },
+        });
       render(<FigureDialog view={view} labels={labels} onClose={onClose} diagrams={{ edit }} />);
       const dialog = screen.getByRole('dialog');
       const editButton = within(dialog).getByRole('button', { name: 'Edit diagram…' });
@@ -320,6 +331,77 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
       expect(writeMarkup(view.state.doc)).toContain('Floor plan');
     },
   );
+});
+
+describe('Figure sizes', () => {
+  it('DOCE-OBJECTS-1.4 inserts an image by address at the natural size it loads at', async () => {
+    const user = userEvent.setup();
+    const view = editorView();
+    render(<FigureDialog view={view} labels={DEFAULT_EDITOR_LABELS} onClose={() => {}} />);
+    await user.type(
+      screen.getByRole('textbox', { name: 'Image address' }),
+      'https://example.com/a.png',
+    );
+    await user.click(screen.getByRole('button', { name: 'Insert' }));
+    expect(figureAttrs(view)).toMatchObject({ width: 64, height: 32 });
+  });
+
+  it('DOCE-OBJECTS-1.4 inserts an uploaded image at the natural size its bytes give', async () => {
+    const user = userEvent.setup();
+    const view = editorView();
+    const upload = vi.fn(() => Promise.resolve(uploadResult('chart')));
+    render(
+      <FigureDialog
+        view={view}
+        labels={DEFAULT_EDITOR_LABELS}
+        onClose={() => {}}
+        assets={{ ...ASSETS, upload }}
+      />,
+    );
+    await user.upload(uploadInput(), pngFile('chart.png', 120, 90));
+    await waitFor(() => expect(upload).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: 'Insert' }));
+    expect(figureAttrs(view)).toMatchObject({ fileAssetId: 'chart', width: 120, height: 90 });
+  });
+
+  it('DOCE-OBJECTS-1.4 refuses an upload whose bytes give no size, before any request', async () => {
+    // Neither its bytes nor the browser, which decodes no image here, give it a size.
+    restoreImages();
+    const user = userEvent.setup();
+    const view = editorView();
+    const upload = vi.fn(() => Promise.resolve(uploadResult('broken')));
+    render(
+      <FigureDialog
+        view={view}
+        labels={DEFAULT_EDITOR_LABELS}
+        onClose={() => {}}
+        assets={{ ...ASSETS, upload }}
+      />,
+    );
+    await user.upload(
+      uploadInput(),
+      new File(['not an image'], 'broken.png', { type: 'image/png' }),
+    );
+    expect(await screen.findByText(/The size of broken.png could not be read/)).toBeInTheDocument();
+    expect(upload).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled();
+  });
+
+  it('DOCE-OBJECTS-1.4 waits for an address to give its size, and says so when it gives none', async () => {
+    restoreImages();
+    const user = userEvent.setup();
+    const view = editorView();
+    render(<FigureDialog view={view} labels={DEFAULT_EDITOR_LABELS} onClose={() => {}} />);
+    await user.type(
+      screen.getByRole('textbox', { name: 'Image address' }),
+      'https://example.com/gone.png',
+    );
+    expect(
+      await screen.findByText(/The image at this address could not be read/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled();
+    expect(figureAttrs(view)).toBeNull();
+  });
 });
 
 describe('Inherited figure alignment', () => {

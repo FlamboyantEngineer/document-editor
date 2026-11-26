@@ -9,6 +9,8 @@ import { type Command, EditorState, NodeSelection, type Selection } from 'prosem
 import { Mapping, StepMap } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import { type FigureSource, insertFigure } from '../../engine/index.js';
+import type { ImageSize } from '../../model/schema/image-size.js';
+import { newFigureBox } from './figure-size.js';
 
 /** A selection, and the document it was made in. */
 export interface PastePlace {
@@ -91,6 +93,15 @@ export function insertAt(view: EditorView, place: PastePlace, insert: Command): 
   return left;
 }
 
-/** Inserts a figure at a place (`insertAt`). */
-export const insertFigureAt = (view: EditorView, place: PastePlace, source: FigureSource) =>
-  insertAt(view, place, insertFigure(source));
+/**
+ * Inserts a new figure of an image of a natural size at a place (`insertAt`), at the size a new
+ * figure takes there (`newFigureBox`).
+ */
+export function insertFigureAt(
+  view: EditorView,
+  place: PastePlace,
+  { natural, ...source }: FigureSource & { readonly natural: ImageSize },
+): PastePlace {
+  const size = newFigureBox(view, placeIn(place, view.state).from, natural);
+  return insertAt(view, place, insertFigure({ ...source, ...size }));
+}

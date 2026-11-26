@@ -10,9 +10,9 @@ export interface TemplateImageAsset {
   readonly snapshotId?: string | undefined;
   readonly name: string;
   readonly mediaType: string;
-  /** The image's own size in pixels, when the host knows it. */
-  readonly width?: number | undefined;
-  readonly height?: number | undefined;
+  /** The image's own size in pixels. */
+  readonly width: number;
+  readonly height: number;
 }
 
 /** The box a placed image fits in at first, never enlarged past its own size. */
@@ -20,7 +20,6 @@ const FIT = { width: 160, height: 96 };
 
 // The size an image is placed at: its own, shrunk to fit the box with its proportions.
 function placedSize({ width, height }: TemplateImageAsset) {
-  if (!width || !height) return { width: '', height: '' };
   const scale = Math.min(1, FIT.width / width, FIT.height / height);
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
@@ -49,8 +48,8 @@ export function insertTemplateImage(asset: TemplateImageAsset): Command {
         templateImageMimeType: asset.mediaType,
         templateImageWidth: size.width,
         templateImageHeight: size.height,
-        templateImageNaturalWidth: asset.width ?? '',
-        templateImageNaturalHeight: asset.height ?? '',
+        templateImageNaturalWidth: asset.width,
+        templateImageNaturalHeight: asset.height,
         alt: asset.name,
       });
       dispatch(state.tr.replaceSelectionWith(image).scrollIntoView());

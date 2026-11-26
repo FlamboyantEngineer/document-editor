@@ -50,7 +50,7 @@ describe('DOCE-PAGINATION-12.2 Canvas words', () => {
     expect([...problems.missingGlyphs]).toEqual([0x2603]);
   });
 
-  it('DOCE-PAGINATION-12.4 reserves an em for each cluster no served face draws whole', async () => {
+  it('DOCE-PAGINATION-12.4 DOCE-PAGINATION-14.4 reserves an em for each cluster no served face draws whole', async () => {
     const { createContext, reserve } = await measurer();
     const context = createContext();
     context.font = '400 12px "Lab Geist"';

@@ -150,6 +150,13 @@ A figure image without a stored width or height whose address is an inline SVG (
 Implementation: `src/model/schema/svg-size.ts`, `src/model/schema/figure-nodes.ts`
 Verification: `src/model/schema/svg-size.test.ts`
 
+### DOCE-SCHEMA-3.14 - An image's natural size from its file
+
+`imageSizeOf(bytes)` shall read an image file's natural size in pixels from its own bytes, without decoding it and with no DOM, so the editor, the importers and a server find the same size for the same file: a PNG's header, a JPEG's frame turned as its EXIF orientation turns it (orientations 5 to 8 swap its sides, as browsers draw it), a GIF's screen, a WebP's canvas (lossy, lossless or extended), a BMP's header (a bottom-up bitmap's height taken positive), and an SVG's stated size (DOCE-SCHEMA-3.13). It shall give null for another format, a damaged file, or an SVG that states no size. `dataImageSize(src)` shall give the size of the image a data address holds, base64 or URL-encoded, from its bytes, and null for another address.
+
+Implementation: `src/model/schema/image-size.ts`
+Verification: `src/model/schema/image-size.test.ts`
+
 ## DOCE-SCHEMA-4 - References
 
 ### DOCE-SCHEMA-4.1 - Format keys

@@ -19,7 +19,7 @@ const TemplateImagePicker = /* @__PURE__ */ lazy(async () => ({
 }));
 
 // Whether an image can go at the selection: a probe asset stands in for the one to choose.
-const PROBE = insertTemplateImage({ id: 'probe', name: '', mediaType: '' });
+const PROBE = insertTemplateImage({ id: 'probe', name: '', mediaType: '', width: 1, height: 1 });
 
 /** The button and the popover of the host's images it opens. */
 function TemplateImageButton({

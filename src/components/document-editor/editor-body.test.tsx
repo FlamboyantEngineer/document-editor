@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { pngFile } from '../../../test/image-files.js';
 import { TEST_FONTS } from '../../../test/served-fonts.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { type AssetAdapter, createMemoryHost } from '../../host/index.js';
@@ -71,7 +72,7 @@ function Harness({
 // A paste of image files, as the clipboard hands them to the document.
 const imagePaste = (...names: string[]) =>
   ({
-    files: names.map((name) => new File(['image'], name, { type: 'image/png' })),
+    files: names.map((name) => pngFile(name)),
     types: ['Files'],
     getData: () => '',
   }) as unknown as DataTransfer;
