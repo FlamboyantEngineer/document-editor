@@ -45,7 +45,7 @@ interface StoreDraftsContext {
 const sameContent = (one: DocumentFile, other: DocumentFile) =>
   (one.template?.id ?? null) === (other.template?.id ?? null) &&
   (one.template?.revision ?? null) === (other.template?.revision ?? null) &&
-  storedContentKey(one.sections) === storedContentKey(other.sections);
+  storedContentKey(one) === storedContentKey(other);
 
 /** The drafts of a store-mode document (DOCE-SESSION-6). */
 function createStoreDrafts(context: StoreDraftsContext) {
