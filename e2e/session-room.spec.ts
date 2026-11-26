@@ -155,7 +155,7 @@ test.describe('rooms lab: comments, rights and the write guard', () => {
     await expect.poll(() => textOf(page, 'Ada')).toBe(SENTENCE);
   });
 
-  test('DOCE-COLLAB-6.7 DOCE-PAGINATION-7.26 DOCE-SESSION-1.6 keeps a suggester who types connected and in sync', async ({
+  test('DOCE-COLLAB-6.7 DOCE-PAGINATION-7.26 DOCE-SESSION-1.6 DOCE-TEMPLATES-8.3 keeps a suggester who types connected and in sync', async ({
     lab,
     page,
   }) => {
@@ -164,8 +164,9 @@ test.describe('rooms lab: comments, rights and the write guard', () => {
     await expect(modeItem(page, 'Grace')).toHaveText('Suggesting');
     // Each key reaches the room as one change that already carries the suggestion and its
     // author, which the guard lets a suggester make.
-    await typeAtEnd(page, 'Grace', ' and logs it');
-    await expect.poll(() => textOf(page, 'Grace')).toContain('and logs it');
+    // A typed token would become a variable, which no suggestion holds: it stays as typed text.
+    await typeAtEnd(page, 'Grace', ' and logs it in {{document.name}}');
+    await expect.poll(() => textOf(page, 'Grace')).toContain('and logs it in {{document.name}}');
     await expect.poll(() => textOf(page, 'Ada')).toBe(await textOf(page, 'Grace'));
     await expect(roomLog(page)).not.toContainText('grace: A connection sent a change');
     for (const name of ['Ada', 'Grace'])
