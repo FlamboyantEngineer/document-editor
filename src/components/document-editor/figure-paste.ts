@@ -6,7 +6,9 @@
 // as a word processor's pictures, is pasted once all its images are uploaded, each a figure, at
 // the selection it was pasted at; an image whose bytes the paste lacks pastes nothing, and if the
 // document changed meanwhile nothing is pasted and the reader is asked to paste again. An image of
-// math that carries its LaTeX becomes that math instead (DOCE-OBJECTS-1.12). A paste from the
+// math that carries its LaTeX becomes that math instead (DOCE-OBJECTS-1.12). An image of pasted HTML
+// that is only an address and states no size is loaded first and pasted at its natural size, or
+// left out and named when it gives none (`pasted-addresses.ts`). A paste from the
 // keyboard and the context menu's Paste both go through `pasteImages`.
 
 import { readMathImage } from '@flamboyantengineer/ui-components/math-preview';
@@ -22,6 +24,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { newFigureBox } from './figure-size.js';
 import { fileImageSize } from './natural-size.js';
 import { insertAt, insertFigureAt, type PastePlace } from './paste-place.js';
+import { hasUnsizedAddresses, sizeAddresses } from './pasted-addresses.js';
 import { hasPastedImages, hasPastedMath, hasPastedText, pastedImages } from './pasted-images.js';
 
 /** What pasting images needs from the host. */
@@ -38,6 +41,10 @@ export interface FigurePasteOptions {
   readonly unreadable: (name: string) => string;
   /** Asks the reader to paste again: the document changed while the images uploaded. */
   readonly pasteAgain: string;
+  /** Tells the reader the images at addresses of pasted content are loading. */
+  readonly loading?: string | undefined;
+  /** Tells the reader, once for a paste, the images at these addresses gave no size, so were left out. */
+  readonly leftOut?: ((addresses: readonly string[]) => string) | undefined;
   /** Whether the context menu's original paste target still applies after an upload. */
   readonly isCurrent?: (() => boolean) | undefined;
 }
@@ -56,6 +63,8 @@ export function figurePasteOptions(
     tooLarge: labels.uploadTooLarge,
     unreadable: labels.imageUnreadable,
     pasteAgain: labels.pasteAgain,
+    loading: labels.pastedImagesLoading,
+    leftOut: labels.pastedImagesLeftOut,
   };
 }
 
@@ -166,32 +175,42 @@ function figureMarkup(view: EditorView, { natural, ...asset }: StoredImage, alt:
   return container.innerHTML;
 }
 
-// Uploads all the images of pasted HTML, then pastes it, each image a figure, at the selection it
-// was pasted at: nothing when an image fails or lacks its bytes, or when the document changed.
+// Uploads all the images of pasted HTML and sizes those that are only addresses, then pastes it,
+// each uploaded image a figure, at the selection it was pasted at: nothing when an image fails or
+// lacks its bytes, or when the document changed. An address that gives no size is left out, named.
 async function pasteWithImages(
   view: EditorView,
   { html, rtf, at }: Pick<PastedContent, 'html' | 'rtf'> & { at: PastePlace },
   options: FigurePasteOptions,
 ) {
-  options.feedback?.notify({ tone: 'info', text: options.uploading });
   const images = pastedImages(html, rtf);
+  if (images.length > 0) options.feedback?.notify({ tone: 'info', text: options.uploading });
+  else if (options.loading) options.feedback?.notify({ tone: 'info', text: options.loading });
+  const addresses = sizeAddresses(html, view.dom.ownerDocument);
   const stored = await uploadAll(
     view,
     images.map((image) => image.file ?? null),
     options,
   );
+  const sized = await addresses;
   if (!stored || !canTake(view)) return;
   if (view.state.doc !== at.doc) {
     options.feedback?.notify({ tone: 'error', text: options.pasteAgain });
     return;
   }
   if (options.isCurrent?.() === false) return;
-  let pasted = html;
+  let pasted = sized.html;
   images.forEach((image, index) => {
     const asset = stored[index];
     const markup = asset ? figureMarkup(view, asset, image.alt || image.file?.name || '') : '';
     pasted = pasted.replace(image.tag, () => markup);
   });
+  if (sized.missing.length > 0) {
+    refuse(
+      options,
+      options.leftOut?.(sized.missing) ?? options.unreadable(sized.missing.join(', ')),
+    );
+  }
   if (!view.state.selection.eq(at.selection)) {
     view.dispatch(view.state.tr.setSelection(at.selection));
   }
@@ -217,7 +236,7 @@ export function pasteImages(
     void insertFigures(view, { files, at }, options);
     return true;
   }
-  if (!hasPastedImages(content.html)) return false;
+  if (!hasPastedImages(content.html) && !hasUnsizedAddresses(content.html)) return false;
   const at = { doc: view.state.doc, selection: view.state.selection };
   void pasteWithImages(view, { ...content, at }, options);
   return true;

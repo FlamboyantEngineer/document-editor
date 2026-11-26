@@ -51,7 +51,18 @@ export interface FigureLabels {
   readonly addressUnreadable: string;
   /** Tells the reader a paste was dropped because the document changed while its images uploaded. */
   readonly pasteAgain: string;
+  /** Tells the reader a paste waits for its images at addresses to load, to find their size. */
+  readonly pastedImagesLoading: string;
+  /** Once for a paste: its images at these addresses gave no size in time, so were left out of it. */
+  readonly pastedImagesLeftOut: (addresses: readonly string[]) => string;
 }
+
+// Addresses named in a message: the first few, then how many more.
+const NAMED_ADDRESSES = 3;
+const namedAddresses = (addresses: readonly string[]) =>
+  addresses.length <= NAMED_ADDRESSES
+    ? addresses.join(', ')
+    : `${addresses.slice(0, NAMED_ADDRESSES).join(', ')} and ${String(addresses.length - NAMED_ADDRESSES)} more`;
 
 // A size in bytes in whole megabytes, or kilobytes below one.
 const sizeOf = (bytes: number) =>
@@ -98,4 +109,9 @@ export const DEFAULT_FIGURE_LABELS: FigureLabels = {
   addressUnreadable:
     'The image at this address could not be read, so its size is unknown. Check the address, or upload the image.',
   pasteAgain: 'The document changed while the images uploaded. Paste them again.',
+  pastedImagesLoading: 'Loading the pasted images…',
+  pastedImagesLeftOut: (addresses) =>
+    addresses.length === 1
+      ? `The image at ${addresses[0] ?? ''} did not load, so its size is unknown. It was left out of the paste.`
+      : `${String(addresses.length)} images did not load, so their sizes are unknown, and were left out of the paste: ${namedAddresses(addresses)}.`,
 };
