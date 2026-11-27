@@ -125,6 +125,11 @@ export function layPlainContainer(context: BlockContext, node: ProseMirrorNode):
   return stacked(context, node, { width: context.place.width, parent: 'other', box: NO_BOX });
 }
 
+/** A template block: the blocks its markup rendered, stored in it; nothing when it holds none. */
+export function layTemplateBlock(context: BlockContext, node: ProseMirrorNode): Laid {
+  return stacked(context, node, { width: context.place.width, parent: 'other', box: NO_BOX });
+}
+
 /** The relative widths of a layout section's columns. */
 function columnTracks(node: ProseMirrorNode): number[] {
   const preset = String(node.attrs.preset ?? '');

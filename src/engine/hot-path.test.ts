@@ -99,12 +99,16 @@ describe('keystroke hot path', () => {
   it('DOCE-EDITING-3.4 DOCE-NUMBERING-6.6 types text without walking the document for custom styles, sections, template blocks and paragraph numbers', () => {
     const state = EditorState.create({ doc: DOC, plugins: PLUGINS() });
     const at = positionOf(DOC, 'Noted') + 2;
-    const { next, count } = walksDuring(state, (from) =>
-      from.apply(from.tr.insertText('x', at).insertText('y', at + 1)),
+    const { next, count } = walksDuring(
+      state,
+      (from) =>
+        // Through every plugin's filter and appended changes, as a view applies it.
+        from.applyTransaction(from.tr.insertText('x', at).insertText('y', at + 1)).state,
     );
     expect(count).toBe(0);
     const fresh = EditorState.create({ doc: next.doc, plugins: PLUGINS() });
-    for (const plugin of fresh.plugins) {
+    // The plugins whose state follows the document; a template block's is the document itself.
+    for (const plugin of fresh.plugins.filter((each) => each.spec.state)) {
       const kept = (plugin.getState(next) as DecorationSet).find();
       const built = (plugin.getState(fresh) as DecorationSet).find();
       expect(kept.map((each) => [each.from, each.to])).toEqual(

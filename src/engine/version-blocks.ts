@@ -43,7 +43,6 @@ const VOLATILE_ATTRS = new Set([
 
 // The attributes the document generates: rendered output, layout ranges and status.
 const GENERATED_ATTRS = new Set([
-  'renderedHtml',
   'renderedAt',
   'provenance',
   'signatures',
@@ -62,7 +61,7 @@ const REFERENCE_STATUS = new Set(['broken', 'referenceBaseline', 'libraryLabel']
 const GENERATED_INLINE = new Set(['template_variable']);
 
 // The containers whose content the document generates.
-const GENERATED_CONTAINERS = new Set(['script_block']);
+const GENERATED_CONTAINERS = new Set(['script_block', 'dynamic_template']);
 
 const PLACEHOLDER = '�';
 

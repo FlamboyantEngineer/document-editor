@@ -89,6 +89,11 @@ function scriptOutputId(blockId: string, place: number): string {
   return hash.toString(16).padStart(8, '0');
 }
 
+/** The ids `identifyOutput` gives the first `count` elements for a block's id, in order. */
+export function outputIds(blockId: string, count: number): string[] {
+  return Array.from({ length: count }, (_unused, place) => scriptOutputId(blockId, place));
+}
+
 /**
  * Content with each element that takes an id given the one its block's id and its place make, so
  * the same block and place always give the same id.

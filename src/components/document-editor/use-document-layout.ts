@@ -34,6 +34,7 @@ import type {
   GlossaryAdapter,
   ReferenceSourceAdapter,
   ScriptRunnerAdapter,
+  TelemetryAdapter,
   VariablesAdapter,
 } from '../../host/index.js';
 import {
@@ -153,6 +154,8 @@ export interface DocumentLayoutOptions {
    * (`createDocumentValues`).
    */
   readonly variables?: VariablesAdapter | undefined;
+  /** The host's telemetry, told of a template block two editors render otherwise. */
+  readonly telemetry?: TelemetryAdapter | undefined;
   /**
    * The host's React node views, which a projection's ghost renders as the pages do, read when the
    * pages mount.

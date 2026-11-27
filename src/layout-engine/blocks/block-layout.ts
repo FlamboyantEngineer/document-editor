@@ -4,7 +4,13 @@
 // packer and the splitters read it unchanged (DOCE-PAGINATION-10.3).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { layLayoutSection, layList, layPlainContainer, layQuote } from './containers.js';
+import {
+  layLayoutSection,
+  layList,
+  layPlainContainer,
+  layQuote,
+  layTemplateBlock,
+} from './containers.js';
 import { layContents } from './contents.js';
 import { type BlockContext, type BlockParent, type Laid, laid, notLaid } from './context.js';
 import type { BlockMetrics } from './metrics.js';
@@ -42,7 +48,7 @@ const LAYS: Readonly<Record<string, Lay>> = {
   horizontal_rule: layRule,
   page_break: (_context, node) => layPageBreak(node),
   kept_block: layMarkupBlock,
-  dynamic_template: layMarkupBlock,
+  dynamic_template: layTemplateBlock,
   toc_block: layContents,
 };
 

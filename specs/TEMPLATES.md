@@ -260,23 +260,23 @@ Verification: `src/engine/template-script-previews.test.ts`, `e2e/template-conte
 
 ### DOCE-TEMPLATES-9.1 - Rendering a template block
 
-`createDynamicTemplates()` shall render each template block (`dynamic_template`) from its markup, with each `{{key}}` token in its text replaced by the text the document stores for the variable (DOCE-FORMAT-1.7), `date.current` among them, in every view it runs in, as a block the writer cannot edit inside; nothing is asked of the host or the clock as it renders. It shall render it again when its markup or a stored text it tracks changes, giving the block a measure key (`data-de-measure-key`) of its markup and texts so the pages measure it again; `refreshDynamicTemplates(tr)` renders them again outside the undo history. Rendering shall never change the document. `DocumentEditor` installs it, and stores the texts its blocks show as edits (DOCE-PAGINATION-8.4, 8.8).
+`createDynamicTemplates({ enabled, onUnsettled })` shall keep in each template block (`dynamic_template`), as its own blocks, its markup rendered with each `{{key}}` token in its text replaced by the text the document stores for the variable (DOCE-FORMAT-1.7), `date.current` among them, so the pages lay out and split stored content like any other, and nothing is asked of the host, the clock or the browser as they do. An editor where `enabled` gives true (one that edits directly, not one that reads or suggests) shall render each block whose blocks differ from what it renders, identity aside, after any change that sets the stored texts or adds or changes a template block or its blocks, the writer's own or not (another writer's, a server's write such as `updateRoomDocument`, a replayed draft), and once its view opens on a document, such as one composed from a template whose texts it already stores, whose blocks hold anything else; never for the writer's own typing. Every render is a derived change (`markDerived`), out of the undo history and, in a room, sent under the sync plugin's derived origin, on nobody's undo stack (DOCE-COLLAB-2.2), so an undo, the editor's or a room's, takes back the change and the block renders again, and no writer is credited with what it renders; the rendered blocks take the ids the block's own id, its markup and the texts it shows and their places make, the same for every editor, and no author. A render only deletes, or inserts into a block that holds nothing, so renders meet whole in a room: a block that holds what it renders whole beside other blocks, as two editors who rendered at once leave it, shall only have the other blocks deleted; a block that holds anything else shall have its blocks deleted and what it renders inserted after, in a change of its own once it holds nothing, the writer's own render too; and a block that holds nothing is always filled. Editors who answer at once delete the same blocks and insert whole ones, and the room settles on one copy with whoever is in it, telling nobody. A block that holds a render of the same markup and texts other than this editor's, as an editor that reads the markup otherwise makes (a block with an id those make, with other content or not in this editor's render), is another editor's disagreement: an editor shall delete such a render once for the same markup and texts, and after that leave what the room holds and tell `onUnsettled` once for that block and those texts, so two such editors settle on one of their renders and the block never stays empty. A reader sees what the room holds. A render that changes nothing is no edit (`renderTemplateBlocks(tr, document)` gives false). A writer's own change inside what a block holds shall be refused before it is sent, the block shown as one the writer cannot edit inside; Backspace and Delete beside it select it whole (DOCE-EDITING-2.7). `DocumentEditor` installs it, enabled while the writer edits directly, counting `onUnsettled` in the host's telemetry (DOCE-EDITOR-6.6), and stores the texts its blocks show as edits (DOCE-PAGINATION-8.4, 8.8).
 
-Implementation: `src/engine/dynamic-templates.ts`, `src/engine/document-values.ts`
-Verification: `src/engine/dynamic-templates.test.ts`
+Implementation: `src/engine/dynamic-templates.ts`, `src/engine/template-block-render.ts`, `src/engine/document-values.ts`
+Verification: `src/engine/dynamic-templates.test.ts`, `src/collab/template-blocks-room.test.ts`, `src/collab/room-change-guard-security.test.ts`
 
 ### DOCE-TEMPLATES-9.2 - Safe markup
 
-A template block's markup shall be read in an inert document and then as the schema reads markup (`renderTemplateBlock`), so only the document's own nodes and attributes render and no script, handler or frame in it runs or loads; values shall be inserted as text, never as markup.
+A template block's markup shall be read in an inert document and then as the schema reads markup (`renderTemplateBlock`, `src/engine/template-block-render.ts`), so only the document's own nodes and attributes render and no script, handler or frame in it runs or loads; values shall be inserted as text, never as markup.
 
-Implementation: `src/engine/dynamic-templates.ts`
+Implementation: `src/engine/template-block-render.ts`
 Verification: `src/engine/dynamic-templates.test.ts`
 
 ### DOCE-TEMPLATES-9.3 - Tracked keys
 
 A template block shall track the keys it names (`trackedKeys`, separated by commas or spaces), else the keys of the tokens in its markup (`templateBlockKeys`).
 
-Implementation: `src/engine/dynamic-templates.ts`
+Implementation: `src/engine/template-block-render.ts`
 Verification: `src/engine/dynamic-templates.test.ts`
 
 ## DOCE-TEMPLATES-10 - Template settings

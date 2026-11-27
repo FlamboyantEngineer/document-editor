@@ -235,7 +235,7 @@ describe('equations, rules and markup', () => {
     const { layout } = standInBlockLayout({
       measure: () => ({ size: { width: 600, height: 18, margins: { top: 0, bottom: 8 } } }),
     });
-    const markup = node('dynamic_template', { renderedHtml: '<p>a</p>' });
+    const markup = node('kept_block', { stored: { type: 'unknown' } });
     expect(blockOf(layout.layoutBlock(markup, place))).toMatchObject({
       height: 18,
       marginTop: 0,

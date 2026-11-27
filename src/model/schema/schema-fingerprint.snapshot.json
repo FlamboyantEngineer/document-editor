@@ -23,22 +23,27 @@
       "name": "dynamic_template",
       "ordinal": 1,
       "group": "block",
-      "content": null,
+      "content": "block*",
       "marks": null,
-      "flags": { "atom": true, "selectable": true },
+      "flags": { "defining": true, "isolating": true },
       "attrs": {
         "templateHtml": { "default": "" },
-        "renderedHtml": { "default": "" },
         "trackedKeys": { "default": "" },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
         "splitPartIndex": { "default": null }
       },
-      "parseDOM": [{ "tag": "div[data-dynamic-template=\"true\"]", "getAttrs": "function" }],
+      "parseDOM": [
+        {
+          "tag": "div[data-dynamic-template=\"true\"]",
+          "contentElement": "function",
+          "getAttrs": "function"
+        }
+      ],
       "toDOM": {
-        "defaults": "<div data-dynamic-template=\"true\" data-dynamic-template-html=\"\" data-dynamic-template-rendered-html=\"\" class=\"dynamic-template-block\"></div>",
-        "filled": "<div data-dynamic-template=\"true\" data-dynamic-template-html=\"sample-templateHtml\" data-dynamic-template-rendered-html=\"sample-renderedHtml\" class=\"dynamic-template-block\" data-dynamic-template-keys=\"sample-trackedKeys\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
+        "defaults": "<div data-dynamic-template=\"true\" data-dynamic-template-html=\"\" class=\"dynamic-template-block\"><div class=\"template-output\" contenteditable=\"false\"></div></div>",
+        "filled": "<div data-dynamic-template=\"true\" data-dynamic-template-html=\"sample-templateHtml\" class=\"dynamic-template-block\" data-dynamic-template-keys=\"sample-trackedKeys\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><div class=\"template-output\" contenteditable=\"false\"></div></div>"
       }
     },
     {
