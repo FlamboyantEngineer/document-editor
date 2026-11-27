@@ -1,8 +1,8 @@
-// Two writers in a room who each add a variable at once: the document's variable texts are one
-// attribute of its top node, so the room keeps one writer's record, and the other writer's editor
-// stores the text it lost again (DOCE-PAGINATION-8.8). The refill is the editor's, as its
-// `useDocumentValues` runs it: whenever the stored texts change, the texts of the keys the document
-// shows and stores none for.
+// Two writers in a room who each add a variable at once: the room keeps the document's variable
+// texts one shared attribute per key, so both writers' texts stay (DOCE-PAGINATION-8.8,
+// DOCE-COLLAB-6.9), and each writer's undo takes back only the keys their own change set. The
+// refill is the editor's, as its `useDocumentValues` runs it: whenever the stored texts change, the
+// texts of the keys the document shows and stores none for.
 
 import type * as Y from '@y/y';
 import { Plugin, type PluginView } from 'prosemirror-state';
@@ -13,6 +13,7 @@ import {
   headlessEditor,
   readFixture,
   sharedDocument,
+  undoManagerOf,
 } from '../../test/collab-fixtures.js';
 import { createDocumentValues, refreshDocumentValues } from '../engine/index.js';
 import type { DocumentFile } from '../model/index.js';
@@ -102,13 +103,137 @@ describe('variable texts in a room', () => {
       expect(sharedDocument(editor.doc)?.toJSON()).toEqual(editor.state.doc.toJSON());
     }
     expect(sharedDocument(relay.room)?.attrs.values).toEqual(TEXTS);
-    // The two insertions, and one refill by the writer whose record the room did not keep.
-    expect(room.updates).toBe(3);
+    // The two insertions, each with its own key's text: neither writer has a text to refill.
+    expect(room.updates).toBe(2);
     const settled = room.updates;
     for (let pass = 0; pass < 3; pass += 1) {
       relay.deliver(() => Infinity);
       await settle();
     }
     expect(room.updates).toBe(settled);
+  });
+});
+
+const STORED = { 'document.name': 'Plan', other: 'Kept' };
+
+// A room whose document stores STORED, and two writers in it with the given client ids, each with
+// their own undo.
+function storedRoom(ids: readonly [number, number], plugins: () => Plugin[] = () => []) {
+  const first = headlessEditor(readFixture(FILE));
+  first.dispatch(first.state.tr.setDocAttribute('values', STORED));
+  const relay = createRelayRoom(first.doc);
+  const start = sharedDocument(relay.room);
+  first.destroy();
+  if (!start) throw new Error('The room holds no document.');
+  const [ada, grace] = ids.map((id) =>
+    headlessEditor(start, { doc: relay.join(id), plugins: plugins() }),
+  );
+  if (!ada || !grace) throw new Error('No writers.');
+  const deliver = async () => {
+    for (let pass = 0; pass < 3; pass += 1) {
+      relay.deliver(() => Infinity);
+      await settle();
+    }
+  };
+  return { relay, ada, grace, deliver, undo: [undoManagerOf(ada), undoManagerOf(grace)] as const };
+}
+
+const setName = (editor: HeadlessEditor, name: string) =>
+  editor.dispatch(
+    editor.state.tr.setDocAttribute('values', {
+      ...editor.state.doc.attrs.values,
+      'document.name': name,
+    }),
+  );
+
+describe('undo of variable texts in a room', () => {
+  for (const ids of [
+    [1, 2],
+    [2, 1],
+  ] as const) {
+    it(`DOCE-COLLAB-6.9 DOCE-COLLAB-6.3 keeps the keys an undo did not touch when two writers set one text at once (client ids ${ids.join(', ')})`, async () => {
+      const { relay, ada, grace, deliver, undo } = storedRoom(ids);
+      // Neither sees the other's change before making their own.
+      setName(ada, 'Notes');
+      setName(grace, 'Minutes');
+      await deliver();
+      const kept = sharedDocument(relay.room)?.attrs.values as Record<string, string>;
+      expect(['Notes', 'Minutes']).toContain(kept['document.name']);
+      expect(kept.other).toBe('Kept');
+      const winner = kept['document.name'] === 'Notes' ? 0 : 1;
+      undo[winner].undo();
+      await deliver();
+      // Yjs never brings back a text another writer's change replaced, so the name the undo took
+      // back stores none, for the editor to refill; every other text stays.
+      for (const values of [ada, grace].map((editor) => editor.state.doc.attrs.values))
+        expect(values).toEqual({ other: 'Kept' });
+      expect(sharedDocument(relay.room)?.attrs.values).toEqual({ other: 'Kept' });
+    });
+  }
+
+  it('DOCE-COLLAB-6.9 DOCE-PAGINATION-8.8 refills the text an undo took back from the host', async () => {
+    const { relay, ada, grace, deliver, undo } = storedRoom([1, 2], () => [
+      createDocumentValues(() => source),
+      refill(),
+    ]);
+    insertVariable(ada, 'One', 'document.name');
+    await deliver();
+    setName(ada, 'Notes');
+    setName(grace, 'Minutes');
+    await deliver();
+    const winner = sharedDocument(relay.room)?.attrs.values['document.name'] === 'Notes' ? 0 : 1;
+    undo[winner].undo();
+    await deliver();
+    const expected = { 'document.name': 'Interface notes', other: 'Kept' };
+    for (const editor of [ada, grace]) expect(editor.state.doc.attrs.values).toEqual(expected);
+    expect(sharedDocument(relay.room)?.attrs.values).toEqual(expected);
+  });
+
+  it("DOCE-COLLAB-6.9 DOCE-COLLAB-6.3 undoes and redoes one writer's text alone while another writer sets another", async () => {
+    const { relay, ada, grace, deliver, undo } = storedRoom([1, 2]);
+    setName(ada, 'Notes');
+    grace.dispatch(
+      grace.state.tr.setDocAttribute('values', {
+        ...grace.state.doc.attrs.values,
+        other: 'Changed',
+      }),
+    );
+    await deliver();
+    expect(sharedDocument(relay.room)?.attrs.values).toEqual({
+      'document.name': 'Notes',
+      other: 'Changed',
+    });
+    undo[0].undo();
+    await deliver();
+    for (const editor of [ada, grace])
+      expect(editor.state.doc.attrs.values).toEqual({ 'document.name': 'Plan', other: 'Changed' });
+    undo[0].redo();
+    await deliver();
+    expect(sharedDocument(relay.room)?.attrs.values).toEqual({
+      'document.name': 'Notes',
+      other: 'Changed',
+    });
+    expect(grace.state.doc.attrs.values).toEqual({ 'document.name': 'Notes', other: 'Changed' });
+  });
+
+  it('DOCE-COLLAB-6.9 keeps each text as one shared attribute of the content type', () => {
+    const { relay } = storedRoom([1, 2]);
+    const content = relay.room.get('content');
+    expect(content.getAttr('values')).toBeUndefined();
+    expect(content.getAttr('values.document.name')).toBe('Plan');
+    expect(content.getAttr('values.other')).toBe('Kept');
+  });
+
+  it('DOCE-COLLAB-6.9 reads back any key, one named as an object property too', async () => {
+    const { relay, ada, grace, deliver } = storedRoom([1, 2]);
+    const values = JSON.parse('{"__proto__":"Odd","constructor":"Also","a.b":"Dotted"}') as Record<
+      string,
+      string
+    >;
+    ada.dispatch(ada.state.tr.setDocAttribute('values', values));
+    await deliver();
+    for (const held of [sharedDocument(relay.room), grace.state.doc]) {
+      expect(Object.entries(held?.attrs.values as object)).toEqual(Object.entries(values));
+    }
   });
 });

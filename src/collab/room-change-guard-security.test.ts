@@ -3041,3 +3041,25 @@ describe('DOCE-COLLAB-7.5 ids in the drawn regions', () => {
     },
   );
 });
+
+describe('DOCE-COLLAB-6.9 DOCE-COLLAB-7.2 stored texts in a guarded room', () => {
+  const editor = { edit: true, suggest: true, comment: true, decide: false };
+
+  it('admits an editor’s stored texts, one shared attribute per key, and refuses a key that holds no text', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const values = { 'document.name': 'Plan', other: 'Kept' };
+      change(room.doc, (state) => state.apply(state.tr.setDocAttribute('values', values)));
+      expect(await room.provider.whenStored()).toBe(true);
+      expect(readContent(schema, room.observerDoc.get('content'))?.attrs.values).toEqual(values);
+      room.doc.get('content').setAttr('values.other', 5);
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+      const stored = new Y.Doc();
+      Y.applyUpdate(stored, room.handle.snapshot());
+      expect(readContent(schema, stored.get('content'))?.attrs.values).toEqual(values);
+    } finally {
+      await room.close();
+    }
+  });
+});

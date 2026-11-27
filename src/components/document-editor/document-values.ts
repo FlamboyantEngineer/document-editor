@@ -37,9 +37,9 @@ function refresh(view: EditorView, options: DocumentValuesOptions, kind: ValueRe
  * Fills the texts a document opened stores none for, and refreshes them all whenever the host says
  * a value changed, while `enabled`. The fill runs again with each new set of the state's plugins,
  * as the element id repair does, since a change made while the pages install theirs is dropped,
- * and whenever the texts the document stores change: in a room they are one attribute, so of two
- * writers who each add a variable at once one record is kept, and the other writer's editor stores
- * the text it lost again (DOCE-PAGINATION-8.8). The fill only adds the texts of keys the document
+ * and whenever the texts the document stores change: in a room a key can be left with no text, as
+ * after one writer's undo of a text another set at the same time (DOCE-COLLAB-6.9), and the
+ * editors store it again (DOCE-PAGINATION-8.8). The fill only adds the texts of keys the document
  * shows and stores none for, so once they are stored it changes nothing, and it never answers a
  * record that already holds them.
  */

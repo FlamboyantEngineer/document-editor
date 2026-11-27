@@ -16,6 +16,8 @@ The room server keeps its own metadata in a type of its own (collaboration-tools
 
 A mark type that excludes itself appears once on a run, so its format key is its name. A mark type that does not (comment highlights, suggested insertions and deletions) may sit on a run several times with other attributes, so its key adds those attributes. Such marks are added in a fixed order (`addMarkInOrder`, DOCE-SCHEMA-5.1), so every writer holds the same runs.
 
+The top node's variable texts (`values`, a record of texts by key) are stored one attribute of `content` per key, named `values.` and the key, such as `values.document.name`, so writers who set different texts at once keep both and an undo takes back only the keys its own change set (DOCE-COLLAB-6.9).
+
 Attributes left at their default are not stored, so a schema can add an attribute with a default without rewriting every room. There are no stored rooms to keep (decision D24): until the first host switches over, the layout may change and a host starts its rooms again from their documents.
 
 ## Write rules
