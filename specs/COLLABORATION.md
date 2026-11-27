@@ -71,9 +71,9 @@ Verification: `src/engine/transaction-kind.test.ts`
 
 ### DOCE-COLLAB-2.2 - Derived writes in the binding
 
-A change a plugin appends to one the sync plugin applies from the shared document (DOCE-COLLAB-4) shall reach the shared document as the editor's own change, under the plugin's derived origin (`getCollabSync(state).derivedOrigin`), which the editor's undo manager does not track, so nobody's undo takes it back. The library's own plugins append none to a remote change (DOCE-EDITING-3.3), so an editor that receives one sends nothing back.
+A change a plugin appends to one the sync plugin applies from the shared document (DOCE-COLLAB-4) shall reach the shared document as the editor's own change, under the plugin's derived origin (`getCollabSync(state).derivedOrigin`), which the editor's undo manager does not track, so nobody's undo takes it back. So shall the editor's local changes when none of them is the writer's own: each is derived (`isDerivedTransaction`, such as one a plugin dispatches on its own marked with `markDerived`) or one the binding applied; a derived change sent with one of the writer's own goes under the editor's origin with it, as one step. The library's own plugins append none to a remote change (DOCE-EDITING-3.3), but for template block renders (DOCE-TEMPLATES-9.1), so an editor that receives one sends nothing else back.
 
-Implementation: `src/collab/sync-binding.ts`
+Implementation: `src/collab/sync-binding.ts`, `src/collab/sync.ts`
 Verification: `src/collab/sync.test.ts`
 
 ### DOCE-COLLAB-2.3 - Held during a gesture

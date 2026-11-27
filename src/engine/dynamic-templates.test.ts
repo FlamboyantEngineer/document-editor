@@ -47,17 +47,29 @@ describe('template blocks', () => {
     await Promise.resolve();
     expect(view.dom.querySelector('.dynamic-template-block p')?.textContent).toBe('By');
     view.dispatch(view.state.tr.setDocAttribute('values', { 'document.title': 'Interface notes' }));
+    // A render empties the block in the change, and fills it in a change of its own after.
+    await Promise.resolve();
     const shown = view.dom.querySelector('.dynamic-template-block');
     expect(shown?.querySelector('h2')).toHaveTextContent('Interface notes');
     expect(shown?.querySelector('p')?.textContent).toBe('By');
     expect(shown?.querySelector('.template-output')).toHaveAttribute('contenteditable', 'false');
-    // The rendered blocks are stored, with the ids its own id and their places make.
+    // The rendered blocks are stored, with the ids its own id, its markup and texts and their
+    // places make: the same for every editor, and others for other texts.
     const stored = storedOutput(view);
     expect(stored?.map((node) => node.type)).toEqual(['heading', 'paragraph']);
     const ids = stored?.map((node) => node.attrs?.id);
+    const again = viewOf([block('<h2>{{document.title}}</h2><p>By {{ document.owner }}</p>')], {
+      'document.title': 'Interface notes',
+    });
+    await Promise.resolve();
+    expect(storedOutput(again)?.map((node) => node.attrs?.id)).toEqual(ids);
+    again.destroy();
     view.dispatch(view.state.tr.setDocAttribute('values', { 'document.title': 'Timing notes' }));
+    await Promise.resolve();
     expect(view.dom.querySelector('h2')).toHaveTextContent('Timing notes');
-    expect(storedOutput(view)?.map((node) => node.attrs?.id)).toEqual(ids);
+    const timing = storedOutput(view)?.map((node) => node.attrs?.id);
+    expect(timing).toHaveLength(2);
+    expect(timing?.some((id) => ids?.includes(id))).toBe(false);
     // A render that changes nothing is no edit.
     const tr = view.state.tr;
     expect(renderTemplateBlocks(tr, document)).toBe(false);
@@ -65,9 +77,10 @@ describe('template blocks', () => {
     view.destroy();
   });
 
-  it('DOCE-TEMPLATES-9.1 keeps the writer out of what a block holds, and renders nothing while reading', () => {
+  it('DOCE-TEMPLATES-9.1 keeps the writer out of what a block holds, and renders nothing while reading', async () => {
     const view = viewOf([block('<p>{{a}}</p>')], {});
     view.dispatch(view.state.tr.setDocAttribute('values', { a: 'Alpha' }));
+    await Promise.resolve();
     // Typing inside the rendered paragraph is refused.
     let inside = -1;
     view.state.doc.descendants((node, pos) => {

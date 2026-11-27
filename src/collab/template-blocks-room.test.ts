@@ -1,9 +1,10 @@
 // Template blocks in a room (DOCE-TEMPLATES-9.1): what a block renders is stored in the shared
 // document, so every editor that edits directly renders it after any change to the stored texts,
-// its own or not, wherever a block holds anything else. Two writers who render at once each insert
-// the same blocks, which the room keeps both of; an editor that then finds a block holding what it
-// renders whole beside other blocks only deletes the others, so every editor deletes the same ones
-// and the room settles on one copy.
+// its own or not, wherever a block holds anything else. A render only deletes, or inserts into a
+// block that holds nothing, so two writers who render at once each insert whole blocks, which the
+// room keeps both of; an editor that then finds a block holding what it renders whole beside other
+// blocks only deletes the others, so every editor deletes the same ones and the room settles on
+// one copy. Renders are derived changes, on nobody's undo stack.
 
 import type * as Y from '@y/y';
 import { history, undo } from 'prosemirror-history';
@@ -72,6 +73,7 @@ const countUpdates = (doc: Y.Doc) => {
 };
 
 function roomOf(file: DocumentFile = FILE) {
+  const unsettled = vi.fn();
   const first = headlessEditor(readFixture(file));
   const relay = createRelayRoom(first.doc);
   const start = sharedDocument(relay.room);
@@ -82,7 +84,7 @@ function roomOf(file: DocumentFile = FILE) {
       doc: relay.join(clientID),
       plugins: [
         history(),
-        templates ?? createDynamicTemplates({ enabled: () => enabled }),
+        templates ?? createDynamicTemplates({ enabled: () => enabled, onUnsettled: unsettled }),
         createElementIds({ author: () => author }),
       ],
     });
@@ -92,7 +94,7 @@ function roomOf(file: DocumentFile = FILE) {
       await settle();
     }
   };
-  return { relay, join, deliver };
+  return { relay, join, deliver, unsettled };
 }
 
 const setName = (editor: HeadlessEditor, name: string) =>
@@ -105,13 +107,14 @@ describe('template blocks in a room', () => {
   ])(
     'DOCE-TEMPLATES-9.1 DOCE-COLLAB-4.1 ends with one copy when two writers render at once with %s',
     async (_name, first, second) => {
-      const { relay, join, deliver } = roomOf();
+      const { relay, join, deliver, unsettled } = roomOf();
       const [ada, grace] = [join(1, 'ada'), join(2, 'grace')];
       const reader = join(3, 'reader', false);
       const room = countUpdates(relay.room);
       // Neither sees the other's change before making their own, and each renders.
       setName(ada, first);
       setName(grace, second);
+      await settle();
       expect(shown(ada.state.doc)).toEqual([first]);
       expect(shown(grace.state.doc)).toEqual([second]);
       await deliver();
@@ -135,12 +138,39 @@ describe('template blocks in a room', () => {
       const settled = room.updates;
       await deliver(3);
       expect(room.updates).toBe(settled);
+      // An ordinary race is no disagreement.
+      expect(unsettled).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['the same text', 'Notes', 'Notes'],
+    ['different texts', 'Notes', 'Minutes'],
+  ])(
+    'DOCE-TEMPLATES-9.1 DOCE-COLLAB-4.1 settles with the writer who stays when the other leaves a race with %s',
+    async (_name, first, second) => {
+      const { relay, join, deliver, unsettled } = roomOf();
+      const [grace, ada] = [join(2, 'grace'), join(1, 'ada')];
+      const reader = join(3, 'reader', false);
+      setName(grace, first);
+      setName(ada, second);
+      await settle();
+      // Grace's changes reach the room, and she is gone before anyone answers them.
+      grace.destroy();
+      await deliver();
+      const kept = String(
+        (sharedDocument(relay.room)?.attrs.values as Record<string, string>)['document.name'],
+      );
+      for (const doc of [ada.state.doc, reader.state.doc, sharedDocument(relay.room)])
+        expect(shown(doc)).toEqual([kept]);
+      expect(unsettled).not.toHaveBeenCalled();
     },
   );
 
   it('DOCE-TEMPLATES-9.1 renders after a server write and a replayed change, which render nothing themselves', async () => {
-    const { relay, join, deliver } = roomOf();
+    const { relay, join, deliver, unsettled } = roomOf();
     const ada = join(1, 'ada');
+    const manager = undoManagerOf(ada);
     const reader = join(3, 'reader', false);
     // The server stores a new text and leaves the block as it was.
     updateRoomDocument(
@@ -151,6 +181,19 @@ describe('template blocks in a room', () => {
     await deliver();
     for (const editor of [ada, reader]) expect(shown(editor.state.doc)).toEqual(['Budget']);
     expect(shown(sharedDocument(relay.room))).toEqual(['Budget']);
+    // Ada's render is no step of hers to undo: her undo takes back only her own typing.
+    expect(manager.canUndo()).toBe(false);
+    let end = -1;
+    ada.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Two') end = pos + node.nodeSize;
+    });
+    ada.dispatch(ada.state.tr.insertText('!', end));
+    await deliver();
+    manager.undo();
+    await deliver();
+    expect(shown(ada.state.doc)).toEqual(['Budget']);
+    expect(ada.state.doc.textBetween(0, ada.state.doc.content.size)).toBe('BudgetTwo');
+    expect(manager.canUndo()).toBe(false);
     // A writer who was offline replays a change of the text made without rendering.
     const replay = join(4, 'grace', false);
     await deliver();
@@ -158,6 +201,7 @@ describe('template blocks in a room', () => {
     expect(shown(replay.state.doc)).toEqual(['Budget']);
     await deliver();
     for (const editor of [ada, reader, replay]) expect(shown(editor.state.doc)).toEqual(['Agenda']);
+    expect(unsettled).not.toHaveBeenCalled();
   });
 
   it('DOCE-TEMPLATES-9.1 undoes a change of the texts with its render, and sends nothing for a refused edit inside a block', async () => {
@@ -169,6 +213,7 @@ describe('template blocks in a room', () => {
     expect(shown(reader.state.doc)).toEqual(['Notes']);
     // One undo takes back the text, and the block renders the text it had.
     undo(ada.state, (tr) => ada.dispatch(tr));
+    await settle();
     expect(shown(ada.state.doc)).toEqual(['Plan']);
     await deliver();
     expect(shown(reader.state.doc)).toEqual(['Plan']);
@@ -184,8 +229,8 @@ describe('template blocks in a room', () => {
     expect(room.updates).toBe(0);
   });
 
-  it('DOCE-TEMPLATES-9.1 falls quiet when two editors render a block otherwise, and tells the host once for each text', async () => {
-    const { relay, join, deliver } = roomOf();
+  it('DOCE-TEMPLATES-9.1 settles when two editors render a block otherwise, and tells the host once for each text', async () => {
+    const { relay, join, deliver, unsettled: adas } = roomOf();
     const ada = join(1, 'ada');
     // An editor that reads the markup otherwise, as another version of the library might: its
     // parser adds a paragraph to what the markup renders.
@@ -219,11 +264,15 @@ describe('template blocks in a room', () => {
       await deliver(1);
       perPass.push(room.updates - before);
     }
-    // Each answers the other once at most, then the room goes quiet.
-    expect(perPass.slice(4)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
-    expect(room.updates).toBeLessThanOrEqual(4);
-    // Told once for each text the block stood for: the one it opened with, and the new one.
-    expect(unsettled.mock.calls).toEqual([['b0000001'], ['b0000001']]);
+    // One of them leaves the other's render after answering it once, and the room goes quiet
+    // with that render, not with a block that holds nothing.
+    expect(perPass.slice(6)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(room.updates).toBeLessThanOrEqual(8);
+    expect(shown(sharedDocument(relay.room))).toEqual(['Notes', '', 'Other']);
+    // The host is told once for each text the block stood for, the one it opened with and the
+    // new one, by the editor that left the other's render.
+    expect(adas.mock.calls).toEqual([['b0000001'], ['b0000001']]);
+    expect(unsettled).not.toHaveBeenCalled();
     for (const editor of [ada, bob]) {
       expect(sharedDocument(editor.doc)?.toJSON()).toEqual(sharedDocument(relay.room)?.toJSON());
     }
@@ -267,15 +316,29 @@ describe('template blocks in a room', () => {
     // A reader renders nothing.
     expect(shown(reader.state.doc).join('')).toBe('');
     const ada = join(1, 'ada');
+    const manager = undoManagerOf(ada);
     await deliver();
     for (const editor of [ada, reader]) expect(shown(editor.state.doc)).toEqual(['Plan']);
     expect(shown(sharedDocument(relay.room))).toEqual(['Plan']);
+    // The render on opening is no step of Ada's to undo.
+    expect(manager.canUndo()).toBe(false);
+  });
+
+  it('DOCE-TEMPLATES-9.1 renders a block that holds something else once an editor opens the document, off its undo stack', async () => {
+    const stale: DocumentFile = { ...FILE, values: { 'document.name': 'Budget' } };
+    const { relay, join, deliver, unsettled } = roomOf(stale);
+    const ada = join(1, 'ada');
+    const manager = undoManagerOf(ada);
+    await deliver();
+    expect(shown(sharedDocument(relay.room))).toEqual(['Budget']);
+    expect(manager.canUndo()).toBe(false);
+    expect(unsettled).not.toHaveBeenCalled();
   });
 
   it.each(Array.from({ length: 10 }, (_, index) => index + 1))(
     'DOCE-TEMPLATES-9.1 DOCE-COLLAB-4.1 settles on one copy for three writers who change the texts in any order (seed %i)',
     async (seed) => {
-      const { relay, join, deliver } = roomOf();
+      const { relay, join, deliver, unsettled } = roomOf();
       const random = seededRandom(seed);
       const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
       const writers = [join(1, 'ada'), join(2, 'grace'), join(5, 'lin')];
@@ -289,6 +352,7 @@ describe('template blocks in a room', () => {
       const values = sharedDocument(relay.room)?.attrs.values as Record<string, string>;
       for (const editor of [...writers, reader])
         expect(shown(editor.state.doc)).toEqual([values['document.name']]);
+      expect(unsettled).not.toHaveBeenCalled();
     },
   );
 });

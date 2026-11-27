@@ -11,7 +11,7 @@ import {
 } from 'prosemirror-model';
 import type { Transform } from 'prosemirror-transform';
 import { storedValue } from '../model/index.js';
-import { identifyOutput, sameOutputContent } from './script-output.js';
+import { identifyOutput, outputIds, sameOutputContent } from './script-output.js';
 
 /** The text a template block shows for a variable's key; empty for none. */
 export type TemplateValue = (key: string) => string;
@@ -69,7 +69,7 @@ export function renderTemplateBlock(
 
 /**
  * What a template block holds once rendered with the document's texts, its elements given the ids
- * its own id and their places make, so every writer renders the same.
+ * its own id, its markup and texts and their places make, so every writer renders the same.
  */
 export function renderedContent(
   node: ProseMirrorNode,
@@ -83,14 +83,46 @@ export function renderedContent(
     { schema: node.type.schema, document: owner },
     valueOf,
   );
-  const id = node.attrs.dataId as unknown;
-  return typeof id === 'string' && id ? identifyOutput(id, content) : content;
+  const seed = idSeed(node, doc);
+  return seed === null ? content : identifyOutput(seed, content);
 }
 
 /** What a block renders from: its markup and the texts of the keys it shows. */
 export function renderInput(node: ProseMirrorNode, doc: ProseMirrorNode): string {
   const values = templateBlockKeys(node).map((key) => `${key}=${storedValue(doc, key)}`);
   return [String(node.attrs.templateHtml ?? ''), ...values].join('\n');
+}
+
+// What a block's rendered ids are made from: its own id, its markup and texts, so renders of other
+// texts have other ids, and a render of the same ones with other content is told apart from a
+// stale one. `null` for a block with no id.
+function idSeed(node: ProseMirrorNode, doc: ProseMirrorNode): string | null {
+  const id = node.attrs.dataId as unknown;
+  return typeof id === 'string' && id ? `${id}\n${renderInput(node, doc)}` : null;
+}
+
+/**
+ * Whether a block holds a render of its markup and texts other than `rendered`, as another editor
+ * that reads the markup otherwise makes: a block with an id those make (DOCE-TEMPLATES-9.1) that
+ * `rendered` holds with other content, or does not hold.
+ */
+export function holdsOtherRender(
+  node: ProseMirrorNode,
+  doc: ProseMirrorNode,
+  rendered: Fragment,
+): boolean {
+  const seed = idSeed(node, doc);
+  if (seed === null) return false;
+  const family = new Set(outputIds(seed, node.nodeSize));
+  const mine = new Map<unknown, ProseMirrorNode>();
+  rendered.forEach((child) => mine.set(child.attrs.dataId, child));
+  let other = false;
+  node.forEach((child) => {
+    if (other || !family.has(child.attrs.dataId as string)) return;
+    const same = mine.get(child.attrs.dataId);
+    other = !same || !sameOutputContent(Fragment.from(child), Fragment.from(same));
+  });
+  return other;
 }
 
 /** Where in a block's children what it renders stands whole, the first time; -1 when nowhere. */

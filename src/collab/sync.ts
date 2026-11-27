@@ -6,6 +6,7 @@
 import type * as Y from '@y/y';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { isDerivedTransaction } from '../engine/transaction-kind.js';
 import { holdDuringGestures } from './gesture-hold.js';
 import { resolveRoomScope, type RoomScope } from './room-scope.js';
 import {
@@ -62,7 +63,12 @@ const collabSyncKey = new PluginKey<LocalSteps>('collab-sync');
 
 const syncs = new WeakMap<Plugin, CollabSync>();
 
-const NOT_TRACKING: LocalSteps = { base: null, steps: [] };
+const NOT_TRACKING: LocalSteps = { base: null, steps: [], own: true };
+
+// Whether a transaction is the editor's own change: neither one the binding applied from the
+// shared document nor one derived from changes (`isDerivedTransaction`).
+const isOwnChange = (tr: Transaction) =>
+  tr.getMeta(collabSyncKey) === undefined && !isDerivedTransaction(tr);
 
 // Binds a view, or tells of a shared document the schema cannot read as it joins.
 function join(view: EditorView, source: BindingSource): Binding | null {
@@ -112,9 +118,10 @@ export function createCollabSync({
       // binding has not sent yet can be moved after changes that reach the editor first.
       apply(tr, value) {
         if (!tr.docChanged || !binding) return value;
-        if (binding.confirmed === tr.before) return { base: tr.before, steps: tr.steps };
+        const own = isOwnChange(tr);
+        if (binding.confirmed === tr.before) return { base: tr.before, steps: tr.steps, own };
         if (value.base === null) return value;
-        return { base: value.base, steps: [...value.steps, ...tr.steps] };
+        return { base: value.base, steps: [...value.steps, ...tr.steps], own: value.own || own };
       },
     },
     view(view) {
