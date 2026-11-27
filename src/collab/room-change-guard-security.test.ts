@@ -3062,4 +3062,22 @@ describe('DOCE-COLLAB-6.9 DOCE-COLLAB-7.2 stored texts in a guarded room', () =>
       await room.close();
     }
   });
+
+  it('refuses the stored texts held whole, as one attribute of the content type', async () => {
+    const room = await setup({ granted: editor });
+    try {
+      const values = { 'document.name': 'Plan', other: 'Kept' };
+      change(room.doc, (state) => state.apply(state.tr.setDocAttribute('values', values)));
+      expect(await room.provider.whenStored()).toBe(true);
+      room.doc.get('content').setAttr('values', { 'document.name': 'Whole' });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+      const stored = new Y.Doc();
+      Y.applyUpdate(stored, room.handle.snapshot());
+      expect(stored.get('content').getAttr('values')).toBeUndefined();
+      expect(readContent(schema, stored.get('content'))?.attrs.values).toEqual(values);
+    } finally {
+      await room.close();
+    }
+  });
 });

@@ -66,6 +66,13 @@ const isDefault = (value: unknown, fallback: unknown): boolean =>
 const KEYED_ATTRS: ReadonlySet<string> = new Set(['values']);
 const KEY_DOT = '.';
 
+/**
+ * Whether a shared attribute of the top node is a record attribute held whole, which a room never
+ * keeps: it is read as nothing, replayed as nothing and refused by the guard.
+ */
+export const isWholeRecordAttr = (name: string | number): boolean =>
+  typeof name === 'string' && KEYED_ATTRS.has(name);
+
 /** The record attribute a shared attribute name holds one key of, with the key; null for none. */
 export function keyedAttrOf(name: string): { attr: string; key: string } | null {
   const dot = name.indexOf(KEY_DOT);
@@ -134,6 +141,7 @@ function topAttrs(value: AnyDelta): Format {
   const attrs: Format = {};
   const records = new Map<string, [string, unknown][]>();
   for (const [name, stored] of Object.entries(deltaAttrs(value))) {
+    if (isWholeRecordAttr(name)) continue;
     const keyed = keyedAttrOf(name);
     if (!keyed) attrs[name] = stored;
     else records.set(keyed.attr, [...(records.get(keyed.attr) ?? []), [keyed.key, stored]]);

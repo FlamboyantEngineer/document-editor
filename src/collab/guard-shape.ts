@@ -2,7 +2,7 @@ import * as Y from '@y/y';
 import * as delta from 'lib0/delta';
 import type { Schema } from 'prosemirror-model';
 import { FRAGMENT_RULES } from '../model/pagination/fragments.js';
-import { type AnyDelta, keyedAttrOf } from './delta.js';
+import { type AnyDelta, isWholeRecordAttr, keyedAttrOf } from './delta.js';
 import { isGuardFormatRecord, isGuardProposalMark } from './guard-format.js';
 import type { RoomScope } from './room-scope.js';
 
@@ -72,11 +72,11 @@ function hasKnownContent(type: Y.Type, options: { schema: Schema; root: Y.Type }
   if (!node || !hasKnownSplit(type)) return false;
   if (hasPageOnlyAttr(type, node.name)) return false;
   let known = true;
+  const root = type === options.root;
   type.forEachAttr((value: unknown, key: string | number) => {
-    if (
-      !Object.hasOwn(node.spec.attrs ?? {}, key) &&
-      !(type === options.root && isStoredKey(key, value))
-    )
+    // A record held whole is refused on the root, which keeps it by key (DOCE-COLLAB-6.9).
+    if (root && isWholeRecordAttr(key)) known = false;
+    else if (!Object.hasOwn(node.spec.attrs ?? {}, key) && !(root && isStoredKey(key, value)))
       known = false;
   });
   const format: unknown = type.getAttr('suggestionFormat');

@@ -12,6 +12,7 @@ import {
   contentToDelta,
   deltaToFragment,
   deltaToNode,
+  isWholeRecordAttr,
   keyedAttrOf,
 } from './delta.js';
 
@@ -98,6 +99,8 @@ function replayKey(tr: Transform, name: { attr: string; key: string }, value: un
 function replayAttrs(place: Place, change: AnyDelta): void {
   for (const op of change.attrs as Iterable<AttrOp>) {
     const set = delta.$setAttrOp.check(op);
+    // A record held whole is read as nothing (DOCE-COLLAB-6.9), so it is replayed as nothing.
+    if (place.at < 0 && isWholeRecordAttr(op.key)) continue;
     const keyed = place.at < 0 ? keyedAttrOf(op.key) : null;
     if (keyed) {
       replayKey(place.tr, keyed, set ? op.value : undefined);

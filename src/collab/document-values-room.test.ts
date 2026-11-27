@@ -236,4 +236,12 @@ describe('undo of variable texts in a room', () => {
       expect(Object.entries(held?.attrs.values as object)).toEqual(Object.entries(values));
     }
   });
+
+  it('DOCE-COLLAB-6.9 reads and replays the texts held whole as nothing, in an open editor and a fresh read alike', async () => {
+    const { relay, ada, grace, deliver } = storedRoom([1, 2]);
+    ada.doc.get('content').setAttr('values', { 'document.name': 'Whole' });
+    await deliver();
+    for (const held of [sharedDocument(relay.room), ada.state.doc, grace.state.doc])
+      expect(held?.attrs.values).toEqual(STORED);
+  });
 });
