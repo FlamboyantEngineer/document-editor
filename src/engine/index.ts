@@ -116,18 +116,8 @@ export {
   refreshDocumentValues,
   refreshedValues,
 } from './document-values.js';
-export type {
-  DynamicTemplatesOptions,
-  TemplateBlockTarget,
-  TemplateValue,
-} from './dynamic-templates.js';
-export {
-  createDynamicTemplates,
-  dynamicTemplatesKey,
-  renderTemplateBlock,
-  renderTemplateBlocks,
-  templateBlockKeys,
-} from './dynamic-templates.js';
+export type { DynamicTemplatesOptions } from './dynamic-templates.js';
+export { createDynamicTemplates, dynamicTemplatesKey } from './dynamic-templates.js';
 export type { EditLockOptions, EditLockState, HistoryDirection } from './edit-lock.js';
 export { createEditLock, editLockKey, isPositionLocked } from './edit-lock.js';
 export {
@@ -264,6 +254,12 @@ export { toggleHeaderLines } from './table-headers.js';
 export { selectCellContent, selectWholeTable } from './table-pointer.js';
 export { splitTableCell } from './table-split.js';
 export type { TableEditingOptions } from './tables.js';
+export type { TemplateBlockTarget, TemplateValue } from './template-block-render.js';
+export {
+  renderTemplateBlock,
+  renderTemplateBlocks,
+  templateBlockKeys,
+} from './template-block-render.js';
 export {
   createTemplateContentEditing,
   editsTemplateContent,

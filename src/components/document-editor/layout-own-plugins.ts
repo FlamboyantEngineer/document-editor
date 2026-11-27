@@ -26,6 +26,9 @@ import { createListStarts, createPageDebug, createPageVariables } from '../../pa
 import { editorContents } from './editor-contents.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
 
+// The count the host's telemetry is told of a template block another editor renders otherwise.
+const TEMPLATE_UNSETTLED = 'document-editor.template-block-unsettled';
+
 /** The plugins the layout adds to the editor's own, reading the options as they are now. */
 export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
   return [
@@ -42,6 +45,7 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
     // A writer who reads or suggests renders nothing: the stored texts do not change either.
     createDynamicTemplates({
       enabled: () => latest.current.editable !== false && latest.current.suggesting !== true,
+      onUnsettled: (block) => latest.current.telemetry?.count?.(TEMPLATE_UNSETTLED, 1, { block }),
     }),
     // A writer who reads or suggests stores no text: no suggestion records the top node's change.
     createDocumentValues(() =>

@@ -41,10 +41,11 @@ const storedOutput = (view: EditorView) =>
   writeDocumentFile(view.state.doc).sections[0]?.content?.[0]?.content;
 
 describe('template blocks', () => {
-  it('DOCE-TEMPLATES-9.1 stores its markup rendered with the stored texts when a writer changes them', () => {
+  it('DOCE-TEMPLATES-9.1 stores its markup rendered with the stored texts on opening and when a writer changes them', async () => {
     const view = viewOf([block('<h2>{{document.title}}</h2><p>By {{ document.owner }}</p>')], {});
-    // Opening renders nothing: the document holds what it was last rendered with.
-    expect(view.state.doc.firstChild?.textContent).toBe('');
+    // Opening renders a block that holds anything else, once the view is open.
+    await Promise.resolve();
+    expect(view.dom.querySelector('.dynamic-template-block p')?.textContent).toBe('By');
     view.dispatch(view.state.tr.setDocAttribute('values', { 'document.title': 'Interface notes' }));
     const shown = view.dom.querySelector('.dynamic-template-block');
     expect(shown?.querySelector('h2')).toHaveTextContent('Interface notes');
