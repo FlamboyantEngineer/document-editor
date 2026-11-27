@@ -116,12 +116,16 @@ export {
   refreshDocumentValues,
   refreshedValues,
 } from './document-values.js';
-export type { TemplateBlockTarget, TemplateValue } from './dynamic-templates.js';
+export type {
+  DynamicTemplatesOptions,
+  TemplateBlockTarget,
+  TemplateValue,
+} from './dynamic-templates.js';
 export {
   createDynamicTemplates,
   dynamicTemplatesKey,
-  refreshDynamicTemplates,
   renderTemplateBlock,
+  renderTemplateBlocks,
   templateBlockKeys,
 } from './dynamic-templates.js';
 export type { EditLockOptions, EditLockState, HistoryDirection } from './edit-lock.js';

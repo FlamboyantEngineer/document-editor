@@ -149,12 +149,14 @@ describe('writeMarkdown fidelity', () => {
     expect(written(content.slice(0, 1))).toBe('*Site*\n');
   });
 
-  it('DOCE-FORMAT-4.5 writes the values of variables and template blocks the host gives', () => {
+  it('DOCE-FORMAT-4.5 writes the values of variables the host gives, and the blocks a template block holds', () => {
     const values = { variable: (key: string) => ({ 'document.title': 'Garden *log*' })[key] };
     const content: StoredNode[] = [
       {
         type: 'templateBlock',
-        attrs: { source: '<h1>{{ document.title }}</h1><p>By {{document.owner}} &amp; team</p>' },
+        attrs: { source: '<p>{{ document.title }}</p><p>By {{document.owner}} &amp; team</p>' },
+        // What its markup rendered last, stored in it (DOCE-TEMPLATES-9.1).
+        content: [paragraph(text('Garden *log*')), paragraph(text('By  & team'))],
       },
       paragraph(
         text('Title: '),
@@ -168,7 +170,7 @@ describe('writeMarkdown fidelity', () => {
       [
         'Garden \\*log\\*',
         '',
-        'By {{document.owner}} & team',
+        'By  & team',
         '',
         'Title: Garden \\*log\\*, owner: {{document.owner}}',
         '',

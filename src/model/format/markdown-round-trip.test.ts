@@ -134,52 +134,12 @@ describe('writing then reading Markdown', () => {
       values: { variable: (key: string) => (key === 'literal' ? literal : '{{token}}') },
     };
     const content: StoredNode[] = [
-      { type: 'templateBlock', attrs: { source: '<p>&lt;source&gt; {{ literal }} &amp;</p>' } },
+      paragraph(text('<source> '), { type: 'variable', attrs: { key: 'literal' } }, text(' &')),
       paragraph({ type: 'variable', attrs: { key: 'token' } }),
     ];
     expect(readBack(content, options)).toEqual([
       paragraph(text('<source> <tag> &amp; &lt; &')),
       paragraph(text('{{token}}')),
-    ]);
-  });
-
-  it('DOCE-FORMAT-4.5 leaves template tokens split across HTML text nodes literal', () => {
-    const resolved: string[] = [];
-    const options = {
-      values: {
-        variable: (key: string) => {
-          resolved.push(key);
-          return key === 'known' ? 'Expanded' : undefined;
-        },
-      },
-    };
-    const source = [
-      '<p>{{<em>split</em>}} and {{par<!-- > -->tial}}</p>',
-      '<p>{{<em data-example="> {{attribute}}">quoted</em>}}</p>',
-      '<p><strong>{{ known }}</strong> and {{unresolved}}</p>',
-    ].join('');
-    const template = { type: 'templateBlock', attrs: { source } };
-    expect(readBack([template], options)).toEqual([
-      paragraph(text('{{split}} and {{partial}}')),
-      paragraph(text('{{quoted}}')),
-      paragraph(text('Expanded and '), { type: 'variable', attrs: { key: 'unresolved' } }),
-    ]);
-    expect(resolved).toEqual(['known', 'unresolved']);
-  });
-
-  it('DOCE-FORMAT-4.5 recognizes encoded variable delimiters within one HTML text node', () => {
-    const options = { values: { variable: (key: string) => '[' + key + ']' } };
-    const template: StoredNode = {
-      type: 'templateBlock',
-      attrs: {
-        source:
-          '<p>&#123;&#x7B;numeric&#125;&#x7d; &lbrace;&lcub;named&rbrace;&rcub;</p>' +
-          '<p>&#123;<em>&#123;split</em>&#125;&#125; &#0; &#x110000; &#55296; &#128;</p>',
-      },
-    };
-    expect(readBack([template], options)).toEqual([
-      paragraph(text('[numeric] [named]')),
-      paragraph(text('{{split}} � � � €')),
     ]);
   });
 

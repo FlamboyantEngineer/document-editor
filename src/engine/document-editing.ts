@@ -130,8 +130,8 @@ const always =
   };
 
 // The objects Backspace or Delete selects before deleting, beside the atoms: a figure and a table
-// with their captions.
-const CAPTIONED_OBJECTS = new Set(['figure', 'table_figure']);
+// with their captions, and a template block, which holds what its markup rendered.
+const CAPTIONED_OBJECTS = new Set(['figure', 'table_figure', 'dynamic_template']);
 
 // Whether a block beside a text block is an object Backspace or Delete selects before deleting: an
 // atom, such as an equation, a figure, or a table with its caption.

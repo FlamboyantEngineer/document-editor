@@ -11,7 +11,7 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { EditorState, type Plugin, type PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ComponentType, type CSSProperties, useMemo, useState } from 'react';
-import { contentsKey, dynamicTemplatesKey } from '../../engine/index.js';
+import { contentsKey } from '../../engine/index.js';
 import type { ScriptRunnerAdapter, ScriptVocabularyEntry } from '../../host/index.js';
 import {
   isDocumentFormatError,
@@ -67,7 +67,7 @@ export interface ScriptPreviewViews {
 }
 
 // The plugins that draw node views which every editor's layout adds itself, the preview's too.
-const LAYOUT_DRAWN = new Set<PluginKey>([dynamicTemplatesKey, contentsKey]);
+const LAYOUT_DRAWN = new Set<PluginKey>([contentsKey]);
 
 /**
  * The plugins of an editor's state that draw node views, for a preview drawn as it draws, but for

@@ -1,26 +1,28 @@
-// The nodes a template fills in: a block rendered from template markup, and an inline variable
-// whose text the template's value replaces.
+// The nodes a template fills in: a block holding what its template markup rendered, and an inline
+// variable whose text the template's value replaces.
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 
+// A template block holds what its markup rendered last, with the texts the document stored then,
+// as its own blocks: the pages lay it out and split it like any other content, and only rendering
+// its markup again changes it (DOCE-TEMPLATES-9.1).
 const dynamicTemplate: NodeSpec = {
   group: 'block',
-  atom: true,
-  selectable: true,
+  content: 'block*',
+  isolating: true,
+  defining: true,
   attrs: {
     templateHtml: { default: '' },
-    renderedHtml: { default: '' },
     trackedKeys: { default: '' },
   },
   parseDOM: [
     {
       tag: 'div[data-dynamic-template="true"]',
+      contentElement: '.template-output',
       getAttrs: (dom: HTMLElement) => ({
         templateHtml: dom.getAttribute('data-dynamic-template-html') || '',
-        renderedHtml:
-          dom.getAttribute('data-dynamic-template-rendered-html') || dom.innerHTML || '',
         trackedKeys: dom.getAttribute('data-dynamic-template-keys') || '',
       }),
     },
@@ -29,12 +31,11 @@ const dynamicTemplate: NodeSpec = {
     const attrs: Record<string, string> = {
       'data-dynamic-template': 'true',
       'data-dynamic-template-html': String(node.attrs.templateHtml || ''),
-      'data-dynamic-template-rendered-html': String(node.attrs.renderedHtml || ''),
       class: 'dynamic-template-block',
     };
     if (node.attrs.trackedKeys)
       attrs['data-dynamic-template-keys'] = String(node.attrs.trackedKeys);
-    return ['div', attrs];
+    return ['div', attrs, ['div', { class: 'template-output', contenteditable: 'false' }, 0]];
   },
 };
 

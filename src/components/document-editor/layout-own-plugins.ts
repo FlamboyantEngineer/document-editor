@@ -39,7 +39,10 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
     }),
     createListStarts(),
     createPageVariables(),
-    createDynamicTemplates(),
+    // A writer who reads or suggests renders nothing: the stored texts do not change either.
+    createDynamicTemplates({
+      enabled: () => latest.current.editable !== false && latest.current.suggesting !== true,
+    }),
     // A writer who reads or suggests stores no text: no suggestion records the top node's change.
     createDocumentValues(() =>
       latest.current.editable === false || latest.current.suggesting

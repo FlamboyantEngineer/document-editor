@@ -78,9 +78,9 @@ describe('page nodes', () => {
     expect(roundTrip(html)).toBe(html);
   });
 
-  it('DOCE-SCHEMA-3.2 keeps a template block and the variables a template fills in', () => {
+  it('DOCE-SCHEMA-3.2 keeps a template block, the blocks it holds, and the variables a template fills in', () => {
     const block =
-      '<div data-dynamic-template="true" data-dynamic-template-html="{{title}}" data-dynamic-template-rendered-html="Plan" class="dynamic-template-block" data-dynamic-template-keys="title"></div>';
+      '<div data-dynamic-template="true" data-dynamic-template-html="{{title}}" class="dynamic-template-block" data-dynamic-template-keys="title"><div class="template-output" contenteditable="false"><p>Plan</p></div></div>';
     expect(roundTrip(block)).toBe(block);
     const variable = '<p>By <span data-template-variable="author">Ada</span></p>';
     const doc = parseMarkup(variable);
