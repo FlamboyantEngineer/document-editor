@@ -60,15 +60,42 @@ const isDefault = (value: unknown, fallback: unknown): boolean =>
     typeof value === 'object' &&
     JSON.stringify(value) === JSON.stringify(fallback));
 
+// The top node's record attributes, kept as one shared attribute per key, named by the attribute
+// and the key (`values.document.name`), so writers who set different keys at once keep both, and an
+// undo puts back only the keys its own change set (DOCE-COLLAB-6.9).
+const KEYED_ATTRS: ReadonlySet<string> = new Set(['values']);
+const KEY_DOT = '.';
+
+/**
+ * Whether a shared attribute of the top node is a record attribute held whole, which a room never
+ * keeps: it is read as nothing, replayed as nothing and refused by the guard.
+ */
+export const isWholeRecordAttr = (name: string | number): boolean =>
+  typeof name === 'string' && KEYED_ATTRS.has(name);
+
+/** The record attribute a shared attribute name holds one key of, with the key; null for none. */
+export function keyedAttrOf(name: string): { attr: string; key: string } | null {
+  const dot = name.indexOf(KEY_DOT);
+  const attr = dot === -1 ? '' : name.slice(0, dot);
+  return KEYED_ATTRS.has(attr) ? { attr, key: name.slice(dot + 1) } : null;
+}
+
+// The shared attributes of one of a node's attributes: itself, or one per key of a record attribute.
+function sharedEntries(node: Node, name: string, value: unknown): [string, unknown][] {
+  if (node.type !== node.type.schema.topNodeType || !KEYED_ATTRS.has(name)) return [[name, value]];
+  return Object.entries(value as Format).map(([key, text]) => [name + KEY_DOT + key, text]);
+}
+
 // Attributes left at their default are not stored, so a schema can add an attribute with a default
 // without rewriting every shared document.
 function storedAttrs(node: Node): Format | null {
-  let attrs: Format | null = null;
+  const attrs: Format = {};
   const specs = node.type.spec.attrs ?? {};
   for (const [name, value] of Object.entries(node.attrs)) {
-    if (!isDefault(value, specs[name]?.default)) (attrs ??= {})[name] = value;
+    if (isDefault(value, specs[name]?.default)) continue;
+    for (const [shared, stored] of sharedEntries(node, name, value)) attrs[shared] = stored;
   }
-  return attrs;
+  return Object.keys(attrs).length > 0 ? attrs : null;
 }
 
 function appendContent(builder: Builder, content: Fragment): void {
@@ -105,6 +132,21 @@ export function deltaAttrs(value: AnyDelta): Format {
   for (const op of value.attrs as Iterable<AttrOp>) {
     if (delta.$setAttrOp.check(op)) attrs[op.key] = op.value;
   }
+  return attrs;
+}
+
+// The top node's attributes from its shared ones, each record attribute gathered from its keys,
+// as entries, so a key such as `__proto__` is a key like any other.
+function topAttrs(value: AnyDelta): Format {
+  const attrs: Format = {};
+  const records = new Map<string, [string, unknown][]>();
+  for (const [name, stored] of Object.entries(deltaAttrs(value))) {
+    if (isWholeRecordAttr(name)) continue;
+    const keyed = keyedAttrOf(name);
+    if (!keyed) attrs[name] = stored;
+    else records.set(keyed.attr, [...(records.get(keyed.attr) ?? []), [keyed.key, stored]]);
+  }
+  for (const [name, entries] of records) attrs[name] = Object.fromEntries(entries);
   return attrs;
 }
 
@@ -151,5 +193,5 @@ export function writeContent(type: Y.Type, node: Node): void {
 export function readContent(schema: Schema, type: Y.Type): Node | null {
   if (type.length === 0) return null;
   const value = type.toDelta({ deep: true }) as unknown as AnyDelta;
-  return schema.topNodeType.create(deltaAttrs(value), deltaToFragment(schema, value));
+  return schema.topNodeType.create(topAttrs(value), deltaToFragment(schema, value));
 }

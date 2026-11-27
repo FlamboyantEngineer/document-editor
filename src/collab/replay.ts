@@ -7,7 +7,14 @@ import * as delta from 'lib0/delta';
 import { Fragment, type Node, type Schema, Slice } from 'prosemirror-model';
 import { ReplaceStep, type Transform } from 'prosemirror-transform';
 import { diffFragments } from '../utils/fragment-diff.js';
-import { type AnyDelta, contentToDelta, deltaToFragment, deltaToNode } from './delta.js';
+import {
+  type AnyDelta,
+  contentToDelta,
+  deltaToFragment,
+  deltaToNode,
+  isWholeRecordAttr,
+  keyedAttrOf,
+} from './delta.js';
 
 type AttrOp = { key: string; value?: unknown };
 
@@ -76,11 +83,30 @@ function snap(content: Fragment, pos: number, forward: boolean): number {
   return pos;
 }
 
+// One key of a top node's record attribute set or, without a value, taken away; a record left
+// without keys is the attribute's default, null. Entries are rebuilt rather than assigned, so a key
+// such as `__proto__` is a key like any other.
+function replayKey(tr: Transform, name: { attr: string; key: string }, value: unknown): void {
+  const held = Object.entries((tr.doc.attrs[name.attr] as Record<string, unknown> | null) ?? {});
+  const entries = held.flatMap(([key, text]) =>
+    key !== name.key ? [[key, text] as const] : value === undefined ? [] : [[key, value] as const],
+  );
+  if (value !== undefined && !held.some(([key]) => key === name.key))
+    entries.push([name.key, value]);
+  tr.setDocAttribute(name.attr, entries.length > 0 ? Object.fromEntries(entries) : null);
+}
+
 function replayAttrs(place: Place, change: AnyDelta): void {
   for (const op of change.attrs as Iterable<AttrOp>) {
-    const value = delta.$setAttrOp.check(op)
-      ? op.value
-      : nodeAt(place).type.spec.attrs?.[op.key]?.default;
+    const set = delta.$setAttrOp.check(op);
+    // A record held whole is read as nothing (DOCE-COLLAB-6.9), so it is replayed as nothing.
+    if (place.at < 0 && isWholeRecordAttr(op.key)) continue;
+    const keyed = place.at < 0 ? keyedAttrOf(op.key) : null;
+    if (keyed) {
+      replayKey(place.tr, keyed, set ? op.value : undefined);
+      continue;
+    }
+    const value = set ? op.value : nodeAt(place).type.spec.attrs?.[op.key]?.default;
     if (place.at < 0) place.tr.setDocAttribute(op.key, value);
     else place.tr.setNodeAttribute(place.at, op.key, value);
   }
