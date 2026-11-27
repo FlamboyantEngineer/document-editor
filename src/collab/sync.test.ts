@@ -14,7 +14,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { createDocumentEditing } from '../engine/document-editing.js';
 import { renumberFootnotes } from '../engine/footnote-numbers.js';
 import { insertFootnote } from '../engine/footnotes.js';
-import { isRemoteTransaction, isSystemChange } from '../engine/transaction-kind.js';
+import { isRemoteTransaction, isSystemChange, markDerived } from '../engine/transaction-kind.js';
 import { BASE_TEMPLATE, type DocumentFile } from '../model/index.js';
 import { readCollabChange } from './sync.js';
 
@@ -390,6 +390,24 @@ describe('collab sync derived writes', () => {
     expect(block(a.state.doc, 0).node.attrs.className).toBe('seen');
     expect(undo.canUndo()).toBe(false);
     expectConverged(a, b);
+  });
+
+  it('DOCE-COLLAB-2.2 sends a derived change the editor makes on its own off the undo stack', async () => {
+    const editor = headlessEditor(start());
+    await settle();
+    const undo = undoManagerOf(editor);
+    const heading = () => block(editor.state.doc, 0).from - 1;
+    // A plugin's change dispatched on its own, marked derived, is nobody's to undo.
+    editor.dispatch(markDerived(editor.state.tr.setNodeAttribute(heading(), 'className', 'seen')));
+    expect(undo.canUndo()).toBe(false);
+    // After the writer's own typing, undo takes back the typing and leaves the derived change.
+    typeAtEnd(editor, 1, '!');
+    editor.dispatch(markDerived(editor.state.tr.setNodeAttribute(heading(), 'className', 'kept')));
+    undo.undo();
+    await settle();
+    expect(block(editor.state.doc, 0).node.attrs.className).toBe('kept');
+    expect(textOf(block(editor.state.doc, 1).node)).not.toContain('!');
+    expect(undo.canUndo()).toBe(false);
   });
 
   it('DOCE-COLLAB-2.2 DOCE-EDITING-3.3 sends nothing back for a shared change the editing plugins receive', async () => {

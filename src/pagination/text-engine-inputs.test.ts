@@ -289,13 +289,17 @@ describe('the pages engine and its inputs', () => {
     const settled = vi.fn();
     const measureIn = document.createElement('div');
     document.body.append(measureIn);
-    const doc = read([{ type: 'dynamic_template', attrs: { source: '<p>Plan</p>' } }]);
+    const doc = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [{ type: 'plan' }] }] },
+      documentSchema,
+      { unknown: 'keep' },
+    ).doc;
     // A block measured as drawn whose drawing holds an image that has not loaded.
     const view = new EditorView(measureIn, {
       state: EditorState.create({ doc }),
       editable: () => false,
       nodeViews: {
-        dynamic_template: () => {
+        kept_block: () => {
           const dom = document.createElement('div');
           dom.append(
             Object.assign(document.createElement('img'), { src: 'https://example.org/a.png' }),
@@ -312,7 +316,7 @@ describe('the pages engine and its inputs', () => {
     });
     engine.number(doc);
     const [block] = blocksOf(doc);
-    if (!block) throw new Error('no template block');
+    if (!block) throw new Error('no kept block');
     expect(engine.measureBlock(block, null)).not.toBeNull();
     expect(engine.provisional()).toBe(true);
     view.dom.querySelector('img')?.dispatchEvent(new Event('load'));

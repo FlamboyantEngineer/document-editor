@@ -7,11 +7,15 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { isEmbed } from '../model/index.js';
 
 const SCRIPT_BLOCK = 'script_block';
+const TEMPLATE_BLOCK = 'dynamic_template';
 
 const holdsHostContent = (node: ProseMirrorNode): boolean =>
-  isEmbed(node) || node.type.name === SCRIPT_BLOCK;
+  isEmbed(node) || node.type.name === SCRIPT_BLOCK || node.type.name === TEMPLATE_BLOCK;
 
-/** Whether a position is inside content the host owns: an embed's, or a script block's output. */
+/**
+ * Whether a position is inside content the host owns or the document renders: an embed's, a script
+ * block's output, or what a template block's markup rendered.
+ */
 export function isHostContentAt(doc: ProseMirrorNode, pos: number): boolean {
   const $pos = doc.resolve(Math.max(0, Math.min(pos, doc.content.size)));
   for (let depth = $pos.depth; depth > 0; depth -= 1) {

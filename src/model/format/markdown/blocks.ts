@@ -57,78 +57,6 @@ function figureOf(node: StoredNode, writing: Writing): string | null {
 const fenced = (code: string, language: unknown) =>
   codeFence(code, text(language) === 'plaintext' ? '' : text(language));
 
-const HTML_TAGS =
-  /<!--[\s\S]*?(?:-->|$)|<(?:\/?[a-z][\w:-]*(?=[\s/>])|!)(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
-const BREAKING_TAG = /^<\/?(?:p|div|br|li|tr|h[1-6]|ul|ol|table|blockquote)(?=[\s/>])/i;
-const ENTITIES: Readonly<Record<string, string>> = {
-  '&amp;': '&',
-  '&lt;': '<',
-  '&gt;': '>',
-  '&quot;': '"',
-  '&apos;': "'",
-  '&nbsp;': ' ',
-  '&lbrace;': '{',
-  '&lcub;': '{',
-  '&rbrace;': '}',
-  '&rcub;': '}',
-};
-
-const HTML_ENTITY =
-  /&#(?:[0-9]+|[xX][\da-fA-F]+);?|&(?:amp|lt|gt|quot|apos|nbsp|lbrace|lcub|rbrace|rcub);/g;
-
-function decodeTemplateEntity(entity: string): string {
-  if (!entity.startsWith('&#')) return ENTITIES[entity] ?? entity;
-  const hex = entity[2]?.toLowerCase() === 'x';
-  const code = Number.parseInt(entity.slice(hex ? 3 : 2), hex ? 16 : 10);
-  if (!code || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return '\uFFFD';
-  // HTML's numeric references in this range use the legacy Windows-1252 mapping.
-  if (code >= 0x80 && code <= 0x9f) {
-    return new TextDecoder('windows-1252').decode(Uint8Array.of(code));
-  }
-  return String.fromCodePoint(code);
-}
-
-// Keeps the source's text nodes separate until each has been checked for variables.
-function templateText(source: string): string[] {
-  const chunks: string[] = [];
-  let from = 0;
-  const decode = (value: string) => value.replace(HTML_ENTITY, decodeTemplateEntity);
-  for (const tag of source.matchAll(HTML_TAGS)) {
-    chunks.push(decode(source.slice(from, tag.index)));
-    if (BREAKING_TAG.test(tag[0])) chunks.push('\n');
-    from = tag.index + tag[0].length;
-  }
-  chunks.push(decode(source.slice(from)));
-  return chunks;
-}
-
-function writeTemplateValues(source: string, writing: Writing): string {
-  const parts: string[] = [];
-  let literal = '';
-  for (const chunk of templateText(source)) {
-    for (const [index, part] of chunk.split(/\{\{\s*([\w.-]+)\s*\}\}/g).entries()) {
-      const value = index % 2 === 0 ? part : writing.values.variable?.(part);
-      if (typeof value === 'string') literal += value;
-      else {
-        parts.push(escapeText(literal), `{{${part}}}`);
-        literal = '';
-      }
-    }
-  }
-  return parts.join('') + escapeText(literal);
-}
-
-// A template block as its text: its HTML source with each variable's value, without its tags; a
-// variable without one is written as its key in braces, which reads back as the variable.
-function templateBlockOf(node: StoredNode, writing: Writing): string | null {
-  const lines = writeTemplateValues(text(node.attrs?.source), writing)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map(escapeLineStart);
-  return lines.length ? lines.join('\n\n') : null;
-}
-
 // A paragraph's lines; the spaces it starts with are left out, since Markdown reads a paragraph
 // without them, and four of them as code.
 const paragraphOf = (node: StoredNode, writing: Writing) =>
@@ -160,7 +88,6 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
   mathBlock: (node) => `$$\n${storedMathSource(node)}\n$$`,
   table: (node, writing) => tableOf(node, writing, blocks),
   figure: figureOf,
-  templateBlock: templateBlockOf,
   rule: () => '---',
   pageBreak: () => null,
   contents: (node, writing) =>

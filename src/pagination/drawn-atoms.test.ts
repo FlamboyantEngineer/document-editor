@@ -71,10 +71,12 @@ describe('createDrawnAtomMeasurer', () => {
     const element = document.createElement('div');
     document.body.append(element);
     const view = new EditorView(element, {
-      state: EditorState.create({ doc: parseMarkup('<div data-dynamic-template="true"></div>') }),
+      state: EditorState.create({
+        doc: parseMarkup(`<div data-kept-node='{"type":"plan"}'></div>`),
+      }),
       editable: () => false,
       nodeViews: {
-        dynamic_template: () => {
+        kept_block: () => {
           const dom = document.createElement('div');
           const inner = document.createElement('p');
           inner.style.margin = '5px 0 8px';
@@ -86,8 +88,8 @@ describe('createDrawnAtomMeasurer', () => {
     });
     const host = document.createElement('div');
     element.append(host);
-    const block = findNode(view.state.doc, 'dynamic_template');
-    if (!block) throw new Error('no template block');
+    const block = findNode(view.state.doc, 'kept_block');
+    if (!block) throw new Error('no kept block');
     const measure = createDrawnAtomMeasurer({ view: () => view, host, scale: () => 2 });
     expect(measure(block, 600)?.size).toEqual({
       width: 3,
@@ -127,11 +129,13 @@ describe('createDrawnAtomMeasurer', () => {
     const element = document.createElement('div');
     document.body.append(element);
     const view = new EditorView(element, {
-      state: EditorState.create({ doc: parseMarkup('<div data-dynamic-template="true"></div>') }),
+      state: EditorState.create({
+        doc: parseMarkup(`<div data-kept-node='{"type":"plan"}'></div>`),
+      }),
       editable: () => false,
       nodeViews: {
-        // Rendered markup that holds an image, as a dynamic template's can.
-        dynamic_template: () => {
+        // A drawing that holds an image, as a host's node view can.
+        kept_block: () => {
           const dom = document.createElement('div');
           const image = document.createElement('img');
           image.setAttribute('src', 'plan.png');
@@ -146,9 +150,9 @@ describe('createDrawnAtomMeasurer', () => {
     const cache = createAtomCache({ measure: createDrawnAtomMeasurer({ view: () => view, host }) });
     const listener = vi.fn();
     cache.subscribe(listener);
-    const block = findNode(view.state.doc, 'dynamic_template');
+    const block = findNode(view.state.doc, 'kept_block');
     const image = view.dom.querySelector('img');
-    if (!block || !image) throw new Error('no template block');
+    if (!block || !image) throw new Error('no kept block');
     expect(cache.measureBlockAtom(block, 400, null)?.provisional).toBe(true);
     // Out of sight, a lazy image never loads, so the measuring view loads it at once.
     expect(image).toHaveAttribute('loading', 'eager');

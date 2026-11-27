@@ -51,6 +51,11 @@ export interface BindingSource {
 export interface LocalSteps {
   readonly base: Node | null;
   readonly steps: readonly Step[];
+  /**
+   * Whether any of them is the editor's own change, rather than one derived from changes, such as
+   * a render: only own changes are sent under the origin its undo manager tracks.
+   */
+  readonly own: boolean;
 }
 
 /** A view's binding to the shared document. */
@@ -167,6 +172,13 @@ const replayEvent = (schema: Schema, event: Y.YEvent<never>, shared: Y.Type) => 
   replayChange({ tr, schema, at: -1, shared }, event.deltaDeep as unknown as AnyDelta);
 };
 
+// The origin of the local changes since the shared document last agreed, `confirmed`: the one the
+// undo manager tracks when one is the editor's own, or when the plugin did not record them.
+function originOfLocal(source: BindingSource, state: EditorState, confirmed: Node): object {
+  const tracked = source.tracked(state);
+  return tracked.base === confirmed && !tracked.own ? source.derivedOrigin : source.origin;
+}
+
 /**
  * Binds a view to the shared document: the shared content wins, and an empty one takes the view's.
  * Throws on a shared document the schema cannot read.
@@ -180,7 +192,8 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
   let flushing = false;
   let destroyed = false;
 
-  const send = (next: Node, by: object) => {
+  // Sends under the origin of the local changes unless told another.
+  const send = (next: Node, by = originOfLocal(source, view.state, confirmed)) => {
     sendChange(source, { from: synced, to: next, by });
     confirmed = next;
     synced = next;
@@ -200,6 +213,7 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
     if (flushing) return later();
     const brought = waiting;
     waiting = null;
+    const by = originOfLocal(source, view.state, confirmed);
     const { tr, local } = bring(view.state, brought, { confirmed, source });
     markChange(tr, brought, source);
     flushing = true;
@@ -208,7 +222,7 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
     } finally {
       flushing = false;
     }
-    send(view.state.doc, local ? origin : derivedOrigin);
+    send(view.state.doc, local ? by : derivedOrigin);
   };
 
   // A scheduled flush waits while the reader's gesture holds it: the gesture's end flushes.
@@ -249,13 +263,12 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
     },
     update() {
       if (flushing || destroyed || waiting) return;
-      if (view.state.doc !== confirmed) send(view.state.doc, origin);
+      if (view.state.doc !== confirmed) send(view.state.doc);
     },
     flush,
     destroy(sending = true) {
       if (destroyed) return;
-      if (sending && !waiting && !flushing && view.state.doc !== confirmed)
-        send(view.state.doc, origin);
+      if (sending && !waiting && !flushing && view.state.doc !== confirmed) send(view.state.doc);
       destroyed = true;
       type.unobserveDeep(observer as never);
     },

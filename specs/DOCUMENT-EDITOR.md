@@ -457,7 +457,7 @@ Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/cha
 
 ### DOCE-EDITOR-6.6 - Telemetry
 
-With the host's `telemetry` adapter (DOCE-HOST-1.1), the editor shall measure how long its pages took to lay out when the document opened (`document-editor.first-layout`) and after each run of edits (`document-editor.layout`), in milliseconds (`EDITOR_MEASURES`). When the adapter counts (`count`), the editor shall count what each layout did (DOCE-PAGINATION-7.5): the blocks it measured (`document-editor.blocks-measured`), the sections it laid out again (`document-editor.sections-relaid`) and the pages it built anew (`document-editor.pages-rebuilt`) (`EDITOR_COUNTS`).
+With the host's `telemetry` adapter (DOCE-HOST-1.1), the editor shall measure how long its pages took to lay out when the document opened (`document-editor.first-layout`) and after each run of edits (`document-editor.layout`), in milliseconds (`EDITOR_MEASURES`). When the adapter counts (`count`), the editor shall count what each layout did (DOCE-PAGINATION-7.5): the blocks it measured (`document-editor.blocks-measured`), the sections it laid out again (`document-editor.sections-relaid`) and the pages it built anew (`document-editor.pages-rebuilt`) (`EDITOR_COUNTS`). It shall count, once for each block and the texts it shows, a template block another editor in the room renders otherwise from the same markup and texts, which this editor then leaves as the room holds it (`document-editor.template-block-unsettled`, with the block's element id as `block`, DOCE-TEMPLATES-9.1).
 
 Implementation: `src/components/document-editor/use-editor-telemetry.ts`, `src/host/adapters.ts`, `labs/src/host-panel.tsx`
 Verification: `e2e/document-editor.spec.ts`

@@ -231,7 +231,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
   },
   dynamic_template: {
     type: 'templateBlock',
-    attrs: { templateHtml: 'source', renderedHtml: null, trackedKeys: 'keys' },
+    attrs: { templateHtml: 'source', trackedKeys: 'keys' },
   },
   template_variable: { type: 'variable', attrs: { variableKey: 'key' } },
   mention: { type: 'mention', attrs: { userId: 'person', label: 'label' } },

@@ -3,6 +3,9 @@
   "template": {
     "id": "regression-base"
   },
+  "values": {
+    "document.title": "Reading room hours"
+  },
   "sections": [
     {
       "name": "body",
@@ -13,7 +16,21 @@
             "source": "<p>{{document.title}}</p>",
             "keys": "document.title",
             "id": "0d226389"
-          }
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "id": "255865f7"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Reading room hours"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "paragraph",

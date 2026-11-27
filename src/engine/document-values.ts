@@ -14,7 +14,7 @@ import {
   storedValues,
   type TemplateFile,
 } from '../model/index.js';
-import { templateBlockKeys } from './dynamic-templates.js';
+import { templateBlockKeys } from './template-block-render.js';
 
 /** Where a refresh takes the variables' texts from. */
 export interface ValueSource {
