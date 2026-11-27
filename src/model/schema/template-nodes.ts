@@ -20,7 +20,10 @@ const dynamicTemplate: NodeSpec = {
   parseDOM: [
     {
       tag: 'div[data-dynamic-template="true"]',
-      contentElement: '.template-output',
+      // Markup without the blocks it rendered reads as a block that holds none.
+      contentElement: (dom: HTMLElement) =>
+        dom.querySelector<HTMLElement>(':scope > .template-output') ??
+        dom.ownerDocument.createElement('div'),
       getAttrs: (dom: HTMLElement) => ({
         templateHtml: dom.getAttribute('data-dynamic-template-html') || '',
         trackedKeys: dom.getAttribute('data-dynamic-template-keys') || '',

@@ -1,8 +1,8 @@
 // Template blocks (`dynamic_template`): a block that holds, as its own blocks, its template markup
 // rendered with each `{{key}}` token in its text replaced by the text the document stores for the
-// variable (DOCE-FORMAT-1.7). It is rendered again, as an edit, when a writer changes a stored text
-// it tracks or its markup, so the pages lay out stored content and nothing is asked of the host or
-// the clock as they do. The markup is read from an inert document and then as the schema reads
+// variable (DOCE-FORMAT-1.7). It is rendered again, as an edit, when the stored texts or its markup
+// change, so the pages lay out stored content and nothing is asked of the host or the clock as
+// they do. The markup is read from an inert document and then as the schema reads
 // markup, so only the document's own nodes render and nothing in it runs or loads; values are
 // inserted as text.
 
@@ -90,21 +90,54 @@ function renderedContent(node: ProseMirrorNode, doc: ProseMirrorNode, owner: Doc
 /** Marks a transaction that renders the template blocks, which may change what they hold. */
 export const dynamicTemplatesKey = new PluginKey('dynamic-templates');
 
+// A template block at its place, and what it renders.
+interface BlockRender {
+  readonly pos: number;
+  readonly node: ProseMirrorNode;
+  readonly content: Fragment;
+}
+
+// Where in a block's children what it renders stands whole, the first time; -1 when nowhere.
+function renderedAt(node: ProseMirrorNode, rendered: Fragment): number {
+  const children: ProseMirrorNode[] = [];
+  node.content.forEach((child) => children.push(child));
+  for (let start = 0; start + rendered.childCount <= children.length; start += 1) {
+    const run = Fragment.fromArray(children.slice(start, start + rendered.childCount));
+    if (sameOutputContent(run, rendered)) return start;
+  }
+  return -1;
+}
+
+// Makes a block hold what it renders. When it already holds that whole, as after two writers in a
+// room rendered it at once and the room kept both inserts, only the other blocks are deleted, so
+// every writer who repairs it deletes the same ones and the room ends with one copy.
+function fit(tr: Transaction, { pos, node, content: rendered }: BlockRender): void {
+  const start = renderedAt(node, rendered);
+  if (start < 0) {
+    tr.replaceWith(pos + 1, pos + node.nodeSize - 1, rendered);
+    return;
+  }
+  const end = start + rendered.childCount;
+  const offsets: number[] = [];
+  node.content.forEach((_child, offset) => offsets.push(offset));
+  const at = (index: number) => pos + 1 + (offsets[index] ?? node.content.size);
+  if (end < node.childCount) tr.delete(at(end), pos + node.nodeSize - 1);
+  if (start > 0) tr.delete(pos + 1, at(start));
+}
+
 /**
- * Renders every template block of the transaction's document again with the texts it stores,
- * replacing what a block holds where that differs; false when none differed.
+ * Makes every template block of the transaction's document hold its markup rendered with the
+ * texts it stores, where it holds anything else; false when each already did.
  */
 export function renderTemplateBlocks(tr: Transaction, owner: Document): boolean {
-  const changes: { pos: number; node: ProseMirrorNode; content: Fragment }[] = [];
+  const changes: BlockRender[] = [];
   tr.doc.descendants((node, pos) => {
     if (node.type.name !== 'dynamic_template') return !node.isTextblock;
     const content = renderedContent(node, tr.doc, owner);
     if (!sameOutputContent(node.content, content)) changes.push({ pos, node, content });
     return false;
   });
-  for (const { pos, node, content } of changes.reverse()) {
-    tr.replaceWith(pos + 1, pos + node.nodeSize - 1, content);
-  }
+  for (const change of changes.reverse()) fit(tr, change);
   if (changes.length) tr.setMeta(dynamicTemplatesKey, true);
   return changes.length > 0;
 }
@@ -114,7 +147,8 @@ export function renderTemplateBlocks(tr: Transaction, owner: Document): boolean 
 function changesTemplates(tr: Transaction): boolean {
   if (!tr.docChanged || tr.getMeta(dynamicTemplatesKey)) return false;
   if (tr.before.attrs.values !== tr.doc.attrs.values) return true;
-  if (isInlineTextOnly(tr)) return false;
+  // The writer's own typing cannot reach inside a block; another writer's text may.
+  if (isWritersChange(tr) && isInlineTextOnly(tr)) return false;
   let found = false;
   changedNodes(tr.doc, [tr], (node) => {
     found ||= node.type.name === 'dynamic_template';
@@ -141,13 +175,15 @@ function editsOutput(tr: Transaction): boolean {
 
 /** When a template block is rendered again. */
 export interface DynamicTemplatesOptions {
-  /** Whether the writer's changes render template blocks; false while reading or suggesting. */
+  /** Whether this editor renders template blocks; false while reading or suggesting. */
   readonly enabled?: (() => boolean) | undefined;
 }
 
 /**
- * Renders the template blocks again, in the same edit, after a writer's change to the stored texts
- * or to a template block's markup, and refuses the writer's own changes inside what one holds.
+ * Renders the template blocks again after any change to the stored texts or to a template block,
+ * the writer's own, another writer's, a server's or a replayed one, wherever a block holds anything
+ * but what it renders, out of the history. It refuses the writer's own changes inside what a block
+ * holds.
  */
 export function createDynamicTemplates({ enabled }: DynamicTemplatesOptions = {}): Plugin {
   let owner: Document | null = null;
@@ -163,11 +199,11 @@ export function createDynamicTemplates({ enabled }: DynamicTemplatesOptions = {}
       Boolean(tr.getMeta(dynamicTemplatesKey) || tr.getMeta('history$')) ||
       !editsOutput(tr),
     appendTransaction(transactions, _old, state) {
-      if (!owner || enabled?.() === false) return null;
-      const changed = transactions.some((tr) => isWritersChange(tr) && changesTemplates(tr));
-      if (!changed) return null;
+      if (!owner || enabled?.() === false || !transactions.some(changesTemplates)) return null;
       const tr = state.tr;
-      return renderTemplateBlocks(tr, owner) ? tr : null;
+      // Out of the history, so undo and redo take back the change and this renders again, and
+      // no writer is credited with what the document renders.
+      return renderTemplateBlocks(tr, owner) ? tr.setMeta('addToHistory', false) : null;
     },
   });
 }

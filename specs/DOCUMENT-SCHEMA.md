@@ -68,7 +68,7 @@ Verification: `src/model/schema/page-nodes.test.ts`
 
 ### DOCE-SCHEMA-3.2 - Template blocks and variables
 
-A template block (`div[data-dynamic-template]`) shall keep its template markup, the keys it tracks and, as its own blocks (`.template-output`), what its markup rendered last (DOCE-TEMPLATES-9.1). A template variable (`span[data-template-variable]`) shall hold its value as plain text without marks and keep its key.
+A template block (`div[data-dynamic-template]`) shall keep its template markup, the keys it tracks and, as its own blocks (`.template-output`), what its markup rendered last (DOCE-TEMPLATES-9.1); markup without them reads as a block that holds none. A template variable (`span[data-template-variable]`) shall hold its value as plain text without marks and keep its key.
 
 Implementation: `src/model/schema/template-nodes.ts`
 Verification: `src/model/schema/page-nodes.test.ts`

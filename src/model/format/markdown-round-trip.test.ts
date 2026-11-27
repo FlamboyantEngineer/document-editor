@@ -143,6 +143,20 @@ describe('writing then reading Markdown', () => {
     ]);
   });
 
+  it('DOCE-FORMAT-4.5 reads a template block back as the blocks it holds, literal text and all', () => {
+    const content: StoredNode[] = [
+      {
+        type: 'templateBlock',
+        attrs: { source: '<p>{{ name }}</p><p>{{split}} &amp; more</p>' },
+        content: [paragraph(text('<b>Plan</b> & {{token}}')), paragraph(text('Second'))],
+      },
+    ];
+    expect(readBack(content)).toEqual([
+      paragraph(text('<b>Plan</b> & {{token}}')),
+      paragraph(text('Second')),
+    ]);
+  });
+
   it('DOCE-FORMAT-4.4 reads back a heading with a line break as one heading', () => {
     const content = [
       {

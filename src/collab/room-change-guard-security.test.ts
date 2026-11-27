@@ -7,7 +7,12 @@ import {
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
 import * as delta from 'lib0/delta';
-import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
+import {
+  Fragment,
+  type Mark,
+  type MarkType,
+  type Node as ProseMirrorNode,
+} from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
@@ -23,6 +28,7 @@ import {
 } from '../../test/footnote-fixtures.js';
 import { assignElementIds, createElementIds } from '../engine/element-ids.js';
 import { insertFootnote, listFootnotes } from '../engine/footnotes.js';
+import { identifyOutput } from '../engine/script-output.js';
 import {
   acceptAllSuggestions,
   decideSuggestions,
@@ -3040,4 +3046,76 @@ describe('DOCE-COLLAB-7.5 ids in the drawn regions', () => {
       }
     },
   );
+});
+
+// A room whose template block holds what another writer's editor rendered (DOCE-TEMPLATES-9.1).
+const templateFile: DocumentFile = {
+  formatVersion: 1,
+  template: null,
+  values: { 'document.name': 'Plan' },
+  sections: [
+    {
+      name: null,
+      content: [
+        {
+          type: 'templateBlock',
+          attrs: { id: 'b0000001', source: '<p>{{document.name}}</p>' },
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: 'a0000003', author: 'other' },
+              content: [{ type: 'text', text: 'Plan' }],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// A change of the stored text with the render an editor appends to it, as `renderTemplateBlocks`
+// writes it: the block's blocks replaced by its markup's, with the ids its id and places make.
+const renderName = (name: string) => (state: EditorState) => {
+  const tr = state.tr.setDocAttribute('values', { 'document.name': name });
+  tr.doc.descendants((node, pos) => {
+    if (node.type.name !== 'dynamic_template') return true;
+    const rendered = schema.nodes.paragraph?.create(null, schema.text(name));
+    if (!rendered) throw new Error('Missing paragraph.');
+    tr.replaceWith(
+      pos + 1,
+      pos + node.nodeSize - 1,
+      identifyOutput('b0000001', Fragment.from(rendered)),
+    );
+    return false;
+  });
+  return state.apply(tr);
+};
+
+it('DOCE-COLLAB-7.2 DOCE-TEMPLATES-9.1 takes a direct editor’s render over blocks another writer’s editor rendered, and refuses it from a suggester', async () => {
+  const granted = { edit: true, suggest: true, comment: true, decide: true };
+  const editor = await setup({ granted, seeded: { file: templateFile } });
+  try {
+    change(editor.doc, renderName('Notes'));
+    await editor.provider.whenStored();
+    expect(editor.provider.getState().refusal).toBeNull();
+    const stored = yjsToDocument(editor.handle.snapshot(), { schema });
+    expect(stored?.values).toEqual({ 'document.name': 'Notes' });
+    expect(stored?.sections[0]?.content?.[0]?.content?.[0]).toMatchObject({
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Notes' }],
+    });
+  } finally {
+    await editor.close();
+  }
+  // A suggester's editor renders nothing (`enabled` is false), and the room refuses a render.
+  const suggester = await setup({ seeded: { file: templateFile } });
+  try {
+    const before = yjsToDocument(suggester.handle.snapshot(), { schema });
+    change(suggester.doc, renderName('Notes'));
+    await suggester.provider.whenStored();
+    expect(suggester.provider.getState().refusal).toBe('unauthorized-write');
+    expect(yjsToDocument(suggester.handle.snapshot(), { schema })).toEqual(before);
+  } finally {
+    await suggester.close();
+  }
 });

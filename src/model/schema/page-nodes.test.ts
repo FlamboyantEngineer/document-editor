@@ -82,6 +82,12 @@ describe('page nodes', () => {
     const block =
       '<div data-dynamic-template="true" data-dynamic-template-html="{{title}}" class="dynamic-template-block" data-dynamic-template-keys="title"><div class="template-output" contenteditable="false"><p>Plan</p></div></div>';
     expect(roundTrip(block)).toBe(block);
+    // Markup without its rendered blocks, as an attribute held them, reads as a block holding none.
+    const bare = parseMarkup(
+      '<div data-dynamic-template="true" data-dynamic-template-html="{{title}}" data-dynamic-template-rendered-html="Plan"></div>',
+    );
+    expect(findNode(bare, 'dynamic_template')?.attrs).not.toHaveProperty('renderedHtml');
+    expect(findNode(bare, 'dynamic_template')).toHaveProperty('textContent', '');
     const variable = '<p>By <span data-template-variable="author">Ada</span></p>';
     const doc = parseMarkup(variable);
     expect(findNode(doc, 'template_variable')?.attrs.variableKey).toBe('author');

@@ -37,7 +37,7 @@
       "parseDOM": [
         {
           "tag": "div[data-dynamic-template=\"true\"]",
-          "contentElement": ".template-output",
+          "contentElement": "function",
           "getAttrs": "function"
         }
       ],
