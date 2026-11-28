@@ -1,5 +1,14 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
+import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
+import { printSnapshot } from '../src/document/index.js';
+import { textGaps } from './cell-text.js';
 import { expect, test, waitForLab } from './fixtures.js';
+
+declare global {
+  interface Window {
+    regressionLab: RegressionProbe;
+  }
+}
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
 const cell = (page: Page, text: string) =>
@@ -313,5 +322,50 @@ test.describe('table handles', () => {
     await expect
       .poll(async () => Math.round((await start.boundingBox())?.height ?? 0))
       .toBe(Math.round(box.height + 40));
+  });
+});
+
+test.describe('cell alignment on the engine lines', () => {
+  // The regression document's cells: the header "Group" at the default, the header "Period"
+  // centred across two columns and a body cell "12" right-aligned.
+  const header = (scope: Page | Locator, text: string) =>
+    scope.locator('td, th', { hasText: new RegExp(`^${text}$`, 'u') }).first();
+
+  test('DOCE-PAGINATION-10.5 DOCE-PAGINATION-11.2 draws an aligned cell’s text where it aligns it, in the editor, the viewer and print', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1600, height: 1800 });
+    await page.goto('regression.html?document=table-merged-cells');
+    await waitForLab(page);
+    const editor = content(page);
+    const centred = await textGaps(header(editor, 'Period'));
+    expect(centred.left).toBeGreaterThan(20);
+    expect(Math.abs(centred.left - centred.right)).toBeLessThan(1.5);
+    const right = await textGaps(header(editor, '12'));
+    expect(right.right).toBeLessThan(1.5);
+    expect(right.left).toBeGreaterThan(20);
+    expect((await textGaps(header(editor, 'Group'))).left).toBeLessThan(1.5);
+
+    // The viewer draws the same lines.
+    expect(await page.evaluate(() => window.regressionLab.showViewer())).toBe(true);
+    const viewer = page.locator('.de-document-viewer');
+    await expect(header(viewer, 'Period')).toBeAttached();
+    const shown = await textGaps(header(viewer, 'Period'));
+    expect(Math.abs(shown.left - shown.right)).toBeLessThan(1.5);
+    expect(shown.left).toBeCloseTo(centred.left, 0);
+
+    // And so does print.
+    const html = await page.evaluate(
+      (href) => window.regressionLab.snapshot({ stylesheets: [href] }) ?? '',
+      new URL('build/reference.css', page.url()).href,
+    );
+    const printed = await page.context().newPage();
+    await printed.setViewportSize({ width: 1600, height: 1800 });
+    expect((await printSnapshot(printed, html)).ok).toBe(true);
+    await printed.emulateMedia({ media: 'print' });
+    const inPrint = await textGaps(header(printed, 'Period'));
+    expect(Math.abs(inPrint.left - inPrint.right)).toBeLessThan(1.5);
+    expect(inPrint.left).toBeGreaterThan(20);
+    await printed.close();
   });
 });

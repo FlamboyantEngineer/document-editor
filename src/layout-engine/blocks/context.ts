@@ -3,11 +3,22 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LayoutBlock } from '../../model/index.js';
+import type { TextAlign } from '../typography.js';
 import type { BlockMetrics } from './metrics.js';
 import type { BlockGeometry, BlockLayoutOptions, BlockPlace } from './types.js';
 
 /** What holds a block, where the stylesheet changes a child's margins. */
 export type BlockParent = 'page' | 'list-item' | 'cell' | 'column' | 'region' | 'other';
+
+/**
+ * Where a parent lays a child out: its width, what holds it and, from a table cell, the alignment
+ * the cell gives its paragraphs and headings (none clears one a cell further out gave).
+ */
+interface ChildPlace {
+  readonly width: number;
+  readonly parent: BlockParent;
+  readonly cellAlign?: TextAlign | undefined;
+}
 
 /** A block laid out, or why it cannot be. */
 export type Laid = BlockGeometry;
@@ -19,7 +30,7 @@ export interface BlockContext {
   readonly metrics: BlockMetrics;
   readonly parent: BlockParent;
   /** Lays out a child at a width, held by a parent. */
-  readonly child: (node: ProseMirrorNode, at: { width: number; parent: BlockParent }) => Laid;
+  readonly child: (node: ProseMirrorNode, at: ChildPlace) => Laid;
 }
 
 /** A block laid out. */
@@ -44,7 +55,7 @@ export function notLaid(node: ProseMirrorNode, reason: string): Laid {
 export function layChildren(
   context: BlockContext,
   node: ProseMirrorNode,
-  at: { width: number; parent: BlockParent },
+  at: ChildPlace,
 ): { readonly blocks: LayoutBlock[] } | Laid {
   const blocks: LayoutBlock[] = [];
   let failed: Laid | null = null;
