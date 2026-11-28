@@ -270,13 +270,12 @@ describe('lineMarks', () => {
   });
 
   it('DOCE-PAGINATION-11.2 indents an empty aligned block as the block, where the caret is drawn', () => {
-    const lines: TextLine[] = [
-      { from: 0, to: 0, width: 0, left: 50, top: 0, height: 20, end: 'end' },
-    ];
+    const line: TextLine = { from: 0, to: 0, width: 0, left: 50, top: 0, height: 20, end: 'end' };
+    const lines = [line];
     const empty = { width: 100, lines, height: 20, overhead: 0, justify: false };
     expect(lineMarks(paragraph(''), empty)).toEqual([]);
     expect(emptyLineIndent(empty)).toBe('--de-first-indent: 50.000px');
-    expect(emptyLineIndent(table(3, 3, { lines: [{ ...lines[0]!, to: 3 }] }))).toBeNull();
+    expect(emptyLineIndent(table(3, 3, { lines: [{ ...line, to: 3 }] }))).toBeNull();
   });
 
   it('DOCE-PAGINATION-13.1 indents a prefixed block’s first line as the block, before its number', () => {

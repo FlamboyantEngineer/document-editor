@@ -51,6 +51,16 @@ interface Scope {
   readonly name: string | null;
 }
 
+// What a top-level block's kept set is drawn with besides its node: its number, whether a later
+// part continues it, and the words inserted in it.
+function blockKey(
+  builder: Builder,
+  { node, pos, prefix }: { node: ProseMirrorNode; pos: number; prefix: string | undefined },
+): string {
+  const continued = builder.continuing.has(pos) ? 'c' : '';
+  return `${prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
+}
+
 // A page's content: each forced block marked, with its lines inside it.
 function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: number } & Scope) {
   const locals: Decoration[] = [];
@@ -97,8 +107,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       return;
     }
     locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
-    const continued = builder.continuing.has(pos) ? 'c' : '';
-    const key = `${first.prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(child))}`;
+    const key = blockKey(builder, { node: child, pos, prefix: first.prefix });
     const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
     if (set !== DecorationSet.empty) children.push(offset, end, set);
   });

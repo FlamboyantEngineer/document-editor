@@ -132,6 +132,25 @@ function insertedStart(
   return { ...at, class: wraps ? 'de-forced-lines__break' : 'de-forced-lines__indent', style };
 }
 
+// The mark that starts a line at its indent: on its first character, or, for an empty line after
+// a hard break, an empty element before the position, as among inserted words
+// (`de-forced-lines__indent`), so the caret is drawn where the text will start.
+function startMark(node: ProseMirrorNode, table: JustifiedLines, line: TextLine): LineMark | null {
+  if (line.to <= line.from) {
+    if (line.from === 0) return null;
+    return insertedStart(table, { line: { ...line, side: -1 }, wraps: false, prefixed: false });
+  }
+  const indent = indentOf(table, line);
+  if (indent <= 0.001) return null;
+  const style = `--de-line-indent: ${px(indent)}`;
+  return {
+    from: line.from,
+    to: firstCharacterEnd(node, line),
+    class: 'de-forced-lines__start',
+    style,
+  };
+}
+
 // The marks that draw one line; a line followed by one that starts among inserted text ends at
 // that line's break instead.
 function marksOfLine(
@@ -139,24 +158,9 @@ function marksOfLine(
   table: JustifiedLines,
   { line: laid, prefixed, next }: { line: TextLine; prefixed: boolean; next: TextLine | undefined },
 ): LineMark[] {
-  const marks: LineMark[] = [];
   const line = shownLine(table, laid);
-  const indent = indentOf(table, line);
-  if (indent > 0.001 && line.to > line.from && !prefixed && line.side === undefined) {
-    const style = `--de-line-indent: ${px(indent)}`;
-    marks.push({
-      from: line.from,
-      to: firstCharacterEnd(node, line),
-      class: 'de-forced-lines__start',
-      style,
-    });
-  }
-  // An empty line after a hard break starts at its indent too, so the caret is drawn there: an
-  // empty element before the position, as among inserted words (`de-forced-lines__indent`).
-  if (line.to <= line.from && line.from > 0 && line.side === undefined && !prefixed) {
-    const empty = insertedStart(table, { line: { ...line, side: -1 }, wraps: false, prefixed });
-    if (empty) marks.push(empty);
-  }
+  const start = prefixed || line.side !== undefined ? null : startMark(node, table, line);
+  const marks: LineMark[] = start ? [start] : [];
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
   const text = shownText(node, table, line);
   const spaces = spacesIn(text);
