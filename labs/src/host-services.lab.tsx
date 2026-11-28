@@ -279,7 +279,7 @@ function Lab() {
         );
       },
     }),
-    // A new adapter is a new font request, which the pages wait for again.
+    // A new adapter is a new font request, which the editor makes again.
     [fontBehaviour],
   );
   const telemetry = useMemo<TelemetryAdapter>(

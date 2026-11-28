@@ -30,8 +30,6 @@ export interface BannerLabels {
   readonly fontsMissing: string;
   /** Which families did not load. */
   readonly fontsMissingDetail: (families: readonly string[]) => string;
-  /** Shown in place of pages that wait for template fonts that did not load, given them. */
-  readonly fontsFailed: (families: readonly string[]) => string;
   /** The host serves no fonts the pages can be laid out with: the document shows unpaged. */
   readonly pagesUnavailable: string;
   /** Why, and what the reader sees instead. */
@@ -80,7 +78,6 @@ export const DEFAULT_BANNER_LABELS: BannerLabels = {
   fontsMissing: 'Some fonts did not load',
   fontsMissingDetail: (families) =>
     `${list.format(families)} ${families.length === 1 ? 'shows' : 'show'} in a fallback font, so pages may break differently.`,
-  fontsFailed: (families) => `The document cannot be shown: ${list.format(families)} did not load.`,
   pagesUnavailable: 'The pages cannot be laid out',
   pagesUnavailableDetail: (reason) =>
     `${UNAVAILABLE[reason]} The document shows without pages, in fallback fonts.`,
