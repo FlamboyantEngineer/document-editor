@@ -4,9 +4,8 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { BlockGeometry, BlockPlace } from '../layout-engine/blocks/types.js';
-import { suggestionKey, type SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
-import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
-import type { DrawnLines, NestedDrawing } from './text-engine-types.js';
+import { blockInsertedKey, type holdInsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import type { DrawnLines, NestedLinesPlace } from './text-engine-types.js';
 
 /**
  * Where block geometry's text blocks are written down while a container is laid out for the lines
@@ -21,17 +20,16 @@ export interface LinesRecorder {
 interface NestedSource {
   readonly geometry: { layoutBlock(node: ProseMirrorNode, place: BlockPlace): BlockGeometry };
   readonly recorder: LinesRecorder;
+  readonly words: ReturnType<typeof holdInsertedTexts>;
   readonly widthOf: (scope: string | null) => number;
   /** A footnote marker's or entry's number, which its width follows. */
   readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
-  /** The markup the pages are laid out in, by which one holding a suggestion is kept too. */
-  readonly markup?: (() => SuggestionMarkup) | undefined;
+  /** What the container's layout depends on in the current markup. */
+  readonly markupKey: (node: ProseMirrorNode) => string;
   /** A caption's label in the measured document, whose width the caption's lines follow. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   /** What the template variables anywhere in a node show, as a key (`bodyVariablesKey`). */
   readonly variablesKey?: ((node: ProseMirrorNode) => string) | undefined;
-  /** Sets the words the text blocks being laid out are laid out with. */
-  readonly inserting?: ((words: InsertedTexts) => void) | undefined;
 }
 
 /**
@@ -66,8 +64,7 @@ function labelsKey(
 }
 
 /**
- * The nested lines of containers, kept by node, scope, footnote numbers, caption labels and markup
- * until forgotten.
+ * The nested lines of containers, kept by node, scope, numbers, markup and inserted words.
  */
 export function createNestedLines(source: NestedSource) {
   let kept = new WeakMap<
@@ -78,31 +75,30 @@ export function createNestedLines(source: NestedSource) {
     lines(
       container: ProseMirrorNode,
       scope: string | null,
-      { labelOf, inserted = NO_INSERTED }: NestedDrawing = {},
+      { labelOf, inserted = NO_INSERTED }: NestedLinesPlace = {},
     ): ReadonlyMap<ProseMirrorNode, DrawnLines> {
       const labels = labelOf ?? source.labelOf;
       const shown = labels ? labelsKey(container, labels) : '';
-      const words = blockInsertedKey(container, inserted);
-      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${suggestionKey(container, source.markup)}${source.variablesKey?.(container) ?? ''}|${shown}|${words}`;
+      const insertedKey = blockInsertedKey(container, inserted);
+      const key = `${scope ?? ''}|${footnoteNumbersKey(container, source.footnoteOf)}|${source.markupKey(container)}${source.variablesKey?.(container) ?? ''}|${shown}|${insertedKey}`;
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
-      const { geometry, recorder } = source;
-      const recorded = new Map<ProseMirrorNode, DrawnLines>();
-      recorder.lines = recorded;
+      const { geometry, recorder, words } = source;
+      recorder.lines = new Map();
       recorder.labelOf = labelOf ?? null;
-      source.inserting?.(inserted);
-      let result: BlockGeometry;
-      // A layout that throws, as a host rule can, leaves no recorder writing for the next block.
       try {
-        result = geometry.layoutBlock(container, { width: source.widthOf(scope), scope });
+        const result = words.with(inserted, () =>
+          geometry.layoutBlock(container, { width: source.widthOf(scope), scope }),
+        );
+        const lines: ReadonlyMap<ProseMirrorNode, DrawnLines> = result.ok
+          ? recorder.lines
+          : new Map();
+        kept.set(container, { key, lines });
+        return lines;
       } finally {
-        source.inserting?.(NO_INSERTED);
         recorder.labelOf = null;
         recorder.lines = null;
       }
-      const lines: ReadonlyMap<ProseMirrorNode, DrawnLines> = result.ok ? recorded : new Map();
-      kept.set(container, { key, lines });
-      return lines;
     },
     forget() {
       kept = new WeakMap();

@@ -149,13 +149,14 @@ export function pdfFontNames(pdf: Buffer): string[] {
 }
 
 // The text of each page of a PDF, by poppler's `pdftotext`, which the CI runner installs.
-export function pdfPageTexts(pdf: Buffer, pages: number): string[] {
+export function pdfPageTexts(pdf: Buffer, pages: number, streamOrder = false): string[] {
   const dir = mkdtempSync(join(tmpdir(), 'print-fidelity-'));
   const file = join(dir, 'print.pdf');
   writeFileSync(file, pdf);
   return Array.from({ length: pages }, (_, index) => {
     const page = String(index + 1);
-    execFileSync('pdftotext', ['-f', page, '-l', page, file, join(dir, `${page}.txt`)]);
+    const mode = streamOrder ? ['-raw'] : [];
+    execFileSync('pdftotext', [...mode, '-f', page, '-l', page, file, join(dir, `${page}.txt`)]);
     return readFileSync(join(dir, `${page}.txt`), 'utf8');
   });
 }

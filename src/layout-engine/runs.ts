@@ -28,10 +28,7 @@ interface InlineAtomSize {
   readonly math?: MathLayouts | undefined;
 }
 
-/**
- * Sizes an inline atom the engine cannot lay out as text, drawn in its text block and scope; null
- * when it is not known yet.
- */
+/** Sizes an inline node in its text block and scope, or gives null when it has no size. */
 export type MeasureAtom = (node: ProseMirrorNode, place: AtomPlace) => InlineAtomSize | null;
 
 /** One stretch of a block's content between hard breaks. */
@@ -82,6 +79,8 @@ interface RunInput {
   readonly prefix?: string | RichInlineItem | undefined;
   /** The width of a box drawn before the content, such as a paragraph's number. */
   readonly lead?: number | undefined;
+  /** Gives a host rule's size in place of the engine's own layout. */
+  readonly sizeAtom?: MeasureAtom | undefined;
   readonly measureAtom?: MeasureAtom | undefined;
   /** The width of the block's lines, which inline math wider than it is scaled down to. */
   readonly lineWidth?: number | undefined;
@@ -210,12 +209,28 @@ function measuredAtom(child: ProseMirrorNode, input: RunInput): AtomItem {
   return { item: { width: size.width }, size };
 }
 
-// Adds an inline atom to a run: as its text, or as a box of the size measured; the reason when it
-// cannot be laid out.
-function addAtom(
-  run: Builder,
-  { child, offset, input }: { child: ProseMirrorNode; offset: number; input: RunInput },
-): string | null {
+interface InlinePlace {
+  readonly child: ProseMirrorNode;
+  readonly offset: number;
+  readonly input: RunInput;
+  readonly boxes: ReservedBox[];
+}
+
+// A host rule's box takes precedence over the node's built-in inline layout.
+function addInline(run: Builder, at: InlinePlace): string | null {
+  const { child, offset, input } = at;
+  const place = { parent: input.node, scope: input.scope, width: input.lineWidth };
+  const sized = input.sizeAtom?.(child, place);
+  if (sized) {
+    addText(run, { item: { width: sized.width }, offset, box: sized });
+    return null;
+  }
+  if (child.type.name === 'template_variable') return addVariable(run, at);
+  return addAtom(run, at);
+}
+
+// Adds an inline atom as text or a measured box, or returns why it could not be laid out.
+function addAtom(run: Builder, { child, offset, input }: InlinePlace): string | null {
   const name = child.type.name;
   const refused = input.textAtoms?.refused?.get(name);
   if (refused !== undefined) return refused;
@@ -239,10 +254,7 @@ function placedInline(child: ProseMirrorNode, math: MathLayouts, input: RunInput
 
 // A template variable as the text it shows, unbroken as an atom is, in its marks' font; nothing
 // for one that shows none. In a page's body, a page variable takes its box (DOCE-PAGINATION-11.13).
-function addVariable(
-  run: Builder,
-  at: { child: ProseMirrorNode; offset: number; input: RunInput; boxes: ReservedBox[] },
-): string | null {
+function addVariable(run: Builder, at: InlinePlace): string | null {
   const { child, offset, input } = at;
   const { variables, bodyVariables: body } = input;
   const key = String(child.attrs.variableKey ?? '');
@@ -362,13 +374,9 @@ export function buildRuns(input: RunInput): TextRuns {
         insert(run, piece.offset);
         addText(run, { ...piece, box, marks: child.marks });
       }
-    } else if (child.type.name === 'template_variable') {
-      // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
-      insert(run, offset);
-      failure = addVariable(run, { child, offset, input, boxes });
     } else {
       insert(run, offset);
-      failure = addAtom(run, { child, offset, input });
+      failure = addInline(run, { child, offset, input, boxes });
     }
   });
   if (failure) return { ok: false, reason: failure };

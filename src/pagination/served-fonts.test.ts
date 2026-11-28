@@ -1,8 +1,10 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../test/deferred.js';
 import { harfBuzzWasm, referenceFaces } from '../../test/font-files-node.js';
+import { registerFaces } from '../document/font-registry.js';
 import type { FontsAdapter, HostResult } from '../host/adapters.js';
-import type { FontFiles, FontShaper } from '../host/font-files.js';
+import type { FontFaceFile, FontFiles, FontShaper } from '../host/font-files.js';
 import { loadPagesFonts } from './served-fonts.js';
 
 const ok = <T>(value: T): HostResult<T> => ({ ok: true, value });
@@ -17,7 +19,160 @@ const filesOf = (families: readonly string[]): FontFiles => ({
 
 const doc = {} as Document;
 
+function fontDocument(waitFor?: (family: string) => Promise<void>) {
+  class TestFace {
+    constructor(
+      readonly family: string,
+      readonly bytes: FontFaceFile['bytes'],
+      readonly descriptors: FontFaceDescriptors,
+    ) {}
+
+    async load() {
+      await waitFor?.(this.family);
+      return this;
+    }
+  }
+  vi.stubGlobal('FontFace', TestFace);
+  const faces = new Set<TestFace>();
+  return { doc: { fonts: faces } as unknown as Document, faces };
+}
+
+const fontAdapter = (files: NonNullable<FontsAdapter['files']>): FontsAdapter => ({
+  files,
+  load: () => Promise.resolve(ok([])),
+  shaper: () => Promise.resolve(ok(harfBuzzWasm())),
+});
+
+afterEach(() => vi.unstubAllGlobals());
+
 describe('loadPagesFonts', () => {
+  it('DOCE-PAGINATION-12.8 draws the whole augmented family and releases the old registration after adoption', async () => {
+    const { doc, faces } = fontDocument();
+    const reference = filesOf(['Lab Geist']).faces;
+    const regular = reference.find(({ weight }) => weight === 400);
+    const bold = reference.find(({ weight }) => weight === 700);
+    if (!regular || !bold) throw new Error('Expected regular and bold files');
+    const viewer = registerFaces(doc, { faces: [regular] });
+    const fonts = fontAdapter((families) =>
+      Promise.resolve(ok({ faces: families.includes('Later') ? [regular, bold] : [regular] })),
+    );
+    const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc });
+    if (served.phase !== 'pretext') throw new Error('Expected usable fonts');
+    const before = served.drawing();
+    const measure = served.measureContext();
+    measure.font = '16px "Lab Geist"';
+    const regularWidth = measure.measureText('Web typography').width;
+    expect([...faces].map(({ family }) => family)).toEqual(['Lab Geist']);
+
+    expect(await served.add(['Later'])).toBe(true);
+    const after = served.drawing();
+    const alias = after.drawnFamily('Lab Geist');
+    expect(alias).not.toBe('Lab Geist');
+    expect(served.isFontServed(alias)).toBe(true);
+    const aliased = [...faces].filter(({ family }) => family === alias);
+    expect(aliased.map(({ bytes }) => bytes)).toEqual([regular.bytes, bold.bytes]);
+    measure.font = `16px "${alias}"`;
+    expect(measure.measureText('Web typography').width).toBe(regularWidth);
+    expect(before.drawnFiles().faces).toEqual([regular]);
+    expect(after.drawnFiles().faces.filter(({ family }) => family === alias)).toHaveLength(2);
+    expect(faces.size).toBe(3);
+
+    after.adopt();
+    expect(faces.size).toBe(3);
+    viewer.release();
+    expect([...faces]).toEqual(aliased);
+    served.destroy();
+    expect(faces.size).toBe(0);
+  });
+
+  it('DOCE-PAGINATION-12.8 exposes only ready face batches in a drawing', async () => {
+    const started = deferred<void>();
+    const pending = deferred<void>();
+    const { doc } = fontDocument((family) => {
+      if (family !== 'Pending') return Promise.resolve();
+      started.resolve();
+      return pending.promise;
+    });
+    const [reference] = filesOf(['Lab Geist']).faces;
+    if (!reference) throw new Error('Expected a reference face');
+    const fonts = fontAdapter((families) =>
+      Promise.resolve(ok({ faces: families.map((family) => ({ ...reference, family })) })),
+    );
+    const served = await loadPagesFonts(fonts, ['Initial'], { doc });
+    if (served.phase !== 'pretext') throw new Error('Expected usable fonts');
+    const first = served.add(['Ready']);
+    const second = served.add(['Pending']);
+    await started.promise;
+    expect(await first).toBe(true);
+    expect(served.drawing().files.faces.map(({ family }) => family)).toEqual(['Initial', 'Ready']);
+    pending.resolve();
+    expect(await second).toBe(true);
+    expect(served.drawing().files.faces.map(({ family }) => family)).toEqual([
+      'Initial',
+      'Ready',
+      'Pending',
+    ]);
+    served.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.8 keeps snapshot rules distinct when a later family is named like an alias', async () => {
+    const { doc } = fontDocument();
+    const faces = filesOf(['Lab Geist', 'Lab Geist Mono']).faces;
+    const regular = faces.find(({ family }) => family === 'Lab Geist');
+    const mono = faces.find(({ family }) => family === 'Lab Geist Mono');
+    if (!regular || !mono) throw new Error('Expected reference faces');
+    const viewer = registerFaces(doc, { faces: [{ ...mono, family: regular.family }] });
+    let literal = '';
+    const fonts = fontAdapter((families) =>
+      Promise.resolve(
+        ok({ faces: families.includes(literal) ? [{ ...mono, family: literal }] : [regular] }),
+      ),
+    );
+    const served = await loadPagesFonts(fonts, [regular.family], { doc });
+    if (served.phase !== 'pretext') throw new Error('Expected usable fonts');
+    literal = served.drawing().drawnFamily(regular.family);
+    expect(await served.add([literal])).toBe(true);
+    const drawing = served.drawing();
+    const alias = drawing.drawnFamily(literal);
+    expect(alias).not.toBe(literal);
+    expect(drawing.files.faces).toEqual([regular, { ...mono, family: literal }]);
+    expect(drawing.drawnFiles().faces).toEqual([
+      regular,
+      { ...regular, family: literal },
+      { ...mono, family: alias },
+    ]);
+    viewer.release();
+    served.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 measures and draws generic families with the same first valid mapping', async () => {
+    const faces = filesOf(['Lab Geist', 'Lab Geist Mono']).faces;
+    const files = fontAdapter((families) =>
+      Promise.resolve(
+        ok<FontFiles>(
+          families.includes('Later')
+            ? { faces: [], generics: { serif: 'Lab Geist', 'sans-serif': 'Lab Geist Mono' } }
+            : { faces, generics: { serif: 'Missing', 'sans-serif': 'Lab Geist' } },
+        ),
+      ),
+    );
+    const served = await loadPagesFonts(files, ['Lab Geist'], { doc });
+    if (served.phase !== 'pretext') throw new Error('Expected usable fonts');
+    const measure = served.measureContext();
+    const width = (stack: string) => {
+      measure.font = `16px ${stack}`;
+      return measure.measureText('Web typography').width;
+    };
+    expect(served.files().generics).toEqual({ 'sans-serif': 'Lab Geist' });
+    expect(width('serif, "Lab Geist Mono"')).toBe(width('"Lab Geist Mono"'));
+    expect(await served.add(['Later'])).toBe(true);
+    expect(served.files().generics).toEqual({ serif: 'Lab Geist', 'sans-serif': 'Lab Geist' });
+    expect(width('serif')).toBe(width('"Lab Geist"'));
+    expect(width('sans-serif')).toBe(width('"Lab Geist"'));
+    expect(width('sans-serif')).not.toBe(width('"Lab Geist Mono"'));
+    served.destroy();
+  });
+
   it('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.5 keeps the browser layout, saying why, without a shaper or files', async () => {
     expect(await loadPagesFonts(undefined, ['Lab Geist'], { doc })).toEqual({
       phase: 'browser',
@@ -30,6 +185,29 @@ describe('loadPagesFonts', () => {
     expect(await loadPagesFonts(noFiles, ['Lab Geist'], { doc })).toEqual({
       phase: 'browser',
       reason: 'no-files',
+    });
+  });
+
+  it('DOCE-HOST-1.14.1 reports synchronous host failures as unavailable fonts', async () => {
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve(ok([])),
+      shaper: () => Promise.resolve(ok(harfBuzzWasm())),
+      files: (families) => Promise.resolve(ok(filesOf(families))),
+    };
+    const fail = () => {
+      throw new Error('Font service unavailable');
+    };
+    await expect(
+      loadPagesFonts({ ...fonts, shaper: fail }, ['Lab Geist'], { doc }),
+    ).resolves.toEqual({
+      phase: 'browser',
+      reason: 'shaper-failed',
+    });
+    await expect(
+      loadPagesFonts({ ...fonts, files: fail }, ['Lab Geist'], { doc }),
+    ).resolves.toEqual({
+      phase: 'browser',
+      reason: 'files-failed',
     });
   });
 
@@ -194,12 +372,62 @@ describe('loadPagesFonts', () => {
     const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc });
     if (served.phase !== 'pretext') throw new Error('not served');
     const before = served.files().faces.length;
-    expect(await served.add(['Lab Geist Copy'])).toBe(true);
+    expect(await served.add(['Lab Geist Copy'])).toBe(false);
     expect(served.files().faces).toHaveLength(before);
+    served.destroy();
+  });
+
+  it('DOCE-HOST-1.14.1 shares pending batches across overlapping family requests', async () => {
+    const asked: string[][] = [];
+    const pending = deferred<HostResult<FontFiles>>();
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve(ok([])),
+      shaper: () => Promise.resolve(ok(harfBuzzWasm())),
+      files: (families) => {
+        asked.push([...families]);
+        if (families.includes('Lab Geist Mono')) return pending.promise;
+        return Promise.resolve(ok(filesOf(families)));
+      },
+    };
+    const served = await loadPagesFonts(fonts, ['Lab Geist', '"lab geist"'], { doc });
+    if (served.phase !== 'pretext') throw new Error('not served');
+    const first = served.add(['Lab Geist Mono', '"LAB GEIST MONO"']);
+    const overlap = served.add(['Unserved', 'lab geist mono']);
+    const joined = served.add(['"lab geist mono"']);
+    const unserved = served.add(['unserved']);
+    await expect(unserved).resolves.toBe(false);
+    expect(await Promise.race([joined, Promise.resolve('pending')])).toBe('pending');
+    pending.resolve(ok(filesOf(['Lab Geist Mono'])));
+    await expect(Promise.all([first, overlap, joined])).resolves.toEqual([true, true, true]);
+    await expect(served.add(['"lab geist mono"', 'Unserved'])).resolves.toBe(false);
+    expect(asked).toEqual([['Lab Geist'], ['Lab Geist Mono'], ['Unserved']]);
+    served.destroy();
+  });
+
+  it('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.7 leaves failed or abandoned incremental loads unserved', async () => {
+    const pending = deferred<HostResult<FontFiles>>();
+    const controller = new AbortController();
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve(ok([])),
+      shaper: () => Promise.resolve(ok(harfBuzzWasm())),
+      files: (families, { signal }) => {
+        expect(signal).toBe(controller.signal);
+        if (families.includes('Lab Geist Mono')) return pending.promise;
+        if (families.includes('Unserved')) throw new Error('Font service unavailable');
+        return Promise.resolve(ok(filesOf(families)));
+      },
+    };
+    const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc, signal: controller.signal });
+    if (served.phase !== 'pretext') throw new Error('not served');
+    await expect(served.add(['Unserved'])).resolves.toBe(false);
+    const added = served.add(['Lab Geist Mono']);
+    await Promise.resolve();
+    controller.abort();
+    pending.resolve(ok(filesOf(['Lab Geist Mono'])));
+    await expect(added).resolves.toBe(false);
+    expect(served.isFontServed('Lab Geist Mono')).toBe(false);
     served.destroy();
   });
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+afterEach(() => vi.useRealTimers());

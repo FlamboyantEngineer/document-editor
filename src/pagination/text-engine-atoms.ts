@@ -112,27 +112,17 @@ const samePlace = (was: PlacedMath | undefined, now: PlacedMath) =>
   was.box.scale === now.box.scale &&
   was.end === now.end;
 
-// How many of the nodes are in a document, forgetting the others.
-function liveIn(doc: ProseMirrorNode | null, nodes: Set<ProseMirrorNode>): number {
-  if (!nodes.size) return 0;
-  const live = new Set<ProseMirrorNode>();
-  doc?.descendants((node) => {
-    if (nodes.has(node)) live.add(node);
-  });
-  for (const node of nodes) if (!live.has(node)) nodes.delete(node);
-  return live.size;
-}
-
-// The most equations found by element id; the least recently placed go first.
+const WAITING_KEPT = 1000;
 const MATH_PLACES_BY_ID = 4000;
 
-// The most math nodes waiting for what sizes them that the engine follows; the oldest go first.
-const WAITING_KEPT = 1000;
-
 interface MathPlacement {
+  readonly node: ProseMirrorNode;
   readonly at: PlacedMath;
   readonly number: string | undefined;
 }
+
+const isSmall = (placement: MathPlacement | undefined) =>
+  placement !== undefined && placement.at.box.scale < MATH_MIN_REPORTED_SCALE;
 
 // Where each math node laid out from its layout was placed, and those scaled below the reported
 // scale (`MATH_MIN_REPORTED_SCALE`), counted in the document the engine numbers last: math edited
@@ -142,9 +132,35 @@ interface MathPlacement {
 export function mathPlaces(
   equationOf: (node: ProseMirrorNode) => string | undefined = () => undefined,
 ) {
-  const placed = new WeakMap<ProseMirrorNode, MathPlacement>();
-  const byId = new Map<unknown, MathPlacement & { node: ProseMirrorNode }>();
-  const small = new Set<ProseMirrorNode>();
+  let placed = new WeakMap<ProseMirrorNode, MathPlacement>();
+  let byId = new Map<unknown, MathPlacement>();
+  let doc: ProseMirrorNode | null = null;
+  let live = new Set<ProseMirrorNode>();
+  let smallMath = 0;
+  let recorded = false;
+  // Moves when a node is placed anew or the lookup for projected copies changes.
+  let version = 0;
+  const keepIn = (next: ProseMirrorNode) => {
+    live = new Set();
+    const indexed = new Map<unknown, MathPlacement>();
+    smallMath = 0;
+    next.descendants((node) => {
+      if (node.type.name !== 'math_display' && node.type.name !== 'math_inline') return true;
+      if (live.has(node)) return false;
+      live.add(node);
+      const own = placed.get(node);
+      if (isSmall(own)) smallMath += 1;
+      const id: unknown = node.attrs.dataId;
+      const old = id ? byId.get(id) : undefined;
+      // An undone edit can reuse a weakly kept placement without measuring the node again.
+      const kept = old?.node.eq(node) ? old : own;
+      if (id && kept) indexed.set(id, kept);
+      return false;
+    });
+    if (indexed.size !== byId.size || [...indexed].some(([id, each]) => byId.get(id) !== each))
+      version += 1;
+    byId = indexed;
+  };
   const find = (node: ProseMirrorNode): PlacedMath | null => {
     const kept = placed.get(node);
     const number = equationOf(node);
@@ -154,26 +170,40 @@ export function mathPlaces(
     if (same?.node.eq(node) && (!kept || same.number === number)) return same.at;
     return kept?.at ?? null;
   };
-  // Moves when a node is placed anew, so what draws the placements knows to read them again.
-  let version = 0;
   return {
+    number(next: ProseMirrorNode) {
+      if (doc === next) return;
+      doc = next;
+      if (recorded) keepIn(next);
+    },
     record(node: ProseMirrorNode, at: PlacedMath) {
-      const number = equationOf(node);
-      if (!samePlace(placed.get(node)?.at, at)) version += 1;
-      placed.set(node, { at, number });
+      if (!recorded && doc) keepIn(doc);
+      recorded = true;
+      const was = placed.get(node);
+      const now = { node, at, number: equationOf(node) };
+      if (!samePlace(was?.at, at)) version += 1;
+      placed.set(node, now);
       if (node.attrs.dataId) {
         byId.delete(node.attrs.dataId);
-        byId.set(node.attrs.dataId, { node, at, number });
+        byId.set(node.attrs.dataId, now);
         if (byId.size > MATH_PLACES_BY_ID) byId.delete(byId.keys().next().value);
       }
-      if (at.box.scale < MATH_MIN_REPORTED_SCALE) small.add(node);
-      else small.delete(node);
+      if (live.has(node)) smallMath += Number(isSmall(now)) - Number(isSmall(was));
     },
     /** The engine's readings of them: each node's placement, and the count in its stats. */
-    reading: (stats: () => TextEngineStats, doc: () => ProseMirrorNode | null) => ({
+    reading: (stats: () => TextEngineStats) => ({
       mathOf: find,
       mathVersion: () => version,
-      stats: (): TextEngineStats => ({ ...stats(), smallMath: liveIn(doc(), small) }),
+      stats: (): TextEngineStats => ({ ...stats(), smallMath }),
     }),
+    forget() {
+      placed = new WeakMap();
+      byId.clear();
+      live.clear();
+      doc = null;
+      smallMath = 0;
+      recorded = false;
+      version += 1;
+    },
   };
 }

@@ -52,6 +52,10 @@ const printOf = (page: Page, kind: Print) =>
 
 const squash = (text: string) => text.replace(/\s+/gu, ' ').trim();
 
+// Poppler in stream order can omit inferred spaces beside a separately painted emoji.
+const squashEmojiSpaces = (text: string) =>
+  squash(text).replace(/\s*(\p{Extended_Pictographic})\s*/gu, '$1');
+
 /**
  * What a print of the pages draws against the computed lines: each page's computed lines missing
  * from that page of the PDF, in order, and each forced block whose lines the print document, laid
@@ -59,7 +63,11 @@ const squash = (text: string) => text.replace(/\s+/gu, ' ').trim();
  * (DOCE-LABS-8.1), so a line the browser wrapped by itself is found though its text is all there.
  * `restyle` adds a stylesheet to the print document before it is read.
  */
-async function printedLines(page: Page, kind: Print, restyle?: string) {
+async function printedLines(
+  page: Page,
+  kind: Print,
+  { restyle, streamOrder = false }: { restyle?: string; streamOrder?: boolean } = {},
+) {
   const computed = await page.evaluate(() => window.regressionLab.textLines());
   const pages = computed.map((each) =>
     each.blocks.flatMap((block) => block.lines?.map((line) => line.text) ?? []),
@@ -73,7 +81,7 @@ async function printedLines(page: Page, kind: Print, restyle?: string) {
   const wrapped = await mismatchedLines(printed, computed, 'print');
   await printed.close();
   const pdf = Buffer.from(result.pdf);
-  return { missing: missingFrom(result.pdf, pages), wrapped, fonts: pdfFontNames(pdf) };
+  return { missing: missingFrom(pdf, pages, streamOrder), wrapped, fonts: pdfFontNames(pdf) };
 }
 
 // The faces the labs serve (labs/src/served-fonts.ts): Arimo, Cousine and Tinos for Arial, Courier
@@ -82,14 +90,16 @@ const SERVED = /^(?:Arimo|Cousine|Tinos|Geist)/u;
 const unserved = (fonts: readonly string[]) => fonts.filter((font) => !SERVED.test(font));
 
 // Each page's computed lines missing from that page of the PDF, in order.
-function missingFrom(pdf: Uint8Array, pages: readonly (readonly string[])[]) {
-  const texts = pdfPageTexts(Buffer.from(pdf), pages.length).map(squash);
+function missingFrom(pdf: Buffer, pages: readonly (readonly string[])[], streamOrder: boolean) {
+  const normalize = streamOrder ? squashEmojiSpaces : squash;
+  const texts = pdfPageTexts(pdf, pages.length, streamOrder).map(normalize);
   return pages.flatMap((lines, index) => {
     let from = 0;
     return lines.flatMap((line) => {
-      const at = (texts[index] ?? '').indexOf(squash(line), from);
+      const text = normalize(line);
+      const at = (texts[index] ?? '').indexOf(text, from);
       if (at < 0) return [{ page: index + 1, line }];
-      from = at + squash(line).length;
+      from = at + text.length;
       return [];
     });
   });
@@ -130,7 +140,9 @@ test.describe('print on the layout engine lines', () => {
   }) => {
     await open(page, 'linked-code');
     await loadWrappedLinkedCode(page);
-    const { missing, wrapped } = await printedLines(page, 'layoutPrint');
+    // The PDF paints each code line in order. Poppler's spatial reading can group its reserved
+    // emoji separately from the rest of their lines on machines that use a Type 3 emoji font.
+    const { missing, wrapped } = await printedLines(page, 'layoutPrint', { streamOrder: true });
     expect(missing, 'computed lines missing from the PDF').toEqual([]);
     expect(wrapped, 'forced blocks the print draws on other lines').toEqual([]);
     await expectPrintEqualsEditor(page, context, () => printOf(page, 'layoutPrint'));
@@ -141,11 +153,9 @@ test.describe('print on the layout engine lines', () => {
   }) => {
     await open(page, 'heading-keep-with-next');
     // A column narrower than the one the engine fitted the lines to: print wraps them again.
-    const { missing, wrapped } = await printedLines(
-      page,
-      'snapshot',
-      'p.de-forced-lines { inline-size: 60% !important; }',
-    );
+    const { missing, wrapped } = await printedLines(page, 'snapshot', {
+      restyle: 'p.de-forced-lines { inline-size: 60% !important; }',
+    });
     expect(missing).toEqual([]);
     expect(wrapped.length).toBeGreaterThan(0);
     const [first] = wrapped;

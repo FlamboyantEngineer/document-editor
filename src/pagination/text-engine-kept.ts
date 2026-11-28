@@ -5,15 +5,14 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { noRoom } from '../layout-engine/blocks/context.js';
-import { suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import type { createTextLayout } from '../layout-engine/text-layout.js';
 import type { LayoutBlock } from '../model/index.js';
 import type { ContentsLists } from './contents-lists.js';
 import { refusedAsDrawn, reportUnplacedWords } from './host-rules.js';
-import { blockInsertedKey, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { blockInsertedKey, type InsertedTexts } from './inserted-texts.js';
 import { markerKey, type NodeNumbers } from './node-numbers.js';
-import type { DrawnLines, PagesTextEngine, TextEngineOptions } from './text-engine-types.js';
+import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 
 interface KeptBlock {
   readonly key: string;
@@ -29,7 +28,7 @@ interface KeptLines {
 interface KeptInputs {
   readonly widthOf: (scope: string | null) => number;
   readonly numbers: () => NodeNumbers;
-  readonly markup: TextEngineOptions['markup'];
+  readonly markupKey: (node: ProseMirrorNode) => string;
   readonly variablesKey: (node: ProseMirrorNode) => string;
   /** How many provisional atoms were sized: a result laid out with one is not kept. */
   readonly provisional: () => number;
@@ -50,7 +49,7 @@ function keptUnlessProvisional<Kept>(
 
 /** Each text block's lines as the pages draw them, kept by node until what they depend on changes. */
 export function keptLines(text: ReturnType<typeof createTextLayout>, inputs: KeptInputs) {
-  const { widthOf, numbers, markup, variablesKey, provisional } = inputs;
+  const { widthOf, numbers, markupKey, variablesKey, provisional } = inputs;
   // The lines read with other plugins' inserted words, as the editor draws them, apart from those
   // read without, as the pages' layout for a print or viewer reads them: neither replaces the other.
   let withWords = new WeakMap<ProseMirrorNode, KeptLines>();
@@ -63,7 +62,7 @@ export function keptLines(text: ReturnType<typeof createTextLayout>, inputs: Kep
     lines(node: ProseMirrorNode, place: Parameters<PagesTextEngine['lines']>[1]) {
       const markers = markerKey(node, numbers().footnoteOf);
       const words = insertedKey(place.inserted);
-      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}|${suggestionKey(node, markup)}${variablesKey(node)}`;
+      const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}|${markupKey(node)}${variablesKey(node)}`;
       const kept = words ? withWords : plain;
       const found = kept.get(node);
       if (found?.key === key) return found.table;
@@ -89,7 +88,7 @@ interface BlockInputs extends KeptInputs {
   readonly refuse: (node: ProseMirrorNode, reason: string) => void;
   readonly laid: () => void;
   /** Sets the words inserted in the blocks being measured, for the text layout to read. */
-  readonly inserting: (inserted: InsertedTexts) => void;
+  readonly withInserted: <T>(inserted: InsertedTexts, lay: () => T) => T;
 }
 
 /** Each top-level block's layout, kept by node until what it depends on changes. */
@@ -106,7 +105,7 @@ export function keptBlocks(inputs: BlockInputs) {
       const listed = contents.keyOf(node, numbers().doc) + variablesKey(node);
       // Words inserted outside its text blocks take no room, but are reported when it is laid out.
       const outside = inserted.outside.has(node) ? '!' : '';
-      const key = `${scope ?? ''}|${numbers().keyOf(node)}|${blockInsertedKey(node, inserted)}${outside}|${suggestionKey(node, inputs.markup)}${listed}`;
+      const key = `${scope ?? ''}|${numbers().keyOf(node)}|${blockInsertedKey(node, inserted)}${outside}|${inputs.markupKey(node)}${listed}`;
       const found = kept.get(node);
       if (found?.key === key) return found.block;
       // A block that cannot be laid out is kept as one too, and counted once (DOCE-PAGINATION-14.6).
@@ -120,13 +119,9 @@ export function keptBlocks(inputs: BlockInputs) {
           const refusal = refusedAsDrawn(node, hostViews);
           if (refusal) return refused(node, refusal);
           reportUnplacedWords(node, inserted, refuse);
-          inputs.inserting(inserted);
-          let result: ReturnType<typeof geometry.layoutBlock>;
-          try {
-            result = geometry.layoutBlock(node, { width: widthOf(scope), scope });
-          } finally {
-            inputs.inserting(NO_INSERTED);
-          }
+          const result = inputs.withInserted(inserted, () =>
+            geometry.layoutBlock(node, { width: widthOf(scope), scope }),
+          );
           if (!result.ok) return refused(result.node, result.reason);
           inputs.laid();
           return { key, block: result.block };

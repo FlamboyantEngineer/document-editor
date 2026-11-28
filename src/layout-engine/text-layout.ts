@@ -42,6 +42,8 @@ export interface TextLayoutOptions {
   readonly isFontServed?: ((family: string) => boolean) | undefined;
   /** Sizes the inline atoms the engine does not lay out as text. */
   readonly measureAtom?: MeasureAtom | undefined;
+  /** Sizes an inline node before the engine's own text and atom sizing. */
+  readonly sizeAtom?: MeasureAtom | undefined;
   /** Told each math node laid out from its layout, with the box and scale it takes. */
   readonly onMath?: MathRecorder | undefined;
   /**
@@ -288,6 +290,22 @@ function laidExtras({
   };
 }
 
+// What a block draws before its content in a font of its own: a footnote entry's number, or a
+// caption's label.
+function leadingItem(
+  node: ProseMirrorNode,
+  style: BlockTypography,
+  { options, place }: { options: TextLayoutOptions; place: TextBlockPlace },
+) {
+  const source = { ...options, scope: place.scope };
+  if (place.footnoteNumber !== undefined)
+    return footnoteMarkerItem(place.footnoteNumber, style, source);
+  const font = place.label ? captionLabelFont(node, style, source) : null;
+  return font && place.label
+    ? { item: { text: place.label, font: fontString(font) }, family: font.family }
+    : null;
+}
+
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
 export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const cache = createLineCache(options.language);
@@ -300,17 +318,6 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   const width = keptWidths();
   const typography = (node: ProseMirrorNode, scope?: string | null) =>
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
-  // What a block draws before its content in a font of its own: a footnote entry's number, or a
-  // caption's label.
-  const leadingItem = (node: ProseMirrorNode, style: BlockTypography, place: TextBlockPlace) => {
-    const source = { ...options, scope: place.scope };
-    if (place.footnoteNumber !== undefined)
-      return footnoteMarkerItem(place.footnoteNumber, style, source);
-    const font = place.label ? captionLabelFont(node, style, source) : null;
-    return font && place.label
-      ? { item: { text: place.label, font: fontString(font) }, family: font.family }
-      : null;
-  };
   return {
     typography,
     insertedReserved: insertedReservedIn(typography, options.reserve),
@@ -323,7 +330,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       const continued = continuedCaption(given, { template: options.template, scope: place.scope });
       const node = continued?.node ?? given;
       const style = typography(node, place.scope);
-      const marker = leadingItem(node, style, place);
+      const marker = leadingItem(node, style, { options, place });
       const unserved = unservedFamily(node, style, {
         isFontServed: options.isFontServed,
         marker: marker?.family,
@@ -342,6 +349,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         typography: style,
         prefix: marker?.item ?? place.prefix,
         lead: starts.lead,
+        sizeAtom: options.sizeAtom,
         measureAtom: options.measureAtom,
         lineWidth,
         onMath: options.onMath,

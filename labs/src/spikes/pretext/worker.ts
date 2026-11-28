@@ -4,7 +4,13 @@ import { createFontFileMeasurer } from '../../../../src/layout-engine/font-files
 import { readFixture } from './fixtures.js';
 import { addServedFaces, type FontSetup, labMeasurer } from './fonts.js';
 import { type Block, createPreparationCache, indexPages, measureDocument } from './prediction.js';
-import type { BlockReport, LayoutRequest, LayoutResult } from './protocol.js';
+import type {
+  BlockReport,
+  LayoutRequest,
+  LayoutResult,
+  PredictionMessage,
+  PredictionReply,
+} from './protocol.js';
 import { contentHeight } from './settings.js';
 
 if (typeof document !== 'undefined') throw new Error('Prediction must run without a DOM');
@@ -76,22 +82,28 @@ function predict(request: LayoutRequest): LayoutResult {
   };
 }
 
-let ready: Promise<void> = Promise.resolve();
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-globalThis.addEventListener(
-  'message',
-  (event: MessageEvent<LayoutRequest | { setup: FontSetup }>) => {
-    const { data } = event;
-    if ('setup' in data) {
-      ready = useFonts(data.setup);
-      return;
-    }
-    ready = ready
-      .then(() => {
-        globalThis.postMessage(predict(data));
-      })
-      .catch((error: unknown) => {
-        globalThis.postMessage({ error: error instanceof Error ? error.message : String(error) });
-      });
-  },
-);
+// Keep setup's outcome for every request. Promise reactions run in posting order, and synchronous
+// predictions share the fixture and preparation cache from earlier requests on the worker.
+let fontProblem: Promise<string | null> = Promise.resolve(null);
+
+function reply(
+  { id, request }: Extract<PredictionMessage, { id: number }>,
+  error: string | null,
+): PredictionReply {
+  if (error !== null) return { id, error };
+  try {
+    return { id, result: predict(request) };
+  } catch (error) {
+    return { id, error: errorText(error) };
+  }
+}
+
+globalThis.addEventListener('message', ({ data }: MessageEvent<PredictionMessage>) => {
+  if ('setup' in data) {
+    fontProblem = useFonts(data.setup).then(() => null, errorText);
+    return;
+  }
+  void fontProblem.then((error) => globalThis.postMessage(reply(data, error)));
+});

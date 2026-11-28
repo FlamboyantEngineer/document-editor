@@ -2,7 +2,8 @@ import * as Y from '@y/y';
 import type { Node } from 'prosemirror-model';
 import { type EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
 import {
   canonicalState,
@@ -18,6 +19,7 @@ import { createCollabSync } from '../collab/sync.js';
 import { suggestTransaction } from '../engine/suggestions.js';
 import { BASE_TEMPLATE } from '../model/index.js';
 import { createPagedProjection } from './projection.js';
+import type { PagesFonts } from './served-fonts.js';
 
 // Counts the times a focused view of the pages scrolls to its selection.
 function countScrolls(view: EditorView): () => number {
@@ -80,6 +82,55 @@ describe('starting the projection', () => {
     });
     expect(projection.stats().layouts).toBe(0);
     expect(projection.layoutState()).toBe('pending');
+    projection.destroy();
+  });
+
+  it.each(['rejected', 'unavailable'] as const)(
+    'DOCE-PAGINATION-7.6 fails permanently when its engine fonts are %s',
+    async (result) => {
+      stubLayout({});
+      const fonts: Promise<PagesFonts> =
+        result === 'rejected'
+          ? Promise.reject(new Error('Font service unavailable'))
+          : Promise.resolve({ phase: 'browser', reason: 'no-shaper' });
+      const onLayoutStateChange = vi.fn();
+      const projection = createPagedProjection({
+        element: document.body.appendChild(document.createElement('div')),
+        state: canonicalState(),
+        pageHeight: 1000,
+        schedule: () => () => undefined,
+        onProjection: () => undefined,
+        onLayoutStateChange,
+        ready: new Promise<never>(() => undefined),
+        textLayout: { template: () => BASE_TEMPLATE, fonts },
+      });
+      expect(projection.layoutState()).toBe('pending');
+      await expect(projection.whenSettled()).resolves.toBe('failed');
+      projection.refresh();
+      projection.layout();
+      expect(projection.layoutState()).toBe('failed');
+      expect(onLayoutStateChange.mock.calls).toEqual([['failed']]);
+      expect(projection.stats().layouts).toBe(0);
+      projection.destroy();
+    },
+  );
+
+  it('DOCE-PAGINATION-5.6 keeps layout pending for an optional input and proceeds if it fails', async () => {
+    const pending = deferred<void>();
+    const ready = pending.promise.then(() => {
+      throw new Error('Optional input unavailable');
+    });
+    const { projection, drain } = mount({ ready });
+    projection.refresh();
+    drain();
+    expect(projection.stats().layouts).toBe(0);
+    expect(projection.layoutState()).toBe('pending');
+    pending.resolve();
+    await vi.waitFor(() => {
+      drain();
+      expect(projection.layoutState()).toBe('settled');
+    });
+    expect(projection.stats().layouts).toBeGreaterThan(0);
     projection.destroy();
   });
 

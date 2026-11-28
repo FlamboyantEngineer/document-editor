@@ -5,8 +5,14 @@
 import type { Attrs } from 'prosemirror-model';
 import { type Command, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type Ref, type RefObject, useImperativeHandle, useMemo, useRef } from 'react';
-import { fontFaceRules } from '../../document/font-faces.js';
+import {
+  type Ref,
+  type RefObject,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import { type FoundElement, textRange } from '../../engine/automation-address.js';
 import {
@@ -15,7 +21,6 @@ import {
   type AutomationOptions,
   type AutomationResult,
   commentAnchors,
-  documentSnapshot,
   type EditAddress,
   isActive,
   type ReadySnapshotOptions,
@@ -25,14 +30,11 @@ import {
   type SelectionActionOptions,
   type SelectionActionResult,
   type SnapshotOptions,
-  snapshotOutline,
   type SnapshotOutlineEntry,
 } from '../../engine/index.js';
-import { snapshotOnceReady } from '../../engine/snapshot-ready.js';
 import type { ReferenceSourceAdapter, SelectionActionsAdapter } from '../../host/index.js';
 import type { SuggestionMarkup } from '../../layout-engine/hidden-suggestions.js';
 import type { TemplateFile } from '../../model/index.js';
-import type { CitationHref } from '../../model/schema/reference-mark.js';
 import type { LayoutState, PageTextLines, PaginationStats } from '../../pagination/index.js';
 import { keepCentred } from '../../utils/keep-centred.js';
 import type {
@@ -43,6 +45,7 @@ import type {
 } from '../document-comments/document-comments.js';
 import type { EditorPanes, RevealPaneOptions } from '../document-panels/document-panels.js';
 import type { FindBarMode } from './document-find-bar.js';
+import { inMarkupOf, type SnapshotDrawing, snapshotMethods } from './editor-snapshots.js';
 import type { LayoutProgress } from './layout-progress.js';
 import {
   measureVisibleElements,
@@ -230,18 +233,6 @@ export function useCommentRefs(): CommentRefs {
   return useMemo(() => ({ startCommentRef, openThreadRef, commentPointerRef }), []);
 }
 
-// Where the host links a printed citation: its references adapter's `href`, when it gives one.
-const hrefOf = (references: ReferenceSourceAdapter | undefined): CitationHref | undefined =>
-  references?.href ? (citation) => references.href?.(citation) ?? null : undefined;
-
-// A snapshot's stylesheets, after the served faces the pages were measured and drawn with, under
-// the families the pages draw them in too (DOCE-PAGINATION-12.8), so it prints in the glyphs its
-// lines were broken in (DOCE-PAGINATION-13.8).
-function servedStyles(layout: LayoutProgress, styles: readonly string[] | undefined) {
-  const faces = fontFaceRules(layout.drawnFonts());
-  return faces ? [faces, ...(styles ?? [])] : styles;
-}
-
 /** What a layout handed over is laid out for. */
 export interface PagesLayoutRequest {
   /**
@@ -249,83 +240,6 @@ export interface PagesLayoutRequest {
    * The pages are laid out in it for that moment, the suggestions it hides taking no room.
    */
   readonly markup?: SuggestionMarkup | undefined;
-}
-
-// Takes something of the pages laid out in a markup, when one is asked for.
-const inMarkupOf =
-  <T>(layout: LayoutProgress, markup: SuggestionMarkup | undefined) =>
-  (take: () => T): T =>
-    markup ? layout.inMarkup(markup, take) : take();
-
-// The handle's snapshots of the view as it shows now.
-function snapshotMethods(
-  view: EditorView | null,
-  {
-    template,
-    references,
-    layout,
-  }: {
-    template: TemplateFile;
-    references: ReferenceSourceAdapter | undefined;
-    layout: LayoutProgress;
-  },
-): Pick<DocumentEditorHandle, 'exportSnapshot' | 'exportSnapshotAsync' | 'snapshotOutline'> {
-  const citationHref = hrefOf(references);
-  return {
-    // Every page is drawn on the layout engine's lines while the snapshot is taken.
-    // In the snapshot's markup, its pages are laid out in it while it is taken.
-    exportSnapshot: (options) =>
-      view
-        ? allLines(layout, () =>
-            inMarkupOf<string>(
-              layout,
-              options?.markup,
-            )(() =>
-              documentSnapshot(view, {
-                citationHref,
-                ...options,
-                styles: servedStyles(layout, options?.styles),
-                template,
-              }),
-            ),
-          )
-        : null,
-    exportSnapshotAsync: async (options) =>
-      view
-        ? allLines(layout, () =>
-            snapshotOnceReady(
-              view,
-              {
-                citationHref,
-                ...options,
-                styles: servedStyles(layout, options?.styles),
-                template,
-                whenSettled: layout.whenSettled,
-              },
-              inMarkupOf(layout, options?.markup),
-            ),
-          )
-        : null,
-    snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
-  };
-}
-
-// Runs `take` with every page drawn on the layout engine's lines (DOCE-PAGINATION-11.6), and lets
-// the pages near the screen come back once it is done, unless the host or another snapshot still
-// asks for every page.
-function allLines<T>(layout: LayoutProgress, take: () => T): T {
-  const release = layout.holdAllLines();
-  let async = false;
-  try {
-    const result = take();
-    if (result instanceof Promise) {
-      async = true;
-      return result.finally(release) as T;
-    }
-    return result;
-  } finally {
-    if (!async) release();
-  }
 }
 
 /** Gives the host a handle on the editor through its `handleRef`. */
@@ -349,6 +263,13 @@ export function useEditorHandle(
   },
 ) {
   const stopCentring = useRef<(() => void) | null>(null);
+  const drawing = useRef<SnapshotDrawing | null>(null);
+  useLayoutEffect(() => {
+    drawing.current = { view, template };
+    return () => {
+      drawing.current = null;
+    };
+  }, [view, template]);
   useImperativeHandle(
     ref,
     () => ({
@@ -363,7 +284,7 @@ export function useEditorHandle(
         const opened = openThreadRef.current?.({ threadId, ...options }) ?? false;
         return placed || opened;
       },
-      ...snapshotMethods(view, { template, references, layout }),
+      ...snapshotMethods(view, { template, references, layout, drawing }),
       startComment: (options) => {
         const start = startCommentRef.current;
         start?.(options);

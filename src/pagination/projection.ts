@@ -42,7 +42,7 @@ import {
 import { shownBy } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import type { LayoutTraceSink } from './layout-trace.js';
-import { awaitReady, frameIn, settleEdits } from './layout-triggers.js';
+import { awaitLayoutInputs, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { pageChromeDecorations } from './page-chrome.js';
 import { createPageMapScope } from './page-map.js';
@@ -143,6 +143,8 @@ export interface PagedProjectionOptions {
    * are laid out at once, measured again then, and pending until it settles (DOCE-PAGINATION-5.6).
    */
   readonly ready?: PromiseLike<unknown> | undefined;
+  /** Whether the current template is waiting for served faces while drawing in fallback fonts. */
+  readonly fontsPending?: (() => boolean) | undefined;
   /** Where the layout's trace goes while it is read (`LayoutTrace`); nothing is written otherwise. */
   readonly trace?: LayoutTraceSink | undefined;
   /**
@@ -283,8 +285,6 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
   const text =
     options.textEngine ??
     (options.textLayout ? holdTextEngine({ setting: options.textLayout, ...holding }) : null);
-  // An engine already held, as a test's, is not waited for.
-  const ready = text?.engine() === null ? Promise.all([options.ready, text.loaded]) : options.ready;
   const source = EditorState.create({
     doc: options.state.doc,
     // Footnotes numbered through the document, as no page's own numbers outgrow in digits.
@@ -313,7 +313,10 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       passes: 0,
       restart: false,
       memory: createLayoutMemory(),
-      ready: awaitReady(ready, () => refreshLayout(session(), true)),
+      ready: awaitLayoutInputs(text, options.ready, {
+        settled: () => refreshLayout(session(), true),
+        failed: () => session().pace.readiness.fail(),
+      }),
       text,
       draws: checkDraws({
         count: (pages) => session().pace.counter.overflow(pages),
@@ -339,9 +342,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
   };
   const live = startSession(options, session);
   current = live;
-  // The text is laid out with the layout engine once it loads, never measured before it.
-  if (live.pace.text && live.pace.ready.waiting()) live.pace.readiness.pending();
-  else layout(live);
+  layout(live);
   const mounted = bindProjectionView(live);
   return {
     get state() {
@@ -386,7 +387,10 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     }),
     textLines: () => pageTextLines(live.projection),
     pagesLayout: () => {
-      const settled = layoutSettled(live.pace.readiness.state(), options.element);
+      const state = live.pace.readiness.state();
+      const settled = options.fontsPending
+        ? state === 'settled' && !options.fontsPending()
+        : layoutSettled(state, options.element);
       const markup = options.textLayout?.markup?.() ?? 'all';
       const typesetOf = (node: ProseMirrorNode) => typesetMathOf(live.canonical, node);
       return pagesLayout(live.projection, { ...options, settled, markup, typesetOf });
