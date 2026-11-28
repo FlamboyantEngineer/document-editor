@@ -3,22 +3,18 @@
     "relative": 0.05,
     "absolute": 2048
   },
-  "suspended": {
-    "since": "2026-11-23",
-    "cause": "Both text layouts ship in the bundles for now. The limits are assessed again once the DOM text layout is removed and the bundles have had an optimization pass; until then growth past the allowance is reported and does not fail."
-  },
   "consumers": {
     "editor": {
-      "raw": 1984354,
-      "gzip": 633847
+      "raw": 2095761,
+      "gzip": 674828
     },
     "editor-with-panels": {
-      "raw": 2095039,
-      "gzip": 670684
+      "raw": 2208447,
+      "gzip": 710000
     },
     "template-workspace": {
-      "raw": 1269129,
-      "gzip": 387742
+      "raw": 1297095,
+      "gzip": 397869
     }
   }
 }
