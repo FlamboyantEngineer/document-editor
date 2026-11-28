@@ -104,8 +104,6 @@ function SurfaceContent({
   );
 }
 
-// Why the pages are not shown: the template fonts that did not load, else a failed layout.
-
 // The host's banners and the editor's own, over the document.
 function EditorBanners({
   chrome: { props, context, view },

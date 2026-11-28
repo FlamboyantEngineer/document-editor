@@ -30,7 +30,6 @@ export interface BannerLabels {
   readonly fontsMissing: string;
   /** Which families did not load. */
   readonly fontsMissingDetail: (families: readonly string[]) => string;
-  /** Shown in place of pages that wait for template fonts that did not load, given them. */
   /** The host serves no fonts the pages can be laid out with: the document shows unpaged. */
   readonly pagesUnavailable: string;
   /** Why, and what the reader sees instead. */
