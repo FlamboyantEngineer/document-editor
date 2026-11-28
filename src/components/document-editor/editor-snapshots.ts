@@ -3,7 +3,11 @@
 import type { EditorView } from 'prosemirror-view';
 import type { RefObject } from 'react';
 import { fontFaceRules } from '../../document/font-faces.js';
-import { documentSnapshot, snapshotOutline } from '../../engine/index.js';
+import {
+  documentSnapshot,
+  type ReadySnapshotOptions,
+  snapshotOutline,
+} from '../../engine/index.js';
 import { snapshotOnceReady } from '../../engine/snapshot-ready.js';
 import type { ReferenceSourceAdapter } from '../../host/index.js';
 import type { SuggestionMarkup } from '../../layout-engine/hidden-suggestions.js';
@@ -25,80 +29,98 @@ function servedStyles(layout: LayoutProgress, styles: readonly string[] | undefi
 }
 
 // Takes something of the pages laid out in a markup, when one is asked for.
-export const inMarkupOf =
-  <T>(layout: LayoutProgress, markup: SuggestionMarkup | undefined) =>
-  (take: () => T): T =>
-    markup ? layout.inMarkup(markup, take) : take();
+function inMarkupOf<T>(
+  layout: LayoutProgress,
+  markup: SuggestionMarkup | undefined,
+  take: (available: boolean) => T,
+): T {
+  return markup ? layout.inMarkup(markup, take) : take(true);
+}
 
 export interface SnapshotDrawing {
   readonly view: EditorView | null;
   readonly template: TemplateFile;
 }
 
+interface SnapshotSource {
+  readonly references: ReferenceSourceAdapter | undefined;
+  readonly layout: LayoutProgress;
+  readonly drawing: RefObject<SnapshotDrawing | null>;
+  readonly signal?: AbortSignal | undefined;
+}
+
+/** Captures the settled editor view and its current drawn template and faces. */
+export function captureEditorSnapshot(
+  view: EditorView,
+  { drawing, layout, references, signal }: SnapshotSource,
+  { resolveImage, ...options }: Omit<ReadySnapshotOptions, 'template' | 'whenSettled'> = {},
+): Promise<string> {
+  const currentTemplate = () => {
+    const current = drawing.current;
+    if (!current || current.view !== view || signal?.aborted)
+      throw new Error('The document layout is unavailable.');
+    return current.template;
+  };
+  return snapshotOnceReady(
+    view,
+    {
+      resolveImage,
+      checkView: currentTemplate,
+      whenSettled: () => {
+        currentTemplate();
+        return layout.whenSettled();
+      },
+      waitForDocumentFonts: () => {
+        currentTemplate();
+        return !layout.servedFonts();
+      },
+      readSnapshot() {
+        const template = currentTemplate();
+        return {
+          citationHref: hrefOf(references),
+          ...options,
+          styles: servedStyles(layout, options.styles),
+          template,
+        };
+      },
+    },
+    (capture) => {
+      currentTemplate();
+      return inMarkupOf(layout, options.markup, (available) => {
+        if (!available) throw new Error('The document layout is unavailable.');
+        return allLines(layout, capture);
+      });
+    },
+  );
+}
+
 // The handle's snapshots of the view as it shows now.
 export function snapshotMethods(
   view: EditorView | null,
-  {
-    template,
-    references,
-    layout,
-    drawing,
-  }: {
-    template: TemplateFile;
-    references: ReferenceSourceAdapter | undefined;
-    layout: LayoutProgress;
-    drawing: RefObject<SnapshotDrawing | null>;
-  },
+  source: SnapshotSource & { readonly template: TemplateFile },
 ): Pick<DocumentEditorHandle, 'exportSnapshot' | 'exportSnapshotAsync' | 'snapshotOutline'> {
+  const { template, references, layout } = source;
   const citationHref = hrefOf(references);
-  const currentTemplate = () => {
-    const current = drawing.current;
-    if (!current || current.view !== view) throw new Error('The document layout is unavailable.');
-    return current.template;
-  };
   return {
     // Every page is drawn on the layout engine's lines while the snapshot is taken.
     // In the snapshot's markup, its pages are laid out in it while it is taken.
     exportSnapshot: (options) =>
       view
         ? allLines(layout, () =>
-            inMarkupOf<string>(
-              layout,
-              options?.markup,
-            )(() =>
-              documentSnapshot(view, {
-                citationHref,
-                ...options,
-                styles: servedStyles(layout, options?.styles),
-                template,
-              }),
+            inMarkupOf(layout, options?.markup, (available) =>
+              available
+                ? documentSnapshot(view, {
+                    citationHref,
+                    ...options,
+                    styles: servedStyles(layout, options?.styles),
+                    template,
+                  })
+                : null,
             ),
           )
         : null,
-    exportSnapshotAsync: async (options = {}) => {
-      if (!view) return null;
-      const { resolveImage, ...supplied } = options;
-      return allLines(layout, () =>
-        snapshotOnceReady(
-          view,
-          {
-            resolveImage,
-            whenSettled: () => {
-              currentTemplate();
-              return layout.whenSettled();
-            },
-            waitForDocumentFonts: () => !layout.servedFonts(),
-            readSnapshot: () => ({
-              citationHref,
-              ...supplied,
-              styles: servedStyles(layout, supplied.styles),
-              template: currentTemplate(),
-            }),
-          },
-          inMarkupOf(layout, options.markup),
-        ),
-      );
-    },
+    exportSnapshotAsync: async (options) =>
+      view ? captureEditorSnapshot(view, source, options) : null,
     snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
   };
 }
@@ -108,15 +130,9 @@ export function snapshotMethods(
 // asks for every page.
 function allLines<T>(layout: LayoutProgress, take: () => T): T {
   const release = layout.holdAllLines();
-  let async = false;
   try {
-    const result = take();
-    if (result instanceof Promise) {
-      async = true;
-      return result.finally(release) as T;
-    }
-    return result;
+    return take();
   } finally {
-    if (!async) release();
+    release();
   }
 }

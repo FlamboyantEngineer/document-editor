@@ -216,6 +216,23 @@ describe('lineMarks', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-12.4 reads each reserved box a bounded number of times across many lines', () => {
+    const length = 256;
+    let reads = 0;
+    const reserved = Array.from({ length }, (_, from) => ({
+      get from() {
+        reads += 1;
+        return from;
+      },
+      to: from + 1,
+      width: 16,
+    }));
+    const marks = lineMarks(paragraph('☃'.repeat(length)), { ...table(length, 4), reserved });
+    expect(marks.filter((mark) => mark.inner)).toHaveLength(length);
+    expect(marks.filter((mark) => !mark.inner)).toHaveLength(length / 4 - 1);
+    expect(reads).toBeLessThanOrEqual(length * 4);
+  });
+
   it('DOCE-PAGINATION-13.1 indents aligned lines and stretches justified spaces over the room left after the indent', () => {
     const node = paragraph('aa bb cc dd');
     const lines = table(11, 6, { justify: true }).lines.map((line) => ({ ...line, left: 20 }));

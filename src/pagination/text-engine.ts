@@ -287,6 +287,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     numbersVersion: numbers.version,
     numbering: numbers.numbering,
     pageDigits: (count) => contents.pageDigits(count),
+    contentsKeyOf: (node) => contents.keyOf(node, numbers.current().doc),
     ...drawings.reading,
     measureBlock: selecting(select, (node, scope, inserted = NO_INSERTED) =>
       blocks.measure(node, scope, inserted),

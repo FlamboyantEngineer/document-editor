@@ -144,7 +144,8 @@ export function layoutSectionIncrementally(section: IncrementalSection): Increme
   for (const record of place.kept) reuse(record, record.start);
   const { queue } = place;
   let laidOut = 0;
-  while (queue.length) {
+  // Even a section without body blocks has a sheet with its header and footer.
+  while (queue.length || records.length === 0) {
     const next = { ...queueStart(queue, blocks), state: section.state() };
     const old = previous?.pages[records.length];
     if (meetsOld(old, next, place)) {
@@ -152,7 +153,7 @@ export function layoutSectionIncrementally(section: IncrementalSection): Increme
       for (const record of rest) reuse(record, record.start + place.shift);
       break;
     }
-    const page = section.next(queue, records.length);
+    const page = queue.length ? section.next(queue, records.length) : [];
     records.push({ blocks: page, ...next, geometry: geometry(records.length) });
     section.page(page);
     laidOut += 1;

@@ -91,6 +91,31 @@ describe('forcedRegions', () => {
     expect(footers).toEqual([[line('Page 1')], [line('Page 2')]]);
   });
 
+  it('DOCE-PAGINATION-11.2 draws an unchanged region in its new section scope', () => {
+    const wide = stubEngine({ perLine: 20 });
+    const narrow = stubEngine({ perLine: 5 });
+    const engine: PagesTextEngine = {
+      ...wide,
+      regionLines(region, scope) {
+        const engine = scope === 'narrow' ? narrow : wide;
+        const lines = new Map<Node, DrawnLines>();
+        region.forEach((child) => {
+          const table = engine.lines(child, { scope });
+          if (table) lines.set(child, table);
+        });
+        return lines;
+      },
+    };
+    const doc = twoPages();
+    const state = stateWith(doc, engine);
+    const lineCounts = (on: EditorState) =>
+      regionAttrs(on).flatMap((attrs) => (attrs['data-lines'] ? [attrs['data-lines']] : []));
+    expect(lineCounts(state)).toEqual(['1', '1']);
+    const newScope = state.apply(state.tr.setNodeMarkup(0, undefined, { sectionName: 'narrow' }));
+    expect(newScope.doc.firstChild?.firstChild).toBe(doc.firstChild?.firstChild);
+    expect(lineCounts(newScope)).toEqual(['2', '2']);
+  });
+
   it('DOCE-PAGINATION-11.2 DOCE-PAGINATION-11.3 draws a footnote area on its lines and gives them as the footnotes region', () => {
     const { engine } = regionEngine();
     const entry = node('footnote_entry', { footnoteId: 'n1' }, [documentSchema.text('A note')]);

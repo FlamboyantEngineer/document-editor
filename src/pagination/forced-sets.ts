@@ -7,6 +7,7 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { shownTrees } from '../document/print-lines.js';
 import { printNodes, type PrintTree } from '../document/print-tree.js';
 import { blockDirection, type TextDirection } from '../layout-engine/direction.js';
+import { insertedKey } from '../layout-engine/inserted-text.js';
 import {
   drawnBlock,
   emptyLineIndent,
@@ -45,10 +46,53 @@ export interface Builder {
   /** The top-level parts of split blocks that a later part continues, by position. */
   readonly continuing: ReadonlySet<number>;
   readonly blocks: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
-  readonly containers: WeakMap<ProseMirrorNode, DecorationSet>;
   readonly inserted: InsertedTexts;
   /** The sets of the containers holding nested forced blocks, by the lines drawn in them. */
-  readonly nested: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
+  readonly nested: WeakMap<ProseMirrorNode, NestedSet>;
+}
+
+interface NestedSet {
+  readonly scope: string | null;
+  readonly key: string;
+  readonly set: DecorationSet;
+}
+
+/** The measured list data a page's contents drawing depends on. */
+export interface ContentsInput {
+  readonly node: ProseMirrorNode;
+  readonly key: string | undefined;
+}
+
+/** A page's kept set, with the inputs that can change while its node stays the same. */
+export interface KeptPage {
+  readonly scope: string | null;
+  readonly lists: readonly ContentsInput[];
+  readonly set: DecorationSet;
+}
+
+/** Reuses a page while its scope and the measured inputs of its lists match. */
+export function findKeptPage(
+  kept: KeptPage | undefined,
+  scope: string | null,
+  engine: PagesTextEngine,
+): DecorationSet | undefined {
+  if (kept?.scope !== scope) return undefined;
+  const matches = kept.lists.every(
+    ({ node, key }) => key !== undefined && key === engine.contentsKeyOf?.(node),
+  );
+  return matches ? kept.set : undefined;
+}
+
+/** The scope, heading or paragraph number, continuation and inserted words a top-level block was drawn with. */
+export function topLevelBlockKey(
+  builder: Builder,
+  node: ProseMirrorNode,
+  { pos, scope, prefix }: { pos: number; scope: string | null; prefix: string | undefined },
+): string {
+  const continued = builder.continuing.has(pos) ? 'c' : '';
+  const numbered = builder.paragraphs.get(pos);
+  const number = numbered ? `${numbered.continued ? '+' : ''}${numbered.label}` : '';
+  return `${JSON.stringify(scope)}|${prefix ?? ''}|${number}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
 }
 
 // A break, or an indent, drawn among the words inserted at a position, such as a comparison's
@@ -184,8 +228,12 @@ function linesKey(table: DrawnLines): string {
 export function containerSet(
   builder: Builder,
   container: ProseMirrorNode,
-  { lines: forced, pos = -1 }: { lines: ReadonlyMap<ProseMirrorNode, DrawnLines>; pos?: number },
-): { key: string; set: DecorationSet } {
+  {
+    lines: forced,
+    scope,
+    pos = -1,
+  }: { lines: ReadonlyMap<ProseMirrorNode, DrawnLines>; scope: string | null; pos?: number },
+): NestedSet {
   const keys: string[] = [];
   const locals: Decoration[] = [];
   const children: (number | DecorationSet)[] = [];
@@ -199,7 +247,7 @@ export function containerSet(
         at < 0
           ? blockDirection(child)
           : drawnDirection(builder.directions, { node: child, pos: at });
-      const key = `${linesKey(table)}|${dir}`;
+      const key = `${JSON.stringify(scope)}|${linesKey(table)}|${dir}`;
       keys.push(key);
       // A caption is drawn after its label.
       const prefixed = isCaption(child);
@@ -214,16 +262,16 @@ export function containerSet(
       return;
     }
     if (child.isTextblock || child.isLeaf) return;
-    const inner = containerSet(builder, child, { lines: forced, pos: at });
+    const inner = containerSet(builder, child, { lines: forced, pos: at, scope });
     keys.push(inner.key);
     if (inner.set !== DecorationSet.empty) children.push(offset, end, inner.set);
   });
   const key = keys.join(';');
   const kept = builder.nested.get(container);
-  if (kept?.key === key) return kept;
+  if (kept?.scope === scope && kept.key === key) return kept;
   const set =
     locals.length || children.length ? new makeSet(locals, children) : DecorationSet.empty;
-  const made = { key, set };
+  const made = { scope, key, set };
   builder.nested.set(container, made);
   return made;
 }

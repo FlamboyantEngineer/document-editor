@@ -6,11 +6,13 @@ import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { STUB_INPUTS } from '../../test/pages-fixtures.js';
 import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
+import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
 import type { TextLine } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import { insertedTexts } from './inserted-texts.js';
+import { paginationKey } from './layout-marks.js';
 import { objectBoxAt } from './object-boxes.js';
 import { createPagesTextEngine } from './text-engine.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
@@ -150,6 +152,12 @@ function positionOf(doc: Node, text: string): number {
   });
   return found;
 }
+
+const contentsDrawing = (state: EditorState) =>
+  decorations(state)
+    .find()
+    .map((each) => (each.spec as { contentsDrawn?: ContentsDrawn }).contentsDrawn)
+    .find((each) => each !== undefined);
 
 function stateWithWords(doc: Node, read: () => { pos: number; side: number }) {
   installFakeCanvas();
@@ -1022,6 +1030,84 @@ describe('forcedLines', () => {
     const block = drawn(on).find((each) => each.from === at && each.class === 'de-forced-lines');
     return block?.['data-lines'];
   };
+
+  it('DOCE-PAGINATION-11.2 redraws unchanged pages and their nested blocks in a different section scope', () => {
+    installFakeCanvas();
+    const engine = createPagesTextEngine({
+      template: {
+        ...BASE_TEMPLATE,
+        sections: [{ name: 'narrow', page: { margins: { left: '305px', right: '305px' } } }],
+      },
+    });
+    const body = 'Body text with room to wrap '.repeat(8);
+    const nested = 'Quoted text with room to wrap '.repeat(8);
+    const reused = page([paragraph(body), create('blockquote', null, [paragraph(nested)])]);
+    const stable = create('page_section', { sectionName: 'stable' }, [page([paragraph('Other')])]);
+    const doc = create('doc', null, [
+      create('page_section', { sectionName: 'Body' }, [reused]),
+      stable,
+    ]);
+    const state = stateWith(doc, engine);
+    const otherDecoration = (on: EditorState) => {
+      const pos = positionOf(on.doc, 'Other');
+      const found = decorations(on).find(pos, pos + 7)[0];
+      return (found as unknown as { type: unknown } | undefined)?.type;
+    };
+    const moved = state.apply(state.tr.setNodeMarkup(0, undefined, { sectionName: 'narrow' }));
+    expect(moved.doc.firstChild?.firstChild).toBe(reused);
+    const fresh = stateWith(moved.doc, engine);
+    expect(Number(lineCountOf(fresh, body))).toBeGreaterThan(Number(lineCountOf(state, body)));
+    expect(Number(lineCountOf(fresh, nested))).toBeGreaterThan(Number(lineCountOf(state, nested)));
+    // The ranges of the line-end marks must change as well as the block's number of lines.
+    expect(drawn(moved)).toEqual(drawn(fresh));
+    expect(otherDecoration(moved)).toBe(otherDecoration(state));
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.2 redraws the contents on a kept page after an unnumbered heading changes', () => {
+    installFakeCanvas();
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const heading = create('heading', { level: 1, numbered: false }, [
+      documentSchema.text('Short'),
+    ]);
+    const doc = pagesDoc([[create('toc_block', null)], [heading], [paragraph('Untouched')]]);
+    engine.number(doc);
+    const state = stateWith(doc, engine);
+    expect(contentsDrawing(state)?.rows).toEqual([[0]]);
+    expect(engine.numbering(doc).headings.size).toBe(0);
+
+    const text = ' a significantly longer heading'.repeat(12);
+    const edited = state.tr.insertText(text, positionOf(doc, 'Short') + 1 + heading.content.size);
+    engine.number(edited.doc);
+    const moved = state.apply(edited);
+    expect(moved.doc.firstChild?.firstChild).toBe(doc.firstChild?.firstChild);
+    expect(engine.numbering(moved.doc).headings.size).toBe(0);
+    const drawing = contentsDrawing(moved);
+    expect(drawing?.rows[0]?.length).toBeGreaterThan(1);
+    expect(drawing).toEqual(contentsDrawing(stateWith(moved.doc, engine)));
+
+    const unrelated = moved.tr.insertText('x', positionOf(moved.doc, 'Untouched') + 1);
+    engine.number(unrelated.doc);
+    expect(contentsDrawing(moved.apply(unrelated))).toBe(drawing);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.2 DOCE-PAGINATION-10.11 redraws contents boxes when the digit allowance changes', () => {
+    installFakeCanvas();
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const heading = create('heading', { level: 1, numbered: false }, [documentSchema.text('Part')]);
+    const doc = pagesDoc([[create('toc_block', null)], [heading]]);
+    engine.number(doc);
+    const state = stateWith(doc, engine);
+    const width = contentsDrawing(state)?.pageWidths[0] ?? 0;
+    expect(width).toBeGreaterThan(0);
+
+    engine.pageDigits(1000);
+    const laid = state.apply(state.tr.setMeta(paginationKey, true));
+    expect(laid.doc).toBe(doc);
+    expect(contentsDrawing(laid)?.pageWidths[0]).toBeCloseTo((width * 4) / 3, 1);
+    engine.destroy();
+  });
 
   it("DOCE-PAGINATION-11.2 draws an unchanged page again when the footnotes' numbers move", () => {
     const doc = pagesDoc([[paragraph('first')], [paragraph('aaaaaaaaaaaa')]]);
