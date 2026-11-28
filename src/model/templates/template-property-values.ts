@@ -8,12 +8,17 @@ import {
   isTemplateColor,
   isTemplateLength,
   isTemplateLineHeight,
+  isTemplateSize,
   isTemplateWeight,
 } from '../format/template-format-values.js';
 
 /** A length with its unit as a CSS value, or null. */
 export const cssLength = (value: unknown): string | null =>
   isTemplateLength(value) ? String(value) : null;
+
+/** A font size as a CSS value, a percentage of the size around it included, or null. */
+export const cssSize = (value: unknown): string | null =>
+  isTemplateSize(value) ? String(value) : null;
 
 /** A template color as a CSS value, or null. */
 export const cssColor = (value: unknown): string | null =>

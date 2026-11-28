@@ -10,11 +10,12 @@ import type {
   TemplateStyles,
   TextSettings,
 } from '../model/format/template-format.js';
-import { lengthToCssPx, resolveFontStack } from '../model/templates/template-css-values.js';
+import { resolveFontStack } from '../model/templates/template-css-values.js';
 import { templateScopeStyles } from '../model/templates/template-properties.js';
 import { resolveFootnoteSettings } from '../model/templates/template-scopes.js';
 import { findTemplateSection } from '../model/templates/template-sections.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
+import { resolveLength, resolveSize } from './template-lengths.js';
 
 /** A font as the engine measures it, sizes in CSS pixels. */
 export interface FontStyle {
@@ -55,14 +56,14 @@ export interface TypographySource {
 
 type Defaults = Pick<TextSettings, 'lineHeight' | 'size'> & {
   readonly weight: number;
+  /** The slant when the style sets none; upright when not given. */
+  readonly italic?: boolean;
   /** The size the style's relative size resolves against; the paragraph's when not given. */
   readonly base?: number;
 };
 
 /** The size relative lengths resolve against when the paragraph style sets none. */
 const DEFAULT_PARAGRAPH_SIZE = 12;
-/** The size of the root, which `rem` lengths resolve against. */
-const ROOT_SIZE = 16;
 /** Chromium's ratio for `font-size: smaller`, which subscript and superscript use. */
 const SMALLER_RATIO = 1.2;
 /** The padding around a code block's text. */
@@ -77,17 +78,6 @@ export const snap = (value: number) => Math.round(value / LAYOUT_UNIT) * LAYOUT_
 
 /** A line height in layout units: Chromium truncates the size times the line height to the unit. */
 export const snapLeading = (value: number) => Math.floor(value / LAYOUT_UNIT + 1e-9) * LAYOUT_UNIT;
-
-/** A length in CSS pixels; `em` and `%` against a base size, `rem` against the root's. */
-export function resolveLength(value: unknown, base: number): number | null {
-  const absolute = lengthToCssPx(value);
-  if (absolute) return Number.parseFloat(absolute);
-  const match = typeof value === 'string' ? /^(\d+(?:\.\d+)?)(em|rem|%)$/.exec(value) : null;
-  if (!match) return null;
-  const amount = Number(match[1]);
-  if (match[2] === '%') return (amount / 100) * base;
-  return amount * (match[2] === 'rem' ? ROOT_SIZE : base);
-}
 
 /** The font string Canvas and Pretext measure a style in. */
 export function fontString(style: FontStyle): string {
@@ -110,7 +100,7 @@ function fontOf(
 ): FontStyle {
   return {
     family: resolveFontStack(text?.font, '', fontStacks) || fallback.family,
-    size: snap(resolveLength(text?.size, base) ?? fallback.size),
+    size: snap(resolveSize(text?.size, base) ?? fallback.size),
     weight: typeof text?.weight === 'number' ? text.weight : fallback.weight,
     italic: typeof text?.italic === 'boolean' ? text.italic : fallback.italic,
   };
@@ -140,7 +130,8 @@ function over(base: TextSettings | null | undefined, top: TextSettings): TextSet
 interface ScopeFonts {
   readonly paragraph: FontStyle;
   readonly codeFamily: string;
-  readonly codeSize: number | null;
+  /** Inline code's size inside text of a size, or null to keep that size. */
+  readonly codeSize: (around: number) => number | null;
   readonly indentation: number;
   readonly fontStacks: FontStacks | undefined;
 }
@@ -153,9 +144,9 @@ function blockOf(
   const base = defaults.base ?? context.paragraph.size;
   const fallback: FontStyle = {
     ...context.paragraph,
-    size: resolveLength(defaults.size, context.paragraph.size) ?? context.paragraph.size,
+    size: resolveSize(defaults.size, context.paragraph.size) ?? context.paragraph.size,
     weight: defaults.weight,
-    italic: false,
+    italic: defaults.italic ?? false,
   };
   const font = fontOf(text, fallback, { fontStacks: context.fontStacks, base });
   const lineHeight = text?.lineHeight ?? defaults.lineHeight ?? 1;
@@ -169,7 +160,8 @@ function blockOf(
     padding: 0,
     indentation: context.indentation,
     codeFamily: context.codeFamily,
-    codeSize: context.codeSize,
+    // Inline code's `em` is of the element around it, the block's font.
+    codeSize: context.codeSize(font.size),
   };
 }
 
@@ -202,11 +194,14 @@ function scopeFonts(styles: TemplateStyles, fontStacks: FontStacks | undefined):
     italic: false,
   };
   const paragraph = fontOf(styles.paragraph, root, { fontStacks, base: DEFAULT_PARAGRAPH_SIZE });
-  const codeSize = resolveLength(styles.codeBlock?.size, paragraph.size);
+  const codeSize = (around: number) => {
+    const size = resolveSize(styles.codeBlock?.size, around);
+    return size === null ? null : snap(size);
+  };
   return {
     paragraph,
     codeFamily: resolveFontStack(styles.codeBlock?.font, 'monospace', fontStacks),
-    codeSize: codeSize === null ? null : snap(codeSize),
+    codeSize,
     indentation: snap(resolveLength(styles.paragraph?.indentation, paragraph.size) ?? 0),
     fontStacks,
   };
@@ -312,7 +307,12 @@ function captionBlock(
   context: ScopeFonts,
 ): BlockTypography {
   const lineHeight = styles.paragraph?.lineHeight ?? 1.5;
-  const defaults = { lineHeight, weight: context.paragraph.weight };
+  // Unset, its font is the page content's, the paragraph style's, as the stylesheet inherits it.
+  const defaults = {
+    lineHeight,
+    weight: context.paragraph.weight,
+    italic: context.paragraph.italic,
+  };
   const block = blockOf({ ...fontOnly(caption?.text), lineHeight }, defaults, context);
   const align = alignOf({ alignment: caption?.alignment ?? null }, 'left');
   return { ...block, align, marginTop: 0, marginBottom: 0 };
