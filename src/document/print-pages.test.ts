@@ -320,8 +320,9 @@ describe('renderLayoutPrintPage', () => {
     expect(static_?.querySelector('.de-forced-lines__start')?.getAttribute('style')).toBe(
       '--de-line-indent: 12.000px;',
     );
+    // A justified line 12px in fills only the room after its indent.
     expect(static_?.querySelector('.de-forced-lines__justified')?.getAttribute('style')).toBe(
-      '--de-word-spacing: 45.000px;',
+      '--de-word-spacing: 39.000px;',
     );
   });
 
