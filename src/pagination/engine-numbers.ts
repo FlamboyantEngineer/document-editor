@@ -84,11 +84,15 @@ function drawEquationNumbers(map: ProjectionMap, { equations, equationFor }: Obj
 }
 
 // The decorations drawing a page document's numbers: a heading's as `data-number`, a caption's and
-// an equation's as `--de-number`, which the stylesheet's generated content reads. Each says its
-// number in its spec, for what draws the pages without a view (`pagesLayout`).
+// an equation's as `--de-number`, which the stylesheet's generated content reads, and a numbered
+// paragraph's later part as `data-paragraph-continued`, which draws no number. Each number says
+// itself in its spec, for what draws the pages without a view (`pagesLayout`).
 function numberDecorations(
   doc: ProseMirrorNode,
-  headings: ReadonlyMap<number, string>,
+  {
+    headings,
+    paragraphs,
+  }: Pick<ReturnType<PagesTextEngine['numbering']>, 'headings' | 'paragraphs'>,
   { objects, map }: { objects: ObjectNumbers; map: ProjectionMap },
 ): DecorationSet {
   const found: Decoration[] = [];
@@ -114,6 +118,15 @@ function numberDecorations(
           { number: value, heading: true },
         ),
       );
+      return false;
+    }
+    if (node.type.name === 'paragraph') {
+      // The pages draw the whole paragraph's number on each part; a later part shows none, as
+      // the engine laid it out (DOCE-NUMBERING-6.1).
+      if (paragraphs.get(pos)?.continued) {
+        const attrs = { 'data-paragraph-continued': 'true' };
+        found.push(Decoration.node(pos, pos + node.nodeSize, attrs, { continued: true }));
+      }
       return false;
     }
     if (node.type.name === 'math_display') {
@@ -165,7 +178,7 @@ export function engineNumbers(source: EngineNumbersSource): Plugin<DecorationSet
     if (!engine) return DecorationSet.empty;
     const map = source.map();
     const objects = objectNumbers(map.canonical, engine.template);
-    return numberDecorations(doc, engine.numbering(doc).headings, { objects, map });
+    return numberDecorations(doc, engine.numbering(doc), { objects, map });
   };
   return new Plugin<DecorationSet>({
     key: engineNumbersKey,
