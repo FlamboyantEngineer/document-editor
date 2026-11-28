@@ -159,7 +159,9 @@ function marksOfLine(
   { line: laid, prefixed, next }: { line: TextLine; prefixed: boolean; next: TextLine | undefined },
 ): LineMark[] {
   const line = shownLine(table, laid);
-  const start = prefixed || line.side !== undefined ? null : startMark(node, table, line);
+  // A line that starts inside an inserted word starts in no content of its own.
+  const among = line.side !== undefined || line.inWord;
+  const start = prefixed || among ? null : startMark(node, table, line);
   const marks: LineMark[] = start ? [start] : [];
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
   const text = shownText(node, table, line);
@@ -171,7 +173,9 @@ function marksOfLine(
     marks.push({ from: line.from, to: end, class: 'de-forced-lines__justified', style });
   }
   // A line that ends at a line feed, as a code block's lines do, is broken there by the browser.
-  if (next?.side !== undefined || text.endsWith('\n')) return marks;
+  // A line followed by one that starts inside an inserted word ends inside that word's widget,
+  // where no mark can break it: the browser breaks it there, inside its 8px overhang.
+  if (next?.side !== undefined || next?.inWord || text.endsWith('\n')) return marks;
   // A line that ends at a soft hyphen draws its hyphen, as the engine counted it.
   const end = text.endsWith(SOFT_HYPHEN)
     ? 'de-forced-lines__end de-forced-lines__hyphen'
