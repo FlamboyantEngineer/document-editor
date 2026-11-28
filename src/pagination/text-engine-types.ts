@@ -18,9 +18,6 @@ import type { LayoutBlock, LayoutRules, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { LayoutInputs } from './layout-inputs.js';
 
-/** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
-export type TextLayoutMode = 'dom' | 'pretext';
-
 /** What the pages' text layout engine is made from. */
 export interface TextEngineOptions {
   readonly template: TemplateFile;
@@ -158,6 +155,8 @@ export interface PagesTextEngine {
    * (DOCE-PAGINATION-10.11), and gives that number of digits.
    */
   pageDigits(count: number): number;
+  /** The measured rows and reserved page digits a kept list of contents drawing must match. */
+  contentsKeyOf?(node: ProseMirrorNode): string;
   /** How the pages draw a list of contents block; null when the engine left it to the DOM. */
   contentsDrawn(
     node: ProseMirrorNode,

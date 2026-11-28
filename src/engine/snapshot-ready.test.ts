@@ -1,6 +1,7 @@
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
+import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { mount } from '../../test/projection-fixtures.js';
 import { BASE_TEMPLATE, readDocumentFile } from '../model/index.js';
@@ -72,5 +73,52 @@ describe('documentSnapshotWhenReady', () => {
       'b.png',
     ]);
     view.destroy();
+  });
+
+  it('DOCE-EDITOR-6.26 keeps the captured images if the live document changes during resolution', async () => {
+    const view = figuresView();
+    const started = deferred<void>();
+    const resolved = deferred<string>();
+    const asked: string[] = [];
+    const snapshot = documentSnapshotWhenReady(view, {
+      template: BASE_TEMPLATE,
+      whenSettled: () => Promise.resolve(),
+      resolveImage(src) {
+        asked.push(src);
+        if (src !== 'a.png') return null;
+        started.resolve();
+        return resolved.promise;
+      },
+    });
+    await started.promise;
+    const tr = view.state.tr;
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'figure' && node.attrs.src === 'a.png')
+        tr.setNodeAttribute(pos, 'src', 'new.png');
+    });
+    view.dispatch(tr);
+    expect(sources(view.dom.outerHTML)).toEqual(['new.png', 'new.png', 'b.png']);
+    resolved.resolve('signed/a.png');
+    expect(sources(await snapshot)).toEqual(['signed/a.png', 'signed/a.png', 'b.png']);
+    expect(asked).toEqual(['a.png', 'b.png']);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-6.26 rejects a capture when its view is destroyed during image resolution', async () => {
+    const view = figuresView();
+    const started = deferred<void>();
+    const resolved = deferred<string>();
+    const snapshot = documentSnapshotWhenReady(view, {
+      template: BASE_TEMPLATE,
+      whenSettled: () => Promise.resolve(),
+      resolveImage() {
+        started.resolve();
+        return resolved.promise;
+      },
+    });
+    await started.promise;
+    view.destroy();
+    resolved.resolve('signed/a.png');
+    await expect(snapshot).rejects.toThrow('The document layout is unavailable.');
   });
 });

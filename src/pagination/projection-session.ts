@@ -10,7 +10,7 @@ import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
-import { caretPlace, rememberCaret } from './caret.js';
+import { rememberMovedCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import { redrawRefused } from './dropped-composition.js';
 import { type Showing, shownBy } from './layout-latency.js';
@@ -18,8 +18,7 @@ import { markLayout } from './layout-marks.js';
 import type { LayoutPace } from './layout-pace.js';
 import { followDocument } from './layout-source.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
-import { frameIn, type settleEdits } from './layout-triggers.js';
-import { waitsForMath } from './math-wait.js';
+import { afterComposition, frameIn, type settleEdits } from './layout-triggers.js';
 import type { createPageMapScope } from './page-map.js';
 import type { PagedProjectionOptions } from './projection.js';
 import {
@@ -31,6 +30,7 @@ import {
 import { layOutProjection } from './projection-layout.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { mirrorChange } from './projection-mirror.js';
+import { readyEngine } from './ready-engine.js';
 import {
   canonicalSelection,
   selectionAcrossBreak,
@@ -188,26 +188,22 @@ function syncSelection(session: Session): void {
 
 /** Lays the pages out once the scheduler runs, unless a layout is already due. */
 export function requestLayout(session: Session): void {
-  if (session.pace.ready.failed()) return;
-  session.pace.readiness.pending();
-  if (session.cancelLayout) return;
-  writeTrace(session.options.trace, 'request');
-  const schedule = session.options.schedule ?? frameIn(session.options.element);
-  session.cancelLayout = schedule(() => layout(session));
+  if (session.destroyed || session.pace.ready.failed()) return;
+  session.pace.readiness.pending(() => {
+    if (session.cancelLayout) return;
+    writeTrace(session.options.trace, 'request');
+    const schedule = session.options.schedule ?? frameIn(session.options.element);
+    if (!session.destroyed) session.cancelLayout = schedule(() => layout(session));
+  });
 }
 
 /** Lays the pages out again soon; `remeasure` starts the layout source's plugins over. */
 export function refreshLayout(session: Session, remeasure: boolean): void {
+  if (session.destroyed || session.pace.ready.failed()) return;
   if (remeasure) session.pace.restart = true;
-  markChanged(session);
+  session.pace.changed = true;
   session.edits.cancel();
   requestLayout(session);
-}
-
-/** A change, or the host asking for a layout: the count of layouts in a row starts over. */
-function markChanged(session: Session): void {
-  session.pace.changed = true;
-  if (!session.pace.ready.failed()) session.pace.readiness.pending();
 }
 
 // Lays the pages out with the engine from the layout's source state, moved onto the canonical
@@ -220,7 +216,7 @@ function layOutPages(session: Session, engine: PagesTextEngine) {
   pace.restart = false;
   const { memory, counter } = pace;
   return layOutProjection(
-    { projection, source, canonical, memory, onSection: counter.section },
+    { projection, source, canonical, memory, ...counter.reports },
     { ...options, fragmentRules: rules, engine },
   );
 }
@@ -235,16 +231,6 @@ function keepShownSelection(session: Session): void {
   syncSelection(session);
 }
 
-// The engine once it and the math's glyphs are ready, or null with the layout left pending: nothing
-// is laid out before the engine is, since the pages are never measured in the DOM.
-function readyEngine(session: Session): PagesTextEngine | null {
-  if (session.pace.ready.blocked()) return null;
-  const engine = session.pace.text?.engine();
-  if (!engine) return null;
-  const waiting = { ...session, owner: session.options.element.ownerDocument };
-  return waitsForMath(waiting, () => requestLayout(session)) ? null : engine;
-}
-
 /**
  * Lays the pages out from the canonical document, steps the projection onto them and builds the map again;
  * fails when layouts keep moving the pages with no change in between.
@@ -254,13 +240,13 @@ export function layout(session: Session): void {
   session.cancelLayout = null;
   session.edits.cancel();
   const { view, pace, options } = session;
-  if (view?.isDestroyed || session.destroyed) return;
+  if (view?.isDestroyed) return;
   const { trace } = options;
   if (view?.composing) {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
-    return requestLayout(session);
+    return afterComposition(view, () => requestLayout(session));
   }
-  const engine = readyEngine(session);
+  const engine = readyEngine(session, () => requestLayout(session));
   if (!engine) return;
   keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
@@ -281,17 +267,18 @@ export function layout(session: Session): void {
   pace.passes = laidOut.tr.docChanged ? pace.passes + 1 : 0;
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
-  if (laidOut.tr.docChanged && view) rememberCaret(laidOut.tr.doc, caretPlace(view));
-  session.probe.laidOut(laidOut.metrics);
+  if (view) rememberMovedCaret(laidOut.tr, view);
+  session.probe.laidOut(laidOut);
   const stats = pace.counter.stats();
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));
+  if (session.destroyed) return;
   traced(() => ({ layouts: stats.layouts, pages: laidOut.metrics.length }));
   pace.readiness.laidOut(() => isIdle(session));
   session.options.onLayout?.(laidOut.tr);
 }
 
 // Whether no layout is due: none scheduled, no edit waiting and nothing the pages wait for.
-function isIdle({ cancelLayout, edits, pace, options }: Session): boolean {
+export function isIdle({ cancelLayout, edits, pace, options }: Session): boolean {
   return !cancelLayout && !edits.waiting() && !pace.ready.blocked() && !options.fontsPending?.();
 }
 
@@ -329,11 +316,14 @@ export function showCanonical(session: Session, tr: Transform | null, how: Showi
 
 // A change shown on the pages: laid out on the next frame when `now`, or once the writer pauses.
 function afterChange(session: Session, now: boolean, tr: Transaction): void {
-  markChanged(session);
+  if (session.destroyed || session.pace.ready.failed()) return;
+  session.pace.changed = true;
   if (now) return requestLayout(session);
-  writeTrace(session.options.trace, 'settle');
-  session.probe.request(tr);
-  session.edits.request();
+  session.pace.readiness.pending(() => {
+    writeTrace(session.options.trace, 'settle');
+    session.probe.request(tr);
+    session.edits.request();
+  });
 }
 
 /**

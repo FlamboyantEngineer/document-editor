@@ -14,7 +14,6 @@ import { createMathJaxLayouter, MATHJAX_RELEASE, mathMarkup } from './mathjax-la
 const LAYOUTS_FINGERPRINT = 'a68b7f24';
 
 // Async so each test awaits it as it would a loaded layouter; MathJax loads with the first prepare.
-// eslint-disable-next-line @typescript-eslint/require-await -- the layouter is made at once
 async function layouter(): Promise<MathLayouter> {
   return createMathJaxLayouter();
 }

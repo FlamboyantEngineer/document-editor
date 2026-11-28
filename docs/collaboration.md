@@ -136,7 +136,7 @@ and a stored room state reads back with `yjsToDocument(state.update, { schema })
 
 Each writer undoes only their own changes. `createCollabUndo()` runs a Yjs undo manager beside the sync plugin (`createCollabSync`) that tracks only the changes the editor sends as its own, so another writer's change, a write a plugin derives from one, and a host's system change stay out of it (DOCE-COLLAB-6.3). Run it with the editing history off (`createDocumentEditing({ history: false })`); the editor's keys, toolbar and menubar run `undoCommand` and `redoCommand`, which take the undo the state's plugins provide (`provideUndoCommands`) and the editing history's otherwise. A room-mode session runs both plugins itself.
 
-Plugins that bind to the shared document set `measured: false` in their spec, so the paged layout's hidden measuring view does not bind a second time, and each binds one view at a time.
+Plugins that bind to the shared document set `measured: false` in their spec, so the state the paged layout is laid out from does not bind a second time, and each binds one view at a time.
 
 ## The shared room lab
 
