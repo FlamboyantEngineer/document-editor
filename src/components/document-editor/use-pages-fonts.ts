@@ -27,6 +27,7 @@ import {
   templateFontFamilies,
   type TextLayoutMode,
 } from '../../pagination/index.js';
+import { retryDelay } from '../../pagination/served-fonts.js';
 import { aliasTemplateFonts } from '../../pagination/served-template.js';
 import { useReportedFonts } from './banners.js';
 
@@ -61,6 +62,65 @@ interface Drawn {
 }
 
 const NONE: Drawn = { drawing: null, fonts: null };
+
+// The served fonts being loaded for a fonts adapter.
+interface Loading {
+  readonly fonts: FontsAdapter | undefined;
+  readonly promise: Promise<PagesFonts>;
+}
+
+// What a load of the served fonts shows as it goes.
+interface LoadShown {
+  /** A load has started; the pages read its fonts. */
+  readonly loading: (current: Loading) => void;
+  /** The pages cannot be laid out, for now or for good. */
+  readonly unavailable: (reason: BrowserLayoutReason) => void;
+  /** The served fonts arrived, or a family asked for again brought faces in. */
+  readonly served: (fonts: ServedFonts) => void;
+}
+
+// Loads the served fonts for an adapter. A first load whose request failed or timed out is made
+// again a second later, then twice as long after each next failure, at most a minute, with the
+// web layout shown meanwhile (DOCE-PAGINATION-12.5); faces a family asked for again brings in are
+// drawn. Gives the call that stops it and takes the faces out.
+function keepLoading(
+  fonts: FontsAdapter | undefined,
+  families: readonly string[],
+  { doc, signal, shown }: { doc: Document; signal: AbortSignal; shown: LoadShown },
+): () => void {
+  const loads: Promise<PagesFonts>[] = [];
+  let failures = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const attempt = () => {
+    let served: ServedFonts | null = null;
+    const retried = () => {
+      if (served && !signal.aborted) shown.served(served);
+    };
+    const promise = loadPagesFonts(fonts, families, { doc, signal, retried });
+    loads.push(promise);
+    shown.loading({ fonts, promise });
+    void promise.then((loaded) => {
+      if (signal.aborted) return;
+      if (loaded.phase === 'pretext') {
+        served = loaded;
+        shown.served(loaded);
+        return;
+      }
+      shown.unavailable(loaded.reason);
+      if (!loaded.retry) return;
+      failures += 1;
+      timer = setTimeout(attempt, retryDelay(failures));
+    });
+  };
+  attempt();
+  return () => {
+    clearTimeout(timer);
+    for (const load of loads)
+      void load.then((loaded) => {
+        if (loaded.phase === 'pretext') loaded.destroy();
+      });
+  };
+}
 const NO_FAMILIES: readonly string[] = [];
 
 // The template the pages are drawn and laid out in: each generic as its served family, each font
@@ -120,9 +180,7 @@ function usePagesFonts(
   const asked = (props.layout ?? 'page') === 'page';
   const [reason, setReason] = useState<BrowserLayoutReason | null>(null);
   const [drawn, setDrawn] = useState(NONE);
-  const loading = useRef<{ fonts: FontsAdapter | undefined; promise: Promise<PagesFonts> } | null>(
-    null,
-  );
+  const loading = useRef<Loading | null>(null);
   const latestTemplate = useRef(props.template);
   useEffect(() => {
     latestTemplate.current = props.template;
@@ -135,22 +193,28 @@ function usePagesFonts(
     const families = [
       ...new Set([...templateFontFamilies(latestTemplate.current), ...PAGE_GENERICS]),
     ];
-    const promise = loadPagesFonts(fonts, families, { doc, signal: controller.signal });
-    const current = { fonts, promise };
-    loading.current = current;
-    void promise.then((loaded) => {
-      if (controller.signal.aborted) return;
-      if (loaded.phase === 'browser') setReason(loaded.reason);
-      else setDrawn({ drawing: loaded.drawing(), fonts: loaded });
+    let latest: Loading | null = null;
+    const stop = keepLoading(fonts, families, {
+      doc,
+      signal: controller.signal,
+      shown: {
+        loading(current) {
+          latest = current;
+          loading.current = current;
+        },
+        unavailable: setReason,
+        served(loaded) {
+          setReason(null);
+          setDrawn({ drawing: loaded.drawing(), fonts: loaded });
+        },
+      },
     });
     return () => {
       controller.abort();
-      if (loading.current === current) loading.current = null;
+      if (loading.current === latest) loading.current = null;
       setReason(null);
       setDrawn(NONE);
-      void promise.then((loaded) => {
-        if (loaded.phase === 'pretext') loaded.destroy();
-      });
+      stop();
     };
   }, [asked, fonts, measureIn]);
   useEffect(() => drawn.drawing?.adopt(), [drawn]);

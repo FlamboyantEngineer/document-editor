@@ -26,7 +26,7 @@ import {
   type PageTextLines,
   type WrappedBlock,
 } from '../../../src/pagination/index.js';
-import { cousineFiles } from '../served-fonts.js';
+import { cousineFiles, LAB_FONT_REQUESTS } from '../served-fonts.js';
 
 /** Where a caret goes at a fragment boundary: the head fragment's end or its continuation's start. */
 export type FragmentEdge = 'head-end' | 'continuation-start';
@@ -75,6 +75,8 @@ export interface RegressionProbe {
   selected(): [number, number] | null;
   /** Gives the editor another fonts adapter while it shows (DOCE-PAGINATION-12.7). */
   setFonts(fonts: LabFonts): void;
+  /** How many file requests the lab's fonts hosts were asked, and how many they have answered. */
+  fontRequests(): { asked: number; answered: number };
   /** The pages' layout as data (`pagesLayout()`), or null. */
   layout(markup?: LayoutMarkup): PagesLayout | null;
   /**
@@ -118,9 +120,9 @@ export type ShowViewer = (
 
 /**
  * The fonts adapter the lab gives its editor: none, the lab's, Cousine's files under every family,
- * or the lab's a second late.
+ * the lab's a second late, or the lab's with its first file request failing.
  */
-export type LabFonts = 'none' | 'lab' | 'cousine' | 'slow';
+export type LabFonts = 'none' | 'lab' | 'cousine' | 'slow' | 'flaky';
 
 /** A markup the editor lays its pages out in for a layout it hands over (`pagesLayout`). */
 type LayoutMarkup = 'all' | 'final' | 'original';
@@ -308,6 +310,7 @@ export function useRegressionProbe(
         return selection ? [selection.from, selection.to] : null;
       },
       setFonts,
+      fontRequests: () => ({ ...LAB_FONT_REQUESTS }),
       layout: (markup) => handle.current?.pagesLayout({ markup }) ?? null,
       load,
       setZoom,

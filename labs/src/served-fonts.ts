@@ -75,18 +75,32 @@ async function filesOf(families: readonly string[], served: Families): Promise<F
   );
 }
 
-// A fonts host serving `served`, its files `delay` ms after they are asked for.
-function labFonts(served: Families, delay = 0): FontsAdapter {
+/** How many file requests the labs' fonts hosts were asked, and how many they have answered. */
+export const LAB_FONT_REQUESTS = { asked: 0, answered: 0 };
+
+// A fonts host serving `served`, its files `delay` ms after they are asked for, the first `failing`
+// file requests failing as a host offline for a moment would.
+function labFonts(served: Families, { delay = 0, failing = 0 } = {}): FontsAdapter {
   const later = () => new Promise((resolve) => setTimeout(resolve, delay));
+  let failures = failing;
   return {
     load: (families) => Promise.resolve({ ok: true, value: families }),
     async shaper() {
       return { ok: true, value: await bytesOf('harfbuzz.wasm') };
     },
     async files(families) {
-      const files = await filesOf(families, served);
-      if (delay) await later();
-      return { ok: true, value: { faces: files, generics: GENERICS } };
+      LAB_FONT_REQUESTS.asked += 1;
+      try {
+        if (failures > 0) {
+          failures -= 1;
+          return { ok: false, error: { kind: 'unavailable' } };
+        }
+        const files = await filesOf(families, served);
+        if (delay) await later();
+        return { ok: true, value: { faces: files, generics: GENERICS } };
+      } finally {
+        LAB_FONT_REQUESTS.answered += 1;
+      }
     },
   };
 }
@@ -98,7 +112,10 @@ export const LAB_FONTS: FontsAdapter = labFonts(FAMILIES);
 export const COUSINE_FONTS: FontsAdapter = labFonts(COUSINE_FAMILIES);
 
 /** `LAB_FONTS`, its files a second after they are asked for, as a slow host's. */
-export const SLOW_LAB_FONTS: FontsAdapter = labFonts(FAMILIES, 1000);
+export const SLOW_LAB_FONTS: FontsAdapter = labFonts(FAMILIES, { delay: 1000 });
+
+/** `LAB_FONTS`, its first file request failing, as a host offline for a moment. */
+export const FLAKY_LAB_FONTS: FontsAdapter = labFonts(FAMILIES, { failing: 1 });
 
 /** Cousine's files for the families of `fonts`' faces, as another host serves them. */
 export async function cousineFiles(fonts: FontFiles): Promise<FontFiles> {
