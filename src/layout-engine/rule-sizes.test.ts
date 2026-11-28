@@ -1,19 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import type { LayoutRules } from '../model/pagination/page-layout.js';
+import { describe, expect, it, vi } from 'vitest';
+import type { LayoutRules, SizeInput } from '../model/pagination/page-layout.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
-import { createRuleSizes } from './rule-sizes.js';
+import { createRuleSizes, ruleSizesKey } from './rule-sizes.js';
 import { createTextLayout } from './text-layout.js';
 
 const schema = createDocumentSchema();
 const text = createTextLayout({ template: BASE_TEMPLATE });
 // Rules, in a cell the test changes, sizing paragraphs: one whose text says "bad" fails.
-function sizesWith(rules: { current: LayoutRules }) {
+function sizesWith(
+  rules: { current: LayoutRules },
+  markup: () => SizeInput['markup'] = () => 'all',
+) {
   return createRuleSizes({
     rules: () => rules.current,
     text: () => text,
     language: '',
-    markup: () => 'all',
+    markup,
   });
 }
 const sizing: LayoutRules = {
@@ -74,5 +77,107 @@ describe('rule sizes', () => {
     const after = plain('fixed');
     sizes.block(after, 100, null);
     expect(sizes.errors(doc(after)).size).toBe(0);
+  });
+
+  it('DOCE-PAGINATION-14.1 clears the last rule’s errors even when the failing node stays live', () => {
+    const rules = { current: sizing };
+    const sizes = sizesWith(rules);
+    const failing = block('a5', 'bad');
+    const doc = schema.node('doc', null, failing);
+    expect(sizes.block(failing, 100, null)).toBe(0);
+    expect(sizes.errors(doc).get('paragraph')).toMatch(/no size/u);
+    rules.current = {};
+    expect(sizes.block(failing, 100, null)).toBeNull();
+    expect(sizes.errors(doc).size).toBe(0);
+  });
+
+  it('DOCE-PAGINATION-14.1 restores the latest error outcome when reusing sizes across widths and markups', () => {
+    let markup: SizeInput['markup'] = 'all';
+    const size = vi.fn(({ width, markup }: SizeInput) => {
+      if (width < 110 || markup === 'final')
+        throw new Error(`no size at ${String(width)} in ${markup}`);
+      return { height: 20 };
+    });
+    const sizes = sizesWith({ current: { paragraph: { size } } }, () => markup);
+    const node = block('a6', 'changes with its place');
+    expect(sizes.block(node, 120, null)).toBe(20);
+    expect(sizes.block(node, 100, null)).toBe(0);
+    expect(sizes.errors().get('paragraph')).toContain('100 in all');
+    expect(sizes.block(node, 120, null)).toBe(20);
+    expect(sizes.errors().size).toBe(0);
+    markup = 'final';
+    expect(sizes.block(node, 120, null)).toBe(0);
+    expect(sizes.errors().get('paragraph')).toContain('120 in final');
+    markup = 'all';
+    expect(sizes.block(node, 100, null)).toBe(0);
+    expect(sizes.errors().get('paragraph')).toContain('100 in all');
+    expect(sizes.block(node, 120, null)).toBe(20);
+    expect(sizes.errors().size).toBe(0);
+    expect(size).toHaveBeenCalledTimes(4);
+  });
+
+  it('DOCE-PAGINATION-14.1 caches the exact width and scope a rule is given', () => {
+    const size = vi.fn(({ width, scope }: SizeInput) => ({
+      height: scope === null ? width : width + 1,
+    }));
+    const sizes = sizesWith({ current: { paragraph: { size } } });
+    const node = block('a7', 'sizes to its exact width');
+    expect(sizes.block(node, 100.001, null)).toBe(100.001);
+    expect(sizes.block(node, 100.002, null)).toBe(100.002);
+    expect(sizes.block(node, 100.002, '')).toBe(101.002);
+    expect(sizes.block(node, 100.001, null)).toBe(100.001);
+    expect(size).toHaveBeenCalledTimes(4);
+  });
+
+  it('DOCE-PAGINATION-14.1 keeps sizes when otherwise equal rule maps list types in another order', () => {
+    const size = vi.fn(() => ({ height: 10 }));
+    const paragraph = { size, sizeKey: 'first' };
+    const heading = { size, sizeKey: 'second' };
+    const rules = { current: { paragraph, heading } };
+    const sizes = sizesWith(rules);
+    const node = block('a8', 'same geometry');
+    expect(sizes.block(node, 100, null)).toBe(10);
+    rules.current = { heading, paragraph };
+    expect(sizes.block(node, 100, null)).toBe(10);
+    expect(size).toHaveBeenCalledTimes(2);
+  });
+
+  it('DOCE-PAGINATION-14.1 keeps rule revisions unambiguous even with separator text', () => {
+    const size = () => ({ height: 10 });
+    const heading = { size, sizeKey: 'second' };
+    const separate = ruleSizesKey({ paragraph: { size, sizeKey: 'first' }, heading });
+    const joined = ruleSizesKey({
+      paragraph: { size, sizeKey: `first|${ruleSizesKey({ heading })}` },
+    });
+    expect(separate).not.toBe(joined);
+    expect(ruleSizesKey({ paragraph: { size, sizeKey: 1 } })).not.toBe(
+      ruleSizesKey({ paragraph: { size, sizeKey: '1' } }),
+    );
+  });
+
+  it('DOCE-PAGINATION-14.1 checks an inline rule by its effective dimensions', () => {
+    const size = vi
+      .fn<() => unknown>()
+      .mockReturnValueOnce({ height: 15, metadata: 1n })
+      .mockReturnValueOnce({ baseline: 15, width: 0, height: 15, metadata: 2n });
+    // The rule is called at a JavaScript boundary where extra fields can accompany its box.
+    const rules = { current: { mention: { size: () => size() as { height: number } } } };
+    const sizes = sizesWith(rules);
+    const node = schema.node('mention', { userId: 'u1', label: 'Ada' });
+    expect(sizes.inline(node, 120, null)).toEqual({ height: 15, width: 0, baseline: 15 });
+    expect(size).toHaveBeenCalledTimes(2);
+    expect(sizes.errors().size).toBe(0);
+  });
+
+  it('DOCE-PAGINATION-14.1 detects changing geometry even when a rule returns the same object twice', () => {
+    const box = { height: 15, width: 20 };
+    const size = () => {
+      box.width += 1;
+      return box;
+    };
+    const sizes = sizesWith({ current: { mention: { size } } });
+    const node = schema.node('mention', { userId: 'u1', label: 'Ada' });
+    expect(sizes.inline(node, 120, null)).toEqual({ height: 0, width: 0, baseline: 0 });
+    expect(sizes.errors().get('mention')).toMatch(/two sizes/u);
   });
 });

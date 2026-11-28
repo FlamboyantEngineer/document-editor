@@ -8,7 +8,7 @@ import type { ReserveCluster } from '../reserved-boxes.js';
 import { reserveUnserved } from './cluster-faces.js';
 import { createFaceSet, type ServedFace } from './faces.js';
 import { createHarfBuzz } from './harfbuzz.js';
-import { type FontFaceProblem, readHostFaces } from './host-faces.js';
+import { type FontFaceProblem, type ReadFace, readHostFaces } from './host-faces.js';
 import {
   createFontFileContext,
   createMeasureProblems,
@@ -41,6 +41,8 @@ export interface FontFileMeasurer {
    * read; contexts measure with them from their next measure.
    */
   addFiles(files: FontFiles): Promise<readonly FontFaceProblem[]>;
+  /** Installs decoded host files after the drawing surface has accepted them. */
+  addFaces(faces: readonly ReadFace[], generics?: FontFiles['generics']): void;
   /** Measures `name` with a served family's faces (DOCE-PAGINATION-12.8). */
   alias(name: string, family: string): void;
 }
@@ -57,20 +59,22 @@ export async function createFontFileMeasurer({
   const faceSet = createFaceSet(harfBuzz, await unpacked(faces), generics);
   const problems = createMeasureProblems();
   const kept = new Set<string>();
+  const addFaces: FontFileMeasurer['addFaces'] = (faces, generics) => {
+    const fresh = uniqueFontFaces(faces, (face) => face.key).filter((face) => !kept.has(face.key));
+    faceSet.add(fresh, generics);
+    for (const face of fresh) kept.add(face.key);
+  };
   return {
     createContext: () => createFontFileContext(faceSet, problems),
     problems,
     reserve: reserveUnserved(faceSet),
     heapBytes: () => harfBuzz.heapBytes(),
     async addFiles(files) {
-      const read = await readHostFaces(files);
-      const fresh = uniqueFontFaces(read.faces, (face) => face.key).filter(
-        (face) => !kept.has(face.key),
-      );
-      faceSet.add(fresh, files.generics);
-      for (const face of fresh) kept.add(face.key);
-      return read.problems;
+      const { faces, problems } = await readHostFaces(files);
+      addFaces(faces, files.generics);
+      return problems;
     },
+    addFaces,
     alias: (name, family) => faceSet.alias(name, family),
   };
 }

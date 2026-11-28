@@ -5,14 +5,7 @@
 import type { Attrs } from 'prosemirror-model';
 import { type Command, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import {
-  type Ref,
-  type RefObject,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { type Ref, type RefObject, useImperativeHandle, useMemo, useRef } from 'react';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import { type FoundElement, textRange } from '../../engine/automation-address.js';
 import {
@@ -45,7 +38,7 @@ import type {
 } from '../document-comments/document-comments.js';
 import type { EditorPanes, RevealPaneOptions } from '../document-panels/document-panels.js';
 import type { FindBarMode } from './document-find-bar.js';
-import { inMarkupOf, type SnapshotDrawing, snapshotMethods } from './editor-snapshots.js';
+import { type SnapshotDrawing, snapshotMethods } from './editor-snapshots.js';
 import type { LayoutProgress } from './layout-progress.js';
 import {
   measureVisibleElements,
@@ -98,7 +91,8 @@ export interface DocumentEditorHandle {
   openFind(mode?: FindBarMode): boolean;
   /**
    * The document as its pages show it now, as a standalone HTML document a host prints or turns
-   * into a PDF (`documentSnapshot`); null before the editor is mounted.
+   * into a PDF (`documentSnapshot`). Returns null before the editor is mounted or if the pages
+   * cannot immediately lay out the requested alternate markup.
    */
   exportSnapshot(options?: Omit<SnapshotOptions, 'template'>): string | null;
   /**
@@ -146,7 +140,8 @@ export interface DocumentEditorHandle {
    * With `textLayout: 'pretext'`, the pages' layout as data: the pages' document, each forced
    * block's line marks and the variables as shown, which `renderPrintPage` and a viewer draw
    * without measuring (DOCE-PAGINATION-13.2); null otherwise. Laid out in the editor's markup, or
-   * in `markup`, the suggestions it hides taking no room (DOCE-PAGINATION-11.12).
+   * in `markup`, the suggestions it hides taking no room (DOCE-PAGINATION-11.12). Returns null
+   * if a requested change of markup cannot be laid out immediately.
    */
   pagesLayout(options?: PagesLayoutRequest): PagesLayout | null;
   /**
@@ -242,6 +237,12 @@ export interface PagesLayoutRequest {
   readonly markup?: SuggestionMarkup | undefined;
 }
 
+function readPagesLayout(layout: LayoutProgress, markup: SuggestionMarkup | undefined) {
+  return markup
+    ? layout.inMarkup(markup, (available) => (available ? layout.pagesLayout() : null))
+    : layout.pagesLayout();
+}
+
 /** Gives the host a handle on the editor through its `handleRef`. */
 export function useEditorHandle(
   ref: Ref<DocumentEditorHandle> | undefined,
@@ -250,12 +251,14 @@ export function useEditorHandle(
     startCommentRef,
     openThreadRef,
     template,
+    drawing,
     layout,
     panes,
     openFind,
     references,
   }: CommentRefs & {
     template: TemplateFile;
+    drawing: RefObject<SnapshotDrawing | null>;
     references: ReferenceSourceAdapter | undefined;
     layout: LayoutProgress;
     panes: EditorPanes;
@@ -263,13 +266,6 @@ export function useEditorHandle(
   },
 ) {
   const stopCentring = useRef<(() => void) | null>(null);
-  const drawing = useRef<SnapshotDrawing | null>(null);
-  useLayoutEffect(() => {
-    drawing.current = { view, template };
-    return () => {
-      drawing.current = null;
-    };
-  }, [view, template]);
   useImperativeHandle(
     ref,
     () => ({
@@ -310,13 +306,12 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       textLines: layout.textLines,
-      pagesLayout: (options) =>
-        inMarkupOf<PagesLayout | null>(layout, options?.markup)(layout.pagesLayout),
+      pagesLayout: (options) => readPagesLayout(layout, options?.markup),
       drawAllLines: layout.drawAllLines,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
       visiblePages: () => (view ? measureVisiblePages(view) : []),
       revealPane: (paneId, options) => panes.reveal(paneId, options),
     }),
-    [view, startCommentRef, openThreadRef, template, layout, openFind, panes, references],
+    [view, startCommentRef, openThreadRef, template, drawing, layout, openFind, panes, references],
   );
 }

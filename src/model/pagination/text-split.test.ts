@@ -183,6 +183,26 @@ describe('text splits', () => {
     ).toBeNull();
   });
 
+  it('DOCE-PAGINATION-3.3 reuses the original code breaks through successive fragments with a blank line', () => {
+    const source = 'one\n\ntwo\nthree\nfour\nfive';
+    const first = splitCode(codeBlock(source), 16);
+    const next = first?.tail[0];
+    const second = next && splitCode(next, 26);
+    const last = second?.tail[0];
+    const third = last && splitCode(last, 26);
+    if (!first || !second || !third) throw new Error('code did not split');
+    const parts = [first.head, second.head, third.head, ...third.tail];
+    expect(parts.map((part) => part.node.textContent)).toEqual([
+      'one',
+      '\ntwo',
+      'three\nfour',
+      'five',
+    ]);
+    expect(parts.map((part) => part.node.attrs.codeLineStart)).toEqual([1, 2, 4, 6]);
+    const [joined] = joinFragments(parts.map((part) => part.node));
+    expect(joined?.textContent).toBe(source);
+  });
+
   it('DOCE-PAGINATION-3.4 splits linked code by its code', () => {
     const code = 'one\ntwo\nthree';
     const node = documentSchema.node('linked_code_block', { dataId: 'l1', code, startLine: 10 });
@@ -246,5 +266,64 @@ describe('text splits', () => {
       measurement: { ...lineMeasurement(text), lines: { lines } },
     });
     expect(plan).toEqual({ next: 16, end: 16, headHeight: 20, tailHeight: 50 });
+  });
+
+  it('DOCE-PAGINATION-11.11 backs up from a line that starts inside a widget', () => {
+    const text = words(12);
+    const lines = [0, 8, 16, 24, 32, 40].map((from) => ({
+      from,
+      height: LINE,
+      ...(from === 24 ? { inWord: true as const } : {}),
+    }));
+    expect(
+      planParagraphSplit({
+        text,
+        height: 6 * LINE,
+        fitting: 35,
+        measurement: { ...lineMeasurement(text), lines: { lines } },
+      }),
+    ).toEqual({ next: 16, end: 16, headHeight: 20, tailHeight: 40 });
+  });
+
+  it('DOCE-PAGINATION-9.8 splits only the fitting lines of a long paragraph across repeated fragments', () => {
+    const count = 4_096;
+    let reads = 0;
+    const lines = Array.from({ length: count }, (_, index) => ({
+      get from() {
+        reads += 1;
+        return index * 8;
+      },
+      get height() {
+        reads += 1;
+        return LINE;
+      },
+    }));
+    const text = 'x'.repeat(count * 8);
+    const measurement = { ...lineMeasurement(text), lines: { lines } };
+    const plan = (offset: number) =>
+      planParagraphSplit({
+        text: text.slice(offset),
+        height: (count - offset / 8) * LINE,
+        fitting: 25,
+        measurement: { ...measurement, offset },
+      });
+    expect(plan(0)?.next).toBe(16);
+    reads = 0;
+    for (let page = 1; page <= 64; page += 1) {
+      expect(plan(page * 16)).toMatchObject({ end: 16, next: 16, headHeight: 20 });
+    }
+    expect(reads).toBeLessThan(3_000);
+  });
+
+  it('DOCE-PAGINATION-9.8 keeps an exact fit after a fragment with a much taller line', () => {
+    const text = 'x'.repeat(32);
+    const lines = [0, 8, 16, 24, 32].map((from) => ({ from, height: from ? 10.1 : 1e12 }));
+    const plan = planParagraphSplit({
+      text,
+      height: 40.4,
+      fitting: 20.2,
+      measurement: { ...lineMeasurement(text, 8), lines: { lines } },
+    });
+    expect(plan).toEqual({ end: 16, next: 16, headHeight: 20.2, tailHeight: 20.2 });
   });
 });

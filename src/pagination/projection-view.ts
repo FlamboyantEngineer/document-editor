@@ -73,8 +73,11 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     servedFonts: projection.servedFonts,
     destroy() {
       detach();
-      shown.destroy();
-      projection.destroy();
+      try {
+        shown.destroy();
+      } finally {
+        projection.destroy();
+      }
     },
   };
 }

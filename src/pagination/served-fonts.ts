@@ -125,9 +125,10 @@ function servedFonts(
     if (!result.ok) return null;
     const install = installing.then(async () => {
       if (isDone()) return false;
-      const problems = await measurer.addFiles(result.value);
+      const { readHostFaces } = await import('../layout-engine/font-files/host-faces.js');
+      const { faces: read } = await readHostFaces(result.value);
       if (isDone()) return false;
-      const changed = await faces.add(result.value, new Set(problems.map(({ index }) => index)));
+      const changed = await faces.add(read, result.value.generics);
       return changed && !isDone();
     });
     // Fetches may overlap; each batch finishes installing before the next one changes the faces.
@@ -171,14 +172,19 @@ export async function loadPagesFonts(
     const reason = loaded.phase === 'browser' ? loaded.reason : 'no-shaper';
     return { phase: 'browser', reason: reason === 'pending' ? 'no-files' : reason };
   }
-  const faces = createServedFaces(doc, loaded.measurer);
+  const faces = createServedFaces(doc, loaded.measurer, signal);
   const served = servedFonts(fonts, loaded.measurer, { faces, initial, signal });
   // Fonts asked for by an editor that has gone, or that asks another adapter now, never draw.
   if (signal?.aborted) {
     served.destroy();
     return served;
   }
-  await faces.add(loaded.files, new Set(loaded.problems.map((problem) => problem.index)));
+  try {
+    await faces.add(loaded.faces, loaded.generics);
+  } catch {
+    served.destroy();
+    return { phase: 'browser', reason: 'shaper-failed' };
+  }
   if (signal?.aborted) served.destroy();
   else if (!faces.files().faces.length) {
     served.destroy();

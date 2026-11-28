@@ -542,6 +542,35 @@ describe('DocumentEditor', () => {
     expect(handle.current?.layoutStats()?.blocksMeasured).toBeLessThanOrEqual(2);
   });
 
+  it('DOCE-PAGINATION-11.12 DOCE-EDITOR-6.16 returns no alternate-markup layout or snapshot while composition prevents it', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    render(<Harness editable layout="page" handleRef={handle} />);
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    const view = handle.current?.view();
+    if (!view) throw new Error('The test editor has no view');
+    act(() => {
+      expect(handle.current?.pagesLayout({ markup: 'final' })?.markup).toBe('final');
+      expect(
+        handle.current?.exportSnapshot({ markup: 'final' })?.includes('data-markup="final"'),
+      ).toBe(true);
+    });
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    await act(async () => {
+      view.dom.dispatchEvent(new CompositionEvent('compositionstart'));
+      expect(view.composing).toBe(true);
+      expect(handle.current?.pagesLayout()?.markup).toBe('all');
+      expect(handle.current?.exportSnapshot({ markup: 'all' })?.includes('data-markup="all"')).toBe(
+        true,
+      );
+      await expect(handle.current?.exportSnapshotAsync({ markup: 'final' })).rejects.toThrow(
+        'The document layout is unavailable.',
+      );
+      expect(handle.current?.pagesLayout({ markup: 'final' })).toBeNull();
+      expect(handle.current?.exportSnapshot({ markup: 'final' })).toBeNull();
+      view.dom.dispatchEvent(new CompositionEvent('compositionend'));
+    });
+  });
+
   it('DOCE-PAGINATION-12.5 lays out and draws a family no host file serves in the served body family, and says so', async () => {
     const handle = createRef<DocumentEditorHandle>();
     const template = { ...TEMPLATE, styles: { paragraph: { font: 'Unserved Face' } } };
@@ -656,6 +685,9 @@ describe('DocumentEditor', () => {
     );
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     expect(handle.current?.layoutStats()).toBeNull();
+    expect(
+      handle.current?.exportSnapshot({ markup: 'final' })?.includes('data-markup="final"'),
+    ).toBe(true);
   });
 
   it('DOCE-PAGINATION-13.2 DOCE-EDITOR-6.26 settles and snapshots while unrelated document fonts load', async () => {

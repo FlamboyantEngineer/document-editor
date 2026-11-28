@@ -13,9 +13,11 @@ function layoutMarkup(markup: DocumentMarkup | undefined): SuggestionMarkup {
 }
 
 // Lays the pages out now, with the markup the layout engine reads now.
-function layOutNow(runner: LayoutRunner) {
+function layOutNow(runner: LayoutRunner): boolean {
   runner.refresh();
+  const before = runner.projection;
   runner.layout();
+  return runner.projection !== before;
 }
 
 /**
@@ -29,7 +31,7 @@ export function useLayoutMarkup(
   latest: RefObject<{ readonly markup?: DocumentMarkup | undefined }>,
   active: RefObject<LayoutRunner | null>,
 ) {
-  const taken = useRef<SuggestionMarkup | null>(null);
+  const taken = useRef<{ markup: SuggestionMarkup; available: boolean } | null>(null);
   const shown = layoutMarkup(markup);
   const laid = useRef(shown);
   useEffect(() => {
@@ -40,17 +42,20 @@ export function useLayoutMarkup(
   return useMemo(() => {
     const editors = () => layoutMarkup(latest.current.markup);
     return {
-      now: () => taken.current ?? editors(),
-      inMarkup<T>(wanted: SuggestionMarkup, take: () => T): T {
+      now: () => taken.current?.markup ?? editors(),
+      inMarkup<T>(wanted: SuggestionMarkup, take: (available: boolean) => T): T {
         const runner = active.current;
-        if (!runner || taken.current !== null || wanted === editors()) return take();
-        taken.current = wanted;
+        const current = taken.current;
+        if (current) return take(current.markup === wanted && current.available);
+        if (!runner || wanted === editors()) return take(true);
+        const temporary = { markup: wanted, available: false };
+        taken.current = temporary;
         try {
-          layOutNow(runner);
-          return take();
+          temporary.available = layOutNow(runner) && active.current === runner;
+          return take(temporary.available);
         } finally {
           taken.current = null;
-          layOutNow(runner);
+          if (active.current === runner) layOutNow(runner);
         }
       },
     };

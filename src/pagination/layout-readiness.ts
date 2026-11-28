@@ -20,20 +20,34 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
   let destroyed = false;
   let cancel: (() => void) | null = null;
   const waiting: ((state: LayoutState) => void)[] = [];
-  const set = (next: LayoutState, notify = true) => {
-    if (destroyed) return;
-    cancel?.();
+  const finish = (next: 'settled' | 'failed') => {
+    for (const resolve of waiting.splice(0)) resolve(next);
+  };
+  const cancelFrame = () => {
+    const stop = cancel;
     cancel = null;
+    stop?.();
+  };
+  const set = (next: LayoutState) => {
+    if (destroyed) return;
+    cancelFrame();
     if (next === state) return;
     state = next;
-    if (notify) onChange?.(next);
-    if (next === 'pending') return;
-    for (const resolve of waiting.splice(0)) resolve(next);
+    // A listener can start another layout or throw while handling this transition.
+    if (next !== 'pending') finish(next);
+    onChange?.(next);
   };
   return {
     state: () => state,
     /** A layout is due. */
-    pending: () => set('pending'),
+    pending(request?: () => void) {
+      try {
+        set('pending');
+      } finally {
+        // A listener can fail, but waiters still need the requested layout.
+        if (!destroyed) request?.();
+      }
+    },
     /** The pages could not be laid out. */
     fail: () => set('failed'),
     /**
@@ -42,7 +56,7 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
      */
     laidOut(isIdle: () => boolean) {
       if (destroyed) return;
-      cancel?.();
+      cancelFrame();
       const settle = () => {
         cancel = null;
         if (isIdle()) set('settled');
@@ -57,8 +71,11 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
       return new Promise((resolve) => waiting.push(resolve));
     },
     destroy() {
-      set('failed', false);
+      if (destroyed) return;
       destroyed = true;
+      state = 'failed';
+      finish(state);
+      cancelFrame();
     },
   };
 }

@@ -25,7 +25,7 @@ export function waitsForMath({ canonical, owner, pace }: Waiting, resume: () => 
   const typesetting = mathTypesetReady(canonical, canonical.doc, owner);
   const waiting = typesetting ?? pace.text?.engine()?.mathPending(canonical.doc) ?? null;
   if (!waiting) return false;
-  pace.readiness.pending();
   void waiting.then(resume, resume);
+  pace.readiness.pending();
   return true;
 }

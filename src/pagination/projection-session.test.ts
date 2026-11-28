@@ -134,6 +134,18 @@ describe('starting the projection', () => {
     projection.destroy();
   });
 
+  it('DOCE-PAGINATION-7.6 ignores readiness inputs that finish after the projection is destroyed', async () => {
+    const pending = deferred<void>();
+    const schedule = vi.fn(() => () => undefined);
+    const { projection } = mount({ ready: pending.promise, schedule });
+    const settled = projection.whenSettled();
+    projection.destroy();
+    pending.resolve();
+    await pending.promise;
+    expect(schedule).not.toHaveBeenCalled();
+    await expect(settled).resolves.toBe('failed');
+  });
+
   it('DOCE-PAGINATION-7.10 dispatches nothing as it starts, and keeps the canonical selection', () => {
     stubLayout({});
     const start = canonicalState();

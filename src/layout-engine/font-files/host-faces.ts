@@ -17,7 +17,9 @@ export interface FontFaceProblem {
   readonly index: number;
 }
 
-interface ReadFace extends ServedFace {
+export interface ReadFace extends ServedFace {
+  /** The file a browser must be able to draw. */
+  readonly file: FontFaceFile;
   /** The host file's identity before WOFF decoding changes its bytes. */
   readonly key: string;
 }
@@ -88,6 +90,7 @@ export async function readHostFaces(files: FontFiles): Promise<{
         }
         return {
           face: {
+            file: face,
             key: fontFaceKey(face),
             family: face.family,
             weight: face.weight,
