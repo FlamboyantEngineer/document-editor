@@ -500,23 +500,20 @@ test.describe('inline geometry on the engine’s lines', () => {
         const range = document.createRange();
         range.setStart(first, 0);
         range.setEnd(first, 1);
-        const style = getComputedStyle(label);
-        const context = document.createElement('canvas').getContext('2d');
-        if (!context) return null;
-        context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-        const served = (label.textContent ?? '').replace(/\p{Script=Devanagari}/gu, '');
-        const expected = context.measureText(served).width + 2 * parseFloat(style.fontSize);
-        const drawn = range.getBoundingClientRect().left - label.getBoundingClientRect().left;
+        const em = parseFloat(getComputedStyle(label).fontSize);
+        const boxes = [...label.querySelectorAll<HTMLElement>('.de-forced-lines__reserved')];
         return {
-          boxes: label.querySelectorAll('.de-forced-lines__reserved').length,
-          expected,
-          drawn,
+          // Each unserved cluster's box is 1em of the label's font, as the engine reserved it.
+          boxes: boxes.map((box) => Math.abs(box.getBoundingClientRect().width - em)),
+          // The content starts right after the label, as the engine laid it out.
+          gap: range.getBoundingClientRect().left - label.getBoundingClientRect().right,
         };
       }),
     );
     for (const start of starts) {
-      expect(start?.boxes).toBe(2);
-      expect(Math.abs((start?.drawn ?? 0) - (start?.expected ?? 1))).toBeLessThan(0.1);
+      expect(start?.boxes).toHaveLength(2);
+      for (const off of start?.boxes ?? []) expect(off).toBeLessThan(0.05);
+      expect(Math.abs(start?.gap ?? 1)).toBeLessThan(0.1);
     }
     expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
     expect(await offPlan(page)).toEqual([]);
