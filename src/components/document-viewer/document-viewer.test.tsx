@@ -435,4 +435,41 @@ describe('DocumentViewer', () => {
     expect(drawn(container)).toEqual([0, 8]);
     expect(scrolled).toEqual(['Part8']);
   });
+
+  it('DOCE-PAGINATION-13.13 draws every page while its host page prints, and only those near the view after', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const { container } = render(<DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />);
+    showInView([4]);
+    expect(drawn(container)).toEqual([3, 4, 5]);
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+    expect(drawn(container)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    act(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    expect(drawn(container)).toEqual([3, 4, 5]);
+  });
+
+  it('DOCE-PAGINATION-13.13 draws every page while the print media query matches, without the print events', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const query = Object.assign(new EventTarget(), { matches: false, media: 'print' });
+    vi.stubGlobal('matchMedia', (media: string) => {
+      if (media !== 'print') throw new Error(`unexpected query ${media}`);
+      return query;
+    });
+    const { container } = render(<DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />);
+    showInView([0]);
+    expect(drawn(container)).toEqual([0, 1]);
+    query.matches = true;
+    act(() => {
+      query.dispatchEvent(new Event('change'));
+    });
+    expect(drawn(container)).toHaveLength(10);
+    query.matches = false;
+    act(() => {
+      query.dispatchEvent(new Event('change'));
+    });
+    expect(drawn(container)).toEqual([0, 1]);
+  });
 });
