@@ -69,7 +69,10 @@ export function createBlockLayout(options: BlockLayoutOptions): BlockLayout {
     place,
     metrics: metricsOf(place.scope ?? null),
     parent,
-    child: (child, at) => layIn(child, { ...place, width: at.width }, at.parent),
+    child: (child, at) => {
+      const cell = 'cellAlign' in at ? { cellAlign: at.cellAlign } : {};
+      return layIn(child, { ...place, width: at.width, ...cell }, at.parent);
+    },
   });
 
   function layIn(node: ProseMirrorNode, place: BlockPlace, parent: BlockParent): Laid {

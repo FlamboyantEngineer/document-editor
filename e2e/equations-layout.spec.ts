@@ -56,18 +56,37 @@ async function load(page: Page, file: DocumentFile, template?: TemplateFile) {
   await page.waitForFunction(() => window.regressionLab.layout() !== null);
 }
 
-// Holds the typesetter's module until `release` is called, so math stays pending.
+// Holds the typesetter's module until `release` is called, so math stays pending; `asked` settles
+// once the module is asked for.
 async function holdTypesetter(page: Page) {
   let release = () => {};
+  let asked = () => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
+  const requested = new Promise<void>((resolve) => {
+    asked = resolve;
+  });
   await page.route('**/katex-*.js', async (route) => {
+    asked();
     await held;
     await route.continue();
   });
-  return () => release();
+  return Object.assign(() => release(), { asked: requested });
 }
+
+// Types a new paragraph beside the editor's first one.
+async function typeParagraph(page: Page, value: string) {
+  await page.locator(`${EDITOR} p`).first().click();
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(value);
+}
+
+// The painted height of each equation's box on the editor's pages.
+const mathHeights = (page: Page) =>
+  page
+    .locator(MATH)
+    .evaluateAll((each) => each.map((element) => element.getBoundingClientRect().height));
 
 const provisional = (page: Page) =>
   page.evaluate(() => window.regressionLab.layout()?.provisional ?? null);
@@ -149,8 +168,8 @@ test.describe('equations on the engine’s lines', () => {
         paragraph(text('Following paragraph')),
       ),
     );
-    // Long enough that the pages would have been laid out by now were they not waiting for the math.
-    await page.waitForTimeout(11_000);
+    // The typesetter is asked for and held: the pages were laid out, and wait for the math.
+    await release.asked;
     await expect(page.locator(MATH).first()).toHaveAttribute('data-state', 'pending');
     expect(await provisional(page)).toBe(true);
     release();
@@ -162,6 +181,20 @@ test.describe('equations on the engine’s lines', () => {
         each.map((element) => element.firstElementChild?.getBoundingClientRect().height ?? 0),
       );
     for (const height of heights) expect(height).toBeGreaterThan(150);
+    await expect.poll(() => offPlan(page)).toEqual([]);
+  });
+
+  test('DOCE-PAGINATION-12.13 lays a new equation out at its typeset size, not its provisional box', async ({
+    page,
+  }) => {
+    await load(page, documentOf(paragraph(text('Before')), paragraph(text('After'))));
+    await expect(page.locator(MATH)).toHaveCount(0);
+    // A new source: the pages draw its lines as it is written, before the math views typeset it.
+    await typeParagraph(page, `Energy $${TALL}$ in short`);
+    await expect(page.locator(`${MATH}[data-state='ready']`)).toHaveCount(1);
+    await expect(page.locator(MATH)).toHaveAttribute('data-math-layout', 'laid');
+    await expect.poll(() => provisional(page), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => Math.min(...(await mathHeights(page)))).toBeGreaterThan(150);
     await expect.poll(() => offPlan(page)).toEqual([]);
   });
 
