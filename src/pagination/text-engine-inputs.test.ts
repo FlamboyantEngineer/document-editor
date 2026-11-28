@@ -122,6 +122,30 @@ describe('the pages engine and its inputs', () => {
     engine.destroy();
   });
 
+  it("DOCE-PAGINATION-11.1 DOCE-NUMBERING-6.1 lays a split paragraph's later part out on its whole's lines, with no number, when the label is wider than its gutter", () => {
+    const words = Array.from({ length: 80 }, (_, index) => `word${String(index)}`).join(' ');
+    const doc = read([paragraph(text(words))]);
+    const engine = engineOf();
+    engine.number(doc);
+    const whole = blocksOf(doc)[0];
+    if (!whole) throw new Error('no block');
+    const levelStyle = { styleConfig: null, numberIndent: '0pt', textIndent: '10pt' };
+    const number = { label: '10.10.10.', level: 1, levelStyle };
+    const lines = engine.lines(whole, { scope: null, number })?.lines ?? [];
+    const split = lines[2];
+    if (!split) throw new Error('too few lines');
+    const rest = whole.textBetween(split.from, whole.content.size);
+    const part = whole.type.create(
+      { ...whole.attrs, splitPartIndex: 1 },
+      documentSchema.text(rest),
+    );
+    const parted = engine.lines(part, { scope: null, number: { ...number, continued: true } });
+    const shape = (each: readonly { from: number; to: number; left: number }[], from: number) =>
+      each.map((line) => [line.from - from, line.to - from, line.left]);
+    expect(shape(parted?.lines ?? [], 0)).toEqual(shape(lines.slice(2), split.from));
+    engine.destroy();
+  });
+
   it('DOCE-PAGINATION-11.1 DOCE-PAGINATION-12.10 lays out an unchanged table when its equation’s number grows', () => {
     const equation: StoredNode = { type: 'mathBlock', attrs: { source: 'x' } };
     const table: StoredNode = {
