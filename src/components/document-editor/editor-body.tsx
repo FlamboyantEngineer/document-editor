@@ -120,13 +120,12 @@ function useBodyViewProps({
   const decorations = useWritingDecorations(props, labels, held);
   const [plain] = useState(plainPaste);
   return useMemo(() => {
-    const images = figurePasteOptions({ assets, feedback }, labels);
-    const figures = images ? figurePasteHandlers(images) : null;
+    const figures = figurePasteHandlers(figurePasteOptions({ assets, feedback }, labels));
     return {
       ...figures,
       // An unformatted paste the writer asked for skips the pasted images (DOCE-EDITING-5.6).
       handlePaste: (view: EditorView, event: ClipboardEvent) =>
-        plain.paste(view, event) || (figures?.handlePaste(view, event) ?? false),
+        plain.paste(view, event) || figures.handlePaste(view, event),
       editable: () => editable,
       // Always given, so helpers turned off take their decorations off the pages too.
       decorations: decorations ?? noDecorations,
