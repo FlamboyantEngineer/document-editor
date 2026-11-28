@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import type { RegionGeometry } from '../layout-engine/blocks/types.js';
+import type { BlockGeometry, RegionGeometry } from '../layout-engine/blocks/types.js';
+import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { createRegionLines, REGIONS_KEPT_PER_NODE } from './region-lines.js';
 
 // A footer node, and regions laid out for it as the engine would, counting each layout.
@@ -90,5 +91,46 @@ describe('the laid header and footer regions', () => {
     number = '10';
     regions.lay(area, null);
     expect(laidOut).toBe(2);
+  });
+});
+
+describe('a layout that throws', () => {
+  it('DOCE-PAGINATION-11.10 stops recording lines when a region layout throws', () => {
+    const recorder: LinesRecorder = { lines: null };
+    const geometry = {
+      layoutRegion: (): RegionGeometry => {
+        throw new Error('a host rule failed');
+      },
+    };
+    const regions = createRegionLines({
+      geometry,
+      recorder,
+      widthOf: () => 100,
+      footnoteOf: () => undefined,
+    });
+    const footer = documentSchema.node('paragraph', null, documentSchema.text('Page'));
+    expect(() => regions.lay(footer, null)).toThrow('a host rule failed');
+    expect(recorder.lines).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-11.2 stops recording lines and labels when a container layout throws', () => {
+    const recorder: LinesRecorder = { lines: null };
+    const geometry = {
+      layoutBlock: (): BlockGeometry => {
+        throw new Error('a host rule failed');
+      },
+    };
+    const nested = createNestedLines({
+      geometry,
+      recorder,
+      widthOf: () => 100,
+      footnoteOf: () => undefined,
+    });
+    const quote = documentSchema.node('blockquote', null, [
+      documentSchema.node('paragraph', null, documentSchema.text('Quoted')),
+    ]);
+    expect(() => nested.lines(quote, null, () => 'Figure 1')).toThrow('a host rule failed');
+    expect(recorder.lines).toBeNull();
+    expect(recorder.labelOf ?? null).toBeNull();
   });
 });

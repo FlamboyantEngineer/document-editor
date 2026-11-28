@@ -62,8 +62,27 @@ describe('stored template format', () => {
       'template.page.margins.top must be a length with a unit, such as 12pt',
       'template.styles.paragraph.fontColor is not a template setting',
       'template.styles.paragraph.lineHeight must be a positive number',
-      'template.styles.paragraph.size must be a length with a unit, such as 12pt',
+      'template.styles.paragraph.size must be a font size with a unit, such as 12pt or 120%',
       'template.footnotes.numbering must be one of document, page',
+    ]);
+  });
+
+  it('DOCE-FORMAT-2.2 takes a percentage only for a font size, and no negative length', () => {
+    const errors = validateTemplateFile(
+      {
+        ...TEMPLATE,
+        styles: {
+          paragraph: { size: '150%', spaceBefore: '10%', indentation: '-2pt' },
+          heading1: { size: '-1em', spaceAfter: '.5em' },
+        },
+      },
+      { schema: documentSchema },
+    );
+    expect(errors).toEqual([
+      'template.styles.paragraph.spaceBefore must be a length with a unit, such as 12pt',
+      'template.styles.paragraph.indentation must be a length with a unit, such as 12pt',
+      'template.styles.heading1.size must be a font size with a unit, such as 12pt or 120%',
+      'template.styles.heading1.spaceAfter must be a length with a unit, such as 12pt',
     ]);
   });
 

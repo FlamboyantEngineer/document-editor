@@ -132,6 +132,30 @@ function insertedStart(
   return { ...at, class: wraps ? 'de-forced-lines__break' : 'de-forced-lines__indent', style };
 }
 
+// The mark that starts a line at its indent: on its first character, or, for an empty line after
+// a hard break, an empty element before the position, as among inserted words
+// (`de-forced-lines__indent`), so the caret is drawn where the text will start.
+function startMark(node: ProseMirrorNode, table: JustifiedLines, line: TextLine): LineMark | null {
+  if (line.to <= line.from) {
+    if (line.from === 0) return null;
+    return insertedStart(table, { line: { ...line, side: -1 }, wraps: false, prefixed: false });
+  }
+  const indent = indentOf(table, line);
+  if (indent <= 0.001) return null;
+  const style = `--de-line-indent: ${px(indent)}`;
+  return {
+    from: line.from,
+    to: firstCharacterEnd(node, line),
+    class: 'de-forced-lines__start',
+    style,
+  };
+}
+
+// Whether the line after a line starts among inserted words or inside one, so the line before
+// ends at that line's break or inside the word, not at an end mark of its own.
+const endsAmongInserted = (next: TextLine | undefined) =>
+  next !== undefined && (next.side !== undefined || next.inWord === true);
+
 // The marks that draw one line; a line followed by one that starts among inserted text ends at
 // that line's break instead.
 function marksOfLine(
@@ -139,18 +163,11 @@ function marksOfLine(
   table: JustifiedLines,
   { line: laid, prefixed, next }: { line: TextLine; prefixed: boolean; next: TextLine | undefined },
 ): LineMark[] {
-  const marks: LineMark[] = [];
   const line = shownLine(table, laid);
-  const indent = indentOf(table, line);
-  if (indent > 0.001 && line.to > line.from && !prefixed && line.side === undefined) {
-    const style = `--de-line-indent: ${px(indent)}`;
-    marks.push({
-      from: line.from,
-      to: firstCharacterEnd(node, line),
-      class: 'de-forced-lines__start',
-      style,
-    });
-  }
+  // A line that starts inside an inserted word starts in no content of its own.
+  const among = line.side !== undefined || line.inWord;
+  const start = prefixed || among ? null : startMark(node, table, line);
+  const marks: LineMark[] = start ? [start] : [];
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
   const text = shownText(node, table, line);
   const spaces = spacesIn(text);
@@ -161,7 +178,9 @@ function marksOfLine(
     marks.push({ from: line.from, to: end, class: 'de-forced-lines__justified', style });
   }
   // A line that ends at a line feed, as a code block's lines do, is broken there by the browser.
-  if (next?.side !== undefined || text.endsWith('\n')) return marks;
+  // A line followed by one that starts inside an inserted word ends inside that word's widget,
+  // where no mark can break it: the browser breaks it there, inside its 8px overhang.
+  if (endsAmongInserted(next) || text.endsWith('\n')) return marks;
   // A line that ends at a soft hyphen draws its hyphen, as the engine counted it.
   const end = text.endsWith(SOFT_HYPHEN)
     ? 'de-forced-lines__end de-forced-lines__hyphen'
@@ -200,6 +219,17 @@ export function firstLineIndent(table: JustifiedLines): string | null {
   const first = table.lines[0];
   const indent = first ? indentOf(table, first) : 0;
   return indent > 0.001 ? `--de-first-indent: ${px(indent)}` : null;
+}
+
+/**
+ * The indent of an empty block's only line as the block's measured property (`--de-first-indent`),
+ * as an empty centred or right-aligned paragraph takes it, so the caret is drawn where its first
+ * character will be (DOCE-PAGINATION-11.2); null for a block with content or no indent.
+ */
+export function emptyLineIndent(table: JustifiedLines): string | null {
+  const [only, ...rest] = table.lines;
+  if (!only || rest.length || only.to > only.from) return null;
+  return firstLineIndent(table);
 }
 
 /**
