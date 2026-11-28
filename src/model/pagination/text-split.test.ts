@@ -203,6 +203,49 @@ describe('text splits', () => {
     expect(joined?.textContent).toBe(source);
   });
 
+  it('DOCE-PAGINATION-3.3 splits a code line longer than a page at a wrapped line on an empty page', () => {
+    // One logical line wrapped eight characters to a ten-pixel line, then a short one.
+    const text = `${'x'.repeat(64)}\nend`;
+    const node = documentSchema.node('code_block', { dataId: 'c1', codeLineStart: 4 }, [
+      documentSchema.text(text),
+    ]);
+    const wrapped = Array.from({ length: 8 }, (_, index) => ({ from: index * 8, height: LINE }));
+    const table = [...wrapped, { from: 65, height: LINE }];
+    const measurement: TextMeasurement = {
+      offset: 0,
+      overhead: 6,
+      lines: { lines: table },
+      measure: (from, to) => {
+        const touched = table.filter(
+          (line, index) => line.from < to && (table[index + 1]?.from ?? text.length) > from,
+        );
+        return { height: touched.length * LINE, lines: touched.length };
+      },
+    };
+    const block = { node, height: 96, marginTop: 0, marginBottom: 0, measurement };
+    const empty = { pageIndex: 0, pageHeight: 40, remainingHeight: 40, rules: {}, context: null };
+    const split = splitCode(block, 38, empty);
+    expect(texts([split?.head.node, split?.tail[0]?.node])).toEqual([
+      'x'.repeat(24),
+      `${'x'.repeat(40)}\nend`,
+    ]);
+    expect([split?.head.height, split?.tail[0]?.height]).toEqual([36, 66]);
+    expect(split?.tail[0]?.node.attrs).toMatchObject({
+      codeBlockContinued: true,
+      codeLineContinued: true,
+      codeLineStart: 4,
+    });
+    // On a page that holds blocks already, the code moves on to the next page whole.
+    expect(splitCode(block, 38, { ...empty, remainingHeight: 30 })).toBeNull();
+    // A later line feed that fits is still where it splits.
+    const [joined] = joinFragments(
+      layoutPages([block], { pageHeight: 40 })
+        .flat()
+        .map((entry) => entry.node),
+    );
+    expect(joined?.textContent).toBe(text);
+  });
+
   it('DOCE-PAGINATION-3.4 splits linked code by its code', () => {
     const code = 'one\ntwo\nthree';
     const node = documentSchema.node('linked_code_block', { dataId: 'l1', code, startLine: 10 });

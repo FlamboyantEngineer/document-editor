@@ -35,6 +35,7 @@ function figureOf(node: ProseMirrorNode): LinkedCodeFigure | null {
     {
       language: node.attrs.language,
       codeLineStart: Number.isInteger(start) && start > 0 ? start : 1,
+      codeLineContinued: node.attrs.codeLineContinued === true,
     },
     withText(node, String(node.attrs.code ?? '')),
   );

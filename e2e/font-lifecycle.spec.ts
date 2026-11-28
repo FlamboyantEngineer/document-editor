@@ -85,7 +85,12 @@ test.describe('a fonts adapter replaced while the editor shows', () => {
       window.regressionLab.setFonts('cousine');
     });
     await expect.poll(() => lineCount(page)).toBe(fresh);
-    await page.waitForTimeout(1500);
+    // Once the slow adapter has answered every request, and a frame later, nothing has moved.
+    await page.waitForFunction(() => {
+      const { asked, answered } = window.regressionLab.fontRequests();
+      return asked > 0 && asked === answered;
+    });
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))));
     expect(await lineCount(page)).toBe(fresh);
     expect(await textWidth(page, '.lab-document-editor')).toBeCloseTo(freshWidth ?? 0, 1);
     // Only the new adapter's faces are in the document: four of each served family.
@@ -93,6 +98,24 @@ test.describe('a fonts adapter replaced while the editor shows', () => {
       () => [...document.fonts].filter((face) => face.family.replace(/"/gu, '') === 'Arial').length,
     );
     expect(arial).toBe(4);
+  });
+});
+
+test.describe('font files that fail to arrive', () => {
+  test('DOCE-PAGINATION-12.5 asks again for files whose first load failed, and pages the document once they arrive', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=long-mixed&fonts=flaky');
+    const root = page.locator('.de-document-editor').first();
+    await expect(root).toHaveAttribute('data-text-layout-reason', 'files-failed');
+    await expect(root).toHaveAttribute('data-layout', 'web');
+    // A second later the editor asks again by itself, and the pages are laid out with the files.
+    await expect(root).toHaveAttribute('data-text-layout', 'pretext');
+    await expect(root).not.toHaveAttribute('data-text-layout-reason');
+    await waitForLab(page);
+    await expect.poll(() => lineCount(page)).toBeGreaterThan(0);
+    await expect(page.getByText('The pages cannot be laid out')).toHaveCount(0);
+    expect(await page.evaluate(() => window.regressionLab.fontRequests().asked)).toBe(2);
   });
 });
 

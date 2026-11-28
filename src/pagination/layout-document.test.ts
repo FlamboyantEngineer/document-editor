@@ -422,3 +422,42 @@ describe('footnote room of a split paragraph', () => {
     },
   );
 });
+
+describe('code longer than a page', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-3.3 splits one code line longer than a page across pages that hold it', () => {
+    const code = 'x'.repeat(8000);
+    const { doc } = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            content: [{ type: 'code_block', content: [text(code)] }, line(text('after'))],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    const state = EditorState.create({
+      doc: setPageRegions(new Transform(doc), BASE_TEMPLATE).doc,
+    });
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const pages: PageMetric[] = [];
+    const laid = layoutDocument(state, {
+      pageHeight: 300,
+      engine,
+      onPage: (page) => pages.push(page),
+    });
+    engine.destroy();
+    expect(pages.length).toBeGreaterThan(2);
+    expect(pages.every(({ used, available }) => used <= available)).toBe(true);
+    const parts = (laid[0] ?? []).flat().filter((node) => node.type.name === 'code_figure');
+    const codes = parts.map((figure) => figure.lastChild);
+    expect(codes.map((each) => each?.textContent).join('')).toBe(code);
+    expect(codes.slice(1).every((each) => each?.attrs.codeLineContinued === true)).toBe(true);
+    expect(codes.every((each) => each?.attrs.codeLineStart === 1)).toBe(true);
+  });
+});

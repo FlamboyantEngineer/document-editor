@@ -49,6 +49,7 @@ const GENERATED_ATTRS = new Set([
   'entryStart',
   'entryEnd',
   'codeBlockContinued',
+  'codeLineContinued',
 ]);
 
 // The marks that record a review rather than formatting.

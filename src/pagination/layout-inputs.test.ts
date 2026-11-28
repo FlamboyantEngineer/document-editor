@@ -42,7 +42,7 @@ describe('layout inputs', () => {
       fonts: { faces: [face([1, 2, 3])], generics: { serif: 'Lab Serif' } },
     };
     expect(layoutInputsKey(layoutInputs(again))).toBe(layoutInputsKey(layoutInputs(base)));
-    expect(layoutInputsKey(layoutInputs(base))).toMatch(/^4-[0-9a-f]{16}$/);
+    expect(layoutInputsKey(layoutInputs(base))).toMatch(/^6-[0-9a-f]{16}$/);
   });
 
   it('DOCE-PAGINATION-13.12 ignores object key order throughout the resolved template', () => {

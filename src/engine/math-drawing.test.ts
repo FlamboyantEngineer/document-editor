@@ -30,6 +30,18 @@ describe('math drawn from its layout', () => {
     // A tag beside an automatic number sits past it.
     const beside = { ...placeMath({ math: laid(['a']), tag: laid(['1']) }, 600, 60), tagEnd: 30 };
     expect(mathDrawingHooks(beside).style).toContain('--de-math-tag-end: 30px');
+    // A numbered equation's number line, and how far the equation sits down to be centred in it
+    // (DOCE-PAGINATION-12.14).
+    const numbered = {
+      ...placeMath({ math: laid(['a']) }, 600, 31),
+      numberLine: 12,
+      numberLift: 0,
+    };
+    expect(mathDrawingHooks(numbered).style).toContain('--de-math-number-line: 12px');
+    expect(mathDrawingHooks({ ...numbered, numberLift: 1.5 }).style).toContain(
+      '--de-math-number-line: 12px; --de-math-number-lift: 1.5px',
+    );
+    expect(mathDrawingHooks(placed).style).not.toContain('--de-math-number');
     expect(mathDrawingHooks(placeMath(reservedMath(2, false, 10), 600))).toMatchObject({
       'data-math-layout': 'reserved',
     });

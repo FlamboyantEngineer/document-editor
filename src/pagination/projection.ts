@@ -157,7 +157,10 @@ export interface PagedProjectionOptions {
    * measured in the DOM.
    */
   readonly textLayout?: TextLayoutSetting | undefined;
-  /** A layout engine already held, in place of the one `textLayout` loads, as tests hold one. */
+  /**
+   * A layout engine already held, in place of the one `textLayout` loads, as tests hold one. The
+   * caller keeps it: destroying the projection leaves it held.
+   */
   readonly textEngine?: TextEngineHolder | undefined;
 }
 
@@ -415,7 +418,8 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       live.cancelLayout?.();
       live.edits.cancel();
       live.probe.stop();
-      live.pace.text?.destroy();
+      // Only the engine the projection loaded itself; one handed over is its caller's.
+      if (!options.textEngine) live.pace.text?.destroy();
     },
   };
 }

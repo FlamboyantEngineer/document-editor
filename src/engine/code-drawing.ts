@@ -147,6 +147,17 @@ export function firstCodeLine(node: ProseMirrorNode): number {
 }
 
 /**
+ * Whether code's first line goes on with the line the part before it ends: a later part of code
+ * split inside a line longer than a page (DOCE-PAGINATION-3.3), whose first gutter row is blank.
+ */
+export const continuesCodeLine = (node: ProseMirrorNode): boolean =>
+  node.attrs.codeLineContinued === true;
+
+/** A gutter row's number: blank for the first row of code that goes on with an earlier line. */
+export const gutterNumber = (first: number, index: number, continued: boolean): string =>
+  continued && index === 0 ? '' : String(first + index);
+
+/**
  * The code a gutter numbers. Linked code's text is drawn as it is, so a line feed at its end starts
  * no line, where a code block's view draws the line after it.
  */
@@ -170,11 +181,15 @@ const GUTTER_ATTRS: Readonly<Record<string, string>> = {
  */
 export function gutterTree(
   text: string,
-  at: { readonly first: number; readonly wraps: ReadonlySet<number> | null },
+  at: {
+    readonly first: number;
+    readonly wraps: ReadonlySet<number> | null;
+    readonly continued?: boolean | undefined;
+  },
 ): CodeTree {
   const forced = at.wraps !== null;
   const rows = gutterRows(text, at.wraps).map((pieces, index) =>
-    gutterLine({ number: String(at.first + index), pieces, forced }),
+    gutterLine({ number: gutterNumber(at.first, index, at.continued === true), pieces, forced }),
   );
   return element('span', GUTTER_ATTRS, rows);
 }

@@ -88,6 +88,10 @@ export function markerKey(node: ProseMirrorNode, footnoteOf: NodeNumbers['footno
 // (`typedTextPath`).
 type NumberedAs = (node: ProseMirrorNode) => ProseMirrorNode;
 
+// A paragraph's number as a key: its label, after a mark when it is a later part's.
+const paragraphKey = (number: ParagraphNumber | undefined) =>
+  number ? `${number.continued ? '+' : ''}${number.label}` : '';
+
 /** A document's numbers by node, and its numbered headings and paragraphs. */
 function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const { headings, paragraphs } = documentNumbers(doc, template);
@@ -130,13 +134,13 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
       equationOf: (node) => equationOf(as(node)),
       keyOf: (node) => {
         const own = as(node);
-        return `${prefixes.get(own) ?? numbered.get(own)?.label ?? ''}|${footnotes.byBlock.get(own) ?? ''}|${labelKey(own)}`;
+        return `${prefixes.get(own) ?? paragraphKey(numbered.get(own))}|${footnotes.byBlock.get(own) ?? ''}|${labelKey(own)}`;
       },
     };
   };
   const numbering = {
     headings,
-    paragraphs: new Set(paragraphs.keys()),
+    paragraphs,
     labelOf: labels.labelOf,
     labelsKey: labels.labelsKey,
   };

@@ -98,8 +98,8 @@ export interface DrawnLines extends LineTable {
 interface DocumentNumbering {
   /** Each numbered heading's number with its space. */
   readonly headings: ReadonlyMap<number, string>;
-  /** The numbered paragraphs, which the browser still draws on its own lines. */
-  readonly paragraphs: ReadonlySet<number>;
+  /** Each numbered paragraph's number and its level's positions. */
+  readonly paragraphs: ReadonlyMap<number, ParagraphNumber>;
   /** A caption's label, as this document's captions show them (`captionNumbers`). */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   /** Every caption's label in order, as one key. */
@@ -208,7 +208,8 @@ export interface PagesTextEngine {
    * The lines of each text block inside a top-level container of a page, such as a table's cells'
    * paragraphs, as the engine lays the container out in its section's content width; none when it
    * cannot lay the container out. Its captions show `labelOf`'s labels, as the pages' own copies of
-   * the parts of a split table or code block do; the measured document's by default.
+   * the parts of a split table or code block do; the measured document's by default. Its text
+   * blocks are laid out with the words `inserted` draws in them, as `measureBlock` lays them out.
    */
   nestedLines(
     container: ProseMirrorNode,

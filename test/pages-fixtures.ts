@@ -100,7 +100,7 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
     template: {} as PagesTextEngine['template'],
     inputs: () => STUB_INPUTS,
     number: () => undefined,
-    numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
+    numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Map() }),
     measureBlock: (node) => {
       // Each node laid out once, as the engine keeps a block by its node.
       if (!seen.has(node)) laid += 1;
@@ -183,7 +183,6 @@ export function heldEngine(engine: PagesTextEngine): TextEngineHolder {
     engine: () => engine,
     version: () => 0,
     loaded: Promise.resolve(),
-    remeasure: () => undefined,
     destroy: () => undefined,
   };
 }

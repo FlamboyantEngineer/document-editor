@@ -318,14 +318,26 @@ function joinCodeFigures(tr: Transform, pos: number, rules: FragmentRules) {
   const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
   const repeated = next?.firstChild;
   if (!previous?.lastChild || !repeated || next.childCount !== 2) return;
-  const lineBreak = new Slice(Fragment.from(tr.doc.type.schema.text('\n')), 0, 0);
+  const lineBreak = continuesLine(next.lastChild)
+    ? Slice.empty
+    : new Slice(Fragment.from(tr.doc.type.schema.text('\n')), 0, 0);
   // Inside the first code block after its text, to inside the later one before its text.
   tr.step(new ReplaceStep(pos - 2, pos + 2 + repeated.nodeSize, lineBreak));
   makeWhole(tr, pos - previous.nodeSize + 1 + (previous.firstChild?.nodeSize ?? 0), rules);
 }
 
-// A code block splits at a line break and drops it, so joining puts it back.
+// Whether a later part of split code goes on with the line the part before it ends: split inside a
+// line, it dropped no line break.
+const continuesLine = (node: ProseMirrorNode | null | undefined) =>
+  node?.attrs.codeLineContinued === true;
+
+// A code block splits at a line break and drops it, so joining puts it back, unless it split inside
+// a line.
 function joinCodeBlocks(tr: Transform, pos: number) {
+  if (continuesLine(tr.doc.nodeAt(pos))) {
+    tr.join(pos);
+    return;
+  }
   tr.insert(pos - 1, tr.doc.type.schema.text('\n'));
   tr.join(pos + 1);
 }
@@ -333,7 +345,8 @@ function joinCodeBlocks(tr: Transform, pos: number) {
 function joinLinkedCode(tr: Transform, pos: number) {
   const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
   if (!previous || !next) return;
-  const code = `${String(previous.attrs.code ?? '')}\n${String(next.attrs.code ?? '')}`;
+  const between = continuesLine(next) ? '' : '\n';
+  const code = `${String(previous.attrs.code ?? '')}${between}${String(next.attrs.code ?? '')}`;
   tr.delete(pos, pos + next.nodeSize);
   tr.setNodeAttribute(pos - previous.nodeSize, 'code', code);
 }
@@ -353,10 +366,13 @@ function sameContentsSettings(previous: ProseMirrorNode, next: ProseMirrorNode):
 export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   paragraph: { whole: { ...PART, continuationPlaceholder: false } },
   code_block: {
-    whole: { ...PART, codeBlockContinued: false, codeLineStart: 1 },
+    whole: { ...PART, codeBlockContinued: false, codeLineContinued: false, codeLineStart: 1 },
     join: joinCodeBlocks,
   },
-  linked_code_block: { whole: { ...PART, codeBlockContinued: false }, join: joinLinkedCode },
+  linked_code_block: {
+    whole: { ...PART, codeBlockContinued: false, codeLineContinued: false },
+    join: joinLinkedCode,
+  },
   table: { whole: { ...PART, projectedColumnWidths: null }, join: joinTables },
   table_figure: { whole: PART, join: joinTableFigures },
   code_figure: { whole: PART, join: joinCodeFigures },
