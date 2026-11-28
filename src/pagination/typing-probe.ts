@@ -8,7 +8,6 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 import type { Step } from 'prosemirror-transform';
 import { type ChangedRange, changedRanges, isTextStep } from '../utils/changed-ranges.js';
-import type { PageMetric } from './layout-document.js';
 import { frameIn } from './layout-triggers.js';
 import type { ProjectionMap } from './projection-map.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -35,7 +34,7 @@ interface TypingProbeOptions {
 /** Follows the height of the blocks typing changes on the pages. */
 export interface TypingProbe {
   /** Records how the pages were just laid out; what was typed before is forgotten. */
-  laidOut(metrics: readonly PageMetric[]): void;
+  laidOut(layout: { readonly heights: readonly (readonly number[])[] }): void;
   /** Takes a typed change of the pages, and reads on the next frame whether a block it reached moved. */
   request(tr: Transaction): void;
   /**
@@ -46,27 +45,10 @@ export interface TypingProbe {
   stop(): void;
 }
 
-/** A block of a page's content: the page's index among all pages, and its own on that page. */
+/** A block of a page's content, or a part of one, and where it is on the pages. */
 interface PageBlock {
   readonly node: ProseMirrorNode;
   readonly pos: number;
-  readonly page: number;
-  readonly index: number;
-}
-
-// The index, among every page of the document, of the page at a position.
-function pageIndexAt(doc: ProseMirrorNode, pagePos: number): number {
-  let index = 0;
-  let found = -1;
-  doc.forEach((section, sectionOffset) => {
-    if (found >= 0) return;
-    section.forEach((page, pageOffset) => {
-      if (found >= 0 || page.type.name !== 'page') return;
-      if (sectionOffset + 1 + pageOffset === pagePos) found = index;
-      index += 1;
-    });
-  });
-  return found;
 }
 
 // The block of a page's content a range lies in, or null when it reaches past one.
@@ -78,66 +60,45 @@ function blockOf(doc: ProseMirrorNode, { from, to }: ChangedRange): PageBlock | 
     const pos = $from.posAtIndex(index, depth);
     const node = $from.node(depth).maybeChild(index);
     if (!node || to > pos + node.nodeSize) return null;
-    return { node, pos, page: pageIndexAt(doc, $from.before(depth - 1)), index };
+    return { node, pos };
   }
   return null;
 }
 
-/** The pages as typing reads them, with how they were laid out. */
+/** The pages as typing reads them, with the heights the latest layout gave each block, whole. */
 interface Typed extends TypedPages {
   readonly engine: PagesTextEngine;
-  readonly laid: readonly PageMetric[];
+  readonly laid: readonly (readonly number[])[];
 }
 
-// The top-level block of a section's page content that holds a position, and its section's scope.
+// The top-level block of a section's page content that holds a position: its node, its index among
+// the section's blocks, its section's among the document's, and the section's scope.
 function contentBlockAt(doc: ProseMirrorNode, pos: number) {
   const $pos = doc.resolve(Math.min(pos, doc.content.size));
   for (let depth = $pos.depth; depth > 1; depth -= 1) {
     if ($pos.node(depth).type.name !== 'page_content') continue;
-    const node = $pos.node(depth).maybeChild($pos.index(depth));
+    const index = $pos.index(depth);
+    const node = $pos.node(depth).maybeChild(index);
     const scope = ($pos.node(1).attrs.sectionName as string | null | undefined) ?? null;
-    return node ? { node, scope } : null;
+    let section = 0;
+    for (let child = 0; child < $pos.index(0); child += 1) {
+      if (doc.child(child).type.name === 'page_section') section += 1;
+    }
+    return node ? { node, index, section, scope } : null;
   }
   return null;
 }
 
-// The height the engine lays out, now, the canonical block a block of the pages is part of.
-function heightNow({ map, engine }: Typed, block: PageBlock): number | null {
+// Whether the canonical block a block of the pages is part of is laid out now at another height
+// than the latest layout gave it, whole, beyond half a pixel: the whole block is compared whether
+// or not it is split, since a split block's parts repeat its caption, header row or edges.
+function heightMoved({ map, engine, laid }: Typed, block: PageBlock): boolean {
   const at = map.toCanonical(block.pos + 1, 1);
   const found = at === null ? null : contentBlockAt(map.canonical, at);
-  if (!found) return null;
+  const before = found ? laid[found.section]?.[found.index] : undefined;
+  if (!found || before === undefined) return true;
   engine.number(map.canonical);
-  return engine.measureBlock(found.node, found.scope).height;
-}
-
-// The height the latest layout gave a block of the pages: all its parts' when it is split.
-function heightLaid({ projection, laid }: Typed, block: PageBlock): number | undefined {
-  const id: unknown = block.node.attrs.dataId;
-  if (block.node.attrs.splitPartIndex == null || typeof id !== 'string') {
-    return laid[block.page]?.blocks[block.index];
-  }
-  let height = 0;
-  let page = 0;
-  projection.forEach((section) => {
-    section.forEach((child) => {
-      if (child.type.name !== 'page') return;
-      child.forEach((content) => {
-        if (content.type.name !== 'page_content') return;
-        content.forEach((part, _offset, index) => {
-          if (part.attrs.dataId === id) height += laid[page]?.blocks[index] ?? 0;
-        });
-      });
-      page += 1;
-    });
-  });
-  return height;
-}
-
-// Whether a block is laid out at another height than the latest layout gave it, beyond half a pixel.
-function heightMoved(typed: Typed, block: PageBlock): boolean {
-  const before = heightLaid(typed, block);
-  const now = heightNow(typed, block);
-  return before === undefined || now === null || Math.abs(now - before) > MOVED;
+  return Math.abs(engine.measureBlock(found.node, found.scope).height - before) > MOVED;
 }
 
 // Whether a step types or deletes text inside a paragraph that has text before and after it, so it
@@ -155,15 +116,15 @@ export function createTypingProbe(
   options: TypingProbeOptions,
 ): TypingProbe {
   const schedule = options.schedule ?? frameIn(container);
-  let metrics: readonly PageMetric[] | null = null;
+  let laid: readonly (readonly number[])[] | null = null;
   let cancel: (() => void) | null = null;
   const typed = { ranges: [] as ChangedRange[], text: true };
   // Each block typed in, or null when one is past a page's content; and the pages they are on.
   const reached = () => {
     const pages = options.pages();
-    if (!pages?.engine || !metrics) return null;
+    if (!pages?.engine || !laid) return null;
     const blocks = typed.ranges.map((range) => blockOf(pages.projection, range));
-    return { blocks, typed: { ...pages, engine: pages.engine, laid: metrics } };
+    return { blocks, typed: { ...pages, engine: pages.engine, laid } };
   };
   const moved = () => {
     const read = reached();
@@ -175,7 +136,7 @@ export function createTypingProbe(
   };
   return {
     laidOut(next) {
-      metrics = next;
+      laid = next.heights;
       Object.assign(typed, { ranges: [], text: true });
     },
     request(tr) {

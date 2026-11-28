@@ -64,6 +64,8 @@ export interface SectionReport {
   readonly blocksMeasured: number;
   readonly pagesLaidOut: number;
   readonly pages: number;
+  /** The height the engine gave each top-level block of its page content, whole, in order. */
+  readonly heights: readonly number[];
 }
 
 /** The sections' layouts a document was laid out with, for the next layout to reuse. */
@@ -382,7 +384,8 @@ export function layoutDocument(state: EditorState, options: DocumentLayoutOption
     for (const metric of metrics) options.onPage?.(metric);
     const pagesLaidOut = laidOut[index] ?? 0;
     const blocksMeasured = fills[index]?.blocksMeasured ?? 0;
-    options.onSection?.({ blocksMeasured, pagesLaidOut, pages: result.pages.length });
+    const heights = fills[index]?.fill.blocks.map((block) => block.height) ?? [];
+    options.onSection?.({ blocksMeasured, pagesLaidOut, pages: result.pages.length, heights });
   });
   if (memory) {
     memory.sections = layouts;

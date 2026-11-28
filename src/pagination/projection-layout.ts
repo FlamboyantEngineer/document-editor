@@ -49,6 +49,8 @@ interface ProjectionLayout {
   readonly map: ProjectionMap;
   /** How each page was laid out, in order. */
   readonly metrics: readonly PageMetric[];
+  /** The height the engine gave each top-level block, whole, by section. */
+  readonly heights: readonly (readonly number[])[];
 }
 
 /** The projection transaction onto the canonical document's pages, and the map after it. */
@@ -57,13 +59,17 @@ export function layOutProjection(
   options: ProjectionLayoutOptions,
 ): ProjectionLayout {
   const metrics: PageMetric[] = [];
+  const heights: (readonly number[])[] = [];
   const sections = layoutDocument(source, {
     pageHeight: options.pageHeight,
     rules: options.rules,
     footnoteNumbering: options.footnoteNumbering,
     memory,
     onPage: (page) => metrics.push(page),
-    onSection,
+    onSection: (section) => {
+      heights.push(section.heights);
+      onSection?.(section);
+    },
     onUnsettled,
     engine: options.engine,
   });
@@ -74,5 +80,5 @@ export function layOutProjection(
   tr.setSelection(
     projectionSelection(map, canonical.selection, nearAfter(projection.selection, tr)),
   );
-  return { tr, map, metrics };
+  return { tr, map, metrics, heights };
 }

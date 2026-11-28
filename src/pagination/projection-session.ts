@@ -283,7 +283,7 @@ export function layout(session: Session): void {
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
   if (view) rememberMovedCaret(laidOut.tr, view);
-  session.probe.laidOut(laidOut.metrics);
+  session.probe.laidOut(laidOut);
   const stats = pace.counter.stats();
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));
   traced(() => ({ layouts: stats.layouts, pages: laidOut.metrics.length }));
