@@ -292,7 +292,7 @@ export function layout(session: Session): void {
 }
 
 // Whether no layout is due: none scheduled, no edit waiting and nothing the pages wait for.
-function isIdle({ cancelLayout, edits, pace, options }: Session): boolean {
+export function isIdle({ cancelLayout, edits, pace, options }: Session): boolean {
   return !cancelLayout && !edits.waiting() && !pace.ready.blocked() && !options.fontsPending?.();
 }
 

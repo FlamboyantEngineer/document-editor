@@ -41,7 +41,6 @@ import {
 } from './layout-document.js';
 import { shownBy } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { followDocument } from './layout-source.js';
 import type { LayoutTraceSink } from './layout-trace.js';
 import { awaitLayoutInputs, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
@@ -69,6 +68,7 @@ import {
   take,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
+import { recheckFonts, typedPages } from './session-hooks.js';
 import { splitBreaksPlugin } from './split-breaks.js';
 import {
   holdTextEngine,
@@ -211,6 +211,11 @@ export interface PagedProjection {
    * the state the pages are laid out from over, as after a width change or a change to a value a plugin shows.
    */
   refresh(options?: { readonly remeasure?: boolean }): void;
+  /**
+   * The served fonts started or stopped being pending (`fontsPending`): the pages are pending and
+   * settle once nothing is due, laid out again only when a change waits for a layout.
+   */
+  fontsChanged(): void;
   /** Whether the pages are being laid out, are settled, or could not be laid out. */
   layoutState(): LayoutState;
   /** Resolves with `settled` or `failed` once no layout is pending. */
@@ -305,13 +310,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     destroyed: false,
     edits: settleEdits(options, () => settleTyping(session())),
     probe: createTypingProbe(options.element, {
-      // The layout's source follows the typing, so the next layout keeps the blocks the probe laid out.
-      pages: () => {
-        const at = session();
-        at.source = followDocument(at.source, at.canonical.doc);
-        const { projection, map, pace, source } = at;
-        return { projection: projection.doc, map, source, engine: pace.text?.engine() ?? null };
-      },
+      pages: () => typedPages(session()),
       moved: () => requestLayout(session()),
       schedule: options.schedule,
     }),
@@ -388,6 +387,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       if (live.pace.text) take(live, live.projection.tr.setMeta(forcedLinesKey, { drawAll: all }));
     },
     refresh: ({ remeasure = false } = {}) => refreshLayout(live, remeasure),
+    fontsChanged: () => recheckFonts(live),
     layoutState: live.pace.readiness.state,
     whenSettled: live.pace.readiness.whenSettled,
     stats: () => ({

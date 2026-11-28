@@ -307,7 +307,9 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [template]);
 
-  useEffect(() => active.current?.refresh(), [text.isPending]);
+  // Pending fonts hold the pages' settling back, with no layout of their own: new faces lay the
+  // pages out again through the engine (DOCE-PAGINATION-7.6, 12.5).
+  useEffect(() => active.current?.fontsChanged(), [text.isPending]);
 
   const { previous, display, suggestions, generated, scope } = options.compare ?? {};
   const scopeKey = scope?.join(' ');

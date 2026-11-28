@@ -155,6 +155,34 @@ describe('starting the projection', () => {
     },
   );
 
+  it('DOCE-PAGINATION-7.6 settles once the served fonts arrive, laying nothing out again', () => {
+    let pending = false;
+    const { projection, drain } = mount({ fontsPending: () => pending });
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    const { layouts } = projection.stats();
+    // The fonts of a template start pending: the pages are pending, and laid out no more.
+    pending = true;
+    projection.fontsChanged();
+    drain();
+    expect(projection.layoutState()).toBe('pending');
+    expect(projection.stats().layouts).toBe(layouts);
+    pending = false;
+    projection.fontsChanged();
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    expect(projection.stats().layouts).toBe(layouts);
+    // A change made while they were pending is laid out.
+    pending = true;
+    edit(projection, (state) => state.tr.insertText('New ', 1));
+    drain();
+    pending = false;
+    projection.fontsChanged();
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    projection.destroy();
+  });
+
   it('DOCE-PAGINATION-5.6 keeps layout pending for an optional input and proceeds if it fails', async () => {
     const pending = deferred<void>();
     const ready = pending.promise.then(() => {

@@ -45,6 +45,7 @@ export type LayoutRunner = Pick<
   | 'servedFonts'
   | 'drawAllLines'
   | 'refresh'
+  | 'fontsChanged'
   | 'layout'
 >;
 

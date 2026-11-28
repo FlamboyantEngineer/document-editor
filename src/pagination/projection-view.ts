@@ -65,6 +65,7 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     redraw: projection.redraw,
     drawAllLines: projection.drawAllLines,
     refresh: projection.refresh,
+    fontsChanged: projection.fontsChanged,
     layoutState: projection.layoutState,
     whenSettled: projection.whenSettled,
     stats: projection.stats,
