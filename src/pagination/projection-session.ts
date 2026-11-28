@@ -220,7 +220,7 @@ function layOutPages(session: Session, engine: PagesTextEngine) {
   pace.restart = false;
   const { memory, counter } = pace;
   return layOutProjection(
-    { projection, source, canonical, memory, onSection: counter.section },
+    { projection, source, canonical, memory, ...counter.reports },
     { ...options, fragmentRules: rules, engine },
   );
 }

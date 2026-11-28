@@ -207,4 +207,19 @@ describe('headers and footers showing page numbers', () => {
     for (const page of pages) expect(page.footer).toBe(2 * LINE);
     expect(pages.length).toBe(10);
   });
+
+  it('DOCE-PAGINATION-11.10 says why when the page count still moves after its last pass', () => {
+    // A footer taller the more pages there are: each count lays out more pages than the one before.
+    const regionRoom: RegionRoomBy = (texts) => {
+      const total = Number(texts?.get('page.total') ?? 0);
+      return { height: Math.min(total * 6, 200), gap: 0, children: [] };
+    };
+    const template = templateWith({ footer: [line(variable('page.total'))] });
+    const reasons: string[] = [];
+    layOut(template, 76, 280, { regionRoom, onUnsettled: (reason) => reasons.push(reason) });
+    expect(reasons).toEqual([
+      'the page count moved after 3 passes',
+      'the page count moved after 3 passes',
+    ]);
+  });
 });
