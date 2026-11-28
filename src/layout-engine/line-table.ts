@@ -73,4 +73,11 @@ export interface LineTable {
    * line.
    */
   readonly label?: string | undefined;
+  /**
+   * The clusters of a heading's number or a caption's label that take a reserved width
+   * (`reserved-boxes.ts`), by offset in that text: the pages draw such a number or label
+   * themselves, each cluster in its box, and a caption's label is then in `label` even when the
+   * content starts on its line; absent when none does.
+   */
+  readonly prefixReserved?: readonly ReservedBox[] | undefined;
 }
