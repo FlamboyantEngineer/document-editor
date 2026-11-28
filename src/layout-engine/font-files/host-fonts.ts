@@ -5,8 +5,8 @@
 import type { FontsAdapter } from '../../host/adapters.js';
 import type { FontFiles } from '../../host/font-files.js';
 import { askBefore } from '../../utils/ask-before.js';
-import type { FontFaceProblem } from './host-faces.js';
-import { createHostMeasurer, type FontFileMeasurer } from './measurer.js';
+import { type ReadFace, readHostFaces } from './host-faces.js';
+import { createFontFileMeasurer, type FontFileMeasurer } from './measurer.js';
 
 /** Why Pretext layout is not on. */
 type HostFontsReason =
@@ -28,9 +28,9 @@ type HostFonts =
   | {
       readonly phase: 'pretext';
       readonly measurer: FontFileMeasurer;
-      /** The files the host served, for the pages to draw the same faces. */
-      readonly files: FontFiles;
-      readonly problems: readonly FontFaceProblem[];
+      /** The decoded files, pending the document's registration. */
+      readonly faces: readonly ReadFace[];
+      readonly generics: FontFiles['generics'];
     };
 
 /** The browser's layout while the host's files are on their way. */
@@ -45,9 +45,9 @@ const failed = (reason: 'shaper-failed' | 'files-failed'): HostFonts => ({
 const timedOut: HostFonts = { phase: 'browser', reason: 'timed-out', retry: true };
 
 /**
- * The measurer once the host's shaper and the faces of `families` have both arrived, or the reason
- * the pages stay on the browser's layout: either not answered within `timeout` is `timed-out`.
- * Never throws.
+ * Prepares the host's shaper and the faces of `families` for a document to register, or gives the
+ * reason the pages stay on the browser's layout: either not answered within `timeout` is
+ * `timed-out`. Never throws.
  */
 export async function loadHostFonts(
   fonts: FontsAdapter | undefined,
@@ -68,10 +68,12 @@ export async function loadHostFonts(
   if (!shaper.answered || !shaper.value.ok) return failed('shaper-failed');
   if (!files.answered || !files.value.ok) return failed('files-failed');
   try {
-    const { measurer, problems } = await createHostMeasurer(shaper.value.value, files.value.value);
-    if (problems.length === files.value.value.faces.length)
-      return { phase: 'browser', reason: 'no-faces' };
-    return { phase: 'pretext', measurer, files: files.value.value, problems };
+    const [measurer, { faces }] = await Promise.all([
+      createFontFileMeasurer({ wasm: shaper.value.value, faces: [] }),
+      readHostFaces(files.value.value),
+    ]);
+    if (!faces.length) return { phase: 'browser', reason: 'no-faces' };
+    return { phase: 'pretext', measurer, faces, generics: files.value.value.generics };
   } catch {
     // The shaper arrived but cannot run: asking again brings the same bytes.
     return { phase: 'browser', reason: 'shaper-failed' };

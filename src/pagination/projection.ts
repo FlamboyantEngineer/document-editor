@@ -397,12 +397,13 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     },
     servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {
+      if (live.destroyed) return;
       live.destroyed = true;
+      live.pace.readiness.destroy();
       mounted.detach();
       live.cells.release();
       live.cancelLayout?.();
       live.edits.cancel();
-      live.pace.readiness.destroy();
       live.probe.stop();
       live.pace.text?.destroy();
     },
