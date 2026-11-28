@@ -89,13 +89,14 @@ function shownWidgets(
   );
 }
 
-// Whether a range of a block's content is exactly one inline node other than text.
-function isWholeAtom(node: ProseMirrorNode, { from, to }: { from: number; to: number }): boolean {
-  let whole = false;
+// Where each inline node other than text ends in a block's content, by where it starts: a range
+// that is exactly one of them is drawn on its own element. Read once per block drawn.
+function atomEnds(node: ProseMirrorNode): ReadonlyMap<number, number> {
+  const ends = new Map<number, number>();
   node.forEach((child, start) => {
-    if (!child.isText && start === from && start + child.nodeSize === to) whole = true;
+    if (!child.isText) ends.set(start, start + child.nodeSize);
   });
-  return whole;
+  return ends;
 }
 
 // A forced block's own decorations, relative to its content, kept by node and number.
@@ -114,6 +115,7 @@ export function blockSet(
   const marks = lineMarks(drawnBlock(node, table), table, { prefixed });
   const shown = shownWidgets(table, { marks, key });
   const content = table.text === undefined ? marks : [];
+  const atoms = atomEnds(node);
   const own = content.map(({ from, to, inner, side, ...attrs }, index) => {
     if (side !== undefined) return breakWidget(from, { side, ...attrs });
     const before = content[index - 1];
@@ -121,7 +123,7 @@ export function blockSet(
     // A mark on an inline node other than text, such as math, is drawn on the node's own element:
     // a view draws an inline decoration only on text. A box on one, such as a page variable's, is
     // drawn on it too, with the marks on its range: the stylesheet draws its value in the box.
-    if (isWholeAtom(node, { from, to }))
+    if (atoms.get(from) === to)
       return Decoration.node(from, to, {
         class: attrs.class,
         ...(attrs.style ? { style: attrs.style } : {}),
