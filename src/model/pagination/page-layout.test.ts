@@ -181,4 +181,65 @@ describe('page layout', () => {
       [40],
     ]);
   });
+
+  describe('DOCE-PAGINATION-2.7 a split sized by the footnotes its head holds', () => {
+    // A paragraph whose footnote markers sit at heights in it, split at whole ten-pixel lines; a
+    // page of 200 leaves room for the entries of the markers it holds.
+    interface Note {
+      readonly at: number;
+      readonly height: number;
+    }
+    const notesOf = (entry: LayoutBlock) => (entry.measurement as Note[] | undefined) ?? [];
+    const noted: LayoutRules = {
+      ...LAYOUT_RULES,
+      paragraph: {
+        ...LAYOUT_RULES.paragraph,
+        split: (entry, height) => {
+          const cut = Math.floor(height / 10) * 10;
+          if (cut < 10 || cut >= entry.height) return null;
+          const notes = notesOf(entry);
+          const tail = notes.filter((note) => note.at >= cut);
+          return {
+            head: { ...entry, height: cut, measurement: notes.filter((note) => note.at < cut) },
+            tail: [
+              {
+                ...entry,
+                height: entry.height - cut,
+                breakBefore: true,
+                measurement: tail.map((note) => ({ ...note, at: note.at - cut })),
+              },
+            ],
+          };
+        },
+      },
+    };
+    const pageHeight = (blocks: readonly LayoutBlock[]) =>
+      200 - blocks.flatMap(notesOf).reduce((sum, note) => sum + note.height, 0);
+    const pagesOf = (height: number, notes: Note[]) =>
+      layoutPages([paragraph(height, { measurement: notes })], { pageHeight, rules: noted }).map(
+        (page) => page.map((entry) => [entry.height, notesOf(entry).length]),
+      );
+
+    it('leaves no room on a page for a footnote its tail holds', () => {
+      expect(pagesOf(300, [{ at: 290, height: 50 }])).toEqual([[[190, 0]], [[110, 1]]]);
+    });
+
+    it('leaves the room on the page that holds the marker', () => {
+      expect(pagesOf(300, [{ at: 100, height: 50 }])).toEqual([[[140, 1]], [[160, 0]]]);
+    });
+
+    it('fills the page up to the line before a marker whose entry does not fit with it', () => {
+      expect(pagesOf(300, [{ at: 170, height: 50 }])).toEqual([[[170, 0]], [[130, 1]]]);
+    });
+
+    it('takes off the entries of the markers the head holds, each with its own height', () => {
+      expect(
+        pagesOf(400, [
+          { at: 20, height: 30 },
+          { at: 150, height: 60 },
+          { at: 380, height: 10 },
+        ]),
+      ).toEqual([[[150, 1]], [[130, 1]], [[120, 1]]]);
+    });
+  });
 });

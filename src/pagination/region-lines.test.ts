@@ -3,7 +3,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import type { BlockGeometry, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { holdInsertedTexts } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
-import { createRegionLines, REGIONS_KEPT_PER_NODE } from './region-lines.js';
+import { createRegionLines, REGIONS_KEPT_PER_NODE, REGIONS_KEPT_PER_PAGE } from './region-lines.js';
 
 // A footer node, and regions laid out for it as the engine would, counting each layout.
 function footerRegions() {
@@ -52,6 +52,16 @@ describe('the laid header and footer regions', () => {
     expect(laidOut()).toBe(grown);
     lay(1, 1);
     expect(laidOut()).toBe(grown + 1);
+  });
+
+  it('DOCE-PAGINATION-11.10 keeps every page’s region of a document longer than the fewest kept', () => {
+    const { lay, laidOut } = footerRegions();
+    const pages = 1500;
+    // Two counts tried, as a layout's passes settle the page count, then the next layout.
+    for (const count of [pages - 1, pages, pages])
+      for (let page = 1; page <= count; page += 1) lay(page, count);
+    expect(pages * REGIONS_KEPT_PER_PAGE).toBeGreaterThan(REGIONS_KEPT_PER_NODE);
+    expect(laidOut()).toBe(pages - 1 + pages);
   });
 
   it('DOCE-PAGINATION-11.10 drops the region used least recently first', () => {

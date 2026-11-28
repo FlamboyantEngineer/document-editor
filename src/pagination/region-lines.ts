@@ -28,11 +28,22 @@ interface LaidRegion {
 const NONE: ReadonlyMap<ProseMirrorNode, DrawnLines> = new Map();
 
 /**
- * The most laid regions kept for one node, the least recently used dropped first: a footer showing
- * `Page X of Y` is laid out for each page under each page count, and a long session tries many
- * counts. A 300-page document takes about 900 across its page-count passes.
+ * The fewest laid regions kept for one node, the least recently used dropped first: a footer
+ * showing `Page X of Y` is laid out for each page under each page count, and a long session tries
+ * many counts. A 300-page document takes about 900 across its page-count passes.
  */
 export const REGIONS_KEPT_PER_NODE = 1024;
+
+/**
+ * The laid regions kept for one node for each page of the longest document it showed the page
+ * count of: one per page under each of the counts a layout's passes try, so a document of any
+ * length keeps every region its last layout drew.
+ */
+export const REGIONS_KEPT_PER_PAGE = 3;
+
+// The page count a region shows, from its variables; 0 when it shows none.
+const shownPages = (variables: ReadonlyMap<string, string> | undefined) =>
+  Number.parseInt(variables?.get('page.total') ?? '', 10) || 0;
 
 // A region's room as the pages read it; null when the engine cannot lay the region out.
 function roomOf(result: RegionGeometry): RegionRoom | null {
@@ -41,10 +52,12 @@ function roomOf(result: RegionGeometry): RegionRoom | null {
 
 /**
  * The laid regions, kept by node, scope, variable texts, footnote numbers and markup until forgotten: a header showing the
- * page's number keeps a region for each number it showed, up to `REGIONS_KEPT_PER_NODE`.
+ * page's number keeps a region for each number it showed, up to `REGIONS_KEPT_PER_NODE` or
+ * `REGIONS_KEPT_PER_PAGE` for each page of the longest document it showed the count of.
  */
 export function createRegionLines(source: RegionSource) {
   let kept = new WeakMap<ProseMirrorNode, Map<string, LaidRegion>>();
+  let pages = 0;
   return {
     lay(
       node: ProseMirrorNode,
@@ -73,7 +86,9 @@ export function createRegionLines(source: RegionSource) {
         recorder.lines = null;
       }
       const laid = { room: roomOf(result), lines: result.ok ? recorded : NONE };
-      if (regions.size >= REGIONS_KEPT_PER_NODE) regions.delete(regions.keys().next().value ?? '');
+      pages = Math.max(pages, shownPages(variables));
+      if (regions.size >= Math.max(REGIONS_KEPT_PER_NODE, REGIONS_KEPT_PER_PAGE * pages))
+        regions.delete(regions.keys().next().value ?? '');
       kept.set(node, regions.set(key, laid));
       return laid;
     },
