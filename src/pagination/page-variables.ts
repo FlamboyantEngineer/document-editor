@@ -140,6 +140,22 @@ function editsTextOnly(tr: Transaction): boolean {
   });
 }
 
+/**
+ * The value a variable shows, as its words drawn inside it at `inside` (just past its start) say
+ * it, in their order; empty when it shows none.
+ */
+export function shownVariableText(shown: DecorationSet | undefined, inside: number): string {
+  const words = (shown?.find(inside, inside) ?? []).flatMap((each) => {
+    const { text, side } = each.spec as { text?: unknown; side?: unknown };
+    if (each.from !== inside || typeof text !== 'string') return [];
+    return [{ text, side: typeof side === 'number' ? side : 0 }];
+  });
+  return words
+    .sort((a, b) => a.side - b.side)
+    .map((word) => word.text)
+    .join('');
+}
+
 /** A plugin that shows each variable's value inside it, in the headers, footers and text. */
 export function createPageVariables(): Plugin<DecorationSet> {
   return new Plugin<DecorationSet>({

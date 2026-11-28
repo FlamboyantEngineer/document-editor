@@ -11,7 +11,7 @@ import type { ForcedBlock } from './forced-blocks.js';
 import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
 import { type Builder, containerSet, makeSet } from './forced-sets.js';
 import { NO_INSERTED } from './inserted-texts.js';
-import { pageVariablesKey } from './page-variables.js';
+import { pageVariablesKey, shownVariableText } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** A page region whose text blocks are drawn on forced lines. */
@@ -33,11 +33,9 @@ export function regionVariableTexts(
   const texts = new Map<string, string>();
   region.descendants((child, offset) => {
     if (child.type.name !== 'template_variable') return true;
-    // Its value is a widget inside it: past the region's start, its offset and its own start.
+    // Its value is drawn inside it, word by word: past the region's start, its offset and its own start.
     const inside = pos + offset + 2;
-    const widget = shown?.find(inside, inside).find((each) => each.from === inside);
-    const text = (widget?.spec as { text?: unknown } | undefined)?.text;
-    texts.set(String(child.attrs.variableKey ?? ''), typeof text === 'string' ? text : '');
+    texts.set(String(child.attrs.variableKey ?? ''), shownVariableText(shown, inside));
     return false;
   });
   return texts;

@@ -8,7 +8,7 @@ import { continuingParts, type ForcedBlock, forcedBlocksOf } from './forced-bloc
 import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
 import { FORCED_REGIONS, type ForcedRegion, regionBlocksOf } from './forced-regions.js';
 import { insertedTexts } from './inserted-texts.js';
-import { pageVariablesKey } from './page-variables.js';
+import { pageVariablesKey, shownVariableText } from './page-variables.js';
 
 /** A computed line of a block: content offsets in the whole block, and the text between them. */
 export interface ComputedLine {
@@ -144,11 +144,7 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
   };
   const shown = pageVariablesKey.getState(state);
   // A variable's value is a widget at its content's start.
-  const variableAt = (pos: number) => {
-    const widget = shown?.find(pos + 1, pos + 1).find((each) => each.from === pos + 1);
-    const text: unknown = (widget?.spec as { text?: unknown } | undefined)?.text;
-    return typeof text === 'string' ? text : '';
-  };
+  const variableAt = (pos: number) => shownVariableText(shown, pos + 1);
   const inserted = insertedTexts(state, [forcedLinesKey]);
   const reading: Reading = { before: new Map(), markerAt, variableAt };
   const continuing = continuingParts(state.doc);

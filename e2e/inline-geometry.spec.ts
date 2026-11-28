@@ -7,6 +7,15 @@ import { expect, test, waitForLab } from './fixtures.js';
 // no-break spaces in justified text, soft hyphens, aligned numbered headings, citation identifiers
 // and code beside line numbers the pages must draw exactly as the layout engine laid them out.
 
+// Waits for a document loaded into the lab to be shown, with `selector` in it, and laid out with
+// its fonts, then draws all its lines.
+async function drawLoaded(page: Page, selector: string) {
+  await waitForLab(page);
+  await expect(page.locator(selector).first()).toBeAttached();
+  await page.waitForFunction(() => window.regressionLab.layout()?.provisional === false);
+  await page.evaluate(() => window.regressionLab.drawAllLines(true));
+}
+
 async function open(page: Page) {
   await page.goto('regression.html?document=inline-geometry&debug');
   await waitForLab(page);
@@ -468,8 +477,7 @@ test.describe('inline geometry on the engine’s lines', () => {
       },
       [file, template] as const,
     );
-    await waitForLab(page);
-    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    await drawLoaded(page, '.pm-page-content > h1');
     const heading = page.locator('.de-document-editor__content .pm-page-content > h1');
     await expect(heading).toHaveClass(/de-forced-lines/);
     // Where the content's first character starts after the number, from the block's own left
@@ -555,23 +563,28 @@ test.describe('inline geometry on the engine’s lines', () => {
       },
       [file, template] as const,
     );
-    await waitForLab(page);
-    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    await drawLoaded(page, '.pm-page-header [data-template-variable]');
     // Each block the value is in is drawn on as many lines as the engine laid it out on, its
-    // value broken between two of its words where the engine broke it.
-    const drawn = await page.evaluate(() =>
-      [
-        ...document.querySelectorAll<HTMLElement>(
-          '.de-document-editor__content :is(.pm-page-header, .pm-page-content) p.de-forced-lines',
-        ),
-      ].map((block) => ({
-        lines: Number(block.dataset.lines),
-        breaks: block.querySelectorAll('[data-template-variable] .de-forced-lines__break').length,
-      })),
-    );
-    expect(drawn.length).toBeGreaterThanOrEqual(3);
-    // The title takes more than one line in the header and in the text.
-    expect(drawn.filter((block) => block.lines > 2 && block.breaks > 0).length).toBeGreaterThan(1);
+    // value broken between two of its words where the engine broke it, once the loaded document
+    // is laid out: the title takes more than one line in the header and in the text.
+    const drawnBlocks = () =>
+      page.evaluate(() =>
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            '.de-document-editor__content :is(.pm-page-header, .pm-page-content) p.de-forced-lines',
+          ),
+        ].map((block) => ({
+          lines: Number(block.dataset.lines),
+          breaks: block.querySelectorAll('[data-template-variable] .de-forced-lines__break').length,
+        })),
+      );
+    await expect
+      .poll(
+        async () =>
+          (await drawnBlocks()).filter((block) => block.lines > 2 && block.breaks > 0).length,
+      )
+      .toBe(2);
+    expect((await drawnBlocks()).length).toBeGreaterThanOrEqual(3);
     expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
     expect(await offPlan(page)).toEqual([]);
     // The header's drawn height is the room the layout gave it.
@@ -606,8 +619,7 @@ test.describe('inline geometry on the engine’s lines', () => {
     }));
     const file = { formatVersion: 1, sections: [{ name: null, content }] } as DocumentFile;
     await page.evaluate((stored) => window.regressionLab.load(stored), file);
-    await waitForLab(page);
-    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    await drawLoaded(page, '.pm-page-content span[data-embed-kind]');
     const widths = await page.evaluate(() =>
       [
         ...document.querySelectorAll<HTMLElement>(

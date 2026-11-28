@@ -91,6 +91,24 @@ describe('forcedRegions', () => {
     expect(footers).toEqual([[line('Page 1')], [line('Page 2')]]);
   });
 
+  it('DOCE-PAGINATION-9.5 lays a header out with the whole value of a variable drawn word by word, and gives it on its lines', () => {
+    const { engine, calls } = regionEngine();
+    const header = [
+      node('paragraph', null, [
+        documentSchema.text('Title: '),
+        node('template_variable', { variableKey: 'document.title' }),
+      ]),
+    ];
+    const doc = pagesDocument([page([node('paragraph', null, [])], { header })]);
+    const values = { 'document.title': 'A long title' };
+    const state = stateWith(doc.type.create({ ...doc.attrs, values }, doc.content), engine);
+    regionAttrs(state);
+    expect(calls).toEqual([{ scope: null, texts: [['document.title', 'A long title']] }]);
+    const [first] = pageTextLines(state);
+    const shown = first?.blocks.find((block) => block.region === 'header');
+    expect(shown?.lines?.map((line) => line.text).join('')).toBe('Title: A long title');
+  });
+
   it('DOCE-PAGINATION-11.2 draws an unchanged region in its new section scope', () => {
     const wide = stubEngine({ perLine: 20 });
     const narrow = stubEngine({ perLine: 5 });
