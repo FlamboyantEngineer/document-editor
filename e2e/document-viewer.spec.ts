@@ -138,6 +138,31 @@ test.describe('the read-only viewer', () => {
     expect(drawn).toBeLessThanOrEqual(4);
   });
 
+  test('DOCE-PAGINATION-13.13 draws every page while the host page prints, and only the near ones after', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed');
+    await showViewer(page, 1);
+    const sheets = page.locator(SHEETS);
+    const total = await sheets.count();
+    const drawn = page.locator(`${SHEETS}[data-drawn]`);
+    await expect(sheets.last()).not.toHaveAttribute('data-drawn');
+    const near = await drawn.count();
+    expect(near).toBeLessThan(total);
+    // The print events, as a print from the browser's menu fires them.
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await expect(drawn).toHaveCount(total);
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await expect(drawn).toHaveCount(near);
+    // The print media alone, as a print emulated without the events gives it.
+    await page.emulateMedia({ media: 'print' });
+    await expect(drawn).toHaveCount(total);
+    const lastText = await sheets.last().locator('.pm-page-content').innerText();
+    expect(lastText.trim()).not.toBe('');
+    await page.emulateMedia({ media: 'screen' });
+    await expect(drawn).toHaveCount(near);
+  });
+
   // A late page's first caption, drawn alone and with every page before it drawn: the engine's number.
   // The page is the last that holds a figure caption, found with every page drawn, so a change that
   // moves the document's pages does not move the test off its caption.

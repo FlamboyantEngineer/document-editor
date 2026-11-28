@@ -299,6 +299,32 @@ test.describe('the layout engine on the pages', () => {
     ]);
   });
 
+  test('DOCE-PAGINATION-11.2 draws a footnote entry on forced lines as every other forced block', async ({
+    page,
+  }) => {
+    await open(page, 'footnotes-in-structures', true);
+    const styles = await page.evaluate(() => {
+      const styleOf = (selector: string) => {
+        const block = document.querySelector<HTMLElement>(selector);
+        if (!block) return null;
+        const style = getComputedStyle(block);
+        return {
+          align: style.textAlign,
+          overhang: style.marginInlineEnd,
+          indent: style.textIndent,
+        };
+      };
+      return {
+        body: styleOf('.pm-page-content > p.de-forced-lines[data-lines]'),
+        entry: styleOf('.pm-page-footnotes .de-forced-lines[data-lines]'),
+      };
+    });
+    expect(styles.body, 'a forced body paragraph').not.toBeNull();
+    // Aligned to its start, its end overhanging, its first line indented by the engine's indent.
+    expect(styles.entry).toEqual({ align: 'start', overhang: '-8px', indent: '0px' });
+    expect(styles.entry).toEqual(styles.body);
+  });
+
   test('DOCE-PAGINATION-11.3 gives no computed lines in the web layout', async ({ page }) => {
     await page.goto('regression.html?document=long-mixed&layout=web');
     await waitForLab(page);

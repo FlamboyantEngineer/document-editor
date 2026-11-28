@@ -1,6 +1,7 @@
 // The images of pasted HTML that are only addresses and state no size: each is loaded to find its
 // natural size before the paste, and written with it, since an image without a size has no place in
-// a document (DOCE-SCHEMA-3.14); one that does not load in time is left out, and named.
+// a document (DOCE-SCHEMA-3.14); one that does not load in time is left out, and named. An image of
+// math carrying its LaTeX is pasted as math, so it is not one of them.
 
 import { wholeSize } from '../../model/schema/image-size.js';
 import { addressImageSize } from './natural-size.js';
@@ -47,7 +48,12 @@ const isSized = (tag: string) =>
 const unsizedTags = (html: string) =>
   [...html.matchAll(imageTag)]
     .map(([tag]) => tag)
-    .filter((tag) => isAddress(attributeOf(tag, 'src') ?? '') && !isSized(tag));
+    .filter(
+      (tag) =>
+        isAddress(attributeOf(tag, 'src') ?? '') &&
+        !isSized(tag) &&
+        !attributeOf(tag, 'data-latex'),
+    );
 
 /** Whether pasted HTML holds an image that is only an address and states no size. */
 export function hasUnsizedAddresses(html: string): boolean {

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { textGaps } from './cell-text.js';
 import { expect, test } from './fixtures.js';
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
@@ -118,7 +119,7 @@ test.describe('selecting in tables', () => {
     await expect(table.locator('tr').last().locator('td').first()).toHaveText('Added');
   });
 
-  test('DOCE-TABLES-3.13 DOCE-PAGINATION-7.11 DOCE-PAGINATION-7.22 keeps the cells selected after aligning them and adding a column from the menu', async ({
+  test('DOCE-TABLES-3.13 DOCE-PAGINATION-7.11 DOCE-PAGINATION-7.22 DOCE-PAGINATION-10.5 keeps the cells selected after aligning them, their text aligned, and adding a column from the menu', async ({
     lab,
     page,
   }) => {
@@ -133,6 +134,12 @@ test.describe('selecting in tables', () => {
     await expect(selected(page)).toHaveCount(2);
     await expect(cell(page, 'Start')).toHaveAttribute('data-text-align', 'center');
     await expect(cell(page, 'Run')).toHaveAttribute('data-text-align', 'center');
+    // The text moves: the room either side of it is the same (DOCE-PAGINATION-10.5).
+    await expect(async () => {
+      const gaps = await textGaps(cell(page, 'Run'));
+      expect(gaps.left).toBeGreaterThan(8);
+      expect(Math.abs(gaps.left - gaps.right)).toBeLessThan(1.5);
+    }).toPass();
     await cell(page, 'Run').click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Insert column' }).click();
     await page.getByRole('menuitem', { name: 'Column right' }).click();

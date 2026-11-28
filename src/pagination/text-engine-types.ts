@@ -223,6 +223,12 @@ export interface PagesTextEngine {
   numbersVersion?(): number;
   /** A count that moves whenever a math node is placed anew or the placements are forgotten. */
   mathVersion?(): number;
+  /**
+   * A count that moves once math the engine gave a provisional reserved box, before its typeset
+   * answer or while its glyphs loaded, can be laid out from its layout; the engine then forgets
+   * what it kept laid out with it, and what drew it draws it again (DOCE-PAGINATION-12.13).
+   */
+  atomsVersion?(): number;
   /** Whether a host's layout rule sizes a node's type (DOCE-PAGINATION-14.1). */
   sizedType?(node: ProseMirrorNode): boolean;
   /**

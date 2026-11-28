@@ -74,9 +74,14 @@ test.describe('comments lab host options', () => {
     await lab.open('comments');
     // Grace's comment offers the reader nothing to change.
     await expect(firstThread(page).getByRole('button', { name: 'More actions' })).toHaveCount(0);
-    await options(page).getByLabel('Moderator (reloads)').check();
-    await page.waitForURL(/\?moderator$/);
+    // The box reloads the page as it is ticked, so the click is waited on by the address it
+    // loads, and the reloaded box read once the lab is ready.
+    await Promise.all([
+      page.waitForURL(/\?moderator$/),
+      options(page).getByLabel('Moderator (reloads)').click(),
+    ]);
     await waitForLab(page);
+    await expect(options(page).getByLabel('Moderator (reloads)')).toBeChecked();
     await firstThread(page).getByRole('button', { name: 'More actions' }).first().click();
     await page.getByRole('menuitem', { name: 'Edit' }).click();
     // The card by the text it quotes, which the edit leaves.

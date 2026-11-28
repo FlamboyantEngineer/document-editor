@@ -48,7 +48,10 @@ export interface TextLayoutSetting {
 export interface TextEngineHolder {
   /** The engine for the template now; null until its module has loaded. */
   engine(): PagesTextEngine | null;
-  /** Moves whenever the engine's lines may have changed: made again, or atoms settled. */
+  /**
+   * Moves whenever the engine's lines may have changed: made again, atoms settled, or provisional
+   * math laid out again (DOCE-PAGINATION-12.13).
+   */
   version(): number;
   /** Settles once the engine's module has loaded. */
   readonly loaded: Promise<unknown>;
@@ -148,7 +151,11 @@ export function holdTextEngine(options: {
     version += 1;
     options.changed();
   };
+  // The holder's version moves with the engine's atoms (DOCE-PAGINATION-12.13), and keeps what
+  // they moved when the engine is made again, so it never goes back.
+  const atoms = () => current?.atomsVersion?.() ?? 0;
   const drop = () => {
+    version += atoms();
     current?.destroy();
     current = null;
   };
@@ -171,7 +178,7 @@ export function holdTextEngine(options: {
         return current;
       numbered = codeLineNumbers;
       spoken = language;
-      current?.destroy();
+      drop();
       version += 1;
       askFor(template);
       const engine = made.createPagesTextEngine({
@@ -186,8 +193,8 @@ export function holdTextEngine(options: {
       current = Object.assign(engine, { language, number: numberedLike(engine, counted) });
       return current;
     },
-    // Another markup keeps the engine, but moves the lines it draws.
-    version: () => version + markups(),
+    // Another markup keeps the engine, but moves the lines it draws, as math laid out again does.
+    version: () => version + markups() + atoms(),
     loaded,
     remeasure: drop,
     destroy() {

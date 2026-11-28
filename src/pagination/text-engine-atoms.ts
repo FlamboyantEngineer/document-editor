@@ -9,6 +9,7 @@ import {
   createMathAtomMeasurer,
   MATH_MIN_REPORTED_SCALE,
   mathPending,
+  mathWaits,
   type PlacedMath,
 } from '../layout-engine/math-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
@@ -35,6 +36,38 @@ export function atomMeasurer(
       return place.parent ? markedFont(style, node.marks).size : style.font.size;
     },
   });
+}
+
+/**
+ * The math the engine gave a provisional reserved box, before its typeset answer or while its
+ * glyphs load (DOCE-PAGINATION-12.13). A result laid out with any is not kept (`count` moved while
+ * laying it out), and once any of them can be laid out from its layout, `settle` forgets the
+ * nodes and says so, so the engine moves its version and what drew them draws them again.
+ */
+export function provisionalMath(options: TextEngineOptions) {
+  const typesetOf = typesetReader(options);
+  const layouter = options.mathLayouter ?? (() => null);
+  const waiting = new Set<ProseMirrorNode>();
+  let count = 0;
+  let version = 0;
+  return {
+    note(node: ProseMirrorNode) {
+      count += 1;
+      waiting.add(node);
+    },
+    count: () => count,
+    /** Moves once any math given a provisional box can be sized; `settled` is told first. */
+    version(settled: () => void): number {
+      for (const node of waiting) {
+        if (mathWaits({ layouter, typesetOf }, node)) continue;
+        waiting.clear();
+        settled();
+        version += 1;
+        break;
+      }
+      return version;
+    },
+  };
 }
 
 /**

@@ -416,6 +416,53 @@ describe('figurePasteHandlers', () => {
     ]);
     view.destroy();
   });
+  it('DOCE-EDITING-5.5 DOCE-SCHEMA-3.14 sizes and pastes images at addresses in an editor without image storage', async () => {
+    const restore = loadImagesAt(300, 200);
+    try {
+      vi.stubGlobal('ClipboardEvent', class extends Event {});
+      const notified: unknown[] = [];
+      const handlers = figurePasteHandlers({
+        ...LABELS,
+        feedback: { notify: (message) => notified.push(message) },
+      });
+      const view = editorView();
+      const html = '<p>See <img src="https://example.com/a.png" alt="A"> here</p>';
+      expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
+      await vi.waitFor(() =>
+        expect(inlineImages(view)).toEqual([['https://example.com/a.png', 300, 200]]),
+      );
+      expect(notified).toEqual([{ tone: 'info', text: 'Loading…' }]);
+      // Images that come with the paste, and files, are left to the editor: nothing stores them.
+      expect(handlers.handlePaste(view, htmlPasteOf(`<p><img src="${PNG}"></p>`))).toBe(false);
+      expect(handlers.handlePaste(view, pasteOf([picture('a.png')]))).toBe(false);
+      view.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('DOCE-EDITING-5.5 DOCE-OBJECTS-1.12 pastes math copied as an image as math beside a sized image at an address', async () => {
+    const restore = loadImagesAt(300, 200);
+    try {
+      const { view, uploaded, handlers } = setUp();
+      const html = `<p>So <img src="${PNG}" data-latex="x^2" alt="x^2"> and <img src="https://example.com/a.png"></p>`;
+      expect(handlers.handlePaste(view, htmlPasteOf(html))).toBe(true);
+      await vi.waitFor(() =>
+        expect(inlineImages(view)).toEqual([['https://example.com/a.png', 300, 200]]),
+      );
+      const maths: string[] = [];
+      view.state.doc.descendants((node) => {
+        if (node.type.name === 'math_inline') maths.push(node.textContent);
+      });
+      expect(maths).toEqual(['x^2']);
+      // The math image is not uploaded as a figure.
+      expect(uploaded).toEqual([]);
+      expect(figures(view)).toEqual([]);
+      view.destroy();
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe('the place of pasted and dropped images', () => {
