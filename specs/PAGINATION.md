@@ -66,7 +66,7 @@ Verification: `src/model/pagination/fragments.test.ts`, `src/model/pagination/co
 
 ### DOCE-PAGINATION-2.1 - Filling pages
 
-`layoutPages(blocks, { pageHeight })` shall lay a section's measured blocks (`LayoutBlock`) out on pages in order, each page taking the blocks that fit its content height less a safety margin of `PAGE_SAFETY_MARGIN_PX`, and every page at least one block (`layoutNextPage` fills one). No blocks shall lay out on no pages.
+`layoutPages(blocks, { pageHeight })` shall lay a section's measured blocks (`LayoutBlock`) out on pages in order, each page taking the blocks that fit its content height, to the last thousandth of a pixel (heights are summed at a thousandth, so a block that fits exactly or with a pixel to spare stays on the page), and every page at least one block (`layoutNextPage` fills one). No blocks shall lay out on no pages.
 
 Implementation: `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/page-layout.test.ts`

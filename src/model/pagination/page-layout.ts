@@ -125,9 +125,6 @@ export interface PageLayoutOptions {
   context?: unknown;
 }
 
-/** The space a block keeps free at the foot of a page, so rounding never overflows it. */
-export const PAGE_SAFETY_MARGIN_PX = 2;
-
 const KEEPS_WITH_HEADING: LayoutRule = { keepsWithHeading: true };
 const CODE: LayoutRule = { keepsWithHeading: true, split: splitCode };
 const LIST: LayoutRule = { keepsWithHeading: true, split: splitList };
@@ -268,10 +265,6 @@ function remainingHeight(
   return { pageHeight, remaining: Math.max(0, pageHeight - used - gap) };
 }
 
-function fittingHeight(remaining: number): number {
-  return Math.max(0, remaining - PAGE_SAFETY_MARGIN_PX);
-}
-
 function splitContext(page: PageFill, pageHeight: number, remaining: number): SplitContext {
   return {
     pageHeight,
@@ -302,10 +295,10 @@ function splitToFit(page: PageFill, block: LayoutBlock): SplitBlock | null {
   const open = remainingHeight(page, [block], []);
   const context = splitContext(page, open.pageHeight, open.remaining);
   return searchSplit({
-    top: fittingHeight(open.remaining),
-    everyNote: fittingHeight(remainingHeight(page, [block]).remaining),
+    top: open.remaining,
+    everyNote: remainingHeight(page, [block]).remaining,
     at: (height) => (height > 0 ? (split?.(block, height, context) ?? null) : null),
-    roomFor: (head) => fittingHeight(remainingHeight(page, [block], [head]).remaining),
+    roomFor: (head) => remainingHeight(page, [block], [head]).remaining,
   });
 }
 
@@ -315,7 +308,7 @@ function splitToFit(page: PageFill, block: LayoutBlock): SplitBlock | null {
 function leadMissing(page: PageFill, headings: readonly LayoutBlock[], block: LayoutBlock) {
   const placed = { ...page, blocks: [...page.blocks, ...headings] };
   const { remaining } = remainingHeight(placed, [block]);
-  if (block.height <= fittingHeight(remaining)) return false;
+  if (block.height <= remaining) return false;
   return !splitToRoom(placed, block);
 }
 
@@ -324,12 +317,12 @@ function headingMovesOn(page: PageFill, queue: readonly LayoutBlock[]): boolean 
   if (!page.blocks.length || headingLevel(queue[0]?.node) === null) return false;
   const group = headingGroup(queue, page.rules);
   const { remaining } = remainingHeight(page, group);
-  if (stackedHeight(group) <= fittingHeight(remaining)) return false;
+  if (stackedHeight(group) <= remaining) return false;
   const last = group.at(-1);
   if (!last || headingLevel(last.node) !== null) return true;
   const headings = group.slice(0, -1);
   const { remaining: headingRoom } = remainingHeight(page, headings);
-  return stackedHeight(headings) > fittingHeight(headingRoom) || leadMissing(page, headings, last);
+  return stackedHeight(headings) > headingRoom || leadMissing(page, headings, last);
 }
 
 function pageEndsBefore(page: PageFill, queue: readonly LayoutBlock[]): boolean {
@@ -344,11 +337,7 @@ function placeNext(page: PageFill, queue: LayoutBlock[]): boolean {
   if (!block) return false;
   const rule = ruleFor(page.rules, block.node);
   const { remaining } = remainingHeight(page, [block]);
-  if (
-    rule.endsPage ||
-    block.height <= fittingHeight(remaining) ||
-    (!page.blocks.length && !rule.split)
-  ) {
+  if (rule.endsPage || block.height <= remaining || (!page.blocks.length && !rule.split)) {
     page.blocks.push(block);
     queue.shift();
     return !rule.endsPage;

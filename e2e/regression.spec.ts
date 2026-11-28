@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import type { RegressionDocumentName } from '../labs/src/regression/regression-documents.js';
 import type { FragmentEdge, RegressionProbe } from '../labs/src/regression/regression-probe.js';
 import type { StressProbe } from '../labs/src/stress/stress-probe.js';
-import { type DocumentFile, PAGE_SAFETY_MARGIN_PX, type StoredNode } from '../src/model/index.js';
+import type { DocumentFile, StoredNode } from '../src/model/index.js';
 import { openScale, SIZE } from './budgets.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
@@ -640,8 +640,7 @@ test.describe('short lists at scale', () => {
     expect(pages.flatMap((each, index) => (each.over > 1 ? [index + 1] : []))).toEqual([]);
     const parts = pages.flatMap((each) => each.lists);
     expect(Math.max(...parts.map(({ items }) => items))).toBeLessThanOrEqual(8);
-    // Split lists go on in order, and a page a list continues from has no room for its next item
-    // beside the layout's safety margin.
+    // Split lists go on in order, and a page a list continues from has no room for its next item.
     const split = parts.filter(({ part }) => part >= 0);
     expect(split.length).toBeGreaterThan(50);
     for (const [index, each] of pages.entries()) {
@@ -649,9 +648,7 @@ test.describe('short lists at scale', () => {
       const next = pages[index + 1]?.lists[0];
       if (!end?.last || end.part < 0 || next?.id !== end.id) continue;
       expect(next.part, `part after page ${String(index + 1)}`).toBe(end.part + 1);
-      expect(end.spare, `room left on page ${String(index + 1)}`).toBeLessThan(
-        next.firstItem + PAGE_SAFETY_MARGIN_PX,
-      );
+      expect(end.spare, `room left on page ${String(index + 1)}`).toBeLessThan(next.firstItem);
     }
     // Each item's marker sits on its first line: no item starts with an empty line.
     expect(parts.flatMap(({ firstLines }) => firstLines).filter((gap) => gap > 1)).toEqual([]);

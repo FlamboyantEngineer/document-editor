@@ -120,7 +120,7 @@ describe('headers and footers showing page numbers', () => {
       const layout = (incremental: boolean) => {
         const pages: PageMetric[] = [];
         layoutDocument(state, {
-          pageHeight: 80,
+          pageHeight: 78,
           rules: {},
           engine,
           memory: incremental ? memory : undefined,
@@ -217,7 +217,7 @@ describe('headers and footers showing page numbers', () => {
 
   it('DOCE-PAGINATION-11.10 gives each page the footer room its own number takes, 99 to 100', () => {
     const template = templateWith({ footer: [line(report(91), variable('page.current'))] });
-    const pages = layOut(template, 102, LINE + 36);
+    const pages = layOut(template, 102, LINE + 34);
     expect(pages.length).toBeGreaterThanOrEqual(100);
     const rooms = pages.map((page) => page.footer);
     expect(rooms[98]).toBeLessThan(rooms[99] ?? 0);
@@ -229,7 +229,7 @@ describe('headers and footers showing page numbers', () => {
     // The count's width decides the room: 9 pages leave the footer one line, 10 give it two, and
     // the pages that a two-line footer leaves come to at least 10.
     const template = templateWith({ footer: [line(report(92), variable('page.total'))] });
-    const pages = layOut(template, 9 * 2 + 1, 2 * LINE + 36);
+    const pages = layOut(template, 9 * 2 + 1, 2 * LINE + 34);
     expect(pages.length).toBeGreaterThanOrEqual(10);
     const rooms = new Set(pages.map((page) => page.footer));
     expect(rooms.size).toBe(1);
@@ -277,7 +277,7 @@ describe('headers and footers showing page numbers', () => {
     };
     const template = templateWith({ footer: [line(variable('page.total'))] });
     const reasons: string[] = [];
-    layOut(template, 76, 280, { regionRoom, onUnsettled: (reason) => reasons.push(reason) });
+    layOut(template, 76, 276, { regionRoom, onUnsettled: (reason) => reasons.push(reason) });
     expect(reasons).toEqual([
       'the page count moved after 3 passes',
       'the page count moved after 3 passes',
