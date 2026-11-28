@@ -1,6 +1,6 @@
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { BlockGeometry, EntryLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { holdInsertedTexts } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';

@@ -60,7 +60,7 @@ function roomOf(result: RegionGeometry): RegionRoom | null {
 }
 
 /** The layouts kept for one footnote entry, under its different numbers, scopes and markup. */
-export const ENTRIES_KEPT_PER_NODE = 8;
+const ENTRIES_KEPT_PER_NODE = 8;
 
 /** A footnote entry as the engine laid it out, with its lines. */
 interface LaidEntry {
