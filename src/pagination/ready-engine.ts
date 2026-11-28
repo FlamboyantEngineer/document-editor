@@ -11,7 +11,8 @@ import type { PagesTextEngine } from './text-engine-types.js';
  */
 export function readyEngine(session: Session, again: () => void): PagesTextEngine | null {
   const { pace, options } = session;
-  if (session.destroyed || pace.ready.blocked()) return null;
+  // An optional readiness input cannot supply a missing engine.
+  if (session.destroyed || (pace.text && pace.ready.blocked())) return null;
   const engine = pace.readiness.engine(engineOrFailure(pace.text), options.trace);
   if (!engine) return null;
   const waiting = { ...session, owner: options.element.ownerDocument, trace: options.trace };

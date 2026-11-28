@@ -76,20 +76,50 @@ function withDefaultFonts(template: TemplateFile, paragraph: string, code: strin
   };
 }
 
-/** Resolves template generics, unset fonts and unserved families against the layout's font files. */
+function withoutRefusedFamilies(
+  stack: string,
+  refused: ReadonlySet<string>,
+  served?: ReadonlySet<string>,
+): string {
+  const families = splitFontFamilies(stack);
+  const remaining = families.filter((family) => !refused.has(familyKey(family)));
+  const first = families[0];
+  if (!first || !refused.has(familyKey(first)) || !served) return remaining.join(', ');
+  const usable = remaining.findIndex((family) => served.has(familyKey(family)));
+  return usable < 0 ? '' : remaining.slice(usable).join(', ');
+}
+
+/** Resolves template fonts against the supplied files and, for a viewer, excludes refused families. */
 export function resolveServedTemplate(
   template: TemplateFile,
   files: FontFiles | null,
+  refused?: ReadonlySet<string>,
 ): { readonly template: TemplateFile; readonly unserved: readonly string[] } {
-  const first = files?.faces[0];
+  const supplied = files?.faces ?? [];
+  const faces = refused
+    ? supplied.filter((face) => !refused.has(familyKey(face.family)))
+    : supplied;
+  const first = faces[0];
+  if (!first && refused?.size) {
+    return {
+      template: replaceFonts(template, (stack) =>
+        withoutRefusedFamilies(stack, refused),
+      ) as TemplateFile,
+      unserved: [],
+    };
+  }
   if (!first) return { template, unserved: [] };
-  const served = new Set(files.faces.map((face) => familyKey(face.family)));
-  const generics = files.generics ?? {};
+  const served = new Set(faces.map((face) => familyKey(face.family)));
+  const generics = files?.generics ?? {};
   const resolveGeneric = (font: string) => {
     const key = familyKey(font);
     return isGenericFamily(key) ? (generics[key] ?? font) : font;
   };
-  const body = resolveGeneric(firstFamily(template.styles?.paragraph?.font ?? ''));
+  const availableStack = (stack: string) => {
+    const resolved = renameStack(stack, resolveGeneric);
+    return refused?.size ? withoutRefusedFamilies(resolved, refused, served) : resolved;
+  };
+  const body = firstFamily(availableStack(template.styles?.paragraph?.font ?? ''));
   const fallback = fontToken(
     [body, ...PAGE_GENERICS.map((generic) => generics[generic])].find(
       (family) => family && served.has(familyKey(family)),
@@ -97,10 +127,11 @@ export function resolveServedTemplate(
   );
   const unserved = new Set<string>();
   const drawn = replaceFonts(template, (stack) => {
-    const resolved = renameStack(stack, resolveGeneric);
+    const resolved = availableStack(stack);
     const family = firstFamily(resolved);
-    if (!family || served.has(familyKey(family))) return resolved;
-    unserved.add(firstFamily(stack));
+    const requested = firstFamily(stack);
+    if (served.has(familyKey(family)) || (!family && !requested)) return resolved;
+    unserved.add(requested);
     return fallback;
   }) as TemplateFile;
   const defaultFont = (key: string) => {

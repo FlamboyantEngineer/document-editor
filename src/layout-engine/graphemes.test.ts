@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { clusterEnd, clusterStart, positionText } from './graphemes.js';
+import { clusterEnd, clusterStart } from './graphemes.js';
+import { positionText } from './inline-content.js';
 
 const FAMILY = '👨🏽‍👩🏾‍👧🏿‍👦🏻';
 const ACCENTS = `q${'́'.repeat(40)}`;
@@ -67,6 +68,22 @@ describe('grapheme clusters of a block', () => {
     ]);
     expect(positionText(node, 1, 4)).toBe('b￼c');
     expect(clusterStart(node, 3)).toBe(2);
+  });
+
+  it('DOCE-PAGINATION-7.11 reads windows in any order and keeps clusters across formatting marks', () => {
+    const node = documentSchema.node('paragraph', null, [
+      documentSchema.text('a'),
+      documentSchema.text('q', [documentSchema.mark('strong')]),
+      documentSchema.text(ACCENTS.slice(1), [documentSchema.mark('em')]),
+      documentSchema.node('math_inline', null, [documentSchema.text('x + y')]),
+      documentSchema.text('z'),
+    ]);
+    const end = node.content.size;
+    expect(positionText(node, end - 3, end)).toBe('￼￼z');
+    expect(clusterEnd(node, 1)).toBe(1 + ACCENTS.length);
+    expect(positionText(node, end - 5, end - 2)).toBe('￼￼￼');
+    expect(clusterStart(node, 1 + ACCENTS.length)).toBe(1);
+    expect(positionText(node, 0, 3)).toBe('aq́');
   });
 
   it('DOCE-PAGINATION-7.11 stays within its bounds', () => {

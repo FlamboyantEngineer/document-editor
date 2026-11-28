@@ -1,3 +1,4 @@
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -11,9 +12,13 @@ const ACCENTED = 'é';
 const TONED_FAMILY = '👨🏽‍👩🏾‍👧🏿‍👦🏻';
 const ACCENTS = `q${'\u0301'.repeat(40)}`;
 
-// A paragraph of `text` with the caret `at` characters into it.
-function caretIn(text: string, at: number) {
-  const paragraph = documentSchema.node('paragraph', null, [documentSchema.text(text)]);
+// A paragraph with the caret at a content offset.
+function caretIn(content: string | readonly ProseMirrorNode[], at: number) {
+  const paragraph = documentSchema.node(
+    'paragraph',
+    null,
+    typeof content === 'string' ? documentSchema.text(content) : content,
+  );
   const doc = documentSchema.node('doc', null, [
     documentSchema.node('page_section', null, [
       documentSchema.node('page', null, [
@@ -63,5 +68,26 @@ describe('characters on the pages', () => {
     expect(deleted(caretIn(`x${ACCENTS}`, 1), 1)).toBe('x');
     const state = caretIn(text, 1);
     expect(characterWidth(state.selection.$head, 1)).toBe(TONED_FAMILY.length);
+  });
+
+  it('DOCE-PAGINATION-7.11 deletes a whole inline equation beside the caret in both directions', () => {
+    const math = documentSchema.node('math_inline', null, [documentSchema.text('x + y')]);
+    const content = [documentSchema.text('A'), math, documentSchema.text('B')];
+    const before = caretIn(content, 1);
+    const after = caretIn(content, 1 + math.nodeSize);
+    expect(characterWidth(before.selection.$head, 1)).toBe(math.nodeSize);
+    expect(characterWidth(after.selection.$head, -1)).toBe(math.nodeSize);
+    expect(deleted(before, 1)).toBe('AB');
+    expect(deleted(after, -1)).toBe('AB');
+  });
+
+  it('DOCE-PAGINATION-7.11 keeps literal object characters and marks in text clusters', () => {
+    const literal = '\uFFFC\u0301\u0323';
+    expect(deleted(caretIn(`A${literal}B`, 1), 1)).toBe('AB');
+    expect(deleted(caretIn(`A${literal}B`, 1 + literal.length), -1)).toBe('AB');
+
+    const math = documentSchema.node('math_inline', null, [documentSchema.text('x')]);
+    const content = [math, documentSchema.text('\u0301\u0323B')];
+    expect(deleted(caretIn(content, math.nodeSize + 2), -1)).toBe('xB');
   });
 });
