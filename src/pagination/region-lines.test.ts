@@ -1,6 +1,7 @@
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import type { BlockGeometry, RegionGeometry } from '../layout-engine/blocks/types.js';
+import type { BlockGeometry, EntryLayout, RegionGeometry } from '../layout-engine/blocks/types.js';
 import { holdInsertedTexts } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { createRegionLines, REGIONS_KEPT_PER_NODE, REGIONS_KEPT_PER_PAGE } from './region-lines.js';
@@ -147,5 +148,46 @@ describe('a layout that throws', () => {
     );
     expect(recorder.lines).toBeNull();
     expect(recorder.labelOf ?? null).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-5.5 DOCE-PAGINATION-10.6 lays out again only the footnote entry an edit changed', () => {
+    const schema = documentSchema;
+    const entryOf = (id: string, text: string) =>
+      schema.node('footnote_entry', { footnoteId: id }, schema.text(text));
+    const areaOf = (entries: ProseMirrorNode[]) => schema.node('page_footnotes', null, entries);
+    const entries = Array.from({ length: 600 }, (_, index) => entryOf(`f${index}`, 'Note'));
+    const recorder: LinesRecorder = { lines: null };
+    const laidEntries: ProseMirrorNode[] = [];
+    // Lays each entry out as the engine does, writing down its lines.
+    const geometry = {
+      layoutRegion: (area: ProseMirrorNode, _place: unknown, entry?: EntryLayout) => {
+        const children: { top: number; bottom: number }[] = [];
+        area.forEach((node) => {
+          const laid = (entry ?? ((_node, lay) => lay()))(node, () => {
+            laidEntries.push(node);
+            recorder.lines?.set(node, { lines: [], justify: false } as never);
+            return { ok: true, block: { node, height: 10, marginTop: 0, marginBottom: 0 } };
+          });
+          const top = children.length * 12;
+          if (laid.ok) children.push({ top, bottom: top + laid.block.height });
+        });
+        return { ok: true, height: children.length * 12, gap: 0, children } as RegionGeometry;
+      },
+    };
+    const regions = createRegionLines({
+      geometry,
+      recorder,
+      widthOf: () => 100,
+      footnoteOf: (node) => String(node.attrs.footnoteId),
+    });
+    const first = regions.lay(areaOf(entries), null);
+    expect(laidEntries).toHaveLength(600);
+    // One letter typed in the first entry: the area is a new node, its other entries the same.
+    const typed = entryOf('f0', 'Notes');
+    const edited = regions.lay(areaOf([typed, ...entries.slice(1)]), null);
+    expect(laidEntries).toHaveLength(601);
+    expect(laidEntries.at(-1)).toBe(typed);
+    expect(edited.room).toEqual(first.room);
+    expect([...edited.lines.keys()]).toEqual([typed, ...entries.slice(1)]);
   });
 });

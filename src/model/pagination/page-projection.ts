@@ -15,6 +15,11 @@ export interface ProjectionOptions {
    * citing it, or on each page, each page holding the entries of all it cites.
    */
   footnoteNumbering?: 'document' | 'page' | undefined;
+  /**
+   * The suggestion mark the pages' markup hides: a footnote cited only under it has no entry on the
+   * page, as the layout leaves it no room (DOCE-PAGINATION-11.12).
+   */
+  hidden?: string | null | undefined;
 }
 
 interface SectionParts {
@@ -49,12 +54,13 @@ function sectionParts(section: ProseMirrorNode): SectionParts | null {
   return { page, regions, blocks, entries };
 }
 
-function citedFootnotes(blocks: readonly ProseMirrorNode[]): string[] {
+// The footnotes blocks cite where the markup shows it: not under the suggestion mark it hides.
+function citedFootnotes(blocks: readonly ProseMirrorNode[], hidden: string | null): string[] {
   const ids = new Set<string>();
   for (const block of blocks) {
     block.descendants((node) => {
       const id = node.type.name === 'footnote_reference' ? footnoteId(node) : null;
-      if (id) ids.add(id);
+      if (id && !node.marks.some((mark) => mark.type.name === hidden)) ids.add(id);
     });
   }
   return [...ids];
@@ -68,6 +74,7 @@ function withAttrs(node: ProseMirrorNode, attrs: Record<string, unknown>): Prose
 // Where the pages are: the page count so far and the footnotes whose entries are placed.
 interface Placing {
   readonly perPage: boolean;
+  readonly hidden: string | null;
   readonly placed: Set<string>;
   page: number;
   readonly totalPages: number;
@@ -85,7 +92,7 @@ function projectPage(parts: SectionParts, blocks: readonly ProseMirrorNode[], pl
   placing.page += 1;
   if (placing.perPage) placing.placed.clear();
   // A footnote's entry goes on the first page that cites it, or on each page numbered on its own.
-  const ids = citedFootnotes(blocks).filter((id) => !placing.placed.has(id));
+  const ids = citedFootnotes(blocks, placing.hidden).filter((id) => !placing.placed.has(id));
   for (const id of ids) placing.placed.add(id);
   const pageNumbers = { pageNumber: placing.page, totalPages: placing.totalPages };
   const regions = parts.page.children.map((region) => {
@@ -104,7 +111,7 @@ function projectPage(parts: SectionParts, blocks: readonly ProseMirrorNode[], pl
 export function projectDocument(
   whole: ProseMirrorNode,
   sections: readonly SectionPages[],
-  { footnoteNumbering = 'document' }: ProjectionOptions = {},
+  { footnoteNumbering = 'document', hidden = null }: ProjectionOptions = {},
 ): ProseMirrorNode {
   const parts: (SectionParts | null)[] = [];
   whole.forEach((child) => {
@@ -117,6 +124,7 @@ export function projectDocument(
   const totalPages = parts.reduce((sum, _part, index) => sum + pagesFor(index).length, 0);
   const placing: Placing = {
     perPage: footnoteNumbering === 'page',
+    hidden,
     placed: new Set(),
     page: 0,
     totalPages,

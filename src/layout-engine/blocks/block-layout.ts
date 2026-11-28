@@ -99,9 +99,9 @@ export function createBlockLayout(options: BlockLayoutOptions): BlockLayout {
       const inRegion = place.region === 'header' || place.region === 'footer';
       return inRegion ? layRegionBlock(node, place) : layIn(node, place, 'page');
     },
-    layoutRegion: (node, place) => {
+    layoutRegion: (node, place, entry) => {
       const name = node.type.name;
-      if (name === 'page_footnotes') return layFootnoteArea(contextOf(place, 'other'), node);
+      if (name === 'page_footnotes') return layFootnoteArea(contextOf(place, 'other'), node, entry);
       if (name !== 'page_header' && name !== 'page_footer') {
         return { ok: false, node, reason: `${name} is not a page region` };
       }
