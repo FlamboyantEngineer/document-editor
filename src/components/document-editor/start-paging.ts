@@ -31,7 +31,6 @@ import {
   type PagesFonts,
   pageVariablesKey,
   type SectionLayoutRules,
-  type TextLayoutMode,
 } from '../../pagination/index.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
 import type { PagedEditor } from './use-paged-projection.js';
@@ -47,6 +46,7 @@ export type LayoutRunner = Pick<
   | 'servedFonts'
   | 'drawAllLines'
   | 'refresh'
+  | 'fontsChanged'
   | 'layout'
 >;
 
@@ -156,10 +156,9 @@ export interface PagingRefs {
   readonly ownPlugins: RefObject<readonly Plugin[]>;
 }
 
-/** What a page layout starts from: its footnote numbering and how it lays its text out. */
+/** What a page layout starts from: its footnote numbering and the fonts its engine measures with. */
 interface PagingSettings {
   readonly footnoteNumbering: 'document' | 'page';
-  readonly textLayout: TextLayoutMode;
   /** The served fonts the layout engine measures with (DOCE-HOST-1.14.1). */
   readonly fonts: () => PromiseLike<PagesFonts> | null;
   /** The markup the layout engine lays suggestions out in now (DOCE-PAGINATION-11.12). */
@@ -178,10 +177,10 @@ const reservedMathLayouter: MathLayouter = {
 // numbers the state's object views draw, and math sized and drawn by MathJax (DOCE-PAGINATION-12.12),
 // loaded with the engine.
 function textLayoutOf(
-  { textLayout, fonts: served, markup }: PagingSettings,
+  { fonts: served, markup }: PagingSettings,
   latest: RefObject<DocumentLayoutOptions>,
 ) {
-  const fonts = textLayout === 'pretext' ? served() : null;
+  const fonts = served();
   if (!fonts) return undefined;
   return {
     fonts,
@@ -227,6 +226,7 @@ export function startPaging(
     fontsPending: () => latest.current.text.isPending,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,
+    overflow: () => latest.current.debug?.overflow ?? false,
     textLayout: textLayoutOf(settings, latest),
   };
   return startProjectionOf(setup, latest, { refs, setPaged });

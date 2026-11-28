@@ -49,5 +49,5 @@ export {
 } from './served-fonts.js';
 export { PAGE_GENERICS, renameTemplateFonts, resolveServedTemplate } from './served-template.js';
 export type { TextLayoutSetting } from './text-engine-holder.js';
-export type { TextEngineStats, TextLayoutMode } from './text-engine-types.js';
+export type { TextEngineStats } from './text-engine-types.js';
 export type { BlockTextLines, ComputedLine, PageTextLines } from './text-lines.js';

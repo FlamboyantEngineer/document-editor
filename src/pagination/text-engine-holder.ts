@@ -55,6 +55,8 @@ export interface TextEngineHolder {
   version(): number;
   /** Settles once the engine's module has loaded, or failed to, which leaves no engine. */
   readonly loaded: Promise<unknown>;
+  /** Why no engine can be made: the served fonts cannot be read, or the module failed to load. */
+  failure?(): string | null;
   /** Makes the engine again, so its atoms are measured again, as after the screen changed. */
   remeasure(): void;
   destroy(): void;
@@ -144,13 +146,16 @@ export function holdTextEngine(options: {
   const markups = markupChanges(options.setting.markup);
   let destroyed = false;
   // Settles either way: served fonts that fail leave no engine (DOCE-PAGINATION-12.5), and the
-  // pages say why from the fonts themselves, so nothing waits on a rejection no one handles.
+  // pages say why, so nothing waits on a rejection no one handles.
+  let failed: string | null = null;
   const loaded = loadEngine(options.setting).then(
     ([module, served, layouter]) => {
       made = { ...module, layouter };
       fonts = served;
     },
-    () => undefined,
+    () => {
+      failed = 'engine-failed';
+    },
   );
   const settled = () => {
     version += 1;
@@ -204,10 +209,20 @@ export function holdTextEngine(options: {
     // Another markup keeps the engine, but moves the lines it draws, as math laid out again does.
     version: () => version + markups() + atoms(),
     loaded,
+    failure: () => failed ?? (fonts?.phase === 'browser' ? fonts.reason : null),
     remeasure: drop,
     destroy() {
       destroyed = true;
       drop();
     },
   };
+}
+
+/**
+ * The engine a projection's pages lay out with now; else why they can have none (none held, or the
+ * one held cannot be made); else null while it loads.
+ */
+export function engineOrFailure(text: TextEngineHolder | null): PagesTextEngine | string | null {
+  if (!text) return 'no-engine';
+  return text.engine() ?? text.failure?.() ?? null;
 }

@@ -30,9 +30,7 @@ test('DOCE-LABS-5.1 predicts off-document and keeps mounted pages bounded throug
   await page.getByRole('combobox', { name: 'Document', exact: true }).selectOption('long');
   await expect(status).toHaveText('300 pages indexed');
   await expect(mounted).toHaveCount(2);
-  await expect(
-    page.locator('#lab-root .de-document-editor__measure, #lab-root .pretext-oracle'),
-  ).toHaveCount(0);
+  await expect(page.locator('#lab-root .pretext-oracle')).toHaveCount(0);
 
   await page.getByLabel('Page', { exact: true }).fill(String(largePage));
   await page.getByRole('button', { name: 'Go to page' }).click();

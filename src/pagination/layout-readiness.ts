@@ -3,6 +3,8 @@
 // their anchors, show them. A layout that throws, or a run of layouts that never stops moving the
 // pages, fails instead.
 
+import { type LayoutTraceSink, writeTrace } from './layout-trace.js';
+
 /** Whether an editor's pages are being laid out, are settled, or failed to settle. */
 export type LayoutState = 'pending' | 'settled' | 'failed';
 
@@ -50,6 +52,19 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
     },
     /** The pages could not be laid out. */
     fail: () => set('failed'),
+    /**
+     * The engine to lay the pages out with, or null when there is none (`engineOrFailure`): pending
+     * while it loads, failed, with the reason traced, when there can be none.
+     */
+    engine<Engine extends object>(found: Engine | string | null, trace?: LayoutTraceSink) {
+      if (typeof found === 'object') {
+        if (!found) set('pending');
+        return found;
+      }
+      writeTrace(trace, 'fail', () => ({ reason: found }));
+      set('failed');
+      return null;
+    },
     /**
      * A layout landed: the pages settle two frames on, once the views that follow them have drawn,
      * unless another layout is due by then.
