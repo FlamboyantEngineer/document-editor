@@ -196,24 +196,21 @@ test.describe('host services', () => {
     await expect(sheet).toHaveAttribute('data-embed-status', 'no-access');
   });
 
-  test('DOCE-LABS-3.3 DOCE-PAGINATION-5.6 DOCE-EDITOR-4.29 DOCE-EDITOR-4.27 waits for fonts as long as the host says, and tells it the layout failed', async ({
+  test('DOCE-LABS-3.3 DOCE-PAGINATION-5.6 DOCE-EDITOR-4.29 DOCE-EDITOR-7.3 shows the pages without waiting for the host fonts, and only warns of fonts that do not load', async ({
     lab,
     page,
   }) => {
     await lab.open('host-services');
     await page.getByLabel('Font timeout').selectOption('1000');
-    await page.getByRole('combobox', { name: /^Fonts/ }).selectOption('slow');
-    // Opened again, the editor waits for the fonts before it first shows the pages.
+    await page.getByRole('combobox', { name: /^Fonts/ }).selectOption('late');
+    // Opened again, the editor asks the host for the fonts but shows the pages before they come.
     await page.getByRole('button', { name: 'Open the editor again' }).click();
     await expect(log(page)).toContainText('(timeout 1000 ms)');
-    await expect(page.locator('.de-document-editor__layout-error')).toBeVisible();
-    await expect(log(page)).toContainText('layout failed: the pages are not shown');
-    await expect(page.locator('.de-document-editor__body')).toHaveAttribute('inert', '');
-
-    // Fonts that load later show the pages.
-    await page.getByRole('combobox', { name: /^Fonts/ }).selectOption('load');
-    await expect(page.locator('.de-document-editor__layout-error')).toHaveCount(0);
     await expect(page.locator('.de-document-editor__body')).not.toHaveAttribute('inert');
+    await expect(page.locator('.pm-page').first()).toBeVisible();
+    // The host gives up on them a second later: a warning, never the layout error.
+    await expect(page.getByText(/in a fallback font/u)).toBeVisible();
+    await expect(page.locator('.de-document-editor__layout-error')).toHaveCount(0);
   });
 
   test('DOCE-LABS-3.3 DOCE-PAGINATION-10.8 shows math invalid with the host reason when the typesetter stops answering', async ({

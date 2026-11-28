@@ -101,7 +101,7 @@ describe('line widths', () => {
         .lines[0];
       return [first?.width, first?.left];
     };
-    // Chromium hangs them at the block's end in pre-wrap: the line sits at the right edge.
+    // At the block's end, the line sits at the right edge.
     expect(line('aaa bbb ')).toEqual(line('aaa bbb'));
     expect(line('aaa bbb   ')).toEqual(line('aaa bbb'));
     // Spaces before a hard break hang only where they do not fit, so they are kept.
@@ -125,6 +125,43 @@ describe('line widths', () => {
     expect(width(bold('word '), plain(' '))).toBe(word);
     expect(width(plain('word '), bold(' '))).toBe(width(plain('word')));
     expect(width(plain('word '), italic('  '))).toBe(width(plain('word')));
+  });
+
+  it('DOCE-PAGINATION-9.1 aligns a line without the tabs that end the block', () => {
+    const layout = createTextLayout({ template: BASE_TEMPLATE });
+    const lastLine = (width: number, ...children: ProseMirrorNode[]) => {
+      const result = layout.layoutText(create('paragraph', children), { width, align: 'center' });
+      if (!result.ok) throw new Error(result.reason);
+      const line = result.table.lines.at(-1);
+      return [line?.from, line?.width, line?.left];
+    };
+    const plain = (text: string) => documentSchema.text(text);
+    const bold = (text: string) => documentSchema.text(text, [mark('strong')]);
+    const code = (text: string) => documentSchema.text(text, [mark('code')]);
+    expect(lastLine(400, plain('abc'))).toEqual([0, 18, 191]);
+    expect(lastLine(400, plain('abc \t\t '))).toEqual([0, 18, 191]);
+    expect(lastLine(400, plain('abc\tdef\t'))).toEqual([0, 42, 179]);
+    expect(lastLine(400, plain('abc '), bold('\t '), plain('\t'))).toEqual([0, 18, 191]);
+    expect(lastLine(20, plain('abc\t'))).toEqual([0, 18, 1]);
+    expect(lastLine(25, plain('abcdef\t'))).toEqual([4, 12, 6.5]);
+    expect(lastLine(400, code('abc\t'))).toEqual(lastLine(400, code('abc')));
+    expect(lastLine(400, plain('abc'), code('\t'))).toEqual([0, 24, 188]);
+
+    const mention = create('mention', [], { userId: 'u1', label: 'A' });
+    expect(lastLine(400, mention, plain('\t'))).toEqual(lastLine(400, mention));
+  });
+
+  it('DOCE-PAGINATION-9.1 keeps the tab advance before a hard break', () => {
+    const layout = createTextLayout({ template: BASE_TEMPLATE });
+    const firstLine = (...children: ProseMirrorNode[]) => {
+      const result = layout.layoutText(create('paragraph', children), { width: 60 });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines[0];
+    };
+    const tabbed = documentSchema.text('abc\t');
+    expect(firstLine(tabbed)).toMatchObject({ width: 18, end: 'end' });
+    // The fake Canvas' 3px space places the first tab stop at 24px.
+    expect(firstLine(tabbed, create('hard_break', []))).toMatchObject({ width: 24, end: 'break' });
   });
 
   it('DOCE-PAGINATION-9.1 counts the spaces a label ends an empty caption with', () => {

@@ -137,11 +137,6 @@ export interface PagedProjectionOptions {
   readonly onLayout?: ((tr: Transaction) => void) | undefined;
   /** Tells of each change of the layout state (`PagedProjection.layoutState`). */
   readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
-  /**
-   * Settles once what the pages measure with is loaded, such as the template's fonts: the pages
-   * are laid out at once, measured again then, and pending until it settles (DOCE-PAGINATION-5.6).
-   */
-  readonly ready?: PromiseLike<unknown> | undefined;
   /** Whether the current template is waiting for served faces while drawing in fallback fonts. */
   readonly fontsPending?: (() => boolean) | undefined;
   /** Where the layout's trace goes while it is read (`LayoutTrace`); nothing is written otherwise. */
@@ -153,8 +148,7 @@ export interface PagedProjectionOptions {
   readonly overflow?: (() => boolean) | undefined;
   /**
    * Lays the pages out with the layout engine, which it loads, and draws its lines on the pages
-   * (DOCE-PAGINATION-11). Without it or `textEngine` the pages are not laid out: nothing is
-   * measured in the DOM.
+   * (DOCE-PAGINATION-11). Without it or `textEngine` the projection fails to lay out pages.
    */
   readonly textLayout?: TextLayoutSetting | undefined;
   /**
@@ -324,7 +318,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       passes: 0,
       restart: false,
       memory: createLayoutMemory(),
-      ready: awaitLayoutInputs(text, options.ready, {
+      ready: awaitLayoutInputs(text, {
         settled: () => refreshLayout(session(), true),
         failed: () => session().pace.readiness.fail(),
       }),

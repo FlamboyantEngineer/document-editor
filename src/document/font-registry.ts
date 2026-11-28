@@ -10,7 +10,7 @@ import { familyKey, fontFaceKey, uniqueFontFaces, unquoteFamily } from '../utils
 /** The faces a surface added to its document, and the family it draws each served family under. */
 export interface FaceRegistration {
   /**
-   * The family the surface draws a served family under: the family itself, or another one when a
+   * The family the surface draws a held family under: the family itself, or another one when a
    * surface already draws other files under it.
    */
   drawnFamily(family: string): string;
@@ -96,10 +96,8 @@ async function tryLoadFace(face: FontFace): Promise<boolean> {
   }
 }
 
-async function loadFaces(doc: Document, faces: readonly FontFace[]): Promise<boolean> {
-  const accepted = (await Promise.all(faces.map(tryLoadFace))).every(Boolean);
-  if (!accepted) for (const face of faces) doc.fonts.delete(face);
-  return accepted;
+async function loadFaces(faces: readonly FontFace[]): Promise<boolean> {
+  return (await Promise.all(faces.map(tryLoadFace))).every(Boolean);
 }
 
 // The faces of one family's files: those another surface holds for the same files, or new ones,
@@ -127,7 +125,7 @@ function holdFamily(
     name,
     files: wanted,
     faces: added,
-    loaded: loadFaces(doc, added),
+    loaded: loadFaces(added),
     users: 1,
   };
   faces.names.add(familyKey(name));
@@ -136,13 +134,12 @@ function holdFamily(
   return holder;
 }
 
-function letGo(doc: Document, family: string, holder: Held): void {
+function letGo(doc: Document, key: string, holder: Held): void {
   holder.users -= 1;
   if (holder.users > 0) return;
   for (const face of holder.faces) doc.fonts.delete(face);
   const { families, names } = facesOf(doc);
   names.delete(familyKey(holder.name));
-  const key = familyKey(family);
   const holders = families.get(key);
   if (!holders) return;
   holders.splice(holders.indexOf(holder), 1);
@@ -157,12 +154,16 @@ const NONE: FaceRegistration = {
 };
 
 async function refusedFamilies(
-  holders: readonly (readonly [string, { readonly holder: Held }])[],
+  doc: Document,
+  holders: Map<string, Held>,
   refused: Set<string>,
 ): Promise<ReadonlySet<string>> {
   await Promise.all(
-    holders.map(async ([key, { holder }]) => {
-      if (!(await holder.loaded)) refused.add(key);
+    Array.from(holders, async ([key, holder]) => {
+      if (await holder.loaded) return;
+      refused.add(key);
+      // A refusal ends this surface's hold, allowing a later registration to retry the files.
+      if (holders.delete(key)) letGo(doc, key, holder);
     }),
   );
   return refused;
@@ -181,26 +182,23 @@ export function registerFaces(doc: Document, fonts: FontFiles | null): FaceRegis
     entry.files.push(face);
     byFamily.set(key, entry);
   }
-  const holders = new Map<string, { family: string; holder: Held }>();
+  const holders = new Map<string, Held>();
   const incoming = new Set(byFamily.keys());
   const refused = new Set<string>();
   for (const [key, entry] of byFamily) {
     const holder = holdFamily(doc, entry, incoming);
-    if (holder) holders.set(key, { family: entry.family, holder });
+    if (holder) holders.set(key, holder);
     else refused.add(key);
   }
-  const loaded = refusedFamilies([...holders], refused);
-  let released = false;
   return {
-    drawnFamily: (family) => holders.get(familyKey(family))?.holder.name ?? family,
-    renamed: [...holders.values()].some(
-      ({ family, holder }) => familyKey(holder.name) !== familyKey(family),
-    ),
-    loaded,
+    drawnFamily: (family) => holders.get(familyKey(family))?.name ?? family,
+    get renamed() {
+      return [...holders].some(([key, holder]) => familyKey(holder.name) !== key);
+    },
+    loaded: refusedFamilies(doc, holders, refused),
     release() {
-      if (released) return;
-      released = true;
-      for (const { family, holder } of holders.values()) letGo(doc, family, holder);
+      for (const [key, holder] of holders) letGo(doc, key, holder);
+      holders.clear();
     },
   };
 }

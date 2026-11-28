@@ -6,6 +6,7 @@ import {
   continuesFragment,
   FRAGMENT_RULES,
   joinDocumentPages,
+  layoutPages,
   projectDocument,
   repaginate,
 } from '../index.js';
@@ -114,6 +115,36 @@ describe('page projection', () => {
     expect(whole.child(0).child(0).child(1).child(1).attrs.splitPartIndex).toBeNull();
     const across = positionOf(paged, 'across');
     expect(textAfter(whole, tr.mapping.map(across))).toBe('acro');
+  });
+
+  it('DOCE-PAGINATION-1.6 DOCE-PAGINATION-6.1 preserves adjacent contents lists through projection', () => {
+    const lists = ['first', 'second'].map((dataId) => create('toc_block', { dataId }));
+    const whole = doc(section(page(lists)));
+    const blocks = lists.map((node) => ({
+      node,
+      height: 40,
+      marginTop: 0,
+      marginBottom: 0,
+      measurement: {
+        rows: [
+          { top: 0, bottom: 20 },
+          { top: 20, bottom: 40 },
+        ],
+      },
+    }));
+    const pages = layoutPages(blocks, { pageHeight: 25 }).map((page) =>
+      page.map((block) => block.node),
+    );
+    expect(pages.map((page) => page.map((list) => list.attrs.entryStart))).toEqual([
+      [0],
+      [1],
+      [0],
+      [1],
+    ]);
+    const projected = projectDocument(whole, [pages]);
+    const joined = joinDocumentPages(projected).doc.child(0);
+    expect(joined.childCount).toBe(1);
+    expect(joined.child(0).child(1).eq(whole.child(0).child(0).child(1))).toBe(true);
   });
 
   it.each(['code', 'table'] as const)(

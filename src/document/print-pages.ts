@@ -18,7 +18,7 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
-import { renameTemplateFonts, resolveServedTemplate } from '../pagination/served-template.js';
+import { resolveServedTemplate } from '../pagination/served-template.js';
 import { fontFaceRules } from './font-faces.js';
 import {
   type PagesLayout,
@@ -180,7 +180,8 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
     },
     content(node, pos) {
       const block = blocks.get(pos);
-      if (block && isCode(node)) return codeContent(node, block);
+      // Linked code supplies its text from its attributes when its element is drawn.
+      if (block && isCode(node)) return node.isLeaf ? [] : codeContent(node, block);
       if (block?.text !== undefined || block?.label) {
         // A caption's label in its parts, and the text a later part's caption shows.
         const text =
@@ -296,11 +297,6 @@ interface LayoutDrawing {
   readonly sections: readonly LayoutSectionDrawing[];
 }
 
-interface LayoutDrawingOptions extends LayoutPrintOptions {
-  /** The family each served family is drawn under on this surface. */
-  readonly drawnFamily?: ((family: string) => string) | undefined;
-}
-
 // An element's own attributes as the allow-list keeps them, without its content.
 function allowedAttrs(tree: PrintTree | undefined, markup: PrintMarkup) {
   if (!tree || !isPrintElement(tree)) return {};
@@ -311,15 +307,13 @@ function allowedAttrs(tree: PrintTree | undefined, markup: PrintMarkup) {
 /**
  * A layout's pages as `renderLayoutPrintPage` draws them, section by section and page by page:
  * each section's and page's sheet at once, with the numbers and links of the whole document, and
- * each page's content as HTML only when it is asked for.
+ * each page's content as HTML only when it is asked for. The template uses this surface's fonts.
  */
 export function drawLayoutPages(
   layout: PagesLayout,
-  template: TemplateFile,
-  { drawnFamily, ...options }: LayoutDrawingOptions = {},
+  drawnTemplate: TemplateFile,
+  options: LayoutPrintOptions = {},
 ): LayoutDrawing {
-  const portable = resolveServedTemplate(template, layout.fonts).template;
-  const drawnTemplate = drawnFamily ? renameTemplateFonts(portable, drawnFamily) : portable;
   const { doc, trees } = linkedLayout(layout, drawnTemplate, options);
   const { markup } = layout;
   const sections: LayoutSectionDrawing[] = [];

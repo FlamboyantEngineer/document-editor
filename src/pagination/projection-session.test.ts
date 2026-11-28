@@ -3,7 +3,6 @@ import type { Node } from 'prosemirror-model';
 import { type EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
 import {
   canonicalState,
@@ -68,6 +67,27 @@ describe('scrolling to the selection on the pages', () => {
 });
 
 describe('starting the projection', () => {
+  it('DOCE-PAGINATION-7.6 fails without an engine', async () => {
+    const onLayoutStateChange = vi.fn();
+    const schedule = vi.fn(() => () => undefined);
+    const projection = createPagedProjection({
+      element: document.body.appendChild(document.createElement('div')),
+      state: canonicalState(),
+      pageHeight: 1000,
+      schedule,
+      onProjection: () => undefined,
+      onLayoutStateChange,
+    });
+    expect(projection.layoutState()).toBe('failed');
+    await expect(projection.whenSettled()).resolves.toBe('failed');
+    projection.refresh();
+    projection.layout();
+    expect(projection.stats().layouts).toBe(0);
+    expect(onLayoutStateChange.mock.calls).toEqual([['failed']]);
+    expect(schedule).not.toHaveBeenCalled();
+    projection.destroy();
+  });
+
   it('DOCE-PAGINATION-12.5 lays nothing out before the layout engine has loaded with the served fonts', () => {
     stubLayout({});
     const projection = createPagedProjection({
@@ -170,7 +190,6 @@ describe('starting the projection', () => {
         schedule: () => () => undefined,
         onProjection: () => undefined,
         onLayoutStateChange,
-        ready: new Promise<never>(() => undefined),
         textLayout: { template: () => BASE_TEMPLATE, fonts },
       });
       expect(projection.layoutState()).toBe('pending');
@@ -210,37 +229,6 @@ describe('starting the projection', () => {
     drain();
     expect(projection.layoutState()).toBe('settled');
     projection.destroy();
-  });
-
-  it('DOCE-PAGINATION-5.6 keeps layout pending for an optional input and proceeds if it fails', async () => {
-    const pending = deferred<void>();
-    const ready = pending.promise.then(() => {
-      throw new Error('Optional input unavailable');
-    });
-    const { projection, drain } = mount({ ready });
-    projection.refresh();
-    drain();
-    expect(projection.stats().layouts).toBe(0);
-    expect(projection.layoutState()).toBe('pending');
-    pending.resolve();
-    await vi.waitFor(() => {
-      drain();
-      expect(projection.layoutState()).toBe('settled');
-    });
-    expect(projection.stats().layouts).toBeGreaterThan(0);
-    projection.destroy();
-  });
-
-  it('DOCE-PAGINATION-7.6 ignores readiness inputs that finish after the projection is destroyed', async () => {
-    const pending = deferred<void>();
-    const schedule = vi.fn(() => () => undefined);
-    const { projection } = mount({ ready: pending.promise, schedule });
-    const settled = projection.whenSettled();
-    projection.destroy();
-    pending.resolve();
-    await pending.promise;
-    expect(schedule).not.toHaveBeenCalled();
-    await expect(settled).resolves.toBe('failed');
   });
 
   it('DOCE-PAGINATION-7.10 dispatches nothing as it starts, and keeps the canonical selection', () => {

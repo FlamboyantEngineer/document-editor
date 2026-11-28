@@ -107,22 +107,21 @@ export function awaitReady(
   return { waiting: () => waiting };
 }
 
-/** Waits for optional layout inputs and for its required engine, which can fail independently. */
+/** Waits for the layout engine still loading, which can fail. */
 export function awaitLayoutInputs(
   text: TextEngineHolder | null,
-  ready: PromiseLike<unknown> | undefined,
   { settled, failed }: { settled: () => void; failed: () => void },
 ) {
+  if (!text) return { blocked: () => true, failed: () => true };
   const engine =
-    text?.engine() === null
+    text.engine() === null
       ? text.loaded.then(() => {
           if (!text.engine()) throw new Error('The page layout engine is unavailable.');
         })
       : undefined;
-  if (!engine) return { blocked: awaitReady(ready, settled).waiting, failed: () => false };
-  const optional = ready && Promise.resolve(ready).catch(() => undefined);
+  if (!engine) return { blocked: () => false, failed: () => false };
   let unavailable = false;
-  const waiting = awaitReady(Promise.all([engine, optional]), settled, () => {
+  const waiting = awaitReady(engine, settled, () => {
     unavailable = true;
     failed();
   });
