@@ -155,26 +155,57 @@ const ordinary = (event: MouseEvent) =>
   !event.altKey;
 
 // Follows each link inside the pages to an anchor of theirs (a reference, a footnote, a list of
-// contents row): the page holding it is drawn as if in view, though it was not drawn, and the
-// anchor scrolled to (DOCE-PAGINATION-13.9). A modified click is left to the browser.
+// contents row): `show` draws the page holding it and gives the anchor, which is scrolled to
+// (DOCE-PAGINATION-13.9). A modified click is left to the browser.
 function followLinks(
   element: HTMLElement,
   pageOf: ReadonlyMap<string, number>,
-  show: (index: number) => void,
+  show: (at: { index: number; id: string }) => Element | undefined,
 ) {
   const follow = (event: MouseEvent) => {
     const link = isElement(event.target) ? event.target.closest('a[href^="#"]') : null;
     if (!link || !element.contains(link) || !ordinary(event)) return;
     const id = fragmentTarget(link.getAttribute('href') ?? '', pageOf);
     const index = id === undefined ? undefined : pageOf.get(id);
-    if (index === undefined) return;
+    if (id === undefined || index === undefined) return;
     event.preventDefault();
-    show(index);
-    const target = [...element.querySelectorAll('[id]')].find((each) => each.id === id);
-    target?.scrollIntoView({ block: 'start' });
+    show({ index, id })?.scrollIntoView({ block: 'start' });
   };
   element.addEventListener('click', follow);
   return () => element.removeEventListener('click', follow);
+}
+
+// The element of a page that has an id, searched for in that page alone.
+function anchorIn(sheet: Element | undefined, id: string): Element | undefined {
+  return sheet ? [...sheet.querySelectorAll('[id]')].find((each) => each.id === id) : undefined;
+}
+
+// Calls back with true while the host page prints, from the print events and the print media
+// query, which a print emulated without the events also changes; and with false once it is done.
+function watchPrinting(element: HTMLElement, onChange: (printing: boolean) => void) {
+  const view = element.ownerDocument.defaultView;
+  if (!view) return () => undefined;
+  const query = typeof view.matchMedia === 'function' ? view.matchMedia('print') : null;
+  let events = false;
+  const report = () => onChange(events || Boolean(query?.matches));
+  const before = () => {
+    events = true;
+    report();
+  };
+  const after = () => {
+    events = false;
+    report();
+  };
+  view.addEventListener('beforeprint', before);
+  view.addEventListener('afterprint', after);
+  query?.addEventListener('change', report);
+  // A viewer mounted while the page already prints, as a print tool that sets the media first does.
+  if (query?.matches) report();
+  return () => {
+    view.removeEventListener('beforeprint', before);
+    view.removeEventListener('afterprint', after);
+    query?.removeEventListener('change', report);
+  };
 }
 
 /**
@@ -203,8 +234,10 @@ export function DocumentViewer(props: DocumentViewerProps) {
     const sheets = [...element.querySelectorAll<HTMLElement>(':scope > * > .pm-page')];
     const indexOf = new Map<Element, number>(sheets.map((sheet, index) => [sheet, index]));
     const visible = new Set<number>();
+    // While the host page prints, every page is drawn, so none prints empty.
+    let printing = false;
     const draw = () => {
-      const wanted = wantedPages(visible, overscan, pages.length);
+      const wanted = wantedPages(visible, printing ? Infinity : overscan, pages.length);
       sheets.forEach((sheet, index) => {
         const page = pages[index];
         if (!page || wanted.has(index) === sheet.hasAttribute('data-drawn')) return;
@@ -231,11 +264,19 @@ export function DocumentViewer(props: DocumentViewerProps) {
     for (const sheet of sheets) observer.observe(sheet);
     draw();
     const pageOf = new Map(pages.flatMap((page, index) => page.anchors.map((id) => [id, index])));
-    const unfollow = followLinks(element, pageOf, (index) => {
+    // The page a link goes to is drawn as a page in view; scrolled to its anchor, the observer
+    // then reports it in view, and out of it once scrolled away.
+    const unfollow = followLinks(element, pageOf, ({ index, id }) => {
       visible.add(index);
+      draw();
+      return anchorIn(sheets[index], id);
+    });
+    const unwatch = watchPrinting(element, (now) => {
+      printing = now;
       draw();
     });
     return () => {
+      unwatch();
       unfollow();
       observer.disconnect();
       element.replaceChildren();
