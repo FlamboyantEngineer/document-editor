@@ -31,8 +31,8 @@ export interface TextLine {
   readonly side?: number | undefined;
   /**
    * Whether the line starts inside a word inserted at `from`, as a deleted word longer than the
-   * line or broken at its hyphen: the page draws no break for it, as the browser breaks the word's
-   * element where the engine did, and the line before draws no end of its own.
+   * line or broken at its hyphen, which no widget break can draw: the line starts at the word's
+   * offset, in no content. The line marks do not draw such a line yet.
    */
   readonly inWord?: true | undefined;
 }
