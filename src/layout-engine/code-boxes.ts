@@ -6,7 +6,7 @@ import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inlin
 import type { Mark } from 'prosemirror-model';
 
 /** The padding inline code takes on each side of each of its lines. */
-export const INLINE_CODE_PADDING = 3;
+const INLINE_CODE_PADDING = 3;
 
 /** A text item drawn with its marks: inline code's padding, a decorated line end's exact fit. */
 export function markedItem(item: RichInlineItem, marks: readonly Mark[]): RichInlineItem {
