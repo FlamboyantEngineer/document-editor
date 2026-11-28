@@ -17,8 +17,8 @@ export interface FaceRegistration {
   /** Whether the surface draws some served family under another name. */
   readonly renamed: boolean;
   /**
-   * Settles once every face has loaded, or failed to and been taken out of the document, with the
-   * family key (`familyKey`) of each family the browser refused a face of.
+   * Settles once every face has loaded or failed to, with the family key (`familyKey`) of each
+   * family the browser refused a face of; all of that family's faces are taken out of the document.
    */
   readonly loaded: Promise<ReadonlySet<string>>;
   /** Takes the surface's faces out of the document, once no other surface draws them. */
@@ -111,8 +111,8 @@ const NONE: FaceRegistration = {
   release: () => undefined,
 };
 
-// Loads each held face, taking out of the document one the browser refuses to read, and gives the
-// keys of the families it refused a face of.
+// Loads each held face and gives the keys of the families the browser refused a face of, every face
+// of those families taken out of the document.
 async function refusedFamilies(
   doc: Document,
   holders: readonly (readonly [string, { readonly holder: Held }])[],
@@ -124,13 +124,16 @@ async function refusedFamilies(
         face.load().then(
           () => undefined,
           () => {
-            doc.fonts.delete(face);
             refused.add(key);
           },
         ),
       ),
     ),
   );
+  // The family is no longer served, so none of its faces may draw: the browser would draw its text
+  // in faces the engine does not measure. Every surface sharing the faces is refused the same.
+  for (const [key, { holder }] of holders)
+    if (refused.has(key)) for (const face of holder.faces) doc.fonts.delete(face);
   return refused;
 }
 

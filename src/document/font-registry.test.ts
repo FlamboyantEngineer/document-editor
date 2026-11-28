@@ -7,11 +7,17 @@ import { registerFaces } from './font-registry.js';
 function browserDocument(refuse: ReadonlySet<string> = new Set()) {
   const made: string[] = [];
   class Face {
-    constructor(readonly family: string) {
+    constructor(
+      readonly family: string,
+      _bytes: unknown,
+      readonly descriptors: FontFaceDescriptors = {},
+    ) {
       made.push(family);
     }
+    // Refused by family, or by family and weight.
     load() {
-      return refuse.has(this.family)
+      const weighted = `${this.family} ${this.descriptors.weight ?? '400'}`;
+      return refuse.has(this.family) || refuse.has(weighted)
         ? Promise.reject(new Error('bad font'))
         : Promise.resolve(this);
     }
@@ -50,13 +56,17 @@ describe('registerFaces', () => {
     expect(added.size).toBe(0);
   });
 
-  it('DOCE-PAGINATION-12.5 takes out a face the browser refuses and names its family', async () => {
-    const { doc, added } = browserDocument(new Set(['Broken']));
+  it('DOCE-PAGINATION-12.5 takes every face of a family out when the browser refuses one, and names it', async () => {
+    const { doc, added } = browserDocument(new Set(['Broken 700']));
     const registration = registerFaces(doc, {
-      faces: [face('Broken', new Uint8Array([5])), face('Arial', new Uint8Array([6]))],
+      faces: [
+        face('Broken', new Uint8Array([5])),
+        { ...face('Broken', new Uint8Array([7])), weight: 700 },
+        face('Arial', new Uint8Array([6])),
+      ],
     });
     expect(await registration.loaded).toEqual(new Set(['broken']));
-    expect(added.size).toBe(1);
+    expect([...added].map((each) => (each as { family: string }).family)).toEqual(['Arial']);
     registration.release();
   });
 });

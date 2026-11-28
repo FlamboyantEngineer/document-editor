@@ -4,7 +4,9 @@
 // FNV-1a, 32 bits, as eight hex digits.
 function fnv(view: Uint8Array): string {
   let hash = 0x811c9dc5;
-  for (const byte of view) hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+  // An indexed loop: several times faster than an iterator over a large file.
+  for (let index = 0; index < view.length; index += 1)
+    hash = Math.imul(hash ^ (view[index] ?? 0), 0x01000193) >>> 0;
   return hash.toString(16).padStart(8, '0');
 }
 
