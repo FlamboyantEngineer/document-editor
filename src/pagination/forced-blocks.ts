@@ -110,7 +110,13 @@ export function continuingParts(doc: ProseMirrorNode): ReadonlySet<number> {
     if (!node.isTextblock || !key) return false;
     parts.set(key, pos);
     const part = Number(node.attrs.splitPartIndex ?? 0);
-    if (part > 0 && node.firstChild?.type.name !== 'hard_break')
+    // A code part continues its line before it only where the split cut that line
+    // (`codeLineContinued`); otherwise the line before it ended at its line feed.
+    const code = node.type.spec.code === true;
+    if (
+      part > 0 &&
+      (code ? node.attrs.codeLineContinued === true : node.firstChild?.type.name !== 'hard_break')
+    )
       continued.add(`${String(node.attrs.dataId)}#${String(part - 1)}`);
     return false;
   });

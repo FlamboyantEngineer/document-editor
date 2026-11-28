@@ -10,6 +10,7 @@ import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
 import type { TextLine } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { continuingParts } from './forced-blocks.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import { insertedTexts } from './inserted-texts.js';
 import { paginationKey } from './layout-marks.js';
@@ -768,6 +769,18 @@ describe('forcedLines', () => {
       { elementId: 'c1', nested: true },
       { elementId: 'l1', nested: true },
     ]);
+  });
+
+  it('DOCE-PAGINATION-11.2 continues a code part’s last line only where the split cut that line', () => {
+    const code = (id: string, part: number, text: string, continued = false) =>
+      create('code_block', { dataId: id, splitPartIndex: part, codeLineContinued: continued }, [
+        documentSchema.text(text),
+      ]);
+    const doc = pagesDoc([
+      [code('c1', 0, 'one'), code('c2', 0, 'three')],
+      [code('c1', 1, 'two'), code('c2', 1, 'four', true)],
+    ]);
+    expect([...continuingParts(doc)]).toEqual([positionOf(doc, 'three')]);
   });
 
   it('DOCE-PAGINATION-11.2 marks each paragraph in a quote', () => {
