@@ -26,9 +26,11 @@ export interface LayoutBlock {
   readonly measurement?: unknown;
 }
 
-/** Where a block that does not fit is being split. */
+/**
+ * Where a block that does not fit is being split: the page only through its heights, so a page
+ * reused at another index keeps the splits made for it (DOCE-PAGINATION-5.5).
+ */
 export interface SplitContext {
-  readonly pageIndex: number;
   /** The page's content height. */
   readonly pageHeight: number;
   /** The height left on the page below the blocks already on it. */
@@ -271,7 +273,6 @@ function fittingHeight(remaining: number): number {
 
 function splitContext(page: PageFill, pageHeight: number, remaining: number): SplitContext {
   return {
-    pageIndex: page.index,
     pageHeight,
     remainingHeight: remaining,
     rules: page.rules,
