@@ -13,7 +13,9 @@ import { engineObjects } from '../pagination/engine-objects.js';
 import { pagesLayout } from '../pagination/pages-layout.js';
 import { createProjectionMap } from '../pagination/projection-map.js';
 import type { DrawnLines } from '../pagination/text-engine-types.js';
+import { linesContent } from './print-lines.js';
 import { drawLayoutPages, renderLayoutPrintPage } from './print-pages.js';
+import { isPrintElement } from './print-tree.js';
 
 const text = (value: string, marks: string[] = []) =>
   documentSchema.text(
@@ -240,6 +242,33 @@ describe('renderLayoutPrintPage', () => {
     expect(both.printed.querySelector('p')?.innerHTML).toBe(view2?.innerHTML);
     for (const box of view2?.querySelectorAll('.de-forced-lines__reserved') ?? [])
       expect(box.childElementCount).toBe(0);
+  });
+
+  it('DOCE-PAGINATION-13.3 draws many reserved boxes without scanning across unrelated content', () => {
+    const length = 256;
+    let reads = 0;
+    const marks = Array.from({ length }, (_, from) => ({
+      get from() {
+        reads += 1;
+        return from;
+      },
+      to: from + 1,
+      class: 'de-forced-lines__reserved',
+      inner: true,
+    }));
+    const block = paragraph([
+      text('☃'.repeat(length / 2)),
+      text('☃'.repeat(length / 2), ['strong']),
+    ]);
+    const trees = linesContent(block, marks, {
+      pos: 0,
+      drawing: { draw: (_node, drawn) => drawn },
+    });
+    expect(trees).toHaveLength(length / 2 + 1);
+    const strong = trees.at(-1);
+    expect(strong && isPrintElement(strong) && strong.tag).toBe('strong');
+    expect(strong && isPrintElement(strong) && strong.children).toHaveLength(length / 2);
+    expect(reads).toBeLessThanOrEqual(length * 4);
   });
 
   it('DOCE-PAGINATION-13.3 draws code and linked code on their lines as tokens, beside the gutter the pages drew', () => {

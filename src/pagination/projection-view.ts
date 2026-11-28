@@ -65,6 +65,7 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     redraw: projection.redraw,
     drawAllLines: projection.drawAllLines,
     refresh: projection.refresh,
+    fontsChanged: projection.fontsChanged,
     layoutState: projection.layoutState,
     whenSettled: projection.whenSettled,
     stats: projection.stats,
@@ -73,8 +74,11 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     servedFonts: projection.servedFonts,
     destroy() {
       detach();
-      shown.destroy();
-      projection.destroy();
+      try {
+        shown.destroy();
+      } finally {
+        projection.destroy();
+      }
     },
   };
 }

@@ -4,6 +4,7 @@
 // ranges in the same hooks, so every output of a layout draws the same lines.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { countPrefix } from '../utils/count-prefix.js';
 import { clusterEnd, clusterStart } from './graphemes.js';
 import type { LineTable, TextLine } from './line-table.js';
 import type { ReservedBox } from './reserved-boxes.js';
@@ -198,16 +199,21 @@ const reservedMark = ({ from, to, width }: ReservedBox): LineMark => ({
   inner: true,
 });
 
-// A mark cut at a reserved box's edges, so the box's range is a range of its own that a mark either
-// covers whole or not at all: each element drawn on the box then holds it whole.
-function cutAt(mark: LineMark, box: ReservedBox): LineMark[] {
-  if (mark.to <= box.from || mark.from >= box.to) return [mark];
-  if (mark.from >= box.from && mark.to <= box.to) return [mark];
-  const edges = [mark.from, Math.max(mark.from, box.from), Math.min(mark.to, box.to), mark.to];
-  return edges
-    .slice(1)
-    .map((to, index) => ({ ...mark, from: edges[index] ?? mark.from, to }))
-    .filter(({ from, to }) => to > from);
+// A mark cut only at box edges inside it, so a mark covering a whole box leaves that box's
+// range on its own for the renderer to nest.
+function cutAt(mark: LineMark, edges: readonly number[]): LineMark[] {
+  const start = countPrefix(edges.length, (index) => (edges[index] ?? Infinity) <= mark.from);
+  let from = mark.from;
+  const pieces: LineMark[] = [];
+  for (let index = start; index < edges.length; index += 1) {
+    const to = edges[index];
+    if (to === undefined || to >= mark.to) break;
+    pieces.push({ ...mark, from, to });
+    from = to;
+  }
+  if (!pieces.length) return [mark];
+  pieces.push({ ...mark, from });
+  return pieces;
 }
 
 /**
@@ -249,7 +255,7 @@ export function lineMarks(
   const boxes = table.reserved ?? [];
   // The lines that start in a caption's label start with its part (`labelParts`), not the content.
   const labelled = labelPartTexts(table)?.length ?? 1;
-  let marks = table.lines.flatMap((line, index) => {
+  const marks = table.lines.flatMap((line, index) => {
     const own = marksOfLine(node, table, {
       line,
       prefixed: prefixed && index < labelled,
@@ -260,8 +266,9 @@ export function lineMarks(
     const start = insertedStart(table, { line, wraps, prefixed: prefixed && index === 0 });
     return start ? [start, ...own] : own;
   });
-  for (const box of boxes) marks = marks.flatMap((mark) => cutAt(mark, box));
-  return [...marks, ...boxes.map(reservedMark)].sort(
+  const edges = [...new Set(boxes.flatMap(({ from, to }) => [from, to]))].sort((a, b) => a - b);
+  const split = edges.length ? marks.flatMap((mark) => cutAt(mark, edges)) : marks;
+  return [...split, ...boxes.map(reservedMark)].sort(
     (a, b) => a.from - b.from || a.to - b.to || Number(!!b.inner) - Number(!!a.inner),
   );
 }

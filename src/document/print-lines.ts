@@ -14,21 +14,19 @@ import {
   type PrintTree,
 } from './print-tree.js';
 
-// The hooks of the marks covering a range, merged as a view merges decorations on one node; an
-// inner mark is left to `inInnerMarks`, except on an inline node's own element (`boxes`).
-function hooksOver(
-  marks: readonly LineMark[],
-  { from, to }: { from: number; to: number },
-  boxes = false,
-) {
-  const covering = marks.filter(
-    (mark) => (boxes || !mark.inner) && mark.from <= from && mark.to >= to,
-  );
-  if (!covering.length) return null;
-  const styles = covering.flatMap((mark) => (mark.style ? [mark.style] : []));
+// The hooks of covering marks, merged as a view merges decorations on one node.
+function hooksOf(marks: readonly LineMark[]) {
+  if (!marks.length) return null;
+  const styles = marks.flatMap((mark) => (mark.style ? [mark.style] : []));
   // Written as a view writes an element's style, each declaration ended.
   const style = styles.map((declaration) => `${declaration};`).join(' ');
-  return { class: covering.map((mark) => mark.class).join(' '), style };
+  return { class: marks.map((mark) => mark.class).join(' '), style };
+}
+
+function inHooks(trees: PrintTree[], hooks: { class: string; style: string }): PrintTree[] {
+  const attrs: Record<string, string> = { class: hooks.class };
+  if (hooks.style) attrs.style = hooks.style;
+  return [printElement('span', attrs, trees)];
 }
 
 // Adds hooks to a drawn inline node's own element, or wraps it in a span when it has none.
@@ -46,43 +44,48 @@ function withHooks(trees: PrintTree[], hooks: { class: string; style: string }):
     }
     return trees;
   }
-  const attrs: Record<string, string> = { class: hooks.class };
-  if (hooks.style) attrs.style = hooks.style;
-  return [printElement('span', attrs, trees)];
+  return inHooks(trees, hooks);
 }
 
 // A piece wrapped in a span of each inner mark covering it, as the view nests them.
-function inInnerMarks(
-  trees: PrintTree[],
-  marks: readonly LineMark[],
-  { from, to }: { from: number; to: number },
-) {
-  return marks
-    .filter((mark) => mark.inner && mark.from <= from && mark.to >= to)
-    .reduceRight<PrintTree[]>((inner, mark) => {
-      const attrs: Record<string, string> = { class: mark.class };
-      if (mark.style) attrs.style = `${mark.style};`;
-      return [printElement('span', attrs, inner)];
-    }, trees);
+function inInnerMarks(trees: PrintTree[], marks: readonly LineMark[]) {
+  return marks.reduceRight<PrintTree[]>((inner, mark) => {
+    if (!mark.inner) return inner;
+    return inHooks(inner, { class: mark.class, style: mark.style ? `${mark.style};` : '' });
+  }, trees);
+}
+
+// Line marks are already in drawing order, by starting offset. Scan them once across the block,
+// retaining only marks that can still reach the next content offset.
+function scanMarks(marks: readonly LineMark[]) {
+  let index = 0;
+  let active: LineMark[] = [];
+  return (from: number) => {
+    active = active.filter((mark) => mark.to > from);
+    let next = marks[index];
+    while (next && next.from <= from) {
+      if (next.to > from) active.push(next);
+      index += 1;
+      next = marks[index];
+    }
+    return { active, next: next?.from ?? Infinity };
+  };
 }
 
 // A text node cut at the marks' edges inside it, each piece in the hooks covering it.
-function textPieces(text: string, at: number, marks: readonly LineMark[]): PrintTree[] {
-  const edges = new Set([at, at + text.length]);
-  for (const mark of marks) {
-    for (const edge of [mark.from, mark.to])
-      if (edge > at && edge < at + text.length) edges.add(edge);
+function textPieces(text: string, at: number, scan: ReturnType<typeof scanMarks>): PrintTree[] {
+  const pieces: PrintTree[] = [];
+  const end = at + text.length;
+  for (let from = at; from < end;) {
+    const { active, next } = scan(from);
+    let to = Math.min(end, next);
+    for (const mark of active) to = Math.min(to, mark.to);
+    const inner = inInnerMarks([{ text: text.slice(from - at, to - at) }], active);
+    const hooks = hooksOf(active.filter((mark) => !mark.inner));
+    pieces.push(...(hooks ? inHooks(inner, hooks) : inner));
+    from = to;
   }
-  const sorted = [...edges].sort((a, b) => a - b);
-  return sorted.slice(1).flatMap((to, index) => {
-    const from = sorted[index] ?? at;
-    const pieces = inInnerMarks([{ text: text.slice(from - at, to - at) }], marks, { from, to });
-    const hooks = hooksOver(marks, { from, to });
-    if (!hooks) return pieces;
-    const attrs: Record<string, string> = { class: hooks.class };
-    if (hooks.style) attrs.style = hooks.style;
-    return [printElement('span', attrs, pieces)];
-  });
+  return pieces;
 }
 
 /**
@@ -95,16 +98,17 @@ export function linesContent(
   place: { readonly pos: number; readonly drawing: NodeDrawing },
 ): PrintTree[] {
   const items: MarkedTrees[] = [];
+  const scan = scanMarks(marks);
   block.forEach((child, offset) => {
     if (child.isText) {
-      items.push({ marks: child.marks, trees: textPieces(child.text ?? '', offset, marks) });
+      items.push({ marks: child.marks, trees: textPieces(child.text ?? '', offset, scan) });
       return;
     }
     const at = place.pos + 1 + offset;
     const drawn = nodeTree(child, place.drawing, { at, unmarked: true });
     // A box on the node, such as a page variable's, is drawn on its own element with the other
     // marks on its range, as the view draws them.
-    const hooks = hooksOver(marks, { from: offset, to: offset + child.nodeSize }, true);
+    const hooks = hooksOf(scan(offset).active.filter((mark) => mark.to >= offset + child.nodeSize));
     items.push({ marks: child.marks, trees: hooks ? withHooks(drawn, hooks) : drawn });
   });
   return markedContent(items);
@@ -139,7 +143,7 @@ export function shownTrees({ label, text }: ShownText): PrintTree[] {
     trees.push(printElement('span', { class: 'de-forced-lines__label' }, parts));
   }
   if (text) {
-    const pieces = textPieces(text.text, 0, text.marks);
+    const pieces = textPieces(text.text, 0, scanMarks(text.marks));
     trees.push(printElement('span', { class: 'de-forced-lines__text' }, pieces));
   }
   return trees;

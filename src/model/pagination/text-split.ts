@@ -4,25 +4,22 @@
 // measured against the block the editor laid out.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { countPrefix } from '../../utils/count-prefix.js';
 import type { LayoutBlock, SplitBlock } from './page-layout.js';
 import { splitPartOf } from './split-part.js';
+import {
+  type MeasuredLines,
+  MINIMUM_SPLIT_LINES,
+  planLineSplit,
+  snapSplitHeight,
+} from './text-line-split.js';
+
+export { MINIMUM_SPLIT_LINES } from './text-line-split.js';
 
 /** The rendered height and line count of some text. */
 export interface TextMeasure {
   height: number;
   lines: number;
-}
-
-/** The lines a layout engine laid a text block out on, by content offset in the whole block. */
-interface MeasuredLine {
-  readonly from: number;
-  readonly height: number;
-  /** A line that starts among widgets at `from`. A fragment boundary cannot divide them. */
-  readonly side?: number | undefined;
-}
-
-interface MeasuredLines {
-  readonly lines: readonly MeasuredLine[];
 }
 
 /** What the editor measured a text block's layout from. */
@@ -43,9 +40,6 @@ export interface TextMeasurement {
   readonly lines?: MeasuredLines | undefined;
 }
 
-/** The fewest rendered lines either fragment of a split paragraph keeps. */
-export const MINIMUM_SPLIT_LINES = 2;
-
 const OBJECT_REPLACEMENT = '￼';
 
 /** Whether a layout block carries a text measurement. */
@@ -64,27 +58,6 @@ export function contentText(node: ProseMirrorNode): string {
     text += child.isText ? (child.text ?? '') : OBJECT_REPLACEMENT.repeat(child.nodeSize);
   });
   return text;
-}
-
-function snap(value: number, minimum: number): number {
-  return Number.isFinite(value) ? Math.max(minimum, Math.round(value * 1000) / 1000) : minimum;
-}
-
-// The last index in [0, count) a predicate holds for, when it holds for a prefix only; -1 for none.
-function lastIndexWhere(count: number, holds: (index: number) => boolean): number {
-  let low = 0;
-  let high = count - 1;
-  let found = -1;
-  while (low <= high) {
-    const middle = (low + high) >> 1;
-    if (holds(middle)) {
-      found = middle;
-      low = middle + 1;
-    } else {
-      high = middle - 1;
-    }
-  }
-  return found;
 }
 
 function memoize(measure: (index: number) => TextMeasure): (index: number) => TextMeasure {
@@ -128,74 +101,16 @@ function chooseWord(count: number, at: (index: number) => TextMeasure, input: Te
   const last = count - 1;
   const total = at(last).lines;
   const overhead = Math.max(0, input.height - at(last).height);
-  let chosen = lastIndexWhere(count, (index) => at(index).height + overhead <= input.fitting);
+  let chosen = countPrefix(count, (index) => at(index).height + overhead <= input.fitting) - 1;
   if (chosen < 0 || chosen >= last) return -1;
   const before = MINIMUM_SPLIT_LINES;
   const after = Math.max(MINIMUM_SPLIT_LINES, Math.floor(input.minimumTrailingLines ?? 0));
   if (total - at(chosen).lines < after && at(chosen).lines > before) {
-    const moved = lastIndexWhere(chosen + 1, (index) => at(index).lines <= total - after);
+    const moved = countPrefix(chosen + 1, (index) => at(index).lines <= total - after) - 1;
     if (moved > 0) chosen = moved;
   }
   const lines = at(chosen).lines;
   return lines >= before && total - lines >= after ? chosen : -1;
-}
-
-// How many of a fragment's lines its first fragment keeps: as many as fit, at least the minimum on
-// each side; -1 when no split keeps them.
-function chooseLineCount(heights: readonly number[], overhead: number, input: TextSplitInput) {
-  const after = Math.max(MINIMUM_SPLIT_LINES, Math.floor(input.minimumTrailingLines ?? 0));
-  let count = 0;
-  let height = overhead;
-  while (count < heights.length && height + (heights[count] ?? 0) <= input.fitting) {
-    height += heights[count] ?? 0;
-    count += 1;
-  }
-  count = Math.min(count, heights.length - after);
-  return count >= MINIMUM_SPLIT_LINES ? count : -1;
-}
-
-// A split must advance through the block's content and leave the widgets at one offset together.
-function canSplitAt(
-  lines: readonly MeasuredLine[],
-  count: number,
-  { offset, end }: { offset: number; end: number },
-): boolean {
-  const line = lines[count];
-  return (
-    line !== undefined &&
-    line.from > offset &&
-    line.from < end &&
-    line.side === undefined &&
-    line.from !== lines[count - 1]?.from &&
-    line.from !== lines[count + 1]?.from
-  );
-}
-
-// A paragraph's split at a computed line's start, from the lines the fragment holds.
-function planLineSplit(input: TextSplitInput, measured: MeasuredLines): TextSplitPlan | null {
-  const { offset } = input.measurement;
-  const end = offset + input.text.length;
-  const start = offset + (input.hiddenStart ?? 0);
-  // A fragment being split runs to its block's end, so the empty line after a last hard break,
-  // which starts there, is its own.
-  const lines = measured.lines.filter((line) => line.from >= start && line.from <= end);
-  const heights = lines.map((line) => line.height);
-  const total = heights.reduce((sum, height) => sum + height, 0);
-  const overhead = Math.max(0, input.height - total);
-  let count = chooseLineCount(heights, overhead, input);
-  while (count >= MINIMUM_SPLIT_LINES && !canSplitAt(lines, count, { offset, end })) count -= 1;
-  const next = lines[count]?.from;
-  if (count < MINIMUM_SPLIT_LINES || next === undefined) return null;
-  const headHeight = snap(
-    overhead + heights.slice(0, count).reduce((sum, height) => sum + height, 0),
-    1,
-  );
-  return {
-    end: next - offset,
-    next: next - offset,
-    headHeight,
-    tailHeight: snap(input.height - headHeight, 1),
-  };
 }
 
 /**
@@ -204,7 +119,12 @@ function planLineSplit(input: TextSplitInput, measured: MeasuredLines): TextSpli
  * fragment; null when it fits whole or cannot split.
  */
 export function planParagraphSplit(input: TextSplitInput): TextSplitPlan | null {
-  if (input.measurement.lines) return planLineSplit(input, input.measurement.lines);
+  if (input.measurement.lines)
+    return planLineSplit({ ...input, length: input.text.length }, input.measurement.lines);
+  return planWordSplit(input);
+}
+
+function planWordSplit(input: TextSplitInput): TextSplitPlan | null {
   const words = [...input.text.matchAll(/\S+/g)];
   const { offset, measure } = input.measurement;
   const wordEnd = (index: number) => {
@@ -216,12 +136,12 @@ export function planParagraphSplit(input: TextSplitInput): TextSplitPlan | null 
   const next = words[chosen + 1]?.index;
   if (chosen < 0 || next === undefined) return null;
   const overhead = Math.max(0, input.height - at(words.length - 1).height);
-  const headHeight = snap(at(chosen).height + overhead, 1);
+  const headHeight = snapSplitHeight(at(chosen).height + overhead);
   return {
     end: next,
     next,
     headHeight,
-    tailHeight: snap(input.height - headHeight, 1),
+    tailHeight: snapSplitHeight(input.height - headHeight),
   };
 }
 
@@ -230,25 +150,51 @@ export function planParagraphSplit(input: TextSplitInput): TextSplitPlan | null 
  * when no line break fits or the second fragment would be empty.
  */
 export function planCodeSplit(input: TextSplitInput): TextSplitPlan | null {
-  const { text, measurement } = input;
-  const { offset, measure } = measurement;
-  const breaks = [...text.matchAll(/\n/g)].map((match) => match.index).filter((index) => index > 0);
-  const overhead =
-    measurement.overhead ??
-    Math.max(0, input.height - measure(offset, offset + text.length).height);
-  const at = memoize((index) => measure(offset, offset + (breaks[index] ?? 0)));
-  const chosen = lastIndexWhere(
-    breaks.length,
-    (index) => at(index).height + overhead <= input.fitting,
+  return planIndexedCodeSplit(
+    { ...input, length: input.text.length },
+    { offsets: sourceBreaks(input.text), start: 0 },
   );
-  const end = breaks[chosen];
-  if (end === undefined || end + 1 >= text.length) return null;
-  const tail = measure(offset + end + 1, offset + text.length);
+}
+
+interface CodeBreaks {
+  readonly offsets: readonly number[];
+  /** Where this fragment begins in the text whose line breaks are indexed. */
+  readonly start: number;
+}
+
+const codeBreaks = new WeakMap<ProseMirrorNode, CodeBreaks>();
+
+function sourceBreaks(text: string): number[] {
+  const offsets: number[] = [];
+  for (let at = text.indexOf('\n'); at >= 0; at = text.indexOf('\n', at + 1)) offsets.push(at);
+  return offsets;
+}
+
+function planIndexedCodeSplit(
+  input: Omit<TextSplitInput, 'text'> & { length: number },
+  breaks: CodeBreaks,
+): TextSplitPlan | null {
+  const { length, measurement } = input;
+  const { offset, measure } = measurement;
+  const { offsets, start } = breaks;
+  // A break at the fragment's start would leave an empty head. All later breaks lie in its tail.
+  const first = countPrefix(offsets.length, (index) => (offsets[index] ?? 0) <= start);
+  const overhead =
+    measurement.overhead ?? Math.max(0, input.height - measure(offset, offset + length).height);
+  const at = memoize((index) =>
+    measure(offset, offset + ((offsets[first + index] ?? start) - start)),
+  );
+  const chosen =
+    countPrefix(offsets.length - first, (index) => at(index).height + overhead <= input.fitting) -
+    1;
+  const end = (offsets[first + chosen] ?? start) - start;
+  if (chosen < 0 || end + 1 >= length) return null;
+  const tail = measure(offset + end + 1, offset + length);
   return {
     end,
     next: end + 1,
-    headHeight: snap(at(chosen).height + overhead, 1),
-    tailHeight: snap(tail.height + overhead, 1),
+    headHeight: snapSplitHeight(at(chosen).height + overhead),
+    tailHeight: snapSplitHeight(tail.height + overhead),
   };
 }
 
@@ -346,14 +292,17 @@ function breakToTail(node: ProseMirrorNode, plan: TextSplitPlan): TextSplitPlan 
 export function splitParagraphWith(minimumTrailingLines: number) {
   return (block: LayoutBlock, fitting: number): SplitBlock | null => {
     if (!isTextMeasurement(block.measurement)) return null;
-    const plan = planParagraphSplit({
-      text: contentText(block.node),
+    const input = {
       height: block.height,
       fitting,
       measurement: block.measurement,
       minimumTrailingLines,
       hiddenStart: movedBreak(block.node) ? 1 : 0,
-    });
+    };
+    const { lines } = input.measurement;
+    const plan = lines
+      ? planLineSplit({ ...input, length: block.node.content.size }, lines)
+      : planWordSplit({ ...input, text: contentText(block.node) });
     const at = plan && breakToTail(block.node, plan);
     return at ? splitBlock(block, at, splitTextNode(block.node, at)) : null;
   };
@@ -365,18 +314,30 @@ export const splitParagraph = splitParagraphWith(MINIMUM_SPLIT_LINES);
 /** Splits a measured code block or linked code to fit a height. */
 export function splitCode(block: LayoutBlock, fitting: number): SplitBlock | null {
   if (!isTextMeasurement(block.measurement)) return null;
-  const linked = block.node.type.name === 'linked_code_block';
-  const text = linked ? String(block.node.attrs.code ?? '') : contentText(block.node);
-  const plan = planCodeSplit({
-    text,
-    height: block.height,
-    fitting,
-    measurement: block.measurement,
-  });
+  const { node } = block;
+  const linked = node.type.name === 'linked_code_block';
+  const code = linked ? String(node.attrs.code ?? '') : null;
+  const breaks = codeBreaks.get(node) ?? {
+    offsets: sourceBreaks(code ?? contentText(node)),
+    start: 0,
+  };
+  codeBreaks.set(node, breaks);
+  const plan = planIndexedCodeSplit(
+    {
+      length: code?.length ?? node.content.size,
+      height: block.height,
+      fitting,
+      measurement: block.measurement,
+    },
+    breaks,
+  );
   if (!plan) return null;
-  return splitBlock(
+  const split = splitBlock(
     block,
     plan,
-    linked ? splitLinkedCode(block.node, plan) : splitTextNode(block.node, plan),
+    linked ? splitLinkedCode(node, plan) : splitTextNode(node, plan),
   );
+  const [tail] = split.tail;
+  if (tail) codeBreaks.set(tail.node, { offsets: breaks.offsets, start: breaks.start + plan.next });
+  return split;
 }

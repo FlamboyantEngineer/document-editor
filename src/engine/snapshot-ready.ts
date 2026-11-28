@@ -3,7 +3,7 @@
 // signs an address or reads an image into data.
 
 import type { EditorView } from 'prosemirror-view';
-import { documentSnapshot, type SnapshotOptions } from './snapshot.js';
+import { captureDocumentSnapshot, type SnapshotOptions } from './snapshot.js';
 
 /** The address a printed image loads from, given the one the pages show; null keeps it. */
 export type ResolveImageAsync = (src: string) => Promise<string | null> | string | null;
@@ -17,17 +17,18 @@ export interface ReadySnapshotOptions extends Omit<SnapshotOptions, 'resolveImag
 }
 
 interface LiveSnapshotOptions extends Pick<ReadySnapshotOptions, 'whenSettled' | 'resolveImage'> {
+  readonly checkView: () => void;
   readonly readSnapshot: () => SnapshotOptions;
   readonly waitForDocumentFonts: () => boolean;
 }
 
 // Each image address the pages show, with the address it prints from, resolved together.
 async function resolveImages(
-  view: EditorView,
+  pages: Element,
   resolve: ResolveImageAsync,
 ): Promise<ReadonlyMap<string, string | null>> {
   const sources = new Set<string>();
-  for (const image of view.dom.querySelectorAll('img')) {
+  for (const image of pages.querySelectorAll('img')) {
     const src = image.getAttribute('src');
     if (src) sources.add(src);
   }
@@ -53,7 +54,9 @@ export async function documentSnapshotWhenReady(
 export async function snapshotOnceReady(
   view: EditorView,
   { whenSettled, resolveImage, ...options }: ReadySnapshotOptions | LiveSnapshotOptions,
-  around: (take: () => string) => string,
+  around: (
+    take: () => ReturnType<typeof captureDocumentSnapshot>,
+  ) => ReturnType<typeof captureDocumentSnapshot>,
 ): Promise<string> {
   const waitForLayout = async () => {
     if ((await whenSettled()) === 'failed' || view.isDestroyed)
@@ -61,14 +64,18 @@ export async function snapshotOnceReady(
   };
   await waitForLayout();
   const live = 'readSnapshot' in options;
-  if (!live || options.waitForDocumentFonts()) await view.dom.ownerDocument.fonts?.ready;
-  const images = resolveImage ? await resolveImages(view, resolveImage) : null;
-  if (live && images) await waitForLayout();
-  if (view.isDestroyed) throw new Error('The document layout is unavailable.');
-  return around(() =>
-    documentSnapshot(view, {
-      ...(live ? options.readSnapshot() : options),
-      ...(images ? { resolveImage: (src: string) => images.get(src) ?? null } : {}),
-    }),
+  const documentFonts =
+    !live || options.waitForDocumentFonts() ? view.dom.ownerDocument.fonts : null;
+  if (documentFonts?.status === 'loading') {
+    await documentFonts.ready;
+    await waitForLayout();
+  }
+  const captured = around(() =>
+    captureDocumentSnapshot(view, live ? options.readSnapshot() : options),
   );
+  if (!resolveImage) return captured.html();
+  const images = await resolveImages(captured.pages, resolveImage);
+  if (view.isDestroyed) throw new Error('The document layout is unavailable.');
+  if (live) options.checkView();
+  return captured.html((src) => images.get(src) ?? null);
 }

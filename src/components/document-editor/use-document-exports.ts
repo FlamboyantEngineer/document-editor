@@ -4,8 +4,7 @@
 // it aborts every active run.
 
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { snapshotOnceReady } from '../../engine/snapshot-ready.js';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   DocumentExport,
   ExportRequest,
@@ -15,6 +14,7 @@ import type {
 import { writeDocumentFile } from '../../model/index.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { captureEditorSnapshot, type SnapshotDrawing } from './editor-snapshots.js';
 import type { LayoutProgress } from './layout-progress.js';
 
 /** An export File > Export offers. */
@@ -44,25 +44,17 @@ interface ExportSources {
 function exportRequest(
   { props, view, progress }: ExportSources,
   signal: AbortSignal,
+  drawing: RefObject<SnapshotDrawing | null>,
 ): ExportRequest {
   const references = props.referenceSource;
   return {
     content: writeDocumentFile(props.state.doc, { template: props.templatePin ?? null }),
-    snapshot: async (options = {}) => {
+    snapshot: async (options) => {
       if (!view) throw new Error('The editor is not mounted');
-      const { markup } = options;
-      // In another markup than the editor's, the pages are laid out in it as it is taken.
-      return snapshotOnceReady(
+      return captureEditorSnapshot(
         view,
-        {
-          ...(references?.href
-            ? { citationHref: (citation) => references.href?.(citation) ?? null }
-            : {}),
-          ...options,
-          template: props.template,
-          whenSettled: progress.whenSettled,
-        },
-        (take) => (markup ? progress.inMarkup(markup, take) : take()),
+        { drawing, layout: progress, references, signal },
+        options,
       );
     },
     signal,
@@ -91,7 +83,7 @@ async function runExport(
 export function useDocumentExports(
   props: DocumentEditorProps,
   view: EditorView | null,
-  progress: LayoutProgress,
+  { progress, drawing }: { progress: LayoutProgress; drawing: RefObject<SnapshotDrawing | null> },
 ): DocumentExports {
   const [running, setRunning] = useState<ReadonlySet<string>>(() => new Set());
   // Read when a run starts: an export runs on the editor as it is then.
@@ -129,7 +121,7 @@ export function useDocumentExports(
         // The guard holds from the click itself, before the running state renders.
         if (!entry || started.current.has(id)) return;
         const controller = new AbortController();
-        const request = exportRequest(sources.current, controller.signal);
+        const request = exportRequest(sources.current, controller.signal, drawing);
         const feedback = sources.current.props.feedback;
         started.current.set(id, controller);
         setRunning((current) => new Set([...current, id]));
@@ -137,5 +129,5 @@ export function useDocumentExports(
         void runExport(entry, request, { feedback, labels }).then(finish, finish);
       },
     };
-  }, [exports, running]);
+  }, [drawing, exports, running]);
 }

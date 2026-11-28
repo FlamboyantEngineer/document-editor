@@ -37,8 +37,8 @@ function fromSpec(spec: DOMOutputSpec, content: readonly PrintTree[]): PrintTree
   const { tag, attrs, children } = readOutputSpec(spec);
   const element: PrintElement = { tag, attrs: new Map(attrs), children: [] };
   for (const child of children) {
-    if (child === 0) element.children.push(...content);
-    else element.children.push(...fromSpec(child as DOMOutputSpec, content));
+    const trees = child === 0 ? content : fromSpec(child as DOMOutputSpec, content);
+    for (const tree of trees) element.children.push(tree);
   }
   return [element];
 }
@@ -65,13 +65,14 @@ export function markedContent(items: readonly MarkedTrees[], depth = 0): PrintTr
     const item = items[index] as MarkedTrees;
     const mark = item.marks[depth];
     if (!mark) {
-      out.push(...item.trees);
+      for (const tree of item.trees) out.push(tree);
       index += 1;
       continue;
     }
     let end = index + 1;
     while (end < items.length && items[end]?.marks[depth]?.eq(mark)) end += 1;
-    out.push(...markTree(mark, markedContent(items.slice(index, end), depth + 1)));
+    for (const tree of markTree(mark, markedContent(items.slice(index, end), depth + 1)))
+      out.push(tree);
     index = end;
   }
   return out;
@@ -161,7 +162,7 @@ export function printNodes(doc: Document, trees: readonly PrintTree[]): Node[] {
     if ('markup' in tree) return doc.createRange().createContextualFragment(tree.markup);
     const element = doc.createElement(tree.tag);
     for (const [name, value] of tree.attrs) element.setAttribute(name, value);
-    element.append(...printNodes(doc, tree.children));
+    for (const child of printNodes(doc, tree.children)) element.appendChild(child);
     return element;
   });
 }

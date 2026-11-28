@@ -57,27 +57,33 @@ function tenPages(count = 10, withImages = false, title = 'Part') {
 const observed: {
   callback: IntersectionObserverCallback;
   targets: Element[];
+  refreshed: Element[];
   init: IntersectionObserverInit | undefined;
 }[] = [];
 class FakeObserver {
   readonly targets: Element[] = [];
+  readonly refreshed: Element[] = [];
   constructor(callback: IntersectionObserverCallback, init?: IntersectionObserverInit) {
-    observed.push({ callback, targets: this.targets, init });
+    observed.push({ callback, targets: this.targets, refreshed: this.refreshed, init });
   }
   observe(target: Element) {
-    this.targets.push(target);
+    if (!this.targets.includes(target)) this.targets.push(target);
+  }
+  unobserve(target: Element) {
+    this.refreshed.push(target);
   }
   disconnect() {
     this.targets.length = 0;
   }
 }
 
-function showInView(indexes: readonly number[]) {
+function showInView(indexes: readonly number[], changed?: readonly number[]) {
   const [last] = observed.slice(-1);
   if (!last) throw new Error('no observer');
-  const entries = last.targets.map(
-    (target, index) =>
-      ({ target, isIntersecting: indexes.includes(index) }) as IntersectionObserverEntry,
+  const entries = last.targets.flatMap((target, index) =>
+    !changed || changed.includes(index)
+      ? [{ target, isIntersecting: indexes.includes(index) } as IntersectionObserverEntry]
+      : [],
   );
   act(() => last.callback(entries, {} as IntersectionObserver));
 }
@@ -151,14 +157,26 @@ describe('DocumentViewer', () => {
 
   it('DOCE-PAGINATION-13.6 draws the pages a screen beyond its scrolling frame', () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
+    let height = 320;
     render(
-      <div style={{ overflowY: 'auto' }} data-frame="">
+      <div
+        style={{ overflowY: 'auto' }}
+        data-frame=""
+        ref={(element) => {
+          if (element) Object.defineProperty(element, 'clientHeight', { get: () => height });
+        }}
+      >
         <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />
       </div>,
     );
     const init = observed.at(-1)?.init;
-    expect(init?.rootMargin).toBe('100% 0px');
+    expect(init?.rootMargin).toBe('320px 0px');
     expect(init?.root).toBe(document.querySelector('[data-frame]'));
+    height = 480;
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+    expect(observed.at(-1)?.init?.rootMargin).toBe('480px 0px');
   });
 
   it('DOCE-PAGINATION-13.6 keeps its drawn pages when given options of the same fields again', () => {
@@ -215,6 +233,29 @@ describe('DocumentViewer', () => {
     showInView([299]);
     expect(drawn(container)).toEqual([298, 299]);
     expect(sheets(container)[299]?.querySelector('h1')?.getAttribute('data-number')).toBe('300');
+  });
+
+  it('DOCE-PAGINATION-13.6 leaves distant sheets untouched while the visible window moves', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const { container } = render(
+      <DocumentViewer layout={tenPages(300)} template={BASE_TEMPLATE} />,
+    );
+    const [distant] = sheets(container);
+    if (!distant) throw new Error('no page');
+    const inspected = vi.spyOn(distant, 'hasAttribute');
+    showInView([40], [40]);
+    const retained = sheets(container)[40]?.firstElementChild;
+    expect(retained).toBeTruthy();
+    showInView([41], [40, 41]);
+    expect(inspected).not.toHaveBeenCalled();
+    expect(drawn(container)).toEqual([40, 41, 42]);
+    expect(sheets(container)[40]?.firstElementChild).toBe(retained);
+  });
+
+  it('DOCE-PAGINATION-13.6 draws all pages where its window has no intersection observer', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const { container } = render(<DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />);
+    expect(drawn(container)).toHaveLength(10);
   });
 
   it('DOCE-PAGINATION-13.10 draws its pages in the language they were laid out in, not its host page’s', () => {
@@ -402,6 +443,10 @@ describe('DocumentViewer', () => {
     expect(drawn(container)).toEqual([0, 8]);
     expect(scrolled).toEqual(['Part8']);
     expect(window.location.hash).toBe('');
+    expect(observed.at(-1)?.refreshed).toEqual([sheets(container)[8]]);
+    // If scroll never intersects the destination, its refreshed report still releases the page.
+    showInView([0], [8]);
+    expect(drawn(container)).toEqual([0]);
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
   });
 
@@ -445,7 +490,7 @@ describe('DocumentViewer', () => {
     expect(literal.scrolled).toEqual(['50%']);
     literal.link.setAttribute('href', '#a%20b');
     await user.click(literal.link);
-    expect(drawn(literal.container)).toEqual([0, 6, 8]);
+    expect(drawn(literal.container)).toEqual([0, 8]);
     expect(literal.scrolled).toEqual(['50%', 'a b']);
   });
 
@@ -491,6 +536,36 @@ describe('DocumentViewer', () => {
       window.dispatchEvent(new Event('afterprint'));
     });
     expect(drawn(container)).toEqual([3, 4, 5]);
+  });
+
+  it('DOCE-PAGINATION-13.6 DOCE-PAGINATION-13.13 uses the viewer iframe’s observer and print events', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const frame = document.createElement('iframe');
+    document.body.append(frame);
+    try {
+      const doc = frame.contentDocument;
+      const view = doc?.defaultView;
+      if (!doc || !view) throw new Error('no iframe document');
+      Object.defineProperty(view, 'IntersectionObserver', { value: FakeObserver });
+      const { container, unmount } = render(
+        <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />,
+        { container: doc.body },
+      );
+      try {
+        expect(observed.at(-1)?.init?.root).toBe(doc);
+        showInView([0]);
+        window.dispatchEvent(new Event('beforeprint'));
+        expect(drawn(container)).toEqual([0, 1]);
+        view.dispatchEvent(new view.Event('beforeprint'));
+        expect(drawn(container)).toHaveLength(10);
+        view.dispatchEvent(new view.Event('afterprint'));
+        expect(drawn(container)).toEqual([0, 1]);
+      } finally {
+        unmount();
+      }
+    } finally {
+      frame.remove();
+    }
   });
 
   it('DOCE-PAGINATION-13.13 draws every page while the print media query matches, without the print events', () => {
