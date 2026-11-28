@@ -134,28 +134,49 @@ const shared = (run: readonly string[] | null, scripts: readonly string[] | null
       ? run
       : run.filter((script) => scripts.includes(script));
 
-interface Open {
+interface OpenBracket {
   readonly bracket: string;
   /** The run the bracket was opened in, numbered; its script is known once the run ends. */
   readonly run: number;
+  readonly previousOfType: OpenBracket | undefined;
+}
+
+// Matching discards the opener and all the entries above it. Each entry is pushed and popped once.
+function createBracketStack() {
+  const stack: OpenBracket[] = [];
+  const nearest = new Map<string, OpenBracket>();
+  return {
+    open(bracket: string, run: number) {
+      const entry = { bracket, run, previousOfType: nearest.get(bracket) };
+      stack.push(entry);
+      nearest.set(bracket, entry);
+    },
+    close(bracket: string) {
+      const opener = OPENING.get(bracket);
+      const paired = opener === undefined ? undefined : nearest.get(opener);
+      if (!paired) return undefined;
+      for (let entry = stack.pop(); entry; entry = stack.pop()) {
+        const { bracket, previousOfType } = entry;
+        if (previousOfType) nearest.set(bracket, previousOfType);
+        else nearest.delete(bracket);
+        if (entry === paired) break;
+      }
+      return paired.run;
+    },
+  };
 }
 
 /** Each character's run, numbered, and each run's script, as ScriptRunIterator reads them. */
 function itemize(characters: readonly string[]) {
   const runOf: number[] = [];
   const resolved: (string | null)[] = [];
-  const open: Open[] = [];
+  let brackets: ReturnType<typeof createBracketStack> | undefined;
   let current: readonly string[] | null = null;
   for (const character of characters) {
     let scripts = scriptsOf(character);
-    const opener = OPENING.get(character);
-    const at = opener === undefined ? -1 : open.map(({ bracket }) => bracket).lastIndexOf(opener);
-    if (at >= 0) {
-      const { run } = open[at] ?? { run: 0 };
-      open.length = at;
-      // A closing bracket in the run its opening bracket is in takes that run's scripts.
-      if (run < resolved.length) scripts = [resolved[run] ?? 'Zzzz'];
-    }
+    const pairedRun = brackets?.close(character);
+    if (pairedRun !== undefined && pairedRun < resolved.length)
+      scripts = [resolved[pairedRun] ?? 'Zzzz'];
     const together = shared(current, scripts);
     if (together === null || together.length) current = together;
     else {
@@ -163,7 +184,10 @@ function itemize(characters: readonly string[]) {
       current = scripts;
     }
     runOf.push(resolved.length);
-    if (PAIRS[character]) open.push({ bracket: character, run: resolved.length });
+    if (PAIRS[character]) {
+      brackets ??= createBracketStack();
+      brackets.open(character, resolved.length);
+    }
   }
   resolved.push(current?.[0] ?? null);
   return { runOf, resolved };
@@ -190,4 +214,15 @@ export function scriptRuns(text: string): ScriptRun[] {
     offset = end;
   });
   return runs;
+}
+
+/** Reads runs at increasing UTF-16 offsets, including across Canvas word boundaries. */
+export function createScriptRunCursor(text: string): (offset: number) => ScriptRun | undefined {
+  const runs = scriptRuns(text);
+  let index = 0;
+  return (offset) => {
+    let run = runs[index];
+    while (run && offset >= run.end) run = runs[++index];
+    return run;
+  };
 }

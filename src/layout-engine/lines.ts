@@ -89,7 +89,8 @@ const RECENT_LIMIT = 4000;
 // it measured, so it is told only when the language changes.
 let toldLocale: { readonly language: string | undefined } | null = null;
 
-function tellLocale(language: string | undefined): void {
+/** Selects the text's language before preparing or measuring it. */
+export function selectTextLanguage(language: string | undefined): void {
   if (toldLocale?.language === language) return;
   setLocale(language);
   toldLocale = { language };
@@ -166,7 +167,7 @@ export function createLineCache(language: string | undefined): LineCache {
   return {
     stats: () => ({ hits, misses }),
     lines(run, widths, block) {
-      tellLocale(language);
+      selectTextLanguage(language);
       const key = JSON.stringify(run.items);
       let own = byBlock.get(block);
       if (!own) {

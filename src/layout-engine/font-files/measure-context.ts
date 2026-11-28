@@ -13,7 +13,7 @@ import { UNSERVED_CLUSTER_EMS } from '../reserved-boxes.js';
 import { faceFor, zeroWidth } from './cluster-faces.js';
 import { type FaceSet, type FontRequest, type MatchedFace, parseFont } from './faces.js';
 import type { HarfBuzzFace, ShapedRun } from './harfbuzz.js';
-import { type ScriptRun, scriptRuns } from './script-runs.js';
+import { createScriptRunCursor, type ScriptRun } from './script-runs.js';
 
 /** What a font-file context could not measure from the served files. */
 export interface MeasureProblems {
@@ -126,14 +126,13 @@ function trimmedPunctuation(text: string): number[] {
 }
 
 // A word's pieces: its graphemes put together while they take the same face and script run.
-function piecesOf({ word, offset, runs, faces }: WordInput, problems: MeasureProblems) {
+function piecesOf({ word, offset, runAt, faces }: WordInput, problems: MeasureProblems) {
   const pieces: Piece[] = [];
   for (const { segment, index } of graphemeSegmenter().segment(word)) {
     const drawn = faceFor(segment, faces, problems.missingGlyphs);
     if (!drawn) continue;
     const { face, reserved } = drawn;
-    const at = offset + index;
-    const run = runs.find(({ start, end }) => at >= start && at < end);
+    const run = runAt(offset + index);
     const last = pieces.at(-1);
     if (!reserved && last && !last.reserved && last.face === face && last.run === run)
       pieces[pieces.length - 1] = { ...last, text: last.text + segment };
@@ -186,9 +185,9 @@ function letterSpacingOf(value: string) {
 
 interface WordInput {
   readonly word: string;
-  /** Where the word starts in the measured text, whose script runs `runs` are. */
+  /** Where the word starts in the measured text. */
   readonly offset: number;
-  readonly runs: readonly ScriptRun[];
+  readonly runAt: (offset: number) => ScriptRun | undefined;
   readonly request: FontRequest;
   readonly faces: readonly MatchedFace[];
 }
@@ -209,6 +208,7 @@ function measureWord(input: WordInput, shaping: Shaping) {
   // Punctuation is trimmed by its neighbours in the word, whichever font file draws them.
   const trimmed = trimmedPunctuation(word);
   let start = 0;
+  let trimIndex = 0;
   for (const { face, text, run: scriptRun, reserved } of piecesOf(input, shaping.problems)) {
     if (reserved) {
       // The box the renderer draws the cluster's real glyph in, centred.
@@ -219,10 +219,11 @@ function measureWord(input: WordInput, shaping: Shaping) {
       start += text.length;
       continue;
     }
-    const halves = trimmed
-      .filter((index) => index >= start && index < start + text.length)
-      .map((index) => `halt[${String(index - start)}]`);
-    start += text.length;
+    const end = start + text.length;
+    const halves: string[] = [];
+    for (let at = trimmed[trimIndex]; at !== undefined && at < end; at = trimmed[++trimIndex])
+      if (at >= start) halves.push(`halt[${String(at - start)}]`);
+    start = end;
     const features = halves.length ? [...shaping.features, ...halves] : shaping.features;
     const run = face.shape(text.replace(drawnAsSpace, ' '), {
       ...shaping,
@@ -312,10 +313,10 @@ export function createFontFileContext(
       let right = -Infinity;
       const matched = current();
       const spaced = text.replace(asciiWhitespace, ' ');
-      const runs = scriptRuns(spaced);
+      const runAt = createScriptRunCursor(spaced);
       let offset = 0;
       for (const word of splitCanvasWords(spaced)) {
-        const measured = measureWord({ word, offset, runs, request, faces: matched }, shaping);
+        const measured = measureWord({ word, offset, runAt, request, faces: matched }, shaping);
         offset += word.length;
         left = Math.min(left, width + measured.left);
         right = Math.max(right, width + measured.right);

@@ -8,6 +8,7 @@ import type { ObjectBox } from '../layout-engine/blocks/types.js';
 import { regionAt } from '../model/schema/document-structure.js';
 import { sectionContentWidth } from './content-width.js';
 import { forcedLinesKey, sectionScope } from './forced-lines.js';
+import { insertedTexts } from './inserted-texts.js';
 
 /**
  * The box the engine laid out the figure or table at a position of the pages in; null when the
@@ -21,7 +22,8 @@ export function objectBoxAt(state: EditorState, pos: number): ObjectBox | null {
   const region = regionAt($inside);
   if (region?.kind !== 'content' || $inside.depth <= region.depth) return null;
   const block = $inside.node(region.depth + 1);
-  return engine.objectBoxes(block, sectionScope(region.section.node)).get(node) ?? null;
+  const inserted = node.type.name === 'table' ? insertedTexts(state, [forcedLinesKey]) : undefined;
+  return engine.objectBoxes(block, sectionScope(region.section.node), inserted).get(node) ?? null;
 }
 
 /**

@@ -4,6 +4,7 @@
 // as a page skips a family it has no face for. Nothing falls back to the system's fonts.
 
 import { splitFontFamilies } from '../../model/templates/template-css-values.js';
+import { addFontGenerics, familyKey, isGenericFamily } from '../../utils/font-keys.js';
 import type { HarfBuzz, HarfBuzzFace } from './harfbuzz.js';
 
 /** A font file the host serves, with the descriptors of its `@font-face` rule. */
@@ -56,7 +57,6 @@ interface Entry {
   readonly covers: (codePoint: number) => boolean;
 }
 
-const generic = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
 const keywordWeights: Record<string, number> = {
   normal: 400,
   bold: 700,
@@ -76,12 +76,6 @@ function parseUnicodeRange(range: string | undefined): (codePoint: number) => bo
   });
   return (codePoint) => spans.some(([low, high]) => codePoint >= low && codePoint <= high);
 }
-
-const normalize = (family: string) =>
-  family
-    .trim()
-    .replace(/^["']|["']$/gu, '')
-    .toLowerCase();
 
 /** Parses the shorthand Pretext sets on a context, such as `italic 700 16px "Geist", serif`. */
 export function parseFont(font: string): FontRequest | null {
@@ -116,12 +110,12 @@ function weightDistance(asked: number, weight: number) {
 }
 
 // The family's faces of the nearest style and weight: several when the family is served in
-// subsets (one file per script, each with its unicode-range), in the order they were served.
+// subsets (one file per script, each with its unicode-range). CSS tries the latest subset first.
 function nearest(entries: readonly Entry[], request: FontRequest): Entry[] {
   const styled = entries.filter(({ italic }) => italic === request.italic);
   const pool = styled.length ? styled : entries;
   const distance = Math.min(...pool.map(({ weight }) => weightDistance(request.weight, weight)));
-  return pool.filter(({ weight }) => weightDistance(request.weight, weight) === distance);
+  return pool.filter(({ weight }) => weightDistance(request.weight, weight) === distance).reverse();
 }
 
 /**
@@ -138,17 +132,18 @@ export function createFaceSet(
   const aliases = new Map<string, string>();
   let version = 0;
   const resolve = (family: string) => {
-    const key = normalize(family);
+    const key = familyKey(family);
     const served = named[key];
-    if (generic.has(key) && served) return normalize(served);
+    if (isGenericFamily(key) && served) return familyKey(served);
     return aliases.get(key) ?? key;
   };
   const set: FaceSet = {
     facesFor(request) {
       const matched: MatchedFace[] = [];
       for (const family of request.families) {
-        for (const { face, covers } of nearest(families.get(resolve(family)) ?? [], request))
-          matched.push({ family: resolve(family), face, covers });
+        const key = resolve(family);
+        for (const { face, covers } of nearest(families.get(key) ?? [], request))
+          matched.push({ family: key, face, covers });
       }
       // A font none of whose families is served yet draws from the first family served.
       const [first] = families.entries();
@@ -161,10 +156,8 @@ export function createFaceSet(
     },
     hasFamily: (family) => families.has(resolve(family)),
     add(more, moreGenerics = {}) {
-      for (const [keyword, family] of Object.entries(moreGenerics))
-        named[normalize(keyword)] = family;
       for (const { family, weight, italic, bytes, unicodeRange } of more) {
-        const key = normalize(family);
+        const key = familyKey(family);
         const list = families.get(key) ?? [];
         list.push({
           weight,
@@ -174,10 +167,18 @@ export function createFaceSet(
         });
         families.set(key, list);
       }
+      addFontGenerics(named, moreGenerics, (family) => families.has(family));
       version += 1;
     },
     alias(name, family) {
-      aliases.set(normalize(name), normalize(family));
+      const key = familyKey(name);
+      const target = familyKey(family);
+      if (key === target) {
+        if (aliases.delete(key)) version += 1;
+        return;
+      }
+      if (aliases.get(key) === target) return;
+      aliases.set(key, target);
       version += 1;
     },
     get version() {

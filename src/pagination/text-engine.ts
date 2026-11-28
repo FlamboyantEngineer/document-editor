@@ -5,6 +5,7 @@
 import {
   clearCache,
   type MeasureContext,
+  setEngine,
   setLayoutScale,
   setMeasureContext,
 } from '@chenglou/pretext';
@@ -13,6 +14,7 @@ import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { hiddenSuggestion } from '../layout-engine/hidden-suggestions.js';
+import { selectTextLanguage } from '../layout-engine/lines.js';
 import { createTextLayout, type TextLayout } from '../layout-engine/text-layout.js';
 import { documentLanguage } from '../model/index.js';
 import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
@@ -20,7 +22,7 @@ import { contentWidths } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import { hostRuleSizes, sizedReading, textAtomsOf, watchedRules } from './host-rules.js';
-import { type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { holdInsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { engineSources } from './layout-inputs.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { holdNodeNumbers, type NodeNumbers } from './node-numbers.js';
@@ -40,7 +42,7 @@ import type { PagesTextEngine, TextEngineOptions } from './text-engine-types.js'
 /** What the engine's layouts read and tell. */
 interface LayoutInputs {
   readonly numbers: () => NodeNumbers;
-  readonly inserted: () => InsertedTexts;
+  readonly words: ReturnType<typeof holdInsertedTexts>;
   readonly recorder: LinesRecorder;
   readonly contents: ContentsLists;
   /** Told of each node that cannot be laid out, which takes no room. */
@@ -58,20 +60,20 @@ function unhintedContext(): MeasureContext {
   return context;
 }
 
-// The width source Pretext measures with now. Pretext keeps one for the whole page, so each engine
-// sets its own before it lays out, and two editors with different fonts never share widths
-// (DOCE-PAGINATION-12).
+// Pretext shares its settings across a module. Each editor selects its own widths and language
+// before laying anything out, including widths measured before the first line is prepared.
 let measuring: (() => MeasureContext) | null = null;
 
-// Measures with the host's width source, or unhinted, and fits lines at a scale of 1 whatever the
-// screen or zoom, so every device computes the same lines; the pages are drawn on them. The font
-// metrics come from the same source, rounded at that scale too (the engine's default).
-function measuringWith(context: () => MeasureContext) {
+// Pages use Blink's line breaking at scale 1 on every device (DOCE-PAGINATION-11.1).
+function measuringWith(context: () => MeasureContext, language: string) {
   return () => {
-    if (measuring === context) return;
-    measuring = context;
-    setMeasureContext(context);
-    setLayoutScale(1);
+    if (!measuring) setEngine('blink');
+    if (measuring !== context) {
+      setMeasureContext(context);
+      setLayoutScale(1);
+      measuring = context;
+    }
+    selectTextLanguage(language);
   };
 }
 
@@ -83,14 +85,14 @@ export function forgetFontWidths(): void {
 // The text layout and block geometry the engine lays out with, reading the document's numbers.
 function engineLayouts(
   options: TextEngineOptions,
-  { numbers, inserted, recorder, contents, refused, provisional }: LayoutInputs,
+  { numbers, words, recorder, contents, refused, provisional }: LayoutInputs,
 ) {
   // What the body text's variables show, and the key a kept layout of a block holding some matches.
   const body = bodyVariablesOf(numbers, contents);
   const variablesKey = (node: ProseMirrorNode) => bodyVariablesKey(node, body);
-  const { template } = options;
+  const { template, language = documentLanguage(null, options.template) } = options;
   const measureContext = options.measureContext ?? unhintedContext;
-  const select = measuringWith(measureContext);
+  const select = measuringWith(measureContext, language);
   select();
   const equationOf = (equation: ProseMirrorNode) => numbers().equationOf(equation);
   const math = mathPlaces(equationOf);
@@ -103,7 +105,7 @@ function engineLayouts(
   const typography = () => textNow().typography;
   const atoms = createAtomCache({ measure: atomMeasurer(options, { typography }), provisional });
   // The nodes the layout rules size, before the engine's own sizes.
-  const sizes = hostRuleSizes(options, textNow);
+  const sizes = hostRuleSizes(options, textNow, language);
   const text = createTextLayout({
     template,
     hidden: () => hiddenSuggestion(options.markup?.() ?? 'all'),
@@ -111,19 +113,17 @@ function engineLayouts(
     measureContext,
     isFontServed: options.isFontServed,
     codeLineNumbers: options.codeLineNumbers,
-    language: options.language ?? documentLanguage(null, template),
+    language,
     reserve: options.reserve,
+    sizeAtom: (node, place) => sizes.inline(node, place.width ?? 0, place.scope ?? null),
     // An inline atom nothing sizes, such as kept content the schema does not know, takes no room.
-    measureAtom: (node, place) =>
-      sizes.inline(node, place?.width ?? 0, place?.scope ?? null) ??
-      atoms.measureAtom(node, place) ??
-      unsized(node, refused),
+    measureAtom: (node, place) => atoms.measureAtom(node, place) ?? unsized(node, refused),
     onMath: math.record,
     textAtoms: textAtomsOf(options, numbers),
   });
   const objects = createObjectRecorder();
   const geometry = createBlockLayout({
-    text: numberedText(text, { numbers, inserted, recorder }),
+    text: numberedText(text, { numbers, inserted: words.current, recorder }),
     atoms,
     metrics: (scope) => blockMetrics(template, scope),
     labelOf: (caption) => (recorder.labelOf ?? numbers().labelOf)(caption),
@@ -137,19 +137,20 @@ function engineLayouts(
     onRefused: refused,
   });
   laying = text;
-  const labelOf = (caption: ProseMirrorNode) => numbers().labelOf(caption);
   return {
     text,
     geometry,
     // The figure and table boxes of a top-level block laid out in its section's content width.
     objectBoxes:
       (widthOf: (scope: string | null) => number) =>
-      (block: ProseMirrorNode, scope: string | null) =>
-        objects.boxesOf(() => geometry.layoutBlock(block, { width: widthOf(scope), scope })),
+      (block: ProseMirrorNode, scope: string | null, inserted = NO_INSERTED) =>
+        words.with(inserted, () =>
+          objects.boxesOf(() => geometry.layoutBlock(block, { width: widthOf(scope), scope })),
+        ),
     select,
     measureContext,
     variablesKey,
-    labelOf,
+    labelOf: (caption: ProseMirrorNode) => numbers().labelOf(caption),
     math,
     sizes,
   };
@@ -167,59 +168,37 @@ function selecting<Args extends unknown[], Result>(
   };
 }
 
-/** Creates the pages' text layout engine for a template. */
-export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
-  const { template, markup } = options;
-  const numbers = holdNodeNumbers(template);
-  // The words inserted in the blocks being measured.
-  let current = NO_INSERTED;
-  const recorder: LinesRecorder = { lines: null };
-  const contents = createContentsLists(template, options.state);
-  const refusals = createRefusals();
-  const waiting = provisionalMath(options);
-  const layouts = engineLayouts(options, {
-    numbers: numbers.current,
-    inserted: () => current,
-    recorder,
-    contents,
-    refused: refusals.refuse,
-    provisional: waiting.note,
-  });
-  const { text, geometry, select, measureContext, variablesKey, labelOf } = layouts;
-  // The errors of the nodes of the document numbered last, the one being laid out.
-  const counts = createCounts(
-    () => layouts.sizes.errors(numbers.current().doc ?? undefined),
-    refusals,
-  );
-  const rules = watchedRules(options, () => forget());
-  const widthOf = contentWidths(template);
-  const keyed = { widthOf, markup, numbers: numbers.current, variablesKey };
-  const tables = keptLines(text, { ...keyed, provisional: waiting.count });
-  const blocks = keptBlocks({
-    ...keyed,
-    provisional: waiting.count,
-    geometry,
-    contents,
-    hostViews: rules.hostViews,
-    refuse: refusals.refuse,
-    laid: counts.laid,
-    inserting: (words) => {
-      current = words;
-    },
-  });
-  const footnoteOf = (part: ProseMirrorNode) => numbers.current().footnoteOf(part);
-  const laying = { geometry, recorder, widthOf, footnoteOf, markup, variablesKey, labelOf };
-  const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
-  // Forgets every layout kept, as when atoms settle or the host's rules size nodes otherwise.
-  const forget = () => {
-    for (const kept of [blocks, tables, regions, nested]) kept.forget();
+// The line and object readers share the same measurements and current rules as full layouts.
+function cachedDrawings(
+  layouts: ReturnType<typeof engineLayouts>,
+  inputs: Parameters<typeof keptLines>[1] & {
+    recorder: LinesRecorder;
+    words: ReturnType<typeof holdInsertedTexts>;
+    contents: ContentsLists;
+    select: () => void;
+  },
+) {
+  const { text, geometry, labelOf, sizes } = layouts;
+  const { numbers, widthOf, contents, select } = inputs;
+  const footnoteOf = (part: ProseMirrorNode) => numbers().footnoteOf(part);
+  const place = { ...inputs, geometry, labelOf, footnoteOf };
+  const tables = keptLines(text, inputs);
+  const nested = createNestedLines(place);
+  const regions = createRegionLines(place);
+  const forgetRegions = () => {
+    regions.forget();
+    nested.forget();
   };
-  return {
-    ...engineSources(options),
-    number: numbers.number,
-    numbersVersion: numbers.version,
-    numbering: numbers.numbering,
-    pageDigits: (count) => contents.pageDigits(count),
+  const reading: Pick<
+    PagesTextEngine,
+    | 'contentsDrawn'
+    | 'insertedReserved'
+    | 'measureRegion'
+    | 'regionLines'
+    | 'lines'
+    | 'nestedLines'
+    | 'objectBoxes'
+  > = {
     contentsDrawn: selecting(select, (node, scope) =>
       drawnContents(node, {
         scope,
@@ -227,28 +206,99 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
         text,
         contents,
         width: widthOf(scope),
-        doc: numbers.current().doc,
+        doc: numbers().doc,
       }),
     ),
+    insertedReserved: text.insertedReserved,
+    measureRegion: selecting(select, (...at) => regions.lay(...at).room),
+    regionLines: selecting(select, (...at) => regions.lay(...at).lines),
+    lines: selecting(select, (node, place) =>
+      sizes.sizes(node) ? null : tables.lines(node, place),
+    ),
+    nestedLines: selecting(select, (...at) => nested.lines(...at)),
+    objectBoxes: selecting(select, layouts.objectBoxes(widthOf)),
+  };
+  return {
+    reading,
+    forgetRegions,
+    forget() {
+      tables.forget();
+      forgetRegions();
+    },
+  };
+}
+
+/** Creates the pages' text layout engine for a template. */
+export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngine {
+  const { template } = options;
+  const numbers = holdNodeNumbers(template);
+  const words = holdInsertedTexts();
+  const recorder: LinesRecorder = { lines: null };
+  const contents = createContentsLists(template, options.state);
+  const refusals = createRefusals();
+  const waiting = provisionalMath(options);
+  const layouts = engineLayouts(options, {
+    numbers: numbers.current,
+    words,
+    recorder,
+    contents,
+    refused: refusals.refuse,
+    provisional: waiting.note,
+  });
+  const { geometry, select: selectPretext, measureContext, variablesKey } = layouts;
+  // The errors of the nodes of the document numbered last, the one being laid out.
+  const counts = createCounts(
+    () => layouts.sizes.errors(numbers.current().doc ?? undefined),
+    refusals,
+  );
+  const rules = watchedRules(options, () => forget());
+  const select = () => {
+    rules.refresh();
+    selectPretext();
+  };
+  const widthOf = contentWidths(template);
+  const keyed = {
+    widthOf,
+    markupKey: rules.markupKey,
+    numbers: numbers.current,
+    variablesKey,
+    provisional: waiting.count,
+  };
+  const drawings = cachedDrawings(layouts, { ...keyed, contents, recorder, words, select });
+  const blocks = keptBlocks({
+    ...keyed,
+    geometry,
+    contents,
+    hostViews: rules.hostViews,
+    refuse: refusals.refuse,
+    laid: counts.laid,
+    withInserted: words.with,
+  });
+  const forget = () => {
+    blocks.forget();
+    drawings.forget();
+  };
+  return {
+    ...engineSources(options),
+    number(doc) {
+      numbers.number(doc);
+      layouts.math.number(doc);
+    },
+    numbersVersion: numbers.version,
+    numbering: numbers.numbering,
+    pageDigits: (count) => contents.pageDigits(count),
+    ...drawings.reading,
     measureBlock: selecting(select, (node, scope, inserted = NO_INSERTED) =>
       blocks.measure(node, scope, inserted),
     ),
-    insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
-    measureRegion: selecting(select, (...at) => regions.lay(...at).room),
-    regionLines: selecting(select, (...at) => regions.lay(...at).lines),
-    lines: selecting(select, (node, place) => tables.lines(node, place)),
-    nestedLines: selecting(select, (...at) => nested.lines(...at)),
-    objectBoxes: selecting(select, layouts.objectBoxes(widthOf)),
     mathPending: (doc) => documentMathPending(options, doc),
-    // Blocks and lines with provisional math are never kept; regions and containers are laid out
+    // Blocks and lines with provisional math are never kept. Regions and containers are laid out
     // again once it settles.
-    atomsVersion: () =>
-      waiting.version(() => {
-        for (const kept of [regions, nested]) kept.forget();
-      }),
-    ...layouts.math.reading(counts.stats, () => numbers.current().doc),
+    atomsVersion: () => waiting.version(drawings.forgetRegions),
+    ...layouts.math.reading(counts.stats),
     ...sizedReading(layouts.sizes),
     destroy() {
+      layouts.math.forget();
       if (measuring === measureContext) measuring = null;
     },
   };
