@@ -94,7 +94,7 @@ const partKey = (node: ProseMirrorNode) => {
 };
 
 /**
- * The positions of the top-level parts of split text blocks in a pages' document that a later part
+ * The positions of the parts of split text blocks in a pages' document, at any depth, that a later part
  * continues on the next line (DOCE-PAGINATION-11.2): the part with the same element id and the next
  * part index, unless that part starts at the hard break the split moved to it, which ended this
  * part's last line.
@@ -104,13 +104,21 @@ export function continuingParts(doc: ProseMirrorNode): ReadonlySet<number> {
   if (found) return found;
   const parts = new Map<string, number>();
   const continued = new Set<string>();
-  doc.descendants((node, pos, parent) => {
-    if (parent?.type.name !== 'page_content') return !node.isTextblock;
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    // A block no split made has no part to continue, nor is one: no key is made for it.
+    if (node.attrs.splitPartIndex === null || node.attrs.splitPartIndex === undefined) return false;
     const key = partKey(node);
-    if (!node.isTextblock || !key) return false;
+    if (!key) return false;
     parts.set(key, pos);
     const part = Number(node.attrs.splitPartIndex ?? 0);
-    if (part > 0 && node.firstChild?.type.name !== 'hard_break')
+    // A code part continues its line before it only where the split cut that line
+    // (`codeLineContinued`); otherwise the line before it ended at its line feed.
+    const code = node.type.spec.code === true;
+    if (
+      part > 0 &&
+      (code ? node.attrs.codeLineContinued === true : node.firstChild?.type.name !== 'hard_break')
+    )
       continued.add(`${String(node.attrs.dataId)}#${String(part - 1)}`);
     return false;
   });
@@ -218,7 +226,9 @@ function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedP
     // A split's empty placeholder takes no room on the page (DOCE-PAGINATION-4.3).
     if (isContinuationPlaceholder(node)) return false;
     const pos = at.pos + 1 + offset;
-    const table = lines.get(node) ?? null;
+    const laid = lines.get(node) ?? null;
+    // A part a later part continues ends its last line where the whole block wraps it, at any depth.
+    const table = laid && at.continuing?.has(pos) ? wrappedAtEnd(laid) : laid;
     const reason = table ? {} : { reason: 'not laid out by the engine' };
     blocks.push({ node, pos, table, ...reason, nested: true });
     return false;

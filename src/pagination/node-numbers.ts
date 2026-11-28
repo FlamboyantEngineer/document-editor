@@ -142,14 +142,17 @@ export function holdNodeNumbers(template: TemplateFile) {
   const drawn = new WeakMap<ProseMirrorNode, ReturnType<typeof numbersByNode>['numbering']>();
   return {
     current: () => numbers,
-    /** Moves whenever a document is numbered with other footnote numbers than the one before. */
+    /**
+     * Moves whenever a document is numbered with other footnote numbers, or other stored variable
+     * values, than the one before: the body's variables show the numbered document's values.
+     */
     version: () => version,
     number(doc: ProseMirrorNode) {
       if (numbers.doc === doc) return;
       const found = numbersByNode(doc, template);
       numbers = found.byNode();
       drawn.set(doc, found.numbering);
-      const key = found.footnotesKey();
+      const key = `${found.footnotesKey()}|${JSON.stringify(doc.attrs.values ?? null)}`;
       if (key !== footnotes) [footnotes, version] = [key, version + 1];
     },
     numbering(doc: ProseMirrorNode) {

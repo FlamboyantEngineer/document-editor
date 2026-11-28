@@ -7,6 +7,15 @@ import { expect, test, waitForLab } from './fixtures.js';
 // no-break spaces in justified text, soft hyphens, aligned numbered headings, citation identifiers
 // and code beside line numbers the pages must draw exactly as the layout engine laid them out.
 
+// Waits for a document loaded into the lab to be shown, with `selector` in it, and laid out with
+// its fonts, then draws all its lines.
+async function drawLoaded(page: Page, selector: string) {
+  await waitForLab(page);
+  await expect(page.locator(selector).first()).toBeAttached();
+  await page.waitForFunction(() => window.regressionLab.layout()?.provisional === false);
+  await page.evaluate(() => window.regressionLab.drawAllLines(true));
+}
+
 async function open(page: Page) {
   await page.goto('regression.html?document=inline-geometry&debug');
   await waitForLab(page);
@@ -419,5 +428,209 @@ test.describe('inline geometry on the engine’s lines', () => {
       );
       expect(grown).toEqual([true, true]);
     }
+  });
+
+  test('DOCE-PAGINATION-12.4 draws a heading number and a caption label in the boxes the engine reserved for their unserved clusters', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=minimal-paragraph&debug');
+    await waitForLab(page);
+    // Devanagari, which no lab font serves, in a heading's number and a table's caption label:
+    // the browser's fallback draws it at a width nothing predicts, the engine gives it 1 em.
+    const cell = (text: string) => ({
+      type: 'tableCell',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+    });
+    const file = {
+      formatVersion: 1,
+      template: { id: 'unserved-numbers' },
+      sections: [
+        {
+          name: 'body',
+          content: [
+            { type: 'heading', attrs: { id: 'h1' }, content: [{ type: 'text', text: 'Scope' }] },
+            {
+              type: 'table',
+              attrs: { id: 't1' },
+              content: [
+                { type: 'caption', content: [{ type: 'text', text: 'Readings' }] },
+                { type: 'tableRow', content: [cell('a'), cell('b')] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const template = {
+      formatVersion: 1,
+      id: 'unserved-numbers',
+      page: { size: 'A5', orientation: 'portrait' },
+      styles: {
+        heading1: { numbering: { format: '1', prefix: 'कक ', suffix: ' ' } },
+        table: { numbering: { format: '1', prefix: 'कक ', suffix: ' - ' } },
+      },
+      sections: [{ name: 'body', label: 'Body', required: true }],
+    };
+    await page.evaluate(
+      ([stored, own]) => {
+        window.regressionLab.load(stored as DocumentFile, own as never);
+      },
+      [file, template] as const,
+    );
+    await drawLoaded(page, '.pm-page-content > h1');
+    const heading = page.locator('.de-document-editor__content .pm-page-content > h1');
+    await expect(heading).toHaveClass(/de-forced-lines/);
+    // Where the content's first character starts after the number, from the block's own left
+    // edge, against the number's width with each unserved cluster at 1 em of the block's font.
+    const starts = await page.evaluate(() =>
+      ['.pm-page-content > h1', '.pm-page-content .doc-caption-text'].map((selector) => {
+        const block = document.querySelector<HTMLElement>(
+          `.de-document-editor__content ${selector}`,
+        );
+        const label = block?.querySelector<HTMLElement>('.de-forced-lines__label');
+        if (!block || !label) return null;
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+        let first: Text | null = null;
+        for (let node = walker.nextNode(); node; node = walker.nextNode())
+          if (!label.contains(node) && node.textContent) {
+            first = node as Text;
+            break;
+          }
+        if (!first) return null;
+        const range = document.createRange();
+        range.setStart(first, 0);
+        range.setEnd(first, 1);
+        const em = parseFloat(getComputedStyle(label).fontSize);
+        const boxes = [...label.querySelectorAll<HTMLElement>('.de-forced-lines__reserved')];
+        return {
+          // Each unserved cluster's box is 1em of the label's font, as the engine reserved it.
+          boxes: boxes.map((box) => Math.abs(box.getBoundingClientRect().width - em)),
+          // The content starts right after the label, as the engine laid it out.
+          gap: range.getBoundingClientRect().left - label.getBoundingClientRect().right,
+        };
+      }),
+    );
+    for (const start of starts) {
+      expect(start?.boxes).toHaveLength(2);
+      for (const off of start?.boxes ?? []) expect(off).toBeLessThan(0.05);
+      expect(Math.abs(start?.gap ?? 1)).toBeLessThan(0.1);
+    }
+    expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
+  });
+
+  test('DOCE-PAGINATION-9.5 wraps a long variable value in a header and in the text on the engine’s lines', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=minimal-paragraph&debug');
+    await waitForLab(page);
+    const title =
+      'A very long document title that a writer gave the report, with  two spaces, to see where it wraps';
+    const variable = { type: 'variable', attrs: { key: 'document.title' } };
+    const words = (value: string) => ({ type: 'text', text: value });
+    const line = (...content: unknown[]) => ({ type: 'paragraph', content });
+    const file = {
+      formatVersion: 1,
+      template: { id: 'long-values' },
+      values: { 'document.title': title, 'document.owner': 'Line one\nLine two' },
+      sections: [
+        {
+          name: 'body',
+          content: [
+            line(words('Report: '), variable, words(' (draft)')),
+            line(
+              words('Owner: '),
+              { type: 'variable', attrs: { key: 'document.owner' } },
+              words('.'),
+            ),
+          ],
+        },
+      ],
+    };
+    const template = {
+      formatVersion: 1,
+      id: 'long-values',
+      page: { size: 'A6', orientation: 'portrait' },
+      header: { content: [line(words('Report: '), variable, words(' (draft)'))] },
+      sections: [{ name: 'body', label: 'Body', required: true }],
+    };
+    await page.evaluate(
+      ([stored, own]) => {
+        window.regressionLab.load(stored as DocumentFile, own as never);
+      },
+      [file, template] as const,
+    );
+    await drawLoaded(page, '.pm-page-header [data-template-variable]');
+    // Each block the value is in is drawn on as many lines as the engine laid it out on, its
+    // value broken between two of its words where the engine broke it, once the loaded document
+    // is laid out: the title takes more than one line in the header and in the text.
+    const drawnBlocks = () =>
+      page.evaluate(() =>
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            '.de-document-editor__content :is(.pm-page-header, .pm-page-content) p.de-forced-lines',
+          ),
+        ].map((block) => ({
+          lines: Number(block.dataset.lines),
+          breaks: block.querySelectorAll('[data-template-variable] .de-forced-lines__break').length,
+        })),
+      );
+    await expect
+      .poll(
+        async () =>
+          (await drawnBlocks()).filter((block) => block.lines > 2 && block.breaks > 0).length,
+      )
+      .toBe(2);
+    expect((await drawnBlocks()).length).toBeGreaterThanOrEqual(3);
+    expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
+    // The header's drawn height is the room the layout gave it.
+    const header = await page.evaluate(() => {
+      const region = document.querySelector<HTMLElement>(
+        '.de-document-editor__content .pm-page-header',
+      );
+      const block = region?.querySelector<HTMLElement>('p.de-forced-lines');
+      return {
+        lines: Number(block?.dataset.lines),
+        height: block?.getBoundingClientRect().height ?? 0,
+        line: parseFloat(getComputedStyle(block ?? document.body).lineHeight),
+      };
+    });
+    expect(header.lines).toBeGreaterThan(2);
+    expect(Math.abs(header.height - header.lines * header.line)).toBeLessThan(0.5);
+  });
+
+  test('DOCE-PAGINATION-9.5 draws a text atom’s white space collapsed, as the engine lays it out', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=minimal-paragraph&debug');
+    await waitForLab(page);
+    const values = ['ab', 'a b', 'a  b', 'a\tb', 'a\nb', 'a', ' a '];
+    const content = values.map((value) => ({
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Value ' },
+        { type: 'embed_inline', attrs: { kind: 'cell', source: 'book!B2', text: value } },
+        { type: 'text', text: ' here.' },
+      ],
+    }));
+    const file = { formatVersion: 1, sections: [{ name: null, content }] } as DocumentFile;
+    await page.evaluate((stored) => window.regressionLab.load(stored), file);
+    await drawLoaded(page, '.pm-page-content span[data-embed-kind]');
+    const widths = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.de-document-editor__content .pm-page-content > p span[data-embed-kind]',
+        ),
+      ].map((embed) => embed.getBoundingClientRect().width),
+    );
+    const [ab = 0, spaced = 0, two, tab, feed, a = 0, ends = 0] = widths;
+    const space = spaced - ab;
+    expect(space).toBeGreaterThan(1);
+    for (const width of [two, tab, feed])
+      expect(Math.abs((width ?? 0) - spaced)).toBeLessThan(0.05);
+    expect(Math.abs(ends - (a + 2 * space))).toBeLessThan(0.05);
+    expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
   });
 });
