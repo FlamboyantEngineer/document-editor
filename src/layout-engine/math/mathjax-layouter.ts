@@ -270,6 +270,15 @@ function convertingWith(converter: Converter) {
   };
   // The equations whose glyphs load, so asking again while they do starts no second load.
   const loading = new Map<string, Promise<unknown>>();
+  // Each tree's markup, which every read of waiting math asks for again.
+  const markups = new WeakMap<MathTree, string>();
+  const markupOf = (tree: MathTree) => {
+    const found = markups.get(tree);
+    if (found !== undefined) return found;
+    const markup = mathMarkup(tree);
+    markups.set(tree, markup);
+    return markup;
+  };
   const load = (markup: string, display: boolean) => {
     const key = cacheKey(markup, display);
     const found = loading.get(key);
@@ -286,14 +295,17 @@ function convertingWith(converter: Converter) {
     prepare(trees: readonly MathTree[]): Promise<void> | null {
       const waiting = trees.flatMap((tree) => {
         const display = tree.attrs.display === 'block';
-        const markup = mathMarkup(tree);
+        const markup = markupOf(tree);
+        // Math whose glyphs still load waits for them, with no conversion tried again.
+        const found = loading.get(cacheKey(markup, display));
+        if (found) return [found];
         if (tryConvert(markup, display) !== undefined) return [];
         return [load(markup, display)];
       });
       return waiting.length ? Promise.all(waiting).then(() => undefined) : null;
     },
     layout(tree: MathTree, display: boolean, sizePx: number): LaidMath | null {
-      const layout = tryConvert(mathMarkup(tree), display);
+      const layout = tryConvert(markupOf(tree), display);
       if (!layout) return null;
       return {
         width: upTo64th(layout.width * sizePx),

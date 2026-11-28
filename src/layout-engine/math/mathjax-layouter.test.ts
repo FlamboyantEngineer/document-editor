@@ -116,6 +116,29 @@ describe('DOCE-PAGINATION-12.12 equations laid out and drawn by MathJax', () => 
     }
   });
 
+  it('DOCE-PAGINATION-12.13 tries no conversion again for math whose glyphs still load', async () => {
+    const retries = vi.spyOn(mathjax, 'retryAfter');
+    try {
+      const math = await layouter();
+      // MathJax itself loads with the first equation prepared.
+      await math.prepare([katexTree('x', false)]);
+      const trees = [katexTree('\\text{Ж} + 2', false), katexTree('\\text{Ж} - 3', true)];
+      const first = math.prepare(trees);
+      expect(first).not.toBeNull();
+      const before = retries.mock.calls.length;
+      // Each read of the engine's waiting math asks again while the glyphs load.
+      for (let read = 0; read < 10; read += 1) expect(math.prepare(trees)).not.toBeNull();
+      expect(retries.mock.calls.length).toBe(before);
+      await first;
+      expect(math.prepare(trees)).toBeNull();
+      expect(math.layout(trees[0] ?? katexTree('x', false), false, 16)).toMatchObject({
+        missing: '',
+      });
+    } finally {
+      retries.mockRestore();
+    }
+  });
+
   it('writes a math tree as MathML markup', () => {
     expect(mathMarkup({ tag: 'mi', attrs: { mathvariant: 'a"<' }, children: ['x<&'] })).toBe(
       '<mi mathvariant="a&quot;&lt;">x&lt;&amp;</mi>',
