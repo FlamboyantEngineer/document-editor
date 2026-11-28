@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
+import { undoDepth } from 'prosemirror-history';
+import { EditorState, NodeSelection, type Selection, TextSelection } from 'prosemirror-state';
 import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { deferred } from '../../../test/deferred.js';
@@ -9,6 +10,7 @@ import { installEditorDom } from '../../../test/editor-dom.js';
 import { scriptState } from '../../../test/script-blocks.js';
 import { createDocumentEditing, type EditAddress, listScriptBlocks } from '../../engine/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
+import { readDomSelection } from '../../utils/dom-selection.js';
 import type { ContextMenuProvider } from './context-providers.js';
 import type { ContextTarget } from './context-target.js';
 import { EditorModal, type HostDialogProps } from './dialog-parts.js';
@@ -346,7 +348,89 @@ describe('copying a link to the content', () => {
     expect(keepSelection).toHaveBeenCalled();
     expect(view().state.selection.toJSON()).toEqual(before.toJSON());
   });
+
+  it('DOCE-EDITOR-3.1 DOCE-EDITOR-3.8 opens on what the click landed on, though the view reads the press’s caret only later', async () => {
+    const user = userEvent.setup();
+    const handleRef = createRef<DocumentEditorHandle>();
+    const onSelectionChange = vi.fn<(selection: Selection) => void>();
+    render(
+      <Harness
+        initial={leadAndTableState()}
+        handleRef={handleRef}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    const view = handleRef.current?.view();
+    if (!view) throw new Error('The editor is mounted');
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
+    // The caret is in the table, where the click lands, so the click moves no selection.
+    const inTable = textAt(view.state, 'Pump');
+    act(() => {
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, inTable)));
+    });
+    vi.spyOn(view, 'posAtCoords').mockReturnValue({ pos: inTable, inside: -1 });
+    onSelectionChange.mockClear();
+    const depth = undoDepth(view.state);
+    // The press put the browser's caret elsewhere, as Chromium does on a figure's image, and the
+    // view has not read it yet; a render that keeps the state reads it before the menu opens.
+    const lead = screen.getByText('Lead').firstChild;
+    if (!lead) throw new Error('The lead paragraph is drawn');
+    document.getSelection()?.collapse(lead, 1);
+    screen
+      .getByText('Pump')
+      .dispatchEvent(
+        new MouseEvent('contextmenu', { bubbles: true, cancelable: true, buttons: 0 }),
+      );
+    readDomSelection(view);
+    const menu = await screen.findByRole('menu');
+    expect(view.state.selection.from).toBe(inTable);
+    expect(within(menu).getByRole('menuitem', { name: 'Align' })).toBeInTheDocument();
+    // The caret read on the way is no undo step, and the host is told of no position but the click's.
+    expect(undoDepth(view.state)).toBe(depth);
+    expect(onSelectionChange.mock.calls.map(([selection]) => selection.from)).not.toContain(
+      textAt(view.state, 'Lead') + 1,
+    );
+  });
 });
+
+// A paragraph, then a table.
+function leadAndTableState() {
+  const cell = (text: string) => ({
+    type: 'tableCell',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  });
+  const { doc } = readDocumentFile(
+    {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Lead' }] },
+            {
+              type: 'table',
+              content: [
+                { type: 'tableRow', content: [cell('Part'), cell('Count')] },
+                { type: 'tableRow', content: [cell('Pump'), cell('2')] },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    documentSchema,
+  );
+  return EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) });
+}
+
+// The position of the start of a text in a state's document.
+function textAt(state: EditorState, text: string) {
+  let at = -1;
+  state.doc.descendants((node, pos) => {
+    if (at < 0 && node.isText && node.text === text) at = pos;
+  });
+  return at;
+}
 
 // A document of one table, the caret in its first body cell.
 // A table, or one an embed holds, with the caret in a body cell.
