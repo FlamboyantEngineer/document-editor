@@ -183,4 +183,17 @@ describe('math edited in place', () => {
     type(shown, 'y');
     expect(paragraphText(shown, 0)).toBe('Is xy');
   });
+
+  it('DOCE-OBJECTS-1.8 holds only the selected math: words typed elsewhere land, and the selection stays there', () => {
+    const shown = viewOf(['Is ']);
+    type(shown, '$x$');
+    shown.dispatch(shown.state.tr.setSelection(NodeSelection.create(shown.state.doc, 4)));
+    press(shown, 'Enter');
+    shown.dispatch(shown.state.tr.setSelection(TextSelection.create(shown.state.doc, 2)));
+    type(shown, 'y');
+    expect(press(shown, 'Backspace')).toBe(false);
+    expect(paragraphText(shown, 0)).toBe('Iys x');
+    expect(cancelMathEditing(shown.state, shown.dispatch)).toBe(true);
+    expect(shown.state.selection.from).toBe(3);
+  });
 });

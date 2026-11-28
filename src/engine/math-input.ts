@@ -161,9 +161,18 @@ function writeMath(key: PluginKey<MathInputState>): Command {
   };
 }
 
+// Whether the math edited in place is still the selection, which keys reaching the view would
+// type over or delete.
+function holdsEdited(key: PluginKey<MathInputState>, state: EditorState): boolean {
+  const editing = mathEditingOf(key, state);
+  const { selection } = state;
+  return editing !== null && selection instanceof NodeSelection && selection.from === editing.pos;
+}
+
 /**
  * Commits the math edited in place: sets its LaTeX, or deletes it when the LaTeX is empty, and
- * stops editing it. Inline math leaves the caret after it; display math stays selected.
+ * stops editing it. Inline math leaves the caret after it and display math stays selected, while
+ * the math is still the selection; a selection moved elsewhere stays.
  */
 export function commitMath(key: PluginKey<MathInputState>, latex: string): Command {
   return (state, dispatch) => {
@@ -177,7 +186,8 @@ export function commitMath(key: PluginKey<MathInputState>, latex: string): Comma
       else if (latex !== node.textContent)
         tr.replaceWith(pos + 1, end - 1, state.schema.text(latex));
       const inline = node.type.name === 'math_inline';
-      if (latex.trim()) {
+      // A selection the writer has moved off the math stays where they put it.
+      if (latex.trim() && holdsEdited(key, state)) {
         tr.setSelection(
           inline
             ? TextSelection.create(tr.doc, tr.mapping.map(end))
@@ -216,9 +226,6 @@ function editClicked(key: PluginKey<MathInputState>, view: EditorView, event: Mo
   return true;
 }
 
-const isEditing = (key: PluginKey<MathInputState>, state: EditorState) =>
-  mathEditingOf(key, state) !== null;
-
 // The keys that would change the math edited in place were the view to take them.
 const EDITING_KEYS = new Set(['Backspace', 'Delete', 'Enter']);
 
@@ -229,11 +236,11 @@ export function mathInputProps(key: PluginKey<MathInputState>): EditorProps {
   const write = writeMath(key);
   return {
     // While math is edited in place its field takes the keys; until the field has loaded, the
-    // math they would type over or delete stays as it is (DOCE-OBJECTS-1.8).
-    handleTextInput: (...input) => isEditing(key, input[0].state) || typeInlineMath(input),
+    // selected math they would type over or delete stays as it is (DOCE-OBJECTS-1.8).
+    handleTextInput: (...input) => holdsEdited(key, input[0].state) || typeInlineMath(input),
     handleKeyDown(view, event) {
       if (event.isComposing) return false;
-      if (isEditing(key, view.state) && EDITING_KEYS.has(event.key)) {
+      if (holdsEdited(key, view.state) && EDITING_KEYS.has(event.key)) {
         event.preventDefault();
         return true;
       }

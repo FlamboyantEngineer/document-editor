@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { EditorState, NodeSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { createRef, type Ref, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
@@ -10,6 +10,7 @@ import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
 import { SURFACE_LOADERS } from './lazy-surfaces.js';
+import type * as MathSourceField from './math-source-field.js';
 
 // The math field's load, which a test makes fail as a dropped connection would.
 vi.mock(import('./lazy-surfaces.js'), async (load) => {
@@ -130,6 +131,39 @@ describe('ObjectEditors', () => {
     await user.keyboard('{Enter}');
     expect(await screen.findByRole('textbox', { name: 'LaTeX' })).toHaveValue('x^2');
   });
+  it('DOCE-OBJECTS-1.8 ends an edit whose field has not loaded once the writer types elsewhere', async () => {
+    const user = userEvent.setup();
+    const editor = mounted();
+    const load = vi.mocked(SURFACE_LOADERS.math);
+    let release = () => undefined as void;
+    const actual = await vi.importActual<typeof MathSourceField>('./math-source-field.js');
+    load.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(actual);
+        }),
+    );
+    selectNode(editor, 'math_inline');
+    await user.keyboard('{Enter}');
+    act(() => {
+      const { view } = editor;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 8)));
+      view.focus();
+    });
+    await user.keyboard('abc');
+    // The words land where the writer put the caret, and the math stays as it was.
+    const { doc } = editor.view.state;
+    expect(doc.textBetween(0, doc.content.size, '|')).toBe(
+      'Opabcening words|So x^2|The board|x = 1',
+    );
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole('textbox', { name: 'LaTeX' })).not.toBeInTheDocument();
+    load.mockRestore();
+  });
+
   it('DOCE-OBJECTS-1.8 keeps the LaTeX being typed while a change before the math moves it', async () => {
     const user = userEvent.setup();
     const editor = mounted();

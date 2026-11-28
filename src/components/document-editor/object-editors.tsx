@@ -13,6 +13,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -34,10 +35,35 @@ type MathFieldProps = ComponentProps<
 // the edit, leaving the math as it is, and loads again the next time (DOCE-ENTRY-2.4).
 const MathField = /* @__PURE__ */ lazyDialog(async () => {
   const { MathField: Field } = await SURFACE_LOADERS.math();
-  return function LoadedMathField({ onClose, ...props }: MathFieldProps & { onClose: () => void }) {
+  return function LoadedMathField({ onClose, onShown, ...props }: LoadedFieldProps) {
+    useLayoutEffect(onShown, [onShown]);
     return <Field {...props} onCancel={onClose} />;
   };
 });
+
+type LoadedFieldProps = MathFieldProps & {
+  readonly onClose: () => void;
+  /** Called once the field has loaded and shows. */
+  readonly onShown: () => void;
+};
+
+// Ends an edit whose field has not shown yet once the selection leaves the edited math, as a
+// press elsewhere in the document does: the writer has moved on, so the field must not appear
+// late and take focus from where they type (DOCE-OBJECTS-1.8).
+function useEditLeftEnded(view: EditorView | null, state: EditorState, key: string | null) {
+  const shown = useRef<string | null>(null);
+  const edited = mathEditingAt(state);
+  const { selection } = state;
+  const left =
+    edited !== null && !(selection instanceof NodeSelection && selection.from === edited.pos);
+  useLayoutEffect(() => {
+    if (!view || !left || key === null || shown.current === key) return;
+    cancelMathEditing(view.state, view.dispatch);
+  }, [view, left, key]);
+  return useCallback(() => {
+    shown.current = key;
+  }, [key]);
+}
 
 // Starts loading the field once math is selected, the step before it is edited, so it has loaded
 // by the time the writer edits it.
@@ -149,6 +175,7 @@ export function ObjectEditors({ view, state, labels, host }: ObjectEditorsProps)
   const edited: Edited | null = math;
   const { setLayer, box } = useEditedBox(view, edited, state);
   const key = useEditKey(edited);
+  const onShown = useEditLeftEnded(view, state, key);
   // The text the field holds now, committed when focus leaves the layer, and the edit already
   // finished: the field's own commit and focus leaving finish it once.
   const draft = useRef<string | null>(null);
@@ -190,6 +217,7 @@ export function ObjectEditors({ view, state, labels, host }: ObjectEditorsProps)
                 }}
                 onSubmit={finish}
                 onClose={() => finish(null)}
+                onShown={onShown}
               />
             </Suspense>
           </DialogLoadFailed>
