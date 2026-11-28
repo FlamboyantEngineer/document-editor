@@ -11,10 +11,8 @@ import type {
 import {
   type BlockNumbers,
   blockPixels,
-  parseBlockLength,
   templateBlockNumbers,
 } from '../../model/templates/block-numbers.js';
-import { lengthToCssPx } from '../../model/templates/template-css-values.js';
 import { templateScopeStyles } from '../../model/templates/template-properties.js';
 import {
   resolveFootnoteSettings,
@@ -26,6 +24,8 @@ import {
   resolveContentsList,
   type ResolvedContentsList,
 } from '../../model/templates/template-settings.js';
+import { resolveLength, resolveSize } from '../template-lengths.js';
+import { snap } from '../typography.js';
 
 /** A template scope's block geometry numbers, in CSS pixels. */
 export interface BlockMetrics {
@@ -77,17 +77,15 @@ interface RegionMetrics {
 }
 
 const DEFAULT_FONT_SIZE = 12;
-const DEFAULT_FOOTNOTE_SIZE = '10px';
+const DEFAULT_FOOTNOTE_SIZE = 10;
 const DEFAULT_LIST_INDENT = '24pt';
 const DEFAULT_CELL_PADDING = '4px';
 const DEFAULT_BORDER = '1px';
 
-// A template length in CSS pixels: an absolute one, or one in em at `em`, the font size of the
-// element the stylesheet sets it on; the fallback for anything else.
+// A template length in CSS pixels, in a form the stylesheet is given (`resolveLength`), `em` at
+// `em`, the font size of the element the stylesheet sets it on; the fallback for any other form.
 function pixels(length: unknown, fallback = '0px', em = DEFAULT_FONT_SIZE): number {
-  const stated = parseBlockLength(length);
-  if (stated) return blockPixels(stated, em);
-  return Number.parseFloat(lengthToCssPx(length) ?? lengthToCssPx(fallback) ?? '0') || 0;
+  return resolveLength(length, em) ?? resolveLength(fallback, em) ?? 0;
 }
 
 // The numbers of objects whose look the template sets by its object styles.
@@ -120,7 +118,7 @@ function objectNumbers(
 // size, as the stylesheet sets them on the area.
 function regionNumbers(template: TemplateFile, section: TemplateSection | null, em: number) {
   const footnotes = resolveFootnoteSettings(template, section);
-  const size = pixels(footnotes.text.size, DEFAULT_FOOTNOTE_SIZE, em);
+  const size = snap(resolveSize(footnotes.text.size, em) ?? DEFAULT_FOOTNOTE_SIZE);
   const inArea = (length: unknown) => pixels(length, '0px', size);
   const region = (name: 'header' | 'footer'): RegionMetrics => ({
     minHeight: pixels(resolveRegionHeight(template, section, name)),
@@ -145,7 +143,7 @@ export function blockMetrics(template: TemplateFile, scope: string | null = null
   const section = findTemplateSection(template, scope);
   const styles = templateScopeStyles(template, section);
   // The page content's font size, which the paragraph's sets; an em size is of the default.
-  const em = pixels(styles.paragraph?.size, `${String(DEFAULT_FONT_SIZE)}px`);
+  const em = snap(resolveSize(styles.paragraph?.size, DEFAULT_FONT_SIZE) ?? DEFAULT_FONT_SIZE);
   const numbers = templateBlockNumbers(styles);
   const sheet = (name: keyof BlockNumbers) => blockPixels(numbers[name], em);
   return {

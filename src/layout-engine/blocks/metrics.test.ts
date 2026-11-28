@@ -36,6 +36,22 @@ describe('block metrics', () => {
     expect(metrics.footnotes).toEqual({ separator: 2, spacing: 10, entrySpacing: 5 });
   });
 
+  it('DOCE-PAGINATION-10.9 reads rem lengths at the root size and falls back for forms the format does not take', () => {
+    const styles = BASE_TEMPLATE.styles ?? {};
+    const metrics = blockMetrics({
+      ...BASE_TEMPLATE,
+      styles: {
+        ...styles,
+        paragraph: { ...styles.paragraph, spaceAfter: '0.5rem' },
+        list: { ...styles.list, indentation: '50%', spaceBefore: '-1em' },
+      },
+    } as TemplateFile);
+    expect(metrics.paragraphAfter).toBe(8);
+    // A percentage or a negative length is not a template length: the stylesheet is not given it.
+    expect(metrics.list.indent).toBe(32);
+    expect(metrics.list.before).toBe(0);
+  });
+
   it('DOCE-PAGINATION-10.9 keeps absolute lengths and the defaults', () => {
     const metrics = blockMetrics(BASE_TEMPLATE);
     expect(metrics.em).toBe(12);
