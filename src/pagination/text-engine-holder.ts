@@ -10,6 +10,7 @@ import type { EditorState } from 'prosemirror-state';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
 import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
+import { stableKey } from '../utils/stable-key.js';
 import { templateFontFamilies } from './fonts.js';
 import type { PagesFonts, ServedFonts } from './served-fonts.js';
 import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
@@ -124,6 +125,24 @@ function numberedLike(engine: PagesTextEngine, counted: Counted) {
   };
 }
 
+// Each template's content as text, read once for as long as it is kept: a template is never
+// changed in place.
+const templateKeys = new WeakMap<TemplateFile, string>();
+
+function templateKey(template: TemplateFile): string {
+  let key = templateKeys.get(template);
+  if (key === undefined) {
+    key = stableKey(template);
+    templateKeys.set(template, key);
+  }
+  return key;
+}
+
+// Whether a template is the engine's own or an equal copy, as a host that builds its template on
+// each render hands over; either keeps the engine and every block it laid out.
+const sameTemplate = (engine: PagesTextEngine, template: TemplateFile) =>
+  engine.template === template || templateKey(engine.template) === templateKey(template);
+
 /**
  * Loads and holds a text layout engine; `changed` is told when the served faces of a family the
  * template newly names arrive, which makes the engine again.
@@ -182,8 +201,8 @@ export function holdTextEngine(options: {
       const template = options.setting.template();
       const codeLineNumbers = options.setting.codeLineNumbers?.() ?? false;
       const language = options.setting.language?.() ?? documentLanguage(null, template);
-      if (current?.template === template && numbered === codeLineNumbers && language === spoken)
-        return current;
+      const same = current && sameTemplate(current, template);
+      if (same && numbered === codeLineNumbers && language === spoken) return current;
       numbered = codeLineNumbers;
       spoken = language;
       drop();
