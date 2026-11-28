@@ -105,6 +105,12 @@ function atomEnds(node: ProseMirrorNode): ReadonlyMap<number, number> {
   return ends;
 }
 
+// Where the inline node other than text that holds a content offset inside it starts, or null.
+function holderOf(atoms: ReadonlyMap<number, number>, at: number): number | null {
+  for (const [start, end] of atoms) if (start < at && at < end) return start;
+  return null;
+}
+
 // A forced block's own decorations, relative to its content, kept by node and number.
 export function blockSet(
   builder: Builder,
@@ -122,26 +128,44 @@ export function blockSet(
   const shown = shownWidgets(node, table, { marks, key });
   const content = table.text === undefined ? marks : [];
   const atoms = atomEnds(node);
-  const own = content.map(({ from, to, inner, side, ...attrs }, index) => {
-    if (side !== undefined) return breakWidget(from, { side, ...attrs });
+  // A break inside a node, as among a variable's words, is drawn in the node's own set.
+  const inside: Decoration[][] = [];
+  const own = content.flatMap(({ from, to, inner, side, ...attrs }, index) => {
+    if (side !== undefined) {
+      const holder = holderOf(atoms, from);
+      if (holder === null) return [breakWidget(from, { side, ...attrs })];
+      (inside[holder] ??= []).push(breakWidget(from - holder - 1, { side, ...attrs }));
+      return [];
+    }
     const before = content[index - 1];
     const around = !inner && before?.inner && before.from === from && before.to === to;
     // A mark on an inline node other than text, such as math, is drawn on the node's own element:
     // a view draws an inline decoration only on text. A box on one, such as a page variable's, is
     // drawn on it too, with the marks on its range: the stylesheet draws its value in the box.
     if (atoms.get(from) === to)
-      return Decoration.node(from, to, {
+      return [
+        Decoration.node(from, to, {
+          class: attrs.class,
+          ...(attrs.style ? { style: attrs.style } : {}),
+        }),
+      ];
+    return [
+      Decoration.inline(from, to, {
+        ...(inner || around ? { nodeName: 'span' } : {}),
         class: attrs.class,
         ...(attrs.style ? { style: attrs.style } : {}),
-      });
-    return Decoration.inline(from, to, {
-      ...(inner || around ? { nodeName: 'span' } : {}),
-      class: attrs.class,
-      ...(attrs.style ? { style: attrs.style } : {}),
-    });
+      }),
+    ];
   });
   const decorations = [...shown, ...own];
-  const set = decorations.length ? new makeSet(decorations, []) : DecorationSet.empty;
+  const children = inside.flatMap((widgets, start) => {
+    const end = atoms.get(start);
+    return widgets && end !== undefined ? [start, end, new makeSet(widgets, [])] : [];
+  });
+  const set =
+    decorations.length || children.length
+      ? new makeSet(decorations, children)
+      : DecorationSet.empty;
   builder.blocks.set(node, { key, set });
   return set;
 }

@@ -513,4 +513,80 @@ test.describe('inline geometry on the engine’s lines', () => {
     expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
     expect(await offPlan(page)).toEqual([]);
   });
+
+  test('DOCE-PAGINATION-9.5 wraps a long variable value in a header and in the text on the engine’s lines', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=minimal-paragraph&debug');
+    await waitForLab(page);
+    const title =
+      'A very long document title that a writer gave the report, with  two spaces, to see where it wraps';
+    const variable = { type: 'variable', attrs: { key: 'document.title' } };
+    const words = (value: string) => ({ type: 'text', text: value });
+    const line = (...content: unknown[]) => ({ type: 'paragraph', content });
+    const file = {
+      formatVersion: 1,
+      template: { id: 'long-values' },
+      values: { 'document.title': title, 'document.owner': 'Line one\nLine two' },
+      sections: [
+        {
+          name: 'body',
+          content: [
+            line(words('Report: '), variable, words(' (draft)')),
+            line(
+              words('Owner: '),
+              { type: 'variable', attrs: { key: 'document.owner' } },
+              words('.'),
+            ),
+          ],
+        },
+      ],
+    };
+    const template = {
+      formatVersion: 1,
+      id: 'long-values',
+      page: { size: 'A6', orientation: 'portrait' },
+      header: { content: [line(words('Report: '), variable, words(' (draft)'))] },
+      sections: [{ name: 'body', label: 'Body', required: true }],
+    };
+    await page.evaluate(
+      ([stored, own]) => {
+        window.regressionLab.load(stored as DocumentFile, own as never);
+      },
+      [file, template] as const,
+    );
+    await waitForLab(page);
+    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    // Each block the value is in is drawn on as many lines as the engine laid it out on, its
+    // value broken between two of its words where the engine broke it.
+    const drawn = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.de-document-editor__content :is(.pm-page-header, .pm-page-content) p.de-forced-lines',
+        ),
+      ].map((block) => ({
+        lines: Number(block.dataset.lines),
+        breaks: block.querySelectorAll('[data-template-variable] .de-forced-lines__break').length,
+      })),
+    );
+    expect(drawn.length).toBeGreaterThanOrEqual(3);
+    // The title takes more than one line in the header and in the text.
+    expect(drawn.filter((block) => block.lines > 2 && block.breaks > 0).length).toBeGreaterThan(1);
+    expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
+    // The header's drawn height is the room the layout gave it.
+    const header = await page.evaluate(() => {
+      const region = document.querySelector<HTMLElement>(
+        '.de-document-editor__content .pm-page-header',
+      );
+      const block = region?.querySelector<HTMLElement>('p.de-forced-lines');
+      return {
+        lines: Number(block?.dataset.lines),
+        height: block?.getBoundingClientRect().height ?? 0,
+        line: parseFloat(getComputedStyle(block ?? document.body).lineHeight),
+      };
+    });
+    expect(header.lines).toBeGreaterThan(2);
+    expect(Math.abs(header.height - header.lines * header.line)).toBeLessThan(0.5);
+  });
 });

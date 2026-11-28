@@ -585,6 +585,44 @@ describe('createTextLayout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-9.5 wraps a variable’s value as text, between its words, inside the variable', () => {
+    const variable = documentSchema.nodes.template_variable?.create({ variableKey: 'title' });
+    if (!variable) throw new Error('schema has no template variable');
+    const node = documentSchema.node('paragraph', null, [
+      documentSchema.text('xx '),
+      variable,
+      documentSchema.text(' yy'),
+    ]);
+    const lay = (value: string, width: number) => {
+      const result = createTextLayout({ template: BASE_TEMPLATE }).layoutText(node, {
+        width,
+        variables: new Map([['title', value]]),
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map(({ from, to, side, end, width: drawn }) => [
+        from,
+        to,
+        side,
+        end,
+        drawn,
+      ]);
+    };
+    // `xx aaaa` is 39px. Each later line starts inside the variable (offset 4), before the
+    // element of the word it starts with, whose side is 2 for `bbbb ` and 4 for `cccc`.
+    expect(lay('aaaa bbbb cccc', 40)).toEqual([
+      [0, 4, undefined, 'wrap', 39],
+      [4, 4, 1, 'wrap', 24],
+      [4, node.content.size, 3, 'end', 39],
+    ]);
+    // Its white space is kept, as the page draws it: `xx aa  bb yy` is 60px, its two spaces 6px.
+    expect(lay('aa  bb', 200)).toEqual([[0, node.content.size, undefined, 'end', 60]]);
+    // A line feed in it ends its line, which the next starts after.
+    expect(lay('aaaa\nbb', 200)).toEqual([
+      [0, 4, undefined, 'break', 39],
+      [4, node.content.size, 1, 'end', 27],
+    ]);
+  });
+
   it('DOCE-PAGINATION-11.11 lays an inserted word before the template variable at its anchor', () => {
     const variable = documentSchema.nodes.template_variable?.create({
       variableKey: 'document.title',
@@ -597,9 +635,11 @@ describe('createTextLayout', () => {
       inserted: [{ offset: 5, pieces: ['xxxx '], sides: [-2] }],
     });
     if (!result.ok) throw new Error(result.reason);
+    // The word goes on the first line, before the variable, whose value starts the second inside
+    // the variable, before its first word's element (DOCE-PAGINATION-9.5).
     expect(result.table.lines.map(({ from, to, side }) => [from, to, side])).toEqual([
-      [0, 5, undefined],
-      [5, node.content.size, -1],
+      [0, 6, undefined],
+      [6, node.content.size, -1],
     ]);
   });
 

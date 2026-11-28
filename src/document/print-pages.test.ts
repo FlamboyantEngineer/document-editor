@@ -306,6 +306,43 @@ describe('renderLayoutPrintPage', () => {
     expect(hooks(printed)).toEqual(hooks(view));
   });
 
+  it('DOCE-PAGINATION-9.5 draws a variable’s value word by word with the breaks among its words, as the view does', () => {
+    const variable = node('template_variable', { variableKey: 'document.title' });
+    const laid = pagesDocument([page([paragraph([text('Title '), variable], { dataId: 'p1' })])]);
+    const doc = laid.type.create(
+      { ...laid.attrs, values: { 'document.title': 'aaaa bbbb cccc' } },
+      laid.content,
+    );
+    const engine = stubEngine();
+    // `Title ` and `aaaa ` on the first line, `bbbb ` on the second and `cccc` on the third, each
+    // later line starting inside the variable (offset 7), before its first word's element.
+    engine.lines = () => ({
+      width: 100,
+      lines: [
+        { from: 0, to: 7, width: 10, left: 0, top: 0, height: 20, end: 'wrap' },
+        { from: 7, to: 7, width: 10, left: 0, top: 20, height: 20, end: 'wrap', side: 1 },
+        { from: 7, to: 8, width: 10, left: 0, top: 40, height: 20, end: 'end', side: 3 },
+      ],
+      height: 60,
+      overhead: 0,
+      justify: false,
+    });
+    const { view, printed } = bothDrawings(doc, engine);
+    const drawn = (root: ParentNode) =>
+      [...(root.querySelector('p [data-template-variable]')?.children ?? [])].map((each) => [
+        each.className.replace(' ProseMirror-widget', '').replace('ProseMirror-widget', ''),
+        each.textContent,
+      ]);
+    expect(drawn(view)).toEqual([
+      ['', 'aaaa '],
+      ['de-forced-lines__break', ''],
+      ['', 'bbbb '],
+      ['de-forced-lines__break', ''],
+      ['', 'cccc'],
+    ]);
+    expect(drawn(printed)).toEqual(drawn(view));
+  });
+
   it('DOCE-PAGINATION-13.3 draws numbered headings, indents and justified lines', () => {
     const heading = node('heading', { level: 1, dataId: 'h1' }, [text('Scope of the plan')]);
     const doc = pagesDocument([page([heading])]);

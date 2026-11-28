@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LabelPart, LineMark } from '../layout-engine/line-marks.js';
+import { variablePieces } from '../layout-engine/variable-pieces.js';
 import {
   isPrintElement,
   markedContent,
@@ -167,4 +168,34 @@ export function shownTrees({ label, text, unread = false }: ShownText): PrintTre
     trees.push(printElement('span', { class: 'de-forced-lines__text' }, pieces));
   }
   return trees;
+}
+
+/** Where the forced lines break inside each variable's value: their marks, by position inside it. */
+export function valueBreaks(
+  blocks: readonly { readonly pos: number; readonly marks: readonly LineMark[] }[],
+): ReadonlyMap<number, readonly LineMark[]> {
+  const found = new Map<number, LineMark[]>();
+  for (const block of blocks)
+    for (const mark of block.marks) {
+      if (mark.side === undefined) continue;
+      const at = block.pos + 1 + mark.from;
+      found.set(at, [...(found.get(at) ?? []), mark]);
+    }
+  return found;
+}
+
+/**
+ * A variable's value as the pages draw it inside the variable (DOCE-PAGINATION-9.5): word by word,
+ * each word an element of its own, with each break or indent the forced lines draw among them
+ * (`valueBreaks`) before the word whose side it precedes.
+ */
+export function valueTrees(value: string, breaks: readonly LineMark[] = []): PrintTree[] {
+  return variablePieces(value).flatMap((piece) => {
+    const before = breaks
+      .filter((mark) => mark.side === piece.side - 1)
+      .map((mark) =>
+        printElement('span', { class: mark.class, ...(mark.style ? { style: mark.style } : {}) }),
+      );
+    return [...before, printElement('span', {}, [{ text: piece.text }])];
+  });
 }

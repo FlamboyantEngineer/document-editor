@@ -40,7 +40,7 @@ import {
   type PrintMarkup,
   standalonePage,
 } from './print-content.js';
-import { linesContent, shownTrees } from './print-lines.js';
+import { linesContent, shownTrees, valueBreaks, valueTrees } from './print-lines.js';
 import {
   isPrintElement,
   type NodeDrawing,
@@ -153,6 +153,7 @@ const rootOf = (drawn: PrintTree[]) => drawn.find(isPrintElement);
 function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing {
   const blocks = new Map(layout.blocks.map((block) => [block.pos, block]));
   const values = new Map(layout.variables.map((variable) => [variable.pos, variable.text]));
+  const breaks = valueBreaks(layout.blocks);
   const numbers = new Map(layout.numbers.map((number) => [number.pos, number]));
   const math = new Map((layout.math ?? []).map((typeset) => [typeset.pos, typeset]));
   const objects = new Map((layout.objects ?? []).map((object) => [object.pos, object]));
@@ -196,7 +197,7 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
       node.forEach((child, offset) => {
         children.push(...nodeTree(child, drawing, { at: pos + 1 + offset }));
       });
-      return [printElement('span', {}, [{ text: value }]), ...children];
+      return [...valueTrees(value, breaks.get(pos + 1)), ...children];
     },
   };
   return drawing;

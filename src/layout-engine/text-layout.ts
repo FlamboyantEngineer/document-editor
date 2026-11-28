@@ -333,6 +333,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         boxOf: boxOf(style),
         inserted: place.inserted,
         hidden: options.hidden?.(),
+        reserve: options.reserve,
       });
       if (!runs.ok) return runs;
       const boxes = leadReserved(place, { marker, font, reserve: options.reserve });
