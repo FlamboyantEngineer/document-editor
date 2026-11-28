@@ -231,7 +231,7 @@ function addInline(run: Builder, at: InlinePlace): string | null {
   const place = { parent: input.node, scope: input.scope, width: input.lineWidth };
   const sized = input.sizeAtom?.(child, place);
   if (sized) {
-    addText(run, { item: { width: sized.width }, offset, box: sized });
+    addText(run, { item: { width: sized.width }, offset, box: sized, marks: child.marks });
     return null;
   }
   if (child.type.name === 'template_variable') return addVariable(run, at);

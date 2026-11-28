@@ -10,6 +10,7 @@ import type { EditorState } from 'prosemirror-state';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
 import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
+import { stableKey } from '../utils/stable-key.js';
 import { templateFontFamilies } from './fonts.js';
 import type { PagesFonts, ServedFonts } from './served-fonts.js';
 import type { createPagesTextEngine, forgetFontWidths } from './text-engine.js';
@@ -21,8 +22,11 @@ export interface TextLayoutSetting {
   readonly template: () => TemplateFile;
   /** Whether code blocks are drawn with a gutter of line numbers now; none when not given. */
   readonly codeLineNumbers?: (() => boolean) | undefined;
-  /** The node types the host draws with node views of its own. */
-  readonly hostViews?: readonly string[] | undefined;
+  /**
+   * The node types the host draws with node views of its own now; another set makes the engine
+   * again (DOCE-PAGINATION-7.17).
+   */
+  readonly hostViews?: (() => readonly string[]) | undefined;
   /** The host's layout rules now, whose `size` sizes its nodes (DOCE-PAGINATION-14.1). */
   readonly layoutRules?: (() => LayoutRules | undefined) | undefined;
   /** The served fonts the text is measured with; no engine is made without them. */
@@ -55,8 +59,8 @@ export interface TextEngineHolder {
   version(): number;
   /** Settles once the engine's module has loaded, or failed to, which leaves no engine. */
   readonly loaded: Promise<unknown>;
-  /** Makes the engine again, so its atoms are measured again, as after the screen changed. */
-  remeasure(): void;
+  /** Why no engine can be made: the served fonts cannot be read, or the module failed to load. */
+  failure?(): string | null;
   destroy(): void;
 }
 
@@ -91,10 +95,39 @@ function servedInputs(fonts: ServedFonts) {
 
 // What the engine takes from the setting beside its template: the host's views, the markup and
 // the math layouter it loaded.
-const settingInputs = (
-  { hostViews, layoutRules, markup }: TextLayoutSetting,
-  { layouter }: LoadedEngine,
-) => ({ hostViews, layoutRules, markup, mathLayouter: () => layouter });
+const settingInputs = ({ layoutRules, markup }: TextLayoutSetting, { layouter }: LoadedEngine) => ({
+  layoutRules,
+  markup,
+  mathLayouter: () => layouter,
+});
+
+// What an engine is made for besides the served fonts: read from the setting on each ask.
+interface Making {
+  readonly template: TemplateFile;
+  readonly codeLineNumbers: boolean;
+  readonly language: string;
+  readonly hostViews: readonly string[];
+}
+
+function makingNow(setting: TextLayoutSetting): Making {
+  const template = setting.template();
+  return {
+    template,
+    codeLineNumbers: setting.codeLineNumbers?.() ?? false,
+    language: setting.language?.() ?? documentLanguage(null, template),
+    hostViews: setting.hostViews?.() ?? [],
+  };
+}
+
+const viewsKey = (views: readonly string[]) => [...views].sort().join(',');
+
+// Whether an engine made for one setting serves another: an equal template, as a host that
+// builds its template on each render hands over, keeps it.
+const sameMaking = (made: Making, now: Making) =>
+  sameTemplate(made.template, now.template) &&
+  made.codeLineNumbers === now.codeLineNumbers &&
+  made.language === now.language &&
+  viewsKey(made.hostViews) === viewsKey(now.hostViews);
 
 // How many times the markup the pages are laid out in has changed, as it is read.
 function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => number {
@@ -124,6 +157,24 @@ function numberedLike(engine: PagesTextEngine, counted: Counted) {
   };
 }
 
+// Each template's content as text, read once for as long as it is kept: a template is never
+// changed in place.
+const templateKeys = new WeakMap<TemplateFile, string>();
+
+function templateKey(template: TemplateFile): string {
+  let key = templateKeys.get(template);
+  if (key === undefined) {
+    key = stableKey(template);
+    templateKeys.set(template, key);
+  }
+  return key;
+}
+
+// Whether a template is the engine's own or an equal copy, as a host that builds its template on
+// each render hands over; either keeps the engine and every block it laid out.
+const sameTemplate = (made: TemplateFile, template: TemplateFile) =>
+  made === template || templateKey(made) === templateKey(template);
+
 /**
  * Loads and holds a text layout engine; `changed` is told when the served faces of a family the
  * template newly names arrive, which makes the engine again.
@@ -137,20 +188,22 @@ export function holdTextEngine(options: {
   let made: LoadedEngine | null = null;
   let fonts: PagesFonts | null = null;
   let current: PagesTextEngine | null = null;
-  let numbered = false;
+  let making: Making | null = null;
   const counted: Counted = { doc: null };
-  let spoken = '';
   let version = 0;
   const markups = markupChanges(options.setting.markup);
   let destroyed = false;
   // Settles either way: served fonts that fail leave no engine (DOCE-PAGINATION-12.5), and the
-  // pages say why from the fonts themselves, so nothing waits on a rejection no one handles.
+  // pages say why, so nothing waits on a rejection no one handles.
+  let failed: string | null = null;
   const loaded = loadEngine(options.setting).then(
     ([module, served, layouter]) => {
       made = { ...module, layouter };
       fonts = served;
     },
-    () => undefined,
+    () => {
+      failed = 'engine-failed';
+    },
   );
   const settled = () => {
     version += 1;
@@ -179,21 +232,16 @@ export function holdTextEngine(options: {
   return {
     engine() {
       if (!made || destroyed || fonts?.phase !== 'pretext') return null;
-      const template = options.setting.template();
-      const codeLineNumbers = options.setting.codeLineNumbers?.() ?? false;
-      const language = options.setting.language?.() ?? documentLanguage(null, template);
-      if (current?.template === template && numbered === codeLineNumbers && language === spoken)
-        return current;
-      numbered = codeLineNumbers;
-      spoken = language;
+      const now = makingNow(options.setting);
+      if (current && making && sameMaking(making, now)) return current;
+      making = now;
       drop();
       version += 1;
-      askFor(template);
+      askFor(now.template);
+      const { language } = now;
       const engine = made.createPagesTextEngine({
         ...servedInputs(fonts),
-        template,
-        codeLineNumbers,
-        language,
+        ...now,
         state: options.state,
         ...settingInputs(options.setting, made),
       });
@@ -204,10 +252,19 @@ export function holdTextEngine(options: {
     // Another markup keeps the engine, but moves the lines it draws, as math laid out again does.
     version: () => version + markups() + atoms(),
     loaded,
-    remeasure: drop,
+    failure: () => failed ?? (fonts?.phase === 'browser' ? fonts.reason : null),
     destroy() {
       destroyed = true;
       drop();
     },
   };
+}
+
+/**
+ * The engine a projection's pages lay out with now; else why they can have none (none held, or the
+ * one held cannot be made); else null while it loads.
+ */
+export function engineOrFailure(text: TextEngineHolder | null): PagesTextEngine | string | null {
+  if (!text) return 'no-engine';
+  return text.engine() ?? text.failure?.() ?? null;
 }

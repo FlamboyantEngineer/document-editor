@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { harfBuzzWasm, referenceFaces } from '../../../test/font-files-node.js';
 import type { FontsAdapter, HostResult } from '../../host/adapters.js';
 import type { FontFiles, FontShaper } from '../../host/font-files.js';
@@ -36,6 +36,7 @@ describe('DOCE-HOST-1.14.1 Pretext layout waits for the host font files', () => 
         files: () => files.promise,
       }),
       ['Lab Geist'],
+      { timeout: 10_000 },
     ).then((fonts) => {
       settled = true;
       return fonts;
@@ -76,11 +77,39 @@ describe('DOCE-HOST-1.14.1 Pretext layout waits for the host font files', () => 
       }),
     ],
   ])('keeps the browser layout and says why: %s', async (reason, fonts) => {
-    expect(await loadHostFonts(fonts, ['Lab Geist'])).toEqual({ phase: 'browser', reason });
+    const loaded = await loadHostFonts(fonts, ['Lab Geist'], { timeout: 10_000 });
+    expect(loaded).toMatchObject({ phase: 'browser', reason });
+    // Only a request that failed is worth making again (DOCE-PAGINATION-12.5).
+    expect(loaded.phase === 'browser' && Boolean(loaded.retry)).toBe(reason.endsWith('-failed'));
   });
 
   it('keeps the browser layout without a fonts adapter', async () => {
-    expect(await loadHostFonts(undefined, [])).toEqual({ phase: 'browser', reason: 'no-shaper' });
+    expect(await loadHostFonts(undefined, [], { timeout: 10_000 })).toEqual({
+      phase: 'browser',
+      reason: 'no-shaper',
+    });
+  });
+
+  it('DOCE-PAGINATION-12.5 gives up on a host that never answers, saying so, and aborts its request', async () => {
+    vi.useFakeTimers();
+    let aborted: AbortSignal | undefined;
+    const loading = loadHostFonts(
+      adapter({
+        shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())),
+        files: (_families, { signal }) => {
+          aborted = signal;
+          return new Promise(() => undefined);
+        },
+      }),
+      ['Lab Geist'],
+      { timeout: 30_000 },
+    );
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(aborted?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(loading).resolves.toEqual({ phase: 'browser', reason: 'timed-out', retry: true });
+    expect(aborted?.aborted).toBe(true);
+    vi.useRealTimers();
   });
 
   it('fails with a reason, never a throw, when the adapter throws instead of rejecting', async () => {
@@ -88,15 +117,18 @@ describe('DOCE-HOST-1.14.1 Pretext layout waits for the host font files', () => 
       throw new Error('broken adapter');
     };
     await expect(
-      loadHostFonts(adapter({ shaper: broken, files: () => Promise.resolve(ok(served())) }), [
-        'Lab Geist',
-      ]),
-    ).resolves.toEqual({ phase: 'browser', reason: 'shaper-failed' });
+      loadHostFonts(
+        adapter({ shaper: broken, files: () => Promise.resolve(ok(served())) }),
+        ['Lab Geist'],
+        { timeout: 10_000 },
+      ),
+    ).resolves.toEqual({ phase: 'browser', reason: 'shaper-failed', retry: true });
     await expect(
       loadHostFonts(
         adapter({ shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())), files: broken }),
         ['Lab Geist'],
+        { timeout: 10_000 },
       ),
-    ).resolves.toEqual({ phase: 'browser', reason: 'files-failed' });
+    ).resolves.toEqual({ phase: 'browser', reason: 'files-failed', retry: true });
   });
 });

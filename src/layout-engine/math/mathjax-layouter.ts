@@ -2,8 +2,9 @@
 // MathML the math renderer typeset goes through MathJax's MathML input and SVG output, with its
 // STIX2 glyph data, in MathJax's own DOM-free document (the lite adaptor), so nothing is measured
 // by a browser or a system font. Each equation gives its box in CSS pixels and its drawing as an
-// SVG tree of paths and rules. MathJax and its STIX2 font load with the first equation; when
-// they cannot load there is no layouter and math takes the reserved box.
+// SVG tree of paths and rules. MathJax and its STIX2 font load when the first equation is
+// prepared, so a document without math never loads them; until they have loaded math is pending,
+// and when they cannot load math takes the reserved box.
 
 import type { MathJaxStix2Font } from '@mathjax/mathjax-stix2-font/js/svg.js';
 import type { SVG as SvgOutput } from '@mathjax/src/js/output/svg.js';
@@ -176,7 +177,6 @@ function emLayout(container: LiteNode): EmLayout | null {
 const upTo64th = (length: number) => Math.ceil(length * 64 - 1e-9) / 64;
 
 interface Converter {
-  readonly key: string;
   convert(markup: string, display: boolean): LiteNode;
   convertLoading(markup: string, display: boolean): Promise<LiteNode>;
   isRetry(error: unknown): boolean;
@@ -209,7 +209,6 @@ async function createConverter(): Promise<Converter | null> {
   // Sizes are read in ems, so the em and ex given here only set the attributes left out.
   const options = (display: boolean) => ({ display, em: 16, ex: 8, containerWidth: 1_000_000 });
   return {
-    key: `mathjax-${mathjax.version}-stix2-${MathJaxStix2Font.NAME}`,
     convert: (markup, display) => document.convert(markup, options(display)) as LiteNode,
     convertLoading: async (markup, display) =>
       (await document.convertPromise(markup, options(display))) as LiteNode,
@@ -240,10 +239,17 @@ function keptLayouts() {
   };
 }
 
-/** The MathJax layouter, or null when MathJax or its STIX2 font is not installed. */
-export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
-  const converter = await createConverter();
-  if (!converter) return null;
+/** The MathJax release the layouter lays out with; a test checks it is the one installed. */
+export const MATHJAX_RELEASE = '4.1.3';
+
+/** The layouter's key: MathJax's release and its STIX2 font's name. */
+export const MATHJAX_KEY = `mathjax-${MATHJAX_RELEASE}-stix2-MathJaxStix2`;
+
+/** The key of a layouter whose MathJax could not load, which leaves math in the reserved box. */
+const UNLOADED_KEY = 'reserved-math';
+
+// Lays equations out with a loaded converter, keeping each layout.
+function convertingWith(converter: Converter) {
   const laid = keptLayouts();
   const cacheKey = (markup: string, display: boolean) => `${display ? 'D' : 'I'}${markup}`;
   const keep = (markup: string, display: boolean, container: LiteNode) => {
@@ -277,8 +283,7 @@ export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
     return loaded;
   };
   return {
-    key: converter.key,
-    prepare(trees) {
+    prepare(trees: readonly MathTree[]): Promise<void> | null {
       const waiting = trees.flatMap((tree) => {
         const display = tree.attrs.display === 'block';
         const markup = mathMarkup(tree);
@@ -287,7 +292,7 @@ export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
       });
       return waiting.length ? Promise.all(waiting).then(() => undefined) : null;
     },
-    layout(tree, display, sizePx) {
+    layout(tree: MathTree, display: boolean, sizePx: number): LaidMath | null {
       const layout = tryConvert(mathMarkup(tree), display);
       if (!layout) return null;
       return {
@@ -298,5 +303,33 @@ export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
         missing: layout.missing,
       };
     },
+  };
+}
+
+/**
+ * The MathJax layouter. MathJax and its STIX2 font load when the first equation is prepared, so
+ * one made for a document without math loads nothing (DOCE-PAGINATION-12.12); until they have,
+ * `prepare` is pending. When they cannot load, its key becomes `reserved-math` and math takes the
+ * reserved box (DOCE-PAGINATION-12.9).
+ */
+export function createMathJaxLayouter(): MathLayouter {
+  // Undefined until an equation asks for MathJax, null when it could not load.
+  let converting: ReturnType<typeof convertingWith> | null | undefined;
+  let starting: Promise<void> | null = null;
+  const start = () =>
+    (starting ??= createConverter().then((converter) => {
+      converting = converter && convertingWith(converter);
+    }));
+  const prepare = (trees: readonly MathTree[]): Promise<void> | null => {
+    if (!trees.length || converting === null) return null;
+    if (converting === undefined) return start().then(() => prepare(trees) ?? undefined);
+    return converting.prepare(trees);
+  };
+  return {
+    get key() {
+      return converting === null ? UNLOADED_KEY : MATHJAX_KEY;
+    },
+    prepare,
+    layout: (tree, display, sizePx) => converting?.layout(tree, display, sizePx) ?? null,
   };
 }

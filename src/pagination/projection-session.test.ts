@@ -85,6 +85,75 @@ describe('starting the projection', () => {
     projection.destroy();
   });
 
+  it('DOCE-PAGINATION-11.1 leaves an engine holder it was handed to its caller', () => {
+    stubLayout({});
+    const destroy = vi.fn();
+    const holder = {
+      engine: () => null,
+      version: () => 0,
+      loaded: Promise.resolve(),
+      failure: () => null,
+      destroy,
+    };
+    const open = () =>
+      createPagedProjection({
+        element: document.body.appendChild(document.createElement('div')),
+        state: canonicalState(),
+        pageHeight: 1000,
+        settle: 0,
+        schedule: () => () => undefined,
+        dispatch: () => undefined,
+        onProjection: () => undefined,
+        textEngine: holder,
+      });
+    // Two projections share one holder; the first destroyed leaves it to the other.
+    const first = open();
+    const second = open();
+    first.destroy();
+    second.destroy();
+    expect(destroy).not.toHaveBeenCalled();
+  });
+
+  // A projection with a layout engine setting, or none, whose frames run at once.
+  const started = (textLayout?: Parameters<typeof createPagedProjection>[0]['textLayout']) =>
+    createPagedProjection({
+      element: document.body.appendChild(document.createElement('div')),
+      state: canonicalState(),
+      pageHeight: 1000,
+      settle: 0,
+      schedule: (run) => {
+        queueMicrotask(run);
+        return () => undefined;
+      },
+      dispatch: () => undefined,
+      onProjection: () => undefined,
+      ...(textLayout ? { textLayout } : {}),
+    });
+
+  it('DOCE-PAGINATION-12.5 fails, rather than waits, without a layout engine', async () => {
+    stubLayout({});
+    const projection = started();
+    await expect(projection.whenSettled()).resolves.toBe('failed');
+    expect(projection.stats().layouts).toBe(0);
+    projection.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 fails once the served fonts cannot be read, or the engine cannot load', async () => {
+    stubLayout({});
+    const unread = started({
+      template: () => BASE_TEMPLATE,
+      fonts: Promise.resolve({ phase: 'browser', reason: 'no-faces' } as const),
+    });
+    await expect(unread.whenSettled()).resolves.toBe('failed');
+    unread.destroy();
+    const refused = started({
+      template: () => BASE_TEMPLATE,
+      fonts: Promise.reject(new Error('The fonts were refused.')),
+    });
+    await expect(refused.whenSettled()).resolves.toBe('failed');
+    refused.destroy();
+  });
+
   it.each(['rejected', 'unavailable'] as const)(
     'DOCE-PAGINATION-7.6 fails permanently when its engine fonts are %s',
     async (result) => {
@@ -114,6 +183,34 @@ describe('starting the projection', () => {
       projection.destroy();
     },
   );
+
+  it('DOCE-PAGINATION-7.6 settles once the served fonts arrive, laying nothing out again', () => {
+    let pending = false;
+    const { projection, drain } = mount({ fontsPending: () => pending });
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    const { layouts } = projection.stats();
+    // The fonts of a template start pending: the pages are pending, and laid out no more.
+    pending = true;
+    projection.fontsChanged();
+    drain();
+    expect(projection.layoutState()).toBe('pending');
+    expect(projection.stats().layouts).toBe(layouts);
+    pending = false;
+    projection.fontsChanged();
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    expect(projection.stats().layouts).toBe(layouts);
+    // A change made while they were pending is laid out.
+    pending = true;
+    edit(projection, (state) => state.tr.insertText('New ', 1));
+    drain();
+    pending = false;
+    projection.fontsChanged();
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    projection.destroy();
+  });
 
   it('DOCE-PAGINATION-5.6 keeps layout pending for an optional input and proceeds if it fails', async () => {
     const pending = deferred<void>();

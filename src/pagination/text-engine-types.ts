@@ -18,9 +18,6 @@ import type { LayoutBlock, LayoutRules, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { LayoutInputs } from './layout-inputs.js';
 
-/** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
-export type TextLayoutMode = 'dom' | 'pretext';
-
 /** What the pages' text layout engine is made from. */
 export interface TextEngineOptions {
   readonly template: TemplateFile;
@@ -101,8 +98,8 @@ export interface DrawnLines extends LineTable {
 interface DocumentNumbering {
   /** Each numbered heading's number with its space. */
   readonly headings: ReadonlyMap<number, string>;
-  /** The numbered paragraphs, which the browser still draws on its own lines. */
-  readonly paragraphs: ReadonlySet<number>;
+  /** Each numbered paragraph's number and its level's positions. */
+  readonly paragraphs: ReadonlyMap<number, ParagraphNumber>;
   /** A caption's label, as this document's captions show them (`captionNumbers`). */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   /** Every caption's label in order, as one key. */
@@ -161,7 +158,11 @@ export interface PagesTextEngine {
   /** The measured rows and reserved page digits a kept list of contents drawing must match. */
   contentsKeyOf?(node: ProseMirrorNode): string;
   /** How the pages draw a list of contents block; null when the engine left it to the DOM. */
-  contentsDrawn(node: ProseMirrorNode, scope: string | null): ContentsDrawn | null;
+  contentsDrawn(
+    node: ProseMirrorNode,
+    scope: string | null,
+    inserted?: InsertedTexts,
+  ): ContentsDrawn | null;
   /**
    * A top-level block of a section's page content, laid out with the words inserted in its text
    * blocks; one it cannot lay out takes no room, counted in its stats.
@@ -197,7 +198,8 @@ export interface PagesTextEngine {
    * The lines of each text block inside a top-level container of a page, such as a table's cells'
    * paragraphs, as the engine lays the container out in its section's content width; none when it
    * cannot lay the container out. Its captions show `labelOf`'s labels, as the pages' own copies of
-   * the parts of a split table or code block do; the measured document's by default.
+   * the parts of a split table or code block do; the measured document's by default. Its text
+   * blocks are laid out with the words `inserted` draws in them, as `measureBlock` lays them out.
    */
   nestedLines(
     container: ProseMirrorNode,

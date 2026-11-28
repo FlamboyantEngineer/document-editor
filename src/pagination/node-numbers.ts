@@ -7,7 +7,7 @@ import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
-import type { TemplateFile } from '../model/index.js';
+import { resolveFootnoteSettings, type TemplateFile } from '../model/index.js';
 import { blockLabelKeys } from './block-label-keys.js';
 import { equationNumbers } from './equation-numbers.js';
 
@@ -37,21 +37,29 @@ const NO_NUMBERS: NodeNumbers = {
   keyOf: () => '',
 };
 
-// Each footnote's number by its id, through the document as the state laid out numbers them, and
-// the numbers of the markers in each top-level block, in order, as the key a kept block's must
-// match: a marker renumbered changes its width (DOCE-PAGINATION-10.7).
-function footnotesOf(doc: ProseMirrorNode) {
+// The number a footnote numbered on each page is laid out with: the room of one digit, as wide as
+// CSS's `ch`, whatever its page draws (DOCE-PAGINATION-7.2). The measured document has no pages to
+// number it by.
+const PAGE_FOOTNOTE_ROOM = '0';
+
+// Each footnote's number by its id, through the document as the state laid out numbers them, or
+// the room of one digit when the pages number them on each page, and the numbers of the markers in
+// each top-level block, in order, as the key a kept block's must match: a marker renumbered
+// changes its width (DOCE-PAGINATION-10.7).
+function footnotesOf(doc: ProseMirrorNode, perPage: boolean) {
   const byId = new Map<string, string>();
   const byBlock = new Map<ProseMirrorNode, string>();
-  for (const { node, pos, number } of numberFootnoteParts(doc, 'document')) {
+  for (const part of numberFootnoteParts(doc, 'document')) {
+    const { node, pos } = part;
+    const number = perPage ? PAGE_FOOTNOTE_ROOM : String(part.number);
     const id = idOf(node);
-    if (id !== null) byId.set(id, String(number));
+    if (id !== null) byId.set(id, number);
     if (node.type.name !== 'footnote_reference') continue;
     const $pos = doc.resolve(pos);
     for (let depth = $pos.depth - 1; depth >= 0; depth -= 1) {
       if ($pos.node(depth).type.name !== 'page_content') continue;
       const block = $pos.node(depth + 1);
-      byBlock.set(block, `${byBlock.get(block) ?? ''},${String(number)}`);
+      byBlock.set(block, `${byBlock.get(block) ?? ''},${number}`);
       break;
     }
   }
@@ -67,12 +75,17 @@ export function markerKey(node: ProseMirrorNode, footnoteOf: NodeNumbers['footno
   return key;
 }
 
+// A paragraph's number as a key: its label, after a mark when it is a later part's.
+const paragraphKey = (number: ParagraphNumber | undefined) =>
+  number ? `${number.continued ? '+' : ''}${number.label}` : '';
+
 /** A document's numbers by node, and its numbered headings and paragraphs. */
 function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const { headings, paragraphs } = documentNumbers(doc, template);
   const labels = captionNumbers(doc, template);
+  const perPage = resolveFootnoteSettings(template).numbering === 'page';
   let footnotes: ReturnType<typeof footnotesOf> | null = null;
-  const footnotesOnce = () => (footnotes ??= footnotesOf(doc));
+  const footnotesOnce = () => (footnotes ??= footnotesOf(doc, perPage));
   const byNode = (): NodeNumbers => {
     const prefixes = new Map<ProseMirrorNode, string>();
     const numbered = new Map<ProseMirrorNode, ParagraphNumber>();
@@ -105,18 +118,19 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
       footnoteOf,
       equationOf,
       keyOf: (node) =>
-        `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${labelKey(node)}`,
+        `${prefixes.get(node) ?? paragraphKey(numbered.get(node))}|${footnotes.byBlock.get(node) ?? ''}|${labelKey(node)}`,
     };
   };
   const numbering = {
     headings,
-    paragraphs: new Set(paragraphs.keys()),
+    paragraphs,
     labelOf: labels.labelOf,
     labelsKey: labels.labelsKey,
   };
-  // Each footnote's number by its id, in the order the markers first cite them, as one key.
+  // Each footnote's number by its id, in the order the markers first cite them, as one key; none
+  // when every footnote is laid out with the same room.
   const footnotesKey = () =>
-    [...footnotesOnce().byId].map(([id, number]) => `${id}=${number}`).join(',');
+    perPage ? '' : [...footnotesOnce().byId].map(([id, number]) => `${id}=${number}`).join(',');
   return { byNode, numbering, footnotesKey };
 }
 

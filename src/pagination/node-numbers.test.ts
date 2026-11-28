@@ -71,6 +71,34 @@ describe('holdNodeNumbers', () => {
     expect(numbers.version()).toBe(first + 1);
   });
 
+  it('DOCE-PAGINATION-7.2 lays footnotes numbered on each page out with the room of one digit', () => {
+    const template = {
+      ...BASE_TEMPLATE,
+      footnotes: { ...BASE_TEMPLATE.footnotes, numbering: 'page' as const },
+    };
+    const ids = Array.from({ length: 12 }, (_, index) => `n${String(index + 1)}`);
+    const cited = (order: readonly string[]) =>
+      documentOf([{ type: 'paragraph', content: [text('One'), ...order.map(note)] }]);
+    const numbers = holdNodeNumbers(template);
+    const doc = cited(ids);
+    numbers.number(doc);
+    const { footnoteOf, keyOf } = numbers.current();
+    const laid: (string | undefined)[] = [];
+    doc.descendants((node) => {
+      if (node.type.name === 'footnote_reference' || node.type.name === 'footnote_entry')
+        laid.push(footnoteOf(node));
+      return true;
+    });
+    expect(new Set(laid)).toEqual(new Set(['0']));
+    const key = keyOf(doc.child(0).child(0));
+    // Renumbering the footnotes changes no width the engine lays out.
+    const version = numbers.version();
+    const renumbered = cited([...ids].reverse());
+    numbers.number(renumbered);
+    expect(numbers.version()).toBe(version);
+    expect(numbers.current().keyOf(renumbered.child(0).child(0))).toBe(key);
+  });
+
   it('DOCE-PAGINATION-12.10 gives each display equation the automatic number the pages draw, in its block key', () => {
     const file = readRegressionDocument('caption-numbering');
     const template = readRegressionTemplate(file.template?.id ?? 'regression-base');

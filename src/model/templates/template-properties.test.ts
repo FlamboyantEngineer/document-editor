@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolveLength } from '../../layout-engine/template-lengths.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -104,6 +105,24 @@ describe('template properties', () => {
     expect(at('1.25em')).toBe('15px');
     expect(at('1rem')).toBe('16px');
     expect(at('11pt')).toBe('11pt');
+  });
+
+  it('DOCE-PAGINATION-10.9 writes rem lengths in pixels at the root size the engine reads', () => {
+    // A host page's own root size never reaches what the engine laid out at 16px.
+    const properties = templateProperties({
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        paragraph: { size: '0.75rem', spaceBefore: '2rem', spaceAfter: '0.5rem' },
+        heading1: { size: '1.5rem' },
+      },
+    });
+    expect(properties['--doc-paragraph-font-size']).toBe('12px');
+    expect(properties['--doc-paragraph-margin-top']).toBe('32px');
+    expect(properties['--doc-paragraph-margin-bottom']).toBe('8px');
+    expect(properties['--doc-heading-1-font-size']).toBe('24px');
+    expect(Object.values(properties).filter((value) => value.endsWith('rem'))).toEqual([]);
+    expect(resolveLength('2rem', 12)).toBe(32);
   });
 
   it('DOCE-TEMPLATES-5.2 DOCE-TEMPLATES-5.8 leaves out a value that is not of its setting kind', () => {

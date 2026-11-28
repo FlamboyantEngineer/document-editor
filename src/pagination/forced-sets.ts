@@ -16,6 +16,7 @@ import {
   type LineMark,
   lineMarks,
 } from '../layout-engine/line-marks.js';
+import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { drawnDirection } from './block-directions.js';
 import { isCaption } from './forced-blocks.js';
 import type { InsertedTexts } from './inserted-texts.js';
@@ -35,8 +36,8 @@ export interface Builder {
   readonly engine: PagesTextEngine;
   readonly version: number;
   readonly numbers: ReadonlyMap<number, string>;
-  /** The numbered paragraphs, which the browser still draws on its own lines. */
-  readonly skipped: ReadonlySet<number>;
+  /** Each numbered paragraph's number, by position. */
+  readonly paragraphs: ReadonlyMap<number, ParagraphNumber>;
   /** The labels the pages' captions show, and all of them as one key. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   readonly labels?: string | undefined;
@@ -82,14 +83,16 @@ export function findKeptPage(
   return matches ? kept.set : undefined;
 }
 
-/** The scope, number, continuation and inserted words a top-level block was drawn with. */
+/** The scope, heading or paragraph number, continuation and inserted words a top-level block was drawn with. */
 export function topLevelBlockKey(
   builder: Builder,
   node: ProseMirrorNode,
   { pos, scope, prefix }: { pos: number; scope: string | null; prefix: string | undefined },
 ): string {
   const continued = builder.continuing.has(pos) ? 'c' : '';
-  return `${JSON.stringify(scope)}|${prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
+  const numbered = builder.paragraphs.get(pos);
+  const number = numbered ? `${numbered.continued ? '+' : ''}${numbered.label}` : '';
+  return `${JSON.stringify(scope)}|${prefix ?? ''}|${number}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
 }
 
 // A break, or an indent, drawn among the words inserted at a position, such as a comparison's

@@ -102,7 +102,7 @@ describe('checkDraws', () => {
     ]);
   const counted = (view: EditorView) => {
     const counts: number[] = [];
-    checkDraws({ count: (pages) => counts.push(pages) }).drawn(view, null);
+    checkDraws({ overflow: () => true, count: (pages) => counts.push(pages) }).drawn(view, null);
     return counts;
   };
 

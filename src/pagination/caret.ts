@@ -2,6 +2,7 @@
 // the next page would otherwise jump by the space between pages, or out of view.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
 /** Where the caret is on screen before a layout: its top, when the editor has focus. */
@@ -12,6 +13,22 @@ export function caretPlace(view: EditorView): number | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether a layout's transaction changes the pages anywhere up to the end of the top-level block
+ * the caret is in, which may move the caret on screen; a layout that changes only what follows
+ * that block leaves it where it is, and the caret need not be read.
+ */
+function movesCaret(tr: Transaction, head: number): boolean {
+  if (!tr.docChanged) return false;
+  const diff = tr.before.content.findDiffStart(tr.doc.content);
+  if (diff === null) return false;
+  const $head = tr.before.resolve(Math.min(head, tr.before.content.size));
+  for (let depth = $head.depth; depth > 1; depth -= 1) {
+    if ($head.node(depth - 1).type.name === 'page_content') return diff < $head.after(depth);
+  }
+  return true;
 }
 
 function scrolls(element: Element): boolean {
@@ -52,7 +69,15 @@ export function takeCaretBefore(doc: ProseMirrorNode): number | null {
   return caret;
 }
 
+/**
+ * Records where the caret of a view was on screen before a layout's transaction, when the layout may
+ * move it (`movesCaret`).
+ */
+export function rememberMovedCaret(tr: Transaction, view: EditorView): void {
+  if (movesCaret(tr, view.state.selection.head)) rememberCaret(tr.doc, caretPlace(view));
+}
+
 /** Records where the caret was on screen before the layout that made a document. */
-export function rememberCaret(doc: ProseMirrorNode, caret: number | null): void {
+function rememberCaret(doc: ProseMirrorNode, caret: number | null): void {
   caretBefore.set(doc, caret);
 }

@@ -82,7 +82,7 @@ function contentSet(
     // A list of contents is drawn by its node view, on the rows the engine laid out.
     if (child.type.name === 'toc_block') {
       at.lists.push({ node: child, key: builder.engine.contentsKeyOf?.(child) });
-      const drawn = builder.engine.contentsDrawn(child, at.scope);
+      const drawn = builder.engine.contentsDrawn(child, at.scope, builder.inserted);
       if (drawn) locals.push(Decoration.node(offset, end, {}, { contentsDrawn: drawn }));
       return;
     }
@@ -90,7 +90,7 @@ function contentSet(
       pos,
       scope: at.scope,
       headings: builder.numbers,
-      numbered: builder.skipped,
+      numbered: builder.paragraphs,
       inserted: builder.inserted,
       labelOf: builder.labelOf,
       continuing: builder.continuing,
@@ -113,9 +113,10 @@ function contentSet(
       locals.push(Decoration.node(offset, end, blockAttrs(table, { dir }), { forcedLines: table }));
       return;
     }
-    locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
-    const key = topLevelBlockKey(builder, child, { pos, scope: at.scope, prefix: first.prefix });
-    const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
+    const { prefix, prefixed } = first;
+    locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix, prefixed, dir })));
+    const key = topLevelBlockKey(builder, child, { pos, scope: at.scope, prefix });
+    const set = blockSet(builder, child, { table, key, prefixed: Boolean(prefixed) });
     if (set !== DecorationSet.empty) children.push(offset, end, set);
   });
   return locals.length || children.length ? new makeSet(locals, children) : DecorationSet.empty;
@@ -237,7 +238,7 @@ function decorate(
     previous.labels === numbering.labelsKey &&
     sameNumbers(
       previous,
-      { numbers, skipped: numbering.paragraphs, directions, continuing },
+      { numbers, paragraphs: numbering.paragraphs, directions, continuing },
       state,
     );
   const builder: ContentBuilder = {
@@ -247,7 +248,7 @@ function decorate(
     doc,
     footnotes,
     values,
-    skipped: numbering.paragraphs,
+    paragraphs: numbering.paragraphs,
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
     directions,

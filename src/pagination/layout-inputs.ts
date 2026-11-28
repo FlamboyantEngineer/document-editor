@@ -10,7 +10,7 @@ import {
   type LayoutRules,
   type TemplateFile,
 } from '../model/index.js';
-import { bytesHash } from '../utils/bytes-hash.js';
+import { familyKey, fontFaceKey, uniqueFontFaces } from '../utils/font-keys.js';
 import { segmentationFingerprint } from '../utils/segmentation.js';
 import { stableKey } from '../utils/stable-key.js';
 import { portableTemplateOf } from './served-template.js';
@@ -24,9 +24,13 @@ export const HARFBUZZJS_RELEASE = '1.6.4';
 
 /** The inputs a layout was made from, each as a short key. */
 export interface LayoutInputs {
-  /** The served faces in precedence order, by family, weight, style, range and bytes. */
+  /**
+   * The served faces by family, weight, style, range and bytes, without exact duplicates: each
+   * family's faces in precedence order, the families by name, and the family served first, which
+   * a font none of whose families is served falls back to.
+   */
   readonly fonts: string;
-  /** The family each generic keyword stands for. */
+  /** The family each generic keyword stands for, by its name as CSS matches it. */
   readonly generics: string;
   readonly pretext: string;
   readonly shaper: string;
@@ -55,7 +59,7 @@ export interface LayoutInputs {
 
 // The version of the library's own layout in the key's prefix: moved by hand whenever the same
 // inputs lay a document out on other pages, or the key is made otherwise.
-const LAYOUT_KEY_VERSION = 3;
+const LAYOUT_KEY_VERSION = 5;
 
 // FNV-1a, 32 bits, as eight hex digits, over text or bytes.
 function fnv(feed: (step: (unit: number) => void) => void, seed = 0x811c9dc5): string {
@@ -101,8 +105,18 @@ function rulesKey(rules: LayoutRules | undefined): string {
 
 const namesKey = (names: Iterable<string>) => [...new Set(names)].sort().join(',');
 
-const faceKey = (face: FontFaceFile) =>
-  [face.family, face.weight, face.style, face.unicodeRange ?? '', bytesHash(face.bytes)].join('|');
+// Only the order of a family's faces and the first family served decide a layout, so faces served
+// in another order of families, again, or under another spelling of a family give the same key.
+function fontsKey(faces: readonly FontFaceFile[]): string {
+  const families = new Map<string, string[]>();
+  for (const face of uniqueFontFaces(faces, fontFaceKey)) {
+    const family = familyKey(face.family);
+    families.set(family, [...(families.get(family) ?? []), fontFaceKey(face)]);
+  }
+  const fallback = faces[0] ? familyKey(faces[0].family) : '';
+  const sorted = [...families].sort(([a], [b]) => (a < b ? -1 : 1));
+  return hashText([`fallback=${fallback}`, ...sorted.flatMap(([, keys]) => keys)].join('\n'));
+}
 
 /** What a layout's inputs are, from the engine's own. */
 export function layoutInputs(input: {
@@ -116,10 +130,11 @@ export function layoutInputs(input: {
   readonly hostViews?: readonly string[] | undefined;
   readonly refusedTextAtoms?: ReadonlyMap<string, string> | undefined;
 }): LayoutInputs {
-  const faces = (input.fonts?.faces ?? []).map(faceKey);
-  const generics = Object.entries(input.fonts?.generics ?? {}).sort(([a], [b]) => (a < b ? -1 : 1));
+  const generics = Object.entries(input.fonts?.generics ?? {})
+    .map(([keyword, family]): [string, string] => [keyword, familyKey(family)])
+    .sort(([a], [b]) => (a < b ? -1 : 1));
   return {
-    fonts: hashText(faces.join('\n')),
+    fonts: fontsKey(input.fonts?.faces ?? []),
     generics: hashText(JSON.stringify(generics)),
     pretext: PRETEXT_RELEASE,
     shaper: `harfbuzzjs-${HARFBUZZJS_RELEASE}`,

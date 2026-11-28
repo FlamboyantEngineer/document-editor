@@ -31,7 +31,6 @@ import {
   type PagesFonts,
   pageVariablesKey,
   type SectionLayoutRules,
-  type TextLayoutMode,
 } from '../../pagination/index.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
 import type { PagedEditor } from './use-paged-projection.js';
@@ -47,6 +46,7 @@ export type LayoutRunner = Pick<
   | 'servedFonts'
   | 'drawAllLines'
   | 'refresh'
+  | 'fontsChanged'
   | 'layout'
 >;
 
@@ -156,17 +156,16 @@ export interface PagingRefs {
   readonly ownPlugins: RefObject<readonly Plugin[]>;
 }
 
-/** What a page layout starts from: its footnote numbering and how it lays its text out. */
+/** What a page layout starts from: its footnote numbering and the fonts its engine measures with. */
 interface PagingSettings {
   readonly footnoteNumbering: 'document' | 'page';
-  readonly textLayout: TextLayoutMode;
   /** The served fonts the layout engine measures with (DOCE-HOST-1.14.1). */
   readonly fonts: () => PromiseLike<PagesFonts> | null;
   /** The markup the layout engine lays suggestions out in now (DOCE-PAGINATION-11.12). */
   readonly markup: () => SuggestionMarkup;
 }
 
-// Keeps typeset math on the engine's reserved boxes when its built-in layouter cannot load.
+// Keeps typeset math on the engine's reserved boxes when its built-in layouter's module cannot load.
 const reservedMathLayouter: MathLayouter = {
   key: 'reserved-math',
   prepare: () => null,
@@ -176,18 +175,18 @@ const reservedMathLayouter: MathLayouter = {
 // The layout engine lays the text out with the template the pages show now, measured with the
 // served fonts, which the pages wait for (DOCE-HOST-1.14.1), code beside the gutter of line
 // numbers the state's object views draw, and math sized and drawn by MathJax (DOCE-PAGINATION-12.12),
-// loaded with the engine.
+// which loads with the first equation.
 function textLayoutOf(
-  { textLayout, fonts: served, markup }: PagingSettings,
+  { fonts: served, markup }: PagingSettings,
   latest: RefObject<DocumentLayoutOptions>,
 ) {
-  const fonts = textLayout === 'pretext' ? served() : null;
+  const fonts = served();
   if (!fonts) return undefined;
   return {
     fonts,
     template: () => latest.current.template,
     codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
-    hostViews: Object.keys(latest.current.nodeViews ?? {}),
+    hostViews: () => Object.keys(latest.current.nodeViews ?? {}),
     // The library's rules, which size signatures, with the host's over them, which size its own
     // nodes (DOCE-PAGINATION-14.1, 14.3).
     layoutRules: engineRules(() => latest.current.layoutRules),
@@ -195,9 +194,9 @@ function textLayoutOf(
     // The document's own language, else its template's (DOCE-PAGINATION-9.16).
     language: () => documentLanguage(latest.current.state.doc, latest.current.template),
     mathLayouter: import('../../layout-engine/math/mathjax-layouter.js')
-      .then((module) => module.createMathJaxLayouter())
+      // MathJax itself loads with the first equation (DOCE-PAGINATION-12.12).
       .then(
-        (layouter) => layouter ?? reservedMathLayouter,
+        (module) => module.createMathJaxLayouter(),
         () => reservedMathLayouter,
       ),
   };
@@ -227,6 +226,7 @@ export function startPaging(
     fontsPending: () => latest.current.text.isPending,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,
+    overflow: () => latest.current.debug?.overflow ?? false,
     textLayout: textLayoutOf(settings, latest),
   };
   return startProjectionOf(setup, latest, { refs, setPaged });

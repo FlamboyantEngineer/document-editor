@@ -118,7 +118,7 @@ const builderFor = (engine: PagesTextEngine, version: number): Builder => ({
   engine,
   version,
   numbers: new Map(),
-  skipped: new Set(),
+  paragraphs: new Map(),
   directions: new Map(),
   continuing: new Set(),
   blocks: new WeakMap(),

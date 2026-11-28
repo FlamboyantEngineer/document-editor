@@ -28,7 +28,7 @@ import {
   type TemplateFile,
 } from '../../../src/model/index.js';
 import { markReadyWhenSettled } from '../lab-ready.js';
-import { COUSINE_FONTS, LAB_FONTS, SLOW_LAB_FONTS } from '../served-fonts.js';
+import { COUSINE_FONTS, FLAKY_LAB_FONTS, LAB_FONTS, SLOW_LAB_FONTS } from '../served-fonts.js';
 import { useStressProbe } from '../stress/stress-probe.js';
 import { HOST_RULES, HOST_VIEWS } from './host-quote-view.js';
 import { REGRESSION_CODE } from './regression-code.js';
@@ -68,16 +68,17 @@ const COMPARE =
 // The lab serves its font files and HarfBuzz, which the layout engine lays the pages out with
 // (DOCE-HOST-1.14.1); with `fonts=none` it serves neither, and the document shows in the web layout
 // with an error; with `fonts=cousine` it serves Cousine's files under every family
-// (DOCE-PAGINATION-12.7).
+// (DOCE-PAGINATION-12.7); with `fonts=flaky` its first file request fails (DOCE-PAGINATION-12.5).
 const FONTS_QUERY = new URLSearchParams(window.location.search).get('fonts');
-const FONTS: LabFonts =
-  FONTS_QUERY === 'none' ? 'none' : FONTS_QUERY === 'cousine' ? 'cousine' : 'lab';
+const QUERY_FONTS: readonly LabFonts[] = ['none', 'cousine', 'flaky'];
+const FONTS: LabFonts = QUERY_FONTS.find((fonts) => fonts === FONTS_QUERY) ?? 'lab';
 
 const ADAPTERS: Readonly<Record<LabFonts, FontsAdapter | undefined>> = {
   none: undefined,
   lab: LAB_FONTS,
   cousine: COUSINE_FONTS,
   slow: SLOW_LAB_FONTS,
+  flaky: FLAKY_LAB_FONTS,
 };
 
 // How the pages are painted: as HTML, or each into a canvas (`rendering=html-canvas`,
@@ -92,9 +93,10 @@ const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 1
 
 // `debug` shows the layout debugging: each page's room and each block's planned height and top
 // (`data-debug-height`, `data-debug-top`), which the block geometry check reads (DOCE-LABS-8.10).
+// The pages drawn taller than they are are always counted, for the checks that read the stats.
 const DEBUG = new URLSearchParams(window.location.search).has('debug')
-  ? ({ pages: true, blocks: true } as const)
-  : undefined;
+  ? ({ pages: true, blocks: true, overflow: true } as const)
+  : ({ overflow: true } as const);
 
 // How the editor shows suggestions (`markup`): all their markup by default, or `final`, `simple`
 // or `original`.

@@ -68,6 +68,7 @@ import {
   take,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
+import { recheckFonts, typedPages } from './session-hooks.js';
 import { splitBreaksPlugin } from './split-breaks.js';
 import {
   holdTextEngine,
@@ -125,8 +126,6 @@ export interface PagedProjectionOptions {
     ((tr: Transaction, made: CanonicalChange) => CanonicalTaken | void) | undefined;
   /** Receives each new projection state, for whatever renders it. */
   readonly onProjection: (state: EditorState) => void;
-  /** How much the pages are scaled on screen, such as by a zoom, for the check of drawn pages. */
-  readonly scale?: (() => number) | undefined;
   /** Milliseconds without an edit before the pages are laid out again; 150 by default. */
   readonly settle?: number | undefined;
   /** Runs a layout soon and returns how to cancel it; by default on the next animation frame. */
@@ -148,12 +147,20 @@ export interface PagedProjectionOptions {
   /** Where the layout's trace goes while it is read (`LayoutTrace`); nothing is written otherwise. */
   readonly trace?: LayoutTraceSink | undefined;
   /**
+   * Whether to count, after each layout drawn, the pages drawn taller than they are
+   * (`overflowPages`, DOCE-PAGINATION-5.9), reading each drawn page's box: for tests and debugging.
+   */
+  readonly overflow?: (() => boolean) | undefined;
+  /**
    * Lays the pages out with the layout engine, which it loads, and draws its lines on the pages
    * (DOCE-PAGINATION-11). Without it or `textEngine` the pages are not laid out: nothing is
    * measured in the DOM.
    */
   readonly textLayout?: TextLayoutSetting | undefined;
-  /** A layout engine already held, in place of the one `textLayout` loads, as tests hold one. */
+  /**
+   * A layout engine already held, in place of the one `textLayout` loads, as tests hold one. The
+   * caller keeps it: destroying the projection leaves it held.
+   */
   readonly textEngine?: TextEngineHolder | undefined;
 }
 
@@ -207,6 +214,11 @@ export interface PagedProjection {
    * the state the pages are laid out from over, as after a width change or a change to a value a plugin shows.
    */
   refresh(options?: { readonly remeasure?: boolean }): void;
+  /**
+   * The served fonts started or stopped being pending (`fontsPending`): the pages are pending and
+   * settle once nothing is due, laid out again only when a change waits for a layout.
+   */
+  fontsChanged(): void;
   /** Whether the pages are being laid out, are settled, or could not be laid out. */
   layoutState(): LayoutState;
   /** Resolves with `settled` or `failed` once no layout is pending. */
@@ -287,7 +299,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     (options.textLayout ? holdTextEngine({ setting: options.textLayout, ...holding }) : null);
   const source = EditorState.create({
     doc: options.state.doc,
-    // Footnotes numbered through the document, as no page's own numbers outgrow in digits.
+    // Footnotes numbered through the document: the measured document has no pages to number by.
     plugins: withFootnoteNumbers([...(options.plugins ?? []), ...(options.layoutPlugins ?? [])]),
   });
   const map = createProjectionMap(options.state.doc, rules);
@@ -301,8 +313,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     destroyed: false,
     edits: settleEdits(options, () => settleTyping(session())),
     probe: createTypingProbe(options.element, {
-      view: () => session().view,
-      scale: options.scale,
+      pages: () => typedPages(session()),
       moved: () => requestLayout(session()),
       schedule: options.schedule,
     }),
@@ -319,6 +330,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       }),
       text,
       draws: checkDraws({
+        overflow: options.overflow,
         count: (pages) => session().pace.counter.overflow(pages),
       }),
     },
@@ -378,6 +390,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       if (live.pace.text) take(live, live.projection.tr.setMeta(forcedLinesKey, { drawAll: all }));
     },
     refresh: ({ remeasure = false } = {}) => refreshLayout(live, remeasure),
+    fontsChanged: () => recheckFonts(live),
     layoutState: live.pace.readiness.state,
     whenSettled: live.pace.readiness.whenSettled,
     stats: () => ({
@@ -405,7 +418,8 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       live.cancelLayout?.();
       live.edits.cancel();
       live.probe.stop();
-      live.pace.text?.destroy();
+      // Only the engine the projection loaded itself; one handed over is its caller's.
+      if (!options.textEngine) live.pace.text?.destroy();
     },
   };
 }
