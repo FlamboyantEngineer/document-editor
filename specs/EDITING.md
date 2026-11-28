@@ -27,10 +27,10 @@ Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-1.4 - Repairing on opening
 
-`repairElementIds(state)` shall give a document with missing, invalid or repeated element ids valid ones (DOCE-EDITING-1.1) in one change kept out of the undo history and marked `ELEMENT_IDS_REPAIR`, and give null when every element has one. `author` attributes the repaired elements without a writer to that writer, such as a system account. With `repairIds`, the document editor runs it on the document it opens with, and on each new document it is given, only while it is editable, so ids never change in reading mode, and tells the host through `onContentChange`; `repairIds: { author }` passes the author on. A host does not count the marked change as an edit of its own.
+`repairElementIds(state)` shall give a document with missing, invalid or repeated element ids valid ones (DOCE-EDITING-1.1) in one change kept out of the undo history and marked `ELEMENT_IDS_REPAIR`, and give null when every element has one. `author` attributes the repaired elements without a writer to that writer, such as a system account. With `repairIds`, the document editor runs it on the document it opens with, and on each new document it is given, only while it is editable, so ids never change in reading mode, never into a view already destroyed, as the pages' view is by a switch to the web layout, and tells the host through `onContentChange`; `repairIds: { author }` passes the author on. A host does not count the marked change as an edit of its own.
 
 Implementation: `src/engine/element-ids.ts`, `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `src/components/document-editor/use-host-events.test.ts`
 
 ### DOCE-EDITING-1.5 - Copies are new
 
