@@ -5,7 +5,12 @@
 // own layout, and the reason says why; no other width source is used.
 
 import type { MeasureContext } from '@chenglou/pretext';
-import { type FaceRegistration, familyKey, registerFaces } from '../document/font-registry.js';
+import {
+  faceKey,
+  type FaceRegistration,
+  familyKey,
+  registerFaces,
+} from '../document/font-registry.js';
 import type { FontsAdapter } from '../host/adapters.js';
 import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import type { FontFileMeasurer } from '../layout-engine/font-files/measurer.js';
@@ -49,12 +54,14 @@ export interface ServedFonts {
 export type PagesFonts =
   ServedFonts | { readonly phase: 'browser'; readonly reason: BrowserLayoutReason };
 
+/** How long after a failed ask a family is asked for again, doubled after each failure. */
+const RETRY_AFTER = 1000;
+/** The longest wait before a family whose files failed to arrive is asked for again. */
+const RETRY_AT_MOST = 60_000;
+
+// A face of the same family drawing the same glyphs, by the content of its file.
 const sameFace = (one: FontFaceFile, other: FontFaceFile) =>
-  one.bytes === other.bytes &&
-  familyKey(one.family) === familyKey(other.family) &&
-  one.weight === other.weight &&
-  one.style === other.style &&
-  one.unicodeRange === other.unicodeRange;
+  familyKey(one.family) === familyKey(other.family) && faceKey(one) === faceKey(other);
 
 // The faces and families of a host's files, as the pages hold them: the files drawn on the pages
 // through the document's face registry, under the family the template names, so a local font of
@@ -69,6 +76,17 @@ function createFaces(doc: Document, measurer: FontFileMeasurer) {
   const generics: Record<string, string> = {};
   const asked = new Set<string>();
   let destroyed = false;
+  // A family the browser refused a face of is not served, so the pages draw and measure it as the
+  // fallback family, never with widths of a face they cannot draw (DOCE-PAGINATION-12.5).
+  const unserve = (refused: ReadonlySet<string>) => {
+    if (!refused.size) return;
+    const drawnRefused = [...refused].map((key) => familyKey(drawnAs.get(key) ?? key));
+    for (const key of [...refused, ...drawnRefused]) families.delete(key);
+    for (const [generic, family] of Object.entries(generics))
+      if (refused.has(familyKey(family))) Reflect.deleteProperty(generics, generic);
+    const kept = served.filter((face) => !refused.has(familyKey(face.family)));
+    served.splice(0, served.length, ...kept);
+  };
   return {
     families,
     generics,
@@ -102,12 +120,34 @@ function createFaces(doc: Document, measurer: FontFileMeasurer) {
         families.add(familyKey(drawn));
         measurer.alias(drawn, face.family);
       }
-      await registration.loaded;
+      unserve(await registration.loaded);
     },
     destroy() {
       destroyed = true;
       for (const registration of registrations) registration.release();
       registrations.length = 0;
+    },
+  };
+}
+
+// When each family whose files failed to arrive may be asked for again: a second after the first
+// failure, twice as long after each next one, at most a minute; one not asked yet is due now.
+function createRetries(asked: Set<string>) {
+  const failures = new Map<string, { count: number; at: number }>();
+  return {
+    due(key: string) {
+      if (asked.has(key)) return false;
+      const failure = failures.get(key);
+      return !failure || Date.now() >= failure.at;
+    },
+    failed(key: string) {
+      asked.delete(key);
+      const count = (failures.get(key)?.count ?? 0) + 1;
+      const wait = Math.min(RETRY_AFTER * 2 ** (count - 1), RETRY_AT_MOST);
+      failures.set(key, { count, at: Date.now() + wait });
+    },
+    done(key: string) {
+      failures.delete(key);
     },
   };
 }
@@ -119,6 +159,7 @@ function servedFonts(
   faces: ReturnType<typeof createFaces>,
 ): ServedFonts {
   const files = fonts.files?.bind(fonts);
+  const retries = createRetries(faces.asked);
   let destroyed = false;
   return {
     phase: 'pretext',
@@ -134,11 +175,20 @@ function servedFonts(
     drawnFamily: faces.drawnFamily,
     drawnFiles: faces.drawnFiles,
     async add(families) {
-      const wanted = families.filter((family) => !faces.asked.has(familyKey(family)));
-      for (const family of wanted) faces.asked.add(familyKey(family));
+      const wanted = families.filter((family) => retries.due(familyKey(family)));
       if (!wanted.length || !files || destroyed) return false;
-      const result = await files(wanted, {}).catch(() => null);
-      if (!result?.ok || destroyed) return false;
+      const keys = wanted.map(familyKey);
+      for (const key of keys) faces.asked.add(key);
+      const result = await Promise.resolve()
+        .then(() => files(wanted, {}))
+        .catch(() => null);
+      if (destroyed) return false;
+      // Files that never arrived, as on a network blip, are asked for again by a later add.
+      if (!result?.ok) {
+        for (const key of keys) retries.failed(key);
+        return false;
+      }
+      for (const key of keys) retries.done(key);
       const problems = await measurer.addFiles(result.value);
       await faces.add(result.value, new Set(problems.map((problem) => problem.index)));
       return !destroyed;

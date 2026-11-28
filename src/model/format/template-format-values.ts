@@ -4,7 +4,10 @@
 
 import { isCssColor } from '../schema/css-color.js';
 
-const LENGTH = /^-?\d+(?:\.\d+)?(?:px|pt|mm|cm|in|em|rem|%)$/;
+// A length is never negative, and a percentage is a font size's alone, of the size around it: a
+// margin's, an indent's or a border's would be of a width the layout engine does not size it by.
+const LENGTH = /^\d+(?:\.\d+)?(?:px|pt|mm|cm|in|em|rem)$/;
+const SIZE = /^\d+(?:\.\d+)?(?:px|pt|mm|cm|in|em|rem|%)$/;
 // One to six levels, each a counter character and the separators after it.
 const NUMBERING_FORMAT = /^(?:[1aAiI][.\-:_/ )]*){0,6}$/;
 const BULLET_KEYWORDS: readonly string[] = ['disc', 'circle', 'square', 'none'];
@@ -14,9 +17,14 @@ export const NAME_DISALLOWED =
   // eslint-disable-next-line no-control-regex -- matches control characters on purpose
   /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060\ufeff]/;
 
-/** Whether a value is a CSS length with its unit. */
+/** Whether a value is a CSS length with its unit, not negative and no percentage. */
 export function isTemplateLength(value: unknown): boolean {
   return typeof value === 'string' && LENGTH.test(value);
+}
+
+/** Whether a value is a font size: a length, or a percentage of the size around it. */
+export function isTemplateSize(value: unknown): boolean {
+  return typeof value === 'string' && SIZE.test(value);
 }
 
 /**

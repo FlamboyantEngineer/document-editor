@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
+import { isLoadingFaces } from '../document/font-registry.js';
 import type {
   PagesLayout,
   PagesLayoutBlock,
@@ -25,7 +26,7 @@ import {
 } from '../layout-engine/line-marks.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
-import { forcedBlocksOf } from './forced-blocks.js';
+import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, sectionScope } from './forced-lines.js';
 import { FORCED_REGIONS, regionBlocksOf } from './forced-regions.js';
 import { NO_INSERTED } from './inserted-texts.js';
@@ -61,13 +62,22 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
   const { headings, paragraphs, labelOf } = engine.numbering(state.doc);
   const blocks: PagesLayoutBlock[] = [];
   const directions = continuedDirections(state.doc);
+  const continuing = continuingParts(state.doc);
   let scope: string | null = null;
   state.doc.descendants((node, pos, parent) => {
     const name = node.type.name;
     if (name === 'page_section') scope = sectionScope(node);
     const region = FORCED_REGIONS.has(name);
     if (!region && parent?.type.name !== 'page_content') return !node.isTextblock;
-    const place = { pos, scope, headings, numbered: paragraphs, inserted: NO_INSERTED, labelOf };
+    const place = {
+      pos,
+      scope,
+      headings,
+      numbered: paragraphs,
+      inserted: NO_INSERTED,
+      labelOf,
+      continuing,
+    };
     const forced = region
       ? regionBlocksOf(engine, node, { pos, scope, shown: pageVariablesKey.getState(state) })
       : forcedBlocksOf(engine, node, place);
@@ -150,12 +160,12 @@ function drawnObjects(state: EditorState, engine: PagesTextEngine): PagesLayoutO
 }
 
 /**
- * Whether pages in a layout state are settled for good: laid out, and with no font loading in the
- * window they measure in, which may move their lines.
+ * Whether pages in a layout state are settled for good: laid out, and with none of the served faces
+ * they draw with loading in their document. A font the host page loads for itself, which the pages
+ * neither measure nor draw with, does not hold them.
  */
 export function layoutSettled(state: LayoutState, measureIn: HTMLElement): boolean {
-  const fonts = measureIn.ownerDocument.fonts as FontFaceSet | undefined;
-  return state === 'settled' && fonts?.status !== 'loading';
+  return state === 'settled' && !isLoadingFaces(measureIn.ownerDocument);
 }
 
 // A layout's inputs and their one key.

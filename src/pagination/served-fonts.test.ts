@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { harfBuzzWasm, referenceFaces } from '../../test/font-files-node.js';
 import type { FontsAdapter, HostResult } from '../host/adapters.js';
 import type { FontFiles, FontShaper } from '../host/font-files.js';
@@ -91,4 +91,115 @@ describe('loadPagesFonts', () => {
     expect(files.generics).toEqual({ monospace: 'Lab Geist Mono' });
     served.destroy();
   });
+
+  it('DOCE-PAGINATION-12.5 asks again for a family whose files failed to arrive, after a wait that doubles', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const asked: string[][] = [];
+    let failing = 2;
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve(ok([])),
+      shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())),
+      files: (families) => {
+        asked.push([...families]);
+        if (families.includes('Lab Geist Mono') && failing > 0) {
+          failing -= 1;
+          return Promise.reject(new Error('offline'));
+        }
+        return Promise.resolve(ok(filesOf(families)));
+      },
+    };
+    const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc });
+    if (served.phase !== 'pretext') throw new Error('not served');
+    expect(await served.add(['Lab Geist Mono'])).toBe(false);
+    // Not again at once: a second later, then two seconds after the next failure.
+    expect(await served.add(['Lab Geist Mono'])).toBe(false);
+    vi.advanceTimersByTime(1000);
+    expect(await served.add(['Lab Geist Mono'])).toBe(false);
+    vi.advanceTimersByTime(1999);
+    expect(await served.add(['Lab Geist Mono'])).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(await served.add(['Lab Geist Mono'])).toBe(true);
+    expect(served.isFontServed('Lab Geist Mono')).toBe(true);
+    expect(asked).toEqual([
+      ['Lab Geist'],
+      ['Lab Geist Mono'],
+      ['Lab Geist Mono'],
+      ['Lab Geist Mono'],
+    ]);
+    // A host that throws instead of rejecting is a failure too.
+    const throwing: FontsAdapter = {
+      ...fonts,
+      files: (families) => {
+        if (families.includes('Lab Geist Mono')) throw new Error('broken');
+        return Promise.resolve(ok(filesOf(families)));
+      },
+    };
+    const other = await loadPagesFonts(throwing, ['Lab Geist'], { doc });
+    if (other.phase !== 'pretext') throw new Error('not served');
+    expect(await other.add(['Lab Geist Mono'])).toBe(false);
+    served.destroy();
+    other.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 does not serve a family the browser refuses a face of, nor a generic for it', async () => {
+    const added = new Set<unknown>();
+    const browserDoc = {
+      fonts: {
+        add: (face: unknown) => added.add(face),
+        delete: (face: unknown) => added.delete(face),
+      },
+    } as unknown as Document;
+    class RefusingFace {
+      constructor(readonly family: string) {}
+      load() {
+        return this.family === 'Lab Geist Mono'
+          ? Promise.reject(new Error('bad font'))
+          : Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', RefusingFace);
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve(ok([])),
+      shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())),
+      files: (families) => Promise.resolve(ok(filesOf(families))),
+    };
+    const served = await loadPagesFonts(fonts, ['Lab Geist', 'Lab Geist Mono'], {
+      doc: browserDoc,
+    });
+    if (served.phase !== 'pretext') throw new Error('not served');
+    expect(served.isFontServed('Lab Geist')).toBe(true);
+    expect(served.isFontServed('Lab Geist Mono')).toBe(false);
+    expect(served.generics).toEqual({});
+    expect(served.files().faces.map((face) => face.family)).not.toContain('Lab Geist Mono');
+    expect([...added].every((face) => (face as RefusingFace).family === 'Lab Geist')).toBe(true);
+    served.destroy();
+    expect(added.size).toBe(0);
+  });
+
+  it('DOCE-PAGINATION-12.8 keeps once a face handed again in a new buffer', async () => {
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve(ok([])),
+      shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())),
+      // Each call copies the files, as a host reading them again would.
+      files: () => {
+        const files = filesOf(['Lab Geist']);
+        return Promise.resolve(
+          ok({
+            ...files,
+            faces: files.faces.map((face) => ({ ...face, bytes: face.bytes.slice() })),
+          }),
+        );
+      },
+    };
+    const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc });
+    if (served.phase !== 'pretext') throw new Error('not served');
+    const before = served.files().faces.length;
+    expect(await served.add(['Lab Geist Copy'])).toBe(true);
+    expect(served.files().faces).toHaveLength(before);
+    served.destroy();
+  });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
