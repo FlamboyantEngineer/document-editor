@@ -9,6 +9,7 @@ import { printNodes, type PrintTree } from '../document/print-tree.js';
 import { blockDirection, type TextDirection } from '../layout-engine/direction.js';
 import {
   drawnBlock,
+  emptyLineIndent,
   firstLineIndent,
   labelParts,
   type LineMark,
@@ -153,7 +154,8 @@ export function blockAttrs(
     dir,
   };
   if (prefix) attrs['data-number'] = prefix;
-  const indent = prefixed ? firstLineIndent(table) : null;
+  // An empty block draws its line's indent as its own, where the caret is drawn.
+  const indent = prefixed ? firstLineIndent(table) : emptyLineIndent(table);
   if (indent) attrs.style = indent;
   return attrs;
 }

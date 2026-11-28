@@ -470,6 +470,44 @@ test.describe('editing on the engine lines', () => {
           .map(([, line]) => ({ before: line.left - left, after: right - line.right }));
       }, last);
 
+  test('DOCE-PAGINATION-11.2 draws the caret of an empty centred block and line where their text will start', async ({
+    page,
+  }) => {
+    await open(page, 'inline-geometry', true);
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const empty = { type: 'heading', attrs: { title: true } };
+      const broken = {
+        type: 'heading',
+        attrs: { title: true },
+        content: [{ type: 'text', text: 'Centred' }, { type: 'hard_break' }],
+      };
+      window.regressionLab.load({ ...file, sections: [{ ...section, content: [empty, broken] }] });
+    });
+    await waitForLab(page);
+    await settle(page);
+    // Where each title's trailing break, at which the caret of its empty line is drawn, stands
+    // from the middle of its column.
+    const offsets = await page
+      .locator('.de-document-editor__content .pm-page-content > h1.de-forced-lines')
+      .evaluateAll((titles) =>
+        titles.map((title) => {
+          const box = title.getBoundingClientRect();
+          const style = getComputedStyle(title);
+          const left = box.left + parseFloat(style.paddingLeft);
+          const right = box.right - parseFloat(style.paddingRight) - 8;
+          const br = [...title.querySelectorAll('br')].at(-1);
+          const at = br?.getBoundingClientRect().left ?? left;
+          return at - (left + right) / 2;
+        }),
+      );
+    expect(offsets).toHaveLength(2);
+    for (const offset of offsets)
+      expect(Math.abs(offset), 'the caret sits mid column').toBeLessThan(2);
+  });
+
   test('DOCE-PAGINATION-11.2 stretches only the text spaces of a justified line, not those inside an atom', async ({
     page,
   }) => {

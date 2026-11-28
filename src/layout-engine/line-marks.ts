@@ -151,6 +151,12 @@ function marksOfLine(
       style,
     });
   }
+  // An empty line after a hard break starts at its indent too, so the caret is drawn there: an
+  // empty element before the position, as among inserted words (`de-forced-lines__indent`).
+  if (line.to <= line.from && line.from > 0 && line.side === undefined && !prefixed) {
+    const empty = insertedStart(table, { line: { ...line, side: -1 }, wraps: false, prefixed });
+    if (empty) marks.push(empty);
+  }
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
   const text = shownText(node, table, line);
   const spaces = spacesIn(text);
@@ -200,6 +206,17 @@ export function firstLineIndent(table: JustifiedLines): string | null {
   const first = table.lines[0];
   const indent = first ? indentOf(table, first) : 0;
   return indent > 0.001 ? `--de-first-indent: ${px(indent)}` : null;
+}
+
+/**
+ * The indent of an empty block's only line as the block's measured property (`--de-first-indent`),
+ * as an empty centred or right-aligned paragraph takes it, so the caret is drawn where its first
+ * character will be (DOCE-PAGINATION-11.2); null for a block with content or no indent.
+ */
+export function emptyLineIndent(table: JustifiedLines): string | null {
+  const [only, ...rest] = table.lines;
+  if (!only || rest.length || only.to > only.from) return null;
+  return firstLineIndent(table);
 }
 
 /**

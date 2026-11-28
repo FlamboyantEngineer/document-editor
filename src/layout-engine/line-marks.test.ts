@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { firstLineIndent, type JustifiedLines, lineMarks } from './line-marks.js';
+import { emptyLineIndent, firstLineIndent, type JustifiedLines, lineMarks } from './line-marks.js';
 import type { TextLine } from './line-table.js';
 
 const paragraph = (text: string) =>
@@ -245,6 +245,38 @@ describe('lineMarks', () => {
     expect(lineMarks(node, table(9, 5))).toEqual([
       { from: 4, to: 5, class: 'de-forced-lines__end de-forced-lines__hyphen' },
     ]);
+  });
+
+  it('DOCE-PAGINATION-11.2 indents the empty line after a hard break, where the caret is drawn', () => {
+    const node = documentSchema.node('paragraph', null, [
+      documentSchema.text('ab'),
+      documentSchema.node('hard_break'),
+    ]);
+    const lines: TextLine[] = [
+      { from: 0, to: 3, width: 10, left: 45, top: 0, height: 20, end: 'break' },
+      { from: 3, to: 3, width: 0, left: 50, top: 20, height: 20, end: 'end' },
+    ];
+    const marks = lineMarks(node, { width: 100, lines, height: 40, overhead: 0, justify: false });
+    expect(marks).toEqual([
+      { from: 0, to: 1, class: 'de-forced-lines__start', style: '--de-line-indent: 45.000px' },
+      {
+        from: 3,
+        to: 3,
+        side: -1,
+        class: 'de-forced-lines__indent',
+        style: '--de-line-indent: 50.000px',
+      },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.2 indents an empty aligned block as the block, where the caret is drawn', () => {
+    const lines: TextLine[] = [
+      { from: 0, to: 0, width: 0, left: 50, top: 0, height: 20, end: 'end' },
+    ];
+    const empty = { width: 100, lines, height: 20, overhead: 0, justify: false };
+    expect(lineMarks(paragraph(''), empty)).toEqual([]);
+    expect(emptyLineIndent(empty)).toBe('--de-first-indent: 50.000px');
+    expect(emptyLineIndent(table(3, 3, { lines: [{ ...lines[0]!, to: 3 }] }))).toBeNull();
   });
 
   it('DOCE-PAGINATION-13.1 indents a prefixed block’s first line as the block, before its number', () => {
