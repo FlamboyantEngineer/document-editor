@@ -151,6 +151,11 @@ function startMark(node: ProseMirrorNode, table: JustifiedLines, line: TextLine)
   };
 }
 
+// Whether the line after a line starts among inserted words or inside one, so the line before
+// ends at that line's break or inside the word, not at an end mark of its own.
+const endsAmongInserted = (next: TextLine | undefined) =>
+  next !== undefined && (next.side !== undefined || next.inWord === true);
+
 // The marks that draw one line; a line followed by one that starts among inserted text ends at
 // that line's break instead.
 function marksOfLine(
@@ -175,7 +180,7 @@ function marksOfLine(
   // A line that ends at a line feed, as a code block's lines do, is broken there by the browser.
   // A line followed by one that starts inside an inserted word ends inside that word's widget,
   // where no mark can break it: the browser breaks it there, inside its 8px overhang.
-  if (next?.side !== undefined || next?.inWord || text.endsWith('\n')) return marks;
+  if (endsAmongInserted(next) || text.endsWith('\n')) return marks;
   // A line that ends at a soft hyphen draws its hyphen, as the engine counted it.
   const end = text.endsWith(SOFT_HYPHEN)
     ? 'de-forced-lines__end de-forced-lines__hyphen'

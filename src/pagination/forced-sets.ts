@@ -183,8 +183,7 @@ function linesKey(table: DrawnLines): string {
 export function containerSet(
   builder: Builder,
   container: ProseMirrorNode,
-  forced: ReadonlyMap<ProseMirrorNode, DrawnLines>,
-  pos = -1,
+  { lines: forced, pos = -1 }: { lines: ReadonlyMap<ProseMirrorNode, DrawnLines>; pos?: number },
 ): { key: string; set: DecorationSet } {
   const keys: string[] = [];
   const locals: Decoration[] = [];
@@ -214,7 +213,7 @@ export function containerSet(
       return;
     }
     if (child.isTextblock || child.isLeaf) return;
-    const inner = containerSet(builder, child, forced, at);
+    const inner = containerSet(builder, child, { lines: forced, pos: at });
     keys.push(inner.key);
     if (inner.set !== DecorationSet.empty) children.push(offset, end, inner.set);
   });

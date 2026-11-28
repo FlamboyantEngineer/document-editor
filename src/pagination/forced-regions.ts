@@ -88,7 +88,7 @@ function pageSet(
     const pos = at.pos + 1 + offset;
     const texts = regionVariableTexts(region, pos, at.shown);
     const lines = builder.engine.regionLines(region, scope, texts);
-    const { set } = containerSet(builder, region, lines);
+    const { set } = containerSet(builder, region, { lines });
     if (set !== DecorationSet.empty) children.push(offset, offset + region.nodeSize, set);
   });
   return children.length ? new makeSet([], children) : DecorationSet.empty;
