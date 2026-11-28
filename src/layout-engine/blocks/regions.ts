@@ -7,7 +7,7 @@ import type { ChildLayout, LayoutBlock } from '../../model/index.js';
 import type { BlockContext } from './context.js';
 import { stackBoxes } from './stack.js';
 import { layTextBlock } from './text-blocks.js';
-import type { RegionGeometry } from './types.js';
+import type { EntryLayout, RegionGeometry } from './types.js';
 
 type Lay = (node: ProseMirrorNode) => ReturnType<typeof layTextBlock>;
 
@@ -48,12 +48,19 @@ export function layHeaderOrFooter(
   };
 }
 
-/** A page's footnote area: its entries under the separator, the template's spacing apart. */
-export function layFootnoteArea(context: BlockContext, area: ProseMirrorNode): RegionGeometry {
+/**
+ * A page's footnote area: its entries under the separator, the template's spacing apart, each laid
+ * out through `entry`, which may give back one laid out before.
+ */
+export function layFootnoteArea(
+  context: BlockContext,
+  area: ProseMirrorNode,
+  entry: EntryLayout = (_node, lay) => lay(),
+): RegionGeometry {
   if (!area.childCount) return EMPTY;
   const { separator, spacing, entrySpacing } = context.metrics.footnotes;
-  const stacked = stackedRegion(area, (entry) =>
-    layTextBlock({ ...context, parent: 'other' }, entry),
+  const stacked = stackedRegion(area, (node) =>
+    entry(node, () => layTextBlock({ ...context, parent: 'other' }, node)),
   );
   if (isGeometry(stacked)) return stacked;
   const children: ChildLayout[] = [];
