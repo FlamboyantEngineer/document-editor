@@ -6,6 +6,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 import { keepsNumbering } from '../engine/paragraph-numbering.js';
+import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { keepsAllNumbers } from './engine-numbers.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
@@ -14,7 +15,7 @@ interface DrawnNumbers {
   readonly engine: PagesTextEngine;
   readonly doc: ProseMirrorNode;
   readonly numbers: ReadonlyMap<number, string>;
-  readonly skipped: ReadonlySet<number>;
+  readonly paragraphs: ReadonlyMap<number, ParagraphNumber>;
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   readonly labels?: string | undefined;
   readonly directions: ReadonlyMap<number, unknown>;
@@ -35,16 +36,16 @@ export function numberingFor(
   previous: DrawnNumbers | null,
 ): ReturnType<PagesTextEngine['numbering']> {
   if (previous?.engine !== engine) return engine.numbering(doc);
-  const { numbers, skipped, labelOf, labels } = previous;
+  const { numbers, paragraphs, labelOf, labels } = previous;
   if (previous.doc === doc) {
-    return { headings: numbers, paragraphs: skipped, labelOf, labelsKey: labels };
+    return { headings: numbers, paragraphs, labelOf, labelsKey: labels };
   }
   if (!tr || previous.doc !== tr.before || !keepsAllNumbers(tr) || !keepsNumbering(tr)) {
     return engine.numbering(doc);
   }
   return {
     headings: new Map([...numbers].map(([pos, text]) => [tr.mapping.map(pos), text])),
-    paragraphs: new Set([...skipped].map((pos) => tr.mapping.map(pos))),
+    paragraphs: new Map([...paragraphs].map(([pos, number]) => [tr.mapping.map(pos), number])),
     labelOf,
     labelsKey: labels,
   };
@@ -70,7 +71,7 @@ export function sameNumbers(
   previous: DrawnNumbers,
   next: {
     numbers: ReadonlyMap<number, string>;
-    skipped: ReadonlySet<number>;
+    paragraphs: ReadonlyMap<number, ParagraphNumber>;
     directions: ReadonlyMap<number, unknown>;
     continuing: ReadonlySet<number>;
   },
@@ -80,9 +81,17 @@ export function sameNumbers(
   if (mapped === undefined) return false;
   const map = (pos: number) => (mapped ? mapped.map(pos) : pos);
   const marked = (set: ReadonlySet<number>) => new Map([...set].map((pos) => [pos, true]));
+  // A number is the same when it shows the same label at the same level, on a first part or not.
+  const shown = (numbers: ReadonlyMap<number, ParagraphNumber>) =>
+    new Map(
+      [...numbers].map(([pos, { label, level, continued }]) => [
+        pos,
+        `${String(level)} ${continued ? '+' : ''}${label}`,
+      ]),
+    );
   return (
     sameAt(previous.numbers, next.numbers, map) &&
-    sameAt(marked(previous.skipped), marked(next.skipped), map) &&
+    sameAt(shown(previous.paragraphs), shown(next.paragraphs), map) &&
     sameAt(previous.directions, next.directions, map) &&
     sameAt(marked(previous.continuing), marked(next.continuing), map)
   );
