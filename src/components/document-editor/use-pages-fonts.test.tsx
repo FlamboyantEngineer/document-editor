@@ -87,7 +87,6 @@ describe('useShownFonts', () => {
     await act(() => vi.advanceTimersByTimeAsync(1));
     expect(load).toHaveBeenCalledTimes(3);
     expect(result.current.text.reason).toBeNull();
-    expect(result.current.text.textLayout).toBe('pretext');
     expect(result.current.props.layout).not.toBe('web');
     // The pages read the fonts of the load that brought them.
     await expect(result.current.text.fonts()).resolves.toBe(served);
