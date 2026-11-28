@@ -158,7 +158,11 @@ export interface PagesTextEngine {
   /** The measured rows and reserved page digits a kept list of contents drawing must match. */
   contentsKeyOf?(node: ProseMirrorNode): string;
   /** How the pages draw a list of contents block; null when the engine left it to the DOM. */
-  contentsDrawn(node: ProseMirrorNode, scope: string | null): ContentsDrawn | null;
+  contentsDrawn(
+    node: ProseMirrorNode,
+    scope: string | null,
+    inserted?: InsertedTexts,
+  ): ContentsDrawn | null;
   /**
    * A top-level block of a section's page content, laid out with the words inserted in its text
    * blocks; one it cannot lay out takes no room, counted in its stats.

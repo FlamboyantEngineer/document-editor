@@ -12,13 +12,26 @@ import {
   isTemplateWeight,
 } from '../format/template-format-values.js';
 
-/** A length with its unit as a CSS value, or null. */
+/**
+ * The root size a template's `rem` lengths resolve against. They reach the stylesheet in pixels,
+ * so a host page's own root size never moves what the layout engine laid out
+ * (DOCE-PAGINATION-10.9).
+ */
+export const TEMPLATE_ROOT_SIZE = 16;
+
+// A `rem` length in pixels at the template's root size; any other length as written.
+function rootResolved(value: string): string {
+  const match = /^(\d+(?:\.\d+)?)rem$/.exec(value);
+  return match ? `${String(Number(match[1]) * TEMPLATE_ROOT_SIZE)}px` : value;
+}
+
+/** A length with its unit as a CSS value, `rem` in pixels, or null. */
 export const cssLength = (value: unknown): string | null =>
-  isTemplateLength(value) ? String(value) : null;
+  isTemplateLength(value) ? rootResolved(String(value)) : null;
 
 /** A font size as a CSS value, a percentage of the size around it included, or null. */
 export const cssSize = (value: unknown): string | null =>
-  isTemplateSize(value) ? String(value) : null;
+  isTemplateSize(value) ? rootResolved(String(value)) : null;
 
 /** A template color as a CSS value, or null. */
 export const cssColor = (value: unknown): string | null =>

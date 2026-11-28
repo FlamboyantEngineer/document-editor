@@ -165,7 +165,7 @@ interface PagingSettings {
   readonly markup: () => SuggestionMarkup;
 }
 
-// Keeps typeset math on the engine's reserved boxes when its built-in layouter cannot load.
+// Keeps typeset math on the engine's reserved boxes when its built-in layouter's module cannot load.
 const reservedMathLayouter: MathLayouter = {
   key: 'reserved-math',
   prepare: () => null,
@@ -175,7 +175,7 @@ const reservedMathLayouter: MathLayouter = {
 // The layout engine lays the text out with the template the pages show now, measured with the
 // served fonts, which the pages wait for (DOCE-HOST-1.14.1), code beside the gutter of line
 // numbers the state's object views draw, and math sized and drawn by MathJax (DOCE-PAGINATION-12.12),
-// loaded with the engine.
+// which loads with the first equation.
 function textLayoutOf(
   { fonts: served, markup }: PagingSettings,
   latest: RefObject<DocumentLayoutOptions>,
@@ -194,9 +194,9 @@ function textLayoutOf(
     // The document's own language, else its template's (DOCE-PAGINATION-9.16).
     language: () => documentLanguage(latest.current.state.doc, latest.current.template),
     mathLayouter: import('../../layout-engine/math/mathjax-layouter.js')
-      .then((module) => module.createMathJaxLayouter())
+      // MathJax itself loads with the first equation (DOCE-PAGINATION-12.12).
       .then(
-        (layouter) => layouter ?? reservedMathLayouter,
+        (module) => module.createMathJaxLayouter(),
         () => reservedMathLayouter,
       ),
   };
