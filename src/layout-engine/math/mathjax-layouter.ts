@@ -239,6 +239,20 @@ export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
       return null;
     }
   };
+  // The equations whose glyphs load, so asking again while they do starts no second load.
+  const loading = new Map<string, Promise<unknown>>();
+  const load = (markup: string, display: boolean) => {
+    const key = cacheKey(markup, display);
+    const found = loading.get(key);
+    if (found) return found;
+    const loaded = converter
+      .convertLoading(markup, display)
+      .then((container) => keep(markup, display, container))
+      .catch(() => laid.set(key, null))
+      .finally(() => loading.delete(key));
+    loading.set(key, loaded);
+    return loaded;
+  };
   return {
     key: converter.key,
     prepare(trees) {
@@ -246,12 +260,7 @@ export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
         const display = tree.attrs.display === 'block';
         const markup = mathMarkup(tree);
         if (tryConvert(markup, display) !== undefined) return [];
-        return [
-          converter
-            .convertLoading(markup, display)
-            .then((container) => keep(markup, display, container))
-            .catch(() => laid.set(cacheKey(markup, display), null)),
-        ];
+        return [load(markup, display)];
       });
       return waiting.length ? Promise.all(waiting).then(() => undefined) : null;
     },

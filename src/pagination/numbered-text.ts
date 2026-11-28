@@ -45,7 +45,7 @@ export function numberedText(
         ...(words ? { inserted: words } : {}),
       });
       if (result.ok && recorder.lines) {
-        const justify = text.typography(node, place.scope).align === 'justify';
+        const justify = (place.align ?? text.typography(node, place.scope).align) === 'justify';
         recorder.lines.set(node, { ...result.table, justify });
       }
       return result;
