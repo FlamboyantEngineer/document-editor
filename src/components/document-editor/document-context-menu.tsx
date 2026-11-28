@@ -14,6 +14,7 @@ import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 import { PROOFING_ISSUE_ATTR } from '../../engine/index.js';
 import { isFocusLost } from '../../utils/composed-focus.js';
+import { showViewSelection } from '../../utils/dom-selection.js';
 import { isElement } from '../../utils/is-element.js';
 import type { ContextEntriesOptions } from './context-entries.js';
 import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
@@ -53,11 +54,17 @@ function isSelected(view: EditorView, pos: number): boolean {
 }
 
 // Moves the selection to where a secondary click landed, unless it landed inside the selection;
-// returns the position it landed on.
+// returns the position it landed on. The caret the browser put down at the press, which the view
+// reads late, gives way to that selection: read by a render that keeps the state, it would move the
+// selection off what the click landed on before the menu opens (on a figure's image, to before the
+// figure).
 function selectAt(view: EditorView, point: { left: number; top: number }) {
   const hit = view.posAtCoords(point);
   const head = view.state.selection.head;
-  if (!hit || isSelected(view, hit.pos)) return { pos: hit?.pos ?? head };
+  if (!hit || isSelected(view, hit.pos)) {
+    showViewSelection(view);
+    return { pos: hit?.pos ?? head };
+  }
   const { doc } = view.state;
   const node = hit.inside >= 0 ? doc.nodeAt(hit.inside) : null;
   const selection =
@@ -65,6 +72,7 @@ function selectAt(view: EditorView, point: { left: number; top: number }) {
       ? NodeSelection.create(doc, hit.inside)
       : TextSelection.near(doc.resolve(hit.pos));
   if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection));
+  showViewSelection(view);
   return { pos: hit.pos };
 }
 

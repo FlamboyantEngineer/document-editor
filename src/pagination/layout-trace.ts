@@ -43,6 +43,7 @@ const TRACE_EVENTS = {
   settle: { kind: 'trace', name: 'settle' },
   skip: { kind: 'trace', name: 'layout.skip' },
   fail: { kind: 'trace', name: 'layout.fail' },
+  mathLate: { kind: 'trace', name: 'math.late' },
 } as const satisfies Record<string, { kind: LayoutTrace['kind']; name: string }>;
 
 /**

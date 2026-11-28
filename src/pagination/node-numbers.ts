@@ -181,7 +181,11 @@ export function holdNodeNumbers(template: TemplateFile) {
   };
   return {
     current: () => counted?.numbers ?? NO_NUMBERS,
-    /** Moves whenever a document is numbered with other footnote numbers than the one before. */
+    /**
+     * Moves whenever a document is numbered with other footnote numbers, or other stored variable
+     * values, than the one before: the body's variables show the numbered document's values. A typed
+     * edit keeps both, as its document has the same attributes.
+     */
     version: () => version,
     number(doc: ProseMirrorNode) {
       if (counted?.numbers.doc === doc || (counted && typedFrom(doc, counted))) return;
@@ -189,7 +193,7 @@ export function holdNodeNumbers(template: TemplateFile) {
       const replaced = new WeakMap<ProseMirrorNode, ProseMirrorNode>();
       counted = { found, replaced, numbers: found.byNode(doc, asCounted(replaced)) };
       drawn.set(doc, found.numbering);
-      const key = found.footnotesKey();
+      const key = `${found.footnotesKey()}|${JSON.stringify(doc.attrs.values ?? null)}`;
       if (key !== footnotes) [footnotes, version] = [key, version + 1];
     },
     numbering(doc: ProseMirrorNode) {

@@ -161,7 +161,7 @@ const NO_BOXES: ReadonlyMap<ProseMirrorNode, ObjectBox> = new Map();
 function recordingBoxes(geometry: BlockLayout, objects: ReturnType<typeof createObjectRecorder>) {
   const kept = new WeakMap<LayoutBlock, ReadonlyMap<ProseMirrorNode, ObjectBox>>();
   const recording: BlockLayout = {
-    layoutRegion: (node, place) => geometry.layoutRegion(node, place),
+    layoutRegion: (node, place, entry) => geometry.layoutRegion(node, place, entry),
     layoutBlock(node, place) {
       const { laid, boxes } = objects.boxesOf(() => geometry.layoutBlock(node, place));
       if (laid.ok && boxes.size) kept.set(laid.block, boxes);
@@ -331,6 +331,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     // Blocks and lines with provisional math are never kept. Regions and containers are laid out
     // again once it settles.
     atomsVersion: () => waiting.version(drawings.forgetRegions),
+    hiddenSuggestion: () => hiddenSuggestion(options.markup?.() ?? 'all'),
     ...layouts.math.reading(counts.stats),
     ...sizedReading(layouts.sizes),
     destroy() {

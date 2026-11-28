@@ -250,6 +250,11 @@ export interface PagesTextEngine {
    * what it kept laid out with it, and what drew it draws it again (DOCE-PAGINATION-12.13).
    */
   atomsVersion?(): number;
+  /**
+   * The suggestion mark the markup the engine lays the pages out in hides, as `hiddenSuggestion`
+   * gives it; null when it shows them all (DOCE-PAGINATION-11.12).
+   */
+  hiddenSuggestion?(): string | null;
   /** Whether a host's layout rule sizes a node's type (DOCE-PAGINATION-14.1). */
   sizedType?(node: ProseMirrorNode): boolean;
   /**
