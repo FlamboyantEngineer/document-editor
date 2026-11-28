@@ -304,11 +304,13 @@ function startProjection(
   }: { own: readonly Plugin[]; pages: readonly Plugin[]; setPaged: SetPaged },
 ): PagedProjection {
   let made: PagedProjection | null = null;
+  // The host loads the template's faces, and reports any it lacks, but nothing waits on it: the
+  // pages measure and draw only the served font files (DOCE-PAGINATION-5.6).
+  void loadTemplateFonts(latest.current.fonts, latest.current.template);
   const projection = createPagedProjection({
     ...setup,
     state: latest.current.state,
     pageHeight: setup.pageHeight,
-    ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
     // The pages render in a plain view (DOCE-EDITOR-1.8), which keeps no React node identities.
     plugins: [...pages],
     // The state laid out takes no React keys of the engine's: it renders nothing.

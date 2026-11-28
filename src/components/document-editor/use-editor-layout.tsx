@@ -54,12 +54,8 @@ export function useEditorLayout(
   }, [view, props.layout, ready]);
   useMountTelemetry(props.telemetry, engine.view, progress.paged?.projection ?? null);
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
-  // Pages that wait for template fonts are not shown without them: their first layout fails.
-  const firstLayout = useFirstLayout(
-    (props.layout ?? 'page') === 'page',
-    reported.missing.length > 0 ? 'failed' : layoutState,
-    props,
-  );
+  // Fonts the host could not load only warn: the pages draw the served files (DOCE-PAGINATION-5.6).
+  const firstLayout = useFirstLayout((props.layout ?? 'page') === 'page', layoutState, props);
   // What the surface shows around the document: the fonts that did not load or that no host file
   // serves, drawn in the served body family instead, and the cover.
   const missingFonts = useMemo(
