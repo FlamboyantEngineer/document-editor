@@ -35,9 +35,15 @@ export async function loadHostFonts(
 ): Promise<HostFonts> {
   if (!fonts?.shaper) return { phase: 'browser', reason: 'no-shaper' };
   if (!fonts.files) return { phase: 'browser', reason: 'no-files' };
+  // An adapter that throws rather than rejects fails the same way.
+  const { shaper: askShaper, files: askFiles } = fonts;
   const [shaper, files] = await Promise.all([
-    fonts.shaper(options).catch(() => null),
-    fonts.files(families, options).catch(() => null),
+    Promise.resolve()
+      .then(() => askShaper.call(fonts, options))
+      .catch(() => null),
+    Promise.resolve()
+      .then(() => askFiles.call(fonts, families, options))
+      .catch(() => null),
   ]);
   if (!shaper?.ok) return { phase: 'browser', reason: 'shaper-failed' };
   if (!files?.ok) return { phase: 'browser', reason: 'files-failed' };

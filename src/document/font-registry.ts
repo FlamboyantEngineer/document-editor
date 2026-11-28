@@ -5,6 +5,7 @@
 // glyphs. A face goes from the document once no surface draws it.
 
 import type { FontFaceFile, FontFiles } from '../host/font-files.js';
+import { bytesHash } from '../utils/bytes-hash.js';
 
 /** The faces a surface added to its document, and the family it draws each served family under. */
 export interface FaceRegistration {
@@ -15,8 +16,11 @@ export interface FaceRegistration {
   drawnFamily(family: string): string;
   /** Whether the surface draws some served family under another name. */
   readonly renamed: boolean;
-  /** Settles once every face has loaded, or failed to and been taken out. */
-  readonly loaded: Promise<void>;
+  /**
+   * Settles once every face has loaded, or failed to and been taken out of the document, with the
+   * family key (`familyKey`) of each family the browser refused a face of.
+   */
+  readonly loaded: Promise<ReadonlySet<string>>;
   /** Takes the surface's faces out of the document, once no other surface draws them. */
   release(): void;
 }
@@ -36,24 +40,12 @@ export const familyKey = (family: string) =>
     .replace(/^["']|["']$/gu, '')
     .toLowerCase();
 
-// Each file's bytes by identity: hosts hand the same bytes to every surface that draws them, and
-// a layout carries the editor's own.
-const ids = new WeakMap<object, number>();
-let lastId = 0;
-
-function fileId(bytes: object): number {
-  let id = ids.get(bytes);
-  if (id === undefined) {
-    lastId += 1;
-    id = lastId;
-    ids.set(bytes, id);
-  }
-  return id;
-}
-
-// What a family's faces hold, as a key: two surfaces with the same key draw the same glyphs.
-const faceKey = (face: FontFaceFile) =>
-  `${String(face.weight)} ${face.style} ${face.unicodeRange ?? ''} ${String(fileId(face.bytes))}`;
+/**
+ * What a face holds, as a key: two faces of a family with the same key draw the same glyphs, by the
+ * content of their files, so the same file handed in a new buffer is the same face.
+ */
+export const faceKey = (face: FontFaceFile) =>
+  `${String(face.weight)} ${face.style} ${face.unicodeRange ?? ''} ${bytesHash(face.bytes)}`;
 
 const filesKey = (faces: readonly FontFaceFile[]) =>
   [...new Set(faces.map(faceKey))].sort().join('|');
@@ -115,9 +107,32 @@ function letGo(doc: Document, family: string, holder: Held): void {
 const NONE: FaceRegistration = {
   drawnFamily: (family) => family,
   renamed: false,
-  loaded: Promise.resolve(),
+  loaded: Promise.resolve(new Set()),
   release: () => undefined,
 };
+
+// Loads each held face, taking out of the document one the browser refuses to read, and gives the
+// keys of the families it refused a face of.
+async function refusedFamilies(
+  doc: Document,
+  holders: readonly (readonly [string, { readonly holder: Held }])[],
+): Promise<ReadonlySet<string>> {
+  const refused = new Set<string>();
+  await Promise.all(
+    holders.flatMap(([key, { holder }]) =>
+      holder.faces.map((face) =>
+        face.load().then(
+          () => undefined,
+          () => {
+            doc.fonts.delete(face);
+            refused.add(key);
+          },
+        ),
+      ),
+    ),
+  );
+  return refused;
+}
 
 /**
  * Adds a surface's served faces to its document, sharing those another surface drew from the same
@@ -136,17 +151,7 @@ export function registerFaces(doc: Document, fonts: FontFiles | null): FaceRegis
   const holders = new Map<string, { family: string; holder: Held }>();
   for (const [key, { family, files }] of byFamily)
     holders.set(key, { family, holder: holdFamily(doc, family, files) });
-  const faces = [...holders.values()].flatMap(({ holder }) => holder.faces);
-  const loaded = Promise.all(
-    faces.map((face) =>
-      face.load().then(
-        () => undefined,
-        () => {
-          doc.fonts.delete(face);
-        },
-      ),
-    ),
-  ).then(() => undefined);
+  const loaded = refusedFamilies(doc, [...holders.entries()]);
   let released = false;
   return {
     drawnFamily: (family) => holders.get(familyKey(family))?.holder.name ?? family,
@@ -160,4 +165,12 @@ export function registerFaces(doc: Document, fonts: FontFiles | null): FaceRegis
       for (const { family, holder } of holders.values()) letGo(doc, family, holder);
     },
   };
+}
+
+/** Whether a served face some surface added to the document is still loading. */
+export function isLoadingFaces(doc: Document): boolean {
+  for (const holders of held.get(doc)?.values() ?? [])
+    for (const holder of holders)
+      if (holder.faces.some((face) => face.status === 'loading')) return true;
+  return false;
 }
