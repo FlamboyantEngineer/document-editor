@@ -126,4 +126,11 @@ describe('line widths', () => {
     expect(width(plain('word '), bold(' '))).toBe(width(plain('word')));
     expect(width(plain('word '), italic('  '))).toBe(width(plain('word')));
   });
+
+  it('DOCE-PAGINATION-9.1 counts the spaces a label ends an empty caption with', () => {
+    const width = (label: string) =>
+      laid(create('table_caption', []), {}, label).lines[0]?.width ?? 0;
+    // The editor draws a trailing break after the label, before which its spaces count.
+    expect(width('Table 1 - ')).toBeGreaterThan(width('Table 1 -'));
+  });
 });
