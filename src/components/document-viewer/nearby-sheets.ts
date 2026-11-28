@@ -1,5 +1,20 @@
 import { scrollerOf } from '../../utils/scroll-frame.js';
 
+// A browser that takes only an element or null as the root throws for a document; the implicit
+// root, the top-level viewport, is then the nearest it can watch.
+function createObserver(
+  view: Window & typeof globalThis,
+  callback: IntersectionObserverCallback,
+  init: { readonly root: Element | Document; readonly rootMargin: string },
+): IntersectionObserver {
+  try {
+    return new view.IntersectionObserver(callback, init);
+  } catch (error) {
+    if (init.root instanceof view.Element) throw error;
+    return new view.IntersectionObserver(callback, { ...init, root: null });
+  }
+}
+
 /** Reports sheets within one viewport height above or below the viewer's scrolling frame. */
 export function watchNearbySheets(
   element: HTMLElement,
@@ -19,7 +34,8 @@ export function watchNearbySheets(
     if (next === height) return;
     height = next;
     observer?.disconnect();
-    const current = new view.IntersectionObserver(
+    const current = createObserver(
+      view,
       (entries) => {
         if (observer === current) changed(entries);
       },

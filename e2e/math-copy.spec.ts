@@ -14,8 +14,7 @@ declare global {
 }
 
 const SOURCE = String.raw`\frac{a}{b}`;
-const EDITOR =
-  ':not(.de-document-viewer) > .de-document-editor__content:not(.de-document-editor__measure *)';
+const EDITOR = ':not(.de-document-viewer) > .de-document-editor__content';
 const item = (page: Page, name: string) =>
   page.getByRole('menu').last().getByRole('menuitem', { name, exact: true });
 

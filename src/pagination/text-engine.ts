@@ -13,10 +13,11 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
+import type { BlockLayout, ObjectBox } from '../layout-engine/blocks/types.js';
 import { hiddenSuggestion } from '../layout-engine/hidden-suggestions.js';
 import { selectTextLanguage } from '../layout-engine/lines.js';
 import { createTextLayout, type TextLayout } from '../layout-engine/text-layout.js';
-import { documentLanguage } from '../model/index.js';
+import { documentLanguage, type LayoutBlock } from '../model/index.js';
 import { bodyVariablesKey, bodyVariablesOf } from './body-variables.js';
 import { contentWidths } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
@@ -140,19 +141,67 @@ function engineLayouts(
   return {
     text,
     geometry,
-    // The figure and table boxes of a top-level block laid out in its section's content width.
-    objectBoxes:
-      (widthOf: (scope: string | null) => number) =>
-      (block: ProseMirrorNode, scope: string | null, inserted = NO_INSERTED) =>
-        words.with(inserted, () =>
-          objects.boxesOf(() => geometry.layoutBlock(block, { width: widthOf(scope), scope })),
-        ),
+    // Block geometry that records each layout's figure and table boxes, kept with its block.
+    recording: recordingBoxes(geometry, objects),
     select,
     measureContext,
     variablesKey,
     labelOf: (caption: ProseMirrorNode) => numbers().labelOf(caption),
     math,
     sizes,
+  };
+}
+
+/** No figure or table boxes. */
+const NO_BOXES: ReadonlyMap<ProseMirrorNode, ObjectBox> = new Map();
+
+// Block geometry whose block layouts keep the figure and table boxes they were laid out with, so a
+// resize reads the layout the pages were laid out with and never lays the block out again
+// (DOCE-PAGINATION-10.12). Only a block holding one keeps any.
+function recordingBoxes(geometry: BlockLayout, objects: ReturnType<typeof createObjectRecorder>) {
+  const kept = new WeakMap<LayoutBlock, ReadonlyMap<ProseMirrorNode, ObjectBox>>();
+  const recording: BlockLayout = {
+    layoutRegion: (node, place) => geometry.layoutRegion(node, place),
+    layoutBlock(node, place) {
+      const { laid, boxes } = objects.boxesOf(() => geometry.layoutBlock(node, place));
+      if (laid.ok && boxes.size) kept.set(laid.block, boxes);
+      return laid;
+    },
+  };
+  return {
+    geometry: recording,
+    boxesOf: (block: LayoutBlock) => kept.get(block) ?? NO_BOXES,
+  };
+}
+
+// The figure and table boxes and a list of contents' rows, read from the block layout the engine
+// kept, the one the pages were laid out with (DOCE-PAGINATION-10.11, 10.12).
+function keptReadings(
+  blocks: ReturnType<typeof keptBlocks>,
+  layouts: ReturnType<typeof engineLayouts>,
+  {
+    contents,
+    numbers,
+    select,
+  }: {
+    contents: ContentsLists;
+    numbers: () => NodeNumbers;
+    select: () => void;
+  },
+): Pick<PagesTextEngine, 'contentsDrawn' | 'objectBoxes'> {
+  return {
+    objectBoxes: selecting(select, (block, scope, inserted = NO_INSERTED) =>
+      layouts.recording.boxesOf(blocks.measure(block, scope, inserted)),
+    ),
+    contentsDrawn: selecting(select, (node, scope, inserted = NO_INSERTED) =>
+      drawnContents(node, {
+        scope,
+        block: blocks.measure(node, scope, inserted),
+        text: layouts.text,
+        contents,
+        doc: numbers().doc,
+      }),
+    ),
   };
 }
 
@@ -174,12 +223,11 @@ function cachedDrawings(
   inputs: Parameters<typeof keptLines>[1] & {
     recorder: LinesRecorder;
     words: ReturnType<typeof holdInsertedTexts>;
-    contents: ContentsLists;
     select: () => void;
   },
 ) {
   const { text, geometry, labelOf, sizes } = layouts;
-  const { numbers, widthOf, contents, select } = inputs;
+  const { numbers, select } = inputs;
   const footnoteOf = (part: ProseMirrorNode) => numbers().footnoteOf(part);
   const place = { ...inputs, geometry, labelOf, footnoteOf };
   const tables = keptLines(text, inputs);
@@ -191,24 +239,8 @@ function cachedDrawings(
   };
   const reading: Pick<
     PagesTextEngine,
-    | 'contentsDrawn'
-    | 'insertedReserved'
-    | 'measureRegion'
-    | 'regionLines'
-    | 'lines'
-    | 'nestedLines'
-    | 'objectBoxes'
+    'insertedReserved' | 'measureRegion' | 'regionLines' | 'lines' | 'nestedLines'
   > = {
-    contentsDrawn: selecting(select, (node, scope) =>
-      drawnContents(node, {
-        scope,
-        geometry,
-        text,
-        contents,
-        width: widthOf(scope),
-        doc: numbers().doc,
-      }),
-    ),
     insertedReserved: text.insertedReserved,
     measureRegion: selecting(select, (...at) => regions.lay(...at).room),
     regionLines: selecting(select, (...at) => regions.lay(...at).lines),
@@ -216,7 +248,6 @@ function cachedDrawings(
       sizes.sizes(node) ? null : tables.lines(node, place),
     ),
     nestedLines: selecting(select, (...at) => nested.lines(...at)),
-    objectBoxes: selecting(select, layouts.objectBoxes(widthOf)),
   };
   return {
     reading,
@@ -245,7 +276,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     refused: refusals.refuse,
     provisional: waiting.note,
   });
-  const { geometry, select: selectPretext, measureContext, variablesKey } = layouts;
+  const { select: selectPretext, measureContext, variablesKey } = layouts;
   // The errors of the nodes of the document numbered last, the one being laid out.
   const counts = createCounts(
     () => layouts.sizes.errors(numbers.current().doc ?? undefined),
@@ -264,10 +295,10 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     variablesKey,
     provisional: waiting.count,
   };
-  const drawings = cachedDrawings(layouts, { ...keyed, contents, recorder, words, select });
+  const drawings = cachedDrawings(layouts, { ...keyed, recorder, words, select });
   const blocks = keptBlocks({
     ...keyed,
-    geometry,
+    geometry: layouts.recording.geometry,
     contents,
     hostViews: rules.hostViews,
     refuse: refusals.refuse,
@@ -292,6 +323,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     measureBlock: selecting(select, (node, scope, inserted = NO_INSERTED) =>
       blocks.measure(node, scope, inserted),
     ),
+    ...keptReadings(blocks, layouts, { contents, numbers: numbers.current, select }),
     mathPending: (doc) => documentMathPending(options, doc),
     // Blocks and lines with provisional math are never kept. Regions and containers are laid out
     // again once it settles.

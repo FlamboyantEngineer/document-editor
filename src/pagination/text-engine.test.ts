@@ -537,6 +537,29 @@ describe('holdTextEngine', () => {
     document.documentElement.removeAttribute('lang');
   });
 
+  it('DOCE-PAGINATION-11.1 keeps the engine and its laid blocks for an equal copy of its template', async () => {
+    // A host that builds its template on each render hands over a new, equal object every time.
+    let template: TemplateFile = structuredClone(BASE_TEMPLATE);
+    const holder = holdTextEngine({
+      setting: { template: () => template, fonts: Promise.resolve(served()) },
+      changed: () => undefined,
+    });
+    await holder.loaded;
+    const engine = holder.engine();
+    const node = paragraph(WORDS);
+    const block = engine?.measureBlock(node, null);
+    const version = holder.version();
+    template = structuredClone(BASE_TEMPLATE);
+    expect(holder.engine()).toBe(engine);
+    expect(holder.version()).toBe(version);
+    expect(holder.engine()?.measureBlock(node, null)).toBe(block);
+    expect(holder.engine()?.stats().laid).toBe(1);
+    // Another template makes the engine again.
+    template = { ...template, styles: { ...template.styles, paragraph: { size: '20px' } } };
+    expect(holder.engine()).not.toBe(engine);
+    holder.destroy();
+  });
+
   it('DOCE-PAGINATION-11.12 keeps the engine in another markup, its lines moved', async () => {
     let markup: 'all' | 'final' | 'original' = 'all';
     const holder = holdTextEngine({
@@ -621,7 +644,10 @@ describe('holdTextEngine', () => {
     expect(first?.template).toBe(BASE_TEMPLATE);
     expect(holder.engine()).toBe(first);
     const version = holder.version();
-    template = { ...BASE_TEMPLATE };
+    template = {
+      ...BASE_TEMPLATE,
+      styles: { ...BASE_TEMPLATE.styles, paragraph: { size: '20px' } },
+    };
     expect(holder.engine()).not.toBe(first);
     expect(holder.version()).toBe(version + 1);
     holder.destroy();
