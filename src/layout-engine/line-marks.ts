@@ -59,29 +59,55 @@ const startingAt = (hidden: readonly Range[], at: number) =>
 const endingAt = (hidden: readonly Range[], at: number) =>
   hidden.find(([from, to]) => to === at && from < at);
 
+// The inline nodes other than text in a block's content, by where they start and end: read once
+// per block, not once per line.
+const atomsKept = new WeakMap<ProseMirrorNode, readonly Range[]>();
+
+function atomRanges(node: ProseMirrorNode): readonly Range[] {
+  let ranges = atomsKept.get(node);
+  if (!ranges) {
+    const found: Range[] = [];
+    node.forEach((child, start) => {
+      if (!child.isText) found.push([start, start + child.nodeSize]);
+    });
+    ranges = found;
+    atomsKept.set(node, ranges);
+  }
+  return ranges;
+}
+
+// The text a range of a block's content draws as text: its text nodes' text, and an object
+// character for each other inline node, as math, whose source a view never draws as text and
+// whose spaces the line does not stretch (DOCE-PAGINATION-13.1).
+function drawnText(node: ProseMirrorNode, from: number, to: number): string {
+  let text = '';
+  node.forEach((child, start) => {
+    const end = start + child.nodeSize;
+    if (end <= from || start >= to) return;
+    if (!child.isText) text += '\ufffc';
+    else text += (child.text ?? '').slice(Math.max(0, from - start), to - start);
+  });
+  return text;
+}
+
 // A line's shown text, without the hidden ranges inside it.
 function shownText(node: ProseMirrorNode, table: JustifiedLines, line: TextLine): string {
   let text = '';
   let at = line.from;
   const inside = (table.hidden ?? []).filter(([from, to]) => from < line.to && to > line.from);
   for (const [from, to] of inside) {
-    if (from > at) text += node.textBetween(at, from, '￼', '￼');
+    if (from > at) text += drawnText(node, at, from);
     at = Math.max(at, to);
   }
-  if (line.to > at) text += node.textBetween(at, line.to, '￼', '￼');
+  if (line.to > at) text += drawnText(node, at, line.to);
   return text;
 }
 
 // The inline node other than text that holds an offset of a block's content strictly inside it,
 // such as math, whose text a view never draws: a mark must take it whole.
 function atomAround(node: ProseMirrorNode, offset: number): { from: number; to: number } | null {
-  let around: { from: number; to: number } | null = null;
-  if (node.childCount === 1 && node.firstChild?.isText) return null;
-  node.forEach((child, start) => {
-    const to = start + child.nodeSize;
-    if (!child.isText && start < offset && offset < to) around = { from: start, to };
-  });
-  return around;
+  const range = atomRanges(node).find(([from, to]) => from < offset && offset < to);
+  return range ? { from: range[0], to: range[1] } : null;
 }
 
 // Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate

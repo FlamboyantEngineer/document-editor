@@ -333,4 +333,20 @@ describe('lineMarks', () => {
     // Without a box, a label the content shares a line with is left to the stylesheet.
     expect(labelParts(table(2, 2))).toBeNull();
   });
+
+  it('DOCE-PAGINATION-13.1 stretches only the spaces a justified line draws as text, none in math', () => {
+    const math = documentSchema.node('math_inline', null, [documentSchema.text('a + b + c')]);
+    const node = documentSchema.node('paragraph', null, [
+      documentSchema.text('aa bb '),
+      math,
+      documentSchema.text(' cc dd ee'),
+    ]);
+    // The first line holds `aa bb `, the math and ` cc `: three spaces of text, four in the math's
+    // source, which the view never draws as text.
+    const end = 6 + math.nodeSize + 4;
+    const lines = table(node.content.size, end, { justify: true }).lines;
+    const marks = lineMarks(node, { ...table(0, 1), justify: true, lines });
+    const justified = marks.find((mark) => mark.class === 'de-forced-lines__justified');
+    expect(justified?.style).toBe(`--de-word-spacing: ${(90 / 3).toFixed(3)}px`);
+  });
 });
