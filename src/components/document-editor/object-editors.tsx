@@ -5,14 +5,28 @@
 // what it holds. Captions are document content, edited as text.
 
 import { useResizeObserver } from '@flamboyantengineer/ui-components/core';
-import { MathField } from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type CSSProperties, type FocusEvent, useLayoutEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type FocusEvent,
+  lazy,
+  Suspense,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { cancelMathEditing, commitMathEditing, mathEditingAt } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { SURFACE_LOADERS } from './lazy-surfaces.js';
+
+// The field loads the first time a writer edits an equation, with the code editor it is built on,
+// so the editor's own code does not carry them (DOCE-ENTRY-2.2).
+const MathField = /* @__PURE__ */ lazy(async () => ({
+  default: (await SURFACE_LOADERS.math()).MathField,
+}));
 
 interface ObjectEditorsProps {
   view: EditorView | null;
@@ -137,18 +151,20 @@ export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
           {...hooks.slot('field', { kind: 'math' })}
           style={boxProperties(box)}
         >
-          <MathField
-            label={labels.mathSource}
-            labelLayout="control-only"
-            display={math.node.type.name === 'math_display' ? 'display' : 'inline'}
-            defaultValue={math.node.textContent}
-            autoFocus
-            onChange={(value) => {
-              draft.current = value;
-            }}
-            onSubmit={finish}
-            onCancel={() => finish(null)}
-          />
+          <Suspense fallback={null}>
+            <MathField
+              label={labels.mathSource}
+              labelLayout="control-only"
+              display={math.node.type.name === 'math_display' ? 'display' : 'inline'}
+              defaultValue={math.node.textContent}
+              autoFocus
+              onChange={(value) => {
+                draft.current = value;
+              }}
+              onSubmit={finish}
+              onCancel={() => finish(null)}
+            />
+          </Suspense>
         </div>
       ) : null}
     </div>

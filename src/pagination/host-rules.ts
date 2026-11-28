@@ -6,8 +6,8 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createRuleSizes, type RuleSizes, ruleSizesKey } from '../layout-engine/rule-sizes.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
-import { LAYOUT_RULES, type LayoutRules } from '../model/pagination/page-layout.js';
 import type { InsertedTexts } from './inserted-texts.js';
+import { rulesOf } from './layout-inputs.js';
 import type { NodeNumbers } from './node-numbers.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
@@ -42,11 +42,6 @@ export function reportUnplacedWords(
   refuse: (node: ProseMirrorNode, reason: string) => void,
 ): void {
   if (inserted.outside.has(node)) refuse(node, 'inserted words outside a text block');
-}
-
-/** The layout rules the engine sizes nodes by: the host's, else the library's own (`LAYOUT_RULES`). */
-export function rulesOf(options: TextEngineOptions): () => LayoutRules {
-  return () => options.layoutRules?.() ?? LAYOUT_RULES;
 }
 
 /**

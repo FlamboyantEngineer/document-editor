@@ -57,14 +57,14 @@ Verification: `test/bundle-budgets.test.ts`
 
 ### DOCE-ENTRY-2.2 - Surfaces loaded on first use
 
-The editor shall load the surfaces few sessions open the first time one opens, not with the entry: the figure, reference, abbreviation, script and linked code dialogs, with the asset picker and file upload only the figure dialog uses, the image asset button's picker (DOCE-TEMPLATE-EDITOR-3.17), the symbol picker's character grid, KaTeX and the shared-room code. Nothing shows while a surface loads, and it takes focus as it would have had it been loaded. `npm run check:bundle-size` fails an editor consumer whose initial code holds any of them.
+The editor shall load the surfaces few sessions open the first time one opens, not with the entry: the figure, reference, abbreviation, script and linked code dialogs, with the asset picker and file upload only the figure dialog uses, the image asset button's picker (DOCE-TEMPLATE-EDITOR-3.17), the symbol picker's character grid, the field that edits an equation's source in place (DOCE-OBJECTS-1.8) with the code editor it is built on, KaTeX and the shared-room code. Nothing shows while a surface loads, and it takes focus as it would have had it been loaded. `npm run check:bundle-size` fails an editor consumer whose initial code holds any of them.
 
-Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `src/components/document-editor/template-image-button.tsx`, `scripts/check-bundle-size.mjs`
-Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/object-dialogs.test.tsx`
+Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/object-editors.tsx`, `src/components/document-editor/symbol-button.tsx`, `src/components/document-editor/template-image-button.tsx`, `scripts/check-bundle-size.mjs`
+Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/object-dialogs.test.tsx`, `src/components/document-editor/object-editors.test.tsx`
 
 ### DOCE-ENTRY-2.3 - Warming the surfaces
 
-`preloadEditorSurfaces(names?)` shall load the surfaces of DOCE-ENTRY-2.2 that the editor loads on first use (`LazyEditorSurface`: `figure`, `reference`, `abbreviation`, `script`, `linked-code` and `symbols`), those named or all, so a host can warm them once the editor is ready, such as from its idle callback, and they open without a wait. It resolves once each has loaded or failed; a surface that failed loads again when it opens. The math renderer loads inside the base library and is not one of them.
+`preloadEditorSurfaces(names?)` shall load the surfaces of DOCE-ENTRY-2.2 that the editor loads on first use (`LazyEditorSurface`: `figure`, `reference`, `abbreviation`, `script`, `linked-code`, `math` and `symbols`), those named or all, so a host can warm them once the editor is ready, such as from its idle callback, and they open without a wait. It resolves once each has loaded or failed; a surface that failed loads again when it opens. The math renderer loads inside the base library and is not one of them.
 
 Implementation: `src/components/document-editor/lazy-surfaces.ts`, `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `labs/src/host-panel.tsx`
 Verification: `src/components/document-editor/lazy-surfaces.test.ts`
@@ -85,7 +85,7 @@ Verification: `test/bundle-budgets.test.ts`, `src/components/template-workspace/
 
 ### DOCE-ENTRY-2.6 - Sizes on record for what loads on first use
 
-`npm run check:bundle-size` shall also measure, for the editor consumer, what two of its `import()`s fetch on first use, raw and gzipped, each file once: the text layout engine, which is in no consumer's initial code, and the measurer of a host's font files. It shall print them after the consumers' sizes, with no budget and no baseline, so each run's log holds them; a host supplies the shaper's WebAssembly, which is in no bundle. A named load that no `import()` requests any more shall fail, so a size does not leave the record unnoticed.
+`npm run check:bundle-size` shall also measure, for the editor consumer, what four of its `import()`s fetch on first use, raw and gzipped, each file once: the text layout engine, which is in no consumer's initial code, the measurer of a host's font files, and MathJax's equation layouter with the STIX2 data it loads as its default font (DOCE-PAGINATION-12.12). It shall print them after the consumers' sizes, with no budget and no baseline, so each run's log holds them; a host supplies the shaper's WebAssembly, which is in no bundle. A named load that no `import()` requests any more shall fail, so a size does not leave the record unnoticed.
 
 Implementation: `scripts/check-bundle-size.mjs`, `scripts/lib/bundle-budgets.mjs`
 Verification: `test/bundle-budgets.test.ts`

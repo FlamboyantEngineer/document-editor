@@ -9,6 +9,7 @@ export const SURFACE_LOADERS = {
   abbreviation: () => import('./abbreviation-dialog.js'),
   script: () => import('./script-dialog.js'),
   'linked-code': () => import('./linked-code-dialog.js'),
+  math: () => import('./math-source-field.js'),
   symbols: () => import('@flamboyantengineer/ui-components/character-grid'),
 } as const;
 
