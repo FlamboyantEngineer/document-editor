@@ -15,7 +15,7 @@ export interface LayoutPace {
   changed: boolean;
   /** The layouts in a row that moved the pages with no change in between. */
   passes: number;
-  /** Whether the ghost's plugins start over at the next layout. */
+  /** Whether the plugins of the state laid out start over at the next layout. */
   restart: boolean;
   /** What the latest layout found, which the next starts from (`LayoutMemory`). */
   readonly memory: LayoutMemory;

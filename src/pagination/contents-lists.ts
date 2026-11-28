@@ -1,9 +1,10 @@
 // What each list of contents block shows, for the pages' text layout engine to lay it out
-// (DOCE-PAGINATION-10.11): from the contents plugin of the view that measures the pages, with the
-// host's kinds and labels, or, without one, from the document's own catalog of the default kinds.
+// (DOCE-PAGINATION-10.11): from the contents plugin of the state the pages are laid out from, with
+// the host's kinds and labels, or, without one, from the document's own catalog of the default
+// kinds.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import { contentsListOf } from '../engine/contents.js';
 import { DEFAULT_KINDS, listLook, listOf } from '../engine/contents-look.js';
 import { PAGE_DIGITS } from '../layout-engine/blocks/contents.js';
@@ -25,10 +26,10 @@ export interface ContentsLists {
   pageDigits(count: number): number;
 }
 
-/** The lists of contents the pages' blocks show, read from the measuring view's plugin. */
+/** The lists of contents the pages' blocks show, read from the plugin of the state laid out. */
 export function createContentsLists(
   template: TemplateFile,
-  view?: (() => EditorView | null) | undefined,
+  laid?: (() => EditorState | null) | undefined,
 ): ContentsLists {
   const catalogs = new WeakMap<ProseMirrorNode, DocumentCatalog>();
   const look = listLook({ template: () => template, kinds: DEFAULT_KINDS });
@@ -42,7 +43,7 @@ export function createContentsLists(
   };
   const of = (node: ProseMirrorNode, doc: ProseMirrorNode | null) => {
     if (node.type.name !== 'toc_block') return undefined;
-    const state = view?.()?.state;
+    const state = laid?.();
     const fromPlugin = state ? contentsListOf(state, node) : undefined;
     if (fromPlugin) return fromPlugin;
     const source = doc ?? state?.doc;

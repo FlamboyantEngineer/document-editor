@@ -1,6 +1,5 @@
 // The layout debugging's modes, which the `debug` shortcut cycles through while the host follows
-// them (`onDebugChange`): off, the block borders, the block borders with the measuring view beside
-// the pages, and the pages' markup beside them.
+// them (`onDebugChange`): off, the block borders, and the pages' markup beside them.
 
 import { type RefObject, useEffect } from 'react';
 import { matchesShortcut, shortcutsOf } from '../../engine/index.js';
@@ -8,17 +7,11 @@ import type { DocumentEditorDebug, DocumentEditorProps } from './document-editor
 import { debugParts } from './root-data.js';
 
 // The parts each mode shows, in the order the shortcut steps through them.
-const MODES: readonly DocumentEditorDebug[] = [
-  {},
-  { pages: true, blocks: true },
-  { pages: true, blocks: true, measure: true },
-  { source: true },
-];
+const MODES: readonly DocumentEditorDebug[] = [{}, { pages: true, blocks: true }, { source: true }];
 
 // Which mode the parts shown stand for: the furthest one they reach.
 function modeOf(debug: DocumentEditorDebug): number {
-  if (debug.source) return 3;
-  if (debug.measure) return 2;
+  if (debug.source) return 2;
   return debug.pages || debug.blocks ? 1 : 0;
 }
 

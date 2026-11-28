@@ -1,10 +1,11 @@
 // What a paged projection does between its two documents: send input to the canonical state,
 // mirror canonical changes onto the pages, route the browser's own edits and lay the pages out. A
-// session holds both states, the map between them and the ghost, and every step reads it. The
+// session holds both states, the map between them and the state the pages are laid out from, and
+// every step reads it. The
 // projection's state is the session's to change; whatever renders it is told of each new one.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, EditorState, type Transaction } from 'prosemirror-state';
+import type { Command, EditorState, Transaction } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
@@ -12,10 +13,10 @@ import { readDomSelection } from '../utils/dom-selection.js';
 import { caretPlace, rememberCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import { redrawRefused } from './dropped-composition.js';
-import type { MeasuringView } from './ghost-view.js';
 import { type Showing, shownBy } from './layout-latency.js';
 import { markLayout } from './layout-marks.js';
 import type { LayoutPace } from './layout-pace.js';
+import { followDocument } from './layout-source.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
 import { waitsForMath } from './math-wait.js';
@@ -52,7 +53,10 @@ export interface Session {
   readonly pageMaps: ReturnType<typeof createPageMapScope>;
   readonly cells: ReturnType<typeof holdCellSelection>;
   readonly counts: { refused: number; relaid: number };
-  readonly ghost: MeasuringView;
+  /** The state the pages were last laid out from, with no view (`followDocument`). */
+  source: EditorState;
+  /** Whether the projection has gone. */
+  destroyed: boolean;
   readonly edits: ReturnType<typeof settleEdits>;
   readonly probe: TypingProbe;
   readonly pace: LayoutPace;
@@ -187,11 +191,11 @@ export function requestLayout(session: Session): void {
   session.pace.readiness.pending();
   if (session.cancelLayout) return;
   writeTrace(session.options.trace, 'request');
-  const schedule = session.options.schedule ?? frameIn(session.options.measureIn);
+  const schedule = session.options.schedule ?? frameIn(session.options.element);
   session.cancelLayout = schedule(() => layout(session));
 }
 
-/** Lays the pages out again soon; `remeasure` starts the ghost's plugins over. */
+/** Lays the pages out again soon; `remeasure` starts the layout source's plugins over. */
 export function refreshLayout(session: Session, remeasure: boolean): void {
   if (remeasure) session.pace.restart = true;
   markChanged(session);
@@ -205,17 +209,17 @@ function markChanged(session: Session): void {
   session.pace.readiness.pending();
 }
 
-// Lays the pages out from the ghost with the engine, with its plugins started over when the host
-// asked.
+// Lays the pages out with the engine from the layout's source state, moved onto the canonical
+// document first, since the engine reads it as it lays it out (its contents, its math), with its
+// plugins started over when the host asked.
 function layOutPages(session: Session, engine: PagesTextEngine) {
-  const { ghost, canonical, projection, options, rules, pace } = session;
-  if (pace.restart) {
-    pace.restart = false;
-    const { doc, plugins } = ghost.view.state;
-    ghost.show(EditorState.create({ doc, plugins }));
-  }
+  const { canonical, projection, options, rules, pace } = session;
+  const source = followDocument(session.source, canonical.doc, pace.restart);
+  session.source = source;
+  pace.restart = false;
+  const { memory, counter } = pace;
   return layOutProjection(
-    { projection, ghost, canonical, memory: pace.memory, onSection: pace.counter.section },
+    { projection, source, canonical, memory, onSection: counter.section },
     { ...options, fragmentRules: rules, engine },
   );
 }
@@ -238,19 +242,20 @@ function readyEngine(session: Session): PagesTextEngine | null {
     session.pace.readiness.pending();
     return null;
   }
-  return waitsForMath(session, () => requestLayout(session)) ? null : engine;
+  const waiting = { ...session, owner: session.options.element.ownerDocument };
+  return waitsForMath(waiting, () => requestLayout(session)) ? null : engine;
 }
 
 /**
- * Lays the pages out from the ghost, steps the projection onto them and builds the map again;
+ * Lays the pages out from the canonical document, steps the projection onto them and builds the map again;
  * fails when layouts keep moving the pages with no change in between.
  */
 export function layout(session: Session): void {
   session.cancelLayout?.();
   session.cancelLayout = null;
   session.edits.cancel();
-  const { view, ghost, pace, options } = session;
-  if (view?.isDestroyed || ghost.view.isDestroyed) return;
+  const { view, pace, options } = session;
+  if (view?.isDestroyed || session.destroyed) return;
   const { trace } = options;
   if (view?.composing) {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
@@ -265,7 +270,7 @@ export function layout(session: Session): void {
     return pace.readiness.fail();
   }
   pace.changed = false;
-  const traced = traceLayout(trace, session.options.measureIn.ownerDocument.defaultView);
+  const traced = traceLayout(trace, options.element.ownerDocument.defaultView);
   let laidOut: ReturnType<typeof layOutProjection>;
   try {
     laidOut = layOutPages(session, engine);

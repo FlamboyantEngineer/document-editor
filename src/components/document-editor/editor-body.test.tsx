@@ -116,7 +116,7 @@ describe('EditorBody', () => {
       }
       await user.click(report());
       await user.paste(imagePaste('board.png', 'chart.png'));
-      // The document view's pictures, not the hidden measuring view's.
+      // The pictures of the document's only view.
       const pictures = () =>
         [...report().querySelectorAll('figure img')].map((image) => image.getAttribute('alt'));
       await waitFor(() => expect(pictures()).toEqual(['board.png', 'chart.png']));

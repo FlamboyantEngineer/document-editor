@@ -514,12 +514,10 @@ test.describe('host views on the projection', () => {
     await page.goto('regression.html?document=blockquotes&layout=page&debug&hostViews');
     await waitForLab(page);
     await expect(page.locator('.pm-page blockquote[data-host-view]').first()).toBeVisible();
-    // The ghost draws the host's view too, in the editor's measuring element.
-    const measuring = page.locator('.de-document-editor__measure .ProseMirror');
-    await expect(measuring.locator('blockquote[data-host-view]').first()).toBeAttached();
-    // Under the editor's own providers, as the pages draw it.
-    await expect(measuring.locator('blockquote[data-in-editor="false"]')).toHaveCount(0);
+    // Under the editor's own providers, and drawn only on the pages: nothing renders the document
+    // a second time to measure it.
     await expect(page.locator('.pm-page blockquote[data-in-editor="false"]')).toHaveCount(0);
+    await expect(page.locator('.de-document-editor .ProseMirror')).toHaveCount(1);
     // Each quote takes the box the host's rule gives it, its view's padding above and below its
     // text, moved whole, and every page holds what it shows.
     const hosted = await quoteHeights(page);
@@ -1427,8 +1425,10 @@ test.describe('mixed geometry', () => {
           };
         }),
       );
+    // The whole list, as the web layout shows it on one page.
+    await openDocument(page, 'roman-and-alpha-numbering', { layout: 'web' });
     const whole = await page
-      .locator('.de-document-editor__measure .de-contents .de-contents__entry')
+      .locator('.de-document-editor__content .de-contents .de-contents__entry')
       .count();
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.every(({ rows }) => rows > 0)).toBe(true);

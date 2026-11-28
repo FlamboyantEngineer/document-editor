@@ -156,19 +156,16 @@ test.describe('document editor lab', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.insertText(`wide${' '.repeat(40)}${'x'.repeat(300)}`);
     await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
-    // The block's height on the pages and in the measuring view.
-    const heights = () =>
-      page.evaluate(() =>
-        ['.de-document-editor__content', '.de-document-editor__measure'].map((scope) => {
-          const block = Array.from(document.querySelectorAll(`${scope} p`)).find((each) =>
-            each.textContent?.startsWith('wide '),
-          );
-          return block?.getBoundingClientRect().height ?? 0;
-        }),
-      );
-    const [drawn = 0, measured] = await heights();
+    // The block's height on the pages and as the layout engine laid it out.
+    await page.getByLabel('Block heights').check();
+    const block = content(page)
+      .locator('.pm-page-content > p')
+      .filter({ hasText: /^wide / })
+      .first();
+    await expect(block).toHaveAttribute('data-debug-height', /^\d+\.\d{3}$/);
+    const drawn = (await block.boundingBox())?.height ?? 0;
     expect(drawn).toBeGreaterThan(36);
-    expect(measured).toBe(drawn);
+    expect(Math.abs(Number(await block.getAttribute('data-debug-height')) - drawn)).toBeLessThan(1);
   });
 
   test('DOCE-EDITOR-2.2 joins the pages in the web layout and lays them out again', async ({
@@ -181,7 +178,6 @@ test.describe('document editor lab', () => {
     await page.getByLabel('Web layout').check();
     await expect(editor(page)).toHaveAttribute('data-layout', 'web');
     await expect(pages(page)).toHaveCount(1);
-    await expect(page.locator('.de-document-editor__measure')).toHaveCount(0);
     await page.getByLabel('Pages').check();
     await expect(editor(page)).toHaveAttribute('data-layout', 'page');
     await expect(pages(page)).toHaveCount(count);
@@ -1199,12 +1195,8 @@ test.describe('document editor lab', () => {
     expect(Math.abs(height - (box?.height ?? 0))).toBeLessThanOrEqual(1);
     await page.getByLabel('Block heights').uncheck();
     await expect(block).not.toHaveAttribute('data-debug-height');
-
-    const measure = page.locator('.de-document-editor__measure');
-    await expect(measure).not.toBeInViewport();
-    await page.getByLabel('Measuring view').check();
-    await expect(editor(page)).toHaveAttribute('data-debug-measure', 'true');
-    await expect(measure).toBeInViewport();
+    // The document is rendered once, on the pages: nothing hidden measures it.
+    await expect(page.locator('.de-document-editor .ProseMirror')).toHaveCount(1);
   });
 
   test('DOCE-PAGINATION-7.4 DOCE-EDITOR-6.13 labels each page with its sheet and outlines its regions', async ({
@@ -1278,7 +1270,7 @@ test.describe('document editor lab', () => {
     await expect(tip).toContainText(/\d+\.\d{3} × \d+\.\d{3}/);
   });
 
-  test('DOCE-EDITOR-6.29 DOCE-EDITOR-6.30 shows the measuring view and the markup in a resizable pane', async ({
+  test('DOCE-EDITOR-6.29 DOCE-EDITOR-6.30 shows the markup in a resizable pane', async ({
     lab,
     page,
   }) => {
@@ -1287,9 +1279,10 @@ test.describe('document editor lab', () => {
     await page.keyboard.press('Control+Alt+b');
     await expect(page.getByLabel('Block heights')).toBeChecked();
     await page.keyboard.press('Control+Alt+b');
-    await expect(page.getByLabel('Measuring view')).toBeChecked();
+    await expect(page.getByLabel('Page source')).toBeChecked();
     const pane = page.getByRole('region', { name: 'Layout debugging' });
-    await expect(pane.locator('.de-document-editor__measure')).toBeInViewport();
+    await expect(pane).toHaveAttribute('data-view', 'source');
+    await expect(pane).toContainText('pm-page-content');
     const handle = page.getByRole('separator', { name: 'Resize the layout debugging' });
     const before = (await pane.boundingBox())?.width ?? 0;
     const grip = await handle.boundingBox();
@@ -1302,10 +1295,6 @@ test.describe('document editor lab', () => {
       expect((await pane.boundingBox())?.width ?? 0).toBeGreaterThan(before + 40);
     }).toPass();
     await content(page).locator('.pm-page-content p').first().click();
-    await page.keyboard.press('Control+Alt+b');
-    await expect(page.getByLabel('Page source')).toBeChecked();
-    await expect(pane).toHaveAttribute('data-view', 'source');
-    await expect(pane).toContainText('pm-page-content');
     await page.keyboard.press('Control+Alt+b');
     await expect(pane).toBeHidden();
   });

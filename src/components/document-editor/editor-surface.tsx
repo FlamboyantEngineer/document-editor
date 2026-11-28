@@ -44,8 +44,6 @@ interface EditorSurfaceProps {
   readonly pagesUnavailable: BrowserLayoutReason | null;
   /** Where the pages stand against their first layout. */
   readonly firstLayout: FirstLayout;
-  /** Where the pages are measured, in page layout; the debugging pane holds its element. */
-  readonly measureIn: RefObject<HTMLDivElement | null> | null;
   /** The document with its handles. */
   readonly children: ReactNode;
 }
@@ -144,20 +142,11 @@ export function EditorSurface({
   missingFonts,
   pagesUnavailable,
   firstLayout,
-  measureIn,
   children,
 }: EditorSurfaceProps) {
   const { props, context, view } = chrome;
-  const shown = debugPaneView(debugParts(props.debug), measureIn !== null);
-  const pane = (
-    <DebugPane
-      shown={shown}
-      view={view}
-      pages={chrome.pages}
-      labels={context.labels}
-      measureIn={measureIn}
-    />
-  );
+  const shown = debugPaneView(debugParts(props.debug));
+  const pane = <DebugPane shown={shown} view={view} pages={chrome.pages} labels={context.labels} />;
   const [region, setRegion] = useState<HTMLDivElement | null>(null);
   const overviewLayers = useDocumentOverview(
     region,

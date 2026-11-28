@@ -212,7 +212,8 @@ test.describe('pagination lab', () => {
       const response = await route.fetch();
       const style =
         '<style>@font-face { font-family: LabDelayed; src: url(lab-fonts/delayed.woff2); size-adjust: 160% }' +
-        ' .lab-measure p { font-family: LabDelayed, serif !important }</style>';
+        // Text out of sight that asks for the face, so the page loads it.
+        ' body::after { content: "x"; position: absolute; left: -10000px; font-family: LabDelayed }</style>';
       await route.fulfill({
         response,
         body: (await response.text()).replace('</head>', `${style}</head>`),

@@ -6,7 +6,7 @@
 // template names.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
 import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
@@ -53,7 +53,7 @@ export interface TextEngineHolder {
    * math laid out again (DOCE-PAGINATION-12.13).
    */
   version(): number;
-  /** Settles once the engine's module has loaded. */
+  /** Settles once the engine's module has loaded, or failed to, which leaves no engine. */
   readonly loaded: Promise<unknown>;
   /** Makes the engine again, so its atoms are measured again, as after the screen changed. */
   remeasure(): void;
@@ -131,8 +131,8 @@ function numberedLike(engine: PagesTextEngine, counted: Counted) {
 export function holdTextEngine(options: {
   readonly setting: TextLayoutSetting;
   readonly changed: () => void;
-  /** The view that measures the pages, whose math views typeset its math. */
-  readonly view?: (() => EditorView | null) | undefined;
+  /** The state the pages are laid out from, whose math views typeset its math. */
+  readonly state?: (() => EditorState | null) | undefined;
 }): TextEngineHolder {
   let made: LoadedEngine | null = null;
   let fonts: PagesFonts | null = null;
@@ -143,10 +143,15 @@ export function holdTextEngine(options: {
   let version = 0;
   const markups = markupChanges(options.setting.markup);
   let destroyed = false;
-  const loaded = loadEngine(options.setting).then(([module, served, layouter]) => {
-    made = { ...module, layouter };
-    fonts = served;
-  });
+  // Settles either way: served fonts that fail leave no engine (DOCE-PAGINATION-12.5), and the
+  // pages say why from the fonts themselves, so nothing waits on a rejection no one handles.
+  const loaded = loadEngine(options.setting).then(
+    ([module, served, layouter]) => {
+      made = { ...module, layouter };
+      fonts = served;
+    },
+    () => undefined,
+  );
   const settled = () => {
     version += 1;
     options.changed();
@@ -186,7 +191,7 @@ export function holdTextEngine(options: {
         template,
         codeLineNumbers,
         language,
-        view: options.view,
+        state: options.state,
         ...settingInputs(options.setting, made),
       });
       // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.10).

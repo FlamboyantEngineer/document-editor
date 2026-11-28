@@ -1,5 +1,5 @@
 // Math as it reads: each inline or display math node drawn as its typeset MathML, through the base
-// library's KaTeX renderer, in every view the plugin runs in, the pages' measuring view too. Each
+// library's KaTeX renderer, in every view the plugin runs in. Each
 // source is typeset once, by the plugin's typesetter (`math-typesetter.ts`), which the pages wait
 // for before laying math out (`mathTypesetReady`). The LaTeX source shows until the math is
 // typeset; math that does not typeset says so instead, its renderer's reason as its title. Its size

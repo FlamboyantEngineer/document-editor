@@ -132,7 +132,6 @@ const HOST_STATUS_BAR: DocumentStatusBarOptions = {
 const DEBUG_PARTS = [
   { part: 'pages', label: 'Layout debugging' },
   { part: 'blocks', label: 'Block heights' },
-  { part: 'measure', label: 'Measuring view' },
   { part: 'source', label: 'Page source' },
 ] as const;
 

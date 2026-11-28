@@ -1,7 +1,8 @@
 // Objects that are not text or containers: figures and their captions, code with its caption,
-// display equations, rules, page breaks, and the blocks drawn from stored markup. A size the
-// template or the node fixes is computed; anything else is an atom measured once in the DOM
-// (DOCE-PAGINATION-10.2, 10.4).
+// display equations, rules, page breaks and kept blocks. Each is sized from what the template or
+// the node fixes (a figure's stored size, the stylesheet's numbers) and a display equation from
+// its math layout; nothing is measured in the DOM, and a kept block takes no room
+// (DOCE-PAGINATION-10.4, 12.10, 14.6).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { isTextMeasurement } from '../../model/pagination/text-split.js';
@@ -164,23 +165,22 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
 }
 
 // The room a display equation's line keeps at its end: its tag, then its automatic number, side
-// by side with an em between them, and an em before the equation, in its font; and how far the
-// tag sits from the line's end, past the number and its em. Both 0 without a tag or number.
+// by side with an em between them, and an em before the equation, the em the scope's text size, not a
+// glyph's width; and how far the tag sits from the line's end, past the number and its em. Both 0
+// without a tag or number.
 function endRoom(
-  { options, place }: BlockContext,
+  { options, place, metrics }: BlockContext,
   node: ProseMirrorNode,
   math: MathLayouts,
 ): { room: number; tag: number } {
   const width = (text: string) => options.text.textWidth?.(text, node, place.scope) ?? 0;
   const number = options.equationOf?.(node);
-  const em = width(EM_SPACE);
+  const { em } = metrics;
   const numbered = number ? width(number) : 0;
   const tag = math.tag && numbered ? numbered + em : 0;
   const end = tag + (math.tag?.width ?? 0) || numbered;
   return { room: end ? end + em : 0, tag };
 }
-
-const EM_SPACE = '\u2003';
 
 /** A horizontal rule: its borders, with the stylesheet's margins. */
 export function layRule(context: BlockContext, node: ProseMirrorNode): Laid {

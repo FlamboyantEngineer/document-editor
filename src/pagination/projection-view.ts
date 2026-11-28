@@ -2,7 +2,7 @@
 // mounted where the caller says, read-only to the browser's edits, which it routes to the
 // canonical state (`createPagedProjection`).
 
-import { EditorView } from 'prosemirror-view';
+import { type EditorProps, EditorView } from 'prosemirror-view';
 import { keepInputAfterFocus } from '../utils/dom-selection.js';
 import {
   createPagedProjection,
@@ -11,9 +11,14 @@ import {
 } from './projection.js';
 
 /** How a projection with a view of its own is set up. */
-export interface ProjectionViewOptions extends Omit<PagedProjectionOptions, 'onProjection'> {
-  /** Where the projection view mounts. */
+export interface ProjectionViewOptions extends Omit<
+  PagedProjectionOptions,
+  'onProjection' | 'element'
+> {
+  /** Where the projection view mounts, the element the projection is in (`element`). */
   readonly mount: HTMLElement;
+  /** The node views the pages render with. */
+  readonly nodeViews?: EditorProps['nodeViews'];
 }
 
 /** A paged projection with the view that renders it. */
@@ -27,6 +32,7 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
   let view: EditorView | null = null;
   const projection = createPagedProjection({
     ...options,
+    element: options.mount,
     onProjection: (state) => view?.updateState(state),
   });
   const shown = new EditorView(options.mount, {

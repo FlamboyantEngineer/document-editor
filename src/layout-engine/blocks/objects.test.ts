@@ -161,8 +161,8 @@ describe('equations, rules and markup', () => {
 
   it('DOCE-PAGINATION-12.10 scales a display equation wider than its line less its tag and an em down to fit', () => {
     const svg = { tag: 'svg', attrs: {}, children: [] };
-    // 30px of tag and the stand-in's 10px em.
-    const tag = { width: 30, ascent: 10, descent: 3, svg, missing: '' };
+    // 28px of tag and an em of the base template's 12px text size, not the em space's width.
+    const tag = { width: 28, ascent: 10, descent: 3, svg, missing: '' };
     const math = { math: { width: 1120, ascent: 30, descent: 12, svg, missing: '' }, tag };
     const placed = vi.fn();
     const { layout } = standInBlockLayout({
@@ -185,26 +185,27 @@ describe('equations, rules and markup', () => {
 
   it('DOCE-PAGINATION-12.10 fits a display equation into its line less its automatic number and an em', () => {
     const svg = { tag: 'svg', attrs: {}, children: [] };
-    const math = { math: { width: 1120, ascent: 30, descent: 12, svg, missing: '' } };
+    const math = { math: { width: 1116, ascent: 30, descent: 12, svg, missing: '' } };
     const placed = vi.fn();
     const equation = node('math_display', null, [schema.text('x')]);
     const { layout } = standInBlockLayout({
-      measure: () => ({ width: 1120, height: 42, math }),
+      measure: () => ({ width: 1116, height: 42, math }),
       onMath: placed,
       equationOf: (of) => (of === equation ? '(4)' : undefined),
     });
     layout.layoutBlock(equation, place);
-    // The number and the em before it take 40px at the stand-in's ten a character: 560px are left.
+    // The number, at the stand-in's ten a character, and the 12px em before it take 42px: 558px
+    // are left.
     expect(placed).toHaveBeenCalledWith(
       equation,
-      expect.objectContaining({ box: expect.objectContaining({ width: 560 }) as unknown, end: 40 }),
+      expect.objectContaining({ box: expect.objectContaining({ width: 558 }) as unknown, end: 42 }),
     );
   });
 
   it('DOCE-PAGINATION-12.10 sets a tag and an automatic number side by side, the equation fitted in what is left', () => {
     const svg = { tag: 'svg', attrs: {}, children: [] };
-    const tag = { width: 30, ascent: 10, descent: 3, svg, missing: '' };
-    const math = { math: { width: 1080, ascent: 30, descent: 12, svg, missing: '' }, tag };
+    const tag = { width: 26, ascent: 10, descent: 3, svg, missing: '' };
+    const math = { math: { width: 1040, ascent: 30, descent: 12, svg, missing: '' }, tag };
     const placed = vi.fn();
     const equation = node('math_display', null, [schema.text('x')]);
     const { layout } = standInBlockLayout({
@@ -213,14 +214,14 @@ describe('equations, rules and markup', () => {
       equationOf: () => '(4)',
     });
     layout.layoutBlock(equation, place);
-    // The tag, an em, the number and an em before the equation: 30 + 10 + 30 + 10, so 520px are
-    // left; the tag sits 40px from the line's end, past the number and its em.
+    // The tag, an em, the number and an em before the equation: 26 + 12 + 30 + 12, so 520px are
+    // left; the tag sits 42px from the line's end, past the number and its em.
     expect(placed).toHaveBeenCalledWith(
       equation,
       expect.objectContaining({
         box: expect.objectContaining({ width: 520 }) as unknown,
         end: 80,
-        tagEnd: 40,
+        tagEnd: 42,
       }),
     );
   });

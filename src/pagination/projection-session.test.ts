@@ -69,7 +69,7 @@ describe('starting the projection', () => {
   it('DOCE-PAGINATION-12.5 lays nothing out before the layout engine has loaded with the served fonts', () => {
     stubLayout({});
     const projection = createPagedProjection({
-      measureIn: document.body.appendChild(document.createElement('div')),
+      element: document.body.appendChild(document.createElement('div')),
       state: canonicalState(),
       pageHeight: 1000,
       settle: 0,
@@ -90,7 +90,7 @@ describe('starting the projection', () => {
     const state = start.apply(start.tr.setSelection(TextSelection.create(start.doc, at)));
     const dispatched: Transaction[] = [];
     const projection = createPagedProjection({
-      measureIn: document.body.appendChild(document.createElement('div')),
+      element: document.body.appendChild(document.createElement('div')),
       state,
       pageHeight: 1000,
       settle: 0,

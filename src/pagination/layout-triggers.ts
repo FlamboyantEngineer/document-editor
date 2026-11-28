@@ -14,11 +14,11 @@ const RELEASES = ['mouseup', 'dragend', 'drop', 'blur'] as const;
  * lands in the middle of a drag; then asks for it.
  */
 export function settleEdits(
-  options: Pick<PagedProjectionOptions, 'measureIn' | 'settle'>,
+  options: Pick<PagedProjectionOptions, 'element' | 'settle'>,
   request: () => void,
 ) {
   const settle = options.settle ?? 150;
-  const owner = options.measureIn.ownerDocument.defaultView;
+  const owner = options.element.ownerDocument.defaultView;
   const edits = { first: 0, last: 0, timer: null as number | null, pressed: false };
   const now = () => owner?.performance.now() ?? 0;
   const press = () => {

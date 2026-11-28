@@ -3,7 +3,7 @@
 // DOM.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import { typesetMathOf } from '../engine/math-views.js';
 import {
   createMathAtomMeasurer,
@@ -16,10 +16,10 @@ import type { TextLayout } from '../layout-engine/text-layout.js';
 import { markedFont } from '../layout-engine/typography.js';
 import type { TextEngineOptions, TextEngineStats } from './text-engine-types.js';
 
-// What math was typeset as: by the options' reader, or the math views of the view that measures
-// the pages; nothing without either.
+// What math was typeset as: by the options' reader, or the math views of the state the pages are
+// laid out from; nothing without either.
 const typesetReader = (options: TextEngineOptions) =>
-  options.typesetOf ?? (options.view ? typesetIn(options.view) : () => null);
+  options.typesetOf ?? (options.state ? typesetIn(options.state) : () => null);
 
 // Sizes typeset math from its layout (DOCE-PAGINATION-12.10), at the font size it is drawn at, and
 // math it cannot lay out with the reserved box; no other atom.
@@ -53,7 +53,11 @@ export function provisionalMath(options: TextEngineOptions) {
   return {
     note(node: ProseMirrorNode) {
       count += 1;
+      waiting.delete(node);
       waiting.add(node);
+      // Math deleted before it was typeset never settles: the oldest waiting are let go.
+      if (waiting.size > WAITING_KEPT)
+        waiting.delete(waiting.values().next().value as ProseMirrorNode);
     },
     count: () => count,
     /** Moves once any math given a provisional box can be sized; `settled` is told first. */
@@ -94,10 +98,10 @@ export function documentMathPending(
   return waits.length ? Promise.all(waits).then(() => undefined) : null;
 }
 
-// What math was typeset as by the math views of the view that measures the pages, which runs the
-// canonical state's plugins.
-const typesetIn = (view: () => EditorView | null) => (node: ProseMirrorNode) => {
-  const state = view()?.state;
+// What math was typeset as by the math views of the state the pages are laid out from, which runs
+// the canonical state's plugins.
+const typesetIn = (source: () => EditorState | null) => (node: ProseMirrorNode) => {
+  const state = source();
   return state ? typesetMathOf(state, node) : null;
 };
 
@@ -119,6 +123,12 @@ function liveIn(doc: ProseMirrorNode | null, nodes: Set<ProseMirrorNode>): numbe
   return live.size;
 }
 
+// The most equations found by element id; the least recently placed go first.
+const MATH_PLACES_BY_ID = 4000;
+
+// The most math nodes waiting for what sizes them that the engine follows; the oldest go first.
+const WAITING_KEPT = 1000;
+
 interface MathPlacement {
   readonly at: PlacedMath;
   readonly number: string | undefined;
@@ -132,7 +142,7 @@ interface MathPlacement {
 export function mathPlaces(
   equationOf: (node: ProseMirrorNode) => string | undefined = () => undefined,
 ) {
-  let placed = new WeakMap<ProseMirrorNode, MathPlacement>();
+  const placed = new WeakMap<ProseMirrorNode, MathPlacement>();
   const byId = new Map<unknown, MathPlacement & { node: ProseMirrorNode }>();
   const small = new Set<ProseMirrorNode>();
   const find = (node: ProseMirrorNode): PlacedMath | null => {
@@ -151,7 +161,11 @@ export function mathPlaces(
       const number = equationOf(node);
       if (!samePlace(placed.get(node)?.at, at)) version += 1;
       placed.set(node, { at, number });
-      if (node.attrs.dataId) byId.set(node.attrs.dataId, { node, at, number });
+      if (node.attrs.dataId) {
+        byId.delete(node.attrs.dataId);
+        byId.set(node.attrs.dataId, { node, at, number });
+        if (byId.size > MATH_PLACES_BY_ID) byId.delete(byId.keys().next().value);
+      }
       if (at.box.scale < MATH_MIN_REPORTED_SCALE) small.add(node);
       else small.delete(node);
     },
@@ -161,11 +175,5 @@ export function mathPlaces(
       mathVersion: () => version,
       stats: (): TextEngineStats => ({ ...stats(), smallMath: liveIn(doc(), small) }),
     }),
-    forget() {
-      placed = new WeakMap();
-      byId.clear();
-      small.clear();
-      version += 1;
-    },
   };
 }

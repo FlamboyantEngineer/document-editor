@@ -92,7 +92,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-2.3 - In the document editor
 
-The document editor shall run the version changes in its view and its measuring view, compare the document with `compare.previous` (an older version, or `opened` for the document as the editor opened it) in `compare.display`, within `compare.scope` when given, marking its root with `data-comparing`, and lay the pages out again when either changes.
+The document editor shall run the version changes in its view and in the state its pages are laid out from, compare the document with `compare.previous` (an older version, or `opened` for the document as the editor opened it) in `compare.display`, within `compare.scope` when given, marking its root with `data-comparing`, and lay the pages out again when either changes.
 
 Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/versions.spec.ts`

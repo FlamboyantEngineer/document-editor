@@ -110,7 +110,7 @@ export function createCollabSync({
   };
   const plugin: Plugin<LocalSteps> = new Plugin<LocalSteps>({
     key: collabSyncKey,
-    // Kept out of the paged layout's hidden measuring view, which would bind a second time.
+    // Kept out of the state the paged layout lays out from, which would replay changes again.
     measured: false,
     state: {
       init: () => NOT_TRACKING,

@@ -174,7 +174,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   // The words inserted in the blocks being measured.
   let current = NO_INSERTED;
   const recorder: LinesRecorder = { lines: null };
-  const contents = createContentsLists(template, options.view);
+  const contents = createContentsLists(template, options.state);
   const refusals = createRefusals();
   const waiting = provisionalMath(options);
   const layouts = engineLayouts(options, {
@@ -186,7 +186,11 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     provisional: waiting.note,
   });
   const { text, geometry, select, measureContext, variablesKey, labelOf } = layouts;
-  const counts = createCounts(layouts.sizes.errors, refusals);
+  // The errors of the nodes of the document numbered last, the one being laid out.
+  const counts = createCounts(
+    () => layouts.sizes.errors(numbers.current().doc ?? undefined),
+    refusals,
+  );
   const rules = watchedRules(options, () => forget());
   const widthOf = contentWidths(template);
   const keyed = { widthOf, markup, numbers: numbers.current, variablesKey };

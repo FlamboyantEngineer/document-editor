@@ -4,7 +4,6 @@
 import { type RefObject, useEffect, useMemo, useState } from 'react';
 import type { LayoutState } from '../../pagination/index.js';
 import type { DocumentEditorProps } from './document-editor.js';
-import { DocumentEditorContext, type EditorContext } from './editor-context.js';
 import { useFirstLayout } from './first-layout.js';
 import { debugParts } from './root-data.js';
 import { useDocumentLayout } from './use-document-layout.js';
@@ -14,10 +13,9 @@ import { usePagedEditor, usePagedView } from './use-paged-projection.js';
 import type { useShownFonts } from './use-pages-fonts.js';
 import { useVisibleElementsFeed } from './visible-elements.js';
 
-// Where the pages are measured, and the editor's context, which the ghost's node views read too.
+// The editor's root element, in the document the pages show in.
 interface EditorLayoutRefs {
-  readonly measureIn: RefObject<HTMLDivElement | null>;
-  readonly context: RefObject<EditorContext | null>;
+  readonly root: RefObject<HTMLElement | null>;
   readonly fonts: Omit<ReturnType<typeof useShownFonts>, 'props'>;
   /** Signalled once the web layout shows the document. */
   readonly ready: ReturnType<typeof useLayoutTap>['ready'];
@@ -28,7 +26,7 @@ projection of the state, the engine's view as a view of the state. */
 export function useEditorLayout(
   props: DocumentEditorProps,
   engine: ReturnType<typeof useEngineView>,
-  { measureIn, context, fonts, ready }: EditorLayoutRefs,
+  { root, fonts, ready }: EditorLayoutRefs,
 ) {
   const { state, editable = true } = props;
   const paging = usePagedEditor({
@@ -39,7 +37,7 @@ export function useEditorLayout(
   });
   const [layoutState, setLayoutState] = useState<LayoutState>('pending');
   const { reported, text } = fonts;
-  const progress = useDocumentLayout(measureIn, {
+  const progress = useDocumentLayout(root, {
     ...props,
     fonts: reported.fonts,
     text,
@@ -49,9 +47,6 @@ export function useEditorLayout(
     onLayoutStateChange: setLayoutState,
     onCanonical: paging.onCanonical,
     onLayout: paging.onLayout,
-    wrapGhost: (shown) => (
-      <DocumentEditorContext value={context.current}>{shown}</DocumentEditorContext>
-    ),
   });
   const view = usePagedView(progress.paged, engine.view, { state, ...paging });
   useEffect(() => {

@@ -3,14 +3,13 @@
 // as, by its layout, so the pages are laid out once both are ready, and never again for them.
 
 import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
 import { mathTypesetReady } from '../engine/math-views.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
-/** What a layout waits with: the state laid out, its measuring view and its readiness. */
+/** What a layout waits with: the state laid out, the document it shows in, and its readiness. */
 interface Waiting {
   readonly canonical: EditorState;
-  readonly ghost: { readonly view: EditorView };
+  readonly owner: Document;
   readonly pace: {
     readonly readiness: { pending(): void };
     readonly text?: { engine(): PagesTextEngine | null } | null | undefined;
@@ -22,8 +21,8 @@ interface Waiting {
  * math layouter still loads what laying it out needs, the layout then pending; `resume` is called
  * once they have.
  */
-export function waitsForMath({ canonical, ghost, pace }: Waiting, resume: () => void): boolean {
-  const typesetting = mathTypesetReady(canonical, canonical.doc, ghost.view.dom.ownerDocument);
+export function waitsForMath({ canonical, owner, pace }: Waiting, resume: () => void): boolean {
+  const typesetting = mathTypesetReady(canonical, canonical.doc, owner);
   const waiting = typesetting ?? pace.text?.engine()?.mathPending(canonical.doc) ?? null;
   if (!waiting) return false;
   pace.readiness.pending();

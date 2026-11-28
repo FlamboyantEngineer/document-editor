@@ -13,7 +13,6 @@ import {
   blockPixels,
   templateBlockNumbers,
 } from '../../model/templates/block-numbers.js';
-import { lengthToCssPx } from '../../model/templates/template-css-values.js';
 import { templateScopeStyles } from '../../model/templates/template-properties.js';
 import {
   resolveFootnoteSettings,
@@ -25,6 +24,7 @@ import {
   resolveContentsList,
   type ResolvedContentsList,
 } from '../../model/templates/template-settings.js';
+import { resolveLength, resolveSize } from '../template-lengths.js';
 
 /** A template scope's block geometry numbers, in CSS pixels. */
 export interface BlockMetrics {
@@ -76,20 +76,26 @@ interface RegionMetrics {
 }
 
 const DEFAULT_FONT_SIZE = 12;
+const DEFAULT_FOOTNOTE_SIZE = 10;
 const DEFAULT_LIST_INDENT = '24pt';
 const DEFAULT_CELL_PADDING = '4px';
 const DEFAULT_BORDER = '1px';
 
-function pixels(length: unknown, fallback = '0px'): number {
-  return Number.parseFloat(lengthToCssPx(length) ?? lengthToCssPx(fallback) ?? '0') || 0;
+// A template length in CSS pixels, in a form the stylesheet is given (`resolveLength`), `em` at
+// `em`, the font size of the element the stylesheet sets it on; the fallback for any other form.
+function pixels(length: unknown, fallback = '0px', em = DEFAULT_FONT_SIZE): number {
+  return resolveLength(length, em) ?? resolveLength(fallback, em) ?? 0;
 }
 
 // The numbers of objects whose look the template sets by its object styles.
-function objectNumbers(styles: TemplateStyles, sheet: (name: keyof BlockNumbers) => number) {
+function objectNumbers(
+  styles: TemplateStyles,
+  { sheet, em }: { sheet: (name: keyof BlockNumbers) => number; em: number },
+) {
   return {
     table: {
-      cellPadding: pixels(styles.table?.cellPadding, DEFAULT_CELL_PADDING),
-      border: pixels(styles.table?.border?.width, DEFAULT_BORDER),
+      cellPadding: pixels(styles.table?.cellPadding, DEFAULT_CELL_PADDING, em),
+      border: pixels(styles.table?.border?.width, DEFAULT_BORDER, em),
       captionPadding: sheet('tableCaptionPadding'),
     },
     code: {
@@ -107,9 +113,12 @@ function objectNumbers(styles: TemplateStyles, sheet: (name: keyof BlockNumbers)
   };
 }
 
-// The numbers of a page's header, footer and footnote area.
-function regionNumbers(template: TemplateFile, section: TemplateSection | null) {
+// The numbers of a page's header, footer and footnote area, the area's lengths in em at its text
+// size, as the stylesheet sets them on the area.
+function regionNumbers(template: TemplateFile, section: TemplateSection | null, em: number) {
   const footnotes = resolveFootnoteSettings(template, section);
+  const size = resolveSize(footnotes.text.size, em) ?? DEFAULT_FOOTNOTE_SIZE;
+  const inArea = (length: unknown) => pixels(length, '0px', size);
   const region = (name: 'header' | 'footer'): RegionMetrics => ({
     minHeight: pixels(resolveRegionHeight(template, section, name)),
     gap: pixels(resolveRegionSpacing(template, section, name)),
@@ -118,9 +127,9 @@ function regionNumbers(template: TemplateFile, section: TemplateSection | null) 
     header: region('header'),
     footer: region('footer'),
     footnotes: {
-      separator: footnotes.separator.enabled ? pixels(footnotes.separator.thickness) : 0,
-      spacing: pixels(footnotes.spacingToContent),
-      entrySpacing: pixels(footnotes.entrySpacing),
+      separator: footnotes.separator.enabled ? inArea(footnotes.separator.thickness) : 0,
+      spacing: inArea(footnotes.spacingToContent),
+      entrySpacing: inArea(footnotes.entrySpacing),
     },
   };
 }
@@ -132,16 +141,17 @@ function regionNumbers(template: TemplateFile, section: TemplateSection | null) 
 export function blockMetrics(template: TemplateFile, scope: string | null = null): BlockMetrics {
   const section = findTemplateSection(template, scope);
   const styles = templateScopeStyles(template, section);
-  const em = pixels(styles.paragraph?.size, `${String(DEFAULT_FONT_SIZE)}px`);
+  // The page content's font size, which the paragraph's sets, as the stylesheet's em is: unsnapped.
+  const em = resolveSize(styles.paragraph?.size, DEFAULT_FONT_SIZE) ?? DEFAULT_FONT_SIZE;
   const numbers = templateBlockNumbers(styles);
   const sheet = (name: keyof BlockNumbers) => blockPixels(numbers[name], em);
   return {
     em,
-    paragraphAfter: pixels(styles.paragraph?.spaceAfter),
+    paragraphAfter: pixels(styles.paragraph?.spaceAfter, '0px', em),
     list: {
-      indent: pixels(styles.list?.indentation, DEFAULT_LIST_INDENT),
-      before: pixels(styles.list?.spaceBefore),
-      after: pixels(styles.list?.spaceAfter),
+      indent: pixels(styles.list?.indentation, DEFAULT_LIST_INDENT, em),
+      before: pixels(styles.list?.spaceBefore, '0px', em),
+      after: pixels(styles.list?.spaceAfter, '0px', em),
     },
     quote: {
       indent: sheet('quoteIndent'),
@@ -153,8 +163,8 @@ export function blockMetrics(template: TemplateFile, scope: string | null = null
       before: sheet('ruleSpacing'),
       after: sheet('ruleSpacing'),
     },
-    ...objectNumbers(styles, sheet),
-    ...regionNumbers(template, section),
+    ...objectNumbers(styles, { sheet, em }),
+    ...regionNumbers(template, section, em),
     contents: (kind) => resolveContentsList(styles.contents, kind),
   };
 }

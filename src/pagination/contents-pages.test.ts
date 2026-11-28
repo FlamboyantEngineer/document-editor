@@ -1,7 +1,6 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
-import { EditorView } from 'prosemirror-view';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
@@ -52,10 +51,10 @@ function engineOf(): PagesTextEngine {
   });
 }
 
-// The pages a view of a document is laid out on, by the blocks each holds, and the digits the
+// The pages a state of a document is laid out on, by the blocks each holds, and the digits the
 // list's page boxes kept room for.
-function pagesOf(view: EditorView, engine: PagesTextEngine, reasons: string[] = []) {
-  const pages = layoutDocument(view, {
+function pagesOf(state: EditorState, engine: PagesTextEngine, reasons: string[] = []) {
+  const pages = layoutDocument(state, {
     pageHeight: 2000,
     engine,
     onUnsettled: (reason) => reasons.push(reason),
@@ -97,12 +96,10 @@ describe('the page boxes of a list of contents', () => {
     // Four pages a heading: the list still fills pages of its own and its last rows read past
     // page 999, with a quarter of the rows to lay out each time.
     const doc = documentOf(252, 4);
-    const view = new EditorView(document.createElement('div'), {
-      state: EditorState.create({ doc }),
-    });
+    const state = EditorState.create({ doc });
     const engine = engineOf();
     const reasons: string[] = [];
-    const first = pagesOf(view, engine, reasons);
+    const first = pagesOf(state, engine, reasons);
     expect(first.count).toBeGreaterThanOrEqual(1000);
     // The list fills pages of its own, and its last row reads a page past 999.
     const holdsHeading = (page: string[]) => page.includes('heading:');
@@ -114,18 +111,14 @@ describe('the page boxes of a list of contents', () => {
     expect(first.digits).toBe(4);
     expect(reasons).toEqual([]);
     // Laid out again, and after an edit taken back, the pages are the same.
-    expect(pagesOf(view, engine).shape).toEqual(first.shape);
-    const part = find(view.state.doc, 'heading');
+    expect(pagesOf(state, engine).shape).toEqual(first.shape);
+    const part = find(state.doc, 'heading');
     if (!part) throw new Error('no heading');
-    const edit = view.state.tr.insertText(' and more words', part.pos + 1);
-    view.updateState(view.state.apply(edit));
-    pagesOf(view, engine);
-    view.updateState(EditorState.create({ doc }));
-    expect(pagesOf(view, engine).shape).toEqual(first.shape);
+    pagesOf(state.apply(state.tr.insertText(' and more words', part.pos + 1)), engine);
+    expect(pagesOf(EditorState.create({ doc }), engine).shape).toEqual(first.shape);
     const fresh = engineOf();
-    expect(pagesOf(view, fresh).shape).toEqual(first.shape);
+    expect(pagesOf(state, fresh).shape).toEqual(first.shape);
     fresh.destroy();
     engine.destroy();
-    view.destroy();
   });
 });

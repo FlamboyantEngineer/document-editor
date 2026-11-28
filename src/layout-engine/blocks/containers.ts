@@ -59,9 +59,12 @@ function stacked(context: BlockContext, node: ProseMirrorNode, at: StackAt): Lai
 /** A list item: its blocks, a checklist item's beside its box. */
 function layListItem(context: BlockContext, node: ProseMirrorNode, last: boolean): Laid {
   const isTask = node.attrs.checked !== null && node.attrs.checked !== undefined;
+  // The stylesheet zeroes the bottom margin of the last item's last child: a checklist item's is
+  // its content box, whose children keep theirs.
   const flush = (blocks: LayoutBlock[]) => {
     const end = blocks.at(-1);
-    return last && end ? [...blocks.slice(0, -1), withoutMargins(end, 'bottom')] : blocks;
+    if (!last || !end || isTask) return blocks;
+    return [...blocks.slice(0, -1), withoutMargins(end, 'bottom')];
   };
   // A checklist item's content is a flex item, whose children's margins stay inside it.
   const box = isTask ? { ...NO_BOX, contains: true } : NO_BOX;

@@ -1,12 +1,11 @@
-// A layout of the paged projection: the ghost follows the canonical document, the pages are laid
-// out from it by the layout engine, and the projection is stepped onto them, so its selection and the
+// A layout of the paged projection: the pages are laid out by the layout engine from a state that
+// holds the canonical document, and the projection is stepped onto them, so its selection and the
 // positions of its text map through. The map between the two documents is built again from the
 // page transform, and the selection is the canonical one, on the side of a page break nearest the
 // projection's.
 
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { type FragmentRules, projectDocument, repaginate } from '../model/index.js';
-import { followDocument, type MeasuringView } from './ghost-view.js';
 import {
   layoutDocument,
   type LayoutMemory,
@@ -19,11 +18,12 @@ import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { nearAfter, projectionSelection } from './selection-mirror.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
-/** The views and state a layout reads. */
+/** The states a layout reads. */
 interface LayoutSource {
   /** The projection's state, stepped onto the new pages. */
   readonly projection: EditorState;
-  readonly ghost: MeasuringView;
+  /** The state the pages are laid out from, holding the canonical document (`followDocument`). */
+  readonly source: EditorState;
   readonly canonical: EditorState;
   /** What the latest layout found, which this one starts from. */
   readonly memory?: LayoutMemory | undefined;
@@ -51,12 +51,11 @@ interface ProjectionLayout {
 
 /** The projection transaction onto the canonical document's pages, and the map after it. */
 export function layOutProjection(
-  { projection, ghost, canonical, memory, onSection }: LayoutSource,
+  { projection, source, canonical, memory, onSection }: LayoutSource,
   options: ProjectionLayoutOptions,
 ): ProjectionLayout {
-  followDocument(ghost.view, canonical.doc, ghost.show);
   const metrics: PageMetric[] = [];
-  const sections = layoutDocument(ghost.view, {
+  const sections = layoutDocument(source, {
     pageHeight: options.pageHeight,
     rules: options.rules,
     footnoteNumbering: options.footnoteNumbering,
@@ -65,7 +64,7 @@ export function layOutProjection(
     onSection,
     engine: options.engine,
   });
-  const target = projectDocument(ghost.view.state.doc, sections, options);
+  const target = projectDocument(source.doc, sections, options);
   const tr = projection.tr;
   repaginate(tr, target, options.fragmentRules);
   const map = createProjectionMap(tr.doc, options.fragmentRules);

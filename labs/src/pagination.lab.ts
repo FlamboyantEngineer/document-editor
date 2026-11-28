@@ -168,14 +168,13 @@ function reportPages(tr: Transaction): void {
 }
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.lab-measure');
   const mount = document.querySelector<HTMLElement>('.lab-pages');
   const button = document.querySelector<HTMLButtonElement>('.lab-narrow');
-  if (!measureIn || !mount || !button) return;
+  if (!mount || !button) return;
   let template = templateOfWidth(BASE_TEMPLATE, WIDTHS.wide);
   let applied = applyTemplate(template, []);
   const pages = showOnPages(
-    { mount, measureIn },
+    { mount },
     {
       state: EditorState.create({
         doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc,
@@ -187,7 +186,7 @@ function render(): void {
       }),
       pageHeight: PAGE_HEIGHT,
       template: () => template,
-      ghostPlugins: [],
+      layoutPlugins: [],
       dispatch: () => reportCaret(pages),
       onLayout: reportPages,
       onLaidOut: (laidOut) => reportCaret(laidOut),

@@ -121,16 +121,24 @@ describe('table rows', () => {
     expect(block).toMatchObject({ height: 20 + 107, marginTop: 0, marginBottom: 8 });
   });
 
-  it('DOCE-PAGINATION-10.5 grows the last row a tall cell spans, and honours a row height', () => {
+  it('DOCE-PAGINATION-10.5 grows the rows a tall cell spans as Chromium does, and honours a row height', () => {
     const spanning = cell(300, { rowspan: 2 });
     const block = blockOf(
       layout.layoutBlock(figure(table(null, row(spanning, cell(10)), row(cell(10)))), place),
     );
-    // The spanning cell needs 7 lines (126 + 17): the second row takes the 108 the first lacks.
+    // The spanning cell needs 7 lines (126 + 17): the two rows of 35 share the 73 it lacks in
+    // proportion to their heights, as Chromium spreads it.
     expect(rowsOf(block)).toEqual([
-      [0, 35],
-      [35, 143],
+      [0, 71.5],
+      [71.5, 143],
     ]);
+    // Rows of 35 and 53 (two lines in the second): 143 - 88 = 55 shared 35 to 53.
+    const uneven = blockOf(
+      layout.layoutBlock(figure(table(null, row(spanning, cell(10)), row(cell(60)))), place),
+    );
+    const [first, second] = rowsOf(uneven);
+    expect(first?.[1]).toBeCloseTo(35 + (55 * 35) / 88, 9);
+    expect(second?.[1]).toBeCloseTo(143, 9);
     const tall = blockOf(
       layout.layoutBlock(figure(table(null, row(cell(10, { rowHeight: 60 })))), place),
     );

@@ -24,13 +24,7 @@
       :root {
         --lab-width: 480px;
       }
-      .lab-measure {
-        position: absolute;
-        left: -10000px;
-        top: 0;
-      }
       /* The page, not only its content, takes the width, so its footnote area wraps to it too. */
-      .lab-measure,
       .lab-pages .pm-page {
         width: var(--lab-width);
       }
@@ -154,10 +148,9 @@
       <p>
         The pages below are a read-only projection of the canonical whole document, which takes
         every edit and keeps the undo history. Keys, typing, paste and composition on the pages run
-        on the canonical document and are mirrored back; a hidden ghost view measures it, and the
+        on the canonical document and are mirrored back; the layout engine lays it out, and the
         pages are laid out again once you pause.
       </p>
-      <div class="lab-measure" aria-hidden="true"></div>
       <div class="lab-pages"></div>
     </main>
   </body>

@@ -16,7 +16,6 @@ function debugData(props: DocumentEditorProps) {
   return {
     debug: debug.pages ?? false,
     debugBlocks: debug.blocks ?? false,
-    debugMeasure: debug.measure ?? false,
     debugSource: debug.source ?? false,
   };
 }

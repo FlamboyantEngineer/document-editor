@@ -2,7 +2,7 @@
 // or footer showing the page's number or the page count takes the room its text takes on that
 // page: `Page 9` and `Page 10` can wrap differently (DOCE-PAGINATION-11.10).
 
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import { type FootnoteArea, footnoteAreaOf } from './footnote-area.js';
 import { regionVariableTexts } from './forced-regions.js';
 import { pageVariablesKey } from './page-variables.js';
@@ -43,12 +43,12 @@ const fixed = (height: number): RegionRoomOf => ({ room: () => height, reads: RE
 // The room a page header or footer takes, with its margins, on each page; an empty one takes none.
 // The layout engine gives it as it lays the region out (`measureRegion`), with the texts its
 // template variables show (`createPageVariables`) and the page's own number and count where it
-// shows them; one it cannot lay out takes none. Nothing is read from what the view draws.
-function regionRoom(view: EditorView, pos: number | null, at: RegionAt): RegionRoomOf {
-  const node = pos === null ? null : view.state.doc.nodeAt(pos);
+// shows them; one it cannot lay out takes none. Nothing drawn is read.
+function regionRoom(state: EditorState, pos: number | null, at: RegionAt): RegionRoomOf {
+  const node = pos === null ? null : state.doc.nodeAt(pos);
   if (pos === null || !node) return fixed(0);
   const { engine, scope } = at;
-  const texts = new Map(regionVariableTexts(node, pos, pageVariablesKey.getState(view.state)));
+  const texts = new Map(regionVariableTexts(node, pos, pageVariablesKey.getState(state)));
   const first = engine.measureRegion(node, scope, texts);
   if (!first) return fixed(0);
   const reads = { current: texts.has(PAGE_CURRENT), total: texts.has(PAGE_TOTAL) };
@@ -66,14 +66,14 @@ function regionRoom(view: EditorView, pos: number | null, at: RegionAt): RegionR
   };
 }
 
-/** The room a section's header and footer, at their positions in the view, take on each page. */
+/** The room a section's header and footer, at their positions in the state laid out, take on each page. */
 export function sectionRegions(
-  view: EditorView,
+  state: EditorState,
   at: RegionAt,
   positions: { readonly header: number | null; readonly footer: number | null },
 ): SectionRegions {
-  const header = regionRoom(view, positions.header, at);
-  const footer = regionRoom(view, positions.footer, at);
+  const header = regionRoom(state, positions.header, at);
+  const footer = regionRoom(state, positions.footer, at);
   return {
     on: (page, pages) => ({ header: header.room(page, pages), footer: footer.room(page, pages) }),
     reads: {
@@ -97,12 +97,12 @@ export function roomsFor(regions: SectionRegions, page: number, counts: readonly
 
 /** A section's footnote area, laid out by the layout engine; none when it cannot lay it out. */
 export function footnoteArea(
-  view: EditorView,
+  state: EditorState,
   pos: number | null,
   at: RegionAt,
 ): FootnoteArea | null {
   if (pos === null) return null;
-  const node = view.state.doc.nodeAt(pos);
+  const node = state.doc.nodeAt(pos);
   const room = node ? at.engine.measureRegion(node, at.scope) : null;
   return node && room ? footnoteAreaOf(node, room) : null;
 }

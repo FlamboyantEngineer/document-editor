@@ -103,17 +103,36 @@ function contentAttrs(node: ProseMirrorNode): Record<string, unknown> {
 export function atomKey(node: ProseMirrorNode, width: number, drawing: AtomDrawing = {}): string {
   const { shown, ...place } = drawing;
   const units = Math.round(Math.max(0, width) * LAYOUT_UNITS_PER_PX);
-  const key: unknown[] = [
-    node.type.name,
-    contentAttrs(node),
-    node.marks.map((mark) => mark.toJSON() as unknown),
-    TEXT_CONTENT_ATOMS.has(node.type.name) ? null : (node.content.toJSON() as unknown),
-    units,
-    place.scope ?? null,
-    place.parent ? [place.parent.type.name, contentAttrs(place.parent)] : null,
-  ];
-  if (shown !== undefined) key.push(shown);
-  return JSON.stringify(key);
+  const parent = place.parent ? parentKey(place.parent) : 'null';
+  const key = `[${ownKey(node)},${String(units)},${JSON.stringify(place.scope ?? null)},${parent}`;
+  return shown === undefined ? `${key}]` : `${key},${JSON.stringify(shown)}]`;
+}
+
+// The parts of a key a node gives, serialized once for each node, which is never changed.
+const ownKeys = new WeakMap<ProseMirrorNode, string>();
+const parentKeys = new WeakMap<ProseMirrorNode, string>();
+
+function ownKey(node: ProseMirrorNode): string {
+  let key = ownKeys.get(node);
+  if (key === undefined) {
+    key = JSON.stringify([
+      node.type.name,
+      contentAttrs(node),
+      node.marks.map((mark) => mark.toJSON() as unknown),
+      TEXT_CONTENT_ATOMS.has(node.type.name) ? null : (node.content.toJSON() as unknown),
+    ]).slice(1, -1);
+    ownKeys.set(node, key);
+  }
+  return key;
+}
+
+function parentKey(parent: ProseMirrorNode): string {
+  let key = parentKeys.get(parent);
+  if (key === undefined) {
+    key = JSON.stringify([parent.type.name, contentAttrs(parent)]);
+    parentKeys.set(parent, key);
+  }
+  return key;
 }
 
 function isSize(size: AtomSize | null | undefined): size is AtomSize {

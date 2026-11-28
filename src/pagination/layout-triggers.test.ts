@@ -37,8 +37,8 @@ describe('settling edits', () => {
       vi.spyOn(window.performance, 'now').mockImplementation(() => time);
       try {
         const request = vi.fn();
-        const measureIn = document.body.appendChild(document.createElement('div'));
-        const edits = settleEdits({ measureIn, settle: 10 }, request);
+        const element = document.body.appendChild(document.createElement('div'));
+        const edits = settleEdits({ element, settle: 10 }, request);
         const dom = document.body.appendChild(document.createElement('div'));
         const stop = edits.watch({ dom } as unknown as EditorView);
         dom.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));

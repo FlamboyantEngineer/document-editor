@@ -1,6 +1,5 @@
 // Typesets math ahead of the layout that sizes it (DOCE-PAGINATION-10.8): each source is typeset
-// once, through the base library's renderer, and every view, the pages' measuring view among them,
-// draws what it typeset. The pages wait for a document's math to be typeset before laying it out
+// once, through the base library's renderer, and every view draws what it typeset. The pages wait for a document's math to be typeset before laying it out
 // (`ready`), so an equation is sized from what it typeset as and nothing is laid out again when it
 // arrives. A renderer that does not answer within the timeout gives invalid math, which stays: a
 // later answer would change the equation's size after the pages were laid out.

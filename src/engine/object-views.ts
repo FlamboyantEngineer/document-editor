@@ -1,7 +1,7 @@
 // Views of the objects their markup does not draw whole: code with a gutter of line numbers from
 // its first line's number and its tokens highlighted (painted over, in code blocks), and
 // signatures drawn from their stored vector with the signer's name, or as the place a signature
-// goes until it is signed. They draw in every view, the pages' measuring view too. A selected
+// goes until it is signed. They draw in every view. A selected
 // block object is kept from typing.
 
 import { DOMSerializer, type Node as ProseMirrorNode } from 'prosemirror-model';

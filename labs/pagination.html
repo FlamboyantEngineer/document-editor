@@ -24,12 +24,6 @@
       :root {
         --lab-width: 480px;
       }
-      .lab-measure {
-        position: absolute;
-        left: -10000px;
-        top: 0;
-        width: var(--lab-width);
-      }
       /*
        * The pages draw the content in the reference stylesheet from the template the engine lays
        * them out in; only the page box is the lab's: its content the lab's width and 360 pixels
@@ -60,7 +54,6 @@
         the caret stays where it was.
       </p>
       <button type="button" class="lab-narrow" aria-pressed="false">Narrow pages</button>
-      <div class="lab-measure" aria-hidden="true"></div>
       <div class="lab-pages de-document-editor"></div>
     </main>
   </body>

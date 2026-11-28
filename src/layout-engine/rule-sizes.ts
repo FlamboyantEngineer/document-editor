@@ -45,8 +45,13 @@ export interface RuleSizes {
   placed(node: ProseMirrorNode): SizedBox | null;
   /** A count that moves whenever a node is laid out at another box. */
   version(): number;
-  /** The errors the rules gave, by node type: what the host is told. */
-  errors(): ReadonlyMap<string, string>;
+  /**
+   * The errors the rules gave, by node type, the latest of a type's nodes that still fail: what the
+   * host is told. A node's error goes once it sizes well, a type's once no rule sizes it, and, given
+   * the document laid out, the error of a node no longer in it: one taken out, or one without an
+   * element id edited since.
+   */
+  errors(doc?: ProseMirrorNode): ReadonlyMap<string, string>;
 }
 
 const ruleOf = (rules: LayoutRules | undefined, node: ProseMirrorNode): LayoutRule | undefined =>
@@ -149,6 +154,53 @@ function callRule(rule: LayoutRule, input: SizeInput, checked: Set<string>): Rul
   }
 }
 
+// The errors of the nodes whose rules fail, by type and by node: by its element id, which an edit
+// keeps, or by the node itself for one with none.
+function createRuleErrors() {
+  const byType = new Map<string, Map<unknown, string>>();
+  const keyOf = (node: ProseMirrorNode): unknown => {
+    const id: unknown = node.attrs.dataId;
+    return typeof id === 'string' && id ? id : node;
+  };
+  return {
+    set(node: ProseMirrorNode, error: string) {
+      const type = node.type.name;
+      const failing = byType.get(type) ?? new Map<unknown, string>();
+      failing.delete(keyOf(node));
+      failing.set(keyOf(node), error);
+      byType.set(type, failing);
+    },
+    clear(node: ProseMirrorNode) {
+      const failing = byType.get(node.type.name);
+      failing?.delete(keyOf(node));
+      if (failing?.size === 0) byType.delete(node.type.name);
+    },
+    // Forgets the errors of the types no rule sizes now; a type's nodes still sized are asked again
+    // under the new rules, which keeps or clears each one's error.
+    keepSized(rules: LayoutRules | undefined) {
+      for (const type of [...byType.keys()]) {
+        if (!(rules && Object.hasOwn(rules, type) && rules[type]?.size)) byType.delete(type);
+      }
+    },
+    // Forgets the errors of the nodes not in a document, by element id or by the node itself.
+    keepIn(doc: ProseMirrorNode) {
+      if (byType.size === 0) return;
+      const present = new Set<unknown>();
+      doc.descendants((node) => {
+        if (byType.has(node.type.name)) present.add(keyOf(node));
+      });
+      for (const [type, failing] of byType) {
+        for (const key of [...failing.keys()]) if (!present.has(key)) failing.delete(key);
+        if (failing.size === 0) byType.delete(type);
+      }
+    },
+    read(): ReadonlyMap<string, string> {
+      const latest = (failing: Map<unknown, string>) => [...failing.values()].at(-1) ?? '';
+      return new Map([...byType].map(([type, failing]) => [type, latest(failing)]));
+    },
+  };
+}
+
 /**
  * Sizes host nodes by their rules. A size is kept by node, width, scope and the rules' sizes, so
  * a rule that failed is not asked again for the same node; the engine is made for one template,
@@ -157,7 +209,7 @@ function callRule(rule: LayoutRule, input: SizeInput, checked: Set<string>): Rul
 export function createRuleSizes(source: RuleSizeSource): RuleSizes {
   let kept = new WeakMap<ProseMirrorNode, Map<string, RuleSized>>();
   let keptFor = '';
-  const errors = new Map<string, string>();
+  const errors = createRuleErrors();
   const checked = new Set<string>();
   const size = (node: ProseMirrorNode, width: number, scope: string | null): RuleSized | null => {
     const all = source.rules();
@@ -168,6 +220,7 @@ export function createRuleSizes(source: RuleSizeSource): RuleSizes {
       kept = new WeakMap();
       keptFor = rulesKey;
       checked.clear();
+      errors.keepSized(all);
     }
     const markup = source.markup();
     const key = `${keyOf(width, scope)}\u0000${markup}`;
@@ -180,8 +233,8 @@ export function createRuleSizes(source: RuleSizeSource): RuleSizes {
       { node, width, scope, text, language: source.language, markup },
       checked,
     );
-    if (sized.ok) errors.delete(node.type.name);
-    else errors.set(node.type.name, sized.error);
+    if (sized.ok) errors.clear(node);
+    else errors.set(node, sized.error);
     if (!byKey) {
       byKey = new Map();
       kept.set(node, byKey);
@@ -223,6 +276,9 @@ export function createRuleSizes(source: RuleSizeSource): RuleSizes {
     },
     placed: (node) => placed.get(node) ?? null,
     version: () => version,
-    errors: () => errors,
+    errors(doc) {
+      if (doc) errors.keepIn(doc);
+      return errors.read();
+    },
   };
 }

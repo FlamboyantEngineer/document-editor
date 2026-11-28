@@ -3,7 +3,6 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
-import { EditorView } from 'prosemirror-view';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
@@ -93,12 +92,10 @@ describe('the template variables of the body text', () => {
 
   it('DOCE-PAGINATION-11.13 settles the page variables past page 999 as a list of contents does', () => {
     const doc = documentOf(1000);
-    const view = new EditorView(document.createElement('div'), {
-      state: EditorState.create({ doc }),
-    });
+    const state = EditorState.create({ doc });
     const engine = engineOf();
     const reasons: string[] = [];
-    const pages = layoutDocument(view, {
+    const pages = layoutDocument(state, {
       pageHeight: 2000,
       engine,
       onUnsettled: (reason) => reasons.push(reason),
@@ -108,11 +105,10 @@ describe('the template variables of the body text', () => {
     // The layout kept room for four digits.
     const fresh = engineOf();
     fresh.pageDigits(1000);
-    const paragraph = paragraphOf(view.state.doc);
+    const paragraph = paragraphOf(state.doc);
     const box = (each: typeof engine) => each.lines(paragraph, { scope: null })?.reserved?.[0];
     expect(box(engine)).toEqual(box(fresh));
     fresh.destroy();
     engine.destroy();
-    view.destroy();
   });
 });

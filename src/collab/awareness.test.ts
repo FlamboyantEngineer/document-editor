@@ -202,7 +202,7 @@ describe('awareness presence', () => {
     expect(listPeers(b.state)).toEqual([]);
   });
 
-  it('DOCE-COLLAB-1.5 shares no presence from the paged layout’s measuring view', () => {
+  it('DOCE-COLLAB-1.5 shares no presence from a second view of the document', () => {
     let lifecycle: ((event: 'hidden' | 'visible' | 'leaving') => void) | null = null;
     const awareness = awarenessRoom().join(1);
     const editor = joinEditor(
@@ -221,8 +221,8 @@ describe('awareness presence', () => {
     select(editor, 4);
     const shared = () => awareness.getStates().get(1) ?? {};
     expect(shared().cursor).toBeTruthy();
-    // The measuring view is a second view of the document, with every plugin of the state whose
-    // spec does not say `measured: false`.
+    // A second view of the document, with every plugin of the state whose spec does not say
+    // `measured: false`, as the paged layout's state holds them.
     const plugins = editor.state.plugins.filter((plugin) => plugin.spec.measured !== false);
     const measuring = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc: editor.state.doc, plugins }),

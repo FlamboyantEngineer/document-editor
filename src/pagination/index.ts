@@ -1,5 +1,5 @@
-// The editor's pagination runtime: measuring laid-out blocks, laying the whole document out on
-// pages, and keeping an editor on its pages as it changes.
+// The editor's pagination runtime: laying the whole document out on pages with the layout engine,
+// and keeping an editor on its pages as it changes.
 
 export type { CanonicalChange, CanonicalTaken } from './canonical-change.js';
 export type { DecorationSource } from './canonical-decorations.js';
@@ -9,8 +9,6 @@ export { canonicalView } from './canonical-view.js';
 export { FONT_TIMEOUT, loadTemplateFonts, templateFontFamilies } from './fonts.js';
 export type { FootnoteArea } from './footnote-area.js';
 export { footnoteAreaHeight } from './footnote-area.js';
-export type { MeasuringView, MeasuringViewOptions } from './ghost-view.js';
-export { mountMeasuringView } from './ghost-view.js';
 export type {
   DocumentLayoutOptions,
   SectionLayoutRules,

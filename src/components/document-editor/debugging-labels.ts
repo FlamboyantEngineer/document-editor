@@ -3,7 +3,7 @@
 
 /** The text of the layout debugging. */
 export interface DebuggingLabels {
-  /** Names the pane beside the pages that shows the measuring view or the pages' markup. */
+  /** Names the pane beside the pages that shows the pages' markup. */
   readonly debugPane: string;
   /** Names the handle that resizes the debugging pane. */
   readonly debugPaneResize: string;

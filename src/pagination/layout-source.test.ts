@@ -1,10 +1,9 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, Plugin } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
-import { followDocument } from './ghost-view.js';
+import { followDocument } from './layout-source.js';
 
 const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
@@ -37,10 +36,8 @@ function nodePos(doc: ProseMirrorNode, name: string, nth: number): number {
 describe('followDocument', () => {
   it('DOCE-PAGINATION-5.13 keeps every node a change does not reach, past page numbers that changed', () => {
     const doc = twoSections();
-    const view = new EditorView(document.createElement('div'), {
-      state: EditorState.create({ doc }),
-    });
-    const before = blocks(view.state.doc);
+    const state = EditorState.create({ doc });
+    const before = blocks(state.doc);
     // A copy, as a fresh join gives: the first section's header numbered anew, a paragraph added
     // to the second section, and the first section's blocks equal but not the same nodes.
     const tr = EditorState.create({ doc }).tr;
@@ -48,19 +45,16 @@ describe('followDocument', () => {
     tr.setNodeAttribute(header, 'totalPages', 9);
     tr.insertText('!', nodePos(tr.doc, 'paragraph', 3) + 5);
     const copy = documentSchema.nodeFromJSON(tr.doc.toJSON());
-    followDocument(view, copy);
-    const after = blocks(view.state.doc);
-    expect(view.state.doc.eq(copy)).toBe(true);
+    const followed = followDocument(state, copy);
+    const after = blocks(followed.doc);
+    expect(followed.doc.eq(copy)).toBe(true);
     expect(after.slice(0, 3)).toEqual(before.slice(0, 3));
     after.slice(0, 3).forEach((node, index) => expect(node).toBe(before[index]));
     expect(after[3]?.textContent).toBe('Four!');
-    view.destroy();
   });
 
   it('DOCE-PAGINATION-5.13 follows a document with blocks added and taken away', () => {
-    const view = new EditorView(document.createElement('div'), {
-      state: EditorState.create({ doc: twoSections() }),
-    });
+    const state = EditorState.create({ doc: twoSections() });
     const one = readDocumentFile(
       {
         formatVersion: 1,
@@ -68,9 +62,7 @@ describe('followDocument', () => {
       },
       documentSchema,
     ).doc;
-    followDocument(view, one);
-    expect(view.state.doc.eq(one)).toBe(true);
-    view.destroy();
+    expect(followDocument(state, one).doc.eq(one)).toBe(true);
   });
 
   it('DOCE-PAGINATION-5.13 holds exactly the document it follows, whatever its plugins append', () => {
@@ -85,14 +77,10 @@ describe('followDocument', () => {
         return state.tr.insertText('Kept', at, at + node.content.size);
       },
     });
-    const view = new EditorView(document.createElement('div'), {
-      state: EditorState.create({ doc: twoSections(), plugins: [rewrite] }),
-    });
-    const tr = view.state.tr;
+    const state = EditorState.create({ doc: twoSections(), plugins: [rewrite] });
+    const tr = state.tr;
     tr.insertText('!', nodePos(tr.doc, 'paragraph', 0) + 2);
     const changed = documentSchema.nodeFromJSON(tr.doc.toJSON());
-    followDocument(view, changed);
-    expect(view.state.doc.eq(changed)).toBe(true);
-    view.destroy();
+    expect(followDocument(state, changed).doc.eq(changed)).toBe(true);
   });
 });

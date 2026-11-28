@@ -56,6 +56,23 @@ function widget(pos: number, text: string, key: string) {
   );
 }
 
+// The variables in a block, by offset in it and key: found once for each block node, which an
+// edit elsewhere leaves as it was, so a document is walked block by block, not node by node.
+const variablesByBlock = new WeakMap<ProseMirrorNode, readonly (readonly [number, string])[]>();
+
+function variablesIn(block: ProseMirrorNode): readonly (readonly [number, string])[] {
+  const known = variablesByBlock.get(block);
+  if (known) return known;
+  const found: (readonly [number, string])[] = [];
+  block.descendants((child, offset) => {
+    if (child.type.name !== 'template_variable') return true;
+    found.push([offset, String(child.attrs.variableKey ?? '')]);
+    return false;
+  });
+  variablesByBlock.set(block, found);
+  return found;
+}
+
 function decorate(doc: ProseMirrorNode): DecorationSet {
   const decorations: Decoration[] = [];
   const places = pagesOf(doc);
@@ -70,13 +87,13 @@ function decorate(doc: ProseMirrorNode): DecorationSet {
             page: Number(node.attrs.pageNumber ?? page.page),
             pages: Number(node.attrs.totalPages ?? page.pages),
           };
-    node.descendants((child, offset) => {
-      if (child.type.name !== 'template_variable') return true;
-      const key = String(child.attrs.variableKey ?? '');
-      const text = variableText(key, place, doc);
-      // Inside the variable: past the region's start, its offset and the variable's start.
-      if (text) decorations.push(widget(pos + offset + 2, text, key));
-      return false;
+    node.forEach((block, blockOffset) => {
+      const start = pos + 1 + blockOffset + 1;
+      for (const [offset, key] of variablesIn(block)) {
+        const text = variableText(key, place, doc);
+        // Inside the variable: past its block's start, its offset and the variable's start.
+        if (text) decorations.push(widget(start + offset + 1, text, key));
+      }
     });
     return false;
   });
