@@ -676,6 +676,79 @@ describe('forcedLines', () => {
     expect(lineCount(typed)).toEqual(['2', '2']);
   });
 
+  // An engine whose lines of one block hold `width` characters a line, which a test changes as a
+  // renumbering or a stored value would.
+  const widening = (state: { perLine: number; numbers: number }) => {
+    const engine: PagesTextEngine = {
+      ...stubEngine().engine,
+      numbersVersion: () => state.numbers,
+      lines: (node, place) => stubEngine({ perLine: state.perLine }).engine.lines(node, place),
+    };
+    return engine;
+  };
+  const lineCountOf = (on: EditorState, text: string) => {
+    const at = positionOf(on.doc, text);
+    const block = drawn(on).find((each) => each.from === at && each.class === 'de-forced-lines');
+    return block?.['data-lines'];
+  };
+
+  it("DOCE-PAGINATION-11.2 draws an unchanged page again when the footnotes' numbers move", () => {
+    const doc = pagesDoc([[paragraph('first')], [paragraph('aaaaaaaaaaaa')]]);
+    const held = { perLine: 20, numbers: 0 };
+    const state = stateWith(doc, widening(held));
+    expect(lineCountOf(state, 'aaaaaaaaaaaa')).toBe('1');
+    // A footnote cited on the first page renumbers a marker on the second, which widens.
+    held.perLine = 10;
+    held.numbers = 1;
+    const typed = state.apply(state.tr.insertText('x', positionOf(doc, 'first') + 1));
+    expect(lineCountOf(typed, 'aaaaaaaaaaaa')).toBe('2');
+  });
+
+  it('DOCE-PAGINATION-11.2 draws an unchanged page again when a stored variable value changes', () => {
+    const doc = pagesDoc([[paragraph('first')], [paragraph('aaaaaaaaaaaa')]]);
+    const held = { perLine: 20, numbers: 0 };
+    const state = stateWith(doc, widening(held));
+    expect(lineCountOf(state, 'aaaaaaaaaaaa')).toBe('1');
+    // The value a variable on the second page shows grows, as the engine lays it out.
+    held.perLine = 10;
+    const stored = state.apply(state.tr.setDocAttribute('values', { title: 'A longer title' }));
+    expect(lineCountOf(stored, 'aaaaaaaaaaaa')).toBe('2');
+  });
+
+  it('DOCE-PAGINATION-11.2 draws a heading again when its number moves to another heading', () => {
+    const heading = (text: string) => create('heading', { level: 1 }, [documentSchema.text(text)]);
+    // The engine numbers the headings in order, as the template does.
+    const engine: PagesTextEngine = {
+      ...stubEngine().engine,
+      numbering: (doc) => {
+        const headings = new Map<number, string>();
+        doc.descendants((node, pos) => {
+          if (node.type.name === 'heading') headings.set(pos, `${String(headings.size + 1)} `);
+          return !node.isTextblock;
+        });
+        return { headings, paragraphs: new Set() };
+      },
+    };
+    const doc = pagesDoc([[heading('One')], [heading('Two')], [heading('Three')]]);
+    const state = stateWith(doc, engine);
+    const numberOf = (on: EditorState, text: string) => {
+      const at = positionOf(on.doc, text);
+      return drawn(on).find((each) => each.from === at && each.class === 'de-forced-lines')?.[
+        'data-number'
+      ];
+    };
+    expect(numberOf(state, 'Two')).toBe('2 ');
+    // One step takes the first heading out and another adds one on the last page: the numbers in
+    // order are the same, but the second page's heading is now the first.
+    const one = positionOf(doc, 'One');
+    const tr = state.tr.setNodeMarkup(one, documentSchema.nodes.paragraph);
+    const three = positionOf(tr.doc, 'Three');
+    tr.insert(three + heading('Three').nodeSize, heading('Four'));
+    const moved = state.apply(tr);
+    expect(numberOf(moved, 'Two')).toBe('1 ');
+    expect(numberOf(moved, 'Four')).toBe('3 ');
+  });
+
   it('DOCE-PAGINATION-11.2 draws nothing until the engine has loaded, and draws once it has', () => {
     const doc = pagesDoc([[paragraph('first')]]);
     let engine: PagesTextEngine | null = null;

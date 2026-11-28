@@ -81,6 +81,26 @@ test.describe('shared room lab', () => {
     await expect(status(page, 'Ada')).toHaveText('ready · saved');
   });
 
+  test('DOCE-COLLAB-6.4 DOCE-PAGINATION-12.13 lays an equation the other writer inserts out at its typeset size', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    // A thirteen-row matrix neither writer's pages have typeset before.
+    const rows = Array.from({ length: 13 }, (_, row) => String(row + 1)).join('\\\\');
+    await typeAfter(page, 'Ada', 'Startup conditions', ` $\\begin{matrix}${rows}\\end{matrix}$ `);
+    for (const name of ['Ada', 'Grace']) {
+      const math = editor(page, name).locator('.de-math', { has: page.locator('mtable') });
+      await expect(math).toHaveAttribute('data-state', 'ready');
+      await expect(math).toHaveAttribute('data-math-layout', 'laid');
+      // Far taller than its one-line reserved box, at either writer's zoom.
+      await expect
+        .poll(() => math.evaluate((element) => element.getBoundingClientRect().height))
+        .toBeGreaterThan(80);
+    }
+    await expectSameDocument(page);
+  });
+
   test('DOCE-COLLAB-6.4 merges what two writers change apart without diverging', async ({
     lab,
     page,

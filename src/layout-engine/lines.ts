@@ -185,6 +185,8 @@ function alignedLeft(align: TextAlign, room: number, width: number): number {
 interface Placed {
   readonly from: number;
   readonly side: number | undefined;
+  /** Whether the line starts inside a word inserted at `from` (`TextLine.inWord`). */
+  readonly inWord: boolean;
   readonly width: number;
   readonly height: number;
   readonly start: number;
@@ -204,17 +206,20 @@ function runLines(
   const widths = { first: width - opening, rest: width - restStart };
   const lines = run.items.length ? cache.lines(run, widths, input.block) : [];
   if (!lines.length) {
-    const empty = { from: run.start, side: undefined, width: 0, height: leading };
+    const empty = { from: run.start, side: undefined, inWord: false, width: 0, height: leading };
     return [{ ...empty, start: opening, lastOfRun: true, run }];
   }
   return lines.map((line, index) => {
     const offset = run.offsets[line.item] ?? -1;
     const inLabel = first && index > 0 && line.item === input.label?.item;
+    // A line that starts inside an inserted word starts at the word's offset, in no content.
+    const inWord = index > 0 && line.sourceStart > 0 && (run.sides[line.item] ?? null) !== null;
     return {
       ...(inLabel ? { labelStart: line.sourceStart } : {}),
       // A run's first line starts at the run, before any hidden content its first item follows.
-      from: offset < 0 || index === 0 ? run.start : offset + line.sourceStart,
-      side: insertedSide(run, line),
+      from: offset < 0 || index === 0 ? run.start : offset + (inWord ? 0 : line.sourceStart),
+      side: inWord ? undefined : insertedSide(run, line),
+      inWord,
       width: line.width,
       height: lineHeight(run, line, input.strut),
       start: index === 0 ? opening : restStart,
@@ -269,6 +274,7 @@ export function layoutLines(cache: LineCache, input: LineLayoutInput): LineTable
       height: line.height,
       end: line.lastOfRun ? (line.run.endsWithBreak ? 'break' : 'end') : 'wrap',
       ...(line.side === undefined ? {} : { side: line.side }),
+      ...(line.inWord ? { inWord: true } : {}),
     });
     top += line.height;
   });

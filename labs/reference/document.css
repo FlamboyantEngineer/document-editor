@@ -649,10 +649,11 @@ div.de-host-view {
  * aligns to its start: the left, or the right in a block drawn right to left (`dir`,
  * DOCE-PAGINATION-9.12). Its end overhangs by 8px, so a width the browser finds a little wider than the
  * engine's never wraps a line on its own. A heading shows the engine's number, not a counter. The
- * block's `data-lines` makes these rules win over a custom style's alignment and margins.
+ * block's `data-lines` makes these rules win over a custom style's alignment and margins, in the
+ * body, the header and footer and the footnote area alike.
  */
 :where(.de-document-editor)
-  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer, .pm-page-footnotes)
   .de-forced-lines[data-lines] {
   text-align: start;
   margin-inline-end: -8px;
@@ -690,13 +691,13 @@ div.de-host-view {
 /* A numbered heading's first line starts in before its number, which is drawn before the content;
    inline boxes inside it start their own lines at their edge. */
 :where(.de-document-editor)
-  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer, .pm-page-footnotes)
   .de-forced-lines {
   text-indent: var(--de-first-indent, 0);
 }
 
 :where(.de-document-editor)
-  :is(.pm-page-content, .pm-page-header, .pm-page-footer)
+  :is(.pm-page-content, .pm-page-header, .pm-page-footer, .pm-page-footnotes)
   .de-forced-lines
   * {
   text-indent: 0;
