@@ -26,7 +26,7 @@ import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
 import { numberingFor, sameNumbers } from './forced-numbering.js';
 import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
-import { type InsertedTexts, insertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { type InsertedTexts, insertedTexts, NO_INSERTED, sameInserted } from './inserted-texts.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
@@ -40,8 +40,8 @@ export interface ForcedLinesState {
   readonly drawn: ReadonlySet<number> | null;
   /** The page the caret is on, which is always drawn. */
   readonly caret: number;
-  /** The words other plugins insert in the blocks, which the lines were laid out with. */
-  readonly inserted: string;
+  /** The words other plugins insert in the blocks, by block, which the lines were laid out with. */
+  readonly inserted: InsertedTexts;
 }
 
 /** The forced lines' plugin key. */
@@ -280,23 +280,24 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
     const made = decorate(source, { doc: state.doc, drawn, inserted, tr }, builder);
     builder = made.builder;
     const { engine, version } = source;
-    const words = inserted.key;
     return {
       engine: engine(),
       version: version(),
       numbers: numbersOf(engine()),
       decorations: made.decorations,
       ...drawn,
-      inserted: words,
+      inserted,
     };
   };
   // The decorations of a state, drawn again when other plugins insert other words in its blocks,
-  // such as a comparison that changed (DOCE-PAGINATION-11.11).
+  // such as a comparison that changed, or the same words in a block an edit made anew, which a
+  // state built from the transaction laid out with the words of the state before
+  // (DOCE-PAGINATION-11.11).
   const decorationsOf = (state: EditorState, value: ForcedLinesState | undefined) => {
     if (!value) return undefined;
     const now = insertedTexts(state, [forcedLinesKey]);
-    if (now.key === value.inserted) return value.decorations;
-    if (redrawn?.value === value && now.key === inserted.key) return redrawn.decorations;
+    if (sameInserted(now, value.inserted)) return value.decorations;
+    if (redrawn?.value === value && sameInserted(now, inserted)) return redrawn.decorations;
     inserted = now;
     redrawn = { value, decorations: build(state).decorations };
     return redrawn.decorations;

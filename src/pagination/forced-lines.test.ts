@@ -232,6 +232,44 @@ describe('forcedLines', () => {
     ).toEqual(['rtl']);
   });
 
+  it('DOCE-PAGINATION-11.11 lays a block out again with its deleted words after an edit in it', () => {
+    const doc = pagesDoc([[paragraph('first')]]);
+    // A comparison's deleted word drawn at the paragraph's start, wherever an edit moves it.
+    const words = new Plugin({
+      props: {
+        decorations: (state) => {
+          const at = positionOf(state.doc, state.doc.textContent) + 1;
+          return DecorationSet.create(state.doc, [
+            Decoration.widget(at, () => document.createElement('del'), {
+              insertedText: 'old ',
+              insertedGroup: 'g',
+              side: -1,
+            }),
+          ]);
+        },
+      },
+    });
+    const laid: { text: string; words: number }[] = [];
+    const base = stubEngine().engine;
+    const engine: PagesTextEngine = {
+      ...base,
+      lines(node, place) {
+        laid.push({ text: node.textContent, words: place.inserted?.length ?? 0 });
+        return base.lines(node, place);
+      },
+    };
+    const plugin = forcedLines({ engine: () => engine, version: () => 0 });
+    const state = EditorState.create({ doc, plugins: [plugin, words] });
+    const drawnOf = (on: EditorState) => plugin.props.decorations?.call(plugin, on);
+    drawnOf(state);
+    const typed = state.apply(state.tr.insertText('x', positionOf(doc, 'first') + 6));
+    drawnOf(typed);
+    expect(laid.filter((each) => each.text === 'firstx').at(-1)).toEqual({
+      text: 'firstx',
+      words: 1,
+    });
+  });
+
   it("DOCE-PAGINATION-11.2 marks each paragraph in a table's cells, and leaves numbered ones alone", () => {
     const cell = (text: string, id: string) =>
       create('table_cell', null, [paragraph(text, { dataId: id })]);

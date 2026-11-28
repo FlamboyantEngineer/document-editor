@@ -108,6 +108,16 @@ export function insertedTexts(state: EditorState, skip: readonly PluginKey[] = [
   return { byBlock, outside, key: `${key}/${String(outside.size)}` };
 }
 
+/** Whether two readings insert the same words in the same blocks, by node. */
+export function sameInserted(a: InsertedTexts, b: InsertedTexts): boolean {
+  if (a === b) return true;
+  if (a.key !== b.key || a.byBlock.size !== b.byBlock.size || a.outside.size !== b.outside.size)
+    return false;
+  for (const node of a.byBlock.keys()) if (!b.byBlock.has(node)) return false;
+  for (const node of a.outside) if (!b.outside.has(node)) return false;
+  return true;
+}
+
 /** The words inserted in a block and the text blocks inside it, as a key. */
 export function blockInsertedKey(node: ProseMirrorNode, inserted: InsertedTexts): string {
   if (!inserted.byBlock.size) return '';
