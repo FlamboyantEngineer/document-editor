@@ -108,7 +108,7 @@ Verification: `src/model/pagination/page-layout.test.ts`
 
 ### DOCE-PAGINATION-2.7 - A split sized by what its head holds
 
-A block split across pages shall be split to the room its head leaves itself: the page height is asked for the head that would be on the page, not the whole block, so the footnotes cited only in its tail take no room on the page. The split is tried at the room the page has without any of the block's footnotes; while the head's own footnotes leave it too little room, at the room they leave; and between a height whose head fits and one whose head does not, at most twelve tries in all look for the tallest head that fits. When none fits, the block is split at the room the page has with every footnote of the block. A heading keeps with the block it heads (DOCE-PAGINATION-2.5) by the same split.
+A block split across pages shall be split to the room its head leaves itself: the page height is asked for the head that would be on the page, not the whole block, so the footnotes cited only in its tail take no room on the page. The split is tried at the room the page has without any of the block's footnotes; while the head's own footnotes leave it too little room, at the room they leave; and between a height whose head fits and one whose head does not, at most twelve tries in all look for the tallest head that fits. When the first try does not split or no try fits, the block is split at the room the page has with every footnote of the block. A heading keeps with the block it heads (DOCE-PAGINATION-2.5) by the same split.
 
 Implementation: `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/page-layout.test.ts`, `src/pagination/layout-document.test.ts`

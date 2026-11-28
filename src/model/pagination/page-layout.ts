@@ -283,9 +283,11 @@ function splitToRoom(page: PageFill, block: LayoutBlock): SplitBlock | null {
   const roomFor = (head: LayoutBlock) =>
     fittingHeight(remainingHeight(page, [block], [head]).remaining);
   const at = (height: number) => (height > 0 ? (split?.(block, height, context) ?? null) : null);
+  const withEveryNote = () => at(fittingHeight(remainingHeight(page, [block]).remaining));
   let fitting = fittingHeight(open.remaining);
   let parts = at(fitting);
-  if (!parts || parts.head.height <= roomFor(parts.head)) return parts;
+  if (!parts) return withEveryNote();
+  if (parts.head.height <= roomFor(parts.head)) return parts;
   let tooTall = fitting;
   let best: SplitBlock | null = null;
   for (let count = 1; count < SPLIT_TRIES && parts; count += 1) {
@@ -297,7 +299,7 @@ function splitToRoom(page: PageFill, block: LayoutBlock): SplitBlock | null {
       fitting = height;
     } else tooTall = height;
   }
-  return best ?? at(fittingHeight(remainingHeight(page, [block]).remaining));
+  return best ?? withEveryNote();
 }
 
 // Whether the block a heading keeps with leaves no lead below the headings: it neither fits whole
