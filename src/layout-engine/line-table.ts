@@ -29,6 +29,12 @@ export interface TextLine {
    * a comparison draws: the side its break is drawn at, between the inserted elements there.
    */
   readonly side?: number | undefined;
+  /**
+   * Whether the line starts inside a word inserted at `from`, as a deleted word longer than the
+   * line or broken at its hyphen: the page draws no break for it, as the browser breaks the word's
+   * element where the engine did, and the line before draws no end of its own.
+   */
+  readonly inWord?: true | undefined;
 }
 
 /** A text block's lines at one width. Lines tile the content: each starts where the one before ends. */
