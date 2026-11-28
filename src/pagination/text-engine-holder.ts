@@ -53,7 +53,7 @@ export interface TextEngineHolder {
    * math laid out again (DOCE-PAGINATION-12.13).
    */
   version(): number;
-  /** Settles once the engine's module has loaded. */
+  /** Settles once the engine's module has loaded, or failed to, which leaves no engine. */
   readonly loaded: Promise<unknown>;
   /** Makes the engine again, so its atoms are measured again, as after the screen changed. */
   remeasure(): void;
@@ -143,10 +143,15 @@ export function holdTextEngine(options: {
   let version = 0;
   const markups = markupChanges(options.setting.markup);
   let destroyed = false;
-  const loaded = loadEngine(options.setting).then(([module, served, layouter]) => {
-    made = { ...module, layouter };
-    fonts = served;
-  });
+  // Settles either way: served fonts that fail leave no engine (DOCE-PAGINATION-12.5), and the
+  // pages say why from the fonts themselves, so nothing waits on a rejection no one handles.
+  const loaded = loadEngine(options.setting).then(
+    ([module, served, layouter]) => {
+      made = { ...module, layouter };
+      fonts = served;
+    },
+    () => undefined,
+  );
   const settled = () => {
     version += 1;
     options.changed();

@@ -160,7 +160,11 @@ describe('engine numbers', () => {
     const body = doc.child(0).nodeSize + 2;
     expect(keepsAllNumbers(state.tr.insertText('x', body))).toBe(true);
     expect(keepsAllNumbers(state.tr.addMark(body, body + 2, strong))).toBe(true);
-    expect(keepsAllNumbers(state.tr.insertText('x', 2))).toBe(false);
+    // Typing in a heading keeps every number: none is counted from text.
+    expect(keepsAllNumbers(state.tr.insertText('x', 2))).toBe(true);
+    expect(keepsAllNumbers(state.tr.delete(2, 4))).toBe(true);
+    // Across two textblocks, it may join or take one: counted again.
+    expect(keepsAllNumbers(state.tr.delete(3, body + 1))).toBe(false);
     const split = state.tr.setSelection(TextSelection.create(doc, body + 1)).split(body + 1);
     expect(keepsAllNumbers(split)).toBe(false);
   });

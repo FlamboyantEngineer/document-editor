@@ -38,7 +38,7 @@ describe('layout inputs', () => {
       fonts: { faces: [face([1, 2, 3])], generics: { serif: 'Lab Serif' } },
     };
     expect(layoutInputsKey(layoutInputs(again))).toBe(layoutInputsKey(layoutInputs(base)));
-    expect(layoutInputsKey(layoutInputs(base))).toMatch(/^1-[0-9a-f]{8}$/);
+    expect(layoutInputsKey(layoutInputs(base))).toMatch(/^2-[0-9a-f]{16}$/);
   });
 
   it('DOCE-PAGINATION-13.12 names the input that differs, and changes the key', () => {
@@ -52,6 +52,8 @@ describe('layout inputs', () => {
       codeLineNumbers: { ...base, codeLineNumbers: false },
       math: { ...base, math: null },
       rules: { ...base, rules: { signature: { size: () => ({ height: 20 }), sizeKey: 2 } } },
+      hostViews: { ...base, hostViews: ['signature'] },
+      refusedTextAtoms: { ...base, refusedTextAtoms: new Map([['citation', 'host draws it']]) },
     };
     for (const [name, changed] of Object.entries(changes)) {
       const inputs = layoutInputs(changed);
@@ -62,6 +64,16 @@ describe('layout inputs', () => {
       expect(differing).toEqual([name]);
       expect(layoutInputsKey(inputs)).not.toBe(key);
     }
+  });
+
+  it('DOCE-PAGINATION-13.12 keys the rules that move blocks between pages, and the host views in any order', () => {
+    const rules = (rule: object) => layoutInputs({ ...base, rules: { note: rule } }).rules;
+    expect(rules({ keepsWithHeading: true })).not.toBe(rules({}));
+    expect(rules({ endsPage: true })).not.toBe(rules({}));
+    expect(rules({ split: () => null })).not.toBe(rules({}));
+    expect(rules({ split: () => null })).toBe(rules({ split: () => ({}) }));
+    const views = (hostViews: string[]) => layoutInputs({ ...base, hostViews }).hostViews;
+    expect(views(['a', 'b'])).toBe(views(['b', 'a']));
   });
 
   it('DOCE-PAGINATION-13.12 DOCE-PAGINATION-14.1 keys the sized types by sizeKey, not by function', () => {

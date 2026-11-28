@@ -217,11 +217,34 @@ async function createConverter(): Promise<Converter | null> {
   };
 }
 
+/** The most equations a layouter keeps laid out; the least recently used go first. */
+const MATH_LAYOUTS_KEPT = 2000;
+
+// The equations laid out, null for one MathJax refused, kept up to `MATH_LAYOUTS_KEPT`; a get
+// gives undefined for one not laid out.
+function keptLayouts() {
+  const laid = new Map<string, EmLayout | null>();
+  return {
+    get(key: string): EmLayout | null | undefined {
+      if (!laid.has(key)) return undefined;
+      const layout = laid.get(key) ?? null;
+      laid.delete(key);
+      laid.set(key, layout);
+      return layout;
+    },
+    set(key: string, layout: EmLayout | null) {
+      laid.delete(key);
+      laid.set(key, layout);
+      if (laid.size > MATH_LAYOUTS_KEPT) laid.delete(laid.keys().next().value ?? key);
+    },
+  };
+}
+
 /** The MathJax layouter, or null when MathJax or its STIX2 font is not installed. */
 export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
   const converter = await createConverter();
   if (!converter) return null;
-  const laid = new Map<string, EmLayout | null>();
+  const laid = keptLayouts();
   const cacheKey = (markup: string, display: boolean) => `${display ? 'D' : 'I'}${markup}`;
   const keep = (markup: string, display: boolean, container: LiteNode) => {
     const layout = emLayout(container);
@@ -230,7 +253,7 @@ export async function createMathJaxLayouter(): Promise<MathLayouter | null> {
   };
   const tryConvert = (markup: string, display: boolean): EmLayout | null | undefined => {
     const cached = laid.get(cacheKey(markup, display));
-    if (cached !== undefined || laid.has(cacheKey(markup, display))) return cached;
+    if (cached !== undefined) return cached;
     try {
       return keep(markup, display, converter.convert(markup, display));
     } catch (error) {
