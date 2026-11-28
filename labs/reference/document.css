@@ -117,20 +117,17 @@
   fallback: de-context-none;
 }
 
-.de-document-editor .ProseMirror,
-.de-document-editor__measure .ProseMirror {
+.de-document-editor .ProseMirror {
   outline: none;
   counter-reset: h1 h2 h3 h4 h5 h6 figure table codeblock equation ordered-list;
   color: var(--doc-paragraph-color, #111827);
 }
 
 /*
- * The pages and the measuring view wrap text alike: runs of spaces kept, and a word longer than a
- * line broken, as the browser breaks it in an editable view on its own, so a block measures at the
- * height the pages draw it.
+ * The pages wrap text as the browser does in an editable view on its own: runs of spaces kept, and
+ * a word longer than a line broken.
  */
-.de-document-editor__content,
-.de-document-editor__measure {
+.de-document-editor__content {
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
@@ -212,7 +209,7 @@ div.de-host-view {
  * template's properties state them on the editor, the viewer and print; these are the defaults, for
  * pages drawn without them. A host stylesheet draws with the properties and does not set them.
  */
-:where(.de-document-editor, .de-document-editor__measure:not(.de-document-editor *)) {
+:where(.de-document-editor) {
   --de-quote-indent: 40px;
   --de-quote-spacing: 1em;
   --de-rule-height: 2px;
@@ -228,12 +225,12 @@ div.de-host-view {
   --de-column-border: 1px;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content blockquote {
+:where(.de-document-editor) .pm-page-content blockquote {
   margin: var(--de-quote-spacing) var(--de-quote-indent);
 }
 
 /* A rule is drawn as the browser draws it, its height its two inset border lines. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content hr {
+:where(.de-document-editor) .pm-page-content hr {
   margin-block: var(--de-rule-spacing);
   border-width: calc(var(--de-rule-height) / 2);
 }
@@ -243,7 +240,7 @@ div.de-host-view {
  * editor, so text drawn with no style of its own matches the lines the engine laid out, on screen
  * and in print (DOCE-EDITOR-6.19).
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content {
+:where(.de-document-editor) .pm-page-content {
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
   font-weight: var(--doc-paragraph-font-weight, normal);
@@ -268,71 +265,57 @@ div.de-host-view {
   content-visibility: visible;
 }
 
-.de-document-editor__measure {
-  position: absolute;
-  top: 0;
-  left: -100000px;
-  width: calc(var(--doc-page-width) - var(--doc-page-margin-left) - var(--doc-page-margin-right));
-  /* Drawn at one device pixel per CSS pixel on every screen, so what it measures is the same on
-     every screen (DOCE-PAGINATION-10.10). */
-  zoom: var(--de-measure-zoom, 1);
-}
-
 /*
- * Page regions and blocks in the editor's pages and its measure, which a lab may place beside
- * the editor; the scope adds no specificity, and keeps these rules off other paged views.
+ * Page regions and blocks in the editor's pages; the scope adds no specificity, and keeps these rules off other paged views.
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header:empty,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer:empty,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes:empty {
+:where(.de-document-editor) .pm-page-header:empty,
+:where(.de-document-editor) .pm-page-footer:empty,
+:where(.de-document-editor) .pm-page-footnotes:empty {
   display: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer {
+:where(.de-document-editor) .pm-page-header,
+:where(.de-document-editor) .pm-page-footer {
   display: flow-root;
 }
 
 /* Blocks in a header or footer take no vertical margins; `:nth-child(n)` outweighs the text styles. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :nth-child(n),
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :nth-child(n) {
+:where(.de-document-editor) .pm-page-header > :nth-child(n),
+:where(.de-document-editor) .pm-page-footer > :nth-child(n) {
   margin-block: 0;
 }
 
 /* A region keeps the template's height at least, so the pages' text starts at the same place,
    and never shrinks below its content in the page's column. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header {
+:where(.de-document-editor) .pm-page-header {
   box-sizing: border-box;
   flex-shrink: 0;
   min-height: var(--doc-page-header-height, 0);
   margin-bottom: var(--doc-page-header-content-gap, 0);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer {
+:where(.de-document-editor) .pm-page-footer {
   box-sizing: border-box;
   flex-shrink: 0;
   min-height: var(--doc-page-footer-height, 0);
   margin-top: var(--doc-page-footer-content-gap, 0);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer {
+:where(.de-document-editor) .pm-page-header,
+:where(.de-document-editor) .pm-page-footer {
   color: #475569;
 }
 
 /* Nor does a block ending a list's last item, such as a nested list: its margin would collapse
    out of the list, past the edge of a page the list ends. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  li:last-child
-  > :last-child {
+:where(.de-document-editor) .pm-page-content li:last-child > :last-child {
   margin-block-end: 0;
 }
 
 /* Each text style's font, size, weight, slant, underline, colour, line height, alignment and spacing. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content p,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header p,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer p {
+:where(.de-document-editor) .pm-page-content p,
+:where(.de-document-editor) .pm-page-header p,
+:where(.de-document-editor) .pm-page-footer p {
   margin: var(--doc-paragraph-margin-top, 0) 0 var(--doc-paragraph-margin-bottom, 0);
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
@@ -344,7 +327,7 @@ div.de-host-view {
   text-align: var(--doc-paragraph-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1 {
+:where(.de-document-editor) .pm-page-content h1 {
   margin: var(--doc-heading-1-margin-top, 0) 0 var(--doc-heading-1-margin-bottom, 0);
   font-family: var(--doc-heading-1-font-family, inherit);
   font-size: var(--doc-heading-1-font-size, 2em);
@@ -356,7 +339,7 @@ div.de-host-view {
   text-align: var(--doc-heading-1-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2 {
+:where(.de-document-editor) .pm-page-content h2 {
   margin: var(--doc-heading-2-margin-top, 0) 0 var(--doc-heading-2-margin-bottom, 0);
   font-family: var(--doc-heading-2-font-family, inherit);
   font-size: var(--doc-heading-2-font-size, 1.5em);
@@ -368,7 +351,7 @@ div.de-host-view {
   text-align: var(--doc-heading-2-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3 {
+:where(.de-document-editor) .pm-page-content h3 {
   margin: var(--doc-heading-3-margin-top, 0) 0 var(--doc-heading-3-margin-bottom, 0);
   font-family: var(--doc-heading-3-font-family, inherit);
   font-size: var(--doc-heading-3-font-size, 1.25em);
@@ -380,7 +363,7 @@ div.de-host-view {
   text-align: var(--doc-heading-3-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h4 {
+:where(.de-document-editor) .pm-page-content h4 {
   margin: var(--doc-heading-4-margin-top, 0) 0 var(--doc-heading-4-margin-bottom, 0);
   font-family: var(--doc-heading-4-font-family, inherit);
   font-size: var(--doc-heading-4-font-size, 1.1em);
@@ -392,7 +375,7 @@ div.de-host-view {
   text-align: var(--doc-heading-4-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h5 {
+:where(.de-document-editor) .pm-page-content h5 {
   margin: var(--doc-heading-5-margin-top, 0) 0 var(--doc-heading-5-margin-bottom, 0);
   font-family: var(--doc-heading-5-font-family, inherit);
   font-size: var(--doc-heading-5-font-size, 1em);
@@ -404,7 +387,7 @@ div.de-host-view {
   text-align: var(--doc-heading-5-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h6 {
+:where(.de-document-editor) .pm-page-content h6 {
   margin: var(--doc-heading-6-margin-top, 0) 0 var(--doc-heading-6-margin-bottom, 0);
   font-family: var(--doc-heading-6-font-family, inherit);
   font-size: var(--doc-heading-6-font-size, 0.9em);
@@ -416,63 +399,61 @@ div.de-host-view {
   text-align: var(--doc-heading-6-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1 {
+:where(.de-document-editor) .pm-page-content h1 {
   counter-increment: h1;
   counter-set: h2 0 h3 0 h4 0 h5 0 h6 0 var(--doc-h1-counter-set-extra,);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1::before {
+:where(.de-document-editor) .pm-page-content h1::before {
   content: var(--doc-heading-1-counter-content);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2 {
+:where(.de-document-editor) .pm-page-content h2 {
   counter-increment: h2;
   counter-set: h3 0 h4 0 h5 0 h6 0 var(--doc-h2-counter-set-extra,);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2::before {
+:where(.de-document-editor) .pm-page-content h2::before {
   content: var(--doc-heading-2-counter-content);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3 {
+:where(.de-document-editor) .pm-page-content h3 {
   counter-increment: h3;
   counter-set: h4 0 h5 0 h6 0 var(--doc-h3-counter-set-extra,);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3::before {
+:where(.de-document-editor) .pm-page-content h3::before {
   content: var(--doc-heading-3-counter-content);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h4 {
+:where(.de-document-editor) .pm-page-content h4 {
   counter-increment: h4;
   counter-set: h5 0 h6 0 var(--doc-h4-counter-set-extra,);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h4::before {
+:where(.de-document-editor) .pm-page-content h4::before {
   content: var(--doc-heading-4-counter-content);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h5 {
+:where(.de-document-editor) .pm-page-content h5 {
   counter-increment: h5;
   counter-set: h6 0 var(--doc-h5-counter-set-extra,);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h5::before {
+:where(.de-document-editor) .pm-page-content h5::before {
   content: var(--doc-heading-5-counter-content);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h6 {
+:where(.de-document-editor) .pm-page-content h6 {
   counter-increment: h6;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h6::before {
+:where(.de-document-editor) .pm-page-content h6::before {
   content: var(--doc-heading-6-counter-content);
 }
 
 /* The document's title is a heading in the title style, neither counted nor numbered. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  h1[data-doc-title='true'] {
+:where(.de-document-editor) .pm-page-content h1[data-doc-title='true'] {
   margin: var(--doc-title-margin-top, 0) 0 var(--doc-title-margin-bottom, 0);
   font-family: var(--doc-title-font-family, inherit);
   font-size: var(--doc-title-font-size, 24px);
@@ -484,28 +465,22 @@ div.de-host-view {
   text-align: var(--doc-title-text-align, left);
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  h1[data-doc-title='true'] {
+:where(.de-document-editor) .pm-page-content h1[data-doc-title='true'] {
   counter-increment: none;
   counter-set: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  h1[data-doc-title='true']::before {
+:where(.de-document-editor) .pm-page-content h1[data-doc-title='true']::before {
   content: none;
 }
 
 /* An unnumbered heading keeps its level's look, but takes no number and resets no counter. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  :is(h1, h2, h3, h4, h5, h6)[data-numbered='false'] {
+:where(.de-document-editor) .pm-page-content :is(h1, h2, h3, h4, h5, h6)[data-numbered='false'] {
   counter-increment: none;
   counter-set: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   :is(h1, h2, h3, h4, h5, h6)[data-numbered='false']::before {
   content: none;
@@ -524,7 +499,7 @@ div.de-host-view {
 
 /* The hard break a split paragraph's later fragment starts with ends the line before it, on the
    page before: it starts no line here (DOCE-PAGINATION-3.6). */
-:where(.de-document-editor, .de-document-editor__measure) .de-split-break {
+:where(.de-document-editor) .de-split-break {
   display: none;
 }
 
@@ -567,9 +542,7 @@ div.de-host-view {
 
 /* Subscripts and superscripts, footnote markers included, are drawn without growing their line, as
    the layout engine lays them out (DOCE-PAGINATION-9.3). */
-:where(.de-document-editor, .de-document-editor__measure)
-  :is(.pm-page, .pm-page-content)
-  :is(sup, sub) {
+:where(.de-document-editor) :is(.pm-page, .pm-page-content) :is(sup, sub) {
   line-height: 0;
 }
 
@@ -764,50 +737,50 @@ div.de-host-view {
   content: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ul,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol {
+:where(.de-document-editor) .pm-page-content ul,
+:where(.de-document-editor) .pm-page-content ol {
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
   margin: var(--doc-list-margin-top, 0) 0 var(--doc-list-margin-bottom, 0);
   padding-left: var(--doc-list-indentation, 24pt);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ul {
+:where(.de-document-editor) .pm-page-content ul {
   list-style-type: var(--doc-ul-list-style-type, disc);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol {
+:where(.de-document-editor) .pm-page-content ol {
   counter-reset: ordered-list var(--de-list-start, 0);
   list-style-type: var(--doc-ol-list-style-type, decimal);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol > li {
+:where(.de-document-editor) .pm-page-content ol > li {
   counter-increment: ordered-list;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol > li::marker {
+:where(.de-document-editor) .pm-page-content ol > li::marker {
   content: var(--doc-ol-counter-content, counter(ordered-list) '. ');
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li > p,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .de-task-content > p {
+:where(.de-document-editor) .pm-page-content li > p,
+:where(.de-document-editor) .pm-page-content .de-task-content > p {
   margin: 0;
 }
 
 /* A checklist item (DOCE-SCHEMA-3.12) shows its box in place of the bullet, ticked or clear; the
    later parts of an item the pages split show none. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li[data-checked] {
+:where(.de-document-editor) .pm-page-content li[data-checked] {
   display: flex;
   gap: 0.4em;
   list-style: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .de-task-content {
+:where(.de-document-editor) .pm-page-content .de-task-content {
   flex: 1;
   min-width: 0;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .de-task-box {
+:where(.de-document-editor) .pm-page-content .de-task-box {
   flex: none;
   box-sizing: border-box;
   width: 0.9em;
@@ -820,23 +793,17 @@ div.de-host-view {
   user-select: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  li[data-checked='true']
-  > .de-task-box {
+:where(.de-document-editor) .pm-page-content li[data-checked='true'] > .de-task-box {
   background: currentcolor;
   box-shadow: inset 0 0 0 2px var(--doc-page-background, white);
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  li[data-checked='true']
-  > .de-task-content {
+:where(.de-document-editor) .pm-page-content li[data-checked='true'] > .de-task-content {
   text-decoration: line-through;
   opacity: 0.7;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   li[data-checked][data-split-part-index]:not([data-split-part-index='0'])
   > .de-task-box {
@@ -845,11 +812,11 @@ div.de-host-view {
 
 /* A list item's continuation that opens with another block holds an empty placeholder paragraph,
    with no id, which takes no room on the page (DOCE-PAGINATION-4.3). */
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   li[data-orphaned-list-continuation]
   > p:first-child:not([data-id]),
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   li[data-orphaned-list-continuation]
   > .de-task-content
@@ -857,31 +824,27 @@ div.de-host-view {
   display: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content table {
+:where(.de-document-editor) .pm-page-content table {
   width: 100%;
   margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
   border-collapse: collapse;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content td,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content th {
+:where(.de-document-editor) .pm-page-content td,
+:where(.de-document-editor) .pm-page-content th {
   padding: var(--doc-table-cell-padding, 4px);
   border: var(--doc-table-border-width, 1px) solid var(--doc-table-border-color, #334155);
   text-align: left;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content th {
+:where(.de-document-editor) .pm-page-content th {
   background: var(--doc-table-header-background);
   color: var(--doc-table-header-color);
   font-weight: var(--doc-table-header-font-weight, 700);
 }
 
 /* A table set borderless draws none; while a template is edited, a dashed guide shows its cells. */
-:where(.de-document-editor, .de-document-editor__measure)
-  table.table-border-none
-  > tbody
-  > tr
-  > :is(td, th) {
+:where(.de-document-editor) table.table-border-none > tbody > tr > :is(td, th) {
   border: none;
 }
 
@@ -896,56 +859,43 @@ div.de-host-view {
 }
 
 /* A table ruled horizontally draws the lines between its rows and above and below it, no others. */
-:where(.de-document-editor, .de-document-editor__measure)
-  table.table-border-horizontal
-  > tbody
-  > tr
-  > :is(td, th) {
+:where(.de-document-editor) table.table-border-horizontal > tbody > tr > :is(td, th) {
   border-left: none;
   border-right: none;
 }
 
 /* A table set to the one pixel grid draws one pixel lines in the template's border colour. */
-:where(.de-document-editor, .de-document-editor__measure)
-  table.table-border-1px
-  > tbody
-  > tr
-  > :is(td, th) {
+:where(.de-document-editor) table.table-border-1px > tbody > tr > :is(td, th) {
   border-width: 1px;
 }
 
 /* Tables in a page's header and footer take no cell padding; an empty cell keeps a width to click. */
-:where(.de-document-editor, .de-document-editor__measure)
-  :is(.pm-page-header, .pm-page-footer)
-  :is(td, th) {
+:where(.de-document-editor) :is(.pm-page-header, .pm-page-footer) :is(td, th) {
   padding: 0;
   min-width: 1em;
 }
 
 /* A template image in a cell stands on no line of its own (its wrapper is a block of no line
    height) and takes no paragraph indent. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  :is(td, th)
-  [data-template-asset-image-wrapper] {
+:where(.de-document-editor) .pm-page-content :is(td, th) [data-template-asset-image-wrapper] {
   text-indent: 0;
 }
 
 /* Body rows take the template's odd and even backgrounds; header cells keep the header's. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content tr:nth-child(odd) > td {
+:where(.de-document-editor) .pm-page-content tr:nth-child(odd) > td {
   background: var(--doc-table-row-odd-background);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content tr:nth-child(even) > td {
+:where(.de-document-editor) .pm-page-content tr:nth-child(even) > td {
   background: var(--doc-table-row-even-background);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content td > p,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content th > p {
+:where(.de-document-editor) .pm-page-content td > p,
+:where(.de-document-editor) .pm-page-content th > p {
   margin: 0;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre {
+:where(.de-document-editor) .pm-page-content pre {
   margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
   padding: var(--de-code-padding);
   background: var(--doc-code-background);
@@ -962,32 +912,24 @@ div.de-host-view {
 
 /* A code block's text is in its block's font, not the browser's own `code` font, which the engine
    never measured (DOCE-PAGINATION-12.5). */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre > code {
+:where(.de-document-editor) .pm-page-content pre > code {
   font: inherit;
 }
 
 /* A cell's content sits where the cell aligns it, across and down. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  [data-text-align='center'] {
+:where(.de-document-editor) .pm-page-content [data-text-align='center'] {
   text-align: center;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  [data-text-align='right'] {
+:where(.de-document-editor) .pm-page-content [data-text-align='right'] {
   text-align: right;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  [data-vertical-align='top'] {
+:where(.de-document-editor) .pm-page-content [data-vertical-align='top'] {
   vertical-align: top;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  [data-vertical-align='bottom'] {
+:where(.de-document-editor) .pm-page-content [data-vertical-align='bottom'] {
   vertical-align: bottom;
 }
 
@@ -998,30 +940,25 @@ div.de-host-view {
  * caption above or below as the template says. A table is counted by what holds it with its
  * caption, which comes first.
  */
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   .doc-table-figure:not([data-split-part-index]):has(> table:not([data-caption-enabled='false'])),
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   .doc-table-figure[data-split-part-index='0']:has(> table:not([data-caption-enabled='false'])) {
   counter-increment: table;
 }
 
 /* A table inside a cell or a list item is part of what holds it: it is not counted. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  :is(td, th, li)
-  .doc-table-figure {
+:where(.de-document-editor) .pm-page-content :is(td, th, li) .doc-table-figure {
   counter-increment: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  figure:not([data-caption-enabled='false']) {
+:where(.de-document-editor) .pm-page-content figure:not([data-caption-enabled='false']) {
   counter-increment: figure;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   pre:not(
     [data-code-block-continued='true'],
@@ -1033,7 +970,7 @@ div.de-host-view {
 }
 
 /* A code block is counted by what holds it with its caption, which comes first. */
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   .doc-code-figure:has(
     > pre:not([data-code-block-continued='true'], [data-caption-enabled='false'])
@@ -1042,14 +979,11 @@ div.de-host-view {
 }
 
 /* Linked code takes code's margins on its own box, as it is measured and packed. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .linked-code-block {
+:where(.de-document-editor) .pm-page-content .linked-code-block {
   margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  .linked-code-block
-  > pre {
+:where(.de-document-editor) .pm-page-content .linked-code-block > pre {
   margin: 0;
 }
 
@@ -1057,7 +991,7 @@ div.de-host-view {
  * A code block and its caption: one box on the code's background, the caption above or below the
  * code inside it, and the code with no box of its own.
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-code-figure {
+:where(.de-document-editor) .pm-page-content .doc-code-figure {
   display: flex;
   flex-direction: column;
   margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
@@ -1068,7 +1002,7 @@ div.de-host-view {
   line-height: var(--doc-code-line-height, 1.4);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-code-figure > pre {
+:where(.de-document-editor) .pm-page-content .doc-code-figure > pre {
   margin: 0;
   padding: 0;
   background: none;
@@ -1079,7 +1013,7 @@ div.de-host-view {
  * or below it. A table across the content width takes all of it; one its columns or its layout
  * size, its own width, which its caption's text wraps within rather than widening it.
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-table-figure,
+:where(.de-document-editor) .pm-page-content .doc-table-figure,
 :where(.de-document-editor[data-text-layout='pretext'])
   :is(.pm-page-header, .pm-page-footer)
   .doc-table-figure {
@@ -1087,18 +1021,15 @@ div.de-host-view {
   flex-direction: column;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .doc-table-figure {
+:where(.de-document-editor) .pm-page-content .doc-table-figure {
   margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  .doc-table-figure
-  > table {
+:where(.de-document-editor) .pm-page-content .doc-table-figure > table {
   margin-bottom: 0;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   .doc-table-figure:has(> table[style*='width:']:not([data-object-layout='fit-page-width'])),
 :where(.de-document-editor[data-text-layout='pretext'])
@@ -1108,7 +1039,7 @@ div.de-host-view {
   max-width: 100%;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   .doc-table-figure:has(> table[data-object-layout='center']),
 :where(.de-document-editor[data-text-layout='pretext'])
@@ -1117,7 +1048,7 @@ div.de-host-view {
   margin-inline: auto;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   .doc-table-figure:has(> table[data-object-layout='right']),
 :where(.de-document-editor[data-text-layout='pretext'])
@@ -1126,48 +1057,41 @@ div.de-host-view {
   margin-left: auto;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line {
+:where(.de-document-editor) .doc-table-caption-line {
   order: var(--doc-table-caption-order, -1);
   contain: inline-size;
   text-align: var(--doc-table-caption-text-align, left);
   padding: var(--de-table-caption-padding) 0;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content figure,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre {
+:where(.de-document-editor) .pm-page-content figure,
+:where(.de-document-editor) .pm-page-content pre {
   display: flex;
   flex-direction: column;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content figure {
+:where(.de-document-editor) .pm-page-content figure {
   margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-slot {
+:where(.de-document-editor) .doc-figure-caption-slot {
   order: var(--doc-figure-caption-order, 1);
 }
 
 /* A figure's caption spans the content width; its text sits where the figure is aligned. */
-:where(.de-document-editor, .de-document-editor__measure)
-  figure[data-object-layout='center']
-  > .doc-figure-caption-slot {
+:where(.de-document-editor) figure[data-object-layout='center'] > .doc-figure-caption-slot {
   text-align: center;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  figure[data-object-layout='right']
-  > .doc-figure-caption-slot {
+:where(.de-document-editor) figure[data-object-layout='right'] > .doc-figure-caption-slot {
   text-align: right;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  figure[data-object-layout='left']
-  > .doc-figure-caption-slot {
+:where(.de-document-editor) figure[data-object-layout='left'] > .doc-figure-caption-slot {
   text-align: left;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
+:where(.de-document-editor) :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
   order: var(--doc-code-caption-order, -1);
 }
 
@@ -1175,7 +1099,7 @@ div.de-host-view {
  * A caption's unset font is the paragraph's, at the paragraph's line height and upright, wherever
  * the caption sits, such as inside code drawn in the code font.
  */
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   :is(
     .doc-table-caption-line,
     .doc-figure-caption-line,
@@ -1190,8 +1114,7 @@ div.de-host-view {
 }
 
 /* A rule parts a code caption from its code: under the caption above it, over one below it. */
-:where(.de-document-editor, .de-document-editor__measure)
-  :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
+:where(.de-document-editor) :is(.doc-code-caption-line, .doc-linked-code-caption-line) {
   /* The caption's order is -1 above the code and 1 below it. */
   --doc-code-caption-rule-below: calc((1 - var(--doc-code-caption-order, -1)) / 2);
   --doc-code-caption-rule-above: calc((1 + var(--doc-code-caption-order, -1)) / 2);
@@ -1206,7 +1129,7 @@ div.de-host-view {
 }
 
 /* Inline code: the template's code font on its code background, padded. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content :not(pre) > code {
+:where(.de-document-editor) .pm-page-content :not(pre) > code {
   padding: 0 3px;
   border-radius: 2px;
   background: var(--doc-code-background);
@@ -1215,24 +1138,22 @@ div.de-host-view {
   font-size: var(--doc-code-font-size, inherit);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
+:where(.de-document-editor) .doc-table-caption-line::before {
   content: var(--doc-table-counter-content, 'Table ' counter(table)) ' - ';
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before {
+:where(.de-document-editor) .doc-figure-caption-line::before {
   content: var(--doc-figure-counter-content, 'Figure ' counter(figure)) ' - ';
 }
 
 /* Linked code reads as code does, its text the name of its source. */
-:where(.de-document-editor, .de-document-editor__measure)
-  :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
+:where(.de-document-editor) :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before {
   content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
 }
 
 /* With the layout engine, each page contains its style while off screen, which scopes counters to
    it: the pages, and the viewer and prints drawn from their layout, draw the numbers the engine
-   laid them out with (DOCE-PAGINATION-11.9, DOCE-PAGINATION-13.6). The measuring view, which has
-   no engine numbers, counts them as the browser does. */
+   laid them out with (DOCE-PAGINATION-11.9, DOCE-PAGINATION-13.6). */
 .de-document-editor[data-text-layout='pretext']
   .de-document-editor__content
   .pm-page-content
@@ -1261,10 +1182,8 @@ div.de-host-view {
 
 /* A table caption's label and number in the label style, unset values the text's; its text in
    the text style, unset values the paragraph's. */
-:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before,
-:where(.de-document-editor, .de-document-editor__measure)
-  .doc-table-caption-line
-  .de-forced-lines__label {
+:where(.de-document-editor) .doc-table-caption-line::before,
+:where(.de-document-editor) .doc-table-caption-line .de-forced-lines__label {
   font-family: var(
     --doc-table-caption-label-font-family,
     var(--doc-table-caption-text-font-family, inherit)
@@ -1283,9 +1202,7 @@ div.de-host-view {
   );
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .doc-table-caption-line
-  > .doc-caption-text {
+:where(.de-document-editor) .doc-table-caption-line > .doc-caption-text {
   font-family: var(--doc-table-caption-text-font-family, inherit);
   font-size: var(--doc-table-caption-text-font-size, inherit);
   font-weight: var(--doc-table-caption-text-font-weight, inherit);
@@ -1294,10 +1211,8 @@ div.de-host-view {
 
 /* A figure caption's label and number in the label style, unset values the text's; its text in
    the text style, unset values the paragraph's. */
-:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before,
-:where(.de-document-editor, .de-document-editor__measure)
-  .doc-figure-caption-line
-  .de-forced-lines__label {
+:where(.de-document-editor) .doc-figure-caption-line::before,
+:where(.de-document-editor) .doc-figure-caption-line .de-forced-lines__label {
   font-family: var(
     --doc-figure-caption-label-font-family,
     var(--doc-figure-caption-text-font-family, inherit)
@@ -1316,9 +1231,7 @@ div.de-host-view {
   );
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .doc-figure-caption-line
-  > .doc-caption-text {
+:where(.de-document-editor) .doc-figure-caption-line > .doc-caption-text {
   font-family: var(--doc-figure-caption-text-font-family, inherit);
   font-size: var(--doc-figure-caption-text-font-size, inherit);
   font-weight: var(--doc-figure-caption-text-font-weight, inherit);
@@ -1327,11 +1240,8 @@ div.de-host-view {
 
 /* A code caption's label and number in the label style, unset values the text's; its text in
    the text style, unset values the paragraph's. */
-:where(.de-document-editor, .de-document-editor__measure)
-  :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before,
-:where(.de-document-editor, .de-document-editor__measure)
-  .doc-code-caption-line
-  .de-forced-lines__label {
+:where(.de-document-editor) :is(.doc-code-caption-line, .doc-linked-code-caption-line)::before,
+:where(.de-document-editor) .doc-code-caption-line .de-forced-lines__label {
   font-family: var(
     --doc-code-caption-label-font-family,
     var(--doc-code-caption-text-font-family, inherit)
@@ -1350,7 +1260,7 @@ div.de-host-view {
   );
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   :is(.doc-code-caption-line, .doc-linked-code-caption-line)
   > .doc-caption-text {
   font-family: var(--doc-code-caption-text-font-family, inherit);
@@ -1359,26 +1269,19 @@ div.de-host-view {
   font-style: var(--doc-code-caption-text-font-style, inherit);
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  [data-caption-enabled='false']
-  > .doc-caption-line,
-:where(.de-document-editor, .de-document-editor__measure)
-  figure[data-caption-enabled='false']
-  > .doc-figure-caption-slot,
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor) [data-caption-enabled='false'] > .doc-caption-line,
+:where(.de-document-editor) figure[data-caption-enabled='false'] > .doc-figure-caption-slot,
+:where(.de-document-editor)
   .doc-table-figure:has(> table[data-caption-enabled='false'])
   > .doc-caption-line,
-:where(.de-document-editor, .de-document-editor__measure)
-  [data-caption-enabled='false']
-  > pre
-  > .doc-caption-line,
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor) [data-caption-enabled='false'] > pre > .doc-caption-line,
+:where(.de-document-editor)
   .doc-code-figure:has(> pre[data-caption-enabled='false'])
   > .doc-caption-line {
   display: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .doc-table-figure[data-split-part-index]:not([data-split-part-index='0'])
   .doc-caption-continued::after {
   content: var(--doc-table-caption-continued, '');
@@ -1386,20 +1289,17 @@ div.de-host-view {
 
 /* A later part's caption shows the caption's text, which only the first part holds; the empty
    caption's trailing break would start a second line after it. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .doc-caption-text[data-continued-text]::before {
+:where(.de-document-editor) .doc-caption-text[data-continued-text]::before {
   content: attr(data-continued-text);
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .doc-caption-text[data-continued-text]
-  > br.ProseMirror-trailingBreak {
+:where(.de-document-editor) .doc-caption-text[data-continued-text] > br.ProseMirror-trailingBreak {
   display: none;
 }
 
 /* A continuation without repeated header rows has no caption text. Older projections also
    hide the caption when the first row contains a body cell. */
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .doc-table-figure[data-split-part-index]:not([data-split-part-index='0']):has(
     > table > tbody > tr:first-child > td,
     > .doc-caption-line > .doc-caption-text:not([data-continued-text])
@@ -1408,7 +1308,7 @@ div.de-host-view {
   display: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   :is(
     pre[data-code-block-continued='true'],
     [data-code-block-continued='true'] > pre,
@@ -1443,7 +1343,7 @@ div.de-host-view {
  * template's thickness on every screen, as the layout engine lays it out: a browser rounds a
  * border's width to whole device pixels.
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes {
+:where(.de-document-editor) .pm-page-footnotes {
   padding-top: calc(
     var(--doc-footnote-separator-thickness, 1px) + var(--doc-footnote-spacing-to-content, 6px)
   );
@@ -1464,15 +1364,15 @@ div.de-host-view {
 
 /* Entries stand the template's spacing apart and no further; each number in the marker style, with
    its suffix. */
-:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry {
+:where(.de-document-editor) .pm-footnote-entry {
   margin: 0;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry + .pm-footnote-entry {
+:where(.de-document-editor) .pm-footnote-entry + .pm-footnote-entry {
   margin-top: var(--doc-footnote-entry-spacing, 0);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry-number {
+:where(.de-document-editor) .pm-footnote-entry-number {
   color: var(--doc-footnote-marker-color, inherit);
   font-family: var(--doc-footnote-marker-font-family, inherit);
   font-size: var(--doc-footnote-marker-font-size, inherit);
@@ -1480,7 +1380,7 @@ div.de-host-view {
   font-weight: var(--doc-footnote-marker-font-weight, inherit);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry-number::after {
+:where(.de-document-editor) .pm-footnote-entry-number::after {
   content: var(--doc-footnote-numbering-suffix, '');
   margin-inline-end: 0.25em;
 }
@@ -2016,7 +1916,7 @@ a.de-contents__entry {
  * A heading inside a list, a table or a quote, at any depth, is text set as a heading: it is
  * neither counted nor numbered (`isStructuralHeading`). A script's output keeps its headings.
  */
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   :is(li, td, th, blockquote)
   :is(h1, h2, h3, h4, h5, h6) {
@@ -2024,7 +1924,7 @@ a.de-contents__entry {
   counter-set: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   :is(li, td, th, blockquote)
   :is(h1, h2, h3, h4, h5, h6)::before {
@@ -2045,16 +1945,12 @@ a.de-contents__entry {
 }
 
 /* Each display equation in the content counts, and shows its number at the line's end. */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  .de-math[data-display='display'] {
+:where(.de-document-editor) .pm-page-content .de-math[data-display='display'] {
   position: relative;
   counter-increment: equation;
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  .de-math[data-display='display']::after {
+:where(.de-document-editor) .pm-page-content .de-math[data-display='display']::after {
   content: var(--doc-equation-counter-content, '(' counter(equation) ')');
   position: absolute;
   inset-inline-end: 0;
@@ -2142,17 +2038,17 @@ a.de-contents__entry {
    as wide as the code. Each of its lines holds the line's number, then a hidden copy of the line's
    text that wraps as the code does, so a wrapped line's later rows keep a blank gutter. The
    gutter is three digits wide and 6px more, or wider for a higher number. */
-:where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) {
+:where(.de-document-editor) pre:has(> .de-code-gutter) {
   --de-code-gutter-width: calc(var(--de-code-gutter-digits, 3) * 1ch + 6px);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) > code,
+:where(.de-document-editor) pre:has(> .de-code-gutter) > code,
 .de-code-gutter__text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) > code {
+:where(.de-document-editor) pre:has(> .de-code-gutter) > code {
   padding-left: calc(var(--de-code-gutter-width) + 8px);
 }
 
@@ -2568,7 +2464,7 @@ a.de-contents__entry {
  * A paragraph in a custom style takes the style's values, its own where the style sets none.
  * The style's values are the --doc-custom-* properties the block carries.
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content p[data-custom-style] {
+:where(.de-document-editor) .pm-page-content p[data-custom-style] {
   margin: var(--doc-custom-margin-top, var(--doc-paragraph-margin-top, 0)) 0
     var(--doc-custom-margin-bottom, var(--doc-paragraph-margin-bottom, 0));
   font-family: var(--doc-custom-font-family, var(--doc-paragraph-font-family, serif));
@@ -2581,37 +2477,37 @@ a.de-contents__entry {
   text-align: var(--doc-custom-text-align, var(--doc-paragraph-text-align, left));
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1[data-custom-style] {
+:where(.de-document-editor) .pm-page-content h1[data-custom-style] {
   font-size: var(--doc-custom-font-size, var(--doc-heading-1-font-size));
   color: var(--doc-custom-color, var(--doc-heading-1-color));
   font-style: var(--doc-custom-font-style, normal);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2[data-custom-style] {
+:where(.de-document-editor) .pm-page-content h2[data-custom-style] {
   font-size: var(--doc-custom-font-size, var(--doc-heading-2-font-size));
   color: var(--doc-custom-color, var(--doc-heading-2-color));
   font-style: var(--doc-custom-font-style, normal);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3[data-custom-style] {
+:where(.de-document-editor) .pm-page-content h3[data-custom-style] {
   font-size: var(--doc-custom-font-size, var(--doc-heading-3-font-size));
   color: var(--doc-custom-color, var(--doc-heading-3-color));
   font-style: var(--doc-custom-font-style, normal);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h4[data-custom-style] {
+:where(.de-document-editor) .pm-page-content h4[data-custom-style] {
   font-size: var(--doc-custom-font-size, var(--doc-heading-4-font-size));
   color: var(--doc-custom-color, var(--doc-heading-4-color));
   font-style: var(--doc-custom-font-style, normal);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h5[data-custom-style] {
+:where(.de-document-editor) .pm-page-content h5[data-custom-style] {
   font-size: var(--doc-custom-font-size, var(--doc-heading-5-font-size));
   color: var(--doc-custom-color, var(--doc-heading-5-color));
   font-style: var(--doc-custom-font-style, normal);
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h6[data-custom-style] {
+:where(.de-document-editor) .pm-page-content h6[data-custom-style] {
   font-size: var(--doc-custom-font-size, var(--doc-heading-6-font-size));
   color: var(--doc-custom-color, var(--doc-heading-6-color));
   font-style: var(--doc-custom-font-style, normal);
@@ -2673,11 +2569,6 @@ a.de-contents__entry {
   content: attr(data-debug-height) 'px';
 }
 
-/* The measuring view's blocks get borders too while it shows beside the pages. */
-.de-document-editor[data-debug-blocks='true'] .de-document-editor__measure .pm-page-content > * {
-  outline: 1px dotted #0ea5e9;
-}
-
 /* A hovered block's tooltip, at its top-right corner. */
 .de-document-editor__debug-tip {
   position: absolute;
@@ -2727,9 +2618,8 @@ a.de-contents__entry {
 }
 
 /*
- * The debugging pane beside the pages, after its resize handle, at its own width: the measuring
- * view at the width it measures at, or the pages' markup. Without a view the pane takes no box, and
- * the measuring view stays out of sight.
+ * The debugging pane beside the pages, after its resize handle, at its own width: the pages'
+ * markup. Without a view the pane takes no box.
  */
 .de-document-editor__debug:not([data-view]) {
   display: contents;
@@ -2747,12 +2637,6 @@ a.de-contents__entry {
   background: #f8fafc;
 }
 
-.de-document-editor__debug[data-view='measure'] > .de-document-editor__measure {
-  position: static;
-  margin: 8px;
-  background: #fff;
-}
-
 .de-document-editor__debug[data-view='source'] > .ui-code-block {
   margin: 0;
   border: 0;
@@ -2763,18 +2647,14 @@ a.de-contents__entry {
  * Numbered paragraphs (DOCE-NUMBERING-6): the paragraph's text at its text position and its number
  * in the gutter before it, at its number position (DOCE-NUMBERING-3.4).
  */
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  p[data-paragraph-number] {
+:where(.de-document-editor) .pm-page-content p[data-paragraph-number] {
   margin-inline-start: var(--doc-paragraph-text-indent, 0pt);
   text-indent: calc(
     var(--doc-paragraph-number-indent, 0pt) - var(--doc-paragraph-text-indent, 0pt)
   );
 }
 
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  p[data-paragraph-number]::before {
+:where(.de-document-editor) .pm-page-content p[data-paragraph-number]::before {
   content: attr(data-paragraph-number) ' ';
   display: inline-block;
   min-width: calc(var(--doc-paragraph-text-indent, 0pt) - var(--doc-paragraph-number-indent, 0pt));
@@ -2802,17 +2682,14 @@ a.de-contents__entry {
  * first or last of a quote, list or list item there, which have no padding or border at their
  * ends (DOCE-PAGINATION-3.3). Last in the sheet, so it wins over every block's own margins.
  */
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :first-child,
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  > :is(blockquote, ul, ol):first-child
-  > :first-child,
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor) .pm-page-content > :first-child,
+:where(.de-document-editor) .pm-page-content > :is(blockquote, ul, ol):first-child > :first-child,
+:where(.de-document-editor)
   .pm-page-content
   > :is(blockquote, ul, ol):first-child
   > :is(blockquote, ul, ol, li):first-child
   > :first-child,
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   > :is(blockquote, ul, ol):first-child
   > :is(blockquote, ul, ol, li):first-child
@@ -2821,17 +2698,14 @@ a.de-contents__entry {
   margin-block-start: 0;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :last-child,
-:where(.de-document-editor, .de-document-editor__measure)
-  .pm-page-content
-  > :is(blockquote, ul, ol):last-child
-  > :last-child,
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor) .pm-page-content > :last-child,
+:where(.de-document-editor) .pm-page-content > :is(blockquote, ul, ol):last-child > :last-child,
+:where(.de-document-editor)
   .pm-page-content
   > :is(blockquote, ul, ol):last-child
   > :is(blockquote, ul, ol, li):last-child
   > :last-child,
-:where(.de-document-editor, .de-document-editor__measure)
+:where(.de-document-editor)
   .pm-page-content
   > :is(blockquote, ul, ol):last-child
   > :is(blockquote, ul, ol, li):last-child
