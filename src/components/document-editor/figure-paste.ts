@@ -9,7 +9,9 @@
 // math that carries its LaTeX becomes that math instead (DOCE-OBJECTS-1.12). An image of pasted HTML
 // that is only an address and states no size is loaded first and pasted at its natural size, or
 // left out and named when it gives none (`pasted-addresses.ts`). A paste from the
-// keyboard and the context menu's Paste both go through `pasteImages`.
+// keyboard and the context menu's Paste both go through `pasteImages`. Without the host's assets,
+// only the images at addresses are taken: they are sized and pasted, and the rest is left to the
+// document's own paste.
 
 import { readMathImage } from '@flamboyantengineer/ui-components/math-preview';
 import { DOMSerializer } from 'prosemirror-model';
@@ -29,7 +31,8 @@ import { hasPastedImages, hasPastedMath, hasPastedText, pastedImages } from './p
 
 /** What pasting images needs from the host. */
 export interface FigurePasteOptions {
-  readonly assets: AssetAdapter;
+  /** Where images are stored; without it, only images at web addresses are pasted, sized. */
+  readonly assets?: AssetAdapter | undefined;
   readonly feedback?: FeedbackAdapter | undefined;
   /** Tells the reader an image could not be uploaded. */
   readonly failure: string;
@@ -49,12 +52,14 @@ export interface FigurePasteOptions {
   readonly isCurrent?: (() => boolean) | undefined;
 }
 
-/** What pasting images needs, from the editor's props; null while the host stores no assets. */
+/**
+ * What pasting images needs, from the editor's props. While the host stores no assets, images at
+ * web addresses are still sized and pasted; images whose bytes come with the paste are not taken.
+ */
 export function figurePasteOptions(
   { assets, feedback }: Pick<DocumentEditorProps, 'assets' | 'feedback'>,
   labels: DocumentEditorLabels,
-): FigurePasteOptions | null {
-  if (!assets) return null;
+): FigurePasteOptions {
   return {
     assets,
     feedback,
@@ -96,7 +101,7 @@ async function sizesOf(
   options: FigurePasteOptions & { readonly ownerDocument: Document },
 ): Promise<ImageSize[] | null> {
   const sizes: ImageSize[] = [];
-  const max = options.assets.maxUploadBytes;
+  const max = options.assets?.maxUploadBytes;
   for (const file of files) {
     if (!file) return refuse(options);
     if (max !== undefined && file.size > max) return refuse(options, options.tooLarge(max));
@@ -120,7 +125,7 @@ async function uploadAll(
   for (const [index, file] of files.entries()) {
     const natural = sizes[index];
     if (!file || !natural) return refuse(options);
-    const result = await options.assets.upload(file).catch(() => null);
+    const result = await options.assets?.upload(file).catch(() => null);
     if (!result?.ok) return refuse(options, result?.error.message);
     const { id, snapshotId } = result.value;
     stored.push({ fileAssetId: id, snapshotId: snapshotId ?? id, natural });
@@ -175,6 +180,15 @@ function figureMarkup(view: EditorView, { natural, ...asset }: StoredImage, alt:
   return container.innerHTML;
 }
 
+// The images of pasted HTML to upload, the writer told whether they upload or only load: without
+// the host's assets, the images that come with the paste are left as they are.
+function uploadedImages(html: string, rtf: string, options: FigurePasteOptions) {
+  const images = options.assets ? pastedImages(html, rtf) : [];
+  const text = images.length > 0 ? options.uploading : options.loading;
+  if (text) options.feedback?.notify({ tone: 'info', text });
+  return images;
+}
+
 // Uploads all the images of pasted HTML and sizes those that are only addresses, then pastes it,
 // each uploaded image a figure, at the selection it was pasted at: nothing when an image fails or
 // lacks its bytes, or when the document changed. An address that gives no size is left out, named.
@@ -183,9 +197,7 @@ async function pasteWithImages(
   { html, rtf, at }: Pick<PastedContent, 'html' | 'rtf'> & { at: PastePlace },
   options: FigurePasteOptions,
 ) {
-  const images = pastedImages(html, rtf);
-  if (images.length > 0) options.feedback?.notify({ tone: 'info', text: options.uploading });
-  else if (options.loading) options.feedback?.notify({ tone: 'info', text: options.loading });
+  const images = uploadedImages(html, rtf, options);
   const addresses = sizeAddresses(html, view.dom.ownerDocument);
   const stored = await uploadAll(
     view,
@@ -229,14 +241,18 @@ export function pasteImages(
   content: PastedContent,
   options: FigurePasteOptions,
 ): boolean {
-  if (!view.editable || hasPastedMath(content.html)) return false;
+  if (!view.editable) return false;
+  const unsized = hasUnsizedAddresses(content.html);
+  // Math copied as images is read back as math by the document's parse rules, unless the paste
+  // also holds images at addresses to size (DOCE-OBJECTS-1.12).
+  if (hasPastedMath(content.html) && !unsized) return false;
   const files = imagesOf(content.files);
-  if (files.length > 0 && !hasPastedText(content.html)) {
+  if (options.assets && files.length > 0 && !hasPastedText(content.html)) {
     const at = { doc: view.state.doc, selection: view.state.selection };
     void insertFigures(view, { files, at }, options);
     return true;
   }
-  if (!hasPastedImages(content.html) && !hasUnsizedAddresses(content.html)) return false;
+  if (!(options.assets && hasPastedImages(content.html)) && !unsized) return false;
   const at = { doc: view.state.doc, selection: view.state.selection };
   void pasteWithImages(view, { ...content, at }, options);
   return true;
@@ -258,7 +274,7 @@ export function figurePasteHandlers(options: FigurePasteOptions) {
     },
     handleDrop(view: EditorView, event: DragEvent): boolean {
       const files = imagesOf(event.dataTransfer?.files);
-      if (files.length === 0 || !view.editable) return false;
+      if (!options.assets || files.length === 0 || !view.editable) return false;
       event.preventDefault();
       const { doc } = view.state;
       const hit = view.posAtCoords({ left: event.clientX, top: event.clientY });
