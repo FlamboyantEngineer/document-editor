@@ -252,6 +252,22 @@ describe('DocumentViewer', () => {
     expect(sheets(container)[40]?.firstElementChild).toBe(retained);
   });
 
+  it('DOCE-PAGINATION-13.6 watches the implicit root where the observer takes no document root', () => {
+    class ElementRootObserver extends FakeObserver {
+      constructor(callback: IntersectionObserverCallback, init?: IntersectionObserverInit) {
+        if (init?.root instanceof Document) throw new TypeError('root is not an element');
+        super(callback, init);
+      }
+    }
+    vi.stubGlobal('IntersectionObserver', ElementRootObserver);
+    const { container } = render(<DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />);
+    const init = observed.at(-1)?.init;
+    expect(init?.root).toBeNull();
+    expect(init?.rootMargin).toBe(`${String(window.innerHeight)}px 0px`);
+    showInView([4]);
+    expect(drawn(container)).toEqual([3, 4, 5]);
+  });
+
   it('DOCE-PAGINATION-13.6 draws all pages where its window has no intersection observer', () => {
     vi.stubGlobal('IntersectionObserver', undefined);
     const { container } = render(<DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />);
