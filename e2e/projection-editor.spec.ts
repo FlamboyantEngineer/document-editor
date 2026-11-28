@@ -50,7 +50,9 @@ test.describe('DocumentEditor on the projection', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.type('Gain is $k^2$ now');
     const math = content(page).locator('p', { hasText: 'now' }).locator('.de-math');
-    await expect(math).toHaveAttribute('data-state', 'ready');
+    // Typeset math is drawn in its provisional reserved box (DOCE-PAGINATION-12.13), wider than it
+    // ends up, until the pages' layout places it: the double click waits for its laid-out box.
+    await expect(math).toHaveAttribute('data-math-layout', 'laid');
     await math.dblclick();
     const field = page
       .locator('.de-object-editors__field[data-kind="math"]')

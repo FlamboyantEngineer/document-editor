@@ -125,7 +125,7 @@ function stackedWithMargins(page: readonly LayoutBlock[]): number {
 }
 
 interface SectionFill {
-  readonly blocks: LayoutBlock[];
+  readonly blocks: readonly LayoutBlock[];
   readonly area: FootnoteArea | null;
   /** The section's page height inside its margins, before its regions take their room. */
   readonly pageHeight: number;
@@ -240,10 +240,8 @@ function sectionFills(state: EditorState, options: DocumentLayoutOptions) {
     const before = laidSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const blocks: LayoutBlock[] = [];
-    state.doc.nodeAt(content)?.forEach((node) => {
-      blocks.push(engine.measureBlock(node, scope, inserted));
-    });
+    const contentNode = state.doc.nodeAt(content);
+    const blocks = contentNode ? engine.measureContent(contentNode, scope, inserted) : [];
     const blocksMeasured = laidSoFar() - before;
     const area = footnoteArea(state, footnotes, at);
     const fill: SectionFill = { blocks, area, pageHeight, regions, rules };
