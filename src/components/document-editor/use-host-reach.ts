@@ -2,12 +2,13 @@
 // the handle reveals panes in, and the scope every part inside the editor shares.
 
 import type { EditorView } from 'prosemirror-view';
-import type { RefObject } from 'react';
+import { type RefObject, useLayoutEffect, useRef } from 'react';
 import type { TemplateFile } from '../../model/index.js';
 import { useEditorPanes } from '../document-panels/document-panels.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { useFindBar } from './document-find-bar.js';
 import { type CommentRefs, useEditorHandle } from './editor-handle.js';
+import type { SnapshotDrawing } from './editor-snapshots.js';
 import type { LayoutProgress } from './layout-progress.js';
 import { useDocumentExports } from './use-document-exports.js';
 import type { TransactionFeed } from './use-editor-engine.js';
@@ -37,14 +38,22 @@ export function useHostReach(
 ) {
   const panes = useEditorPanes(props.comments);
   const find = useFindBar(root, view, { find: props.find, panes });
+  const drawing = useRef<SnapshotDrawing | null>(null);
+  useLayoutEffect(() => {
+    drawing.current = { view, template: drawn };
+    return () => {
+      drawing.current = null;
+    };
+  }, [view, drawn]);
   useEditorHandle(props.handleRef, view, {
     ...refs,
     template: drawn,
+    drawing,
     layout: progress,
     openFind: find.open,
     panes,
     references: props.referenceSource,
   });
-  const exports = useDocumentExports(props, view, progress);
+  const exports = useDocumentExports(props, view, { progress, drawing });
   return { find, scope: { comments: props.comments, transactions, panes }, exports };
 }

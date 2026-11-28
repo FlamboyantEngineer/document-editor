@@ -21,6 +21,7 @@ import { BASE_TEMPLATE, joinDocumentPages, sameStructure } from '../model/index.
 import { canonicalView } from './canonical-view.js';
 import { layoutNow } from './layout-latency.js';
 import { isPaginationTransaction, layoutStats, pageMetrics } from './layout-marks.js';
+import type { LayoutState } from './layout-readiness.js';
 import { pageMap } from './page-map.js';
 
 // Whether the projection's pages join into the canonical document.
@@ -831,6 +832,57 @@ describe('projection layouts', () => {
     expect(states).toEqual(['settled', 'pending', 'settled']);
   });
 
+  it('DOCE-PAGINATION-7.6 separates a settled layout from a refresh started by its callback', async () => {
+    let refreshed: Promise<LayoutState> | undefined;
+    const resolved = vi.fn();
+    const { projection, next, drain } = mount({
+      onLayoutStateChange(state) {
+        if (state !== 'settled' || refreshed) return;
+        projection.refresh();
+        refreshed = projection.whenSettled();
+        void refreshed.then(resolved);
+      },
+    });
+    const initial = projection.whenSettled();
+    next();
+    next();
+    await expect(initial).resolves.toBe('settled');
+    expect(projection.layoutState()).toBe('pending');
+    expect(resolved).not.toHaveBeenCalled();
+    drain();
+    await expect(refreshed).resolves.toBe('settled');
+    projection.destroy();
+  });
+
+  it('DOCE-PAGINATION-7.6 settles waiting callers even when its layout-state listener throws', async () => {
+    const failure = new Error('Layout-state listener failed');
+    const { projection, next } = mount({
+      onLayoutStateChange(state) {
+        if (state === 'settled') throw failure;
+      },
+    });
+    const pending = projection.whenSettled();
+    next();
+    expect(next).toThrow(failure);
+    await expect(Promise.race([pending, Promise.resolve('pending')])).resolves.toBe('settled');
+    projection.destroy();
+  });
+
+  it('DOCE-PAGINATION-7.6 keeps a requested refresh when its pending listener throws', async () => {
+    const failure = new Error('Pending listener failed');
+    const { projection, drain } = mount({
+      onLayoutStateChange(state) {
+        if (state === 'pending') throw failure;
+      },
+    });
+    drain();
+    expect(() => projection.refresh()).toThrow(failure);
+    const pending = projection.whenSettled();
+    drain();
+    await expect(Promise.race([pending, Promise.resolve('pending')])).resolves.toBe('settled');
+    projection.destroy();
+  });
+
   it('DOCE-PAGINATION-7.6 resolves pending readiness requests when the projection is destroyed', async () => {
     const states: string[] = [];
     const { projection, next } = mount({ onLayoutStateChange: (state) => states.push(state) });
@@ -845,6 +897,23 @@ describe('projection layouts', () => {
       'failed',
     ]);
     expect(states).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-7.6 resolves pending readiness even when a node view throws on destroy', async () => {
+    const failure = new Error('Node view failed to destroy');
+    const { projection } = mount({
+      nodeViews: {
+        paragraph: () => ({
+          dom: document.createElement('p'),
+          destroy: () => {
+            throw failure;
+          },
+        }),
+      },
+    });
+    const pending = projection.whenSettled();
+    expect(() => projection.destroy()).toThrow(failure);
+    await expect(Promise.race([pending, Promise.resolve('pending')])).resolves.toBe('failed');
   });
 
   it('DOCE-PAGINATION-7.6 fails when a layout throws, and lays out again when asked', async () => {

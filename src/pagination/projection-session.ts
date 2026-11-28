@@ -189,26 +189,22 @@ function syncSelection(session: Session): void {
 
 /** Lays the pages out once the scheduler runs, unless a layout is already due. */
 export function requestLayout(session: Session): void {
-  if (session.pace.ready.failed()) return;
-  session.pace.readiness.pending();
-  if (session.cancelLayout) return;
-  writeTrace(session.options.trace, 'request');
-  const schedule = session.options.schedule ?? frameIn(session.options.element);
-  session.cancelLayout = schedule(() => layout(session));
+  if (session.destroyed || session.pace.ready.failed()) return;
+  session.pace.readiness.pending(() => {
+    if (session.cancelLayout) return;
+    writeTrace(session.options.trace, 'request');
+    const schedule = session.options.schedule ?? frameIn(session.options.element);
+    if (!session.destroyed) session.cancelLayout = schedule(() => layout(session));
+  });
 }
 
 /** Lays the pages out again soon; `remeasure` starts the layout source's plugins over. */
 export function refreshLayout(session: Session, remeasure: boolean): void {
+  if (session.destroyed || session.pace.ready.failed()) return;
   if (remeasure) session.pace.restart = true;
-  markChanged(session);
+  session.pace.changed = true;
   session.edits.cancel();
   requestLayout(session);
-}
-
-/** A change, or the host asking for a layout: the count of layouts in a row starts over. */
-function markChanged(session: Session): void {
-  session.pace.changed = true;
-  if (!session.pace.ready.failed()) session.pace.readiness.pending();
 }
 
 // Lays the pages out with the engine from the layout's source state, moved onto the canonical
@@ -239,7 +235,7 @@ function keepShownSelection(session: Session): void {
 // The engine once it and its math are ready; else null, pending, or failed without one to wait for.
 function readyEngine(session: Session): PagesTextEngine | null {
   const { pace, options } = session;
-  if (pace.ready.blocked()) return null;
+  if (session.destroyed || pace.ready.blocked()) return null;
   const engine = pace.readiness.engine(engineOrFailure(pace.text), options.trace);
   if (!engine) return null;
   const waiting = { ...session, owner: session.options.element.ownerDocument };
@@ -255,7 +251,7 @@ export function layout(session: Session): void {
   session.cancelLayout = null;
   session.edits.cancel();
   const { view, pace, options } = session;
-  if (view?.isDestroyed || session.destroyed) return;
+  if (view?.isDestroyed) return;
   const { trace } = options;
   if (view?.composing) {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
@@ -286,6 +282,7 @@ export function layout(session: Session): void {
   session.probe.laidOut(laidOut);
   const stats = pace.counter.stats();
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));
+  if (session.destroyed) return;
   traced(() => ({ layouts: stats.layouts, pages: laidOut.metrics.length }));
   pace.readiness.laidOut(() => isIdle(session));
   session.options.onLayout?.(laidOut.tr);
@@ -330,11 +327,14 @@ export function showCanonical(session: Session, tr: Transform | null, how: Showi
 
 // A change shown on the pages: laid out on the next frame when `now`, or once the writer pauses.
 function afterChange(session: Session, now: boolean, tr: Transaction): void {
-  markChanged(session);
+  if (session.destroyed || session.pace.ready.failed()) return;
+  session.pace.changed = true;
   if (now) return requestLayout(session);
-  writeTrace(session.options.trace, 'settle');
-  session.probe.request(tr);
-  session.edits.request();
+  session.pace.readiness.pending(() => {
+    writeTrace(session.options.trace, 'settle');
+    session.probe.request(tr);
+    session.edits.request();
+  });
 }
 
 /**

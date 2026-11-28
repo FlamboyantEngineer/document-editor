@@ -41,6 +41,7 @@ export type LayoutRunner = Pick<
   | 'whenSettled'
   | 'stats'
   | 'textLines'
+  | 'projection'
   | 'pagesLayout'
   | 'servedFonts'
   | 'drawAllLines'

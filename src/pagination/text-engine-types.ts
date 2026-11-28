@@ -155,6 +155,8 @@ export interface PagesTextEngine {
    * (DOCE-PAGINATION-10.11), and gives that number of digits.
    */
   pageDigits(count: number): number;
+  /** The measured rows and reserved page digits a kept list of contents drawing must match. */
+  contentsKeyOf?(node: ProseMirrorNode): string;
   /** How the pages draw a list of contents block; null when the engine left it to the DOM. */
   contentsDrawn(node: ProseMirrorNode, scope: string | null): ContentsDrawn | null;
   /**

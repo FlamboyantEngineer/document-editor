@@ -57,18 +57,20 @@ export interface RuleSizes {
 const ruleOf = (rules: LayoutRules | undefined, node: ProseMirrorNode): LayoutRule | undefined =>
   rules && Object.hasOwn(rules, node.type.name) ? rules[node.type.name] : undefined;
 
-const usable = (value: unknown) =>
+const usable = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
-// Whether a rule's result is a size: a usable height, and a usable width and baseline when given.
-function isSize(value: unknown): value is RuleSize {
-  if (!value || typeof value !== 'object') return false;
+// Take the usable geometry out of the result before a host can change the object it returned.
+function readSize(value: unknown): RuleSize | null {
+  if (!value || typeof value !== 'object') return null;
   const { height, width, baseline } = value as Record<string, unknown>;
-  return (
-    usable(height) &&
-    (width === undefined || usable(width)) &&
-    (baseline === undefined || usable(baseline))
-  );
+  if (
+    !usable(height) ||
+    (width !== undefined && !usable(width)) ||
+    (baseline !== undefined && !usable(baseline))
+  )
+    return null;
+  return { height, width, baseline };
 }
 
 // Text measured as the engine lays out a paragraph or code block of it, in a scope.
@@ -93,9 +95,11 @@ function sizeText(
   };
 }
 
-// The key a node's size is kept by beside the node itself: its width and scope.
-const keyOf = (width: number, scope: string | null) =>
-  `${String(Math.round(width * 64))}\u0000${scope ?? ''}`;
+// Preserve the value seen by rules, including the sign of zero.
+const numberKey = (value: number) => (Object.is(value, -0) ? '-0' : String(value));
+
+const keyOf = (width: number, scope: string | null, markup: SizeInput['markup']) =>
+  `${numberKey(width)}|${markup}|${scope === null ? '0' : `1${scope}`}`;
 
 // An id for each size function, so rules passed anew with the same functions keep their sizes.
 const sizeIds = new WeakMap<object, number>();
@@ -115,13 +119,17 @@ const idOf = (size: object) => {
  * Rules handed in again with the same functions and keys give the same key.
  */
 export function ruleSizesKey(rules: LayoutRules | undefined): string {
-  return Object.entries(rules ?? {})
-    .filter(([, rule]) => rule.size)
-    .map(
-      ([type, rule]) =>
-        `${type}:${String(rule.size ? idOf(rule.size) : 0)}:${String(rule.sizeKey ?? '')}`,
-    )
-    .join('|');
+  if (!rules) return '';
+  const sized: [string, number, string | string[] | undefined][] = [];
+  for (const type of Object.keys(rules)) {
+    const rule = rules[type];
+    if (!rule?.size) continue;
+    const { size, sizeKey } = rule;
+    const revision = typeof sizeKey === 'number' ? [numberKey(sizeKey)] : sizeKey;
+    sized.push([type, idOf(size), revision]);
+  }
+  sized.sort(([a], [b]) => (a < b ? -1 : 1));
+  return sized.length ? JSON.stringify(sized) : '';
 }
 
 /** What host rules are sized with beside the node. */
@@ -136,17 +144,25 @@ interface RuleSizeSource {
   readonly markup: () => SizeInput['markup'];
 }
 
-// Calls a rule, and once for each type a second time, so a rule whose size is not a function of
-// its input alone is told apart (C8): the first result stands, and the difference is reported.
+// Compare the box the engine uses, with defaults applied to missing inline dimensions.
+function sameSize(a: RuleSize, b: RuleSize, inline: boolean): boolean {
+  return (
+    a.height === b.height &&
+    (!inline ||
+      ((a.width ?? 0) === (b.width ?? 0) && (a.baseline ?? a.height) === (b.baseline ?? b.height)))
+  );
+}
+
+// Checks the first usable box of each type with a second call on the same input (C8).
 function callRule(rule: LayoutRule, input: SizeInput, checked: Set<string>): RuleSized {
   const name = input.node.type.name;
   try {
-    const result: unknown = rule.size?.(input);
-    if (!isSize(result)) return { ok: false, error: `${name}'s layout rule gave no usable size` };
+    const result = readSize(rule.size?.(input));
+    if (!result) return { ok: false, error: `${name}'s layout rule gave no usable size` };
     if (checked.has(name)) return { ok: true, size: result };
     checked.add(name);
-    const again: unknown = rule.size?.(input);
-    if (JSON.stringify(again) !== JSON.stringify(result))
+    const again = readSize(rule.size?.(input));
+    if (!again || !sameSize(result, again, input.node.isInline))
       return { ok: false, error: `${name}'s layout rule gave two sizes for the same node` };
     return { ok: true, size: result };
   } catch (error) {
@@ -163,6 +179,7 @@ function createRuleErrors() {
     return typeof id === 'string' && id ? id : node;
   };
   return {
+    hasErrors: () => byType.size > 0,
     set(node: ProseMirrorNode, error: string) {
       const type = node.type.name;
       const failing = byType.get(type) ?? new Map<unknown, string>();
@@ -202,9 +219,8 @@ function createRuleErrors() {
 }
 
 /**
- * Sizes host nodes by their rules. A size is kept by node, width, scope and the rules' sizes, so
- * a rule that failed is not asked again for the same node; the engine is made for one template,
- * so its sizes are never kept across templates.
+ * Sizes host nodes by their rules. A size and its error outcome are kept by node, width, scope,
+ * markup and the rules' sizes. Each engine keeps its own sizes under one template.
  */
 export function createRuleSizes(source: RuleSizeSource): RuleSizes {
   let kept = new WeakMap<ProseMirrorNode, Map<string, RuleSized>>();
@@ -223,23 +239,24 @@ export function createRuleSizes(source: RuleSizeSource): RuleSizes {
       errors.keepSized(all);
     }
     const markup = source.markup();
-    const key = `${keyOf(width, scope)}\u0000${markup}`;
+    const key = keyOf(width, scope, markup);
     let byKey = kept.get(node);
-    const was = byKey?.get(key);
-    if (was) return was;
-    const text = sizeText(source.text(), () => node, scope);
-    const sized = callRule(
-      rule,
-      { node, width, scope, text, language: source.language, markup },
-      checked,
-    );
-    if (sized.ok) errors.clear(node);
-    else errors.set(node, sized.error);
     if (!byKey) {
       byKey = new Map();
       kept.set(node, byKey);
     }
-    byKey.set(key, sized);
+    let sized = byKey.get(key);
+    if (!sized) {
+      const text = sizeText(source.text(), () => node, scope);
+      sized = callRule(
+        rule,
+        { node, width, scope, text, language: source.language, markup },
+        checked,
+      );
+      byKey.set(key, sized);
+    }
+    if (sized.ok) errors.clear(node);
+    else errors.set(node, sized.error);
     return sized;
   };
   // Each node's box as last laid out, and a count that moves when one changes.
@@ -277,7 +294,10 @@ export function createRuleSizes(source: RuleSizeSource): RuleSizes {
     placed: (node) => placed.get(node) ?? null,
     version: () => version,
     errors(doc) {
-      if (doc) errors.keepIn(doc);
+      if (errors.hasErrors()) {
+        errors.keepSized(source.rules());
+        if (doc) errors.keepIn(doc);
+      }
       return errors.read();
     },
   };

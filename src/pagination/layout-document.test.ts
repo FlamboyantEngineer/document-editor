@@ -154,6 +154,64 @@ describe('headers and footers showing page numbers', () => {
     }
   });
 
+  it('DOCE-PAGINATION-11.10 counts a sheet with no body blocks when measuring every header', () => {
+    const template = templateWith({
+      header: [line(variable('page.current'), text(' of '), variable('page.total'))],
+    });
+    const { doc } = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [{ content: [line(text('Removed'))] }, { content: [line(text('Body'))] }],
+      },
+      documentSchema,
+    );
+    const emptied = new Transform(doc);
+    doc.descendants((node, pos) => {
+      if (node.type.name !== 'paragraph' || node.textContent !== 'Removed') return true;
+      emptied.delete(pos, pos + node.nodeSize);
+      return false;
+    });
+    const state = EditorState.create({
+      doc: setPageRegions(emptied, template).doc,
+      plugins: [createPageVariables()],
+    });
+    const real = createPagesTextEngine({ template });
+    const engine: PagesTextEngine = {
+      ...real,
+      measureRegion: (node, scope, texts) =>
+        node.type.name === 'page_header'
+          ? {
+              height: 10 * Number(texts?.get('page.current')) + Number(texts?.get('page.total')),
+              gap: 0,
+              children: [],
+            }
+          : real.measureRegion(node, scope, texts),
+    };
+    const memory = createLayoutMemory();
+    const headers: number[] = [];
+    const sections: SectionReport[] = [];
+    const layout = () =>
+      layoutDocument(state, {
+        pageHeight: 100,
+        engine,
+        memory,
+        onPage: (page) => headers.push(page.header),
+        onSection: (section) => sections.push(section),
+      });
+
+    expect(
+      layout().map((pages) => pages.map((page) => page.map((node) => node.textContent))),
+    ).toEqual([[[]], [['Body']]]);
+    expect(headers).toEqual([12, 22]);
+    layout();
+    expect(headers).toEqual([12, 22, 12, 22]);
+    expect(sections.slice(2).map(({ pages, pagesLaidOut }) => [pages, pagesLaidOut])).toEqual([
+      [1, 0],
+      [1, 0],
+    ]);
+    real.destroy();
+  });
+
   it('DOCE-PAGINATION-11.10 gives each page the footer room its own number takes, 99 to 100', () => {
     const template = templateWith({ footer: [line(report(91), variable('page.current'))] });
     const pages = layOut(template, 102, LINE + 36);

@@ -20,8 +20,9 @@ export function typedPages(session: Session) {
  */
 export function recheckFonts(session: Session): void {
   const { pace } = session;
-  if (pace.ready.failed()) return;
+  if (session.destroyed || pace.ready.failed()) return;
   if (pace.changed) return refreshLayout(session, false);
-  pace.readiness.pending();
-  if (!session.cancelLayout) pace.readiness.laidOut(() => isIdle(session));
+  pace.readiness.pending(() => {
+    if (!session.cancelLayout) pace.readiness.laidOut(() => isIdle(session));
+  });
 }
