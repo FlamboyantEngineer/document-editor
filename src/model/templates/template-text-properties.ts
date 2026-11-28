@@ -43,8 +43,6 @@ const TEXT_STYLES = [
 
 /** The size a relative paragraph size resolves against, as the text layout engine resolves it. */
 const DEFAULT_PARAGRAPH_SIZE = 12;
-/** The root size `rem` resolves against. */
-const ROOT_SIZE = 16;
 
 /**
  * The paragraph's size in pixels: a relative size against the default paragraph size, once. The
@@ -52,11 +50,11 @@ const ROOT_SIZE = 16;
  */
 function paragraphSize(size: unknown): string | null {
   const length = cssSize(size);
-  const match = length ? /^(\d+(?:\.\d+)?)(em|rem|%)$/.exec(length) : null;
+  // A `rem` size is already in pixels.
+  const match = length ? /^(\d+(?:\.\d+)?)(em|%)$/.exec(length) : null;
   if (!match) return length;
-  const amount = Number(match[1]);
-  const base = match[2] === 'rem' ? ROOT_SIZE : DEFAULT_PARAGRAPH_SIZE;
-  return `${String(match[2] === '%' ? (amount / 100) * base : amount * base)}px`;
+  const amount = Number(match[1]) * DEFAULT_PARAGRAPH_SIZE;
+  return `${String(match[2] === '%' ? amount / 100 : amount)}px`;
 }
 
 function set(properties: CustomProperties, name: string, value: string | null | undefined) {

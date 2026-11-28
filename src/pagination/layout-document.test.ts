@@ -3,6 +3,7 @@ import { Transform } from 'prosemirror-transform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { footnoteState, note, paragraph as stored } from '../../test/footnote-fixtures.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -265,4 +266,159 @@ describe('headers and footers showing page numbers', () => {
     for (const page of pages) expect(page.footer).toBe(2 * LINE);
     expect(pages.length).toBe(10);
   });
+
+  it('DOCE-PAGINATION-11.10 says why when the page count still moves after its last pass', () => {
+    // A footer taller the more pages there are: each count lays out more pages than the one before.
+    const regionRoom: RegionRoomBy = (texts) => {
+      const total = Number(texts?.get('page.total') ?? 0);
+      return { height: Math.min(total * 6, 200), gap: 0, children: [] };
+    };
+    const template = templateWith({ footer: [line(variable('page.total'))] });
+    const reasons: string[] = [];
+    layOut(template, 76, 280, { regionRoom, onUnsettled: (reason) => reasons.push(reason) });
+    expect(reasons).toEqual([
+      'the page count moved after 3 passes',
+      'the page count moved after 3 passes',
+    ]);
+  });
+});
+
+describe('region rooms across passes', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-11.10 lays a "page X of Y" footer out once for each page and count', () => {
+    const template = templateWith({
+      footer: [line(text('Page '), variable('page.current'), text(' of '), variable('page.total'))],
+    });
+    let calls = 0;
+    const pages = layOut(template, 30 * 4, 4 * LINE + 36, {
+      regionRoom: () => {
+        calls += 1;
+        return { height: LINE, gap: 0, children: [] };
+      },
+    });
+    expect(pages.length).toBe(40);
+    // Two layouts of 40 pages, each footer laid out once for each page and page count a layout
+    // tries, however often its passes read it: 246 times when every read laid it out again.
+    expect(calls).toBe(166);
+  });
+});
+
+describe('blocks the engine cannot lay out', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-11.1 lays out again only the page an edit reaches, between two blocks the engine refuses', () => {
+    // A host draws quotes with a node view of its own and no rule sizes them: the engine refuses
+    // them, and they take no room.
+    const quote: StoredNode = { type: 'blockquote', content: [line(text('Quoted'))] };
+    const lines = Array.from({ length: 60 }, (_, index) => line(text(`Line ${String(index)}`)));
+    const content = [quote, ...lines, quote];
+    const { doc } = readDocumentFile({ formatVersion: 1, sections: [{ content }] }, documentSchema);
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE, hostViews: ['blockquote'] });
+    const memory = createLayoutMemory();
+    const layout = (state: EditorState) => {
+      const sections: SectionReport[] = [];
+      layoutDocument(state, {
+        pageHeight: 4 * LINE,
+        engine,
+        memory,
+        onSection: (section) => sections.push(section),
+      });
+      return sections[0];
+    };
+    const state = EditorState.create({ doc });
+    const first = layout(state);
+    expect(first?.pages).toBeGreaterThan(10);
+    const before = engine.stats().refused;
+    expect(before).toBe(2);
+    // Typing on a page near the end: the refused quotes are the blocks they were.
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Line 50') at = pos + node.nodeSize;
+      return at < 0;
+    });
+    const edited = layout(state.apply(state.tr.insertText(', typed', at)));
+    expect(edited?.pages).toBe(first?.pages);
+    expect(edited?.pagesLaidOut).toBeLessThanOrEqual(2);
+    expect(engine.stats().refused).toBe(before);
+    engine.destroy();
+  });
+});
+
+describe('footnote room of a split paragraph', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  const words = (word: string, count: number) =>
+    Array.from({ length: count }, () => word).join(' ');
+
+  // The pages of one section, laid out with the real engine under the fake Canvas.
+  function pagesOf(
+    content: StoredNode[],
+    footnoteNumbering: 'document' | 'page' = 'document',
+  ): PageMetric[] {
+    const state = footnoteState(content);
+    const paged = EditorState.create({
+      doc: setPageRegions(new Transform(state.doc), BASE_TEMPLATE).doc,
+      plugins: state.plugins,
+    });
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const pages: PageMetric[] = [];
+    layoutDocument(paged, {
+      pageHeight: 300,
+      engine,
+      footnoteNumbering,
+      onPage: (page) => pages.push(page),
+    });
+    engine.destroy();
+    return pages;
+  }
+  const fill = (pages: readonly PageMetric[]) =>
+    pages.map(({ used, footnotes }) => ({ used: Math.round(used), notes: footnotes > 0 }));
+
+  it.each(['document', 'page'] as const)(
+    'DOCE-PAGINATION-7.2 leaves the room of a footnote cited at a paragraph’s end only on its page, numbered by %s',
+    (numbering) => {
+      const plain = fill(pagesOf([stored(text(words('word', 400)))], numbering));
+      const noted = fill(
+        pagesOf([stored(text(words('word', 400)), note('a', words('note', 200)))], numbering),
+      );
+      expect(plain).toHaveLength(2);
+      // The first page takes as much of the paragraph as it does without the footnote.
+      expect(noted[0]).toEqual(plain[0]);
+      expect(noted.at(-1)?.notes).toBe(true);
+      expect(noted.slice(0, -1).every((page) => !page.notes)).toBe(true);
+    },
+  );
+
+  it.each(['document', 'page'] as const)(
+    'DOCE-PAGINATION-7.2 leaves the room on the page that holds a mid-paragraph marker, numbered by %s',
+    (numbering) => {
+      const plain = fill(
+        pagesOf([stored(text(words('word', 600)), text(words('more', 600)))], numbering),
+      );
+      const noted = fill(
+        pagesOf(
+          [
+            stored(
+              text(words('word', 600)),
+              note('a', words('note', 40)),
+              text(` ${words('more', 600)}`),
+            ),
+          ],
+          numbering,
+        ),
+      );
+      const marked = noted.findIndex((page) => page.notes);
+      expect(marked).toBeGreaterThan(0);
+      // The pages before the marker's give up no room for it.
+      expect(noted.slice(0, marked)).toEqual(plain.slice(0, marked));
+      expect(noted.filter((page) => page.notes)).toHaveLength(1);
+    },
+  );
 });

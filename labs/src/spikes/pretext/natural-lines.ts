@@ -1,5 +1,5 @@
 // Reading the lines the browser drew a text block on, for verification only: the oracle reads
-// natural HTML with it, and the production comparison the projection's own measuring view.
+// natural HTML with it, and the production comparison the pages the projection draws.
 import type { Node } from 'prosemirror-model';
 import type { Line } from './prediction.js';
 

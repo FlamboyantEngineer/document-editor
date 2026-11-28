@@ -22,6 +22,11 @@ export interface PaginationStats {
   readonly pagesReused: number;
   /** Pages a layout built anew. */
   readonly pagesRebuilt: number;
+  /**
+   * Layouts that stopped with page numbers that still moved after their last pass: a list of
+   * contents' digits, or the page count a header or footer shows (DOCE-PAGINATION-10.11, 11.10).
+   */
+  readonly unsettled: number;
 }
 
 type LayoutCounts = Pick<
@@ -33,6 +38,7 @@ type LayoutCounts = Pick<
   | 'overflowPages'
   | 'pagesReused'
   | 'pagesRebuilt'
+  | 'unsettled'
 >;
 
 // The pages of a paged document, each section's in order.
@@ -57,14 +63,23 @@ export function createPaginationCounter(laid: () => number) {
     overflowPages: 0,
     pagesReused: 0,
     pagesRebuilt: 0,
+    unsettled: 0,
   };
-  return {
+  const reports = {
     /** Counts a section laid out, by how many of its blocks were measured and pages laid out. */
-    section({ blocksMeasured, pagesLaidOut }: SectionReport) {
+    onSection({ blocksMeasured, pagesLaidOut }: SectionReport) {
       counts.pagesLaidOut += pagesLaidOut;
       if (blocksMeasured > 0) counts.sectionsRelaid += 1;
       else counts.sectionsReused += 1;
     },
+    /** Counts a layout that stopped with page numbers that still moved. */
+    onUnsettled() {
+      counts.unsettled += 1;
+    },
+  };
+  return {
+    /** What a layout reports, counted. */
+    reports,
     /** Counts the pages a layout's check found drawn taller than they are. */
     overflow(pages: number) {
       counts.overflowPages += pages;

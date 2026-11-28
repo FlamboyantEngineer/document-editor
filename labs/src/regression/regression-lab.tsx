@@ -92,9 +92,10 @@ const ZOOM = Number(new URLSearchParams(window.location.search).get('zoom') ?? 1
 
 // `debug` shows the layout debugging: each page's room and each block's planned height and top
 // (`data-debug-height`, `data-debug-top`), which the block geometry check reads (DOCE-LABS-8.10).
+// The pages drawn taller than they are are always counted, for the checks that read the stats.
 const DEBUG = new URLSearchParams(window.location.search).has('debug')
-  ? ({ pages: true, blocks: true } as const)
-  : undefined;
+  ? ({ pages: true, blocks: true, overflow: true } as const)
+  : ({ overflow: true } as const);
 
 // How the editor shows suggestions (`markup`): all their markup by default, or `final`, `simple`
 // or `original`.

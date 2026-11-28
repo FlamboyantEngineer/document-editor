@@ -4,29 +4,31 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type ContentsRowLayout, reservedPage } from '../layout-engine/blocks/contents.js';
-import type { BlockLayout, BlockTextLayout, ContentsDrawn } from '../layout-engine/blocks/types.js';
+import type { BlockTextLayout, ContentsDrawn } from '../layout-engine/blocks/types.js';
+import type { LayoutBlock } from '../model/index.js';
 import type { ContentsLists } from './contents-lists.js';
 
 const LEVELS = [1, 2, 3, 4, 5, 6];
 
-/** A list block's drawing, as the engine laid it out; null when the engine left it to the DOM. */
+/**
+ * A list block's drawing, read from the layout the engine kept for it; null when the engine left it
+ * to the DOM.
+ */
 export function drawnContents(
   node: ProseMirrorNode,
   at: {
     readonly scope: string | null;
-    readonly geometry: BlockLayout;
+    readonly block: LayoutBlock;
     readonly text: BlockTextLayout;
     readonly contents: ContentsLists;
-    readonly width: number;
     readonly doc: ProseMirrorNode | null;
   },
 ): ContentsDrawn | null {
   const list = at.contents.of(node, at.doc);
   const width = at.text.contentsTextWidth;
   if (!list || !width) return null;
-  const result = at.geometry.layoutBlock(node, { width: at.width, scope: at.scope });
-  if (!result.ok || !result.block.measurement) return null;
-  const { rows, title, empty } = result.block.measurement as {
+  if (!at.block.measurement) return null;
+  const { rows, title, empty } = at.block.measurement as {
     rows: readonly ContentsRowLayout[];
     title?: readonly number[];
     empty?: readonly number[];

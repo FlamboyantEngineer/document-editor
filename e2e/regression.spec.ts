@@ -493,7 +493,7 @@ const quoteHeights = (page: Page) =>
   page.evaluate(() => {
     const heights: number[] = [];
     const quotes = document.querySelectorAll<HTMLElement>(
-      '.de-document-editor__content:not(.de-document-editor__measure *) .pm-page-content > [data-debug-type="blockquote"]',
+      '.de-document-editor__content .pm-page-content > [data-debug-type="blockquote"]',
     );
     for (const quote of quotes) {
       const height = Number(quote.dataset.debugHeight);

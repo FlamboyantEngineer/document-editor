@@ -71,6 +71,17 @@ describe('objectBoxAt', () => {
     expect(box.rows[1]).toBeCloseTo(40 + 2 * box.edge);
   });
 
+  it('DOCE-PAGINATION-10.12 reads the block layout the engine kept, laying nothing out again', () => {
+    // A row resize reads the box on each move of its drag.
+    const state = pagesState(TABLE);
+    const at = positionOf(state, 'table');
+    const first = objectBoxAt(state, at);
+    const laid = engine.stats().laid;
+    for (let move = 0; move < 5; move += 1) expect(objectBoxAt(state, at)).toBe(first);
+    expect(engine.stats().laid).toBe(laid);
+    expect(laid).toBeGreaterThan(0);
+  });
+
   it('DOCE-PAGINATION-10.12 gives none where the pages are not laid out by the engine', () => {
     const state = pagesState(FIGURE, false);
     expect(objectBoxAt(state, positionOf(state, 'figure'))).toBeNull();

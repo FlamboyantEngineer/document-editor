@@ -38,6 +38,7 @@ export const EDITOR_COUNTS = {
   blocksMeasured: 'document-editor.blocks-measured',
   sectionsRelaid: 'document-editor.sections-relaid',
   pagesRebuilt: 'document-editor.pages-rebuilt',
+  unsettled: 'document-editor.layout-unsettled',
 } as const;
 
 // Counts what a layout did: the difference from what the layouts before it had done, or all of it

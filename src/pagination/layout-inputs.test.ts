@@ -42,7 +42,7 @@ describe('layout inputs', () => {
       fonts: { faces: [face([1, 2, 3])], generics: { serif: 'Lab Serif' } },
     };
     expect(layoutInputsKey(layoutInputs(again))).toBe(layoutInputsKey(layoutInputs(base)));
-    expect(layoutInputsKey(layoutInputs(base))).toMatch(/^3-[0-9a-f]{16}$/);
+    expect(layoutInputsKey(layoutInputs(base))).toMatch(/^4-[0-9a-f]{16}$/);
   });
 
   it('DOCE-PAGINATION-13.12 ignores object key order throughout the resolved template', () => {
@@ -99,6 +99,45 @@ describe('layout inputs', () => {
     expect(second.width).not.toBe(first.width);
     expect(second.inputs.fonts).not.toBe(first.inputs.fonts);
     expect(layoutInputsKey(second.inputs)).not.toBe(layoutInputsKey(first.inputs));
+  });
+
+  describe('the font keys', () => {
+    const named = (family: string, bytes: number[]) => ({ ...face(bytes), family });
+    const fontsOf = (faces: FontFiles['faces'], generics?: FontFiles['generics']) =>
+      layoutInputs({ ...base, fonts: { faces, generics } });
+
+    it('DOCE-PAGINATION-13.12 gives the same key to families interleaved differently', () => {
+      const first = fontsOf([named('A', [1]), named('B', [2]), named('A', [3]), named('B', [4])]);
+      const second = fontsOf([named('A', [1]), named('A', [3]), named('B', [2]), named('B', [4])]);
+      expect(second.fonts).toBe(first.fonts);
+      expect(layoutInputsKey(second)).toBe(layoutInputsKey(first));
+    });
+
+    it('DOCE-PAGINATION-13.12 gives the same key to a duplicated face', () => {
+      const once = fontsOf([named('A', [1]), named('A', [2])]);
+      const twice = fontsOf([named('A', [2]), named('A', [1]), named('A', [2])]);
+      expect(twice.fonts).toBe(once.fonts);
+    });
+
+    it('DOCE-PAGINATION-13.12 gives the same key to a family in another case or quoting', () => {
+      const plain = fontsOf([named('Lab Serif', [1])], { serif: 'Lab Serif' });
+      const quoted = fontsOf([named('"lab serif"', [1])], { serif: "'LAB SERIF'" });
+      expect(quoted.fonts).toBe(plain.fonts);
+      expect(quoted.generics).toBe(plain.generics);
+    });
+
+    it('DOCE-PAGINATION-13.12 keys the order of the faces within a family', () => {
+      const first = fontsOf([named('A', [1]), named('A', [2])]);
+      const second = fontsOf([named('A', [2]), named('A', [1])]);
+      expect(second.fonts).not.toBe(first.fonts);
+    });
+
+    it('DOCE-PAGINATION-13.12 keys the fallback, the family served first', () => {
+      const first = fontsOf([named('A', [1]), named('B', [2])]);
+      const second = fontsOf([named('B', [2]), named('A', [1])]);
+      expect(second.fonts).not.toBe(first.fonts);
+      expect(layoutInputsKey(second)).not.toBe(layoutInputsKey(first));
+    });
   });
 
   it('DOCE-PAGINATION-13.12 names the input that differs, and changes the key', () => {

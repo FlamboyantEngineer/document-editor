@@ -54,14 +54,22 @@ function regionRoom(state: EditorState, pos: number | null, at: RegionAt): Regio
   const reads = { current: texts.has(PAGE_CURRENT), total: texts.has(PAGE_TOTAL) };
   const roomOf = (room: typeof first) => (room.height > 0 ? room.height + room.gap : 0);
   if (!reads.current && !reads.total) return fixed(roomOf(first));
+  // Each number and count the region shows is laid out once for every pass of the layout over it.
+  const rooms = new Map<string, number>();
   return {
     reads,
     room(page, pages) {
-      const shown = new Map(texts);
-      if (reads.current) shown.set(PAGE_CURRENT, String(page));
-      if (reads.total) shown.set(PAGE_TOTAL, String(pages));
-      const room = engine.measureRegion(node, scope, shown);
-      return room ? roomOf(room) : roomOf(first);
+      const key = `${reads.current ? page : ''}/${reads.total ? pages : ''}`;
+      let held = rooms.get(key);
+      if (held === undefined) {
+        const shown = new Map(texts);
+        if (reads.current) shown.set(PAGE_CURRENT, String(page));
+        if (reads.total) shown.set(PAGE_TOTAL, String(pages));
+        const room = engine.measureRegion(node, scope, shown);
+        held = room ? roomOf(room) : roomOf(first);
+        rooms.set(key, held);
+      }
+      return held;
     },
   };
 }
