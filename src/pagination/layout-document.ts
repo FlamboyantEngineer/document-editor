@@ -23,6 +23,7 @@ import {
 import { insertedTexts } from './inserted-texts.js';
 import { footnoteArea, roomsFor, type SectionRegions, sectionRegions } from './page-regions.js';
 import { cited, sectionPlaces } from './section-places.js';
+import { createShownFootnotes, type ShownFootnotes } from './shown-footnotes.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /**
@@ -124,7 +125,7 @@ function stackedWithMargins(page: readonly LayoutBlock[]): number {
 }
 
 interface SectionFill {
-  readonly blocks: LayoutBlock[];
+  readonly blocks: readonly LayoutBlock[];
   readonly area: FootnoteArea | null;
   /** The section's page height inside its margins, before its regions take their room. */
   readonly pageHeight: number;
@@ -139,7 +140,7 @@ interface SectionStart {
   readonly page: number;
   /** The page counts the regions take room for: each page the most any of them needs. */
   readonly pages: readonly number[];
-  readonly shown: Set<string>;
+  readonly shown: ShownFootnotes;
 }
 
 // A number for each set of layout rules, so a section laid out under other rules is laid out again.
@@ -175,6 +176,7 @@ function layoutSection(
   options: DocumentLayoutOptions,
 ): { result: IncrementalResult; metrics: PageMetric[] } {
   const perPage = options.footnoteNumbering === 'page';
+  const hidden = options.engine.hiddenSuggestion?.() ?? null;
   const { area, regions } = fill;
   const { shown } = start;
   const rooms: ReturnType<typeof roomsFor>[] = [];
@@ -189,7 +191,7 @@ function layoutSection(
   };
   const pageHeight = (blocks: readonly LayoutBlock[], index: number) => {
     if (!area) return baseHeight(index);
-    const fresh = [...cited(blocks)].filter((id) => perPage || !shown.has(id));
+    const fresh = cited(blocks, { skip: perPage ? undefined : (id) => shown.has(id), hidden });
     return baseHeight(index) - footnoteAreaHeight(area, fresh);
   };
   const metrics: PageMetric[] = [];
@@ -198,7 +200,7 @@ function layoutSection(
     key: fillKey(fill, start, perPage),
     previous: start.previous,
     // With footnotes numbered through the document, a page's room depends on those shown before.
-    state: () => (area && !perPage ? [...shown].join(' ') : ''),
+    state: () => (area && !perPage ? shown.key : ''),
     geometry: (index) => {
       const { header, footer } = roomOn(index);
       return `${header}/${footer}`;
@@ -216,7 +218,7 @@ function layoutSection(
         ...roomOn(index),
         footnotes: baseHeight(index) - available,
       });
-      for (const id of cited(page)) shown.add(id);
+      for (const id of cited(page, { hidden })) shown.add(id);
     },
   });
   return { result, metrics };
@@ -238,10 +240,8 @@ function sectionFills(state: EditorState, options: DocumentLayoutOptions) {
     const before = laidSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const blocks: LayoutBlock[] = [];
-    state.doc.nodeAt(content)?.forEach((node) => {
-      blocks.push(engine.measureBlock(node, scope, inserted));
-    });
+    const contentNode = state.doc.nodeAt(content);
+    const blocks = contentNode ? engine.measureContent(contentNode, scope, inserted) : [];
     const blocksMeasured = laidSoFar() - before;
     const area = footnoteArea(state, footnotes, at);
     const fill: SectionFill = { blocks, area, pageHeight, regions, rules };
@@ -267,7 +267,7 @@ function layoutPass(
   },
   options: DocumentLayoutOptions,
 ) {
-  const shown = new Set<string>();
+  const shown = createShownFootnotes();
   let page = 1;
   const starts: number[] = [];
   const laid = fills.map(({ fill }, index) => {

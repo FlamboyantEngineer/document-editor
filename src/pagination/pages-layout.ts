@@ -103,14 +103,25 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
   return blocks;
 }
 
-// Each variable's value as the pages draw it.
+// Each variable's value as the pages draw it, from the words they draw it in, in order.
 function drawnVariables(state: EditorState): PagesLayoutVariable[] {
   const set = pageVariablesKey.getState(state);
   if (!set) return [];
-  return set.find().flatMap((decoration) => {
-    const text: unknown = (decoration.spec as { text?: unknown }).text;
-    return typeof text === 'string' ? [{ pos: decoration.from, text }] : [];
-  });
+  const words = new Map<number, { side: number; text: string }[]>();
+  for (const decoration of set.find()) {
+    const { text, side } = decoration.spec as { text?: unknown; side?: unknown };
+    if (typeof text !== 'string') continue;
+    const own = words.get(decoration.from) ?? [];
+    own.push({ side: typeof side === 'number' ? side : 0, text });
+    words.set(decoration.from, own);
+  }
+  return [...words].map(([pos, own]) => ({
+    pos,
+    text: own
+      .sort((a, b) => a.side - b.side)
+      .map((word) => word.text)
+      .join(''),
+  }));
 }
 
 // Each number the pages draw from the engine, as its decorations say it.

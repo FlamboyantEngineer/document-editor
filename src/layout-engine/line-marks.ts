@@ -60,29 +60,55 @@ const startingAt = (hidden: readonly Range[], at: number) =>
 const endingAt = (hidden: readonly Range[], at: number) =>
   hidden.find(([from, to]) => to === at && from < at);
 
+// The inline nodes other than text in a block's content, by where they start and end: read once
+// per block, not once per line.
+const atomsKept = new WeakMap<ProseMirrorNode, readonly Range[]>();
+
+function atomRanges(node: ProseMirrorNode): readonly Range[] {
+  let ranges = atomsKept.get(node);
+  if (!ranges) {
+    const found: Range[] = [];
+    node.forEach((child, start) => {
+      if (!child.isText) found.push([start, start + child.nodeSize]);
+    });
+    ranges = found;
+    atomsKept.set(node, ranges);
+  }
+  return ranges;
+}
+
+// The text a range of a block's content draws as text: its text nodes' text, and an object
+// character for each other inline node, as math, whose source a view never draws as text and
+// whose spaces the line does not stretch (DOCE-PAGINATION-13.1).
+function drawnText(node: ProseMirrorNode, from: number, to: number): string {
+  let text = '';
+  node.forEach((child, start) => {
+    const end = start + child.nodeSize;
+    if (end <= from || start >= to) return;
+    if (!child.isText) text += '\ufffc';
+    else text += (child.text ?? '').slice(Math.max(0, from - start), to - start);
+  });
+  return text;
+}
+
 // A line's shown text, without the hidden ranges inside it.
 function shownText(node: ProseMirrorNode, table: JustifiedLines, line: TextLine): string {
   let text = '';
   let at = line.from;
   const inside = (table.hidden ?? []).filter(([from, to]) => from < line.to && to > line.from);
   for (const [from, to] of inside) {
-    if (from > at) text += node.textBetween(at, from, '￼', '￼');
+    if (from > at) text += drawnText(node, at, from);
     at = Math.max(at, to);
   }
-  if (line.to > at) text += node.textBetween(at, line.to, '￼', '￼');
+  if (line.to > at) text += drawnText(node, at, line.to);
   return text;
 }
 
 // The inline node other than text that holds an offset of a block's content strictly inside it,
 // such as math, whose text a view never draws: a mark must take it whole.
 function atomAround(node: ProseMirrorNode, offset: number): { from: number; to: number } | null {
-  let around: { from: number; to: number } | null = null;
-  if (node.childCount === 1 && node.firstChild?.isText) return null;
-  node.forEach((child, start) => {
-    const to = start + child.nodeSize;
-    if (!child.isText && start < offset && offset < to) around = { from: start, to };
-  });
-  return around;
+  const range = atomRanges(node).find(([from, to]) => from < offset && offset < to);
+  return range ? { from: range[0], to: range[1] } : null;
 }
 
 // Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
@@ -281,6 +307,8 @@ export interface LabelPart {
   readonly style?: string | undefined;
   /** Whether its line ends after it, before the content. */
   readonly breaks: boolean;
+  /** Its clusters drawn in a box of a reserved width, by offset in the part (DOCE-PAGINATION-12.4). */
+  readonly reserved?: readonly ReservedBox[] | undefined;
 }
 
 // The label's text on each line it starts.
@@ -290,23 +318,38 @@ function labelPartTexts(table: LineTable): string[] | null {
   return table.label.endsWith('\n') ? parts.slice(0, -1) : parts;
 }
 
+// The reserved boxes of a label that fall in one of its parts, by offset in that part.
+function partBoxes(
+  boxes: readonly ReservedBox[] | undefined,
+  { start, end }: { start: number; end: number },
+): ReservedBox[] {
+  return (boxes ?? [])
+    .filter((box) => box.from >= start && box.to <= end)
+    .map((box) => ({ ...box, from: box.from - start, to: box.to - start }));
+}
+
 /**
  * The parts of a caption's label on the lines they start, where a line breaks inside the label or
- * right after it (DOCE-PAGINATION-11.2): what the pages draw instead of the label alone, each part
- * after the first starting its line at its indent; null when the content starts on the label's
- * line.
+ * right after it (DOCE-PAGINATION-11.2), or of a label or a heading's number that holds a cluster
+ * of a reserved width (DOCE-PAGINATION-12.4): what the pages draw instead of the label or number
+ * the stylesheet generates, each part after the first starting its line at its indent and each
+ * reserved cluster in its box; null when the stylesheet draws it.
  */
 export function labelParts(table: LineTable): LabelPart[] | null {
   const texts = labelPartTexts(table);
   if (!texts) return null;
   const ends = table.label?.endsWith('\n') ?? false;
+  let start = 0;
   return texts.map((text, index) => {
     const line = table.lines[index];
     const indent = index > 0 && line ? indentOf(table, line) : 0;
+    const reserved = partBoxes(table.prefixReserved, { start, end: start + text.length });
+    start += text.length;
     return {
       text,
       ...(indent > 0.001 ? { style: `--de-line-indent: ${px(indent)}` } : {}),
       breaks: ends || index < texts.length - 1,
+      ...(reserved.length ? { reserved } : {}),
     };
   });
 }

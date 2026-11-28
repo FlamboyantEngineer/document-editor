@@ -161,7 +161,7 @@ const NO_BOXES: ReadonlyMap<ProseMirrorNode, ObjectBox> = new Map();
 function recordingBoxes(geometry: BlockLayout, objects: ReturnType<typeof createObjectRecorder>) {
   const kept = new WeakMap<LayoutBlock, ReadonlyMap<ProseMirrorNode, ObjectBox>>();
   const recording: BlockLayout = {
-    layoutRegion: (node, place) => geometry.layoutRegion(node, place),
+    layoutRegion: (node, place, entry) => geometry.layoutRegion(node, place, entry),
     layoutBlock(node, place) {
       const { laid, boxes } = objects.boxesOf(() => geometry.layoutBlock(node, place));
       if (laid.ok && boxes.size) kept.set(laid.block, boxes);
@@ -174,8 +174,8 @@ function recordingBoxes(geometry: BlockLayout, objects: ReturnType<typeof create
   };
 }
 
-// The figure and table boxes and a list of contents' rows, read from the block layout the engine
-// kept, the one the pages were laid out with (DOCE-PAGINATION-10.11, 10.12).
+// The engine's top-level blocks, and the figure and table boxes and a list of contents' rows read
+// from the block layout it kept, the one the pages were laid out with (DOCE-PAGINATION-10.11, 10.12).
 function keptReadings(
   blocks: ReturnType<typeof keptBlocks>,
   layouts: ReturnType<typeof engineLayouts>,
@@ -188,8 +188,14 @@ function keptReadings(
     numbers: () => NodeNumbers;
     select: () => void;
   },
-): Pick<PagesTextEngine, 'contentsDrawn' | 'objectBoxes'> {
+): Pick<PagesTextEngine, 'contentsDrawn' | 'measureBlock' | 'measureContent' | 'objectBoxes'> {
   return {
+    measureBlock: selecting(select, (node, scope, inserted = NO_INSERTED) =>
+      blocks.measure(node, scope, inserted),
+    ),
+    measureContent: selecting(select, (content, scope, inserted = NO_INSERTED) =>
+      blocks.measureContent(content, scope, inserted),
+    ),
     objectBoxes: selecting(select, (block, scope, inserted = NO_INSERTED) =>
       layouts.recording.boxesOf(blocks.measure(block, scope, inserted)),
     ),
@@ -320,14 +326,12 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     pageDigits: (count) => contents.pageDigits(count),
     contentsKeyOf: (node) => contents.keyOf(node, numbers.current().doc),
     ...drawings.reading,
-    measureBlock: selecting(select, (node, scope, inserted = NO_INSERTED) =>
-      blocks.measure(node, scope, inserted),
-    ),
     ...keptReadings(blocks, layouts, { contents, numbers: numbers.current, select }),
     mathPending: (doc) => documentMathPending(options, doc),
     // Blocks and lines with provisional math are never kept. Regions and containers are laid out
     // again once it settles.
     atomsVersion: () => waiting.version(drawings.forgetRegions),
+    hiddenSuggestion: () => hiddenSuggestion(options.markup?.() ?? 'all'),
     ...layouts.math.reading(counts.stats),
     ...sizedReading(layouts.sizes),
     destroy() {

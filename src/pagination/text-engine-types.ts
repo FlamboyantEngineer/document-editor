@@ -169,6 +169,16 @@ export interface PagesTextEngine {
    */
   measureBlock(node: ProseMirrorNode, scope: string | null, inserted?: InsertedTexts): LayoutBlock;
   /**
+   * The top-level blocks of a section's page content, each as `measureBlock` gives it, kept by the
+   * content's node while nothing they were laid out with outside their nodes changed
+   * (DOCE-PAGINATION-11.15).
+   */
+  measureContent(
+    content: ProseMirrorNode,
+    scope: string | null,
+    inserted?: InsertedTexts,
+  ): readonly LayoutBlock[];
+  /**
    * A section's page header, footer or footnote area, laid out with the text its template variables
    * show (none when absent, so a region with one is left to the DOM); null when the DOM must
    * measure it.
@@ -240,6 +250,11 @@ export interface PagesTextEngine {
    * what it kept laid out with it, and what drew it draws it again (DOCE-PAGINATION-12.13).
    */
   atomsVersion?(): number;
+  /**
+   * The suggestion mark the markup the engine lays the pages out in hides, as `hiddenSuggestion`
+   * gives it; null when it shows them all (DOCE-PAGINATION-11.12).
+   */
+  hiddenSuggestion?(): string | null;
   /** Whether a host's layout rule sizes a node's type (DOCE-PAGINATION-14.1). */
   sizedType?(node: ProseMirrorNode): boolean;
   /**

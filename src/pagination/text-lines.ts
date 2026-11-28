@@ -8,7 +8,7 @@ import { continuingParts, type ForcedBlock, forcedBlocksOf } from './forced-bloc
 import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
 import { FORCED_REGIONS, type ForcedRegion, regionBlocksOf } from './forced-regions.js';
 import { insertedTexts } from './inserted-texts.js';
-import { pageVariablesKey } from './page-variables.js';
+import { pageVariablesKey, shownVariableWords, type ShownWord } from './page-variables.js';
 
 /** A computed line of a block: content offsets in the whole block, and the text between them. */
 export interface ComputedLine {
@@ -57,7 +57,7 @@ interface Reading {
   /** The number the pages draw for the footnote marker at a position, if any. */
   readonly markerAt: (pos: number) => string;
   /** The value the pages draw for the template variable at a position, if any. */
-  readonly variableAt: (pos: number) => string;
+  readonly variableAt: (pos: number) => readonly ShownWord[];
 }
 
 function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): BlockTextLines {
@@ -77,7 +77,7 @@ function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): B
     pos,
     start,
     lines:
-      table?.lines.map(({ from, to }) => ({
+      table?.lines.map(({ from, to, side }, index) => ({
         from: from + start,
         to: to + start,
         // A later part's caption is laid out over the text it shows, not its content.
@@ -86,6 +86,7 @@ function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): B
           ownText(node, {
             from,
             to,
+            sides: { from: side, to: table.lines[index + 1]?.side },
             marker: (offset) => reading.markerAt(pos + 1 + offset),
             variable: (offset) => reading.variableAt(pos + 1 + offset),
           }),
@@ -110,18 +111,40 @@ interface TextBetween {
   readonly to: number;
   /** The number drawn for the footnote marker at a content offset. */
   readonly marker: (offset: number) => string;
-  /** The value drawn for the template variable at a content offset. */
-  readonly variable: (offset: number) => string;
+  /**
+   * The sides a line starting or ending among a variable's words starts after and ends before
+   * (`TextLine.side`): its own, and the next line's.
+   */
+  readonly sides: { readonly from?: number | undefined; readonly to?: number | undefined };
+  /** The words drawn for the template variable at a content offset. */
+  readonly variable: (offset: number) => readonly ShownWord[];
+}
+
+// The words of a variable's value on a line, the variable's content starting at `inside`: past
+// the side the line starts after, when it starts inside it, and before the side the next line
+// starts after, when it ends inside it.
+function valueOnLine(words: readonly ShownWord[], inside: number, at: TextBetween): string {
+  const after = at.from === inside ? at.sides.from : undefined;
+  const before = at.to === inside ? at.sides.to : undefined;
+  return words
+    .filter(
+      (word) =>
+        (after === undefined || word.side > after) && (before === undefined || word.side < before),
+    )
+    .map((word) => word.text)
+    .join('');
 }
 
 // A block's own text between two content offsets: its text nodes', its footnote markers' numbers
 // and its template variables' values, as the page draws them, none of its other inline atoms'.
-function ownText(node: ProseMirrorNode, { from, to, marker, variable }: TextBetween): string {
+function ownText(node: ProseMirrorNode, at: TextBetween): string {
+  const { from, to, marker, variable } = at;
   let text = '';
   node.nodesBetween(from, to, (child, pos) => {
     if (child.isText) text += (child.text ?? '').slice(Math.max(0, from - pos), to - pos);
     else if (child.type.name === 'footnote_reference') text += marker(pos);
-    else if (child.type.name === 'template_variable') text += variable(pos) + child.textContent;
+    else if (child.type.name === 'template_variable')
+      text += valueOnLine(variable(pos), pos + 1, at) + child.textContent;
     return !child.isAtom && child.type.name !== 'template_variable';
   });
   return text;
@@ -144,11 +167,7 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
   };
   const shown = pageVariablesKey.getState(state);
   // A variable's value is a widget at its content's start.
-  const variableAt = (pos: number) => {
-    const widget = shown?.find(pos + 1, pos + 1).find((each) => each.from === pos + 1);
-    const text: unknown = (widget?.spec as { text?: unknown } | undefined)?.text;
-    return typeof text === 'string' ? text : '';
-  };
+  const variableAt = (pos: number) => shownVariableWords(shown, pos + 1);
   const inserted = insertedTexts(state, [forcedLinesKey]);
   const reading: Reading = { before: new Map(), markerAt, variableAt };
   const continuing = continuingParts(state.doc);

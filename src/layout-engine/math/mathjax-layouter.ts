@@ -4,11 +4,12 @@
 // by a browser or a system font. Each equation gives its box in CSS pixels and its drawing as an
 // SVG tree of paths and rules. MathJax and its STIX2 font load when the first equation is
 // prepared, so a document without math never loads them; until they have loaded math is pending,
-// and when they cannot load math takes the reserved box.
+// and when they cannot load, or not within `MATH_LOAD_TIMEOUT`, math takes the reserved box.
 
 import type { MathJaxStix2Font } from '@mathjax/mathjax-stix2-font/js/svg.js';
 import type { SVG as SvgOutput } from '@mathjax/src/js/output/svg.js';
 import type { MathTree } from '../../engine/math-typeset.js';
+import { askBefore } from '../../utils/ask-before.js';
 import {
   type LaidMath,
   MATH_DRAWING_ATTRIBUTES,
@@ -216,6 +217,12 @@ async function createConverter(): Promise<Converter | null> {
   };
 }
 
+/**
+ * How long MathJax, its font, or a glyph range may take to load: past it, the math waiting on it
+ * takes the reserved box (DOCE-PAGINATION-12.9), so no layout waits on a load that never ends.
+ */
+export const MATH_LOAD_TIMEOUT = 30_000;
+
 /** The most equations a layouter keeps laid out; the least recently used go first. */
 const MATH_LAYOUTS_KEPT = 2000;
 
@@ -270,14 +277,24 @@ function convertingWith(converter: Converter) {
   };
   // The equations whose glyphs load, so asking again while they do starts no second load.
   const loading = new Map<string, Promise<unknown>>();
+  // Each tree's markup, which every read of waiting math asks for again.
+  const markups = new WeakMap<MathTree, string>();
+  const markupOf = (tree: MathTree) => {
+    const found = markups.get(tree);
+    if (found !== undefined) return found;
+    const markup = mathMarkup(tree);
+    markups.set(tree, markup);
+    return markup;
+  };
   const load = (markup: string, display: boolean) => {
     const key = cacheKey(markup, display);
     const found = loading.get(key);
     if (found) return found;
-    const loaded = converter
-      .convertLoading(markup, display)
-      .then((container) => keep(markup, display, container))
-      .catch(() => laid.set(key, null))
+    // A range that fails or never arrives leaves the equation in the reserved box.
+    const loaded = askBefore(() => converter.convertLoading(markup, display), {
+      timeout: MATH_LOAD_TIMEOUT,
+    })
+      .then((asked) => (asked.answered ? keep(markup, display, asked.value) : laid.set(key, null)))
       .finally(() => loading.delete(key));
     loading.set(key, loaded);
     return loaded;
@@ -286,14 +303,17 @@ function convertingWith(converter: Converter) {
     prepare(trees: readonly MathTree[]): Promise<void> | null {
       const waiting = trees.flatMap((tree) => {
         const display = tree.attrs.display === 'block';
-        const markup = mathMarkup(tree);
+        const markup = markupOf(tree);
+        // Math whose glyphs still load waits for them, with no conversion tried again.
+        const found = loading.get(cacheKey(markup, display));
+        if (found) return [found];
         if (tryConvert(markup, display) !== undefined) return [];
         return [load(markup, display)];
       });
       return waiting.length ? Promise.all(waiting).then(() => undefined) : null;
     },
     layout(tree: MathTree, display: boolean, sizePx: number): LaidMath | null {
-      const layout = tryConvert(mathMarkup(tree), display);
+      const layout = tryConvert(markupOf(tree), display);
       if (!layout) return null;
       return {
         width: upTo64th(layout.width * sizePx),
@@ -317,8 +337,8 @@ export function createMathJaxLayouter(): MathLayouter {
   let converting: ReturnType<typeof convertingWith> | null | undefined;
   let starting: Promise<void> | null = null;
   const start = () =>
-    (starting ??= createConverter().then((converter) => {
-      converting = converter && convertingWith(converter);
+    (starting ??= askBefore(createConverter, { timeout: MATH_LOAD_TIMEOUT }).then((asked) => {
+      converting = asked.answered && asked.value ? convertingWith(asked.value) : null;
     }));
   const prepare = (trees: readonly MathTree[]): Promise<void> | null => {
     if (!trees.length || converting === null) return null;

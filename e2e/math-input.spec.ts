@@ -69,7 +69,9 @@ test.describe('math input', () => {
   }) => {
     await newParagraph(page, 'Power', 'Gain is $k^2$ now');
     const math = content(page).locator('.de-math[data-display="inline"]');
-    await expect(math).toHaveAttribute('data-state', 'ready');
+    // Typeset math is drawn in its provisional reserved box (DOCE-PAGINATION-12.13), wider than it
+    // ends up, until the pages' layout places it: the double click waits for its laid-out box.
+    await expect(math).toHaveAttribute('data-math-layout', 'laid');
     await math.dblclick();
     await expect(source(page)).toBeFocused();
     await expect(source(page)).toHaveValue('k^2');

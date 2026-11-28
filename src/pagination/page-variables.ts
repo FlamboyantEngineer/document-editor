@@ -7,6 +7,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { variablePieces } from '../layout-engine/variable-pieces.js';
 import { LAYOUT_VARIABLES, storedValue } from '../model/index.js';
 import { createPageMap } from './page-map.js';
 
@@ -43,16 +44,25 @@ function pagesOf(doc: ProseMirrorNode): Map<number, Place> {
   return new Map(pages.map((page) => [page.pos, { page: page.number, pages: pages.length }]));
 }
 
-function widget(pos: number, text: string, key: string) {
-  return Decoration.widget(
-    pos,
-    (view) => {
-      const span = view.dom.ownerDocument.createElement('span');
-      span.textContent = text;
-      return span;
-    },
-    // The text, for a layout handed to a viewer or a print (`pagesLayout`).
-    { key: `${key}=${text}`, ignoreSelection: true, text },
+// A variable's value drawn word by word (`variablePieces`), each word a widget of its own, so the
+// forced lines can draw a line's break between two of them (DOCE-PAGINATION-9.5).
+function widgets(pos: number, text: string, key: string): Decoration[] {
+  return variablePieces(text).map((piece) =>
+    Decoration.widget(
+      pos,
+      (view) => {
+        const span = view.dom.ownerDocument.createElement('span');
+        span.textContent = piece.text;
+        return span;
+      },
+      // The word, for a layout handed to a viewer or a print (`pagesLayout`).
+      {
+        key: `${key}=${text}#${String(piece.side)}`,
+        ignoreSelection: true,
+        side: piece.side,
+        text: piece.text,
+      },
+    ),
   );
 }
 
@@ -92,7 +102,7 @@ function decorate(doc: ProseMirrorNode): DecorationSet {
       for (const [offset, key] of variablesIn(block)) {
         const text = variableText(key, place, doc);
         // Inside the variable: past its block's start, its offset and the variable's start.
-        if (text) decorations.push(widget(start + offset + 1, text, key));
+        if (text) decorations.push(...widgets(start + offset + 1, text, key));
       }
     });
     return false;
@@ -128,6 +138,35 @@ function editsTextOnly(tr: Transaction): boolean {
     });
     return !added && !hasVariable(doc, from, to);
   });
+}
+
+/** A word of a variable's value, as drawn inside it, by its widget's side. */
+export interface ShownWord {
+  readonly text: string;
+  readonly side: number;
+}
+
+/**
+ * The words of the value a variable shows, as drawn inside it at `inside` (just past its start),
+ * in their order; none when it shows none.
+ */
+export function shownVariableWords(
+  shown: DecorationSet | undefined,
+  inside: number,
+): readonly ShownWord[] {
+  const words = (shown?.find(inside, inside) ?? []).flatMap((each) => {
+    const { text, side } = each.spec as { text?: unknown; side?: unknown };
+    if (each.from !== inside || typeof text !== 'string') return [];
+    return [{ text, side: typeof side === 'number' ? side : 0 }];
+  });
+  return words.sort((a, b) => a.side - b.side);
+}
+
+/** The value a variable shows, its words joined (`shownVariableWords`); empty when it shows none. */
+export function shownVariableText(shown: DecorationSet | undefined, inside: number): string {
+  return shownVariableWords(shown, inside)
+    .map((word) => word.text)
+    .join('');
 }
 
 /** A plugin that shows each variable's value inside it, in the headers, footers and text. */

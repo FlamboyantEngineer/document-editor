@@ -91,42 +91,105 @@ interface BlockInputs extends KeptInputs {
   readonly withInserted: <T>(inserted: InsertedTexts, lay: () => T) => T;
 }
 
+/** A section's page content laid out, and what its blocks were laid out under. */
+interface KeptContent {
+  readonly scope: string | null;
+  readonly counted: NodeNumbers['counted'];
+  readonly hostViews: ReadonlySet<string>;
+  readonly blocks: readonly LayoutBlock[];
+}
+
 /** Each top-level block's layout, kept by node until what it depends on changes. */
 export function keptBlocks(inputs: BlockInputs) {
-  const { geometry, contents, numbers, variablesKey, widthOf, refuse } = inputs;
   let kept = new WeakMap<ProseMirrorNode, KeptBlock>();
+  let contents = new WeakMap<ProseMirrorNode, KeptContent>();
+  const measure = measuring(inputs, () => kept);
+  // Whether a block's key reads nothing outside its node and the numbering: no list of contents,
+  // template variable or suggestion markup, which its node alone decides under the host's rules now:
+  // a node holding a type they size reads the markup.
+  let alone = new WeakMap<ProseMirrorNode, boolean>();
+  const isAlone = (node: ProseMirrorNode) => {
+    let found = alone.get(node);
+    if (found === undefined) {
+      found =
+        node.type.name !== 'toc_block' &&
+        !inputs.contents.keyOf(node, inputs.numbers().doc) &&
+        !inputs.variablesKey(node) &&
+        !inputs.markupKey(node);
+      alone.set(node, found);
+    }
+    return found;
+  };
   return {
     forget() {
       kept = new WeakMap();
+      contents = new WeakMap();
+      alone = new WeakMap();
     },
-    measure(node: ProseMirrorNode, scope: string | null, inserted: InsertedTexts): LayoutBlock {
-      // Read first: rules that size otherwise forget every kept block.
+    measure,
+    /**
+     * A section's page content's blocks, kept by its node while it was laid out under the same
+     * numbering, scope and host views, and none of its blocks reads anything outside its node, holds
+     * inserted words or was laid out with provisional math (DOCE-PAGINATION-11.15).
+     */
+    measureContent(content: ProseMirrorNode, scope: string | null, inserted: InsertedTexts) {
       const hostViews = inputs.hostViews();
-      const listed = contents.keyOf(node, numbers().doc) + variablesKey(node);
-      // Words inserted outside its text blocks take no room, but are reported when it is laid out.
-      const outside = inserted.outside.has(node) ? '!' : '';
-      const key = `${scope ?? ''}|${numbers().keyOf(node)}|${blockInsertedKey(node, inserted)}${outside}|${inputs.markupKey(node)}${listed}`;
-      const found = kept.get(node);
-      if (found?.key === key) return found.block;
-      // A block that cannot be laid out is kept as one too, and counted once (DOCE-PAGINATION-14.6).
-      const refused = (at: ProseMirrorNode, reason: string) => {
-        refuse(at, reason);
-        return { key, block: noRoom(node) };
-      };
-      return keptUnlessProvisional(kept, node, {
-        provisional: inputs.provisional,
-        lay: () => {
-          const refusal = refusedAsDrawn(node, hostViews);
-          if (refusal) return refused(node, refusal);
-          reportUnplacedWords(node, inserted, refuse);
-          const result = inputs.withInserted(inserted, () =>
-            geometry.layoutBlock(node, { width: widthOf(scope), scope }),
-          );
-          if (!result.ok) return refused(result.node, result.reason);
-          inputs.laid();
-          return { key, block: result.block };
-        },
-      }).block;
+      const counted = inputs.numbers().counted;
+      const plain = !inserted.byBlock.size && !inserted.outside.size;
+      const found = contents.get(content);
+      if (
+        plain &&
+        found?.scope === scope &&
+        found.counted === counted &&
+        found.hostViews === hostViews
+      )
+        return found.blocks;
+      const before = inputs.provisional();
+      const blocks: LayoutBlock[] = [];
+      let keep = plain;
+      content.forEach((node) => {
+        blocks.push(measure(node, scope, inserted));
+        keep &&= isAlone(node);
+      });
+      if (keep && inputs.provisional() === before && inputs.hostViews() === hostViews)
+        contents.set(content, { scope, counted, hostViews, blocks });
+      else contents.delete(content);
+      return blocks;
     },
+  };
+}
+
+// Lays a top-level block out, or gives the one kept for its node and key.
+function measuring(inputs: BlockInputs, keptOf: () => WeakMap<ProseMirrorNode, KeptBlock>) {
+  const { geometry, contents, numbers, variablesKey, widthOf, refuse } = inputs;
+  return (node: ProseMirrorNode, scope: string | null, inserted: InsertedTexts): LayoutBlock => {
+    // Read first: rules that size otherwise forget every kept block.
+    const hostViews = inputs.hostViews();
+    const kept = keptOf();
+    const listed = contents.keyOf(node, numbers().doc) + variablesKey(node);
+    // Words inserted outside its text blocks take no room, but are reported when it is laid out.
+    const outside = inserted.outside.has(node) ? '!' : '';
+    const key = `${scope ?? ''}|${numbers().keyOf(node)}|${blockInsertedKey(node, inserted)}${outside}|${inputs.markupKey(node)}${listed}`;
+    const found = kept.get(node);
+    if (found?.key === key) return found.block;
+    // A block that cannot be laid out is kept as one too, and counted once (DOCE-PAGINATION-14.6).
+    const refused = (at: ProseMirrorNode, reason: string) => {
+      refuse(at, reason);
+      return { key, block: noRoom(node) };
+    };
+    return keptUnlessProvisional(kept, node, {
+      provisional: inputs.provisional,
+      lay: () => {
+        const refusal = refusedAsDrawn(node, hostViews);
+        if (refusal) return refused(node, refusal);
+        reportUnplacedWords(node, inserted, refuse);
+        const result = inputs.withInserted(inserted, () =>
+          geometry.layoutBlock(node, { width: widthOf(scope), scope }),
+        );
+        if (!result.ok) return refused(result.node, result.reason);
+        inputs.laid();
+        return { key, block: result.block };
+      },
+    }).block;
   };
 }

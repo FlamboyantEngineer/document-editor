@@ -59,7 +59,7 @@ export interface LayoutInputs {
 
 // The version of the library's own layout in the key's prefix: moved by hand whenever the same
 // inputs lay a document out on other pages, or the key is made otherwise.
-const LAYOUT_KEY_VERSION = 6;
+const LAYOUT_KEY_VERSION = 8;
 
 // FNV-1a, 32 bits, as eight hex digits, over text or bytes.
 function fnv(feed: (step: (unit: number) => void) => void, seed = 0x811c9dc5): string {

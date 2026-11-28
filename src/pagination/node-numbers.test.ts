@@ -51,6 +51,26 @@ describe('holdNodeNumbers', () => {
     expect(numbers.version()).toBe(first + 1);
   });
 
+  it('DOCE-PAGINATION-9.5 moves its version when a document stores other variable values, as one opened after another', () => {
+    const numbers = holdNodeNumbers(BASE_TEMPLATE);
+    const valued = (title: string | null) =>
+      readDocumentFile(
+        {
+          formatVersion: 1,
+          ...(title === null ? {} : { values: { 'document.title': title } }),
+          sections: [{ name: null, content: [{ type: 'paragraph', content: [text('One')] }] }],
+        },
+        schema,
+      ).doc;
+    numbers.number(valued(null));
+    const first = numbers.version();
+    // The lines drawn with the first document's values are drawn again with the second's.
+    numbers.number(valued('A long title'));
+    expect(numbers.version()).toBe(first + 1);
+    numbers.number(valued('A long title'));
+    expect(numbers.version()).toBe(first + 1);
+  });
+
   it('DOCE-PAGINATION-7.2 lays footnotes numbered on each page out with the room of one digit', () => {
     const template = {
       ...BASE_TEMPLATE,
