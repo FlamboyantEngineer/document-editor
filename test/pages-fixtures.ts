@@ -180,7 +180,6 @@ export function heldEngine(engine: PagesTextEngine): TextEngineHolder {
     engine: () => engine,
     version: () => 0,
     loaded: Promise.resolve(),
-    remeasure: () => undefined,
     destroy: () => undefined,
   };
 }
