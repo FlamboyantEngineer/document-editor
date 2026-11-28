@@ -22,7 +22,7 @@ Verification: `src/model/pagination/fragments.test.ts`, `src/model/pagination/pa
 
 ### DOCE-PAGINATION-1.3 - Code
 
-A code block or linked code split at a line break shall join with that line break put back, and shall lose its continued marker and its fragment's first line number.
+A code block or linked code split at a line break shall join with that line break put back, and one split inside a line (DOCE-PAGINATION-3.3) with nothing put back; it shall lose its continued markers and its fragment's first line number.
 
 Implementation: `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -135,14 +135,16 @@ A measured code block shall split at the last line break whose lines fit with th
 
 Successive fragments reuse the source line break offsets and measure the same whole block at those offsets.
 
-Implementation: `src/model/pagination/text-split.ts`
-Verification: `src/model/pagination/text-split.test.ts`, `e2e/code-split-captions.spec.ts`
+On a page that holds nothing yet, code whose first line does not fit even there (one line longer than a page, as minified code or a long value) shall split instead at the start of the last of its wrapped lines that fits, keeping at least one line in each fragment and dropping nothing: the second fragment is also marked as going on with the line the first ends (`codeLineContinued`, `data-code-line-continued`), numbers its lines from that line's number and leaves its first gutter row blank, as a wrapped line's later rows are. On a page that holds blocks already, such code moves on to the next page.
+
+Implementation: `src/model/pagination/code-split.ts`, `src/model/pagination/fragments.ts`, `src/model/schema/code-nodes.ts`, `src/engine/code-drawing.ts`, `src/engine/code-gutter.ts`, `src/document/print-code.ts`
+Verification: `src/model/pagination/text-split.test.ts`, `src/model/pagination/fragments.test.ts`, `src/engine/code-drawing.test.ts`, `src/pagination/layout-document.test.ts`, `e2e/code-split-captions.spec.ts`
 
 ### DOCE-PAGINATION-3.4 - Linked code
 
 Linked code shall split the same way by its code, its second fragment numbered on from its start line. Its box shall take the code's margins and its code none, so the margins are measured, packed and dropped at a page's edges as a code block's are.
 
-Implementation: `src/model/pagination/text-split.ts`
+Implementation: `src/model/pagination/code-split.ts`
 Verification: `src/model/pagination/text-split.test.ts`
 
 ### DOCE-PAGINATION-3.5 - Laid out and joined back

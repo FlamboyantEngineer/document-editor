@@ -357,6 +357,7 @@
         "language": { "default": "plaintext" },
         "captionEnabled": { "default": true },
         "codeBlockContinued": { "default": false },
+        "codeLineContinued": { "default": false },
         "codeLineStart": { "default": 1 },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
@@ -373,7 +374,7 @@
       ],
       "toDOM": {
         "defaults": "<pre data-code-language=\"plaintext\" spellcheck=\"false\"><code spellcheck=\"false\"></code></pre>",
-        "filled": "<pre data-code-language=\"sample-language\" spellcheck=\"false\" data-caption-enabled=\"false\" data-code-block-continued=\"true\" data-code-line-start=\"3\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><code spellcheck=\"false\"></code></pre>"
+        "filled": "<pre data-code-language=\"sample-language\" spellcheck=\"false\" data-caption-enabled=\"false\" data-code-block-continued=\"true\" data-code-line-continued=\"true\" data-code-line-start=\"3\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><code spellcheck=\"false\"></code></pre>"
       }
     },
     {
@@ -778,6 +779,7 @@
         "code": { "default": "" },
         "startLine": { "default": 1 },
         "codeBlockContinued": { "default": false },
+        "codeLineContinued": { "default": false },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
@@ -786,7 +788,7 @@
       "parseDOM": [{ "tag": "div[data-linked-code-block=\"true\"]", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<div data-linked-code-block=\"true\" data-url=\"\" data-code-language=\"plaintext\" data-start-line=\"1\" class=\"linked-code-block\"><pre data-code-language=\"plaintext\" spellcheck=\"false\"><div class=\"doc-caption-line doc-linked-code-caption-line\" data-caption-kind=\"linked-code\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">linked source</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div><code spellcheck=\"false\"></code></pre></div>",
-        "filled": "<div data-linked-code-block=\"true\" data-url=\"sample-url\" data-code-language=\"sample-language\" data-start-line=\"3\" class=\"linked-code-block\" data-code-block-continued=\"true\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><pre data-code-language=\"sample-language\" spellcheck=\"false\"><div class=\"doc-caption-line doc-linked-code-caption-line\" data-caption-kind=\"linked-code\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-url</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div><code spellcheck=\"false\">sample-code</code></pre></div>"
+        "filled": "<div data-linked-code-block=\"true\" data-url=\"sample-url\" data-code-language=\"sample-language\" data-start-line=\"3\" class=\"linked-code-block\" data-code-block-continued=\"true\" data-code-line-continued=\"true\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><pre data-code-language=\"sample-language\" spellcheck=\"false\"><div class=\"doc-caption-line doc-linked-code-caption-line\" data-caption-kind=\"linked-code\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-url</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></div><code spellcheck=\"false\">sample-code</code></pre></div>"
       }
     },
     {
