@@ -697,6 +697,14 @@ div.de-host-view {
   word-spacing: normal;
 }
 
+/* A mention, a glossary reference and an inline embed are laid out whole, their white space
+   collapsed, a space at either end kept (DOCE-PAGINATION-9.5): the pages draw them so. */
+:where(.de-document-editor)
+  .de-forced-lines
+  :is([data-mention-user-id], [data-abbreviation-ref], span[data-embed-kind]) {
+  white-space: nowrap;
+}
+
 /* A cluster the engine cannot measure, such as one no served font draws, takes the width the
    engine reserved for it; its real glyph is drawn in the middle and may reach past the box, which
    moves nothing around it (DOCE-PAGINATION-12.4). */

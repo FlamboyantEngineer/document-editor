@@ -589,4 +589,39 @@ test.describe('inline geometry on the engine’s lines', () => {
     expect(header.lines).toBeGreaterThan(2);
     expect(Math.abs(header.height - header.lines * header.line)).toBeLessThan(0.5);
   });
+
+  test('DOCE-PAGINATION-9.5 draws a text atom’s white space collapsed, as the engine lays it out', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=minimal-paragraph&debug');
+    await waitForLab(page);
+    const values = ['ab', 'a b', 'a  b', 'a\tb', 'a\nb', 'a', ' a '];
+    const content = values.map((value) => ({
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Value ' },
+        { type: 'embed_inline', attrs: { kind: 'cell', source: 'book!B2', text: value } },
+        { type: 'text', text: ' here.' },
+      ],
+    }));
+    const file = { formatVersion: 1, sections: [{ name: null, content }] } as DocumentFile;
+    await page.evaluate((stored) => window.regressionLab.load(stored), file);
+    await waitForLab(page);
+    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    const widths = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.de-document-editor__content .pm-page-content > p span[data-embed-kind]',
+        ),
+      ].map((embed) => embed.getBoundingClientRect().width),
+    );
+    const [ab = 0, spaced = 0, two, tab, feed, a = 0, ends = 0] = widths;
+    const space = spaced - ab;
+    expect(space).toBeGreaterThan(1);
+    for (const width of [two, tab, feed])
+      expect(Math.abs((width ?? 0) - spaced)).toBeLessThan(0.05);
+    expect(Math.abs(ends - (a + 2 * space))).toBeLessThan(0.05);
+    expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
+  });
 });

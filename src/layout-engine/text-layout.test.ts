@@ -316,6 +316,29 @@ describe('createTextLayout', () => {
     expect(fitted.lines[0]).toMatchObject({ width: 100, height: 48 });
   });
 
+  it('DOCE-PAGINATION-9.5 lays a text atom out with its white space collapsed and a space at either end kept', () => {
+    const embed = (text: string) =>
+      documentSchema.nodes.embed_inline?.create({ kind: 'cell', source: 'book!B2', text });
+    const width = (text: string) => {
+      const atom = embed(text);
+      if (!atom) throw new Error('schema lacks an inline embed');
+      const node = documentSchema.node('paragraph', null, [
+        documentSchema.text('x '),
+        atom,
+        documentSchema.text(' y'),
+      ]);
+      return table(node, 400).lines[0]?.width;
+    };
+    // `x a b y` is 33px: white space inside collapses to one space, as `white-space: nowrap`
+    // draws it, a tab and a line feed too.
+    expect([width('a b'), width('a  b'), width('a\tb'), width('a\nb')]).toEqual([33, 33, 33, 33]);
+    // A space at either end is drawn, after the space before it, which is kept: `x  a  y`.
+    expect(width(' a ')).toBe(30);
+    expect(width('  a')).toBe(27);
+    // White space alone is one space.
+    expect(width('   ')).toBe(21);
+  });
+
   it('DOCE-PAGINATION-9.5 lays footnote markers, mentions and glossary references out as their text', () => {
     const { nodes } = documentSchema;
     const marker = nodes.footnote_reference?.create({ footnoteId: 'f1' });

@@ -17,6 +17,7 @@ import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
 import { textPieces } from './text-pieces.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
 import { variablePieces } from './variable-pieces.js';
+import { wholeText } from './whole-text.js';
 
 /** An inline atom's box, in CSS pixels. */
 interface InlineAtomSize {
@@ -192,13 +193,13 @@ function finish(run: Builder, end: number, endsWithBreak: boolean): TextRun {
 
 type AtomItem = { item: RichInlineItem | RichInlineBox; size: InlineAtomSize | null } | string;
 
-// A text atom as the text the page draws in it, in its marks' font, growing its line as their text
-// does; a footnote marker's `sup` does not.
+// A text atom as the text the page draws in it, in its marks' font, with its white space collapsed,
+// growing its line as their text does; a footnote marker's `sup` does not.
 function textAtom(child: ProseMirrorNode, input: RunInput): AtomItem {
   const item = textAtomItem(child, input.typography, input.textAtoms ?? {});
   if (!item) return `no text for inline ${child.type.name}`;
   const size = child.type.name === 'footnote_reference' ? null : textBox(child, input);
-  return { item: 'font' in item ? markedItem(item, child.marks) : item, size };
+  return { item: 'font' in item ? wholeText(markedItem(item, child.marks)) : item, size };
 }
 
 // Any other inline atom as the box it is measured to take.
