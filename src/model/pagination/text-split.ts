@@ -36,7 +36,7 @@ export interface TextMeasurement {
    * the first's (DOCE-PAGINATION-11.2); 0 by default.
    */
   readonly continuedCaption?: number | undefined;
-  /** The block's computed lines; a paragraph then splits exactly at a line's start. */
+  /** The whole block's computed lines, used to split paragraphs and long code lines. */
   readonly lines?: MeasuredLines | undefined;
 }
 

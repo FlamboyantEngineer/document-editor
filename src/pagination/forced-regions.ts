@@ -11,6 +11,7 @@ import type { ForcedBlock } from './forced-blocks.js';
 import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
 import { type Builder, containerSet, makeSet } from './forced-sets.js';
 import { NO_INSERTED } from './inserted-texts.js';
+import { pageMetrics } from './layout-marks.js';
 import { pageVariablesKey, shownVariableText } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
@@ -48,14 +49,22 @@ interface RegionPlace {
   readonly shown: DecorationSet | undefined;
 }
 
+// Footnote entries are measured before placement, using the same variable widths as body text.
+function regionLinesOf(engine: PagesTextEngine, region: ProseMirrorNode, at: RegionPlace) {
+  const texts =
+    region.type.name === 'page_footnotes'
+      ? undefined
+      : regionVariableTexts(region, at.pos, at.shown);
+  return engine.regionLines(region, at.scope, texts);
+}
+
 /** The forced blocks of a page's header or footer: its text blocks, with the lines laid out. */
 export function regionBlocksOf(
   engine: PagesTextEngine,
   region: ProseMirrorNode,
   at: RegionPlace,
 ): ForcedBlock[] {
-  const texts = regionVariableTexts(region, at.pos, at.shown);
-  const lines = engine.regionLines(region, at.scope, texts);
+  const lines = regionLinesOf(engine, region, at);
   const blocks: ForcedBlock[] = [];
   region.descendants((node, offset) => {
     if (!node.isTextblock) return true;
@@ -84,8 +93,7 @@ function pageSet(
   page.forEach((region, offset) => {
     if (!FORCED_REGIONS.has(region.type.name) || !region.childCount) return;
     const pos = at.pos + 1 + offset;
-    const texts = regionVariableTexts(region, pos, at.shown);
-    const lines = builder.engine.regionLines(region, scope, texts);
+    const lines = regionLinesOf(builder.engine, region, { pos, scope, shown: at.shown });
     const { set } = containerSet(builder, region, { lines, scope });
     if (set !== DecorationSet.empty) children.push(offset, offset + region.nodeSize, set);
   });
@@ -132,17 +140,31 @@ const builderFor = (engine: PagesTextEngine, version: number): Builder => ({
  */
 export function forcedRegions(): Plugin {
   let builder: Builder | null = null;
-  let last: (RegionsAt & { doc: ProseMirrorNode; set: DecorationSet }) | null = null;
+  let last:
+    | (RegionsAt & {
+        doc: ProseMirrorNode;
+        metrics: ReturnType<typeof pageMetrics>;
+        set: DecorationSet;
+      })
+    | null = null;
   const decorations = (state: EditorState): DecorationSet => {
     const forced = forcedLinesKey.getState(state);
     const engine = forced?.engine;
     if (!forced || !engine) return DecorationSet.empty;
     const shown = pageVariablesKey.getState(state);
-    if (last?.doc === state.doc && last.forced === forced && last.shown === shown) return last.set;
+    // A layout can remeasure a footnote's variables without moving any page nodes.
+    const metrics = pageMetrics(state);
+    if (
+      last?.doc === state.doc &&
+      last.forced === forced &&
+      last.shown === shown &&
+      last.metrics === metrics
+    )
+      return last.set;
     if (builder?.engine !== engine || builder.version !== forced.version)
       builder = builderFor(engine, forced.version);
     const set = documentSet(builder, state.doc, { forced, shown });
-    last = { doc: state.doc, forced, shown, set };
+    last = { doc: state.doc, forced, shown, metrics, set };
     return set;
   };
   return new Plugin({ props: { decorations } });

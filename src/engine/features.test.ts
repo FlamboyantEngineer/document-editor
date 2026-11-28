@@ -117,7 +117,10 @@ describe('fragment rule registry', () => {
         whole: { ...part, codeBlockContinued: false, codeLineContinued: false },
         ...joined,
       },
-      table: { whole: { ...part, projectedColumnWidths: null }, ...joined },
+      table: {
+        whole: { ...part, projectedColumnWidths: null, projectedHeaderRows: null },
+        ...joined,
+      },
       table_figure: { whole: part, ...joined },
       code_figure: { whole: part, ...joined },
       blockquote: { whole: part, ...joined },

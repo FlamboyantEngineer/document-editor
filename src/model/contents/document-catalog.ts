@@ -187,9 +187,10 @@ function canList(
 }
 
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
-  content.descendants((node, offset, parent) => {
+  content.descendants((...visit) => {
+    const [node, offset, parent] = visit;
     const pos = start + offset;
-    if (pos >= counting.end || counting.headerCopy(node, parent, pos) !== null) return false;
+    if (pos >= counting.end || counting.headerCopy(pos, visit) !== null) return false;
     if (counting.firstContents === null && isTableOfContents(node)) {
       counting.firstContents = pos;
     }

@@ -5,7 +5,9 @@ import { EditorState, Plugin, TextSelection, type Transaction } from 'prosemirro
 import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { heldEngine, stubEngine } from '../../test/pages-fixtures.js';
 import {
   canonicalState,
   edit,
@@ -16,12 +18,14 @@ import {
   TEXTS,
 } from '../../test/projection-fixtures.js';
 import { createContents } from '../engine/contents.js';
+import { footnoteNumbersKey } from '../engine/footnote-numbers.js';
 import { createMathViews } from '../engine/math-views.js';
 import { BASE_TEMPLATE, joinDocumentPages, sameStructure } from '../model/index.js';
 import { canonicalView } from './canonical-view.js';
 import { layoutNow } from './layout-latency.js';
 import { isPaginationTransaction, layoutStats, pageMetrics } from './layout-marks.js';
 import type { LayoutState } from './layout-readiness.js';
+import { MATH_WAIT_TIMEOUT } from './math-wait.js';
 import { pageMap } from './page-map.js';
 
 // Whether the projection's pages join into the canonical document.
@@ -627,6 +631,50 @@ describe('projection layouts', () => {
     expect(projection.stats().layouts).toBe(layouts + 1);
   });
 
+  it('DOCE-PAGINATION-13.2 DOCE-PAGINATION-14.4 exports settled pages as provisional until late math is laid out', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const previous = deferred<void>();
+    const current = deferred<void>();
+    let currentReady = false;
+    const engine = stubEngine();
+    engine.mathPending = (doc) => {
+      if (!doc.textContent.includes('New math')) return previous.promise;
+      return currentReady ? null : current.promise;
+    };
+    const { projection, drain } = mount({ textEngine: heldEngine(engine) });
+    try {
+      const initial = projection.whenSettled();
+      await vi.advanceTimersByTimeAsync(MATH_WAIT_TIMEOUT);
+      drain();
+      await expect(Promise.race([initial, Promise.resolve('pending')])).resolves.toBe('settled');
+      expect(projection.pagesLayout()?.provisional).toBe(true);
+
+      edit(projection, (state) =>
+        layoutNow(state.tr.insertText('New math ', positionOf(state.doc, 'Alpha'))),
+      );
+      drain();
+      expect(projection.layoutState()).toBe('settled');
+      expect(projection.pagesLayout()?.provisional).toBe(true);
+
+      currentReady = true;
+      current.resolve();
+      await current.promise;
+      expect(projection.pagesLayout()?.provisional).toBe(true);
+      drain();
+      expect(projection.layoutState()).toBe('settled');
+      expect(projection.pagesLayout()?.provisional).toBe(false);
+
+      const { layouts } = projection.stats();
+      previous.resolve();
+      await previous.promise;
+      drain();
+      expect(projection.stats().layouts).toBe(layouts);
+    } finally {
+      projection.destroy();
+      vi.useRealTimers();
+    }
+  });
+
   it('DOCE-PAGINATION-7.5 lays out a change that adds a page and numbers the pages again once, with no layout after it', () => {
     const { projection, drain } = mount();
     const pages = pageCount(projection.view.state.doc);
@@ -934,6 +982,158 @@ describe('projection layouts', () => {
     projection.refresh();
     drain();
     expect(projection.layoutState()).toBe('settled');
+  });
+
+  it.each(['math readiness', 'drawing', 'font readiness'])(
+    'DOCE-PAGINATION-7.6 fails pending layouts when %s throws and recovers on refresh',
+    async (phase) => {
+      const failure = new Error(`${phase} failed`);
+      let broken = false;
+      const check = (at: string) => {
+        if (broken && at === phase) throw failure;
+      };
+      const engine = stubEngine();
+      engine.mathPending = () => {
+        check('math readiness');
+        return null;
+      };
+      const onLayoutStateChange = vi.fn();
+      const { projection, drain } = mount({
+        textEngine: heldEngine(engine),
+        overflow: () => {
+          check('drawing');
+          return false;
+        },
+        fontsPending: () => {
+          check('font readiness');
+          return false;
+        },
+        onLayoutStateChange,
+      });
+      drain();
+      broken = true;
+      projection.refresh();
+      const pending = projection.whenSettled();
+      expect(drain).toThrow(failure);
+      expect(projection.layoutState()).toBe('failed');
+      await expect(Promise.race([pending, Promise.resolve('pending')])).resolves.toBe('failed');
+      expect(onLayoutStateChange.mock.calls).toEqual([['settled'], ['pending'], ['failed']]);
+
+      projection.fontsChanged();
+      drain();
+      expect(projection.layoutState()).toBe('failed');
+      expect(onLayoutStateChange.mock.calls).toEqual([['settled'], ['pending'], ['failed']]);
+
+      broken = false;
+      projection.refresh();
+      drain();
+      await expect(projection.whenSettled()).resolves.toBe('settled');
+      projection.destroy();
+    },
+  );
+
+  it('DOCE-PAGINATION-7.6 still lays out after a pending listener throws while waiting for math', async () => {
+    const failure = new Error('Pending listener failed');
+    const math = deferred<void>();
+    let mathPending = false;
+    const engine = stubEngine();
+    engine.mathPending = () => (mathPending ? math.promise : null);
+    const { projection, drain } = mount({
+      textEngine: heldEngine(engine),
+      onLayoutStateChange(state) {
+        if (state === 'pending') throw failure;
+      },
+    });
+    drain();
+    mathPending = true;
+    expect(projection.layout).toThrow(failure);
+    expect(projection.layoutState()).toBe('pending');
+    const pending = projection.whenSettled();
+    projection.fontsChanged();
+    drain();
+    expect(projection.layoutState()).toBe('pending');
+    mathPending = false;
+    math.resolve();
+    await vi.waitFor(() => {
+      drain();
+      expect(projection.layoutState()).toBe('settled');
+    });
+    await expect(Promise.race([pending, Promise.resolve('pending')])).resolves.toBe('settled');
+    projection.destroy();
+  });
+
+  it.each(['apply', 'draw'])(
+    'DOCE-PAGINATION-7.6 DOCE-PAGINATION-7.18 keeps the map and numbering of the applied pages when %s throws',
+    (phase) => {
+      const failure = new Error(`${phase} failed`);
+      const engine = stubEngine({ perLine: 1000, blockHeight: 400 });
+      const perPage = {
+        ...engine,
+        template: {
+          ...BASE_TEMPLATE,
+          footnotes: { ...BASE_TEMPLATE.footnotes, numbering: 'page' },
+        },
+      } as const;
+      let next = false;
+      let broken = false;
+      const plugin = new Plugin({
+        state: {
+          init: () => null,
+          apply(tr) {
+            if (broken && phase === 'apply' && isPaginationTransaction(tr)) throw failure;
+            return null;
+          },
+        },
+      });
+      const { projection, drain } = mount({
+        pageHeight: () => (next ? 1300 : 1000),
+        textEngine: { ...heldEngine(engine), engine: () => (next ? perPage : engine) },
+        plugins: [plugin],
+        overflow() {
+          if (broken && phase === 'draw') throw failure;
+          return false;
+        },
+      });
+      drain();
+      const before = projection.map;
+      expect(projection.pagesLayout()?.footnoteNumbering).toBe('document');
+
+      next = true;
+      broken = true;
+      projection.refresh();
+      expect(drain).toThrow(failure);
+      expect(projection.layoutState()).toBe('failed');
+      expect(projection.map.projection).toBe(projection.projection.doc);
+      if (phase === 'apply') expect(projection.map).toBe(before);
+      expect(projection.pagesLayout()?.footnoteNumbering).toBe(
+        phase === 'apply' ? 'document' : 'page',
+      );
+
+      broken = false;
+      projection.refresh();
+      drain();
+      expect(projection.layoutState()).toBe('settled');
+      expect(projection.map.projection).toBe(projection.projection.doc);
+      expect(projection.pagesLayout()?.footnoteNumbering).toBe('page');
+      expect(footnoteNumbersKey.getState(projection.projection)?.numbering).toBe('page');
+      projection.destroy();
+    },
+  );
+
+  it('DOCE-PAGINATION-7.16 settles a drawn layout even when its onLayout listener throws', async () => {
+    const failure = new Error('Layout listener failed');
+    const onLayout = vi.fn();
+    const { projection, drain } = mount({ onLayout });
+    drain();
+    onLayout.mockImplementationOnce(() => {
+      throw failure;
+    });
+    projection.refresh();
+    const pending = projection.whenSettled();
+    expect(drain).toThrow(failure);
+    drain();
+    await expect(Promise.race([pending, Promise.resolve('pending')])).resolves.toBe('settled');
+    projection.destroy();
   });
 
   it('DOCE-PAGINATION-7.6 fails when layouts keep moving the pages with no change in between', () => {

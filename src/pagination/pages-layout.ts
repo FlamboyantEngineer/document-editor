@@ -24,6 +24,7 @@ import {
   labelParts,
   lineMarks,
 } from '../layout-engine/line-marks.js';
+import { type ResolvedFootnoteSettings, resolveFootnoteSettings } from '../model/index.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
 import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
@@ -38,7 +39,7 @@ import type { PagesTextEngine } from './text-engine-types.js';
 /** What the pages were laid out with, beside their state. */
 interface PagesLayoutOptions {
   /** How the pages number their footnotes. */
-  readonly footnoteNumbering?: 'document' | 'page' | undefined;
+  readonly footnoteNumbering?: ResolvedFootnoteSettings['numbering'] | undefined;
   /** Whether the pages are settled, with no font loading; the layout is provisional if not. */
   readonly settled?: boolean | undefined;
   /** How the pages were laid out showing suggestions; all their markup when absent. */
@@ -194,10 +195,13 @@ export function pagesLayout(
 ): PagesLayout | null {
   const engine = forcedLinesKey.getState(state)?.engine;
   if (!engine) return null;
+  const templateNumbering = resolveFootnoteSettings(engine.template).numbering;
+  const footnoteNumbering = options.footnoteNumbering ?? templateNumbering;
+  const inputs = engine.inputs();
   return {
     formatVersion: 1,
     doc: state.doc.toJSON() as Record<string, unknown>,
-    footnoteNumbering: options.footnoteNumbering ?? 'document',
+    footnoteNumbering,
     markup: options.markup ?? 'all',
     blocks: forcedBlocks(state, engine),
     variables: drawnVariables(state),
@@ -209,7 +213,9 @@ export function pagesLayout(
     ...objectsOf(drawnObjects(state, engine)),
     fonts: engine.fonts?.() ?? null,
     language: engine.language ?? '',
-    ...withInputsKey(engine.inputs()),
+    ...withInputsKey(
+      footnoteNumbering === templateNumbering ? inputs : { ...inputs, footnoteNumbering },
+    ),
     provisional: options.settled === false,
   };
 }

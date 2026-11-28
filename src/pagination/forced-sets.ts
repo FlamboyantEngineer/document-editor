@@ -41,7 +41,7 @@ export interface Builder {
   /** The labels the pages' captions show, and all of them as one key. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   readonly labels?: string | undefined;
-  /** The direction of each later part of a split block, by position. */
+  /** The direction of each part of a split block, by position. */
   readonly directions: ReadonlyMap<number, TextDirection>;
   /** The top-level parts of split blocks that a later part continues, by position. */
   readonly continuing: ReadonlySet<number>;
@@ -271,7 +271,7 @@ export function containerSet(
     const table = forced.get(child);
     const at = pos < 0 ? -1 : pos + 1 + offset;
     if (table) {
-      // A split block's later part is drawn in its first part's direction (DOCE-PAGINATION-9.12).
+      // Each part of a split block is drawn in the whole block's direction (DOCE-PAGINATION-9.12).
       const dir =
         at < 0
           ? blockDirection(child)

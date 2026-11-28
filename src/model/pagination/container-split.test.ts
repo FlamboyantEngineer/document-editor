@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import {
   type ChildLayout,
+  createDocumentSchema,
   createLayoutRules,
   joinFragments,
   LAYOUT_RULES,
@@ -176,6 +177,48 @@ describe('container splits', () => {
     expect(createLayoutRules({ repeatTableHeader: false }).table?.split).toBeTypeOf('function');
   });
 
+  it.each([false, true])(
+    'DOCE-PAGINATION-1.4 keeps an equal authored row when a bare table splits with repeatHeader=%s',
+    (repeatHeader) => {
+      const schema = createDocumentSchema({
+        extensions: [
+          {
+            name: 'bare-table-blocks',
+            refineNode: (name, spec) => (name === 'table' ? { ...spec, group: 'block' } : spec),
+          },
+        ],
+      });
+      const row = (cell: string, text: string) =>
+        schema.node('table_row', null, [
+          schema.node(cell, null, [schema.node('paragraph', null, [schema.text(text)])]),
+        ]);
+      const header = row('table_header', 'Name');
+      const authored = row('table_header', 'Name');
+      expect(header).not.toBe(authored);
+      expect(header.eq(authored)).toBe(true);
+      const table = schema.node('table', null, [
+        header,
+        row('table_cell', 'One'),
+        authored,
+        row('table_cell', 'Two'),
+      ]);
+      const split = splitTableWith(repeatHeader)(measured(table, 40, rows(4, 10)), 20);
+      const tail = split?.tail[0]?.node;
+      if (!split || !tail) throw new Error('Expected two table fragments');
+      // Carry the provenance through reconstructed ProseMirror nodes.
+      const restored = [split.head.node, tail].map((part) => schema.nodeFromJSON(part.toJSON()));
+      expect(restored[1]?.textContent).toBe(repeatHeader ? 'NameNameTwo' : 'NameTwo');
+      const [joined] = joinFragments(restored);
+      expect(joined?.eq(table)).toBe(true);
+      if (repeatHeader) {
+        const legacy = restored.map((part) =>
+          part.type.create({ ...part.attrs, projectedHeaderRows: null }, part.content),
+        );
+        expect(joinFragments(legacy)[0]?.eq(table)).toBe(true);
+      }
+    },
+  );
+
   it('DOCE-PAGINATION-4.5 sets a body row taller than a page alone on its page and goes on with the rest', () => {
     const row = (text: string) =>
       node('table_row', null, [node('table_cell', null, [paragraph(text)])]);
@@ -227,15 +270,23 @@ describe('container splits', () => {
     expect(again?.head.height).toBe(20);
     expect(again?.tail[0]?.height).toBe(20);
     expect(again?.tail[0]?.node.firstChild?.attrs.continuedText).toBeNull();
+    const remeasured = splitTableWith(true)(measured(tail.lastChild, 40, rows(2, 20)), 20);
+    expect(remeasured?.head.node.textContent).toBe('DE');
+    expect(remeasured?.tail[0]?.node.textContent).toBe('FG');
     expect(firstRowColumnWidths(tail.lastChild)).toEqual([100, 0]);
     expect(tail.lastChild.firstChild?.firstChild?.attrs.colwidth).toBeNull();
     const [stored] = writeStoredContent(Fragment.from(tail));
     if (!stored) throw new Error('Expected a stored table');
-    expect(stored.attrs).not.toHaveProperty('projectedColumnWidths');
-    const supplied = { ...stored, attrs: { ...stored.attrs, projectedColumnWidths: [2, 2] } };
-    expect(() =>
-      readDocumentFile({ formatVersion: 1, sections: [{ content: [supplied] }] }, documentSchema),
-    ).toThrow(/projectedColumnWidths/u);
+    for (const [attribute, value] of [
+      ['projectedColumnWidths', [2, 2]],
+      ['projectedHeaderRows', 0],
+    ] as const) {
+      expect(stored.attrs).not.toHaveProperty(attribute);
+      const supplied = { ...stored, attrs: { ...stored.attrs, [attribute]: value } };
+      expect(() =>
+        readDocumentFile({ formatVersion: 1, sections: [{ content: [supplied] }] }, documentSchema),
+      ).toThrow(attribute);
+    }
     expect(joinFragments([head, tail])[0]?.eq(figure)).toBe(true);
   });
 

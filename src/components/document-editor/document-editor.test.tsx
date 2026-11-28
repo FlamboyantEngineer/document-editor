@@ -399,6 +399,67 @@ describe('DocumentEditor', () => {
     await waitFor(() => expect(drawn()).toHaveTextContent('Oh, Hello'));
   });
 
+  it('DOCE-PAGINATION-7.17 repaginates an idle editor when host node views are added or removed', async () => {
+    function HostParagraph({ nodeProps, children, ...props }: RichTextNodeViewProps) {
+      void nodeProps;
+      return (
+        <p {...props} data-host-view="">
+          {children}
+        </p>
+      );
+    }
+    const handle = createRef<DocumentEditorHandle>();
+    const template: TemplateFile = { ...TEMPLATE, page: { ...TEMPLATE.page, size: 'A10' } };
+    const content: StoredNode[] = Array.from({ length: 8 }, () => ({
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'One' }],
+    }));
+    const original = EditorState.create({
+      doc: readDocumentFile({ formatVersion: 1, sections: [{ content }] }, documentSchema).doc,
+      plugins: createDocumentEditing(documentSchema),
+    });
+    function Shown({ views }: { views?: DocumentEditorProps['nodeViews'] }) {
+      const [state, setState] = useState(original);
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={template}
+          nodeViews={views}
+          fonts={TEST_FONTS}
+          aria-label="Report"
+          handleRef={handle}
+        />
+      );
+    }
+    const { rerender } = render(<Shown />);
+    const editor = () => screen.getByRole('textbox', { name: 'Report' });
+    const pages = () => editor().querySelectorAll('.pm-page');
+    await waitFor(() => expect(pages().length).toBeGreaterThan(1));
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    const pageCount = pages().length;
+    const input = handle.current?.pagesLayout()?.inputs.hostViews;
+
+    rerender(<Shown views={{ paragraph: HostParagraph, heading: HostParagraph }} />);
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    expect(pages()).toHaveLength(1);
+    expect(handle.current?.pagesLayout()?.inputs.hostViews).not.toBe(input);
+    const drawn = editor().querySelector('[data-host-view]');
+    expect(drawn).toHaveTextContent('One');
+    const layouts = handle.current?.layoutStats()?.layouts;
+
+    rerender(<Shown views={{ heading: HostParagraph, paragraph: HostParagraph }} />);
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    expect(handle.current?.layoutStats()?.layouts).toBe(layouts);
+    expect(editor().querySelector('[data-host-view]')).toBe(drawn);
+
+    rerender(<Shown />);
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    expect(pages()).toHaveLength(pageCount);
+    expect(handle.current?.pagesLayout()?.inputs.hostViews).toBe(input);
+    expect(editor().querySelector('[data-host-view]')).toBeNull();
+  });
+
   it('DOCE-EDITOR-1.8 leaves text typed in a host view’s own field to the field', async () => {
     function CaptionedParagraph({ nodeProps, children, ...props }: RichTextNodeViewProps) {
       void nodeProps;

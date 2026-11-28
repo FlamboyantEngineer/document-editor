@@ -6,6 +6,7 @@ import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inlin
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { citationIdentifiers } from '../model/citation-identifiers.js';
 import type { AtomPlace } from './atoms.js';
+import { hasCodeCaretLine } from './blocks/linked-code.js';
 import { type BodyVariables, PAGE_VARIABLES } from './body-variables.js';
 import { continueCode, joinCode, markedItem, type OpenCode } from './code-boxes.js';
 import { isHidden } from './hidden-suggestions.js';
@@ -385,6 +386,8 @@ export function buildRuns(input: RunInput): TextRuns {
     run = startRun(size);
     addInserted(run, after, typography);
   }
+  // The editable view and print add a break for the caret after a terminal code newline.
+  if (hasCodeCaretLine(node) && node.lastChild?.text?.endsWith('\n') === true) breakRun(size);
   runs.push(finish(run, size, false));
   return { ok: true, runs, hidden, boxes };
 }

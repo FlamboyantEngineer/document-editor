@@ -6,8 +6,9 @@
 
 import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import type { Mapping } from 'prosemirror-transform';
-import { isHeaderRow } from '../model/index.js';
+import { splitPartOf } from '../model/pagination/split-part.js';
 import { isTableHeaderCopy } from '../model/pagination/table-header-copies.js';
+import { isHeaderRow, projectedHeaderRows } from '../model/pagination/table-headers.js';
 import { footnoteAt, footnoteCopies } from './footnote-positions.js';
 
 /** Which way a position is mapped: from the paged projection to the canonical document, or back. */
@@ -26,18 +27,20 @@ function repeatedHeaderAt($pos: ResolvedPos) {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
     const table = $pos.node(depth);
     if (table.type.name !== 'table') continue;
-    const part = table.attrs.splitPartIndex as unknown;
-    if (typeof part !== 'number' || part < 1 || depth === $pos.depth) return null;
+    const part = splitPartOf(table);
+    if (part === null || part < 1 || depth === $pos.depth) continue;
     const row = $pos.index(depth);
     const copy = table.maybeChild(row);
     const last = table.childCount - 1;
-    if (!copy || !isHeaderRow(copy) || row >= last) return null;
+    const count = projectedHeaderRows(table);
+    if (!copy || (count === null ? row >= last || !isHeaderRow(copy) : row >= count)) continue;
     const start = $pos.start(depth);
     return {
       tableId: table.attrs.dataId as unknown,
       part,
       row,
       copy,
+      known: count !== null,
       offset: $pos.pos - rowStart(table, start, row),
       bodyStart: rowStart(table, start, last),
     };
@@ -77,7 +80,12 @@ export function sameRepeatedHeaderIn($pos: ResolvedPos, doc: ProseMirrorNode): n
       return true;
     }
     const copy = node.maybeChild(header.row);
-    if (copy && (isTableHeaderCopy(header.copy, copy) || header.copy.eq(copy))) {
+    const count = projectedHeaderRows(node);
+    const repeats =
+      count !== null
+        ? header.row < count
+        : copy && (isTableHeaderCopy(header.copy, copy) || header.copy.eq(copy));
+    if (copy && repeats) {
       const offset = Math.min(header.offset, copy.nodeSize - 1);
       at = rowStart(node, pos + 1, header.row) + offset;
     }
@@ -116,8 +124,9 @@ function redirectPosition({ $pos, to, direction, forward }: Redirect): number | 
   const original = rowAround(to, body.pos, header.row);
   if (!original) return null;
   // Legacy anonymous copies already removed by the join may have equal contents and distinct nodes.
-  const same = isTableHeaderCopy(original.node, header.copy) || original.node.eq(header.copy);
-  return same ? original.start + header.offset : null;
+  const same =
+    header.known || isTableHeaderCopy(original.node, header.copy) || original.node.eq(header.copy);
+  return same ? original.start + Math.min(header.offset, original.node.nodeSize - 1) : null;
 }
 
 const PAGE_REGIONS = new Set(['page_header', 'page_footer']);

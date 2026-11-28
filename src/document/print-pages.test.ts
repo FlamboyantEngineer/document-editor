@@ -179,13 +179,17 @@ describe('renderLayoutPrintPage', () => {
       page([
         paragraph([text('\u05e9\u05dc\u05d5\u05dd world')], { dataId: 'h' }),
         paragraph([text('hello')], { dataId: 'l' }),
+        paragraph([node('hard_break', null)], { dataId: 'blank-start', splitPartIndex: 0 }),
       ]),
-      page([paragraph([text('later part')], { dataId: 'h', splitPartIndex: 1 })]),
+      page([
+        paragraph([text('later part')], { dataId: 'h', splitPartIndex: 1 }),
+        paragraph([text('123 עברית')], { dataId: 'blank-start', splitPartIndex: 1 }),
+      ]),
     ]);
     const { view, printed } = bothDrawings(doc);
     const directions = (root: ParentNode) =>
       [...root.querySelectorAll<HTMLElement>('p.de-forced-lines')].map((each) => each.dir);
-    expect(directions(printed)).toEqual(['rtl', 'ltr', 'rtl']);
+    expect(directions(printed)).toEqual(['rtl', 'ltr', 'rtl', 'rtl', 'rtl']);
     expect(directions(printed)).toEqual(directions(view));
   });
 

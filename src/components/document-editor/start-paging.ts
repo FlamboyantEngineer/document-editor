@@ -156,9 +156,8 @@ export interface PagingRefs {
   readonly ownPlugins: RefObject<readonly Plugin[]>;
 }
 
-/** What a page layout starts from: its footnote numbering and the fonts its engine measures with. */
+/** What a page layout starts from: the fonts it measures with and the markup it shows. */
 interface PagingSettings {
-  readonly footnoteNumbering: 'document' | 'page';
   /** The served fonts the layout engine measures with (DOCE-HOST-1.14.1). */
   readonly fonts: () => PromiseLike<PagesFonts> | null;
   /** The markup the layout engine lays suggestions out in now (DOCE-PAGINATION-11.12). */
@@ -222,7 +221,6 @@ export function startPaging(
     pageHeight: (section: ProseMirrorNode) => bodyHeight(latest.current.template, section),
     rules: sectionRules(latest),
     fragmentRules: fragmentRulesOf(latest.current),
-    footnoteNumbering: settings.footnoteNumbering,
     fontsPending: () => latest.current.text.isPending,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,

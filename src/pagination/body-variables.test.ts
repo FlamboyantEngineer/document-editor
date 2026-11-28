@@ -6,6 +6,7 @@ import { Transform } from 'prosemirror-transform';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { footnoteState, paragraph } from '../../test/footnote-fixtures.js';
 import {
   BASE_TEMPLATE,
   readDocumentFile,
@@ -110,5 +111,31 @@ describe('the template variables of the body text', () => {
     expect(box(engine)).toEqual(box(fresh));
     fresh.destroy();
     engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.13 settles the digits when only a footnote shows the page count', () => {
+    const breaks = Array.from({ length: 1000 }, (): StoredNode => ({ type: 'pageBreak' }));
+    const state = footnoteState([
+      paragraph(text('Body'), {
+        type: 'footnote',
+        attrs: { id: 'n1' },
+        content: [variable('page.total')],
+      }),
+      ...breaks,
+    ]);
+    const area = state.doc.child(0).child(0).child(2);
+    const engine = engineOf();
+    const width = () =>
+      engine.regionLines(area, null).get(area.child(0))?.reserved?.[0]?.width ?? 0;
+    try {
+      engine.number(state.doc);
+      const three = width();
+      expect(three).toBeGreaterThan(0);
+      const pages = layoutDocument(state, { pageHeight: 2000, engine });
+      expect(pages.flat().length).toBeGreaterThanOrEqual(1000);
+      expect(width()).toBeCloseTo((three * 4) / 3, 1);
+    } finally {
+      engine.destroy();
+    }
   });
 });
