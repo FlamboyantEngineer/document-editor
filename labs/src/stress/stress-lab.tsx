@@ -264,6 +264,8 @@ function StressLab({
         statusBar
         className="lab-document-editor"
         aria-label="Stress document"
+        // The pages drawn taller than they are are counted, for the checks that read the stats.
+        debug={{ overflow: true }}
         {...editor}
         {...(SUGGEST ? { suggesting: true } : {})}
         handleRef={handle}

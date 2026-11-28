@@ -1,5 +1,6 @@
 import { undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
@@ -682,8 +683,9 @@ describe('projection layouts', () => {
     expect(projection.stats().layouts).toBe(3);
   });
 
-  it('DOCE-PAGINATION-5.17 lays typing out on the next frame once it changed the height of its block', () => {
-    const { projection, drain } = mount({ settle: 150 }, { height: 20 });
+  it('DOCE-PAGINATION-5.17 lays typing out on the next frame once the engine lays its block out taller', () => {
+    const paragraph = (node: ProseMirrorNode) => (node.textContent.includes('Longer') ? 40 : 20);
+    const { projection, drain } = mount({ settle: 150 }, { height: 20, paragraph });
     const typeInAlpha = (text: string) =>
       edit(projection, (state) => {
         const at = positionOf(state.doc, 'Alpha');
@@ -692,16 +694,27 @@ describe('projection layouts', () => {
     typeInAlpha('Same ');
     drain();
     expect(projection.stats().layouts).toBe(1);
-    // The typed paragraph gains a line on the pages.
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
-      this: HTMLElement,
-    ) {
-      const height = this.textContent.includes('Longer') ? 40 : 20;
-      return new DOMRect(0, 0, 100, this.tagName === 'P' ? height : 0);
-    });
+    // The typed paragraph gains a line as the engine lays it out.
     typeInAlpha('Longer ');
     drain();
     expect(projection.stats().layouts).toBe(2);
+  });
+
+  it('DOCE-PAGINATION-5.17 reads no drawn height for typing, only the engine', async () => {
+    const { projection, drain } = mount();
+    // The pages draw every paragraph at another height than the engine lays it out at.
+    const read = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(() => new DOMRect(0, 0, 100, 999));
+    read.mockClear();
+    edit(projection, (state) => {
+      const at = positionOf(state.doc, 'Alpha');
+      return state.tr.setSelection(TextSelection.create(state.doc, at)).insertText('Same ', at);
+    });
+    drain();
+    await expect(projection.whenSettled()).resolves.toBe('settled');
+    expect(projection.stats().layouts).toBe(1);
+    expect(read).not.toHaveBeenCalled();
   });
 
   it('DOCE-PAGINATION-5.17 lays nothing out at the pause when typing kept its block at its height', async () => {
@@ -729,7 +742,7 @@ describe('projection layouts', () => {
   it('DOCE-PAGINATION-5.9 DOCE-PAGINATION-5.4 DOCE-PAGINATION-5.14 counts the pages drawn taller than they are, and lays nothing out again for them', () => {
     // The test DOM draws pages with no height, so a page of two paragraphs overflows.
     const { projection, drain } = mount(
-      { state: canonicalState([], ['One', 'Two']) },
+      { state: canonicalState([], ['One', 'Two']), overflow: () => true },
       { height: 100, boxes: true },
     );
     drain();
@@ -740,6 +753,44 @@ describe('projection layouts', () => {
     );
     drain();
     expect(projection.stats()).toMatchObject({ layouts: 2, overflowPages: 2 });
+  });
+
+  it('DOCE-PAGINATION-5.8 reads the caret before a layout only when the layout changes its block or what is before it', () => {
+    const { projection, drain } = mount();
+    drain();
+    const { view } = projection;
+    view.focus();
+    edit(projection, (state) =>
+      state.tr.setSelection(TextSelection.create(state.doc, positionOf(state.doc, 'Alpha') + 1)),
+    );
+    drain();
+    const read = vi.spyOn(view, 'coordsAtPos');
+    // A paragraph more at the end lays out a page after the caret's.
+    edit(projection, (state) => layoutNow(state.tr.split(positionOf(state.doc, 'five'))));
+    drain();
+    expect(projection.stats().layouts).toBe(2);
+    expect(read).not.toHaveBeenCalled();
+    // A paragraph more before the caret moves it.
+    edit(projection, (state) => layoutNow(state.tr.split(positionOf(state.doc, 'one'))));
+    drain();
+    expect(projection.stats().layouts).toBe(3);
+    expect(read).toHaveBeenCalled();
+  });
+
+  it('DOCE-PAGINATION-5.9 reads no page box after a layout unless asked to count overflow', () => {
+    const read = vi.spyOn(HTMLElement.prototype, 'getClientRects');
+    const { projection, drain } = mount(
+      { state: canonicalState([], ['One', 'Two']) },
+      { height: 100, boxes: true },
+    );
+    read.mockClear();
+    drain();
+    edit(projection, (state) =>
+      layoutNow(state.tr.insertText('First ', positionOf(state.doc, 'One'))),
+    );
+    drain();
+    expect(projection.stats()).toMatchObject({ layouts: 2, overflowPages: 0 });
+    expect(read).not.toHaveBeenCalled();
   });
 
   it('DOCE-PAGINATION-7.6 settles two frames after a layout with none due, and pends on a change', async () => {

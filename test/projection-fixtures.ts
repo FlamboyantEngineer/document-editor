@@ -24,6 +24,8 @@ export const TEXTS = ['Alpha one', 'Beta two', 'Gamma three', 'Delta four', 'Eps
 // With `boxes`, elements are drawn with boxes, so the pages, drawn with no height, overflow.
 export interface StubbedLayout {
   readonly height?: number;
+  /** The height the stand-in engine lays a paragraph out at, in place of `height`. */
+  readonly paragraph?: ((node: ProseMirrorNode) => number) | undefined;
   readonly boxes?: boolean;
 }
 
@@ -80,7 +82,8 @@ export function mount(options: Partial<ProjectionViewOptions> = {}, layout: Stub
     textEngine: heldEngine(
       stubEngine({
         perLine: 1000,
-        blockHeight: (node) => (node.type.name === 'paragraph' ? blockHeight : 0),
+        blockHeight: (node) =>
+          node.type.name === 'paragraph' ? (layout.paragraph?.(node) ?? blockHeight) : 0,
       }),
     ),
     mount: document.body.appendChild(document.createElement('div')),

@@ -10,7 +10,7 @@ import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
-import { caretPlace, rememberCaret } from './caret.js';
+import { caretPlace, movesCaret, rememberCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import { redrawRefused } from './dropped-composition.js';
 import { type Showing, shownBy } from './layout-latency.js';
@@ -282,7 +282,8 @@ export function layout(session: Session): void {
   pace.passes = laidOut.tr.docChanged ? pace.passes + 1 : 0;
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
-  if (laidOut.tr.docChanged && view) rememberCaret(laidOut.tr.doc, caretPlace(view));
+  if (view && movesCaret(laidOut.tr, view.state.selection.head))
+    rememberCaret(laidOut.tr.doc, caretPlace(view));
   session.probe.laidOut(laidOut.metrics);
   const stats = pace.counter.stats();
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));

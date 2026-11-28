@@ -125,8 +125,6 @@ export interface PagedProjectionOptions {
     ((tr: Transaction, made: CanonicalChange) => CanonicalTaken | void) | undefined;
   /** Receives each new projection state, for whatever renders it. */
   readonly onProjection: (state: EditorState) => void;
-  /** How much the pages are scaled on screen, such as by a zoom, for the check of drawn pages. */
-  readonly scale?: (() => number) | undefined;
   /** Milliseconds without an edit before the pages are laid out again; 150 by default. */
   readonly settle?: number | undefined;
   /** Runs a layout soon and returns how to cancel it; by default on the next animation frame. */
@@ -145,6 +143,11 @@ export interface PagedProjectionOptions {
   readonly ready?: PromiseLike<unknown> | undefined;
   /** Where the layout's trace goes while it is read (`LayoutTrace`); nothing is written otherwise. */
   readonly trace?: LayoutTraceSink | undefined;
+  /**
+   * Whether to count, after each layout drawn, the pages drawn taller than they are
+   * (`overflowPages`, DOCE-PAGINATION-5.9), reading each drawn page's box: for tests and debugging.
+   */
+  readonly overflow?: (() => boolean) | undefined;
   /**
    * Lays the pages out with the layout engine, which it loads, and draws its lines on the pages
    * (DOCE-PAGINATION-11). Without it or `textEngine` the pages are not laid out: nothing is
@@ -301,8 +304,10 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     destroyed: false,
     edits: settleEdits(options, () => settleTyping(session())),
     probe: createTypingProbe(options.element, {
-      view: () => session().view,
-      scale: options.scale,
+      pages: () => {
+        const { projection, map, pace } = session();
+        return { projection: projection.doc, map, engine: pace.text?.engine() ?? null };
+      },
       moved: () => requestLayout(session()),
       schedule: options.schedule,
     }),
@@ -316,6 +321,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       ready: awaitReady(ready, () => refreshLayout(session(), true)),
       text,
       draws: checkDraws({
+        overflow: options.overflow,
         count: (pages) => session().pace.counter.overflow(pages),
       }),
     },

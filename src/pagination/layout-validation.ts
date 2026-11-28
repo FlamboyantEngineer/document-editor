@@ -107,16 +107,18 @@ export interface DrawChecks {
 }
 
 /**
- * Checks each layout the editor draws: puts the caret back where it was on screen and counts the
- * pages drawn taller than they are. It never asks for another layout.
+ * Checks each layout the editor draws: puts the caret back where it was on screen and, when
+ * `overflow` says so, counts the pages drawn taller than they are. It never asks for another layout.
  */
 export function checkDraws(options: {
   readonly scale?: (() => number) | undefined;
+  readonly overflow?: (() => boolean) | undefined;
   readonly count: (pages: number) => void;
 }): DrawChecks {
   return {
     drawn(view, caret) {
       keepCaretInPlace(view, caret);
+      if (!options.overflow?.()) return;
       const overflow = findPageOverflow(view, { scale: options.scale?.(), pages: drawnOnly(view) });
       options.count(overflow.length);
     },

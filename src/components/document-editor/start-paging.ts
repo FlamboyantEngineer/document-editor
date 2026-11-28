@@ -223,6 +223,7 @@ export function startPaging(
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,
+    overflow: () => latest.current.debug?.overflow ?? false,
     textLayout: textLayoutOf(settings, latest),
   };
   return startProjectionOf(setup, latest, { refs, setPaged });
