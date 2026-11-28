@@ -1,5 +1,6 @@
 import { type MeasureContext, setEngine, setMeasureContext } from '@chenglou/pretext';
 import { describe, expect, it, vi } from 'vitest';
+import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { createTextLayout } from '../layout-engine/text-layout.js';
 import type { SizeInput } from '../model/pagination/page-layout.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
@@ -26,7 +27,66 @@ function measuringWith(advance: (character: string, language: string) => number)
     }) as unknown as MeasureContext;
 }
 
+// Words and punctuation whose break opportunities differ between Pretext's engine profiles.
+const PIECES = [
+  'alpha', 'beta', 'gamma', 'of', 'the', 'one-two', 'well-known', 'http://example.org/a/b?c=d&e=f',
+  'and/or', '$100', '50%', '(see', 'below)', '«quoted»', 'x—y', 'a…b', '12:30', '3.14', 'name.txt',
+  'e.g.,', 'A+B', 'co\u00adoperate', 'non\u2011breaking', '“word”', "it's", 'a/b/c/d/e/f', 'key=value',
+  'one,two,three', '#tag', '@name', '~approx', 'x^2', 'a|b', '[1]', '{x}', '100°C', '1/2', 'what?',
+]; // prettier-ignore
+
+// Paragraphs of 40 to 100 pieces from a seeded generator, the same on every run.
+function paragraphs(count: number): string[] {
+  let state = 7;
+  const next = () => {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+  const pick = () => PIECES[Math.floor(next() * PIECES.length)] ?? '';
+  return Array.from({ length: count }, () =>
+    Array.from({ length: 40 + Math.floor(next() * 60) }, pick).join(' '),
+  );
+}
+
+// Where each paragraph's lines start, laid out by a pages engine in a browser of this user agent.
+function linesUnder(userAgent: string, texts: readonly string[]): string[] {
+  vi.stubGlobal('navigator', { userAgent, platform: 'Linux' });
+  installFakeCanvas();
+  setEngine();
+  const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+  try {
+    return texts.map((value) => {
+      const table = engine.lines(schema.node('paragraph', null, schema.text(value)), {
+        scope: null,
+      });
+      return (table?.lines ?? []).map((line) => String(line.from)).join(',');
+    });
+  } finally {
+    engine.destroy();
+    vi.unstubAllGlobals();
+    setEngine();
+  }
+}
+
 describe('the pages’ Pretext settings', () => {
+  it('DOCE-PAGINATION-11.1 breaks every line where Chromium does, whichever browser lays it out', () => {
+    const texts = paragraphs(300);
+    const chromium = linesUnder(
+      'Mozilla/5.0 (X11; Linux x86_64) Chrome/131.0.0.0 Safari/537.36',
+      texts,
+    );
+    const firefox = linesUnder(
+      'Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0',
+      texts,
+    );
+    const safari = linesUnder(
+      'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+      texts,
+    );
+    expect(firefox).toEqual(chromium);
+    expect(safari).toEqual(chromium);
+  });
+
   it.each([
     ['Firefox/133.0', 39.063, 2, 1],
     ['AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15', 39.056, 1, 2],

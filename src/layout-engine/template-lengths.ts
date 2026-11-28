@@ -4,9 +4,7 @@
 
 import { isTemplateLength, isTemplateSize } from '../model/format/template-format-values.js';
 import { lengthToCssPx } from '../model/templates/template-css-values.js';
-
-/** The size of the root, which `rem` lengths resolve against. */
-const ROOT_SIZE = 16;
+import { TEMPLATE_ROOT_SIZE } from '../model/templates/template-property-values.js';
 
 // A length's amount and unit, or null for a form the format does not take.
 function lengthParts(value: unknown, size: boolean) {
@@ -19,7 +17,7 @@ function toPixels(parts: { amount: number; unit: string } | null, base: number):
   if (!parts) return null;
   const { amount, unit } = parts;
   if (unit === '%') return (amount / 100) * base;
-  if (unit === 'em' || unit === 'rem') return amount * (unit === 'rem' ? ROOT_SIZE : base);
+  if (unit === 'em' || unit === 'rem') return amount * (unit === 'rem' ? TEMPLATE_ROOT_SIZE : base);
   return Number.parseFloat(lengthToCssPx(`${String(amount)}${unit}`) ?? '');
 }
 

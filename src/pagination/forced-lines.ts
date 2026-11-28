@@ -82,7 +82,7 @@ function contentSet(
     // A list of contents is drawn by its node view, on the rows the engine laid out.
     if (child.type.name === 'toc_block') {
       at.lists.push({ node: child, key: builder.engine.contentsKeyOf?.(child) });
-      const drawn = builder.engine.contentsDrawn(child, at.scope);
+      const drawn = builder.engine.contentsDrawn(child, at.scope, builder.inserted);
       if (drawn) locals.push(Decoration.node(offset, end, {}, { contentsDrawn: drawn }));
       return;
     }
