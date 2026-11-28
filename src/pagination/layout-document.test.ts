@@ -3,6 +3,7 @@ import { Transform } from 'prosemirror-transform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { footnoteState, note, paragraph as stored } from '../../test/footnote-fixtures.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -346,4 +347,78 @@ describe('blocks the engine cannot lay out', () => {
     expect(engine.stats().refused).toBe(before);
     engine.destroy();
   });
+});
+
+describe('footnote room of a split paragraph', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  const words = (word: string, count: number) =>
+    Array.from({ length: count }, () => word).join(' ');
+
+  // The pages of one section, laid out with the real engine under the fake Canvas.
+  function pagesOf(
+    content: StoredNode[],
+    footnoteNumbering: 'document' | 'page' = 'document',
+  ): PageMetric[] {
+    const state = footnoteState(content);
+    const paged = EditorState.create({
+      doc: setPageRegions(new Transform(state.doc), BASE_TEMPLATE).doc,
+      plugins: state.plugins,
+    });
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const pages: PageMetric[] = [];
+    layoutDocument(paged, {
+      pageHeight: 300,
+      engine,
+      footnoteNumbering,
+      onPage: (page) => pages.push(page),
+    });
+    engine.destroy();
+    return pages;
+  }
+  const fill = (pages: readonly PageMetric[]) =>
+    pages.map(({ used, footnotes }) => ({ used: Math.round(used), notes: footnotes > 0 }));
+
+  it.each(['document', 'page'] as const)(
+    'DOCE-PAGINATION-7.2 leaves the room of a footnote cited at a paragraph’s end only on its page, numbered by %s',
+    (numbering) => {
+      const plain = fill(pagesOf([stored(text(words('word', 400)))], numbering));
+      const noted = fill(
+        pagesOf([stored(text(words('word', 400)), note('a', words('note', 200)))], numbering),
+      );
+      expect(plain).toHaveLength(2);
+      // The first page takes as much of the paragraph as it does without the footnote.
+      expect(noted[0]).toEqual(plain[0]);
+      expect(noted.at(-1)?.notes).toBe(true);
+      expect(noted.slice(0, -1).every((page) => !page.notes)).toBe(true);
+    },
+  );
+
+  it.each(['document', 'page'] as const)(
+    'DOCE-PAGINATION-7.2 leaves the room on the page that holds a mid-paragraph marker, numbered by %s',
+    (numbering) => {
+      const plain = fill(
+        pagesOf([stored(text(words('word', 600)), text(words('more', 600)))], numbering),
+      );
+      const noted = fill(
+        pagesOf(
+          [
+            stored(
+              text(words('word', 600)),
+              note('a', words('note', 40)),
+              text(` ${words('more', 600)}`),
+            ),
+          ],
+          numbering,
+        ),
+      );
+      const marked = noted.findIndex((page) => page.notes);
+      expect(marked).toBeGreaterThan(0);
+      // The pages before the marker's give up no room for it.
+      expect(noted.slice(0, marked)).toEqual(plain.slice(0, marked));
+      expect(noted.filter((page) => page.notes)).toHaveLength(1);
+    },
+  );
 });

@@ -106,6 +106,13 @@ The page height shall be a number, or a function of the blocks that would be on 
 Implementation: `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/page-layout.test.ts`
 
+### DOCE-PAGINATION-2.7 - A split sized by what its head holds
+
+A block split across pages shall be split to the room its head leaves itself: the page height is asked for the head that would be on the page, not the whole block, so the footnotes cited only in its tail take no room on the page. The split is tried at the room the page has without any of the block's footnotes; while the head's own footnotes leave it too little room, at the room they leave; and between a height whose head fits and one whose head does not, at most twelve tries in all look for the tallest head that fits. When the first try does not split or no try fits, the block is split at the room the page has with every footnote of the block. A heading keeps with the block it heads (DOCE-PAGINATION-2.5) by the same split.
+
+Implementation: `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/page-layout.test.ts`, `src/pagination/layout-document.test.ts`
+
 ## DOCE-PAGINATION-3 - Text splits
 
 ### DOCE-PAGINATION-3.1 - Paragraphs
@@ -389,7 +396,7 @@ Verification: `e2e/pagination.spec.ts`, `e2e/document-editor.spec.ts`, `src/pagi
 Each page shall leave room for the footnote entries it holds: their heights as the engine lays the area out, each with the space before the next but the page's last without it, and the area's own height beyond them (`footnoteAreaOf`, `footnoteAreaHeight`, DOCE-PAGINATION-11.10). An entry shall be on the first page that cites it, unless footnotes are numbered on each page, when each page holds the entries of every footnote it cites. The view of the pages numbers them (`createFootnoteNumbers`, DOCE-FOOTNOTES-2.2): through the document, or from 1 on each page; the numbers follow a change mirrored onto the pages at once, before the pages are laid out again. The engine lays markers and entry numbers out with the numbers through the document, or, when footnotes are numbered on each page, with the room of one digit (the width of `0`), whatever number the page draws: the document it lays out has no pages to number by, so no layout waits on the numbers it draws and renumbering the footnotes lays nothing out again. A page that draws a two-digit number draws it wider than it was laid out. A page that holds none leaves no room, and a footnote inserted where its page is full moves the block that no longer fits on before the writer types in it.
 
 Implementation: `src/pagination/layout-document.ts`, `src/pagination/footnote-area.ts`, `src/model/pagination/page-projection.ts`, `src/pagination/projection.ts`, `src/engine/footnote-numbers.ts`, `src/pagination/node-numbers.ts`
-Verification: `e2e/pagination.spec.ts`, `e2e/split-paragraphs.spec.ts`, `src/pagination/text-engine.test.ts`, `e2e/objects.spec.ts`, `src/engine/footnote-numbers.test.ts`, `src/pagination/node-numbers.test.ts`
+Verification: `e2e/pagination.spec.ts`, `e2e/split-paragraphs.spec.ts`, `src/pagination/text-engine.test.ts`, `src/pagination/layout-document.test.ts`, `e2e/objects.spec.ts`, `src/engine/footnote-numbers.test.ts`, `src/pagination/node-numbers.test.ts`
 
 ### DOCE-PAGINATION-7.3 - A caret in a moving footnote
 
