@@ -869,7 +869,7 @@ Verification: `src/pagination/forced-lines.test.ts`, `src/pagination/selection-p
 
 ### DOCE-PAGINATION-11.7 - The caret at a forced line's start
 
-A caret at the position where a forced line ends and the next starts shall be drawn at the next line's start, as the browser draws one at its own wraps, unless the browser last drew it at the line's end, as after End or a click past the line's end: when the editor writes the selection there itself, after an edit or once the DOM under it is drawn again, it shall move the caret to the next line's start, so a vertical move keeps its line and column.
+A caret at the position where a forced line ends and the next starts shall be drawn at the next line's start, as the browser draws one at its own wraps, unless the browser last drew it at the line's end, as after End or a click past the line's end: when the editor writes the selection there itself, after an edit or once the DOM under it is drawn again, it shall move the caret to the next line's start, so a vertical move keeps its line and column, also when the line's last character is drawn in an element inside its end mark, such as a reserved box or a link.
 
 Implementation: `src/pagination/forced-caret.ts`
 Verification: `src/pagination/forced-lines.test.ts`, `e2e/layout-invariant.spec.ts`, `src/pagination/prosemirror-internals.test.ts`

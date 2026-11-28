@@ -965,6 +965,39 @@ describe('forced lines on the pages near the screen', () => {
 });
 
 describe('the caret at a forced line start', () => {
+  // Where the caret is drawn after the view writes the position between a block's two lines,
+  // in a view mounted in `mount`.
+  function caretBetweenLines(mount: HTMLElement, engine: PagesTextEngine) {
+    const doc = pagesDoc([[paragraph('aaaaaaaaaabbbbbbbbbb')]]);
+    const state = EditorState.create({
+      doc,
+      plugins: [forcedLines({ engine: () => engine, version: () => 0 })],
+    });
+    const view = new EditorView(mount, { state });
+    view.focus();
+    const at = positionOf(doc, 'aaaaaaaaaabbbbbbbbbb') + 11;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    const selection = document.getSelection();
+    const drawn = { text: selection?.anchorNode?.textContent, offset: selection?.anchorOffset };
+    view.destroy();
+    return drawn;
+  }
+
+  it('DOCE-PAGINATION-11.7 draws the caret at the next line start when the line ends in a box of its own', () => {
+    const base = stubEngine().engine;
+    // The first line's last character is drawn in a reserved box inside the line's end mark.
+    const engine: PagesTextEngine = {
+      ...base,
+      lines: (node, place) => {
+        const table = base.lines(node, place);
+        return table && { ...table, reserved: [{ from: 9, to: 10, width: 8 }] };
+      },
+    };
+    const mount = document.body.appendChild(document.createElement('div'));
+    expect(caretBetweenLines(mount, engine)).toEqual({ text: 'bbbbbbbbbb', offset: 0 });
+    mount.remove();
+  });
+
   it('DOCE-PAGINATION-11.7 draws a caret the view wrote at a line end at the next line start', () => {
     const doc = pagesDoc([[paragraph('aaaaaaaaaabbbbbbbbbb')]]);
     const state = EditorState.create({
