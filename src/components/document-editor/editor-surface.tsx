@@ -20,7 +20,6 @@ import {
   type TopChromeProps,
 } from './editor-chrome.js';
 import type { ObjectDialog } from './editor-context.js';
-import type { DocumentEditorLabels } from './editor-labels.js';
 import { type DocumentOverviewOptions, useDocumentOverview } from './editor-overview.js';
 import { type FirstLayout, FirstLayoutCover } from './first-layout.js';
 import { debugParts } from './root-data.js';
@@ -106,8 +105,6 @@ function SurfaceContent({
 }
 
 // Why the pages are not shown: the template fonts that did not load, else a failed layout.
-const failedText = (labels: DocumentEditorLabels, missingFonts: readonly string[]) =>
-  missingFonts.length > 0 ? labels.fontsFailed(missingFonts) : labels.layoutFailed;
 
 // The host's banners and the editor's own, over the document.
 function EditorBanners({
@@ -161,7 +158,7 @@ export function EditorSurface({
     <SurfaceContent
       props={props}
       firstLayout={firstLayout}
-      failedText={failedText(context.labels, missingFonts)}
+      failedText={context.labels.layoutFailed}
     >
       {children}
     </SurfaceContent>

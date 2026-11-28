@@ -88,12 +88,17 @@ describe('EditorSurface', () => {
     expect(container.firstElementChild).toHaveAttribute('data-layout-state', 'settled');
   });
 
-  it('DOCE-EDITOR-4.29 DOCE-SESSION-9.8 shows no pages without the template fonts, failing the load', async () => {
+  it('DOCE-PAGINATION-5.6 DOCE-EDITOR-4.29 DOCE-SESSION-9.8 shows the first pages without waiting on the host loading its fonts', async () => {
     const loadProgress = createLoadProgress();
     const onLayoutFailed = vi.fn();
+    const asked: string[][] = [];
     const fonts: FontsAdapter = {
       ...TEST_FONTS,
-      load: () => Promise.resolve({ ok: true, value: [] }),
+      // A host whose own font loading never settles.
+      load: (families) => {
+        asked.push([...families]);
+        return new Promise(() => undefined);
+      },
     };
     const { container } = render(
       <Harness
@@ -103,13 +108,32 @@ describe('EditorSurface', () => {
         onLayoutFailed={onLayoutFailed}
       />,
     );
-    const error = await screen.findByText('The document cannot be shown: Serif Pro did not load.');
-    expect(error.closest('.de-document-editor__layout-error')).toBeInTheDocument();
-    expect(container.querySelector('.de-document-editor__body')).toHaveAttribute('inert');
-    // The host hears of it from an effect after the error shows, which may come a render later.
-    await waitFor(() => expect(onLayoutFailed).toHaveBeenCalledOnce());
-    expect(loadProgress.get().status).toBe('failed');
-    expect(screen.queryByRole('region', { name: 'Document notices' })).not.toBeInTheDocument();
+    await waitFor(() => expect(loadProgress.get()).toMatchObject({ status: 'ready' }));
+    expect(container.querySelector('.de-document-editor__body')).not.toHaveAttribute('inert');
+    // Still asked, so the host warms its faces.
+    expect(asked).toContainEqual(['Serif Pro']);
+    expect(onLayoutFailed).not.toHaveBeenCalled();
+  });
+
+  it('DOCE-EDITOR-4.29 DOCE-EDITOR-7.3 only warns when the host cannot load a template font', async () => {
+    const loadProgress = createLoadProgress();
+    const onLayoutFailed = vi.fn();
+    const fonts: FontsAdapter = {
+      ...TEST_FONTS,
+      load: () => Promise.resolve({ ok: true, value: [] }),
+    };
+    render(
+      <Harness
+        template={{ ...TEMPLATE, styles: { paragraph: { font: 'Serif Pro' } } }}
+        fonts={fonts}
+        loadProgress={loadProgress}
+        onLayoutFailed={onLayoutFailed}
+      />,
+    );
+    await waitFor(() => expect(loadProgress.get()).toMatchObject({ status: 'ready' }));
+    const notices = await screen.findByRole('region', { name: 'Document notices' });
+    expect(notices).toHaveTextContent('Serif Pro');
+    expect(onLayoutFailed).not.toHaveBeenCalled();
   });
 
   it('DOCE-EDITOR-4.18 shows no placeholder in the web layout', () => {
