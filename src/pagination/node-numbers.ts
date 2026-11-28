@@ -10,12 +10,15 @@ import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.
 import { resolveFootnoteSettings, type TemplateFile } from '../model/index.js';
 import { blockLabelKeys } from './block-label-keys.js';
 import { equationNumbers } from './equation-numbers.js';
+import { typedTextPath } from './typed-text.js';
 
 /** A document's numbers by node, for the blocks laid out next. */
 export interface NodeNumbers {
   readonly doc: ProseMirrorNode | null;
-  readonly prefixes: ReadonlyMap<ProseMirrorNode, string>;
-  readonly paragraphs: ReadonlyMap<ProseMirrorNode, ParagraphNumber>;
+  /** A numbered heading's number and the space after it. */
+  readonly prefixOf: (heading: ProseMirrorNode) => string | undefined;
+  /** A numbered paragraph's number. */
+  readonly paragraphOf: (paragraph: ProseMirrorNode) => ParagraphNumber | undefined;
   /** A caption's label (`captionNumbers`). */
   readonly labelOf: (caption: ProseMirrorNode) => string | undefined;
   /** A footnote marker's or entry's number, by its footnote's id. */
@@ -29,8 +32,8 @@ export interface NodeNumbers {
 /** No numbers, before a document is numbered. */
 const NO_NUMBERS: NodeNumbers = {
   doc: null,
-  prefixes: new Map(),
-  paragraphs: new Map(),
+  prefixOf: () => undefined,
+  paragraphOf: () => undefined,
   labelOf: () => undefined,
   footnoteOf: () => undefined,
   equationOf: () => undefined,
@@ -75,6 +78,10 @@ export function markerKey(node: ProseMirrorNode, footnoteOf: NodeNumbers['footno
   return key;
 }
 
+// A node's own node in the document it was numbered in: itself, or the node a typed edit replaced
+// (`typedTextPath`).
+type NumberedAs = (node: ProseMirrorNode) => ProseMirrorNode;
+
 /** A document's numbers by node, and its numbered headings and paragraphs. */
 function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const { headings, paragraphs } = documentNumbers(doc, template);
@@ -82,39 +89,41 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const perPage = resolveFootnoteSettings(template).numbering === 'page';
   let footnotes: ReturnType<typeof footnotesOf> | null = null;
   const footnotesOnce = () => (footnotes ??= footnotesOf(doc, perPage));
-  const byNode = (): NodeNumbers => {
-    const prefixes = new Map<ProseMirrorNode, string>();
-    const numbered = new Map<ProseMirrorNode, ParagraphNumber>();
-    for (const [pos, prefix] of headings) {
-      const node = doc.nodeAt(pos);
-      if (node) prefixes.set(node, prefix);
-    }
-    for (const [pos, number] of paragraphs) {
-      const node = doc.nodeAt(pos);
-      if (node) numbered.set(node, number);
-    }
+  const prefixes = new Map<ProseMirrorNode, string>();
+  const numbered = new Map<ProseMirrorNode, ParagraphNumber>();
+  for (const [pos, prefix] of headings) {
+    const node = doc.nodeAt(pos);
+    if (node) prefixes.set(node, prefix);
+  }
+  for (const [pos, number] of paragraphs) {
+    const node = doc.nodeAt(pos);
+    if (node) numbered.set(node, number);
+  }
+  let equations: ReturnType<typeof equationNumbers> | null = null;
+  const equationOf = (node: ProseMirrorNode) =>
+    node.type.name === 'math_display'
+      ? (equations ??= equationNumbers(doc, template)).of(node) || undefined
+      : undefined;
+  // Read when a block is laid out, including numbers of its unchanged descendant equations.
+  let keys: ReadonlyMap<ProseMirrorNode, string> | null = null;
+  const labelKey = (node: ProseMirrorNode) =>
+    (keys ??= blockLabelKeys(doc, (child) => labels.labelOf(child) ?? equationOf(child))).get(
+      node,
+    ) ?? '';
+  // The numbers of a document numbered as this one, its nodes found through `as`.
+  const byNode = (shown: ProseMirrorNode, as: NumberedAs): NodeNumbers => {
     const footnotes = footnotesOnce();
-    const footnoteOf = (part: ProseMirrorNode) => footnotes.byId.get(idOf(part) ?? '');
-    let equations: ReturnType<typeof equationNumbers> | null = null;
-    const equationOf = (node: ProseMirrorNode) =>
-      node.type.name === 'math_display'
-        ? (equations ??= equationNumbers(doc, template)).of(node) || undefined
-        : undefined;
-    // Read when a block is laid out, including numbers of its unchanged descendant equations.
-    let keys: ReadonlyMap<ProseMirrorNode, string> | null = null;
-    const labelKey = (node: ProseMirrorNode) =>
-      (keys ??= blockLabelKeys(doc, (child) => labels.labelOf(child) ?? equationOf(child))).get(
-        node,
-      ) ?? '';
     return {
-      doc,
-      prefixes,
-      paragraphs: numbered,
-      labelOf: (caption) => labels.labelOf(caption),
-      footnoteOf,
-      equationOf,
-      keyOf: (node) =>
-        `${prefixes.get(node) ?? numbered.get(node)?.label ?? ''}|${footnotes.byBlock.get(node) ?? ''}|${labelKey(node)}`,
+      doc: shown,
+      prefixOf: (heading) => prefixes.get(as(heading)),
+      paragraphOf: (paragraph) => numbered.get(as(paragraph)),
+      labelOf: (caption) => labels.labelOf(as(caption)),
+      footnoteOf: (part) => footnotes.byId.get(idOf(part) ?? ''),
+      equationOf: (node) => equationOf(as(node)),
+      keyOf: (node) => {
+        const own = as(node);
+        return `${prefixes.get(own) ?? numbered.get(own)?.label ?? ''}|${footnotes.byBlock.get(own) ?? ''}|${labelKey(own)}`;
+      },
     };
   };
   const numbering = {
@@ -130,20 +139,43 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   return { byNode, numbering, footnotesKey };
 }
 
+// The numbers counted for one document and the documents typed from it, whose nodes a typed edit
+// replaced found again by the nodes they replaced (DOCE-PAGINATION-11.14).
+interface Counted {
+  readonly numbers: NodeNumbers;
+  readonly found: ReturnType<typeof numbersByNode>;
+  readonly replaced: WeakMap<ProseMirrorNode, ProseMirrorNode>;
+}
+
+const asCounted =
+  (replaced: Counted['replaced']): NumberedAs =>
+  (node) =>
+    replaced.get(node) ?? node;
+
 /** The measured document's numbers and the draw-only numbering of its projections. */
 export function holdNodeNumbers(template: TemplateFile) {
-  let numbers = NO_NUMBERS;
+  let counted: Counted | null = null;
   let footnotes = '';
   let version = 0;
   const drawn = new WeakMap<ProseMirrorNode, ReturnType<typeof numbersByNode>['numbering']>();
+  // Numbers a document typed from the one numbered before through the nodes its edit replaced.
+  const typedFrom = (doc: ProseMirrorNode, before: Counted): boolean => {
+    const path = before.numbers.doc && typedTextPath(before.numbers.doc, doc);
+    if (!path) return false;
+    const { replaced, found } = before;
+    for (const [node, was] of path) replaced.set(node, replaced.get(was) ?? was);
+    counted = { ...before, numbers: found.byNode(doc, asCounted(replaced)) };
+    return true;
+  };
   return {
-    current: () => numbers,
+    current: () => counted?.numbers ?? NO_NUMBERS,
     /** Moves whenever a document is numbered with other footnote numbers than the one before. */
     version: () => version,
     number(doc: ProseMirrorNode) {
-      if (numbers.doc === doc) return;
+      if (counted?.numbers.doc === doc || (counted && typedFrom(doc, counted))) return;
       const found = numbersByNode(doc, template);
-      numbers = found.byNode();
+      const replaced = new WeakMap<ProseMirrorNode, ProseMirrorNode>();
+      counted = { found, replaced, numbers: found.byNode(doc, asCounted(replaced)) };
       drawn.set(doc, found.numbering);
       const key = found.footnotesKey();
       if (key !== footnotes) [footnotes, version] = [key, version + 1];

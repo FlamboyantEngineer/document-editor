@@ -11,8 +11,8 @@ import type { LinesRecorder } from './nested-lines.js';
 
 /** The numbers the text is laid out with, by node. */
 interface TextNumbers {
-  readonly prefixes: ReadonlyMap<ProseMirrorNode, string>;
-  readonly paragraphs: ReadonlyMap<ProseMirrorNode, ParagraphNumber>;
+  readonly prefixOf: (heading: ProseMirrorNode) => string | undefined;
+  readonly paragraphOf: (paragraph: ProseMirrorNode) => ParagraphNumber | undefined;
 }
 
 // The text layout block geometry reads, with each heading's number before its first line. A
@@ -34,9 +34,9 @@ export function numberedText(
     textWidth: (value, node, scope) => text.textWidth(value, node, scope),
     ...(contentsText ? { layoutContentsText: contentsText } : {}),
     layoutText: (node, place) => {
-      const { prefixes, paragraphs } = numbers();
-      const prefix = place.prefix ?? prefixes.get(node);
-      const number = paragraphs.get(node);
+      const { prefixOf, paragraphOf } = numbers();
+      const prefix = place.prefix ?? prefixOf(node);
+      const number = paragraphOf(node);
       const words = inserted().byBlock.get(node);
       const result = text.layoutText(node, {
         ...place,

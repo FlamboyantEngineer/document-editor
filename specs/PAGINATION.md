@@ -932,6 +932,13 @@ The engine shall lay out a block holding a template variable outside a header or
 Implementation: `src/layout-engine/body-variables.ts`, `src/layout-engine/page-box.ts`, `src/layout-engine/runs.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/blocks/text-blocks.ts`, `src/pagination/body-variables.ts`, `src/pagination/page-variables.ts`, `src/pagination/text-engine.ts`, `src/pagination/nested-lines.ts`, `src/pagination/layout-document.ts`, `src/pagination/forced-sets.ts`, `src/pagination/text-engine-holder.ts`, `src/components/document-editor/start-paging.ts`, `src/document/print-lines.ts`, `src/document/print-pages.ts`, `labs/reference/document.css`
 Verification: `src/layout-engine/text-layout.test.ts`, `src/pagination/body-variables.test.ts`, `src/pagination/text-engine-refusals.test.ts`, `src/document/print-pages.test.ts`
 
+### DOCE-PAGINATION-11.14 - Numbers kept while typing
+
+A document that differs from the one the engine last numbered only in the text of one text block, as a typed letter, a deleted word or a mark makes it, shall keep that document's numbers without counting them again (`typedTextPath`): no heading, paragraph, caption, footnote or equation number is counted from text, so each node the edit replaced, from the document down to the text block, is found as the node it replaced, and no other block is walked. An edit that adds or removes an inline atom, such as a footnote marker, changes a node's type or attributes, reaches past one text block, or makes a paragraph come to hold text or stop holding it (DOCE-NUMBERING-3.3), numbers the document again. A typed letter in a document of 4,000 paragraphs walks at most 16 of its nodes' children to number it.
+
+Implementation: `src/pagination/typed-text.ts`, `src/pagination/node-numbers.ts`, `src/pagination/numbered-text.ts`
+Verification: `src/pagination/node-numbers-typing.test.ts`
+
 ## DOCE-PAGINATION-12 - Widths from the font files
 
 Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.
