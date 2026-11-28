@@ -47,7 +47,7 @@ const numbersOf = (doc: ReturnType<typeof documentOf>, template = TEMPLATE) =>
   numberedParagraphs(doc, template).map((entry) => entry.text);
 
 describe('paragraph numbering', () => {
-  it("DOCE-NUMBERING-6.1 gives a paragraph's later part on the pages its first part's number, counting nothing again", () => {
+  it("DOCE-NUMBERING-6.1 gives a paragraph's later part on the pages its first part's text position and no number, counting nothing again", () => {
     const node = (name: string, attrs: Record<string, unknown> | null, content?: Node[]) => {
       const type = documentSchema.nodes[name];
       if (!type) throw new Error(name);
@@ -68,7 +68,29 @@ describe('paragraph numbering', () => {
         page([part('more', { dataId: 'p1', splitPartIndex: 1 }), part('two', { dataId: 'p2' })]),
       ]),
     ]);
-    expect(numbersOf(pages)).toEqual(['1.', '1.', '2.']);
+    const shown = numberedParagraphs(pages, TEMPLATE).map(({ text, style, continued }) => ({
+      text,
+      style,
+      continued,
+    }));
+    expect(shown.map(({ text, continued }) => [text, continued])).toEqual([
+      ['1.', undefined],
+      ['1.', true],
+      ['2.', undefined],
+    ]);
+    expect(shown[1]?.style).toBe(shown[0]?.style);
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({
+        doc: pages,
+        plugins: [createParagraphNumbering({ template: () => TEMPLATE })],
+      }),
+    });
+    const [, later, after] = [...view.dom.querySelectorAll('p')];
+    expect(later).toHaveAttribute('data-paragraph-number', '');
+    expect(later).toHaveAttribute('data-paragraph-continued', 'true');
+    expect(after).toHaveAttribute('data-paragraph-number', '2.');
+    expect(after).not.toHaveAttribute('data-paragraph-continued');
+    view.destroy();
   });
 
   it('DOCE-NUMBERING-6.1 numbers top-level paragraphs with text where the template numbers them', () => {

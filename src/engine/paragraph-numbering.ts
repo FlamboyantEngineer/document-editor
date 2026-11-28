@@ -76,6 +76,8 @@ export interface NumberedParagraph {
   readonly style: string;
   /** Its level's format and the positions of its number and text. */
   readonly levelStyle: ParagraphLevelStyle;
+  /** A later part of a paragraph split over pages: at its first part's text position, unnumbered. */
+  readonly continued?: true;
 }
 
 /** A numbered heading: where it is, and its number as it shows, with the space after it. */
@@ -196,12 +198,12 @@ export function numberedParagraphs(
       if (name === 'page' || name === 'page_content') return true;
       if (name === 'heading' && !node.attrs.docTitle) countHeading(node, counting, headings);
       if (name !== 'paragraph' || !config) return false;
-      // A later part of a paragraph split over pages shows its first part's number, and counts
-      // nothing again (DOCE-NUMBERING-6.1).
+      // A later part of a paragraph split over pages keeps its first part's text position, shows
+      // no number and counts nothing again (DOCE-NUMBERING-6.1).
       const before = partBefore(node);
       const first = before === null ? undefined : byPart.get(before);
       if (first) {
-        found.push({ ...first, pos: sectionOffset + 1 + offset });
+        found.push({ ...first, pos: sectionOffset + 1 + offset, continued: true });
         const key = partOf(node);
         if (key) byPart.set(key, first);
         return false;
@@ -232,12 +234,14 @@ export function numberedParagraphs(
 }
 
 function decorate(doc: ProseMirrorNode, template: TemplateFile): DecorationSet {
-  const decorations = numberedParagraphs(doc, template).map(({ pos, level, text, style }) => {
+  const numbered = numberedParagraphs(doc, template);
+  const decorations = numbered.map(({ pos, level, text, style, continued }) => {
     const node = doc.nodeAt(pos);
     const attrs: Record<string, string> = {
-      'data-paragraph-number': text,
+      'data-paragraph-number': continued ? '' : text,
       'data-paragraph-level': String(level),
     };
+    if (continued) attrs['data-paragraph-continued'] = 'true';
     if (style) attrs.style = style;
     return Decoration.node(pos, pos + (node?.nodeSize ?? 0), attrs);
   });

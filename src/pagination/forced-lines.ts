@@ -58,7 +58,8 @@ function blockKey(
   { node, pos, prefix }: { node: ProseMirrorNode; pos: number; prefix: string | undefined },
 ): string {
   const continued = builder.continuing.has(pos) ? 'c' : '';
-  const number = builder.paragraphs.get(pos)?.label ?? '';
+  const numbered = builder.paragraphs.get(pos);
+  const number = numbered ? `${numbered.continued ? '+' : ''}${numbered.label}` : '';
   return `${prefix ?? ''}|${number}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
 }
 

@@ -81,9 +81,14 @@ export function sameNumbers(
   if (mapped === undefined) return false;
   const map = (pos: number) => (mapped ? mapped.map(pos) : pos);
   const marked = (set: ReadonlySet<number>) => new Map([...set].map((pos) => [pos, true]));
-  // A number is the same when it shows the same label at the same level.
+  // A number is the same when it shows the same label at the same level, on a first part or not.
   const shown = (numbers: ReadonlyMap<number, ParagraphNumber>) =>
-    new Map([...numbers].map(([pos, { label, level }]) => [pos, `${String(level)} ${label}`]));
+    new Map(
+      [...numbers].map(([pos, { label, level, continued }]) => [
+        pos,
+        `${String(level)} ${continued ? '+' : ''}${label}`,
+      ]),
+    );
   return (
     sameAt(previous.numbers, next.numbers, map) &&
     sameAt(shown(previous.paragraphs), shown(next.paragraphs), map) &&
