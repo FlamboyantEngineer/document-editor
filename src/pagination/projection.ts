@@ -41,6 +41,7 @@ import {
 } from './layout-document.js';
 import { shownBy } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
+import { followDocument } from './layout-source.js';
 import type { LayoutTraceSink } from './layout-trace.js';
 import { awaitReady, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
@@ -304,9 +305,12 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     destroyed: false,
     edits: settleEdits(options, () => settleTyping(session())),
     probe: createTypingProbe(options.element, {
+      // The layout's source follows the typing, so the next layout keeps the blocks the probe laid out.
       pages: () => {
-        const { projection, map, pace } = session();
-        return { projection: projection.doc, map, engine: pace.text?.engine() ?? null };
+        const at = session();
+        at.source = followDocument(at.source, at.canonical.doc);
+        const { projection, map, pace, source } = at;
+        return { projection: projection.doc, map, source, engine: pace.text?.engine() ?? null };
       },
       moved: () => requestLayout(session()),
       schedule: options.schedule,

@@ -5,9 +5,11 @@
 // Nothing drawn is read.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { Transaction } from 'prosemirror-state';
+import type { EditorState, Transaction } from 'prosemirror-state';
 import type { Step } from 'prosemirror-transform';
 import { type ChangedRange, changedRanges, isTextStep } from '../utils/changed-ranges.js';
+import { forcedLinesKey } from './forced-lines.js';
+import { insertedTexts } from './inserted-texts.js';
 import { frameIn } from './layout-triggers.js';
 import type { ProjectionMap } from './projection-map.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -15,10 +17,14 @@ import type { PagesTextEngine } from './text-engine-types.js';
 // A block moved when its height differs from the laid-out one by more than this many pixels.
 const MOVED = 0.5;
 
-/** The pages typing reads: their document, the canonical one by their map, and the engine. */
+/**
+ * The pages typing reads: their document, their map onto the canonical one, the state the pages are
+ * laid out from moved onto the canonical document, and the engine.
+ */
 interface TypedPages {
   readonly projection: ProseMirrorNode;
   readonly map: ProjectionMap;
+  readonly source: EditorState;
   readonly engine: PagesTextEngine | null;
 }
 
@@ -92,13 +98,16 @@ function contentBlockAt(doc: ProseMirrorNode, pos: number) {
 // Whether the canonical block a block of the pages is part of is laid out now at another height
 // than the latest layout gave it, whole, beyond half a pixel: the whole block is compared whether
 // or not it is split, since a split block's parts repeat its caption, header row or edges.
-function heightMoved({ map, engine, laid }: Typed, block: PageBlock): boolean {
+// It is laid out as the next layout lays it out, from the layout's source, which keeps it.
+function heightMoved({ map, source, engine, laid }: Typed, block: PageBlock): boolean {
   const at = map.toCanonical(block.pos + 1, 1);
-  const found = at === null ? null : contentBlockAt(map.canonical, at);
+  const found = at === null ? null : contentBlockAt(source.doc, at);
   const before = found ? laid[found.section]?.[found.index] : undefined;
   if (!found || before === undefined) return true;
-  engine.number(map.canonical);
-  return Math.abs(engine.measureBlock(found.node, found.scope).height - before) > MOVED;
+  engine.number(source.doc);
+  const inserted = insertedTexts(source, [forcedLinesKey]);
+  const now = engine.measureBlock(found.node, found.scope, inserted).height;
+  return Math.abs(now - before) > MOVED;
 }
 
 // Whether a step types or deletes text inside a paragraph that has text before and after it, so it

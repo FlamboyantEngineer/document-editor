@@ -34,7 +34,7 @@ describe('typing in a block split across pages', () => {
     document.body.replaceChildren();
   });
 
-  it('DOCE-PAGINATION-5.17 compares a split block whole with its whole height at the latest layout', () => {
+  it('DOCE-PAGINATION-5.17 compares a split block whole with its whole height at the latest layout, and lays it out once', async () => {
     const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
     const { projection, drain } = mount({
       textEngine: heldEngine(engine),
@@ -50,6 +50,7 @@ describe('typing in a block split across pages', () => {
     });
     expect(split).toBe(true);
     const layouts = projection.stats().layouts;
+    const laid = engine.stats().laid;
     // A letter typed on the quote's second page leaves the quote at its height: no part of it is
     // laid out before the writer pauses.
     edit(projection, (state) => {
@@ -58,6 +59,11 @@ describe('typing in a block split across pages', () => {
     });
     drain();
     expect(projection.stats().layouts).toBe(layouts);
+    // The pause lays the split quote out again, with the quote the probe laid out: once in all.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    drain();
+    expect(projection.stats().layouts).toBe(layouts + 1);
+    expect(engine.stats().laid - laid).toBe(1);
     engine.destroy();
   });
 });
