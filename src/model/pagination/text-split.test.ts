@@ -270,6 +270,23 @@ describe('text splits', () => {
     });
   });
 
+  it('DOCE-PAGINATION-3.3 splits code ending in an empty line at the break before it, never into an empty part', () => {
+    const code = 'A\n\n';
+    const node = documentSchema.node('code_block', { dataId: 'code' }, documentSchema.text(code));
+    const block = {
+      node,
+      height: 30,
+      marginTop: 0,
+      marginBottom: 0,
+      measurement: codeMeasurement(code),
+    };
+    const pages = layoutPages([block], { pageHeight: 22 });
+    const parts = pages.flat().map((part) => part.node);
+    expect(parts.map((part) => part.textContent)).toEqual(['A', '\n']);
+    expect(pages.map((page) => page.map((part) => part.height))).toEqual([[10], [20]]);
+    expect(joinFragments(parts)[0]?.eq(node)).toBe(true);
+  });
+
   it.each(['code_block', 'linked_code_block'])(
     'DOCE-PAGINATION-3.3 DOCE-PAGINATION-3.4 keeps the trailing line break in the last %s fragment',
     (type) => {
