@@ -369,6 +369,49 @@ test.describe('the layout engine on the pages', () => {
     }
   });
 
+  test("DOCE-PAGINATION-11.2 DOCE-PAGINATION-11.9 DOCE-NUMBERING-6.1 draws a numbered paragraph's later part with no number, its lines at the text position", async ({
+    page,
+  }) => {
+    await page.goto('sections.html');
+    await waitForLab(page);
+    const appendix = page.locator('.de-document-editor__content .pm-section').nth(1);
+    await appendix.locator('.pm-page-content > p[data-paragraph-number]').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(' The rows along the wall were planted in spring.'.repeat(120));
+    const later = appendix.locator('.pm-page-content > p[data-split-part-index="1"]');
+    await expect(later).toHaveCount(1);
+    await later.scrollIntoViewIfNeeded();
+    await expect(later).toHaveClass(/de-forced-lines/);
+    await expect(later).toHaveAttribute('data-paragraph-continued', 'true');
+    await expect(async () => {
+      const drawn = await later.evaluate((paragraph) => {
+        const box = paragraph.getBoundingClientRect();
+        const starts = new Map<number, number>();
+        const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+        for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+          for (let at = 0; at < (text.textContent ?? '').length; at += 1) {
+            const range = document.createRange();
+            range.setStart(text, at);
+            range.setEnd(text, at + 1);
+            const rect = range.getBoundingClientRect();
+            if (rect.width === 0) continue;
+            const top = Math.round(rect.top);
+            if (!starts.has(top)) starts.set(top, rect.left - box.left);
+          }
+        }
+        const number = getComputedStyle(paragraph, '::before').content;
+        return { lines: Number(paragraph.dataset.lines), starts: [...starts.values()], number };
+      });
+      expect(drawn.number, 'no number drawn').toBe('none');
+      expect(drawn.starts).toHaveLength(drawn.lines);
+      // Every line starts at the text position, past the number's gutter, as the first part's
+      // later lines do.
+      const [first = 0, ...rest] = drawn.starts;
+      expect(first).toBeGreaterThan(0);
+      for (const start of rest) expect(Math.abs(start - first)).toBeLessThan(1);
+    }).toPass();
+  });
+
   test('DOCE-PAGINATION-11.3 gives no computed lines in the web layout', async ({ page }) => {
     await page.goto('regression.html?document=long-mixed&layout=web');
     await waitForLab(page);
