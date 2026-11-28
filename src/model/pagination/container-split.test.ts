@@ -24,7 +24,6 @@ import { firstRowColumnWidths } from '../schema/object-layout.js';
 import { splitTableFigureWith } from './table-split.js';
 
 const context: SplitContext = {
-  pageIndex: 0,
   pageHeight: 100,
   remainingHeight: 100,
   rules: LAYOUT_RULES,

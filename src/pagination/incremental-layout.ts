@@ -1,7 +1,7 @@
 // Lays a section's blocks out on pages again after a change, reusing what the change cannot reach:
 // the pages before the first changed block, kept as they were, and, once a page after the change
-// starts at the same unchanged block, in the same state, as a page did before, every page from
-// there. A section whose blocks and inputs are all as they were reuses every page.
+// starts at the same unchanged block, in the same state, as a page did before, whatever its index,
+// every page from there, each with the header and footer its new index has. A section whose blocks and inputs are all as they were reuses every page.
 
 import { headingLevel, type LayoutBlock } from '../model/index.js';
 
@@ -114,15 +114,57 @@ function resume(previous: SectionLayout | undefined, blocks: readonly LayoutBloc
   };
 }
 
-// Whether a page about to be laid out starts where an old page did, in the same state, in the
-// blocks the change left alike, so every page from there is the old one.
-function meetsOld(
-  old: PageRecord | undefined,
-  next: { readonly head: readonly LayoutBlock[]; readonly start: number; readonly state: string },
+/** The old pages, and those a page laid out after the change may meet, by where they start. */
+interface OldPages {
+  readonly pages: readonly PageRecord[];
+  readonly starts: ReadonlyMap<number, readonly number[]>;
+}
+
+// The old pages that start at a block the change left alike, whole or with fragments of the alike
+// block before it, by where that block now is, so a page laid out after the change can meet one
+// whatever its index.
+function oldStarts(
+  previous: SectionLayout | undefined,
   place: { readonly shift: number; readonly suffixFrom: number },
-): old is PageRecord {
-  if (!old || next.head.length || old.head.length || next.start < place.suffixFrom) return false;
-  return old.start + place.shift === next.start && old.state === next.state;
+): OldPages {
+  const starts = new Map<number, number[]>();
+  previous?.pages.forEach((old, index) => {
+    const start = old.start + place.shift;
+    const from = old.head.length ? start - 1 : start;
+    if (from >= place.suffixFrom) starts.set(start, [...(starts.get(start) ?? []), index]);
+  });
+  return { pages: previous?.pages ?? [], starts };
+}
+
+// Whether two pages start with the same fragments: the same parts of the same block, which its
+// split gives alike.
+function sameHead(old: readonly LayoutBlock[], next: readonly LayoutBlock[]): boolean {
+  return (
+    old.length === next.length &&
+    old.every((part, index) => {
+      const other = next[index];
+      return other !== undefined && part.height === other.height && part.node.eq(other.node);
+    })
+  );
+}
+
+// The old pages from the one a page about to be laid out meets: one that started at the same
+// block, in the blocks the change left alike, with the same fragments before it, in the same state,
+// and every one from there with the header and footer it would have at its new index, so each is
+// the page a layout from there gives. None when it meets no old page.
+function meetsOld(
+  { pages, starts }: OldPages,
+  next: { readonly head: readonly LayoutBlock[]; readonly start: number; readonly state: string },
+  at: { readonly index: number; readonly geometry: (index: number) => string },
+): readonly PageRecord[] | null {
+  const from = starts.get(next.start)?.find((index) => {
+    const old = pages[index];
+    return old !== undefined && old.state === next.state && sameHead(old.head, next.head);
+  });
+  if (from === undefined) return null;
+  const rest = pages.slice(from);
+  const placed = rest.every((record, offset) => record.geometry === at.geometry(at.index + offset));
+  return placed ? rest : null;
 }
 
 /** Lays a section out, reusing the pages of its previous layout that the change leaves alike. */
@@ -143,13 +185,13 @@ export function layoutSectionIncrementally(section: IncrementalSection): Increme
   const place = resume(previous, blocks);
   for (const record of place.kept) reuse(record, record.start);
   const { queue } = place;
+  const old = oldStarts(previous, place);
   let laidOut = 0;
   // Even a section without body blocks has a sheet with its header and footer.
   while (queue.length || records.length === 0) {
     const next = { ...queueStart(queue, blocks), state: section.state() };
-    const old = previous?.pages[records.length];
-    if (meetsOld(old, next, place)) {
-      const rest = previous?.pages.slice(records.length) ?? [];
+    const rest = meetsOld(old, next, { index: records.length, geometry });
+    if (rest) {
       for (const record of rest) reuse(record, record.start + place.shift);
       break;
     }

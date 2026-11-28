@@ -10,6 +10,7 @@ import { splitHeldWith } from './held-split.js';
 import { imageBox } from './image-box.js';
 import { splitLayoutSection } from './layout-section-split.js';
 import { signatureSize } from './signature-size.js';
+import { searchSplit } from './split-search.js';
 import { splitTableFigureWith, splitTableWith } from './table-split.js';
 import { splitParagraph } from './text-split.js';
 
@@ -26,9 +27,11 @@ export interface LayoutBlock {
   readonly measurement?: unknown;
 }
 
-/** Where a block that does not fit is being split. */
+/**
+ * Where a block that does not fit is being split: the page only through its heights, so a page
+ * reused at another index keeps the splits made for it (DOCE-PAGINATION-5.5).
+ */
 export interface SplitContext {
-  readonly pageIndex: number;
   /** The page's content height. */
   readonly pageHeight: number;
   /** The height left on the page below the blocks already on it. */
@@ -228,7 +231,18 @@ interface PageFill {
   readonly index: number;
   readonly options: PageLayoutOptions;
   readonly rules: LayoutRules;
+  /**
+   * The split last made on the page, with the blocks above it, so the block a heading keeps with,
+   * split to test it, is not split again to place it.
+   */
+  readonly tested: {
+    split?: { block: LayoutBlock; above: LayoutBlock[]; parts: SplitBlock | null };
+  };
 }
+
+// Whether two lists hold the same blocks, in order.
+const sameBlocks = (one: readonly LayoutBlock[], other: readonly LayoutBlock[]) =>
+  one.length === other.length && one.every((block, index) => block === other[index]);
 
 function gapBefore(page: PageFill, block: LayoutBlock): number {
   const last = page.blocks.at(-1);
@@ -260,7 +274,6 @@ function fittingHeight(remaining: number): number {
 
 function splitContext(page: PageFill, pageHeight: number, remaining: number): SplitContext {
   return {
-    pageIndex: page.index,
     pageHeight,
     remainingHeight: remaining,
     rules: page.rules,
@@ -268,39 +281,32 @@ function splitContext(page: PageFill, pageHeight: number, remaining: number): Sp
   };
 }
 
-// The most splits a block is tried at before its fitting head is taken (DOCE-PAGINATION-2.7).
-const SPLIT_TRIES = 12;
-
 // A block split to the room its head leaves itself: the page's height is asked for the head that
 // would be on it, not the whole block, so the footnotes of its tail take no room here
 // (DOCE-PAGINATION-2.7). Split at the room the page has with none of the block's footnotes; while
-// the head's own footnotes leave it too little, split at what they leave, and between a height
-// whose head fits and one whose head does not, look for the tallest head that fits. Null when the
-// block does not split at the page's room.
+// the head's own footnotes leave it too little, split at what they leave, and otherwise look for
+// the tallest head that fits between the heights known to give none. Null when the block does not
+// split at the page's room.
 function splitToRoom(page: PageFill, block: LayoutBlock): SplitBlock | null {
+  // The block a heading keeps with was split to test it with the same blocks above it.
+  const known = page.tested.split;
+  if (known?.block === block && sameBlocks(known.above, page.blocks)) return known.parts;
+  const parts = splitToFit(page, block);
+  page.tested.split = { block, above: [...page.blocks], parts };
+  return parts;
+}
+
+// The split itself, as above.
+function splitToFit(page: PageFill, block: LayoutBlock): SplitBlock | null {
   const split = ruleFor(page.rules, block.node).split;
   const open = remainingHeight(page, [block], []);
   const context = splitContext(page, open.pageHeight, open.remaining);
-  const roomFor = (head: LayoutBlock) =>
-    fittingHeight(remainingHeight(page, [block], [head]).remaining);
-  const at = (height: number) => (height > 0 ? (split?.(block, height, context) ?? null) : null);
-  const withEveryNote = () => at(fittingHeight(remainingHeight(page, [block]).remaining));
-  let fitting = fittingHeight(open.remaining);
-  let parts = at(fitting);
-  if (!parts) return withEveryNote();
-  if (parts.head.height <= roomFor(parts.head)) return parts;
-  let tooTall = fitting;
-  let best: SplitBlock | null = null;
-  for (let count = 1; count < SPLIT_TRIES && parts; count += 1) {
-    const height = best ? (fitting + tooTall) / 2 : Math.min(roomFor(parts.head), tooTall - 1);
-    if (tooTall - height < 1) break;
-    parts = at(height);
-    if (parts && parts.head.height <= roomFor(parts.head)) {
-      best = parts;
-      fitting = height;
-    } else tooTall = height;
-  }
-  return best ?? withEveryNote();
+  return searchSplit({
+    top: fittingHeight(open.remaining),
+    everyNote: fittingHeight(remainingHeight(page, [block]).remaining),
+    at: (height) => (height > 0 ? (split?.(block, height, context) ?? null) : null),
+    roomFor: (head) => fittingHeight(remainingHeight(page, [block], [head]).remaining),
+  });
 }
 
 // Whether the block a heading keeps with leaves no lead below the headings: it neither fits whole
@@ -373,6 +379,7 @@ export function layoutNextPage(
     index: pageIndex,
     options,
     rules: options.rules ?? LAYOUT_RULES,
+    tested: {},
   };
   while (queue.length && !pageEndsBefore(page, queue)) {
     if (!placeNext(page, queue)) break;

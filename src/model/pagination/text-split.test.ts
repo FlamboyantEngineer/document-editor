@@ -232,7 +232,7 @@ describe('text splits', () => {
       },
     };
     const block = { node, height: 96, marginTop: 0, marginBottom: 0, measurement };
-    const empty = { pageIndex: 0, pageHeight: 40, remainingHeight: 40, rules: {}, context: null };
+    const empty = { pageHeight: 40, remainingHeight: 40, rules: {}, context: null };
     const split = splitCode(block, 38, empty);
     expect(texts([split?.head.node, split?.tail[0]?.node])).toEqual([
       'x'.repeat(24),

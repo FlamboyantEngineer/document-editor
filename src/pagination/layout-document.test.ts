@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { footnoteState, note, paragraph as stored } from '../../test/footnote-fixtures.js';
+import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
+  projectDocument,
   readDocumentFile,
   resolveTemplateFile,
   setPageRegions,
@@ -403,6 +405,59 @@ describe('blocks the engine cannot lay out', () => {
   });
 });
 
+// A small seeded generator, so a failing case can be run again.
+function random(seed: number) {
+  let value = seed;
+  return () => {
+    value = (value * 1103515245 + 12345) % 2147483648;
+    return value / 2147483648;
+  };
+}
+
+describe('pages after an edit that adds a page', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-5.5 reuses the later pages once one starts where an old page did, whatever its index', () => {
+    const lengths = random(5);
+    const words = (count: number) => Array.from({ length: count }, () => 'word').join(' ');
+    // A page break after every fortieth paragraph, where the pages after an edit start again
+    // where they did.
+    const content = Array.from({ length: 400 }, (_, index): StoredNode[] => [
+      line(text(words(10 + Math.floor(lengths() * 80)))),
+      ...(index % 40 === 39 ? [{ type: 'pageBreak' }] : []),
+    ]).flat();
+    const { doc } = readDocumentFile({ formatVersion: 1, sections: [{ content }] }, documentSchema);
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const memory = createLayoutMemory();
+    const layout = (state: EditorState) => {
+      const sections: SectionReport[] = [];
+      layoutDocument(state, {
+        pageHeight: 12 * LINE,
+        engine,
+        memory,
+        onSection: (section) => sections.push(section),
+      });
+      return sections[0];
+    };
+    const state = EditorState.create({ doc });
+    const first = layout(state);
+    let at = -1;
+    let seen = 0;
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'paragraph' && (seen += 1) === 10) at = pos + node.nodeSize - 1;
+      return at < 0;
+    });
+    // A page's worth of words more in the tenth paragraph: the pages up to the next page break are
+    // laid out again, and none after it.
+    const edited = layout(state.apply(state.tr.insertText(` ${words(600)}`, at)));
+    expect(edited?.pages).toBeGreaterThan(first?.pages ?? 0);
+    expect(edited?.pagesLaidOut).toBeLessThanOrEqual(8);
+    engine.destroy();
+  });
+});
+
 describe('footnote room of a split paragraph', () => {
   beforeEach(() => {
     installFakeCanvas();
@@ -513,5 +568,47 @@ describe('code longer than a page', () => {
     expect(codes.map((each) => each?.textContent).join('')).toBe(code);
     expect(codes.slice(1).every((each) => each?.attrs.codeLineContinued === true)).toBe(true);
     expect(codes.every((each) => each?.attrs.codeLineStart === 1)).toBe(true);
+  });
+});
+
+describe('footnotes a markup hides', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  const inserted = (node: StoredNode): StoredNode => ({
+    ...node,
+    marks: [{ type: 'insertion', attrs: { id: 's0000001', author: 'other' } }],
+  });
+
+  // The footnote room of each page, laid out in a markup, and the entries the pages hold.
+  function footnotesIn(markup: SuggestionMarkup) {
+    const state = footnoteState([stored(text('Cited '), inserted(note('a', 'A suggested note.')))]);
+    const paged = EditorState.create({
+      doc: setPageRegions(new Transform(state.doc), BASE_TEMPLATE).doc,
+      plugins: state.plugins,
+    });
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE, markup: () => markup });
+    const pages: PageMetric[] = [];
+    const sections = layoutDocument(paged, {
+      pageHeight: 300,
+      engine,
+      onPage: (page) => pages.push(page),
+    });
+    const hidden = engine.hiddenSuggestion?.() ?? null;
+    const projected = projectDocument(paged.doc, sections, { hidden });
+    const entries: string[] = [];
+    projected.descendants((node) => {
+      if (node.type.name === 'footnote_entry') entries.push(String(node.attrs.footnoteId));
+      return true;
+    });
+    engine.destroy();
+    return { room: pages.map((page) => page.footnotes > 0), entries };
+  }
+
+  it('DOCE-PAGINATION-11.12 leaves no room and no entry for a footnote cited only in a suggestion the markup hides', () => {
+    expect(footnotesIn('all')).toEqual({ room: [true], entries: ['a'] });
+    expect(footnotesIn('final')).toEqual({ room: [true], entries: ['a'] });
+    expect(footnotesIn('original')).toEqual({ room: [false], entries: [] });
   });
 });
