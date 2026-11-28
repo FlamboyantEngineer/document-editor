@@ -23,11 +23,15 @@ const attributeOf = (tag: string, name: string) =>
     .find((value) => value !== undefined) ?? '';
 
 const isDataUri = (src: string) => /^data:image\//i.test(src);
+
+// Whether a tag is an image of math carrying its LaTeX, which is pasted as math, not uploaded.
+const isMathTag = (tag: string) => attributeOf(tag, 'data-latex').trim() !== '';
 const isLocalFile = (src: string) => /^file:/i.test(src);
 
 /** Whether pasted HTML holds an image whose bytes come with the paste. */
 export function hasPastedImages(html: string): boolean {
   return [...html.matchAll(imageTag)].some(([tag]) => {
+    if (isMathTag(tag)) return false;
     const src = attributeOf(tag, 'src');
     return isDataUri(src) || isLocalFile(src);
   });
@@ -38,7 +42,7 @@ export function hasPastedImages(html: string): boolean {
  * image is copied), which the document's parse rules read back as math rather than a figure.
  */
 export function hasPastedMath(html: string): boolean {
-  return [...html.matchAll(imageTag)].some(([tag]) => attributeOf(tag, 'data-latex').trim() !== '');
+  return [...html.matchAll(imageTag)].some(([tag]) => isMathTag(tag));
 }
 
 /**
@@ -124,6 +128,7 @@ export function pastedImages(html: string, rtf: string): PastedImage[] {
   const pictures = rtfPictures(rtf);
   const images: PastedImage[] = [];
   for (const [tag] of html.matchAll(imageTag)) {
+    if (isMathTag(tag)) continue;
     const src = attributeOf(tag, 'src');
     const alt = attributeOf(tag, 'alt');
     if (isDataUri(src)) images.push({ tag, alt, file: decodeDataUri(src, images.length) });
