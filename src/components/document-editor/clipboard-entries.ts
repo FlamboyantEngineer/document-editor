@@ -13,7 +13,7 @@ import { type FigurePasteOptions, type PastedContent, pasteImages } from './figu
 interface ClipboardEntriesOptions {
   readonly labels: DocumentEditorLabels;
   readonly editable: boolean;
-  /** Uploads pasted images, while the host stores assets. */
+  /** Uploads pasted images while the host stores assets, and sizes images at addresses. */
   readonly images?: FigurePasteOptions | null | undefined;
   readonly isClipboardCurrent?: (() => boolean) | undefined;
 }
