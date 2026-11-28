@@ -485,6 +485,26 @@ describe('holdTextEngine', () => {
     holder.destroy();
   });
 
+  it('DOCE-PAGINATION-12.13 moves its version when the engine lays provisional math out again, and never back', async () => {
+    const holder = holdTextEngine({
+      setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
+      changed: () => undefined,
+    });
+    await holder.loaded;
+    const engine = holder.engine();
+    if (!engine) throw new Error('no engine');
+    let atoms = 0;
+    Object.assign(engine, { atomsVersion: () => atoms });
+    const version = holder.version();
+    atoms = 1;
+    expect(holder.version()).toBe(version + 1);
+    // An engine made again starts its own count; the holder's version still only moves on.
+    holder.remeasure();
+    expect(holder.engine()).not.toBe(engine);
+    expect(holder.version()).toBeGreaterThan(version + 1);
+    holder.destroy();
+  });
+
   it('DOCE-PAGINATION-10.7 numbers an engine made again with the document the last one was numbered with', async () => {
     const holder = holdTextEngine({
       setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
