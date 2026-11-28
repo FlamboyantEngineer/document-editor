@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
+import { isLoadingFaces } from '../document/font-registry.js';
 import type {
   PagesLayout,
   PagesLayoutBlock,
@@ -159,12 +160,12 @@ function drawnObjects(state: EditorState, engine: PagesTextEngine): PagesLayoutO
 }
 
 /**
- * Whether pages in a layout state are settled for good: laid out, and with no font loading in the
- * window they measure in, which may move their lines.
+ * Whether pages in a layout state are settled for good: laid out, and with none of the served faces
+ * they draw with loading in their document. A font the host page loads for itself, which the pages
+ * neither measure nor draw with, does not hold them.
  */
 export function layoutSettled(state: LayoutState, measureIn: HTMLElement): boolean {
-  const fonts = measureIn.ownerDocument.fonts as FontFaceSet | undefined;
-  return state === 'settled' && fonts?.status !== 'loading';
+  return state === 'settled' && !isLoadingFaces(measureIn.ownerDocument);
 }
 
 // A layout's inputs and their one key.
