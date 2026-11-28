@@ -43,7 +43,6 @@ import {
   type LayoutState,
   pageDebugKey,
   type PageDebugParts,
-  type TextLayoutMode,
 } from '../../pagination/index.js';
 import type { DocumentEditorDebug } from './document-editor.js';
 import { type EditorContentsOptions, lackedPlugins } from './editor-contents.js';
@@ -133,8 +132,6 @@ export interface DocumentLayoutOptions {
   readonly fragmentRules?: FragmentRules | undefined;
   /** The host's font faces, which the pages wait for (DOCE-PAGINATION-5.6). */
   readonly fonts?: FontsAdapter | undefined;
-  /** How the pages lay text out: measured in the DOM, or by the layout engine (DOCE-PAGINATION-11). */
-  readonly textLayout?: TextLayoutMode | undefined;
   /** Edits the pages' headers and footers in place, handing each edit here. */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /** Edits a template's section content and placeholders in place, handing each edit here. */
@@ -258,7 +255,7 @@ export function useDocumentLayout(
   const footnoteNumbering = resolveFootnoteSettings(template, null).numbering ?? 'document';
   // The layout engine lays the pages' text out only with the fonts the host serves.
   const { text } = options;
-  const { textLayout, fonts: servedFonts } = text;
+  const { fonts: servedFonts } = text;
   const latest = useRef(options);
   useEffect(() => {
     latest.current = options;
@@ -297,11 +294,11 @@ export function useDocumentLayout(
       return undefined;
     }
     return startPaging(element, latest, {
-      settings: { footnoteNumbering, textLayout, fonts: servedFonts, markup: markup.now },
+      settings: { footnoteNumbering, fonts: servedFonts, markup: markup.now },
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, root, repeatHeaders, footnoteNumbering, textLayout, servedFonts, schema, markup]);
+  }, [layout, root, repeatHeaders, footnoteNumbering, servedFonts, schema, markup]);
 
   useLayoutPlugins(options, ownPlugins);
 

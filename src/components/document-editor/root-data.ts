@@ -20,19 +20,22 @@ function debugData(props: DocumentEditorProps) {
   };
 }
 
+// Only the pages lay text out with the engine, with the fonts the host serves; the web layout keeps
+// the browser's lines, and the reason says why the pages could not be laid out.
+const textLayoutOf = (layout: 'page' | 'web', reason: PagesFontsState['reason']) =>
+  layout === 'page' && !reason ? 'pretext' : 'dom';
+
 /** The editor root's hook values. */
 export function rootData(
   props: DocumentEditorProps,
   layoutState: LayoutState,
-  text: Pick<PagesFontsState, 'textLayout' | 'reason'>,
+  text: Pick<PagesFontsState, 'reason'>,
 ) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
   return {
     markup: props.markup ?? 'all',
     layout,
-    // Only the pages lay text out with the engine; the web layout keeps the browser's lines.
-    // and only with the fonts the host serves; the reason says why the browser lays them out.
-    textLayout: layout === 'page' ? text.textLayout : 'dom',
+    textLayout: textLayoutOf(layout, text.reason),
     textLayoutReason: text.reason ?? undefined,
     webWidth: props.webWidth ?? 'fill',
     mode: editable ? 'authoring' : 'reading',

@@ -19,13 +19,11 @@ import {
   type ServedFonts,
   servedTemplate,
   templateFontFamilies,
-  type TextLayoutMode,
 } from '../../pagination/index.js';
 import { useReportedFonts } from './banners.js';
 
-/** The pages' text layout, the served fonts it measures with, and why it is the browser's. */
+/** The served fonts the pages are laid out with, or why they cannot be. */
 export interface PagesFontsState {
-  readonly textLayout: TextLayoutMode;
   /** Why the pages cannot be laid out, so the document shows in the web layout instead. */
   readonly reason: BrowserLayoutReason | null;
   /**
@@ -142,7 +140,6 @@ function usePagesFonts(
       );
     });
   }, [served, props.template]);
-  const textLayout: TextLayoutMode = asked && !reason ? 'pretext' : 'dom';
   const shown = asked ? reason : null;
   const shownTemplate = useMemo(
     () =>
@@ -159,8 +156,8 @@ function usePagesFonts(
   }, [fonts]);
   const drawnFiles = useCallback(() => drawn.fonts?.drawnFiles() ?? null, [drawn]);
   const text = useMemo(
-    () => ({ textLayout, reason: shown, fonts: read, drawnFiles, unserved }),
-    [textLayout, shown, read, drawnFiles, unserved],
+    () => ({ reason: shown, fonts: read, drawnFiles, unserved }),
+    [shown, read, drawnFiles, unserved],
   );
   return { text, template };
 }
