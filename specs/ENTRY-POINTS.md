@@ -71,10 +71,10 @@ Verification: `src/components/document-editor/lazy-surfaces.test.ts`
 
 ### DOCE-ENTRY-2.4 - A dialog that fails to load
 
-A dialog of DOCE-ENTRY-2.2 whose code fails to load, as a dropped connection may make it, shall close and tell the writer through the host's `feedback` (`dialogUnavailable`), and load again the next time it opens rather than failing for good (`lazyDialog`).
+A dialog of DOCE-ENTRY-2.2 whose code fails to load, as a dropped connection may make it, shall close and tell the writer through the host's `feedback` (`dialogUnavailable`), and load again the next time it opens rather than failing for good (`lazyDialog`). The field that edits math in place (DOCE-OBJECTS-1.8) shall do the same: one whose code fails to load cancels the edit, leaving the math as it is, tells the writer (`mathFieldUnavailable`), and loads again the next time math is edited.
 
-Implementation: `src/components/document-editor/lazy-dialog.tsx`, `src/components/document-editor/object-dialogs.tsx`
-Verification: `src/components/document-editor/lazy-dialog.test.tsx`
+Implementation: `src/components/document-editor/lazy-dialog.tsx`, `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/object-editors.tsx`
+Verification: `src/components/document-editor/lazy-dialog.test.tsx`, `src/components/document-editor/object-editors.test.tsx`
 
 ### DOCE-ENTRY-2.5 - The template workspace's surfaces
 

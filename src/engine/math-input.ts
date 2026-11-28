@@ -216,15 +216,27 @@ function editClicked(key: PluginKey<MathInputState>, view: EditorView, event: Mo
   return true;
 }
 
+const isEditing = (key: PluginKey<MathInputState>, state: EditorState) =>
+  mathEditingOf(key, state) !== null;
+
+// The keys that would change the math edited in place were the view to take them.
+const EDITING_KEYS = new Set(['Backspace', 'Delete', 'Enter']);
+
 /** The keys and input rules of math: `$x$`, `$$` and Enter, Mod-Alt-L, and Enter on math. */
 export function mathInputProps(key: PluginKey<MathInputState>): EditorProps {
   const enter = enterDisplayMath(key);
   const edit = editMath(key);
   const write = writeMath(key);
   return {
-    handleTextInput: (...input) => typeInlineMath(input),
+    // While math is edited in place its field takes the keys; until the field has loaded, the
+    // math they would type over or delete stays as it is (DOCE-OBJECTS-1.8).
+    handleTextInput: (...input) => isEditing(key, input[0].state) || typeInlineMath(input),
     handleKeyDown(view, event) {
       if (event.isComposing) return false;
+      if (isEditing(key, view.state) && EDITING_KEYS.has(event.key)) {
+        event.preventDefault();
+        return true;
+      }
       const mod = event.ctrlKey || event.metaKey;
       const command =
         event.key === 'Enter' && !mod && !event.altKey && !event.shiftKey

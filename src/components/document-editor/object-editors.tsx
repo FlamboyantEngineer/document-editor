@@ -6,32 +6,56 @@
 
 import { useResizeObserver } from '@flamboyantengineer/ui-components/core';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
+import { type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
+  type ComponentProps,
   type CSSProperties,
   type FocusEvent,
-  lazy,
   Suspense,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import { cancelMathEditing, commitMathEditing, mathEditingAt } from '../../engine/index.js';
+import type { FeedbackAdapter } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { SURFACE_LOADERS } from './lazy-surfaces.js';
+import { DialogLoadFailed, lazyDialog } from './lazy-dialog.js';
+import { preloadEditorSurfaces, SURFACE_LOADERS } from './lazy-surfaces.js';
+
+type MathFieldProps = ComponentProps<
+  Awaited<ReturnType<(typeof SURFACE_LOADERS)['math']>>['MathField']
+>;
 
 // The field loads the first time a writer edits an equation, with the code editor it is built on,
-// so the editor's own code does not carry them (DOCE-ENTRY-2.2).
-const MathField = /* @__PURE__ */ lazy(async () => ({
-  default: (await SURFACE_LOADERS.math()).MathField,
-}));
+// so the editor's own code does not carry them (DOCE-ENTRY-2.2). One that fails to load cancels
+// the edit, leaving the math as it is, and loads again the next time (DOCE-ENTRY-2.4).
+const MathField = /* @__PURE__ */ lazyDialog(async () => {
+  const { MathField: Field } = await SURFACE_LOADERS.math();
+  return function LoadedMathField({ onClose, ...props }: MathFieldProps & { onClose: () => void }) {
+    return <Field {...props} onCancel={onClose} />;
+  };
+});
+
+// Starts loading the field once math is selected, the step before it is edited, so it has loaded
+// by the time the writer edits it.
+function useFieldWarmed(state: EditorState) {
+  const { selection } = state;
+  const selectsMath =
+    selection instanceof NodeSelection && selection.node.type.name.startsWith('math_');
+  useEffect(() => {
+    if (selectsMath) void preloadEditorSurfaces(['math']);
+  }, [selectsMath]);
+}
 
 interface ObjectEditorsProps {
   view: EditorView | null;
   state: EditorState;
   labels: DocumentEditorLabels;
+  /** The host's feedback, which tells the writer when the field could not load. */
+  host: { readonly feedback?: FeedbackAdapter | undefined };
 }
 
 /** The math edited in place, with its position. */
@@ -119,7 +143,8 @@ function useEditKey(edited: Edited | null): string | null {
 }
 
 /** The field that edits the math the engine is editing in place. */
-export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
+export function ObjectEditors({ view, state, labels, host }: ObjectEditorsProps) {
+  useFieldWarmed(state);
   const math = mathEditingAt(state);
   const edited: Edited | null = math;
   const { setLayer, box } = useEditedBox(view, edited, state);
@@ -139,6 +164,7 @@ export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
     command(view.state, view.dispatch);
     view.focus();
   };
+  const failed = () => host.feedback?.notify({ tone: 'error', text: labels.mathFieldUnavailable });
   const onBlur = (event: FocusEvent<HTMLDivElement>) => {
     if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
     finish(draft.current);
@@ -151,20 +177,22 @@ export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
           {...hooks.slot('field', { kind: 'math' })}
           style={boxProperties(box)}
         >
-          <Suspense fallback={null}>
-            <MathField
-              label={labels.mathSource}
-              labelLayout="control-only"
-              display={math.node.type.name === 'math_display' ? 'display' : 'inline'}
-              defaultValue={math.node.textContent}
-              autoFocus
-              onChange={(value) => {
-                draft.current = value;
-              }}
-              onSubmit={finish}
-              onCancel={() => finish(null)}
-            />
-          </Suspense>
+          <DialogLoadFailed value={failed}>
+            <Suspense fallback={null}>
+              <MathField
+                label={labels.mathSource}
+                labelLayout="control-only"
+                display={math.node.type.name === 'math_display' ? 'display' : 'inline'}
+                defaultValue={math.node.textContent}
+                autoFocus
+                onChange={(value) => {
+                  draft.current = value;
+                }}
+                onSubmit={finish}
+                onClose={() => finish(null)}
+              />
+            </Suspense>
+          </DialogLoadFailed>
         </div>
       ) : null}
     </div>

@@ -12,6 +12,8 @@ export interface MathLabels {
   readonly displayMath: string;
   readonly editMath: string;
   readonly mathSource: string;
+  /** Tells the writer the field that edits math in place could not load. */
+  readonly mathFieldUnavailable: string;
   /** Names the math dialog's cheat sheet of common math. */
   readonly mathCheatSheet: string;
   /** What each example of the cheat sheet is. */
@@ -30,6 +32,7 @@ export const DEFAULT_MATH_LABELS: MathLabels = {
   displayMath: 'Display math…',
   editMath: 'Edit math…',
   mathSource: 'LaTeX',
+  mathFieldUnavailable: 'The math could not be edited. Try again.',
   mathCheatSheet: 'Common math',
   mathExamples: {
     fraction: 'Fraction',
