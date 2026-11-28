@@ -4,8 +4,6 @@
 // such as pages filled short of their room, shows as different page boundaries.
 import { type Block, blockId } from './prediction.js';
 
-/** The room each page keeps free at its foot (`PAGE_SAFETY_MARGIN_PX`). */
-const SAFETY = 2;
 // A page's used height is a sum of fractional CSS pixels, kept at a thousandth of a pixel so it
 // stays stable, as the layout rules keep it.
 const thousandth = (value: number) => Math.round(value * 1000) / 1000;
@@ -49,11 +47,11 @@ function stacked(parts: readonly Part[]) {
   );
 }
 
-// The room left for `next` below a page's parts, the gap before it and the foot's safety margin.
+// The room left for `next` below a page's parts and the gap before it.
 function free(page: readonly Part[], next: Part, room: number) {
   const last = page.at(-1);
   const gap = last ? Math.max(after(last), before(next), 0) : 0;
-  return room - stacked(page) - gap - SAFETY;
+  return room - stacked(page) - gap;
 }
 
 // How many of a paragraph part's lines fit `space`, keeping two on each side; 0 when none can.
@@ -82,7 +80,7 @@ function headingGroup(queue: readonly Part[]): Part[] {
 function headingMoves(page: readonly Part[], queue: readonly Part[], room: number) {
   if (!page.length || level(queue[0]) === null) return false;
   const group = headingGroup(queue);
-  const fits = (parts: readonly Part[]) => stacked([...page, ...parts]) <= room - SAFETY;
+  const fits = (parts: readonly Part[]) => stacked([...page, ...parts]) <= room;
   if (fits(group)) return false;
   const lead = group.at(-1);
   if (!lead || level(lead) !== null) return true;

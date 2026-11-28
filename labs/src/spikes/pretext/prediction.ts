@@ -6,7 +6,6 @@ import {
   type LayoutBlock,
   layoutPages,
   type LayoutRules,
-  PAGE_SAFETY_MARGIN_PX,
 } from '../../../../src/model/pagination/page-layout.js';
 import { contentBlocks, requireValue } from './fixtures.js';
 import { labLanguage, labMeasurer } from './fonts.js';
@@ -329,10 +328,7 @@ export function measureDocument(doc: Node, width: number, cache: PreparationCach
     predictor.block(node, String(index), width),
   );
   for (const block of blocks) {
-    if (
-      block.node.type.name !== 'paragraph' &&
-      block.height > contentHeight - PAGE_SAFETY_MARGIN_PX
-    ) {
+    if (block.node.type.name !== 'paragraph' && block.height > contentHeight) {
       predictor.issue(
         block.node,
         block.path,

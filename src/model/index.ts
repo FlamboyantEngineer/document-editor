@@ -104,7 +104,6 @@ export {
   LAYOUT_RULES,
   layoutNextPage,
   layoutPages,
-  PAGE_SAFETY_MARGIN_PX,
   stackedHeight,
 } from './pagination/page-layout.js';
 export type { ProjectionOptions, SectionPages } from './pagination/page-projection.js';

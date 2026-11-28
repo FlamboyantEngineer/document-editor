@@ -85,12 +85,19 @@ const splitting: LayoutRules = {
 describe('page layout', () => {
   it('DOCE-PAGINATION-2.1 fills each page in order with the blocks that fit', () => {
     const blocks = [100, 100, 100, 100].map((height) => paragraph(height));
-    expect(heights(layoutPages(blocks, { pageHeight: 302 }))).toEqual([[100, 100, 100], [100]]);
-    expect(heights(layoutPages(blocks, { pageHeight: 301 }))).toEqual([
+    expect(heights(layoutPages(blocks, { pageHeight: 300 }))).toEqual([[100, 100, 100], [100]]);
+    expect(heights(layoutPages(blocks, { pageHeight: 299.99 }))).toEqual([
       [100, 100],
       [100, 100],
     ]);
     expect(layoutPages([], { pageHeight: 300 })).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-2.1 keeps blocks that fill the page exactly, or with a pixel to spare', () => {
+    const exact = [100.25, 99.5, 100.25].map((height) => paragraph(height));
+    expect(heights(layoutPages(exact, { pageHeight: 300 }))).toEqual([[100.25, 99.5, 100.25]]);
+    const spare = [100, 99, 100].map((height) => paragraph(height));
+    expect(heights(layoutPages(spare, { pageHeight: 300 }))).toEqual([[100, 99, 100]]);
   });
 
   it('DOCE-PAGINATION-14.1 moves a block its rule sizes whole, never splitting it', () => {
@@ -98,7 +105,7 @@ describe('page layout', () => {
       ...splitting,
       paragraph: { ...splitting.paragraph, size: () => ({ height: 120 }) },
     };
-    const pages = layoutPages([paragraph(50), paragraph(120)], { pageHeight: 102, rules: sized });
+    const pages = layoutPages([paragraph(50), paragraph(120)], { pageHeight: 100, rules: sized });
     expect(heights(pages)).toEqual([[50], [120]]);
   });
 
@@ -119,11 +126,11 @@ describe('page layout', () => {
 
   it('DOCE-PAGINATION-2.3 splits a block that does not fit, and keeps an unsplittable one whole', () => {
     const pages = layoutPages([paragraph(50), paragraph(120)], {
-      pageHeight: 102,
+      pageHeight: 100,
       rules: splitting,
     });
     expect(heights(pages)).toEqual([[50, 50], [70]]);
-    const tall = layoutPages([paragraph(50), block('table_figure', 500)], { pageHeight: 102 });
+    const tall = layoutPages([paragraph(50), block('table_figure', 500)], { pageHeight: 100 });
     expect(heights(tall)).toEqual([[50], [500]]);
   });
 
@@ -140,7 +147,7 @@ describe('page layout', () => {
       },
     };
     const lead = [paragraph(60), heading(1), paragraph(100)];
-    expect(heights(layoutPages(lead, { pageHeight: 102, rules: counting }))).toEqual([
+    expect(heights(layoutPages(lead, { pageHeight: 100, rules: counting }))).toEqual([
       [60, 20, 20],
       [80],
     ]);
@@ -159,18 +166,18 @@ describe('page layout', () => {
 
   it('DOCE-PAGINATION-2.5 keeps a heading on the page of what it heads', () => {
     const blocks = [paragraph(60), heading(1), heading(2), block('table_figure', 40)];
-    expect(heights(layoutPages(blocks, { pageHeight: 102 }))).toEqual([[60], [20, 20, 40]]);
+    expect(heights(layoutPages(blocks, { pageHeight: 100 }))).toEqual([[60], [20, 20, 40]]);
     const sibling = [paragraph(60), heading(2), heading(1), block('table_figure', 40)];
-    expect(heights(layoutPages(sibling, { pageHeight: 102 }))).toEqual([
+    expect(heights(layoutPages(sibling, { pageHeight: 100 }))).toEqual([
       [60, 20],
       [20, 40],
     ]);
     const lead = [paragraph(60), heading(1), paragraph(100)];
-    expect(heights(layoutPages(lead, { pageHeight: 102, rules: splitting }))).toEqual([
+    expect(heights(layoutPages(lead, { pageHeight: 100, rules: splitting }))).toEqual([
       [60, 20, 20],
       [80],
     ]);
-    expect(heights(layoutPages(lead, { pageHeight: 90, rules: splitting }))).toEqual([
+    expect(heights(layoutPages(lead, { pageHeight: 88, rules: splitting }))).toEqual([
       [60],
       [20, 68],
       [32],
@@ -179,7 +186,7 @@ describe('page layout', () => {
 
   it('DOCE-PAGINATION-2.5 moves a heading with the block embed it heads', () => {
     const blocks = [paragraph(60), heading(1), block('embed', 40)];
-    expect(heights(layoutPages(blocks, { pageHeight: 102 }))).toEqual([[60], [20, 40]]);
+    expect(heights(layoutPages(blocks, { pageHeight: 100 }))).toEqual([[60], [20, 40]]);
   });
 
   it('DOCE-PAGINATION-2.5 moves a heading with a three-line paragraph that cannot split under it', () => {
@@ -189,11 +196,11 @@ describe('page layout', () => {
       node: documentSchema.node('paragraph', null, [text]),
       measurement: lines(),
     };
-    expect(heights(layoutPages([paragraph(60), heading(1), short], { pageHeight: 102 }))).toEqual([
+    expect(heights(layoutPages([paragraph(60), heading(1), short], { pageHeight: 100 }))).toEqual([
       [60],
       [20, 30],
     ]);
-    expect(heights(layoutPages([paragraph(50), heading(1), short], { pageHeight: 102 }))).toEqual([
+    expect(heights(layoutPages([paragraph(50), heading(1), short], { pageHeight: 100 }))).toEqual([
       [50, 20, 30],
     ]);
   });
@@ -228,7 +235,7 @@ describe('page layout', () => {
   it('DOCE-PAGINATION-2.6 asks the page height for the blocks that would be on the page', () => {
     const noted = paragraph(40, { measurement: 'footnote' });
     const pageHeight = (blocks: readonly LayoutBlock[]) =>
-      blocks.some((entry) => entry.measurement === 'footnote') ? 62 : 102;
+      blocks.some((entry) => entry.measurement === 'footnote') ? 60 : 100;
     expect(heights(layoutPages([paragraph(40), noted, paragraph(40)], { pageHeight }))).toEqual([
       [40],
       [40],
@@ -238,7 +245,7 @@ describe('page layout', () => {
 
   describe('DOCE-PAGINATION-2.7 a split sized by the footnotes its head holds', () => {
     // A paragraph whose footnote markers sit at heights in it, split at whole ten-pixel lines; a
-    // page of 200 leaves room for the entries of the markers it holds.
+    // page of 198 leaves room for the entries of the markers it holds.
     interface Note {
       readonly at: number;
       readonly height: number;
@@ -270,7 +277,7 @@ describe('page layout', () => {
       },
     };
     const pageHeight = (blocks: readonly LayoutBlock[]) =>
-      200 - blocks.flatMap(notesOf).reduce((sum, note) => sum + note.height, 0);
+      198 - blocks.flatMap(notesOf).reduce((sum, note) => sum + note.height, 0);
     const pagesOf = (height: number, notes: Note[]) =>
       layoutPages([paragraph(height, { measurement: notes })], { pageHeight, rules: noted }).map(
         (page) => page.map((entry) => [entry.height, notesOf(entry).length]),

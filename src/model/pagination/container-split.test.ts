@@ -109,10 +109,10 @@ describe('container splits', () => {
       { top: 0, bottom: 30 },
       { top: 30, bottom: 50, measurement: itemMeasurement },
     ]);
-    // The list cites footnotes that take half of a 100-pixel page: 48 pixels fit, one line of the
-    // second item's two.
+    // The list cites footnotes that take about half of a 98-pixel page: 48 pixels fit, one line of
+    // the second item's two.
     const pageHeight = (blocks: readonly LayoutBlock[]) =>
-      blocks.some((each) => each.node.type.name === 'bullet_list') ? 50 : 100;
+      blocks.some((each) => each.node.type.name === 'bullet_list') ? 48 : 98;
     const queue = [block];
     const page = layoutNextPage(queue, 0, { pageHeight, rules: LAYOUT_RULES });
     expect(page.map((each) => each.node.childCount)).toEqual([1]);
