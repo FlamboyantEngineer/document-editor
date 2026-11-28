@@ -6,7 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { firstRowColumnWidths } from '../schema/object-layout.js';
 import { type ChildLayout, isContainerMeasurement } from './container-split.js';
 import { continuedCaptionOf, splitHeldWith } from './held-split.js';
-import type { LayoutBlock, SplitBlock } from './page-layout.js';
+import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
 import { splitPartOf } from './split-part.js';
 
 /** Whether every cell of a row is a header cell. */
@@ -56,12 +56,20 @@ function closedRows(rows: readonly ProseMirrorNode[]): boolean[] {
   });
 }
 
-// The last body row that fits and no cell spans past; -1 for none.
+// The last body row that fits and no cell spans past; -1 for none. On a page with nothing else on
+// it, where no body row fits, the first that no cell spans past: the rows to it are taller than a
+// page, so they overflow it alone and the rest go on to the next.
 function lastSplitRow(closed: readonly boolean[], layouts: readonly ChildLayout[], fit: Fit) {
   let last = lastFittingRow(layouts, fit.headerCount, fit.room);
   while (last >= fit.headerCount && !closed[last]) last -= 1;
-  return last;
+  if (last >= fit.headerCount || !fit.emptyPage) return last;
+  const first = closed.findIndex((ends, index) => index >= fit.headerCount && ends);
+  return first < 0 ? -1 : first;
 }
+
+// Whether a split is asked on a page that holds nothing yet.
+const onEmptyPage = (context: SplitContext | undefined) =>
+  context !== undefined && context.remainingHeight >= context.pageHeight;
 
 function nextBodyRow(layouts: readonly ChildLayout[], last: number, headerCount: number) {
   return last < headerCount ? undefined : layouts[last + 1];
@@ -70,15 +78,17 @@ function nextBodyRow(layouts: readonly ChildLayout[], last: number, headerCount:
 interface Fit {
   readonly headerCount: number;
   readonly room: number;
+  readonly emptyPage: boolean;
 }
 
 /**
  * A table split after its last body row that fits and no cell spans past, the second part
- * repeating the header rows when `repeatHeader` is set; null when no such body row fits or the
- * table has one body row.
+ * repeating the header rows when `repeatHeader` is set; on an empty page where none fits, after the
+ * first such row, which overflows it; null when no such body row fits on a page holding other
+ * blocks, or the table has one body row.
  */
 export function splitTableWith(repeatHeader: boolean) {
-  return (block: LayoutBlock, fitting: number): SplitBlock | null => {
+  return (block: LayoutBlock, fitting: number, context?: SplitContext): SplitBlock | null => {
     const { node } = block;
     const rows = node.children;
     if (!isContainerMeasurement(block.measurement)) return null;
@@ -88,7 +98,11 @@ export function splitTableWith(repeatHeader: boolean) {
     const span = layouts.at(-1)?.bottom ?? 0;
     const overhead = Math.max(0, block.height - span);
     const closed = closedRows(rows);
-    const last = lastSplitRow(closed, layouts, { headerCount, room: fitting - overhead });
+    const last = lastSplitRow(closed, layouts, {
+      headerCount,
+      room: fitting - overhead,
+      emptyPage: onEmptyPage(context),
+    });
     const next = nextBodyRow(layouts, last, headerCount);
     if (!next) return null;
     // The repeat must be a complete grid of its own. A header cell continuing into the body
@@ -149,8 +163,8 @@ function hideUnrepeatedCaption(part: LayoutBlock, height: number): LayoutBlock {
  */
 export const splitTableFigureWith = (repeatHeader: boolean) => {
   const split = splitHeldWith(splitTableWith(repeatHeader));
-  return (block: LayoutBlock, fitting: number): SplitBlock | null => {
-    const result = split(block, fitting);
+  return (block: LayoutBlock, fitting: number, context?: SplitContext): SplitBlock | null => {
+    const result = split(block, fitting, context);
     if (!result) return null;
     const measured = block.measurement;
     // The caption a later part shows, with the continued suffix.
