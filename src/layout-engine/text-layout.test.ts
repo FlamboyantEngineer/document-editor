@@ -8,6 +8,7 @@ import type { TemplateFile } from '../model/format/template-format.js';
 import { type LayoutBlock, layoutNextPage } from '../model/pagination/page-layout.js';
 import { planParagraphSplit } from '../model/pagination/text-split.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { linkedCodeFigure } from './blocks/linked-code.js';
 import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { pageBoxWidth } from './page-box.js';
@@ -560,6 +561,25 @@ describe('createTextLayout', () => {
       codeLineNumbers: true,
     });
     expect(thousand.lines.at(-1)?.left).toBe(8 + 34);
+  });
+
+  it('DOCE-PAGINATION-3.3 DOCE-PAGINATION-3.4 keeps the caret row after only an editable code newline', () => {
+    const text = 'a\n';
+    const editable = documentSchema.node('code_block', null, [documentSchema.text(text)]);
+    const linked = documentSchema.node('linked_code_block', { code: text });
+    const shown = linkedCodeFigure(linked)?.code;
+    if (!shown) throw new Error('Linked code has no text block');
+    expect(table(editable, 100)).toMatchObject({
+      height: 28,
+      lines: [
+        { from: 0, to: 2, height: 14 },
+        { from: 2, to: 2, height: 14 },
+      ],
+    });
+    expect(table(shown, 100)).toMatchObject({
+      height: 14,
+      lines: [{ from: 0, to: 2, height: 14 }],
+    });
   });
 
   it('DOCE-PAGINATION-9.4 keeps a citation’s identifier whole on its line', () => {

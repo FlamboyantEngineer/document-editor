@@ -231,6 +231,36 @@ test.describe('the read-only viewer', () => {
     await expect(sheets.first()).not.toHaveAttribute('data-drawn');
   });
 
+  test('DOCE-PAGINATION-13.6 draws near the document viewport when the viewer’s container stops scrolling', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 480 });
+    await open(page, 'long-ordered-list');
+    await page.addStyleTag({
+      content: `
+        .lab-fill .lab-document-viewer { flex: none; width: 1000px; height: 160px; overflow: auto; }
+        .lab-document-viewer > .de-document-viewer { width: 900px; }
+      `,
+    });
+    await showViewer(page, 0);
+    const sheets = page.locator(SHEETS);
+    await expect(sheets.first()).toHaveAttribute('data-drawn', 'true');
+    await expect(sheets.last()).not.toHaveAttribute('data-drawn');
+    const sizeUnchanged = await sheets.last().evaluate((sheet) => {
+      const viewer = sheet.closest('.de-document-viewer');
+      const frame = viewer?.closest<HTMLElement>('.lab-document-viewer');
+      if (!viewer || !frame) throw new Error('Missing viewer frame');
+      const before = viewer.getBoundingClientRect();
+      frame.style.overflow = 'visible';
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const after = viewer.getBoundingClientRect();
+      return before.width === after.width && before.height === after.height;
+    });
+    expect(sizeUnchanged).toBe(true);
+    await expect(sheets.last()).toHaveAttribute('data-drawn', 'true');
+    await expect(sheets.first()).not.toHaveAttribute('data-drawn');
+  });
+
   test('DOCE-PAGINATION-13.13 draws every page while the host page prints, and only the near ones after', async ({
     page,
   }) => {

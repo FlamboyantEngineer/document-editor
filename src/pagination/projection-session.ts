@@ -8,15 +8,12 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, EditorState, Transaction } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
-import type { FragmentRules } from '../model/index.js';
+import type { FragmentRules, ResolvedFootnoteSettings } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
-import { rememberMovedCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import { redrawRefused } from './dropped-composition.js';
 import { type Showing, shownBy } from './layout-latency.js';
-import { markLayout } from './layout-marks.js';
 import type { LayoutPace } from './layout-pace.js';
-import { followDocument } from './layout-source.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { afterComposition, frameIn, type settleEdits } from './layout-triggers.js';
 import type { createPageMapScope } from './page-map.js';
@@ -27,7 +24,7 @@ import {
   routeColumnWidth,
   routeDomChange,
 } from './projection-input.js';
-import { layOutProjection } from './projection-layout.js';
+import { applyProjectionLayout } from './projection-layout.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { mirrorChange } from './projection-mirror.js';
 import { readyEngine } from './ready-engine.js';
@@ -36,7 +33,6 @@ import {
   selectionAcrossBreak,
   showsCellSelection,
 } from './selection-mirror.js';
-import type { PagesTextEngine } from './text-engine-types.js';
 import type { TypingProbe } from './typing-probe.js';
 
 /** Marks the transactions the projection takes: a layout's, or a canonical change mirrored. */
@@ -62,12 +58,16 @@ export interface Session {
   readonly pace: LayoutPace;
   canonical: EditorState;
   projection: EditorState;
+  /** How the last layout numbered its footnotes. */
+  footnoteNumbering: ResolvedFootnoteSettings['numbering'];
   /** The canonical document the projection shows: a layout's, then each change mirrored. */
   shown: ProseMirrorNode;
   map: ProjectionMap;
   /** The view that renders the projection, once one is attached; its DOM is read before input. */
   view: EditorView | null;
   cancelLayout: (() => void) | null;
+  /** Stops waiting for the attached view's composition to end. */
+  cancelComposition: (() => void) | null;
   /** Above 0 while transactions may not go through the view (`quietly`). */
   quiet: number;
 }
@@ -206,21 +206,6 @@ export function refreshLayout(session: Session, remeasure: boolean): void {
   requestLayout(session);
 }
 
-// Lays the pages out with the engine from the layout's source state, moved onto the canonical
-// document first, since the engine reads it as it lays it out (its contents, its math), with its
-// plugins started over when the host asked.
-function layOutPages(session: Session, engine: PagesTextEngine) {
-  const { canonical, projection, options, rules, pace } = session;
-  const source = followDocument(session.source, canonical.doc, pace.restart);
-  session.source = source;
-  pace.restart = false;
-  const { memory, counter } = pace;
-  return layOutProjection(
-    { projection, source, canonical, memory, ...counter.reports },
-    { ...options, fragmentRules: rules, engine },
-  );
-}
-
 // The selection the browser shows and has not reported yet is the one the new pages keep
 // (DOCE-EDITOR-1.4), not the one the layout would draw back over it; but pages that do not show
 // the canonical document yet, as when a change could not be mirrored, hold no selection of it;
@@ -231,55 +216,72 @@ function keepShownSelection(session: Session): void {
   syncSelection(session);
 }
 
-/**
- * Lays the pages out from the canonical document, steps the projection onto them and builds the map again;
- * fails when layouts keep moving the pages with no change in between.
- */
-export function layout(session: Session): void {
-  session.cancelLayout?.();
+// Lays the pages out if all inputs are ready, and steps the projection onto them.
+function tryLayout(session: Session): Transaction | 'pending' | 'failed' | null {
+  if (session.destroyed) return null;
+  const cancel = session.cancelLayout;
   session.cancelLayout = null;
+  cancel?.();
   session.edits.cancel();
   const { view, pace, options } = session;
-  if (view?.isDestroyed) return;
+  if (view?.isDestroyed) return null;
   const { trace } = options;
   if (view?.composing) {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
-    return afterComposition(view, () => requestLayout(session));
+    session.cancelComposition ??= afterComposition(view, () => {
+      session.cancelComposition = null;
+      requestLayout(session);
+    });
+    return 'pending';
   }
+  session.cancelComposition?.();
+  session.cancelComposition = null;
+  if (pace.ready.blocked()) return null;
   const engine = readyEngine(session, () => requestLayout(session));
-  if (!engine) return;
+  pace.waitingForEngine = engine === 'pending';
+  if (typeof engine === 'string') return engine;
   keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
   else if (pace.passes >= LAYOUT_PASSES) {
     writeTrace(trace, 'fail', () => ({ passes: pace.passes }));
-    return pace.readiness.fail();
+    return 'failed';
   }
   pace.changed = false;
   const traced = traceLayout(trace, options.element.ownerDocument.defaultView);
-  let laidOut: ReturnType<typeof layOutProjection>;
-  try {
-    laidOut = layOutPages(session, engine);
-  } catch (error) {
-    pace.readiness.fail();
-    throw error;
+  const { tr, layouts, pages } = applyProjectionLayout(session, engine, take);
+  if (session.destroyed) return null;
+  traced(() => ({ layouts, pages }));
+  return tr;
+}
+
+/** Lays the pages out now, reporting the result outside the layout's failure handling. */
+export function layout(session: Session): void {
+  const { readiness } = session.pace;
+  const result = readiness.failOnThrow(() => tryLayout(session));
+  if (result === 'pending') readiness.pending();
+  else if (result === 'failed') readiness.fail();
+  else if (result) {
+    readiness.laidOut(() => isIdle(session));
+    session.options.onLayout?.(result);
   }
-  pace.counter.layout(session.projection.doc, laidOut.tr.doc);
-  pace.passes = laidOut.tr.docChanged ? pace.passes + 1 : 0;
-  session.map = laidOut.map;
-  session.shown = session.canonical.doc;
-  if (view) rememberMovedCaret(laidOut.tr, view);
-  session.probe.laidOut(laidOut);
-  const stats = pace.counter.stats();
-  take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));
-  if (session.destroyed) return;
-  traced(() => ({ layouts: stats.layouts, pages: laidOut.metrics.length }));
-  pace.readiness.laidOut(() => isIdle(session));
-  session.options.onLayout?.(laidOut.tr);
 }
 
 // Whether no layout is due: none scheduled, no edit waiting and nothing the pages wait for.
-export function isIdle({ cancelLayout, edits, pace, options }: Session): boolean {
-  return !cancelLayout && !edits.waiting() && !pace.ready.blocked() && !options.fontsPending?.();
+export function isIdle({
+  cancelLayout,
+  cancelComposition,
+  edits,
+  pace,
+  options,
+}: Session): boolean {
+  return (
+    !cancelLayout &&
+    !cancelComposition &&
+    !edits.waiting() &&
+    !pace.ready.blocked() &&
+    !pace.waitingForEngine &&
+    !options.fontsPending?.()
+  );
 }
 
 /**

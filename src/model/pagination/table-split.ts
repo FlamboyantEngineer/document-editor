@@ -4,26 +4,15 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { firstRowColumnWidths } from '../schema/object-layout.js';
-import { type ChildLayout, isContainerMeasurement } from './container-split.js';
+import {
+  type ChildLayout,
+  type ContainerMeasurement,
+  isContainerMeasurement,
+} from './container-split.js';
 import { continuedCaptionOf, splitHeldWith } from './held-split.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
 import { splitPartOf } from './split-part.js';
-
-/** Whether every cell of a row is a header cell. */
-export function isHeaderRow(row: ProseMirrorNode): boolean {
-  let header = row.childCount > 0;
-  row.forEach((cell) => {
-    if (cell.type.name !== 'table_header') header = false;
-  });
-  return header;
-}
-
-/** How many of a table's rows lead it as header rows. */
-export function leadingHeaderRows(table: ProseMirrorNode): number {
-  const rows = table.children;
-  const count = rows.findIndex((row) => !isHeaderRow(row));
-  return count < 0 ? rows.length : count;
-}
+import { leadingHeaderRows, projectedHeaderRows } from './table-headers.js';
 
 function shift(layouts: readonly ChildLayout[], by: number): ChildLayout[] {
   return layouts.map((layout) => ({ ...layout, top: layout.top - by, bottom: layout.bottom - by }));
@@ -81,6 +70,9 @@ interface Fit {
   readonly emptyPage: boolean;
 }
 
+const measuredHeaders = (table: ProseMirrorNode, measurement: ContainerMeasurement) =>
+  measurement.tableHeaderRows ?? leadingHeaderRows(table);
+
 /**
  * A table split after its last body row that fits and no cell spans past, the second part
  * repeating the header rows when `repeatHeader` is set; on an empty page where none fits, after the
@@ -93,7 +85,8 @@ export function splitTableWith(repeatHeader: boolean) {
     const rows = node.children;
     if (!isContainerMeasurement(block.measurement)) return null;
     const layouts = block.measurement.children;
-    const headerCount = block.measurement.tableHeaderRows ?? leadingHeaderRows(node);
+    const projected = projectedHeaderRows(node);
+    const headerCount = projected ?? measuredHeaders(node, block.measurement);
     if (layouts.length !== rows.length || rows.length - headerCount <= 1) return null;
     const span = layouts.at(-1)?.bottom ?? 0;
     const overhead = Math.max(0, block.height - span);
@@ -113,23 +106,28 @@ export function splitTableWith(repeatHeader: boolean) {
     const headerSpan = headerLayouts.at(-1)?.bottom ?? 0;
     const part = splitPartOf(node) ?? 0;
     const widths = firstRowColumnWidths(node).map((width) => width || 0);
-    const create = (index: number, content: ProseMirrorNode[]) =>
+    const create = (index: number, count: number | null, content: ProseMirrorNode[]) =>
       node.type.create(
-        { ...node.attrs, splitPartIndex: index, projectedColumnWidths: index > 0 ? widths : null },
+        {
+          ...node.attrs,
+          splitPartIndex: index,
+          projectedColumnWidths: index > 0 ? widths : null,
+          projectedHeaderRows: count,
+        },
         content,
         node.marks,
       );
     return {
       head: {
         ...block,
-        node: create(part, rows.slice(0, last + 1)),
+        node: create(part, projected, rows.slice(0, last + 1)),
         height: overhead + (layouts[last]?.bottom ?? 0),
         measurement: { ...block.measurement, children: layouts.slice(0, last + 1) },
       },
       tail: [
         {
           ...block,
-          node: create(part + 1, [...header, ...rows.slice(last + 1)]),
+          node: create(part + 1, repeatedHeaderCount, [...header, ...rows.slice(last + 1)]),
           height: overhead + headerSpan + span - next.top,
           breakBefore: true,
           measurement: {

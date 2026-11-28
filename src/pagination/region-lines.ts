@@ -26,6 +26,8 @@ interface RegionSource {
   readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
   /** What the region's layout depends on in the current markup. */
   readonly markupKey?: ((node: ProseMirrorNode) => string) | undefined;
+  /** What the region's variables show when laid out as body text (`bodyVariablesKey`). */
+  readonly variablesKey?: ((node: ProseMirrorNode) => string) | undefined;
 }
 
 /** A region as the engine laid it out: its room, and its text blocks' lines. */
@@ -44,15 +46,14 @@ const NONE: ReadonlyMap<ProseMirrorNode, DrawnLines> = new Map();
 export const REGIONS_KEPT_PER_NODE = 1024;
 
 /**
- * The laid regions kept for one node for each page of the longest document it showed the page
- * count of: one per page under each of the counts a layout's passes try, so a document of any
- * length keeps every region its last layout drew.
+ * The laid regions kept for one node per page reached or counted: one page per count tried by
+ * each layout pass, so a document of any length keeps every region its last layout drew.
  */
 export const REGIONS_KEPT_PER_PAGE = 3;
 
-// The page count a region shows, from its variables; 0 when it shows none.
+// A region that only shows its page number still needs room to keep all pages measured so far.
 const shownPages = (variables: ReadonlyMap<string, string> | undefined) =>
-  Number.parseInt(variables?.get('page.total') ?? '', 10) || 0;
+  Number.parseInt(variables?.get('page.total') ?? variables?.get('page.current') ?? '', 10) || 0;
 
 // A region's room as the pages read it; null when the engine cannot lay the region out.
 function roomOf(result: RegionGeometry): RegionRoom | null {
@@ -68,21 +69,21 @@ interface LaidEntry {
   readonly lines: ReadonlyMap<ProseMirrorNode, DrawnLines>;
 }
 
-// The footnote entries laid out, kept by node, scope, numbers and markup until forgotten, so an
-// edit in one entry, which makes a new footnote area, lays out only that entry again: a region's
-// recorder writes the lines of an entry laid out before as those of one laid out now.
+// The footnote entries laid out, kept by node, scope, variables, numbers and markup until
+// forgotten, so an edit lays out only the affected entries again. The region's recorder writes
+// the lines of a kept entry as those of one laid out now.
 function createEntryLines(source: RegionSource) {
   let kept = new WeakMap<ProseMirrorNode, Map<string, LaidEntry>>();
   const keyOf = (entry: ProseMirrorNode, place: string) =>
     `${place}|${source.footnoteOf(entry) ?? ''}${footnoteNumbersKey(entry, source.footnoteOf)}|${source.markupKey?.(entry) ?? ''}`;
   return {
-    /** Lays entries out in a place: the region's scope and variable texts, as a key. */
-    layout(place: string): EntryLayout {
+    /** Lays entries out in the region's scope with each entry's own body variables. */
+    layout(place: string, variablesKey: RegionSource['variablesKey']): EntryLayout {
       return (entry, lay) => {
         const { recorder } = source;
         const into = recorder.lines;
         const entries = kept.get(entry) ?? new Map<string, LaidEntry>();
-        const key = keyOf(entry, place);
+        const key = `${keyOf(entry, place)}|${variablesKey?.(entry) ?? ''}`;
         let found = entries.get(key);
         if (!found) {
           const lines = new Map<ProseMirrorNode, DrawnLines>();
@@ -109,7 +110,7 @@ function createEntryLines(source: RegionSource) {
 /**
  * The laid regions, kept by node, scope, variable texts, footnote numbers and markup until forgotten: a header showing the
  * page's number keeps a region for each number it showed, up to `REGIONS_KEPT_PER_NODE` or
- * `REGIONS_KEPT_PER_PAGE` for each page of the longest document it showed the count of.
+ * `REGIONS_KEPT_PER_PAGE` for each page it reached or counted.
  */
 export function createRegionLines(source: RegionSource) {
   let kept = new WeakMap<ProseMirrorNode, Map<string, LaidRegion>>();
@@ -123,8 +124,9 @@ export function createRegionLines(source: RegionSource) {
     ): LaidRegion {
       const markup = source.markupKey?.(node) ?? '';
       const numbers = footnoteNumbersKey(node, source.footnoteOf);
+      const variablesKey = variables ? undefined : source.variablesKey;
       const placeKey = `${scope ?? ''}|${variables ? JSON.stringify([...variables]) : '-'}`;
-      const key = `${placeKey}|${numbers}|${markup}`;
+      const key = `${placeKey}|${variablesKey?.(node) ?? ''}|${numbers}|${markup}`;
       const regions = kept.get(node) ?? new Map<string, LaidRegion>();
       const found = regions.get(key);
       if (found) {
@@ -139,7 +141,7 @@ export function createRegionLines(source: RegionSource) {
       let result: RegionGeometry;
       // A layout that throws, as a host rule can, leaves no recorder writing for the next block.
       try {
-        result = geometry.layoutRegion(node, place, entries.layout(placeKey));
+        result = geometry.layoutRegion(node, place, entries.layout(placeKey, variablesKey));
       } finally {
         recorder.lines = null;
       }

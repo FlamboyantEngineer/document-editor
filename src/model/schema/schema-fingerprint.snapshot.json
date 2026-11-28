@@ -682,6 +682,7 @@
         "objectLayout": { "default": null },
         "captionEnabled": { "default": true },
         "projectedColumnWidths": { "default": null },
+        "projectedHeaderRows": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },

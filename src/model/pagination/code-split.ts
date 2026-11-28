@@ -6,7 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { countPrefix } from '../../utils/count-prefix.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
 import { splitPartOf } from './split-part.js';
-import { snapSplitHeight } from './text-line-split.js';
+import { measuredLineRange, snapSplitHeight } from './text-line-split.js';
 import {
   contentText,
   isTextMeasurement,
@@ -29,19 +29,23 @@ function planWrappedCodeSplit(
   input: Omit<CodeSplitInput, 'text'> & { length: number },
   overhead: number,
 ): TextSplitPlan | null {
-  const { offset } = input.measurement;
-  const end = offset + input.length;
-  const lines = (input.measurement.lines?.lines ?? []).filter(
-    (line) => line.from >= offset && line.from < end,
-  );
+  const { lines: measured, offset } = input.measurement;
+  if (!measured) return null;
+  const { lines, first, last } = measuredLineRange(measured.lines, {
+    start: offset,
+    end: offset + input.length,
+    includeEnd: false,
+  });
   let height = overhead;
-  let count = 0;
-  while (count < lines.length - 1 && height + (lines[count]?.height ?? 0) <= input.fitting) {
-    height += lines[count]?.height ?? 0;
-    count += 1;
+  let index = first;
+  while (index < last - 1) {
+    const nextHeight = height + (lines[index]?.height ?? 0);
+    if (!(nextHeight <= input.fitting)) break;
+    height = nextHeight;
+    index += 1;
   }
-  const next = lines[count]?.from;
-  if (count < 1 || next === undefined || next <= offset) return null;
+  const next = lines[index]?.from;
+  if (index === first || next === undefined || next <= offset) return null;
   const headHeight = snapSplitHeight(height);
   return {
     end: next - offset,
@@ -73,7 +77,14 @@ const codeBreaks = new WeakMap<ProseMirrorNode, CodeBreaks>();
 
 function sourceBreaks(text: string): number[] {
   const offsets: number[] = [];
-  for (let at = text.indexOf('\n'); at >= 0; at = text.indexOf('\n', at + 1)) offsets.push(at);
+  // A terminal newline belongs to the last fragment and cannot leave a tail of its own.
+  for (
+    let at = text.indexOf('\n');
+    at >= 0 && at < text.length - 1;
+    at = text.indexOf('\n', at + 1)
+  ) {
+    offsets.push(at);
+  }
   return offsets;
 }
 
@@ -84,8 +95,8 @@ function planIndexedCodeSplit(
   const { length, measurement } = input;
   const { offset, measure } = measurement;
   const { offsets, start } = breaks;
-  // A break at the fragment's start would leave an empty head. All later breaks lie in its tail.
-  const first = countPrefix(offsets.length, (index) => (offsets[index] ?? 0) <= start);
+  // A break at the fragment's start ends a blank line, which can fit on a page by itself.
+  const first = countPrefix(offsets.length, (index) => (offsets[index] ?? 0) < start);
   const overhead =
     measurement.overhead ?? Math.max(0, input.height - measure(offset, offset + length).height);
   const at = memoize((index) =>

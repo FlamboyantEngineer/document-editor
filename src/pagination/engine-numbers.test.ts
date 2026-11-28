@@ -5,6 +5,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { node, page, pagesDocument, stubEngine } from '../../test/pages-fixtures.js';
 import { readRegressionDocument, readRegressionTemplate } from '../../test/stored-fixtures.js';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
+import { documentNumbers } from '../layout-engine/numbers.js';
 import { BASE_TEMPLATE, catalogDocument, readDocumentFile } from '../model/index.js';
 import { splitTableFigureWith } from '../model/pagination/table-split.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
@@ -33,7 +34,7 @@ const headerRow = (nested: boolean) => {
         ]),
       ])
     : math;
-  return node('table_row', { dataId: 'header-row' }, [
+  return node('table_row', null, [
     node('table_header', null, [block, figure('header-figure', 'In a header')]),
   ]);
 };
@@ -41,6 +42,31 @@ const bodyRow = () =>
   node('table_row', null, [node('table_cell', null, [node('paragraph', null)])]);
 
 describe('engine numbers', () => {
+  it('DOCE-PAGINATION-11.9 updates continuation marks when typing earns a split paragraph a number', () => {
+    const template = { ...BASE_TEMPLATE, styles: { paragraph: { numbering: { format: '1.' } } } };
+    const part = (splitPartIndex: number) =>
+      node('paragraph', { dataId: 'p', splitPartIndex }, [node('hard_break', null)]);
+    const doc = pagesDocument([page([part(0)]), page([part(1)])]);
+    const engine = {
+      ...stubEngine(),
+      template,
+      numbering: (projected: typeof doc) => documentNumbers(projected, template),
+    };
+    const map = createProjectionMap(doc);
+    const plugin = engineNumbers({ engine: () => engine, map: () => map });
+    const state = EditorState.create({ doc, plugins: [plugin] });
+    const continuation = (current: EditorState) =>
+      engineNumbersKey
+        .getState(current)
+        ?.find()
+        .map(({ from }) => current.doc.nodeAt(from)?.attrs.splitPartIndex);
+    expect(continuation(state)).toEqual([]);
+    const at = doc.child(0).child(0).nodeSize + 6;
+    const edited = state.apply(state.tr.insertText('Text', at));
+    expect(continuation(edited)).toEqual([1]);
+    expect(continuation(edited.apply(edited.tr.delete(at, at + 4)))).toEqual([]);
+  });
+
   it('DOCE-PAGINATION-11.9 finds each caption label by its object and each equation number in order', () => {
     const file = readRegressionDocument('caption-numbering');
     const template = readRegressionTemplate(file.template?.id ?? 'regression-base');
@@ -116,6 +142,39 @@ describe('engine numbers', () => {
       expect(numbers).toEqual([equations[0], equations[0], equations[1]]);
     },
   );
+
+  it('DOCE-PAGINATION-4.5 DOCE-CONTENTS-1.2 counts authored header-shaped rows separately across a split', () => {
+    const header = node('table_row', null, [node('table_header', null, [equation('x')])]);
+    // The same immutable row node can appear twice, just as the same text can.
+    const table = node('table_figure', null, [
+      node('table_caption', null),
+      node('table', null, [header, bodyRow(), header, bodyRow()]),
+    ]);
+    const following = equation('y');
+    const split = splitTableFigureWith(false)(
+      {
+        node: table,
+        height: 40,
+        marginTop: 0,
+        marginBottom: 0,
+        measurement: { children: [0, 10, 20, 30].map((top) => ({ top, bottom: top + 10 })) },
+      },
+      20,
+    );
+    const tail = split?.tail[0]?.node;
+    if (!split || !tail) throw new Error('The table did not split.');
+    const projected = pagesDocument([page([split.head.node]), page([tail, following])]);
+    projected.check();
+
+    const canonical = pagesDocument([page([table, following])]);
+    const expected = catalogDocument(canonical, BASE_TEMPLATE).equations?.map(
+      ({ number }) => number,
+    );
+    expect(expected).toHaveLength(3);
+    expect(
+      catalogDocument(projected, BASE_TEMPLATE).equations?.map(({ number }) => number),
+    ).toEqual(expected);
+  });
 
   it('DOCE-PAGINATION-11.9 uses each equation’s canonical position in continued columns', () => {
     const columns = (part: number, left: string, right: string) =>

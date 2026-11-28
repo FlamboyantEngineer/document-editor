@@ -7,7 +7,11 @@ import { idOf } from '../engine/footnote-model.js';
 import { numberFootnoteParts } from '../engine/footnote-numbers.js';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
 import { documentNumbers, type ParagraphNumber } from '../layout-engine/numbers.js';
-import { resolveFootnoteSettings, type TemplateFile } from '../model/index.js';
+import {
+  type ResolvedFootnoteSettings,
+  resolveFootnoteSettings,
+  type TemplateFile,
+} from '../model/index.js';
 import { blockLabelKeys } from './block-label-keys.js';
 import { equationNumbers } from './equation-numbers.js';
 
@@ -80,10 +84,9 @@ const paragraphKey = (number: ParagraphNumber | undefined) =>
   number ? `${number.continued ? '+' : ''}${number.label}` : '';
 
 /** A document's numbers by node, and its numbered headings and paragraphs. */
-function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
+function numbersByNode(doc: ProseMirrorNode, template: TemplateFile, perPage: boolean) {
   const { headings, paragraphs } = documentNumbers(doc, template);
   const labels = captionNumbers(doc, template);
-  const perPage = resolveFootnoteSettings(template).numbering === 'page';
   let footnotes: ReturnType<typeof footnotesOf> | null = null;
   const footnotesOnce = () => (footnotes ??= footnotesOf(doc, perPage));
   const byNode = (): NodeNumbers => {
@@ -139,6 +142,8 @@ export function holdNodeNumbers(template: TemplateFile) {
   let numbers = NO_NUMBERS;
   let footnotes = '';
   let version = 0;
+  const defaultNumbering = resolveFootnoteSettings(template).numbering;
+  let measuredNumbering = defaultNumbering;
   const drawn = new WeakMap<ProseMirrorNode, ReturnType<typeof numbersByNode>['numbering']>();
   return {
     current: () => numbers,
@@ -147,16 +152,21 @@ export function holdNodeNumbers(template: TemplateFile) {
      * values, than the one before: the body's variables show the numbered document's values.
      */
     version: () => version,
-    number(doc: ProseMirrorNode) {
-      if (numbers.doc === doc) return;
-      const found = numbersByNode(doc, template);
+    number(
+      doc: ProseMirrorNode,
+      numbering: ResolvedFootnoteSettings['numbering'] = defaultNumbering,
+    ) {
+      if (numbers.doc === doc && measuredNumbering === numbering) return;
+      const found = numbersByNode(doc, template, numbering === 'page');
       numbers = found.byNode();
       drawn.set(doc, found.numbering);
       const key = `${found.footnotesKey()}|${JSON.stringify(doc.attrs.values ?? null)}`;
       if (key !== footnotes) [footnotes, version] = [key, version + 1];
+      measuredNumbering = numbering;
     },
     numbering(doc: ProseMirrorNode) {
-      const numbering = drawn.get(doc) ?? numbersByNode(doc, template).numbering;
+      const numbering =
+        drawn.get(doc) ?? numbersByNode(doc, template, defaultNumbering === 'page').numbering;
       drawn.set(doc, numbering);
       return numbering;
     },

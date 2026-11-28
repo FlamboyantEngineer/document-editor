@@ -24,10 +24,8 @@ const listening = new WeakSet<object>();
 interface Waiting {
   readonly canonical: EditorState;
   readonly owner: Document;
-  readonly pace: {
-    readonly readiness: { pending(): void };
-    readonly text?: { engine(): PagesTextEngine | null } | null | undefined;
-  };
+  readonly engine: PagesTextEngine;
+  readonly readiness: object;
   /** Where the layout's trace goes, which tells of math that ran past the wait. */
   readonly trace?: LayoutTraceSink | undefined;
 }
@@ -40,25 +38,24 @@ interface Waiting {
  * the pages out again when it arrives.
  */
 export function waitsForMath(
-  { canonical, owner, pace, trace }: Waiting,
+  { canonical, owner, engine, readiness, trace }: Waiting,
   resume: () => void,
 ): boolean {
   const typesetting = mathTypesetReady(canonical, canonical.doc, owner);
-  const waiting = typesetting ?? pace.text?.engine()?.mathPending(canonical.doc) ?? null;
-  if (late.has(pace.readiness)) {
-    if (waiting) listenLate(pace.readiness, waiting, resume);
+  const waiting = typesetting ?? engine.mathPending(canonical.doc);
+  if (late.has(readiness)) {
+    if (waiting) listenLate(readiness, waiting, resume);
     return false;
   }
   if (!waiting) return false;
   void askBefore(() => waiting, { timeout: MATH_WAIT_TIMEOUT }).then((asked) => {
     if (!asked.answered && asked.why === 'timed-out') {
-      late.add(pace.readiness);
+      late.add(readiness);
       writeTrace(trace, 'mathLate', () => ({ reason: 'timed-out' }));
-      listenLate(pace.readiness, waiting, resume);
+      listenLate(readiness, waiting, resume);
     }
     resume();
   });
-  pace.readiness.pending();
   return true;
 }
 

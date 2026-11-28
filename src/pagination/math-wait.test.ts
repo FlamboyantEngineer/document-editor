@@ -13,20 +13,16 @@ describe('waitsForMath', () => {
   it('DOCE-PAGINATION-14.4 stops waiting on math that never loads, and says so in the trace', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const lines: LayoutTrace[] = [];
-    const pending = vi.fn();
     // A math layouter whose load never ends.
     const engine = {
       mathPending: () => new Promise<void>(() => undefined),
     } as unknown as PagesTextEngine;
     const waiting = {
-      canonical: EditorState.create({ doc: parseMarkup('<p>x</p>') }),
-      owner: document,
-      pace: { readiness: { pending }, text: { engine: () => engine } },
+      ...lateWaiting(engine),
       trace: () => (line: LayoutTrace) => lines.push(line),
     };
     const resume = vi.fn();
     expect(waitsForMath(waiting, resume)).toBe(true);
-    expect(pending).toHaveBeenCalledOnce();
     await vi.advanceTimersByTimeAsync(MATH_WAIT_TIMEOUT - 1);
     expect(resume).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
@@ -41,11 +37,7 @@ describe('waitsForMath', () => {
     const engine = {
       mathPending: () => new Promise<void>((resolve) => (ready = resolve)),
     } as unknown as PagesTextEngine;
-    const waiting = {
-      canonical: EditorState.create({ doc: parseMarkup('<p>x</p>') }),
-      owner: document,
-      pace: { readiness: { pending: vi.fn() }, text: { engine: () => engine } },
-    };
+    const waiting = lateWaiting(engine);
     const resume = vi.fn();
     expect(waitsForMath(waiting, resume)).toBe(true);
     ready();
@@ -84,7 +76,6 @@ describe('waitsForMath', () => {
     pending = new Promise<void>((resolve) => settles.push(resolve));
     expect(waitsForMath(waiting, resume)).toBe(false);
     expect(waitsForMath(waiting, resume)).toBe(false);
-    expect(waiting.pace.readiness.pending).toHaveBeenCalledOnce();
     settles[1]?.();
     await vi.waitFor(() => expect(resume).toHaveBeenCalledTimes(3));
     // With nothing pending, nothing is asked.
@@ -100,6 +91,7 @@ function lateWaiting(engine: PagesTextEngine) {
   return {
     canonical: EditorState.create({ doc: parseMarkup('<p>x</p>') }),
     owner: document,
-    pace: { readiness: { pending: vi.fn() }, text: { engine: () => engine } },
+    engine,
+    readiness: {},
   };
 }

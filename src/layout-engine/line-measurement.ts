@@ -1,5 +1,7 @@
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import { countPrefix } from '../utils/count-prefix.js';
+import { hasCodeCaretLine } from './blocks/linked-code.js';
 import type { LineTable, TextLine } from './line-table.js';
 
 // A point touches empty lines anchored there as well as the line that contains it.
@@ -34,7 +36,12 @@ function ordered(lines: readonly TextLine[]): boolean {
 }
 
 /** A line table as a text measurement, keeping all offsets relative to the whole block. */
-export function lineTableMeasurement(table: LineTable, offset = 0): TextMeasurement {
+export function lineTableMeasurement(
+  table: LineTable,
+  offset = 0,
+  node?: ProseMirrorNode,
+): TextMeasurement {
+  const code = node && hasCodeCaretLine(node) ? node.textContent : '';
   let canSearch: boolean | undefined;
   return {
     offset,
@@ -42,9 +49,13 @@ export function lineTableMeasurement(table: LineTable, offset = 0): TextMeasurem
     lines: table,
     measure(from, to) {
       const { lines } = table;
-      if ((canSearch ??= ordered(lines))) return measureRange(lines, from, to);
+      // A retained newline ends the fragment with a caret line starting at its exclusive end.
+      const end = to > from && code.charAt(to - 1) === '\n' ? to + 1 : to;
+      if ((canSearch ??= ordered(lines))) return measureRange(lines, from, end);
       const touched = lines.filter((line) =>
-        from === to ? line.from <= from && from < pointEnd(line) : line.from < to && line.to > from,
+        from === end
+          ? line.from <= from && from < pointEnd(line)
+          : line.from < end && line.to > from,
       );
       return span(touched[0], touched.at(-1), touched.length);
     },

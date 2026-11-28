@@ -9,6 +9,7 @@ import {
   type LayoutBlock,
   layoutNextPage,
   type LayoutRules,
+  resolveFootnoteSettings,
   type SectionPages,
   stackedHeight,
 } from '../model/index.js';
@@ -40,7 +41,7 @@ export type SectionLayoutRules =
 export interface DocumentLayoutOptions {
   pageHeight: SectionPageHeight;
   rules?: SectionLayoutRules | undefined;
-  /** Whether footnotes are numbered, and their entries shown, through the document or per page. */
+  /** Overrides the engine template's footnote numbering for measurement and placement. */
   footnoteNumbering?: 'document' | 'page' | undefined;
   /** Receives each page laid out: the height its blocks take and the height it has for them. */
   onPage?: ((page: PageMetric) => void) | undefined;
@@ -349,8 +350,7 @@ function settleDigits(state: EditorState, options: DocumentLayoutOptions) {
   let digits = engine.pageDigits(0);
   let fills = sectionFills(state, options);
   let settled = settlePasses(fills, options);
-  const { doc } = state;
-  if (!(hasContents(doc) || hasBodyPageVariable(doc))) return { fills, settled };
+  if (!(hasContents(state.doc) || hasBodyPageVariable(state.doc))) return { fills, settled };
   for (let count = 1; ; count += 1) {
     const needed = engine.pageDigits(Math.max(settled.pass.counted, 10 ** (digits - 1)));
     if (needed === digits) break;
@@ -376,12 +376,12 @@ function settleDigits(state: EditorState, options: DocumentLayoutOptions) {
  */
 export function layoutDocument(state: EditorState, options: DocumentLayoutOptions): SectionPages[] {
   const { memory, engine } = options;
-  engine.number(state.doc);
-  const { fills, settled } = settleDigits(state, options);
+  const numbering = options.footnoteNumbering ?? resolveFootnoteSettings(engine.template).numbering;
+  engine.number(state.doc, numbering);
+  const { fills, settled } = settleDigits(state, { ...options, footnoteNumbering: numbering });
   const { pass, laidOut, layouts, pages } = settled;
-  if (!settled.settled) {
+  if (!settled.settled)
     options.onUnsettled?.(`the page count moved after ${String(COUNT_PASSES)} passes`);
-  }
   pass.laid.forEach(({ result, metrics }, index) => {
     for (const metric of metrics) options.onPage?.(metric);
     const pagesLaidOut = laidOut[index] ?? 0;

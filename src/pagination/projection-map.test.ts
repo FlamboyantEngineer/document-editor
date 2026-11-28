@@ -244,20 +244,40 @@ function secondNote(doc: Node) {
   return copy;
 }
 
-function repeatedHeaderPages(repeat = true) {
+function repeatedHeaderPages(
+  repeat = true,
+  authoredHeader = !repeat,
+  tableId: string | null = 'table',
+) {
   const row = (type: string, text: string) =>
     create('table_row', null, [create(type, null, [create('paragraph', null, text)])]);
   const header = row('table_header', 'Header');
-  const part = (index: number, text: string) =>
-    create('table_figure', { splitPartIndex: index }, [
-      create('table_caption', { continuedText: repeat && index > 0 ? '' : null }),
-      create('table', { dataId: 'table', splitPartIndex: index }, [
-        header,
-        row('table_cell', text),
-      ]),
-    ]);
-  const first = part(0, 'First body row');
-  const second = part(1, 'Second body row');
+  const rows = [
+    header,
+    row('table_cell', 'First body row'),
+    ...(authoredHeader ? [row('table_header', 'Header')] : []),
+    row('table_cell', 'Second body row'),
+  ];
+  const table = create('table_figure', null, [
+    create('table_caption', null),
+    create('table', { dataId: tableId }, rows),
+  ]);
+  const split = splitTableFigureWith(repeat)(
+    {
+      node: table,
+      height: 10 * rows.length,
+      marginTop: 0,
+      marginBottom: 0,
+      measurement: {
+        children: rows.map((_, index) => ({ top: index * 10, bottom: (index + 1) * 10 })),
+      },
+    },
+    20,
+  );
+  const tail = split?.tail[0];
+  if (!split || !tail) throw new Error('Expected a split table.');
+  const first = split.head.node;
+  const second = tail.node;
   const intro = create('paragraph', null, 'Introduction');
   const page = (blocks: Node[]) =>
     create('page', null, [
@@ -396,6 +416,27 @@ describe('projection map', { timeout: 30_000 }, () => {
     expect(textOf(routed.projection.doc)).toBe(text);
     expect(textOf(routed.canonical.doc)).toBe(text);
   });
+
+  it.each(['table', null])(
+    'DOCE-PAGINATION-7.9 mirrors edits only to actual copies beside an equal authored row (table id %s)',
+    (tableId) => {
+      const { combined: doc } = repeatedHeaderPages(true, true, tableId);
+      const map = createProjectionMap(doc);
+      const projection = EditorState.create({ doc });
+      const canonical = EditorState.create({ doc: map.canonical });
+      const copy = secondHeader(doc, 'Header');
+      const edit = projection.tr.insertText('Z', copy + 2);
+      const routed = routeDomChange(edit, { map, canonical, projection });
+      if (!routed) throw new Error('The header edit should route.');
+      expect(routed.projection.steps).toHaveLength(2);
+      expect(textOf(routed.projection.doc)).toBe(
+        'IntroductionHeZaderFirst body rowHeZaderHeaderSecond body row',
+      );
+      expect(textOf(routed.canonical.doc)).toBe(
+        'IntroductionHeZaderFirst body rowHeaderSecond body row',
+      );
+    },
+  );
 
   it('DOCE-PAGINATION-7.9 keeps a selection in the repeated table header after repagination', () => {
     const { separate: doc, combined } = repeatedHeaderPages();

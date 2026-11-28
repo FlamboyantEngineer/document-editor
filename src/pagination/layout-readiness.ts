@@ -3,8 +3,6 @@
 // their anchors, show them. A layout that throws, or a run of layouts that never stops moving the
 // pages, fails instead.
 
-import { type LayoutTraceSink, writeTrace } from './layout-trace.js';
-
 /** Whether an editor's pages are being laid out, are settled, or failed to settle. */
 export type LayoutState = 'pending' | 'settled' | 'failed';
 
@@ -39,6 +37,14 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
     if (next !== 'pending') finish(next);
     onChange?.(next);
   };
+  const failOnThrow = <Result>(work: () => Result): Result => {
+    try {
+      return work();
+    } catch (error) {
+      set('failed');
+      throw error;
+    }
+  };
   return {
     state: () => state,
     /** A layout is due. */
@@ -47,24 +53,13 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
         set('pending');
       } finally {
         // A listener can fail, but waiters still need the requested layout.
-        if (!destroyed) request?.();
+        if (!destroyed && request) failOnThrow(request);
       }
     },
     /** The pages could not be laid out. */
     fail: () => set('failed'),
-    /**
-     * The engine to lay the pages out with, or null when there is none (`engineOrFailure`): pending
-     * while it loads, failed, with the reason traced, when there can be none.
-     */
-    engine<Engine extends object>(found: Engine | string | null, trace?: LayoutTraceSink) {
-      if (typeof found === 'object') {
-        if (!found) set('pending');
-        return found;
-      }
-      writeTrace(trace, 'fail', () => ({ reason: found }));
-      set('failed');
-      return null;
-    },
+    /** Runs layout work, failing readiness if it throws. Notifications run separately. */
+    failOnThrow,
     /**
      * A layout landed: the pages settle two frames on, once the views that follow them have drawn,
      * unless another layout is due by then.
@@ -74,11 +69,13 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
       cancelFrame();
       const settle = () => {
         cancel = null;
-        if (isIdle()) set('settled');
+        if (failOnThrow(isIdle)) set('settled');
       };
-      cancel = schedule(() => {
-        cancel = schedule(settle);
-      });
+      const afterDraw = () => {
+        cancel = null;
+        cancel = failOnThrow(() => schedule(settle));
+      };
+      cancel = failOnThrow(() => schedule(afterDraw));
     },
     /** Resolves with `settled` or `failed` once no layout is pending. */
     whenSettled(): Promise<LayoutState> {

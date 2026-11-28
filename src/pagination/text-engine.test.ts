@@ -561,7 +561,7 @@ describe('holdTextEngine', () => {
   });
 
   it('DOCE-PAGINATION-7.17 makes the engine again for a node view the host adds after mount', async () => {
-    let views: readonly string[] = [];
+    let views: string[] = [];
     const holder = holdTextEngine({
       setting: {
         template: () => BASE_TEMPLATE,
@@ -578,11 +578,13 @@ describe('holdTextEngine', () => {
     // The same names in another array keep the engine.
     views = [];
     expect(holder.engine()).toBe(first);
-    views = ['blockquote'];
+    views.push('blockquote');
     const drawn = holder.engine();
     expect(drawn).not.toBe(first);
     expect(drawn?.measureBlock(quote, null).height).toBe(0);
     expect(drawn?.inputs()).not.toEqual(first?.inputs());
+    views.push('blockquote');
+    expect(holder.engine()).toBe(drawn);
     holder.destroy();
   });
 
@@ -640,21 +642,30 @@ describe('holdTextEngine', () => {
     holder.destroy();
   });
 
-  it('DOCE-PAGINATION-10.7 numbers an engine made again with the document the last one was numbered with', async () => {
+  it('DOCE-PAGINATION-10.7 numbers an engine made again with the last document and footnote mode', async () => {
     let template: TemplateFile = BASE_TEMPLATE;
     const holder = holdTextEngine({
       setting: { template: () => template, fonts: Promise.resolve(served()) },
       changed: () => undefined,
     });
     await holder.loaded;
-    const doc = parseMarkup('<p>Body<sup data-footnote-id="a">1</sup></p>');
+    const earlier = Array.from(
+      { length: 9 },
+      (_, index) => `<sup data-footnote-id="earlier-${String(index)}">1</sup>`,
+    ).join('');
+    const doc = parseMarkup(`<p>Body${earlier}<sup data-footnote-id="a">10</sup></p>`);
     const { nodes } = createDocumentSchema();
     const entry = nodes.footnote_entry?.create({ footnoteId: 'a' }, doc.type.schema.text('Note a'));
     const area = entry && nodes.page_footnotes?.create(null, [entry]);
     if (!area) throw new Error('no footnote area');
     const drawn = () => [...(holder.engine()?.regionLines(area, null).values() ?? [])];
-    holder.engine()?.number(doc);
+    const engine = holder.engine();
+    if (!engine) throw new Error('No engine');
+    engine.number(doc);
+    const documentNumber = drawn();
+    engine.number(doc, 'page');
     const numbered = drawn();
+    expect(numbered).not.toEqual(documentNumber);
     // Another template makes the engine again.
     template = { ...BASE_TEMPLATE, language: 'fr' };
     // Drawn before the next layout numbers it, as a region is drawn after the fonts load.
