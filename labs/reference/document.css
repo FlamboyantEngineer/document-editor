@@ -1988,7 +1988,8 @@ a.de-contents__entry {
   --de-math-top: calc(
     max(var(--de-math-ascent), var(--de-math-tag-ascent, 0px)) + var(--de-math-number-lift, 0px)
   );
-  display: block;
+  /* Its own formatting context, so the drawing's top margin stays inside it. */
+  display: flow-root;
   inline-size: auto;
   block-size: calc(
     var(--de-math-top) + max(var(--de-math-descent), var(--de-math-tag-descent, 0px)) +
