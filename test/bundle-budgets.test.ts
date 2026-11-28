@@ -177,11 +177,10 @@ describe('consumer bundle budgets', () => {
     ]);
   });
 
-  it('DOCE-ENTRY-2.1 holds the suspension of the growth limits with its date and cause', () => {
+  it('DOCE-ENTRY-2.1 enforces the growth limits: the reviewed budgets hold no suspension', () => {
     const file = JSON.parse(
       readFileSync(new URL('../scripts/bundle-budgets.json', import.meta.url), 'utf8'),
     ) as Budgets;
-    expect(file.suspended?.since).toBe('2026-11-23');
-    expect(file.suspended?.cause).toMatch(/DOM text layout is removed/);
+    expect(file.suspended).toBeUndefined();
   });
 });
