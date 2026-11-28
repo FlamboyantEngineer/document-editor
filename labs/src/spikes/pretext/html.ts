@@ -1,11 +1,15 @@
 import { DOMSerializer, type Node } from 'prosemirror-model';
 import { blockDirection } from '../../../../src/layout-engine/direction.js';
 import { requireValue, schema } from './fixtures.js';
-import { endsInLineBreak } from './prediction.js';
 import type { LayoutIndex } from './protocol.js';
 import { applySettings, pageGap } from './settings.js';
 
 const serializer = DOMSerializer.fromSchema(schema);
+
+function endsInLineBreak(node: Node): boolean {
+  const code = node.type.name === 'code_figure' ? node.lastChild : node;
+  return code?.type.name === 'code_block' && code.textContent.endsWith('\n');
+}
 
 // A block drawn as the pages draw it: a text block with its direction from its first strong
 // letter, a part of a split block with the whole block's (DOCE-PAGINATION-9.12).

@@ -14,7 +14,7 @@ import { createPageMap } from './page-map.js';
 /** Marks a transaction that shows the variables' values again, as after a host value changed. */
 export const pageVariablesKey = new PluginKey<DecorationSet>('page-variables');
 
-const REGIONS = new Set(['page_header', 'page_footer', 'page_content']);
+const REGIONS = new Set(['page_header', 'page_footer', 'page_content', 'page_footnotes']);
 
 // Where a variable is: its page's number and the page count, as its region or the document counts.
 interface Place {
@@ -91,12 +91,12 @@ function decorate(doc: ProseMirrorNode): DecorationSet {
     const page = places.get(doc.resolve(pos).before()) ?? { page: 0, pages: 0 };
     // A header or footer counts as its region says; the text, by its page in the document.
     const place =
-      node.type.name === 'page_content'
-        ? page
-        : {
+      node.type.name === 'page_header' || node.type.name === 'page_footer'
+        ? {
             page: Number(node.attrs.pageNumber ?? page.page),
             pages: Number(node.attrs.totalPages ?? page.pages),
-          };
+          }
+        : page;
     node.forEach((block, blockOffset) => {
       const start = pos + 1 + blockOffset + 1;
       for (const [offset, key] of variablesIn(block)) {

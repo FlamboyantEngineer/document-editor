@@ -124,6 +124,7 @@ const table: NodeSpec = {
     objectLayout: { default: null },
     captionEnabled: { default: true },
     projectedColumnWidths: { default: null },
+    projectedHeaderRows: { default: null },
   },
   parseDOM: [{ tag: 'table', contentElement: tableContentElement, getAttrs: readTableAttrs }],
   toDOM: (node) => renderTable(node) as unknown as OutputSpec,

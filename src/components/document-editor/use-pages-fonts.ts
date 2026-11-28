@@ -1,8 +1,6 @@
-// The served fonts an editor's pages lay their text out with on the layout engine
-// (DOCE-HOST-1.14.1): the shaper and the template's faces asked for once, their faces drawn on the
-// pages until the editor goes, the template the pages are drawn in with the served family for each
-// generic keyword (DOCE-PAGINATION-12.5), and, when the host serves neither, the reason, with the
-// document shown in the web layout in fallback fonts instead of pages.
+// The pages lay out with the host's shaper and font faces (DOCE-HOST-1.14.1) and draw with the same
+// faces. The template takes each generic's served family (DOCE-PAGINATION-12.5). If the shaper or
+// faces are unavailable, the editor shows the reason and uses the web layout.
 
 import {
   type Dispatch,
@@ -10,6 +8,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -28,6 +27,7 @@ import {
 } from '../../pagination/index.js';
 import { retryDelay } from '../../pagination/served-fonts.js';
 import { aliasTemplateFonts } from '../../pagination/served-template.js';
+import { familyKey } from '../../utils/font-keys.js';
 import { useReportedFonts } from './banners.js';
 
 /** The served fonts the pages are laid out with, or why they cannot be. */
@@ -77,46 +77,74 @@ interface LoadShown {
   readonly served: (fonts: ServedFonts) => void;
 }
 
+function sameFamilies(a: readonly string[], b: readonly string[]): boolean {
+  const first = new Set(a.map(familyKey));
+  const second = new Set(b.map(familyKey));
+  return first.size === second.size && [...first].every((family) => second.has(family));
+}
+
 // Loads the served fonts for an adapter. A first load whose request failed or timed out is made
 // again a second later, then twice as long after each next failure, at most a minute, with the
 // web layout shown meanwhile (DOCE-PAGINATION-12.5); faces a family asked for again brings in are
-// drawn. Gives the call that stops it and takes the faces out.
+// drawn. A load with no usable faces can succeed with different families.
 function keepLoading(
   fonts: FontsAdapter | undefined,
-  families: readonly string[],
-  { doc, signal, shown }: { doc: Document; signal: AbortSignal; shown: LoadShown },
-): () => void {
-  const loads: Promise<PagesFonts>[] = [];
+  currentFamilies: () => readonly string[],
+  { doc, shown }: { doc: Document; shown: LoadShown },
+) {
+  const controller = new AbortController();
+  const { signal } = controller;
+  let served: ServedFonts | null = null;
+  let noFaces: readonly string[] | null = null;
   let failures = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const attempt = () => {
-    let served: ServedFonts | null = null;
-    const retried = () => {
-      if (served && !signal.aborted) shown.served(served);
-    };
-    const promise = loadPagesFonts(fonts, families, { doc, signal, retried });
-    loads.push(promise);
-    shown.loading({ fonts, promise });
-    void promise.then((loaded) => {
-      if (signal.aborted) return;
+  const retried = () => {
+    if (served && !signal.aborted) shown.served(served);
+  };
+  const attempt = (families = currentFamilies()): Promise<PagesFonts> => {
+    noFaces = null;
+    const promise = loadPagesFonts(fonts, families, { doc, signal, retried }).then((loaded) => {
+      if (signal.aborted) {
+        if (loaded.phase === 'pretext') loaded.destroy();
+        return loaded;
+      }
       if (loaded.phase === 'pretext') {
         served = loaded;
         shown.served(loaded);
-        return;
+        return loaded;
+      }
+      if (!loaded.retry && loaded.reason === 'no-faces') {
+        noFaces = families;
+        const next = templateChanged();
+        // An existing projection may already be waiting on this load. It needs the current
+        // template's result if the old template's failure never reaches the screen.
+        if (next) return next;
       }
       shown.unavailable(loaded.reason);
-      if (!loaded.retry) return;
-      failures += 1;
-      timer = setTimeout(attempt, retryDelay(failures));
+      if (loaded.retry) {
+        failures += 1;
+        timer = setTimeout(() => void attempt(), retryDelay(failures));
+      }
+      return loaded;
     });
+    shown.loading({ fonts, promise });
+    return promise;
   };
-  attempt();
-  return () => {
-    clearTimeout(timer);
-    for (const load of loads)
-      void load.then((loaded) => {
-        if (loaded.phase === 'pretext') loaded.destroy();
-      });
+  const templateChanged = () => {
+    if (!noFaces) return undefined;
+    const families = currentFamilies();
+    if (sameFamilies(noFaces, families)) return undefined;
+    failures = 0;
+    return attempt(families);
+  };
+  void attempt();
+  return {
+    templateChanged,
+    stop() {
+      controller.abort();
+      clearTimeout(timer);
+      served?.destroy();
+    },
   };
 }
 const NO_FAMILIES: readonly string[] = [];
@@ -179,22 +207,21 @@ function usePagesFonts(
   const [reason, setReason] = useState<BrowserLayoutReason | null>(null);
   const [drawn, setDrawn] = useState(NONE);
   const loading = useRef<Loading | null>(null);
+  const fontLoad = useRef<ReturnType<typeof keepLoading> | null>(null);
   const latestTemplate = useRef(props.template);
-  useEffect(() => {
+  useLayoutEffect(() => {
     latestTemplate.current = props.template;
-  });
+  }, [props.template]);
   const { fonts } = props;
   useEffect(() => {
     const doc = measureIn.current?.ownerDocument;
     if (!asked || !doc) return undefined;
-    const controller = new AbortController();
-    const families = [
+    const families = () => [
       ...new Set([...templateFontFamilies(latestTemplate.current), ...PAGE_GENERICS]),
     ];
     let latest: Loading | null = null;
-    const stop = keepLoading(fonts, families, {
+    const load = keepLoading(fonts, families, {
       doc,
-      signal: controller.signal,
       shown: {
         loading(current) {
           latest = current;
@@ -207,14 +234,18 @@ function usePagesFonts(
         },
       },
     });
+    fontLoad.current = load;
     return () => {
-      controller.abort();
+      fontLoad.current = null;
       if (loading.current === latest) loading.current = null;
       setReason(null);
       setDrawn(NONE);
-      stop();
+      load.stop();
     };
   }, [asked, fonts, measureIn]);
+  useEffect(() => {
+    void fontLoad.current?.templateChanged();
+  }, [props.template]);
   useEffect(() => drawn.drawing?.adopt(), [drawn]);
   const settled = useSettledTemplateFonts(props.template, drawn.fonts, setDrawn);
   const isPending = asked && !reason && !settled;
@@ -228,8 +259,8 @@ function usePagesFonts(
   );
   const { template } = shownTemplate;
   const unserved = settled ? shownTemplate.unserved : NO_FAMILIES;
-  // The served fonts are read through a ref, so a new template never starts the pages over; a new
-  // adapter does, through a new reader (DOCE-PAGINATION-12.7).
+  // A stable reader lets a working projection add families after a template change. A new adapter
+  // starts the pages over with a new reader (DOCE-PAGINATION-12.7).
   const read = useCallback(() => {
     const current = loading.current;
     return current && current.fonts === fonts ? current.promise : null;

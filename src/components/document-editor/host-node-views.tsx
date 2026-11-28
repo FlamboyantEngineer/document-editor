@@ -27,6 +27,15 @@ import { ownControlOf } from './typed-text.js';
 export type HostNodeViews = Readonly<Record<string, ComponentType<RichTextNodeViewProps>>>;
 
 const hooks = createHooks('host-view', ['content']);
+const NO_VIEWS: HostNodeViews = {};
+
+function sameViews(before: HostNodeViews, after: HostNodeViews): boolean {
+  const entries = Object.entries(before);
+  return (
+    entries.length === Object.keys(after).length &&
+    entries.every(([name, view]) => after[name] === view)
+  );
+}
 
 // What a host view is drawn with: the node, and its decorations.
 interface Drawn {
@@ -94,6 +103,10 @@ export function useHostNodeViews(views: HostNodeViews | undefined): {
   readonly nodeViews: Readonly<Record<string, NodeViewConstructor>>;
   readonly portals: ReactNode;
 } {
+  // ProseMirror redraws its document when a constructor changes, so retain equal view maps.
+  const given = views ?? NO_VIEWS;
+  const [kept, keep] = useState(given);
+  if (kept !== given && !sameViews(kept, given)) keep(given);
   const [portals, setPortals] = useState<ReadonlyMap<string, ReactPortal>>(() => new Map());
   const nodeViews = useMemo(() => {
     let count = 0;
@@ -135,8 +148,8 @@ export function useHostNodeViews(views: HostNodeViews | undefined): {
         };
       };
     return Object.fromEntries(
-      Object.entries(views ?? {}).map(([name, Component]) => [name, constructorOf(Component)]),
+      Object.entries(kept).map(([name, Component]) => [name, constructorOf(Component)]),
     );
-  }, [views]);
+  }, [kept]);
   return { nodeViews, portals: [...portals.values()] };
 }

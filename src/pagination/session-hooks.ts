@@ -1,6 +1,9 @@
 // What a projection's session hands its typing probe and its host as the served fonts settle.
 
+import type { PagesLayout } from '../document/pages-layout.js';
+import { typesetMathOf } from '../engine/math-views.js';
 import { followDocument } from './layout-source.js';
+import { layoutSettled, pagesLayout } from './pages-layout.js';
 import { isIdle, refreshLayout, type Session } from './projection-session.js';
 
 /**
@@ -9,8 +12,29 @@ import { isIdle, refreshLayout, type Session } from './projection-session.js';
  */
 export function typedPages(session: Session) {
   session.source = followDocument(session.source, session.canonical.doc);
-  const { projection, map, pace, source } = session;
-  return { projection: projection.doc, map, source, engine: pace.text?.engine() ?? null };
+  const { projection, map, pace, source, footnoteNumbering } = session;
+  return {
+    projection: projection.doc,
+    map,
+    source,
+    footnoteNumbering,
+    engine: pace.text?.engine() ?? null,
+  };
+}
+
+/** Hands over the pages as laid out, with the numbers they draw and how far they have settled. */
+export function projectionPagesLayout(session: Session): PagesLayout | null {
+  const { canonical, projection, pace, options, footnoteNumbering, provisionalMath } = session;
+  const state = pace.readiness.state();
+  const settled = options.fontsPending
+    ? state === 'settled' && !options.fontsPending()
+    : layoutSettled(state, options.element);
+  return pagesLayout(projection, {
+    footnoteNumbering,
+    settled: settled && !provisionalMath,
+    markup: options.textLayout?.markup?.() ?? 'all',
+    typesetOf: (node) => typesetMathOf(canonical, node),
+  });
 }
 
 /**
@@ -20,7 +44,7 @@ export function typedPages(session: Session) {
  */
 export function recheckFonts(session: Session): void {
   const { pace } = session;
-  if (session.destroyed || pace.ready.failed()) return;
+  if (session.destroyed || pace.readiness.state() === 'failed') return;
   if (pace.changed) return refreshLayout(session, false);
   pace.readiness.pending(() => {
     if (!session.cancelLayout) pace.readiness.laidOut(() => isIdle(session));

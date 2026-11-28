@@ -71,13 +71,13 @@ function textDirection(text: string): TextDirection | null {
   return null;
 }
 
-const directions = new WeakMap<ProseMirrorNode, TextDirection>();
+const directions = new WeakMap<ProseMirrorNode, TextDirection | null>();
 
-/** A text block's direction, left to right when nothing in its text decides it. */
-export function blockDirection(block: ProseMirrorNode): TextDirection {
-  let direction = directions.get(block);
-  if (direction) return direction;
-  direction = 'ltr';
+/** A text block's first strong direction, if any. */
+export function strongBlockDirection(block: ProseMirrorNode): TextDirection | null {
+  const kept = directions.get(block);
+  if (kept !== undefined) return kept;
+  let direction: TextDirection | null = null;
   for (let index = 0; index < block.childCount; index += 1) {
     const found = textDirection(shownText(block.child(index)));
     if (found) {
@@ -87,4 +87,9 @@ export function blockDirection(block: ProseMirrorNode): TextDirection {
   }
   directions.set(block, direction);
   return direction;
+}
+
+/** A text block's direction, left to right when nothing in its text decides it. */
+export function blockDirection(block: ProseMirrorNode): TextDirection {
+  return strongBlockDirection(block) ?? 'ltr';
 }

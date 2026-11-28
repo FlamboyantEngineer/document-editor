@@ -1633,10 +1633,15 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
         { ...table.attrs, projectedColumnWidths: [100] },
         table.content,
       );
+      const withHeaderCount = table.type.create(
+        { ...table.attrs, projectedHeaderRows: 0 },
+        table.content,
+      );
       for (const attack of [
         figure.type.create(figure.attrs, [shown, table]),
         figure.type.create({ splitPartIndex: 1 }, [caption, table]),
         figure.type.create(figure.attrs, [caption, withWidths]),
+        figure.type.create(figure.attrs, [caption, withHeaderCount]),
       ]) {
         insert(attack);
         await room.provider.whenStored();
@@ -1698,6 +1703,7 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
     );
     attacked.add('continuedText');
     attacked.add('projectedColumnWidths');
+    attacked.add('projectedHeaderRows');
     const pageOnly = new Set(
       [...Object.keys(FRAGMENT_RULES), 'table_caption', 'code_caption'].flatMap((name) =>
         Object.keys(wholeValuesOf(name)),

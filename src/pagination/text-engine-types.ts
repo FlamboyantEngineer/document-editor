@@ -14,7 +14,12 @@ import type { MathLayouter, PlacedMath } from '../layout-engine/math-atoms.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import type { ReserveCluster, ReservedBox } from '../layout-engine/reserved-boxes.js';
 import type { SizedBox } from '../layout-engine/rule-sizes.js';
-import type { LayoutBlock, LayoutRules, TemplateFile } from '../model/index.js';
+import type {
+  LayoutBlock,
+  LayoutRules,
+  ResolvedFootnoteSettings,
+  TemplateFile,
+} from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { LayoutInputs } from './layout-inputs.js';
 
@@ -146,8 +151,8 @@ export interface PagesTextEngine {
   readonly language?: string | undefined;
   /** The layout inputs the engine records (DOCE-PAGINATION-13.12). */
   inputs(): LayoutInputs;
-  /** Counts the measured document's numbered headings and paragraphs, for `measureBlock`. */
-  number(doc: ProseMirrorNode): void;
+  /** Counts the measured document's numbers, with the template's footnote numbering when omitted. */
+  number(doc: ProseMirrorNode, footnoteNumbering?: ResolvedFootnoteSettings['numbering']): void;
   /** A document's numbered headings and paragraphs, such as the pages'. */
   numbering(doc: ProseMirrorNode): DocumentNumbering;
   /**
@@ -179,9 +184,8 @@ export interface PagesTextEngine {
     inserted?: InsertedTexts,
   ): readonly LayoutBlock[];
   /**
-   * A section's page header, footer or footnote area, laid out with the text its template variables
-   * show (none when absent, so a region with one is left to the DOM); null when the DOM must
-   * measure it.
+   * A section's page header, footer or footnote area; null when the engine cannot lay it out.
+   * Headers and footers take their variable text here. Footnotes use body variable widths.
    */
   measureRegion(
     node: ProseMirrorNode,
@@ -194,8 +198,8 @@ export interface PagesTextEngine {
    */
   insertedReserved(node: ProseMirrorNode, scope: string | null, word: string): ReservedBox[];
   /**
-   * The lines of each text block in a page's header or footer, as the engine lays the region out
-   * with the texts its template variables show; none when it cannot lay the region out.
+   * The lines of each text block in a page's header, footer or footnote area, using the same
+   * variables as `measureRegion`; none when the engine cannot lay it out.
    */
   regionLines(
     node: ProseMirrorNode,

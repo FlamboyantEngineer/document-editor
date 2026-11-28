@@ -14,6 +14,11 @@ interface LinkedCodeFigure {
 }
 
 const figures = new WeakMap<ProseMirrorNode, LinkedCodeFigure | null>();
+const linkedTexts = new WeakSet<ProseMirrorNode>();
+
+/** Whether this code block is drawn with the editable text's trailing caret line. */
+export const hasCodeCaretLine = (node: ProseMirrorNode): boolean =>
+  node.type.name === 'code_block' && !linkedTexts.has(node);
 
 // A node of a type with the text given, or none when the text is empty.
 const withText = (node: ProseMirrorNode, text: string) =>
@@ -39,6 +44,7 @@ function figureOf(node: ProseMirrorNode): LinkedCodeFigure | null {
     },
     withText(node, String(node.attrs.code ?? '')),
   );
+  linkedTexts.add(code);
   return { figure: figureType.create(null, [caption, code]), caption, code };
 }
 

@@ -2,7 +2,10 @@ import type { Node } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { type DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
+import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { node, page, pagesDocument } from '../../test/pages-fixtures.js';
+import { createTextLayout, lineTableMeasurement } from '../layout-engine/text-layout.js';
 import {
   BASE_TEMPLATE,
   parseNumberingStyle,
@@ -10,6 +13,7 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../model/index.js';
+import { splitParagraph } from '../model/pagination/text-split.js';
 import { createParagraphNumbering, numberedParagraphs, paragraphNumberText } from './index.js';
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
@@ -47,6 +51,64 @@ const numbersOf = (doc: ReturnType<typeof documentOf>, template = TEMPLATE) =>
   numberedParagraphs(doc, template).map((entry) => entry.text);
 
 describe('paragraph numbering', () => {
+  it('DOCE-NUMBERING-6.1 numbers a split paragraph on its blank first part when another part has text', () => {
+    installFakeCanvas();
+    const br = () => node('hard_break', null);
+    const rtl = (value: string) => documentSchema.text(value);
+    const whole = node('paragraph', { dataId: 'split' }, [
+      br(),
+      br(),
+      br(),
+      rtl('אבג'),
+      br(),
+      rtl('ד'),
+      br(),
+      rtl('ה'),
+    ]);
+    const after = node('paragraph', null, [documentSchema.text('After')]);
+    const canonical = pagesDocument([page([whole, after])], 'body');
+    const [first] = numberedParagraphs(canonical, TEMPLATE);
+    if (!first) throw new Error('The whole paragraph earns a number');
+    const layout = createTextLayout({ template: TEMPLATE });
+    const measured = layout.layoutText(whole, {
+      width: 90,
+      number: { label: first.text, level: first.level, levelStyle: first.levelStyle },
+    });
+    if (!measured.ok || !measured.table.lines[0]) throw new Error('The paragraph has lines');
+    const split = splitParagraph(
+      {
+        node: whole,
+        height: measured.table.height,
+        marginTop: 0,
+        marginBottom: 0,
+        measurement: lineTableMeasurement(measured.table),
+      },
+      measured.table.lines[0].height * 2,
+    );
+    const tail = split?.tail[0]?.node;
+    if (!split || !tail) throw new Error('The paragraph splits at a hard break');
+    expect([split.head.node.textContent, tail.textContent]).toEqual(['', 'אבגדה']);
+    const blank = (splitPartIndex: number, children: Node[]) =>
+      node('paragraph', { dataId: 'blank', splitPartIndex }, children);
+    const pages = pagesDocument(
+      [
+        page([split.head.node]),
+        page([tail, blank(0, [br()])]),
+        page([blank(1, [documentSchema.text(' \u200B')]), after]),
+      ],
+      'body',
+    );
+    const numbered = numberedParagraphs(pages, TEMPLATE);
+    expect(
+      numbered.map(({ pos, continued, text }) => [pages.nodeAt(pos), text, continued]),
+    ).toEqual([
+      [split.head.node, '1.', undefined],
+      [tail, '1.', true],
+      [after, '2.', undefined],
+    ]);
+    expect(numbered[1]?.style).toBe(numbered[0]?.style);
+  });
+
   it("DOCE-NUMBERING-6.1 gives a paragraph's later part on the pages its first part's text position and no number, counting nothing again", () => {
     const node = (name: string, attrs: Record<string, unknown> | null, content?: Node[]) => {
       const type = documentSchema.nodes[name];

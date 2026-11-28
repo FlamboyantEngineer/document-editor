@@ -9,7 +9,6 @@
 // engine, renders `projection` with the `plugins` it carries, passes each of its transactions to
 // `receive`, and takes each new projection state from `onProjection`.
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   type Command,
   EditorState,
@@ -21,9 +20,12 @@ import { columnResizing } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import type { PagesLayout } from '../document/pages-layout.js';
 import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
-import { typesetMathOf } from '../engine/math-views.js';
 import type { FontFiles } from '../host/font-files.js';
-import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
+import {
+  FRAGMENT_RULES,
+  type FragmentRules,
+  type ResolvedFootnoteSettings,
+} from '../model/index.js';
 import type { CanonicalChange, CanonicalTaken } from './canonical-change.js';
 import { canonicalDecorations } from './canonical-decorations.js';
 import {
@@ -46,7 +48,6 @@ import { awaitLayoutInputs, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { pageChromeDecorations } from './page-chrome.js';
 import { createPageMapScope } from './page-map.js';
-import { layoutSettled, pagesLayout } from './pages-layout.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { bindProjectionView } from './projection-attachment.js';
 import { inputPlugin } from './projection-input-plugin.js';
@@ -68,7 +69,7 @@ import {
   take,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
-import { recheckFonts, typedPages } from './session-hooks.js';
+import { projectionPagesLayout, recheckFonts, typedPages } from './session-hooks.js';
 import { splitBreaksPlugin } from './split-breaks.js';
 import {
   holdTextEngine,
@@ -92,7 +93,8 @@ export interface PagedProjectionOptions {
   readonly pageHeight: SectionPageHeight;
   readonly rules?: SectionLayoutRules | undefined;
   readonly fragmentRules?: FragmentRules | undefined;
-  readonly footnoteNumbering?: 'document' | 'page' | undefined;
+  /** Overrides the current text engine template's footnote numbering on the pages. */
+  readonly footnoteNumbering?: ResolvedFootnoteSettings['numbering'] | undefined;
   /**
    * Plugins that change what the document renders, run on the projection and on the state the
    * pages are laid out from.
@@ -328,6 +330,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
         settled: () => refreshLayout(session(), true),
         failed: () => session().pace.readiness.fail(),
       }),
+      waitingForEngine: false,
       text,
       draws: checkDraws({
         overflow: options.overflow,
@@ -336,10 +339,13 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     },
     canonical: options.state,
     projection: projectionState(options, session, { text, firstMap: map }),
+    footnoteNumbering: options.footnoteNumbering ?? 'document',
+    provisionalMath: false,
     shown: options.state.doc,
     map,
     view: null,
     cancelLayout: null,
+    cancelComposition: null,
     quiet: 0,
   };
 }
@@ -399,15 +405,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       ...(live.pace.text ? { textLayout: live.pace.text.engine()?.stats() } : {}),
     }),
     textLines: () => pageTextLines(live.projection),
-    pagesLayout: () => {
-      const state = live.pace.readiness.state();
-      const settled = options.fontsPending
-        ? state === 'settled' && !options.fontsPending()
-        : layoutSettled(state, options.element);
-      const markup = options.textLayout?.markup?.() ?? 'all';
-      const typesetOf = (node: ProseMirrorNode) => typesetMathOf(live.canonical, node);
-      return pagesLayout(live.projection, { ...options, settled, markup, typesetOf });
-    },
+    pagesLayout: () => projectionPagesLayout(live),
     servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {
       if (live.destroyed) return;

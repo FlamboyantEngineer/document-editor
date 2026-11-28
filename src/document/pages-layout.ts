@@ -139,8 +139,8 @@ export interface PagesLayout {
   readonly inputsKey: string;
   /**
    * Whether the layout may still move: the pages are not settled, an atom such as an image or math
-   * is still loading, or fonts are. A host prints or keeps the layout once it is false, as after
-   * the editor's `whenSettled`.
+   * is still loading, or fonts are. A host prints or keeps the layout once it is false. The
+   * editor's `whenSettled` may resolve before late math is laid out.
    */
   readonly provisional: boolean;
 }

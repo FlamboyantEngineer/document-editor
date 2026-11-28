@@ -5,7 +5,15 @@
 // projection's.
 
 import type { EditorState, Transaction } from 'prosemirror-state';
-import { type FragmentRules, projectDocument, repaginate } from '../model/index.js';
+import { renumberFootnotes } from '../engine/footnote-numbers.js';
+import {
+  type FragmentRules,
+  projectDocument,
+  repaginate,
+  type ResolvedFootnoteSettings,
+  resolveFootnoteSettings,
+} from '../model/index.js';
+import { rememberMovedCaret } from './caret.js';
 import {
   layoutDocument,
   type LayoutMemory,
@@ -14,7 +22,11 @@ import {
   type SectionPageHeight,
   type SectionReport,
 } from './layout-document.js';
+import { markLayout } from './layout-marks.js';
+import { followDocument } from './layout-source.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
+import type { Session } from './projection-session.js';
+import type { ReadyLayoutEngine } from './ready-engine.js';
 import { nearAfter, projectionSelection } from './selection-mirror.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
@@ -37,7 +49,7 @@ interface LayoutSource {
 interface ProjectionLayoutOptions {
   readonly pageHeight: SectionPageHeight;
   readonly rules?: SectionLayoutRules | undefined;
-  readonly footnoteNumbering?: 'document' | 'page' | undefined;
+  readonly footnoteNumbering?: ResolvedFootnoteSettings['numbering'] | undefined;
   readonly fragmentRules: FragmentRules;
   /** Lays every block out, with no DOM. */
   readonly engine: PagesTextEngine;
@@ -51,19 +63,22 @@ interface ProjectionLayout {
   readonly metrics: readonly PageMetric[];
   /** The height the engine gave each top-level block, whole, by section. */
   readonly heights: readonly (readonly number[])[];
+  readonly footnoteNumbering: ResolvedFootnoteSettings['numbering'];
 }
 
 /** The projection transaction onto the canonical document's pages, and the map after it. */
-export function layOutProjection(
+function layOutProjection(
   { projection, source, canonical, memory, onSection, onUnsettled }: LayoutSource,
   options: ProjectionLayoutOptions,
 ): ProjectionLayout {
   const metrics: PageMetric[] = [];
   const heights: (readonly number[])[] = [];
+  const footnoteNumbering =
+    options.footnoteNumbering ?? resolveFootnoteSettings(options.engine.template).numbering;
   const sections = layoutDocument(source, {
     pageHeight: options.pageHeight,
     rules: options.rules,
-    footnoteNumbering: options.footnoteNumbering,
+    footnoteNumbering,
     memory,
     onPage: (page) => metrics.push(page),
     onSection: (section) => {
@@ -74,12 +89,59 @@ export function layOutProjection(
     engine: options.engine,
   });
   const hidden = options.engine.hiddenSuggestion?.() ?? null;
-  const target = projectDocument(source.doc, sections, { ...options, hidden });
+  const target = projectDocument(source.doc, sections, { footnoteNumbering, hidden });
   const tr = projection.tr;
   repaginate(tr, target, options.fragmentRules);
   const map = createProjectionMap(tr.doc, options.fragmentRules);
   tr.setSelection(
     projectionSelection(map, canonical.selection, nearAfter(projection.selection, tr)),
   );
-  return { tr, map, metrics, heights };
+  return { tr, map, metrics, heights, footnoteNumbering };
+}
+
+/** Lays out the pages and publishes the matching map and numbering with their transaction. */
+export function applyProjectionLayout(
+  session: Session,
+  { engine, provisionalMath }: ReadyLayoutEngine,
+  take: (session: Session, tr: Transaction) => void,
+) {
+  const { canonical, projection, options, rules, pace, view } = session;
+  const source = followDocument(session.source, canonical.doc, pace.restart);
+  session.source = source;
+  pace.restart = false;
+  const { memory, counter } = pace;
+  const laid = layOutProjection(
+    { projection, source, canonical, memory, ...counter.reports },
+    { ...options, fragmentRules: rules, engine },
+  );
+  const { tr, metrics, footnoteNumbering } = laid;
+  counter.layout(session.projection.doc, tr.doc);
+  pace.passes = tr.docChanged ? pace.passes + 1 : 0;
+  if (footnoteNumbering !== session.footnoteNumbering) renumberFootnotes(tr, footnoteNumbering);
+  if (view) rememberMovedCaret(tr, view);
+  session.probe.laidOut(laid);
+  const stats = counter.stats();
+  markLayout(tr, { metrics, stats });
+
+  const before = session.projection;
+  const previous = {
+    map: session.map,
+    shown: session.shown,
+    footnoteNumbering: session.footnoteNumbering,
+    provisionalMath: session.provisionalMath,
+  };
+  Object.assign(session, {
+    map: laid.map,
+    shown: session.canonical.doc,
+    footnoteNumbering,
+    provisionalMath,
+  });
+  try {
+    take(session, tr);
+  } catch (error) {
+    // Application may have failed before changing state, or drawing after it did.
+    if (session.projection === before) Object.assign(session, previous);
+    throw error;
+  }
+  return { tr, layouts: stats.layouts, pages: metrics.length };
 }

@@ -22,6 +22,8 @@ export interface LayoutPace {
   readonly memory: LayoutMemory;
   /** Whether the pages still wait for what they measure with, such as the template's fonts. */
   readonly ready: ReturnType<typeof awaitLayoutInputs>;
+  /** A layout found that its engine or the math it uses is still due. */
+  waitingForEngine: boolean;
   /** What is checked once a layout is drawn: pages drawn taller than they are (`checkDraws`). */
   readonly draws: DrawChecks;
   /** The text layout engine, with the `textLayout` option. */

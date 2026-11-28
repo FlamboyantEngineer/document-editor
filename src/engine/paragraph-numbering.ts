@@ -27,6 +27,7 @@ import {
   type TemplateFile,
   templateScopeStyles,
 } from '../model/index.js';
+import { textFragmentChains } from '../model/pagination/text-fragment-chains.js';
 import { documentSectionsKey } from './document-sections.js';
 import { isInlineTextOnly } from './transaction-kind.js';
 
@@ -162,19 +163,20 @@ export function numberedHeadings(doc: ProseMirrorNode, template: TemplateFile): 
   return found;
 }
 
-// A split paragraph's part, by its element id and part index.
-const partOf = (node: ProseMirrorNode) => {
-  const id: unknown = node.attrs.dataId;
-  return typeof id === 'string' && id
-    ? `${id}#${String(Number(node.attrs.splitPartIndex ?? 0))}`
-    : null;
-};
+const inBody = (node: ProseMirrorNode) =>
+  node.type.name === 'page' || node.type.name === 'page_content';
 
-// The part before a later part of a split paragraph.
-const partBefore = (node: ProseMirrorNode) => {
-  const part = Number(node.attrs.splitPartIndex ?? 0);
-  return part > 0 ? `${String(node.attrs.dataId)}#${String(part - 1)}` : null;
-};
+// Each part of a split paragraph that earns a number, and the first part that shows it.
+function numberedParts(section: ProseMirrorNode): ReadonlyMap<number, number> {
+  const heads = new Map<number, number>();
+  for (const parts of textFragmentChains(section, 'body')) {
+    const [first] = parts;
+    if (first.node.type.name !== 'paragraph') continue;
+    if (!parts.some(({ node }) => hasParagraphNumberingContent(node))) continue;
+    for (const { pos } of parts) heads.set(pos, first.pos);
+  }
+  return heads;
+}
 
 /**
  * Every numbered paragraph of a document, in order: the top-level paragraphs of the body, with
@@ -186,29 +188,28 @@ export function numberedParagraphs(
   template: TemplateFile,
 ): NumberedParagraph[] {
   const found: NumberedParagraph[] = [];
-  // Each numbered paragraph's number by its part, which a later part shows again.
-  const byPart = new Map<string, NumberedParagraph>();
   let counting = freshCounting();
   doc.forEach((section, sectionOffset) => {
     if (section.type.name !== 'page_section') return;
     const { config, headings, restarts } = sectionNumbering(template, section);
     if (restarts) counting = freshCounting();
+    const heads = config ? numberedParts(section) : null;
+    const byHead = new Map<number, NumberedParagraph>();
     section.descendants((node, offset) => {
       const name = node.type.name;
-      if (name === 'page' || name === 'page_content') return true;
+      if (inBody(node)) return true;
       if (name === 'heading' && !node.attrs.docTitle) countHeading(node, counting, headings);
       if (name !== 'paragraph' || !config) return false;
       // A later part of a paragraph split over pages keeps its first part's text position, shows
       // no number and counts nothing again (DOCE-NUMBERING-6.1).
-      const before = partBefore(node);
-      const first = before === null ? undefined : byPart.get(before);
-      if (first) {
-        found.push({ ...first, pos: sectionOffset + 1 + offset, continued: true });
-        const key = partOf(node);
-        if (key) byPart.set(key, first);
+      const head = heads?.get(offset);
+      const pos = sectionOffset + 1 + offset;
+      if (head !== undefined && head !== offset) {
+        const first = byHead.get(head);
+        if (first) found.push({ ...first, pos, continued: true });
         return false;
       }
-      if (!hasParagraphNumberingContent(node)) return false;
+      if (head === undefined && !hasParagraphNumberingContent(node)) return false;
       const level = normalizeParagraphLevel(node.attrs.paragraphLevel);
       const levelStyle = resolveParagraphLevelStyle(config, level, counting.headingDepth);
       const parts = advanceParagraphCounters(counting.counters, level);
@@ -222,10 +223,9 @@ export function numberedParagraphs(
         : '';
       if (text) {
         const style = paragraphNumberingIndentationStyle(levelStyle, { level, label: text });
-        const numbered = { pos: sectionOffset + 1 + offset, level, text, style, levelStyle };
+        const numbered = { pos, level, text, style, levelStyle };
         found.push(numbered);
-        const key = partOf(node);
-        if (key) byPart.set(key, numbered);
+        if (head !== undefined) byHead.set(head, numbered);
       }
       return false;
     });
