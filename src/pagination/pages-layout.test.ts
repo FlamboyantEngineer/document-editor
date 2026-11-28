@@ -1,12 +1,13 @@
 import { Transform } from 'prosemirror-transform';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
+import { registerFaces } from '../document/font-registry.js';
 import { readPagesDocument } from '../document/pages-layout.js';
 import { placeMath } from '../layout-engine/math-atoms.js';
 import { forcedLinesKey } from './forced-lines.js';
-import { pagesLayout } from './pages-layout.js';
+import { layoutSettled, pagesLayout } from './pages-layout.js';
 
 const text = (value: string) => documentSchema.text(value);
 const paragraph = (value: string, attrs: Record<string, unknown> = {}) =>
@@ -126,5 +127,45 @@ describe('pagesLayout', () => {
     const engine = stubEngine();
     expect(pagesLayout(pagesState(doc, engine), { settled: true })?.provisional).toBe(false);
     expect(pagesLayout(pagesState(doc, engine), { settled: false })?.provisional).toBe(true);
+  });
+});
+
+describe('layoutSettled', () => {
+  it('DOCE-PAGINATION-13.2 holds the pages provisional only while a served face of theirs loads, not a font of the host page', () => {
+    let finish = () => undefined as void;
+    class LoadingFace {
+      status: FontFaceLoadStatus = 'loading';
+      load() {
+        return new Promise<this>((resolve) => {
+          finish = () => {
+            this.status = 'loaded';
+            resolve(this);
+          };
+        });
+      }
+    }
+    vi.stubGlobal('FontFace', LoadingFace);
+    const faces = new Set<unknown>();
+    // The host page loads an icon font of its own meanwhile.
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      value: {
+        status: 'loading',
+        add: (face: unknown) => faces.add(face),
+        delete: (face: unknown) => faces.delete(face),
+      },
+    });
+    const root = document.createElement('div');
+    expect(layoutSettled('settled', root)).toBe(true);
+    expect(layoutSettled('pending', root)).toBe(false);
+    const bytes = new Uint8Array([1]);
+    const registration = registerFaces(document, {
+      faces: [{ family: 'Tinos', weight: 400, style: 'normal', bytes }],
+    });
+    expect(layoutSettled('settled', root)).toBe(false);
+    finish();
+    expect(layoutSettled('settled', root)).toBe(true);
+    registration.release();
+    Reflect.deleteProperty(document, 'fonts');
   });
 });

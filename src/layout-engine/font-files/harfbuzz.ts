@@ -104,8 +104,27 @@ const READ_ONLY = 1;
 const LEFT_TO_RIGHT = 4;
 const RIGHT_TO_LEFT = 5;
 const FEATURE_BYTES = 16;
-const MAX_FEATURES = 16;
+/** How many features the shared feature array holds at first; it grows for a longer list. */
+const FEATURE_SLOTS = 16;
 const WASM_PAGE = 65_536;
+
+/**
+ * The module's request to grow its heap to `size` bytes: 1 once grown, 0 when the memory cannot
+ * grow (past its maximum, or the runtime refuses), so the module's allocation fails instead of an
+ * exception unwinding through it.
+ */
+export function heapResizer(heap: { memory?: WebAssembly.Memory }) {
+  return (size: number) => {
+    const { memory } = heap;
+    if (!memory) return 0;
+    try {
+      memory.grow(Math.ceil((size - memory.buffer.byteLength) / WASM_PAGE));
+      return 1;
+    } catch {
+      return 0;
+    }
+  };
+}
 
 /** Instantiates HarfBuzz from the bytes of harfbuzzjs's `harfbuzz.wasm`. */
 export async function createHarfBuzz(wasm: FontShaper): Promise<HarfBuzz> {
@@ -117,12 +136,7 @@ export async function createHarfBuzz(wasm: FontShaper): Promise<HarfBuzz> {
       throw new Error('HarfBuzz aborted');
     },
     _setitimer_js: () => 0,
-    emscripten_resize_heap: (size: number) => {
-      const { memory } = heap;
-      if (!memory) return 0;
-      memory.grow(Math.ceil((size - memory.buffer.byteLength) / WASM_PAGE));
-      return 1;
-    },
+    emscripten_resize_heap: heapResizer(heap),
   };
   const wasi = {
     proc_exit: (code: number) => {
@@ -157,23 +171,57 @@ function heapViews(native: Exports) {
 
 type HeapViews = ReturnType<typeof heapViews>;
 
+// Heap bytes for the module, or an error when its heap cannot grow to hold them: a null pointer
+// written through would overwrite the module's own data.
+function allocate(native: Exports, size: number): Pointer {
+  const pointer = native.malloc(size);
+  if (!pointer) throw new Error(`HarfBuzz could not allocate ${String(size)} bytes`);
+  return pointer;
+}
+
 function cString(native: Exports, { u8 }: HeapViews, text: string): Pointer {
   const bytes = new TextEncoder().encode(text);
-  const pointer = native.malloc(bytes.length + 1);
+  const pointer = allocate(native, bytes.length + 1);
   u8().set(bytes, pointer);
   u8()[pointer + bytes.length] = 0;
   return pointer;
 }
 
+// The features of a shaping, written into one shared array on the heap, rewritten when the list
+// changes, and moved to a larger array for a longer list, so no feature is dropped.
+function createFeatures(native: Exports, views: HeapViews) {
+  let slots = FEATURE_SLOTS;
+  let pointer = allocate(native, FEATURE_BYTES * slots);
+  let written = '';
+  let count = 0;
+  return {
+    write(list: readonly string[]): { pointer: Pointer; count: number } {
+      const key = list.join(',');
+      if (key === written) return { pointer, count };
+      if (list.length > slots) {
+        const larger = allocate(native, FEATURE_BYTES * list.length);
+        native.free(pointer);
+        pointer = larger;
+        slots = list.length;
+      }
+      list.forEach((feature, index) => {
+        const text = cString(native, views, feature);
+        native.hb_feature_from_string(text, -1, pointer + index * FEATURE_BYTES);
+        native.free(text);
+      });
+      written = key;
+      count = list.length;
+      return { pointer, count };
+    },
+  };
+}
+
 /** One shaping buffer, with the languages and feature lists it was given kept on the heap. */
 function createShaper(native: Exports, views: HeapViews) {
   const buffer = native.hb_buffer_create();
-  const features = native.malloc(FEATURE_BYTES * MAX_FEATURES);
+  const features = createFeatures(native, views);
   const languages = new Map<string, Pointer>();
   const scripts = new Map<string, number>();
-  // The features are written into one shared array, rewritten when the list changes.
-  let written = '';
-  let count = 0;
 
   function languageOf(tag: string): Pointer {
     let language = languages.get(tag);
@@ -195,21 +243,9 @@ function createShaper(native: Exports, views: HeapViews) {
     }
     return script;
   }
-  function writeFeatures(list: readonly string[]): number {
-    const key = list.join(',');
-    if (key === written) return count;
-    list.slice(0, MAX_FEATURES).forEach((feature, index) => {
-      const text = cString(native, views, feature);
-      native.hb_feature_from_string(text, -1, features + index * FEATURE_BYTES);
-      native.free(text);
-    });
-    written = key;
-    count = Math.min(list.length, MAX_FEATURES);
-    return count;
-  }
   function fill(text: string, { language, script, rtl }: ShapeOptions) {
     native.hb_buffer_clear_contents(buffer);
-    const pointer = native.malloc(text.length * 2 + 2);
+    const pointer = allocate(native, text.length * 2 + 2);
     const units = views.u16();
     for (let index = 0; index < text.length; index += 1)
       units[pointer / 2 + index] = text.charCodeAt(index);
@@ -239,7 +275,8 @@ function createShaper(native: Exports, views: HeapViews) {
   }
   return (font: Pointer, text: string, options: ShapeOptions) => {
     fill(text, options);
-    native.hb_shape(font, buffer, features, writeFeatures(options.features));
+    const { pointer, count } = features.write(options.features);
+    native.hb_shape(font, buffer, pointer, count);
     return readRun();
   };
 }
@@ -247,11 +284,11 @@ function createShaper(native: Exports, views: HeapViews) {
 function bindHarfBuzz(native: Exports): HarfBuzz {
   const views = heapViews(native);
   const shape = createShaper(native, views);
-  const scratch = native.malloc(64);
+  const scratch = allocate(native, 64);
 
   function createFace(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): HarfBuzzFace {
     const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-    const pointer = native.malloc(data.byteLength);
+    const pointer = allocate(native, data.byteLength);
     views.u8().set(data, pointer);
     const blob = native.hb_blob_create(pointer, data.byteLength, READ_ONLY, 0, 0);
     const face = native.hb_face_create(blob, 0);

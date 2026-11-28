@@ -8,7 +8,8 @@ import { resolveFontStack } from '../model/templates/template-css-values.js';
 import { resolveFootnoteSettings } from '../model/templates/template-scopes.js';
 import { findTemplateSection } from '../model/templates/template-sections.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
-import { type BlockTypography, fontString, resolveLength, snap } from './typography.js';
+import { resolveSize } from './template-lengths.js';
+import { type BlockTypography, fontString, snap } from './typography.js';
 
 /** The marker size relative to the entry text, when the template sets none. */
 const MARKER_SIZE = 0.85;
@@ -41,7 +42,7 @@ export function footnoteMarkerItem(
 ): FootnoteMarker {
   const section = scope ? findTemplateSection(template, scope) : null;
   const { marker, suffix } = resolveFootnoteSettings(template, section);
-  const size = snap(resolveLength(marker.size, entry.font.size) ?? entry.font.size * MARKER_SIZE);
+  const size = snap(resolveSize(marker.size, entry.font.size) ?? entry.font.size * MARKER_SIZE);
   const font = {
     family: resolveFontStack(marker.font, '', fontStacks) || entry.font.family,
     size,

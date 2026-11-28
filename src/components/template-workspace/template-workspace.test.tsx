@@ -27,6 +27,16 @@ const ARTICLE: TemplateFile = {
   name: 'Article',
   extensions: { layout: 'web' },
 };
+// A template of two sections as the workspace stores it once each has a top margin of its own.
+const SECTIONS: TemplateFile = {
+  formatVersion: 1,
+  id: 'sections',
+  name: 'Sections',
+  sections: [
+    { name: 'cover', page: { margins: { top: '2mm' } } },
+    { name: 'body', page: { margins: { top: '3mm' } } },
+  ],
+};
 
 // The workspace draws its own preview, a document editor, unless a test draws one.
 installEditorDom();
@@ -344,7 +354,7 @@ describe('TemplateWorkspace', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-1.13 keeps each section’s own page settings through quick tab switches and a reopen',
+    'DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-1.13 stores each section’s own page settings through quick tab switches',
     async () => {
       const user = userEvent.setup();
       const store = storeOf({
@@ -353,9 +363,7 @@ describe('TemplateWorkspace', () => {
         name: 'Sections',
         sections: [{ name: 'cover' }, { name: 'body' }],
       });
-      const view = render(
-        <TemplateWorkspace store={store} defaultTemplateId="sections" defaultPanelExpanded />,
-      );
+      render(<TemplateWorkspace store={store} defaultTemplateId="sections" defaultPanelExpanded />);
       const topOf = async (tab: string, value: string) => {
         await user.click(await screen.findByRole('tab', { name: tab }, LOADED));
         const settings = await screen.findByRole('region', { name: 'Section settings' }, LOADED);
@@ -371,13 +379,26 @@ describe('TemplateWorkspace', () => {
       }
       await topOf('body', '3');
       await user.click(saveButton());
+      // The store holds the file the next test opens again, and nothing else.
       await waitFor(async () => {
         const loaded = await store.load('sections');
-        const sections = loaded.ok ? loaded.value.template.sections : [];
-        expect(sections?.map((section) => section.page?.margins?.top)).toEqual(['2mm', '3mm']);
+        expect(loaded.ok && loaded.value.template).toEqual(SECTIONS);
       }, LOADED);
-      view.unmount();
-      render(<TemplateWorkspace store={store} defaultTemplateId="sections" defaultPanelExpanded />);
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-3.10 DOCE-TEMPLATE-EDITOR-1.13 shows each section’s own stored page settings once opened again',
+    async () => {
+      const user = userEvent.setup();
+      render(
+        <TemplateWorkspace
+          store={storeOf(SECTIONS)}
+          defaultTemplateId="sections"
+          defaultPanelExpanded
+        />,
+      );
       for (const [tab, value] of [
         ['cover', '2'],
         ['body', '3'],

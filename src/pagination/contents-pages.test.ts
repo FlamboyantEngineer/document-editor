@@ -23,11 +23,13 @@ const heading = (value: string): StoredNode => ({
   content: [text(value)],
 });
 
-// A list of contents, then a heading on a page of its own for each of `count` headings.
-function documentOf(count: number): ProseMirrorNode {
+// A list of contents, then for each of `count` headings the heading and `breaks` page breaks, so
+// that each heading takes that many pages.
+function documentOf(count: number, breaks = 1): ProseMirrorNode {
   const content: StoredNode[] = [{ type: 'contents', attrs: { id: 'list' } }];
   for (let index = 0; index < count; index += 1) {
-    content.push(heading(`Part ${String(index + 1)}`), { type: 'pageBreak' });
+    content.push(heading(`Part ${String(index + 1)}`));
+    for (let page = 0; page < breaks; page += 1) content.push({ type: 'pageBreak' });
   }
   const { doc } = readDocumentFile({ formatVersion: 1, sections: [{ content }] }, documentSchema);
   return setPageRegions(new Transform(doc), BASE_TEMPLATE).doc;
@@ -92,7 +94,9 @@ describe('the page boxes of a list of contents', () => {
   });
 
   it('DOCE-PAGINATION-10.11 settles past page 999 the same from a fresh load and after edits', () => {
-    const doc = documentOf(995);
+    // Four pages a heading: the list still fills pages of its own and its last rows read past
+    // page 999, with a quarter of the rows to lay out each time.
+    const doc = documentOf(252, 4);
     const view = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc }),
     });
@@ -100,6 +104,11 @@ describe('the page boxes of a list of contents', () => {
     const reasons: string[] = [];
     const first = pagesOf(view, engine, reasons);
     expect(first.count).toBeGreaterThanOrEqual(1000);
+    // The list fills pages of its own, and its last row reads a page past 999.
+    const holdsHeading = (page: string[]) => page.includes('heading:');
+    const flat = first.shape.flat();
+    expect(flat.findIndex(holdsHeading)).toBeGreaterThan(1);
+    expect(flat.findLastIndex(holdsHeading)).toBeGreaterThanOrEqual(999);
     // No page number is wider than the box its row kept room for.
     expect(String(first.count).length).toBeLessThanOrEqual(first.digits);
     expect(first.digits).toBe(4);

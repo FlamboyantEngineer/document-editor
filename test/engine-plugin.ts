@@ -5,6 +5,7 @@ import { Plugin } from 'prosemirror-state';
 import { DecorationSet } from 'prosemirror-view';
 import { BASE_TEMPLATE } from '../src/model/templates/base-template.js';
 import { forcedLinesKey, type ForcedLinesState } from '../src/pagination/forced-lines.js';
+import { NO_INSERTED } from '../src/pagination/inserted-texts.js';
 import { createPagesTextEngine } from '../src/pagination/text-engine.js';
 import type { PagesTextEngine } from '../src/pagination/text-engine-types.js';
 import { installFakeCanvas } from './canvas-fixtures.js';
@@ -26,7 +27,7 @@ export function engineHeld(engine: PagesTextEngine): Plugin<ForcedLinesState> {
     decorations: DecorationSet.empty,
     drawn: null,
     caret: -1,
-    inserted: '',
+    inserted: NO_INSERTED,
   };
   return new Plugin<ForcedLinesState>({
     key: forcedLinesKey,

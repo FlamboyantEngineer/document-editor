@@ -83,14 +83,18 @@ export function createNestedLines(source: NestedSource) {
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
       const { geometry, recorder } = source;
-      recorder.lines = new Map();
+      const recorded = new Map<ProseMirrorNode, DrawnLines>();
+      recorder.lines = recorded;
       recorder.labelOf = labelOf ?? null;
-      const result = geometry.layoutBlock(container, { width: source.widthOf(scope), scope });
-      recorder.labelOf = null;
-      const lines: ReadonlyMap<ProseMirrorNode, DrawnLines> = result.ok
-        ? recorder.lines
-        : new Map();
-      recorder.lines = null;
+      let result: BlockGeometry;
+      // A layout that throws, as a host rule can, leaves no recorder writing for the next block.
+      try {
+        result = geometry.layoutBlock(container, { width: source.widthOf(scope), scope });
+      } finally {
+        recorder.labelOf = null;
+        recorder.lines = null;
+      }
+      const lines: ReadonlyMap<ProseMirrorNode, DrawnLines> = result.ok ? recorded : new Map();
       kept.set(container, { key, lines });
       return lines;
     },

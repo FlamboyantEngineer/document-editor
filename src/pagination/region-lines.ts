@@ -64,10 +64,16 @@ export function createRegionLines(source: RegionSource) {
       }
       const { geometry, recorder } = source;
       const place = { width: source.widthOf(scope), scope, ...(variables ? { variables } : {}) };
-      recorder.lines = new Map();
-      const result = geometry.layoutRegion(node, place);
-      const laid = { room: roomOf(result), lines: result.ok ? recorder.lines : NONE };
-      recorder.lines = null;
+      const recorded = new Map<ProseMirrorNode, DrawnLines>();
+      recorder.lines = recorded;
+      let result: RegionGeometry;
+      // A layout that throws, as a host rule can, leaves no recorder writing for the next block.
+      try {
+        result = geometry.layoutRegion(node, place);
+      } finally {
+        recorder.lines = null;
+      }
+      const laid = { room: roomOf(result), lines: result.ok ? recorded : NONE };
       if (regions.size >= REGIONS_KEPT_PER_NODE) regions.delete(regions.keys().next().value ?? '');
       kept.set(node, regions.set(key, laid));
       return laid;

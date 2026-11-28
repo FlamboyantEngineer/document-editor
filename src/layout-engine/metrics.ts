@@ -18,6 +18,27 @@ export function textWidth(text: string, font: string): number {
   return measureNaturalWidth(prepare(text, font, { whiteSpace: 'pre-wrap' }));
 }
 
+/** How many text widths an engine keeps before it forgets the oldest. */
+const WIDTHS_LIMIT = 2000;
+
+/**
+ * `textWidth` with the widths kept, for one engine, whose measuring context they are of: a
+ * numbered paragraph's or a gutter's texts repeat in every block that shows them.
+ */
+export function keptWidths(): typeof textWidth {
+  const kept = new Map<string, number>();
+  return (text, font) => {
+    const key = `${font}\n${text}`;
+    let width = kept.get(key);
+    if (width === undefined) {
+      width = textWidth(text, font);
+      kept.set(key, width);
+      if (kept.size > WIDTHS_LIMIT) kept.delete(kept.keys().next().value ?? key);
+    }
+    return width;
+  };
+}
+
 /** A size whose Canvas metrics are a font's own units, so they are exact before rounding. */
 const DESIGN_SIZE = 2048;
 

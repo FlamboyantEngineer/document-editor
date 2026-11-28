@@ -4,7 +4,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { footnoteNumberOf, footnoteNumbersKey } from '../engine/footnote-numbers.js';
-import { type ForcedBlock, forcedBlocksOf } from './forced-blocks.js';
+import { continuingParts, type ForcedBlock, forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
 import { FORCED_REGIONS, type ForcedRegion, regionBlocksOf } from './forced-regions.js';
 import { insertedTexts } from './inserted-texts.js';
@@ -151,6 +151,7 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
   };
   const inserted = insertedTexts(state, [forcedLinesKey]);
   const reading: Reading = { before: new Map(), markerAt, variableAt };
+  const continuing = continuingParts(state.doc);
   const pages: PageTextLines[] = [];
   let scope: string | null = null;
   let blocks: BlockTextLines[] = [];
@@ -168,7 +169,7 @@ export function pageTextLines(state: EditorState): PageTextLines[] {
       return false;
     }
     if (parent?.type.name !== 'page_content') return true;
-    const place = { pos, scope, headings, numbered: paragraphs, inserted, labelOf };
+    const place = { pos, scope, headings, numbered: paragraphs, inserted, labelOf, continuing };
     for (const block of forcedBlocksOf(engine, node, place)) blocks.push(blockOf(reading, block));
     return false;
   });
