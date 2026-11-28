@@ -19,6 +19,7 @@ import {
   cssKeyword,
   cssLength,
   cssLineHeight,
+  cssSize,
   cssWeight,
   TEXT_ALIGNMENTS,
 } from './template-property-values.js';
@@ -120,7 +121,7 @@ function fontEntries(
 ): CssVarEntry[] {
   return [
     [`${prefix}-family`, font?.font ? resolveFontStack(font.font, '', fontStacks) || null : null],
-    [`${prefix}-size`, cssLength(font?.size)],
+    [`${prefix}-size`, cssSize(font?.size)],
     [`${prefix}-weight`, cssWeight(font?.weight)],
     [
       `${prefix}-style`,
@@ -190,12 +191,12 @@ export function buildFootnoteCssVarEntries(
       cssLength(settings.entrySpacing) ?? FOOTNOTE_DEFAULTS.entrySpacing,
     ],
     ['--doc-footnote-marker-font-family', font(marker.font)],
-    ['--doc-footnote-marker-font-size', cssLength(marker.size) ?? '0.85em'],
+    ['--doc-footnote-marker-font-size', cssSize(marker.size) ?? '0.85em'],
     ['--doc-footnote-marker-font-weight', cssWeight(marker.weight) ?? '600'],
     ['--doc-footnote-marker-font-style', style(marker.italic)],
     ['--doc-footnote-marker-color', cssColor(marker.color) ?? FOOTNOTE_COLOR],
     ['--doc-footnote-text-font-family', font(text.font)],
-    ['--doc-footnote-text-font-size', cssLength(text.size) ?? '10px'],
+    ['--doc-footnote-text-font-size', cssSize(text.size) ?? '10px'],
     ['--doc-footnote-text-font-weight', cssWeight(text.weight) ?? '400'],
     ['--doc-footnote-text-font-style', style(text.italic)],
     ['--doc-footnote-text-color', cssColor(text.color) ?? FOOTNOTE_COLOR],

@@ -16,6 +16,7 @@ import {
   isTemplateColor,
   isTemplateLength,
   isTemplateLineHeight,
+  isTemplateSize,
   isTemplateWeight,
   NAME_DISALLOWED,
 } from './template-format-values.js';
@@ -48,6 +49,7 @@ function isRecord(value: unknown): value is LooseRecord {
 
 const LEAF_CHECKS: Readonly<Record<string, [(value: unknown) => boolean, string]>> = {
   length: [isTemplateLength, 'must be a length with a unit, such as 12pt'],
+  size: [isTemplateSize, 'must be a font size with a unit, such as 12pt or 120%'],
   color: [isTemplateColor, 'must be a color'],
   text: [(value) => typeof value === 'string', 'must be text'],
   boolean: [(value) => typeof value === 'boolean', 'must be true or false'],

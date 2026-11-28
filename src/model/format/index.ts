@@ -74,6 +74,7 @@ export {
   isTemplateColor,
   isTemplateLength,
   isTemplateLineHeight,
+  isTemplateSize,
   isTemplateWeight,
 } from './template-format-values.js';
 export type { WriterAsset, WriterValues } from './writer-values.js';

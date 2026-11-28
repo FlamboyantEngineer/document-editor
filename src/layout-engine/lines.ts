@@ -12,7 +12,7 @@ import {
   type RichInlineCursor,
 } from '@chenglou/pretext/rich-inline';
 import type { LineTable, TextLine } from './line-table.js';
-import type { Strut } from './metrics.js';
+import { type Strut, textWidth } from './metrics.js';
 import type { TextRun } from './runs.js';
 import type { TextAlign } from './typography.js';
 
@@ -24,6 +24,8 @@ interface RunLine {
   /** The items the line holds, first to last. */
   readonly firstItem: number;
   readonly lastItem: number;
+  /** The width of the white space the run's last line ends with, which Pretext counts in it. */
+  readonly trailing: number;
 }
 
 /** Prepared runs and their lines, kept between layouts. */
@@ -86,24 +88,55 @@ function tellLocale(language: string | undefined): void {
 
 const toEnd: RichInlineCursor = { itemIndex: 0, segmentIndex: 0, graphemeIndex: 0 };
 
-function walk(prepared: PreparedRichInline, widths: LineWidths): RunLine[] {
+// The width of the spaces and tabs a line's text ends with, each fragment's in its item's font:
+// spaces that end a block hang whichever element holds them, so the walk goes back over every
+// fragment that is white space only.
+function trailingWidth(
+  items: TextRun['items'],
+  fragments: readonly { itemIndex: number; text: string }[],
+) {
+  let width = 0;
+  for (let index = fragments.length - 1; index >= 0; index -= 1) {
+    const fragment = fragments[index];
+    const item = fragment ? items[fragment.itemIndex] : undefined;
+    if (!fragment || !item || !('font' in item)) break;
+    const trailing = /[ \t]+$/u.exec(fragment.text)?.[0] ?? '';
+    if (trailing) width += textWidth(trailing, item.font);
+    if (trailing.length < fragment.text.length) break;
+  }
+  return width;
+}
+
+function walk(
+  prepared: PreparedRichInline,
+  widths: LineWidths,
+  items: TextRun['items'],
+): RunLine[] {
   const lines: RunLine[] = [];
   let cursor: RichInlineCursor = toEnd;
+  let lastFragments: readonly { itemIndex: number; text: string }[] = [];
   for (;;) {
     const width = Math.max(1, lines.length ? widths.rest : widths.first);
     const range = layoutNextRichInlineLineRange(prepared, width, cursor);
-    if (!range) return lines;
+    if (!range) break;
     const { fragments } = materializeRichInlineLineRange(prepared, range);
     const first = fragments[0];
+    const last = fragments.at(-1);
+    lastFragments = fragments;
     lines.push({
       item: first?.itemIndex ?? 0,
       sourceStart: first?.sourceStart ?? 0,
       width: range.width,
       firstItem: first?.itemIndex ?? 0,
-      lastItem: fragments.at(-1)?.itemIndex ?? 0,
+      lastItem: last?.itemIndex ?? 0,
+      trailing: 0,
     });
     cursor = range.end;
   }
+  // A wrapped line leaves its hanging spaces out already; the run's last line counts them.
+  const end = lines.at(-1);
+  if (end) lines[lines.length - 1] = { ...end, trailing: trailingWidth(items, lastFragments) };
+  return lines;
 }
 
 interface Prepared {
@@ -147,7 +180,7 @@ export function createLineCache(language: string | undefined): LineCache {
       const widthKey = `${String(widths.first)} ${String(widths.rest)}`;
       let lines = entry.widths.get(widthKey);
       if (!lines) {
-        lines = walk(entry.run, widths);
+        lines = walk(entry.run, widths, run.items);
         entry.widths.set(widthKey, lines);
       }
       return lines;
@@ -220,7 +253,7 @@ function runLines(
       from: offset < 0 || index === 0 ? run.start : offset + (inWord ? 0 : line.sourceStart),
       side: inWord ? undefined : insertedSide(run, line),
       inWord,
-      width: line.width,
+      width: shownWidth(run, line),
       height: lineHeight(run, line, input.strut),
       start: index === 0 ? opening : restStart,
       lastOfRun: index === lines.length - 1,
@@ -228,6 +261,11 @@ function runLines(
     };
   });
 }
+
+// A line's width: the spaces that end the block hang, as Chromium hangs them in pre-wrap; before
+// a hard break they hang only where they do not fit, so they count. Only a run's last line has any.
+const shownWidth = (run: TextRun, line: RunLine) =>
+  run.endsWithBreak ? line.width : Math.max(0, line.width - line.trailing);
 
 // Where a line that starts among inserted text breaks from the line before: before its first
 // inserted word, or after the last word inserted where its content starts.
@@ -246,8 +284,11 @@ function insertedSide(run: TextRun, line: RunLine): number | undefined {
 function drawnLabel(input: LineLayoutInput, placed: readonly Placed[]): string | null {
   if (!input.label) return null;
   const starts = placed.flatMap((line) => (line.labelStart === undefined ? [] : [line.labelStart]));
-  // The line after the label's last starts at the content, so the label ends its line.
-  const ends = placed[starts.length + 1]?.from === input.runs[0]?.start;
+  // The line after the label's last starts at the content, so the label ends its line: at its
+  // first item, after any content hidden before it.
+  const run = input.runs[0];
+  const content = run?.offsets.find((offset, index) => offset >= 0 && run.sides[index] === null);
+  const ends = placed[starts.length + 1]?.from === (content ?? run?.start);
   if (!starts.length && !ends) return null;
   const { text } = input.label;
   const edges = [0, ...starts, text.length];

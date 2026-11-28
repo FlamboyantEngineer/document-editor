@@ -9,7 +9,7 @@ import {
   type ParagraphLevelStyle,
   paragraphNumberWidth,
 } from '../model/numbering/paragraph-numbering.js';
-import { resolveLength } from './typography.js';
+import { resolveLength } from './template-lengths.js';
 
 /** A numbered paragraph's number and its level's positions. */
 export interface ParagraphNumber {
