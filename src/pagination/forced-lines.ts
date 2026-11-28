@@ -94,7 +94,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       const lines = new Map(
         forced.flatMap(({ node, owner, table }) => (table ? [[owner ?? node, table]] : [])),
       );
-      const { set } = containerSet(builder, child, lines);
+      const { set } = containerSet(builder, child, lines, pos);
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;
     }

@@ -270,6 +270,20 @@ describe('forcedLines', () => {
     });
   });
 
+  it("DOCE-PAGINATION-9.12 draws a split paragraph's later part in a list in its first part's direction", () => {
+    const item = (text: string, part: number) =>
+      create('bullet_list', null, [
+        create('list_item', null, [paragraph(text, { dataId: 'p1', splitPartIndex: part })]),
+      ]);
+    // The first part starts right to left; the later part, on the next page, with Latin text.
+    const doc = pagesDoc([[item('שלום עולם', 0)], [item('world again', 1)]]);
+    const state = stateWith(doc, stubEngine().engine);
+    const dirs = drawn(state)
+      .filter((each) => each.class === 'de-forced-lines')
+      .map((each) => each.dir);
+    expect(dirs).toEqual(['rtl', 'rtl']);
+  });
+
   it("DOCE-PAGINATION-11.2 marks each paragraph in a table's cells, and leaves numbered ones alone", () => {
     const cell = (text: string, id: string) =>
       create('table_cell', null, [paragraph(text, { dataId: id })]);

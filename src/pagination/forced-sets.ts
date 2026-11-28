@@ -15,6 +15,7 @@ import {
   type LineMark,
   lineMarks,
 } from '../layout-engine/line-marks.js';
+import { drawnDirection } from './block-directions.js';
 import { isCaption } from './forced-blocks.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
@@ -183,6 +184,7 @@ export function containerSet(
   builder: Builder,
   container: ProseMirrorNode,
   forced: ReadonlyMap<ProseMirrorNode, DrawnLines>,
+  pos = -1,
 ): { key: string; set: DecorationSet } {
   const keys: string[] = [];
   const locals: Decoration[] = [];
@@ -190,10 +192,15 @@ export function containerSet(
   container.forEach((child, offset) => {
     const end = offset + child.nodeSize;
     const table = forced.get(child);
+    const at = pos < 0 ? -1 : pos + 1 + offset;
     if (table) {
-      const key = linesKey(table);
+      // A split block's later part is drawn in its first part's direction (DOCE-PAGINATION-9.12).
+      const dir =
+        at < 0
+          ? blockDirection(child)
+          : drawnDirection(builder.directions, { node: child, pos: at });
+      const key = `${linesKey(table)}|${dir}`;
       keys.push(key);
-      const dir = blockDirection(child);
       // A caption is drawn after its label.
       const prefixed = isCaption(child);
       // The lines go with the block's element too, for a node view that draws beside them, such
@@ -207,7 +214,7 @@ export function containerSet(
       return;
     }
     if (child.isTextblock || child.isLeaf) return;
-    const inner = containerSet(builder, child, forced);
+    const inner = containerSet(builder, child, forced, at);
     keys.push(inner.key);
     if (inner.set !== DecorationSet.empty) children.push(offset, end, inner.set);
   });
