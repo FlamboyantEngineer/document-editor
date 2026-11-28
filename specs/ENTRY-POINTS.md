@@ -57,10 +57,10 @@ Verification: `test/bundle-budgets.test.ts`
 
 ### DOCE-ENTRY-2.2 - Surfaces loaded on first use
 
-The editor shall load the surfaces few sessions open the first time one opens, not with the entry: the figure, reference, abbreviation, script and linked code dialogs, with the asset picker and file upload only the figure dialog uses, the image asset button's picker (DOCE-TEMPLATE-EDITOR-3.17), the symbol picker's character grid, the field that edits an equation's source in place (DOCE-OBJECTS-1.8) with the code editor it is built on, KaTeX and the shared-room code. Nothing shows while a surface loads, and it takes focus as it would have had it been loaded. `npm run check:bundle-size` fails an editor consumer whose initial code holds any of them.
+The editor shall load the surfaces few sessions open the first time one opens, not with the entry: the figure, reference, abbreviation, script and linked code dialogs, with the asset picker and file upload only the figure dialog uses, the image asset button's picker (DOCE-TEMPLATE-EDITOR-3.17), the symbol picker's character grid, the field that edits an equation's source in place (DOCE-OBJECTS-1.8) with the code editor it is built on, which the editable editor also loads once it shows and the browser is idle, and keeps, KaTeX and the shared-room code. Nothing shows while a surface loads, and it takes focus as it would have had it been loaded. `npm run check:bundle-size` fails an editor consumer whose initial code holds any of them.
 
-Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/object-editors.tsx`, `src/components/document-editor/symbol-button.tsx`, `src/components/document-editor/template-image-button.tsx`, `scripts/check-bundle-size.mjs`
-Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/object-dialogs.test.tsx`, `src/components/document-editor/object-editors.test.tsx`
+Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/object-editors.tsx`, `src/components/document-editor/math-field-loader.tsx`, `src/components/document-editor/symbol-button.tsx`, `src/components/document-editor/template-image-button.tsx`, `scripts/check-bundle-size.mjs`
+Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/object-dialogs.test.tsx`, `src/components/document-editor/object-editors.test.tsx`, `src/components/document-editor/object-editors-warm.test.tsx`
 
 ### DOCE-ENTRY-2.3 - Warming the surfaces
 
@@ -73,7 +73,7 @@ Verification: `src/components/document-editor/lazy-surfaces.test.ts`
 
 A dialog of DOCE-ENTRY-2.2 whose code fails to load, as a dropped connection may make it, shall close and tell the writer through the host's `feedback` (`dialogUnavailable`), and load again the next time it opens rather than failing for good (`lazyDialog`). The field that edits math in place (DOCE-OBJECTS-1.8) shall do the same: one whose code fails to load cancels the edit, leaving the math as it is, tells the writer (`mathFieldUnavailable`), and loads again the next time math is edited.
 
-Implementation: `src/components/document-editor/lazy-dialog.tsx`, `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/object-editors.tsx`
+Implementation: `src/components/document-editor/lazy-dialog.tsx`, `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/object-editors.tsx`, `src/components/document-editor/math-field-loader.tsx`
 Verification: `src/components/document-editor/lazy-dialog.test.tsx`, `src/components/document-editor/object-editors.test.tsx`
 
 ### DOCE-ENTRY-2.5 - The template workspace's surfaces
