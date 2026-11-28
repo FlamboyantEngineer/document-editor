@@ -129,7 +129,9 @@ describe('a layout that throws', () => {
     const quote = documentSchema.node('blockquote', null, [
       documentSchema.node('paragraph', null, documentSchema.text('Quoted')),
     ]);
-    expect(() => nested.lines(quote, null, () => 'Figure 1')).toThrow('a host rule failed');
+    expect(() => nested.lines(quote, null, { labelOf: () => 'Figure 1' })).toThrow(
+      'a host rule failed',
+    );
     expect(recorder.lines).toBeNull();
     expect(recorder.labelOf ?? null).toBeNull();
   });

@@ -325,6 +325,50 @@ test.describe('the layout engine on the pages', () => {
     expect(styles.entry).toEqual(styles.body);
   });
 
+  test("DOCE-PAGINATION-11.2 draws a numbered paragraph on the engine's lines, its text after its number's gutter", async ({
+    page,
+  }) => {
+    await page.goto('sections.html');
+    await waitForLab(page);
+    const numbered = page.locator(
+      '.de-document-editor__content .pm-page-content > p[data-paragraph-number]',
+    );
+    // Only pages near the screen are drawn on forced lines (DOCE-PAGINATION-11.6).
+    await numbered.first().scrollIntoViewIfNeeded();
+    await expect(numbered.first()).toHaveClass(/de-forced-lines/);
+    const drawn = await numbered.evaluateAll((paragraphs) =>
+      paragraphs
+        .filter((paragraph) => paragraph.classList.contains('de-forced-lines'))
+        .map((paragraph) => {
+          const box = paragraph.getBoundingClientRect();
+          // Each line's first character, by the line it is drawn on.
+          const starts = new Map<number, number>();
+          const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+          for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+            for (let at = 0; at < (text.textContent ?? '').length; at += 1) {
+              const range = document.createRange();
+              range.setStart(text, at);
+              range.setEnd(text, at + 1);
+              const rect = range.getBoundingClientRect();
+              if (rect.width === 0) continue;
+              const top = Math.round(rect.top);
+              if (!starts.has(top)) starts.set(top, rect.left - box.left);
+            }
+          }
+          return { lines: Number(paragraph.dataset.lines), starts: [...starts.values()] };
+        }),
+    );
+    expect(drawn.length, 'numbered paragraphs on forced lines').toBeGreaterThan(1);
+    for (const { lines, starts } of drawn) {
+      // The browser breaks no line of its own.
+      expect(starts).toHaveLength(lines);
+      // The label fits the gutter it reserves: the first line's text starts where the others do.
+      const [first = 0, ...rest] = starts;
+      expect(first, 'the text starts past the number').toBeGreaterThan(0);
+      for (const start of rest) expect(Math.abs(start - first)).toBeLessThan(1);
+    }
+  });
+
   test('DOCE-PAGINATION-11.3 gives no computed lines in the web layout', async ({ page }) => {
     await page.goto('regression.html?document=long-mixed&layout=web');
     await waitForLab(page);

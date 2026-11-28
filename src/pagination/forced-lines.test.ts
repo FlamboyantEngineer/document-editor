@@ -6,6 +6,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { STUB_INPUTS } from '../../test/pages-fixtures.js';
 import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
 import type { TextLine } from '../layout-engine/line-table.js';
+import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 import { pageTextLines } from './text-lines.js';
@@ -27,6 +28,13 @@ const page = (blocks: Node[]) =>
     create('page_footer', null),
   ]);
 
+// A first-level paragraph number.
+const paragraphNumber = (label: string): ParagraphNumber => ({
+  label,
+  level: 1,
+  levelStyle: { styleConfig: null },
+});
+
 const pagesDoc = (pages: Node[][]) =>
   create('doc', null, [create('page_section', { sectionName: 'Body' }, pages.map(page))]);
 
@@ -36,12 +44,17 @@ interface StubOptions {
   readonly left?: number;
   readonly justify?: boolean;
   readonly headings?: ReadonlyMap<number, string>;
-  readonly paragraphs?: ReadonlySet<number>;
+  readonly paragraphs?: ReadonlyMap<number, ParagraphNumber>;
 }
 
 // An engine that breaks a block's text every `perLine` characters, each line 10px wide in 100px.
 function stubEngine(options: StubOptions = {}) {
-  const calls: { text: string; scope: string | null; prefix: string | undefined }[] = [];
+  const calls: {
+    text: string;
+    scope: string | null;
+    prefix: string | undefined;
+    number?: string;
+  }[] = [];
   const perLine = options.perLine ?? 10;
   const engine: PagesTextEngine = {
     template: {} as PagesTextEngine['template'],
@@ -49,7 +62,7 @@ function stubEngine(options: StubOptions = {}) {
     number: () => undefined,
     numbering: () => ({
       headings: options.headings ?? new Map(),
-      paragraphs: options.paragraphs ?? new Set(),
+      paragraphs: options.paragraphs ?? new Map(),
     }),
     measureBlock: (node) => ({ node, height: 20, marginTop: 0, marginBottom: 0 }),
     pageDigits: () => 3,
@@ -76,7 +89,8 @@ function stubEngine(options: StubOptions = {}) {
       return found;
     },
     lines(node, place) {
-      calls.push({ text: node.textContent, scope: place.scope, prefix: place.prefix });
+      const number = place.number ? { number: place.number.label } : {};
+      calls.push({ text: node.textContent, scope: place.scope, prefix: place.prefix, ...number });
       const size = node.content.size;
       const lines: TextLine[] = [];
       for (let from = 0; from < size || lines.length === 0; from += perLine) {
@@ -161,7 +175,7 @@ describe('forcedLines', () => {
           visits += 1;
           if (node.type.name === 'heading') headings.set(pos, '1. ');
         });
-        return { headings, paragraphs: new Set() };
+        return { headings, paragraphs: new Map() };
       });
       const initial = stateWith(doc, engine);
       const prepared = visits;
@@ -232,6 +246,43 @@ describe('forcedLines', () => {
     ).toEqual(['rtl']);
   });
 
+  it("DOCE-PAGINATION-11.11 draws a cell's paragraph with deleted words on the lines its table was laid out with them", () => {
+    const cell = create('table_cell', null, [paragraph('cell text')]);
+    const table = create('table', null, [create('table_row', null, [cell])]);
+    const doc = pagesDoc([[create('table_figure', null, [table])]]);
+    const at = positionOf(doc, 'cell text') + 1;
+    const words = new Plugin({
+      props: {
+        decorations: (state) =>
+          DecorationSet.create(state.doc, [
+            Decoration.widget(at, () => document.createElement('del'), {
+              insertedText: 'old ',
+              insertedGroup: 'g',
+              side: -1,
+            }),
+          ]),
+      },
+    });
+    const containers: number[] = [];
+    const base = stubEngine().engine;
+    const engine: PagesTextEngine = {
+      ...base,
+      nestedLines(container, scope, drawn) {
+        containers.push(drawn?.inserted?.byBlock.size ?? 0);
+        return base.nestedLines(container, scope, drawn);
+      },
+    };
+    const plugin = forcedLines({ engine: () => engine, version: () => 0 });
+    const state = EditorState.create({ doc, plugins: [plugin, words] });
+    const set = plugin.props.decorations?.call(plugin, state);
+    const attrs = (set instanceof DecorationSet ? set.find() : []).map(
+      (each) => (each as unknown as { type: { attrs?: Record<string, string> } }).type.attrs ?? {},
+    );
+    // The table is laid out with the cell's deleted word, and the cell's paragraph drawn on its lines.
+    expect(containers.at(-1)).toBe(1);
+    expect(attrs.filter((each) => each.class === 'de-forced-lines')).toHaveLength(1);
+  });
+
   it('DOCE-PAGINATION-11.11 lays a block out again with its deleted words after an edit in it', () => {
     const doc = pagesDoc([[paragraph('first')]]);
     // A comparison's deleted word drawn at the paragraph's start, wherever an edit moves it.
@@ -284,7 +335,7 @@ describe('forcedLines', () => {
     expect(dirs).toEqual(['rtl', 'rtl']);
   });
 
-  it("DOCE-PAGINATION-11.2 marks each paragraph in a table's cells, and leaves numbered ones alone", () => {
+  it("DOCE-PAGINATION-11.2 marks each paragraph in a table's cells", () => {
     const cell = (text: string, id: string) =>
       create('table_cell', null, [paragraph(text, { dataId: id })]);
     const table = create('table', null, [
@@ -294,10 +345,11 @@ describe('forcedLines', () => {
     const doc = pagesDoc([[figure]]);
     const first = positionOf(doc, 'aaaaaaaaaabb');
     const second = positionOf(doc, 'cc');
-    const state = stateWith(doc, stubEngine({ paragraphs: new Set([second]) }).engine);
+    const state = stateWith(doc, stubEngine().engine);
     expect(drawn(state)).toEqual([
       { from: first, to: first + 14, class: 'de-forced-lines', 'data-lines': '2', dir: 'ltr' },
       { from: first + 10, to: first + 11, class: 'de-forced-lines__end' },
+      { from: second, to: second + 4, class: 'de-forced-lines', 'data-lines': '1', dir: 'ltr' },
     ]);
     const [page] = pageTextLines(state);
     expect(
@@ -317,7 +369,12 @@ describe('forcedLines', () => {
         reason: undefined,
         nested: true,
       },
-      { elementId: 'c2', lines: null, reason: 'numbered paragraph', nested: true },
+      {
+        elementId: 'c2',
+        lines: [{ from: 0, to: 2, text: 'cc' }],
+        reason: undefined,
+        nested: true,
+      },
     ]);
   });
 
@@ -356,7 +413,11 @@ describe('forcedLines', () => {
     const at = positionOf(doc, 'abcdefghijklmnop');
     const label = positionOf(doc, 'Listing');
     // The figure is laid out whole, its caption with its code.
-    expect(nested).toHaveBeenCalledWith(figure, 'Body', undefined);
+    expect(nested).toHaveBeenCalledWith(
+      figure,
+      'Body',
+      expect.objectContaining({ labelOf: undefined }),
+    );
     expect(calls.map(({ text }) => text)).toEqual(['Listing', 'abcdefghijklmnop']);
     const block = decorations(state)
       .find()
@@ -637,7 +698,7 @@ describe('forcedLines', () => {
     expect(ends).toEqual([{ from: at + 9, to: at + 11, class: 'de-forced-lines__end' }]);
   });
 
-  it('DOCE-PAGINATION-11.2 indents aligned lines and stretches the spaces of justified ones', () => {
+  it('DOCE-PAGINATION-11.2 indents aligned lines and stretches the spaces of justified ones over the room after the indent', () => {
     const doc = pagesDoc([[paragraph('aaaa bbbb cccc')]]);
     const state = stateWith(doc, stubEngine({ left: 30, justify: true }).engine);
     const at = positionOf(doc, 'aaaa bbbb cccc');
@@ -653,7 +714,7 @@ describe('forcedLines', () => {
         from: at + 1,
         to: at + 10,
         class: 'de-forced-lines__justified',
-        style: '--de-word-spacing: 90.000px',
+        style: '--de-word-spacing: 60.000px',
       },
       { from: at + 10, to: at + 11, class: 'de-forced-lines__end' },
       {
@@ -729,7 +790,7 @@ describe('forcedLines', () => {
     expect(lastLine(joined)).toEqual(['de-forced-lines__justified', 'de-forced-lines__end']);
   });
 
-  it("DOCE-PAGINATION-11.2 gives a heading's first part the engine's number and leaves numbered paragraphs alone", () => {
+  it("DOCE-PAGINATION-11.2 gives a heading's first part the engine's number, and a numbered paragraph its number", () => {
     const heading = create('heading', { level: 1, dataId: 'h1' }, [documentSchema.text('Scope')]);
     const rest = create('heading', { level: 1, dataId: 'h1', splitPartIndex: 1 }, [
       documentSchema.text('more'),
@@ -742,13 +803,67 @@ describe('forcedLines', () => {
     ]);
     const { engine, calls } = stubEngine({
       headings,
-      paragraphs: new Set([positionOf(doc, 'item')]),
+      paragraphs: new Map([[positionOf(doc, 'item'), paragraphNumber('1.1.')]]),
     });
     const blocks = drawn(stateWith(doc, engine)).filter((each) => each.class === 'de-forced-lines');
-    expect(blocks.map((each) => each['data-number'])).toEqual(['1 ', undefined]);
+    expect(blocks.map((each) => each['data-number'])).toEqual(['1 ', undefined, undefined]);
     expect(calls).toEqual([
       { text: 'Scope', scope: 'Body', prefix: '1 ' },
+      { text: 'item', scope: 'Body', prefix: undefined, number: '1.1.' },
       { text: 'more', scope: 'Body', prefix: undefined },
+    ]);
+  });
+
+  it("DOCE-PAGINATION-11.2 draws a numbered paragraph on its lines, its first line's indent before its number", () => {
+    const doc = pagesDoc([[paragraph('aaaaaaaaaabb')]]);
+    const at = positionOf(doc, 'aaaaaaaaaabb');
+    const { engine } = stubEngine({
+      left: 4,
+      paragraphs: new Map([[at, paragraphNumber('1.')]]),
+    });
+    expect(drawn(stateWith(doc, engine))).toEqual([
+      {
+        from: at,
+        to: at + 14,
+        class: 'de-forced-lines',
+        'data-lines': '2',
+        dir: 'ltr',
+        style: '--de-first-indent: 4.000px',
+      },
+      { from: at + 10, to: at + 11, class: 'de-forced-lines__end' },
+      {
+        from: at + 11,
+        to: at + 12,
+        class: 'de-forced-lines__start',
+        style: '--de-line-indent: 4.000px',
+      },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.2 draws a numbered paragraph again when a paragraph before it takes its number', () => {
+    const { engine, calls } = stubEngine();
+    // The engine numbers every paragraph in order, as the template numbers them.
+    const numbered: PagesTextEngine = {
+      ...engine,
+      numbering: (doc) => {
+        const paragraphs = new Map<number, ParagraphNumber>();
+        doc.descendants((node, pos) => {
+          if (node.type.name === 'paragraph')
+            paragraphs.set(pos, paragraphNumber(`${String(paragraphs.size + 1)}.`));
+          return !node.isTextblock;
+        });
+        return { headings: new Map(), paragraphs };
+      },
+    };
+    const doc = pagesDoc([[paragraph('one')], [paragraph('two')]]);
+    const state = stateWith(doc, numbered);
+    calls.length = 0;
+    const inserted = state.apply(state.tr.insert(positionOf(doc, 'one'), paragraph('new')));
+    expect(drawn(inserted).filter((each) => each.class === 'de-forced-lines')).toHaveLength(3);
+    expect(calls.map(({ text, number }) => `${text} ${String(number)}`).sort()).toEqual([
+      'new 1.',
+      'one 2.',
+      'two 3.',
     ]);
   });
 
@@ -842,7 +957,7 @@ describe('forcedLines', () => {
           if (node.type.name === 'heading') headings.set(pos, `${String(headings.size + 1)} `);
           return !node.isTextblock;
         });
-        return { headings, paragraphs: new Set() };
+        return { headings, paragraphs: new Map() };
       },
     };
     const doc = pagesDoc([[heading('One')], [heading('Two')], [heading('Three')]]);
@@ -884,7 +999,9 @@ describe('pageTextLines', () => {
     const head = paragraph('aaaaaaaaaabbbbbbbbbb', { dataId: 'p1' });
     const rest = paragraph('cccccccccc', { dataId: 'p1', splitPartIndex: 1 });
     const doc = pagesDoc([[head], [rest, paragraph('item', { dataId: 'p2' })]]);
-    const { engine } = stubEngine({ paragraphs: new Set([positionOf(doc, 'item')]) });
+    const { engine } = stubEngine({
+      paragraphs: new Map([[positionOf(doc, 'item'), paragraphNumber('1.')]]),
+    });
     const pages = pageTextLines(stateWith(doc, engine));
     expect(pages).toEqual([
       {
@@ -918,8 +1035,7 @@ describe('pageTextLines', () => {
             type: 'paragraph',
             pos: positionOf(doc, 'item'),
             start: 0,
-            lines: null,
-            reason: 'numbered paragraph',
+            lines: [{ from: 0, to: 4, text: 'item' }],
           },
         ],
       },

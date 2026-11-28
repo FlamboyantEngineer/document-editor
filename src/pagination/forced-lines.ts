@@ -51,14 +51,15 @@ interface Scope {
   readonly name: string | null;
 }
 
-// What a top-level block's kept set is drawn with besides its node: its number, whether a later
-// part continues it, and the words inserted in it.
+// What a top-level block's kept set is drawn with besides its node: its heading's or paragraph's
+// number, whether a later part continues it, and the words inserted in it.
 function blockKey(
   builder: Builder,
   { node, pos, prefix }: { node: ProseMirrorNode; pos: number; prefix: string | undefined },
 ): string {
   const continued = builder.continuing.has(pos) ? 'c' : '';
-  return `${prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
+  const number = builder.paragraphs.get(pos)?.label ?? '';
+  return `${prefix ?? ''}|${number}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
 }
 
 // A page's content: each forced block marked, with its lines inside it.
@@ -83,7 +84,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       pos,
       scope: at.name,
       headings: builder.numbers,
-      numbered: builder.skipped,
+      numbered: builder.paragraphs,
       inserted: builder.inserted,
       labelOf: builder.labelOf,
       continuing: builder.continuing,
@@ -106,9 +107,10 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       locals.push(Decoration.node(offset, end, blockAttrs(table, { dir }), { forcedLines: table }));
       return;
     }
-    locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
+    const { prefix, prefixed } = first;
+    locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix, prefixed, dir })));
     const key = blockKey(builder, { node: child, pos, prefix: first.prefix });
-    const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
+    const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefixed) });
     if (set !== DecorationSet.empty) children.push(offset, end, set);
   });
   return locals.length || children.length ? new makeSet(locals, children) : DecorationSet.empty;
@@ -232,7 +234,7 @@ function decorate(
     previous.labels === numbering.labelsKey &&
     sameNumbers(
       previous,
-      { numbers, skipped: numbering.paragraphs, directions, continuing },
+      { numbers, paragraphs: numbering.paragraphs, directions, continuing },
       state,
     );
   const builder: ContentBuilder = {
@@ -242,7 +244,7 @@ function decorate(
     doc,
     footnotes,
     values,
-    skipped: numbering.paragraphs,
+    paragraphs: numbering.paragraphs,
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
     directions,

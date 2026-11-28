@@ -173,6 +173,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   const numbers = holdNodeNumbers(template);
   // The words inserted in the blocks being measured.
   let current = NO_INSERTED;
+  const inserting = (words: InsertedTexts) => (current = words);
   const recorder: LinesRecorder = { lines: null };
   const contents = createContentsLists(template, options.state);
   const refusals = createRefusals();
@@ -203,13 +204,12 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     hostViews: rules.hostViews,
     refuse: refusals.refuse,
     laid: counts.laid,
-    inserting: (words) => {
-      current = words;
-    },
+    inserting,
   });
   const footnoteOf = (part: ProseMirrorNode) => numbers.current().footnoteOf(part);
   const laying = { geometry, recorder, widthOf, footnoteOf, markup, variablesKey, labelOf };
-  const [nested, regions] = [createNestedLines(laying), createRegionLines(laying)];
+  const nested = createNestedLines({ ...laying, inserting });
+  const regions = createRegionLines(laying);
   // Forgets every layout kept, as when atoms settle or the host's rules size nodes otherwise.
   const forget = () => {
     for (const kept of [blocks, tables, regions, nested]) kept.forget();

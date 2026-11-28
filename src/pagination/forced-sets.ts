@@ -15,6 +15,7 @@ import {
   type LineMark,
   lineMarks,
 } from '../layout-engine/line-marks.js';
+import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { drawnDirection } from './block-directions.js';
 import { isCaption } from './forced-blocks.js';
 import type { InsertedTexts } from './inserted-texts.js';
@@ -34,8 +35,8 @@ export interface Builder {
   readonly engine: PagesTextEngine;
   readonly version: number;
   readonly numbers: ReadonlyMap<number, string>;
-  /** The numbered paragraphs, which the browser still draws on its own lines. */
-  readonly skipped: ReadonlySet<number>;
+  /** Each numbered paragraph's number, by position. */
+  readonly paragraphs: ReadonlyMap<number, ParagraphNumber>;
   /** The labels the pages' captions show, and all of them as one key. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   readonly labels?: string | undefined;

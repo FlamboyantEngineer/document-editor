@@ -2661,6 +2661,14 @@ a.de-contents__entry {
   text-indent: 0;
 }
 
+/* On the engine's lines (DOCE-PAGINATION-11.2), each line starts where the engine placed it: the
+   first at the number's position, before the number's box, as the block's first-line indent, and
+   the others at the text position, as their own indent. */
+:where(.de-document-editor) .pm-page-content p[data-paragraph-number].de-forced-lines {
+  margin-inline-start: 0;
+  text-indent: var(--de-first-indent, 0);
+}
+
 /*
  * Paged documents: the pages and the comments margin are one pair centred in the stage, with
  * equal space on either side. With markers and no card open the margin reserves no width, so the

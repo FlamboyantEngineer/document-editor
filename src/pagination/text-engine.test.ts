@@ -378,9 +378,9 @@ describe('the engine on page regions', () => {
     const figure = type('table_figure').create(null, [caption, table]);
     const bare = pages.nestedLines(figure, null).get(caption)?.lines[0]?.width ?? 0;
     const labelOf = (node: ProseMirrorNode) => (node === caption ? 'Table 9 - ' : undefined);
-    const labelled = pages.nestedLines(figure, null, labelOf);
+    const labelled = pages.nestedLines(figure, null, { labelOf });
     expect(labelled.get(caption)?.lines[0]?.width).toBeGreaterThan(bare);
-    expect(pages.nestedLines(figure, null, labelOf)).toBe(labelled);
+    expect(pages.nestedLines(figure, null, { labelOf })).toBe(labelled);
     pages.destroy();
   });
 

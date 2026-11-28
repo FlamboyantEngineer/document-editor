@@ -171,7 +171,8 @@ function marksOfLine(
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
   const text = shownText(node, table, line);
   const spaces = spacesIn(text);
-  const room = table.width - table.overhead;
+  // The room from where the line starts to the content's end edge, which a justified line fills.
+  const room = table.width - table.overhead / 2 - line.left;
   if (table.justify && spaces > 0 && room > line.width) {
     const style = `--de-word-spacing: ${px((room - line.width) / spaces)}`;
     const end = line.to - (text.length - text.trimEnd().length);

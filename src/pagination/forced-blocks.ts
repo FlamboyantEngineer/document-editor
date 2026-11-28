@@ -8,6 +8,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
+import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { isContinuationPlaceholder } from '../model/pagination/fragments.js';
 import { isContinued } from './block-directions.js';
 import type { InsertedTexts } from './inserted-texts.js';
@@ -72,8 +73,8 @@ interface ForcedPlace {
   readonly pos: number;
   readonly scope: string | null;
   readonly headings: ReadonlyMap<number, string>;
-  /** The numbered paragraphs, which the browser still draws on its own lines. */
-  readonly numbered: ReadonlySet<number>;
+  /** Each numbered paragraph's number, by position. */
+  readonly numbered: ReadonlyMap<number, ParagraphNumber>;
   /** The words other plugins insert in the blocks, such as a comparison's deleted words. */
   readonly inserted: InsertedTexts;
   /** The labels the pages' captions show, a split part's copy's among them. */
@@ -134,25 +135,17 @@ function wrappedAtEnd(table: DrawnLines): DrawnLines {
 
 function topLevel(engine: PagesTextEngine, node: ProseMirrorNode, at: ForcedPlace): ForcedBlock {
   const { pos } = at;
-  if (at.numbered.has(pos))
-    return { node, pos, table: null, reason: 'numbered paragraph', nested: false };
   const prefix =
     node.type.name !== 'heading' || isContinued(node) ? undefined : at.headings.get(pos);
+  // A numbered paragraph's number is drawn before its first line, in the box the engine gave it.
+  const number = at.numbered.get(pos);
   const inserted = at.inserted.byBlock.get(node);
-  const laid = engine.lines(node, { scope: at.scope, prefix, inserted });
+  const laid = engine.lines(node, { scope: at.scope, prefix, number, inserted });
   if (!laid) return { node, pos, table: laid, reason: 'not laid out by the engine', nested: false };
   // A part a later part continues ends its last line at the page break, where the whole block
   // wraps it: justified and hyphenated as a wrapped line, its height the same.
   const table = at.continuing?.has(pos) ? wrappedAtEnd(laid) : laid;
-  return { node, pos, table, prefix, prefixed: Boolean(prefix), nested: false };
-}
-
-// Why a text block inside a container is left to the browser before it is laid out: a number the
-// browser draws for it, or words inserted in it, which the container is not laid out with.
-function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): string | null {
-  if (at.numbered.has(pos)) return 'numbered paragraph';
-  if (at.headings.has(pos)) return 'numbered heading';
-  return at.inserted.byBlock.has(node) ? 'inserted words' : null;
+  return { node, pos, table, prefix, prefixed: Boolean(prefix ?? number), nested: false };
 }
 
 // A later part of a split table or code block.
@@ -204,7 +197,10 @@ function linkedCode(
 }
 
 function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedPlace) {
-  const lines = engine.nestedLines(container, at.scope, at.labelOf);
+  const lines = engine.nestedLines(container, at.scope, {
+    labelOf: at.labelOf,
+    inserted: at.inserted,
+  });
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset, parent) => {
     if (isCaption(node)) {
@@ -222,10 +218,9 @@ function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedP
     // A split's empty placeholder takes no room on the page (DOCE-PAGINATION-4.3).
     if (isContinuationPlaceholder(node)) return false;
     const pos = at.pos + 1 + offset;
-    const reason = nestedRefusal(at, node, pos);
-    const table = reason ? null : (lines.get(node) ?? null);
-    const why = reason ?? 'not laid out by the engine';
-    blocks.push({ node, pos, table, ...(table ? {} : { reason: why }), nested: true });
+    const table = lines.get(node) ?? null;
+    const reason = table ? {} : { reason: 'not laid out by the engine' };
+    blocks.push({ node, pos, table, ...reason, nested: true });
     return false;
   });
   return blocks;

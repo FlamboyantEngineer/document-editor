@@ -110,7 +110,7 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   };
   const numbering = {
     headings,
-    paragraphs: new Set(paragraphs.keys()),
+    paragraphs,
     labelOf: labels.labelOf,
     labelsKey: labels.labelsKey,
   };

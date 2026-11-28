@@ -216,13 +216,14 @@ describe('lineMarks', () => {
     ]);
   });
 
-  it('DOCE-PAGINATION-13.1 indents aligned lines and stretches justified spaces', () => {
+  it('DOCE-PAGINATION-13.1 indents aligned lines and stretches justified spaces over the room left after the indent', () => {
     const node = paragraph('aa bb cc dd');
     const lines = table(11, 6, { justify: true }).lines.map((line) => ({ ...line, left: 20 }));
     const marks = lineMarks(node, { ...table(11, 6), justify: true, lines });
+    // A 10px line 20px in from the edge of 100px has 70px to fill.
     expect(marks).toEqual([
       { from: 0, to: 1, class: 'de-forced-lines__start', style: '--de-line-indent: 20.000px' },
-      { from: 0, to: 5, class: 'de-forced-lines__justified', style: '--de-word-spacing: 90.000px' },
+      { from: 0, to: 5, class: 'de-forced-lines__justified', style: '--de-word-spacing: 70.000px' },
       { from: 5, to: 6, class: 'de-forced-lines__end' },
       { from: 6, to: 7, class: 'de-forced-lines__start', style: '--de-line-indent: 20.000px' },
     ]);
