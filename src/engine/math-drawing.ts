@@ -33,7 +33,8 @@ const px = (value: number) => `${length(value)}px`;
  * The hooks on a math element the engine placed: `data-math-layout` (`laid` or `reserved`), and its box and
  * scale as `--de-math-width`, `--de-math-ascent`, `--de-math-descent` and `--de-math-scale`, with
  * a display equation's tag's as `--de-math-tag-width`, `--de-math-tag-ascent` and
- * `--de-math-tag-descent`.
+ * `--de-math-tag-descent`, and a numbered one's number line and how far the equation sits down to
+ * be centred in it as `--de-math-number-line` and `--de-math-number-lift` (DOCE-PAGINATION-12.14).
  */
 export function mathDrawingHooks(placed: PlacedMath): {
   'data-math-layout': string;
@@ -48,6 +49,8 @@ export function mathDrawingHooks(placed: PlacedMath): {
   ];
   if (placed.end) lengths.push(`--de-math-end: ${px(placed.end)}`);
   if (placed.tagEnd) lengths.push(`--de-math-tag-end: ${px(placed.tagEnd)}`);
+  if (placed.numberLine) lengths.push(`--de-math-number-line: ${px(placed.numberLine)}`);
+  if (placed.numberLift) lengths.push(`--de-math-number-lift: ${px(placed.numberLift)}`);
   if (tag)
     lengths.push(
       `--de-math-tag-width: ${px(tag.width)}`,
