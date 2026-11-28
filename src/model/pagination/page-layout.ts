@@ -234,12 +234,18 @@ function gapBefore(page: PageFill, block: LayoutBlock): number {
   return last ? Math.max(0, last.marginBottom, block.marginTop) : 0;
 }
 
-// The height left on the page below its blocks and the gap before the next one.
-function remainingHeight(page: PageFill, candidates: readonly LayoutBlock[]) {
+// The height left on the page below its blocks and the gap before the next one, with the page's
+// height asked for its blocks and the ones that would join them (`counted`, all the candidates by
+// default).
+function remainingHeight(
+  page: PageFill,
+  candidates: readonly LayoutBlock[],
+  counted: readonly LayoutBlock[] = candidates,
+) {
   const [next] = candidates;
   const pageHeight = resolvePageHeight(
     page.options.pageHeight,
-    [...page.blocks, ...candidates],
+    [...page.blocks, ...counted],
     page.index,
   );
   const used = page.blocks.length ? stackedHeight(page.blocks) : 0;
@@ -261,16 +267,47 @@ function splitContext(page: PageFill, pageHeight: number, remaining: number): Sp
   };
 }
 
+// The most splits a block is tried at before its fitting head is taken (DOCE-PAGINATION-2.7).
+const SPLIT_TRIES = 12;
+
+// A block split to the room its head leaves itself: the page's height is asked for the head that
+// would be on it, not the whole block, so the footnotes of its tail take no room here
+// (DOCE-PAGINATION-2.7). Split at the room the page has with none of the block's footnotes; while
+// the head's own footnotes leave it too little, split at what they leave, and between a height
+// whose head fits and one whose head does not, look for the tallest head that fits. Null when the
+// block does not split at the page's room.
+function splitToRoom(page: PageFill, block: LayoutBlock): SplitBlock | null {
+  const split = ruleFor(page.rules, block.node).split;
+  const open = remainingHeight(page, [block], []);
+  const context = splitContext(page, open.pageHeight, open.remaining);
+  const roomFor = (head: LayoutBlock) =>
+    fittingHeight(remainingHeight(page, [block], [head]).remaining);
+  const at = (height: number) => (height > 0 ? (split?.(block, height, context) ?? null) : null);
+  let fitting = fittingHeight(open.remaining);
+  let parts = at(fitting);
+  if (!parts || parts.head.height <= roomFor(parts.head)) return parts;
+  let tooTall = fitting;
+  let best: SplitBlock | null = null;
+  for (let count = 1; count < SPLIT_TRIES && parts; count += 1) {
+    const height = best ? (fitting + tooTall) / 2 : Math.min(roomFor(parts.head), tooTall - 1);
+    if (tooTall - height < 1) break;
+    parts = at(height);
+    if (parts && parts.head.height <= roomFor(parts.head)) {
+      best = parts;
+      fitting = height;
+    } else tooTall = height;
+  }
+  return best ?? at(fittingHeight(remainingHeight(page, [block]).remaining));
+}
+
 // Whether the block a heading keeps with leaves no lead below the headings: it neither fits whole
 // nor splits with a first fragment there, so the split's own limits, such as a paragraph's two
 // lines on each side or a table's header and first row, decide.
 function leadMissing(page: PageFill, headings: readonly LayoutBlock[], block: LayoutBlock) {
   const placed = { ...page, blocks: [...page.blocks, ...headings] };
-  const { pageHeight, remaining } = remainingHeight(placed, [block]);
-  const fitting = fittingHeight(remaining);
-  if (block.height <= fitting) return false;
-  const split = ruleFor(page.rules, block.node).split;
-  return fitting <= 0 || !split?.(block, fitting, splitContext(placed, pageHeight, remaining));
+  const { remaining } = remainingHeight(placed, [block]);
+  if (block.height <= fittingHeight(remaining)) return false;
+  return !splitToRoom(placed, block);
 }
 
 // Whether a heading, and what it keeps with, would leave the page for the next one.
@@ -297,14 +334,17 @@ function placeNext(page: PageFill, queue: LayoutBlock[]): boolean {
   const [block] = queue;
   if (!block) return false;
   const rule = ruleFor(page.rules, block.node);
-  const { pageHeight, remaining } = remainingHeight(page, [block]);
-  const fitting = fittingHeight(remaining);
-  if (rule.endsPage || block.height <= fitting || (!page.blocks.length && !rule.split)) {
+  const { remaining } = remainingHeight(page, [block]);
+  if (
+    rule.endsPage ||
+    block.height <= fittingHeight(remaining) ||
+    (!page.blocks.length && !rule.split)
+  ) {
     page.blocks.push(block);
     queue.shift();
     return !rule.endsPage;
   }
-  const parts = rule.split?.(block, fitting, splitContext(page, pageHeight, remaining));
+  const parts = splitToRoom(page, block);
   if (parts) {
     page.blocks.push(parts.head);
     queue.splice(0, 1, ...parts.tail);
