@@ -18,7 +18,8 @@ type HostFonts =
       readonly measurer: FontFileMeasurer;
       /** The decoded files, pending the document's registration. */
       readonly faces: readonly ReadFace[];
-      readonly generics: FontFiles['generics'];
+      /** The original response, including files the measurer could not read. */
+      readonly files: FontFiles;
     };
 
 /** The browser's layout while the host's files are on their way. */
@@ -53,7 +54,7 @@ export async function loadHostFonts(
       readHostFaces(files.value),
     ]);
     if (!faces.length) return { phase: 'browser', reason: 'no-faces' };
-    return { phase: 'pretext', measurer, faces, generics: files.value.generics };
+    return { phase: 'pretext', measurer, faces, files: files.value };
   } catch {
     return { phase: 'browser', reason: 'shaper-failed' };
   }

@@ -106,7 +106,11 @@ function splitThroughChild(request: SplitRequest, index: number, splitChild: Chi
     marginBottom: 0,
     measurement: layout.measurement,
   };
-  const parts = splitChild(childBlock, request.fitting - layout.top, request.context);
+  const context = {
+    ...request.context,
+    remainingHeight: request.context.remainingHeight - Math.max(0, layout.top),
+  };
+  const parts = splitChild(childBlock, request.fitting - layout.top, context);
   if (!parts?.tail.length) return null;
   const tailLayouts = stack(parts.tail);
   const tailHeight = tailLayouts.at(-1)?.bottom ?? 0;

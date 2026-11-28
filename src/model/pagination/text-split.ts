@@ -166,7 +166,14 @@ const codeBreaks = new WeakMap<ProseMirrorNode, CodeBreaks>();
 
 function sourceBreaks(text: string): number[] {
   const offsets: number[] = [];
-  for (let at = text.indexOf('\n'); at >= 0; at = text.indexOf('\n', at + 1)) offsets.push(at);
+  // A newline at the end of the source would leave an empty tail in any fragment.
+  for (
+    let at = text.indexOf('\n');
+    at >= 0 && at < text.length - 1;
+    at = text.indexOf('\n', at + 1)
+  ) {
+    offsets.push(at);
+  }
   return offsets;
 }
 
@@ -187,8 +194,8 @@ function planIndexedCodeSplit(
   const chosen =
     countPrefix(offsets.length - first, (index) => at(index).height + overhead <= input.fitting) -
     1;
+  if (chosen < 0) return null;
   const end = (offsets[first + chosen] ?? start) - start;
-  if (chosen < 0 || end + 1 >= length) return null;
   const tail = measure(offset + end + 1, offset + length);
   return {
     end,

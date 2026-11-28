@@ -54,6 +54,26 @@ describe('code drawing', () => {
     expect(html(codeTrees(CODE, 'typescript')).querySelector('.de-forced-lines__end')).toBeNull();
   });
 
+  it('DOCE-PAGINATION-11.2 draws long highlighted code without rescanning every line mark for each token', () => {
+    const length = 256;
+    const line = 'const x = 1;\n';
+    let reads = 0;
+    const marks = Array.from({ length }, (_, index) => ({
+      get from() {
+        reads += 1;
+        return index * line.length + 4;
+      },
+      to: index * line.length + 5,
+      class: 'de-forced-lines__end',
+    }));
+    const code = line.repeat(length);
+    const drawn = html(codeTrees(code, 'typescript', marks));
+    expect(drawn).toHaveTextContent(code, { normalizeWhitespace: false });
+    const ends = [...drawn.querySelectorAll('.de-forced-lines__end [data-token="keyword"]')];
+    expect(ends.map((end) => end.textContent)).toEqual(Array.from({ length }, () => 't'));
+    expect(reads).toBeLessThan(length * 20);
+  });
+
   it('DOCE-PAGINATION-11.2 draws a gutter from line marks as the editor draws it from its lines', () => {
     const block = node('code_block', { codeLineStart: 99 }, [documentSchema.text(CODE)]);
     const marks = lineMarks(block, { ...TABLE, justify: false });

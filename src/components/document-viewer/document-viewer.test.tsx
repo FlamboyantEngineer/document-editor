@@ -1,9 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import type { Node } from 'prosemirror-model';
+import { Activity } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../../test/deferred.js';
 import { documentSchema } from '../../../test/document-markup.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../../test/pages-fixtures.js';
+import type { FontFaceFile } from '../../host/font-files.js';
 import { BASE_TEMPLATE } from '../../model/index.js';
 import { engineNumbers } from '../../pagination/engine-numbers.js';
 import { pagesLayout } from '../../pagination/pages-layout.js';
@@ -93,6 +96,35 @@ const sheets = (container: HTMLElement) => [
 ];
 const drawn = (container: HTMLElement) =>
   sheets(container).flatMap((sheet, index) => (sheet.hasAttribute('data-drawn') ? [index] : []));
+
+function stubViewerFaces(load: (id: number) => Promise<void> = () => Promise.resolve()) {
+  class Face {
+    readonly id: number;
+    constructor(
+      readonly family: string,
+      bytes: Uint8Array,
+    ) {
+      this.id = bytes[0] ?? 0;
+    }
+    load() {
+      return load(this.id).then(() => this);
+    }
+  }
+  vi.stubGlobal('FontFace', Face);
+  const added = new Set<Face>();
+  Object.defineProperty(document, 'fonts', { value: added, configurable: true });
+  return added;
+}
+
+const face = (family: string, id: number, weight = 400): FontFaceFile => ({
+  family,
+  weight,
+  style: 'normal',
+  bytes: new Uint8Array([id]),
+});
+
+const fontFamily = (viewer: HTMLElement, field = 'paragraph') =>
+  viewer.style.getPropertyValue(`--doc-${field}-font-family`);
 
 afterEach(() => {
   observed.length = 0;
@@ -417,6 +449,148 @@ describe('DocumentViewer', () => {
     expect(added.size).toBe(1);
     expect(family(inFirst.firstElementChild)).toBe(own);
     unmountFirst();
+    expect(added.size).toBe(0);
+    Reflect.deleteProperty(document, 'fonts');
+  });
+
+  it('DOCE-PAGINATION-13.8 skips a refused family and its generic mapping while retaining the viewer’s accepted alias', async () => {
+    const added = stubViewerFaces((id) =>
+      id === 4 ? Promise.reject(new Error('Rejected bold face')) : Promise.resolve(),
+    );
+    const pages = tenPages(1);
+    const template = {
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        paragraph: { font: 'serif, Healthy' },
+        heading1: { font: 'Healthy, Reading' },
+        heading2: { font: 'Reading' },
+      },
+    };
+    const { unmount: unmountOther } = render(
+      <DocumentViewer
+        layout={{ ...pages, fonts: { faces: [face('Reading', 1), face('Healthy', 2)] } }}
+        template={template}
+      />,
+    );
+    const { unmount } = render(
+      <DocumentViewer
+        layout={{
+          ...pages,
+          fonts: {
+            faces: [face('Reading', 3), face('Reading', 4, 700), face('Healthy', 5)],
+            generics: { serif: 'Reading' },
+          },
+        }}
+        template={template}
+        label="Mixed faces"
+        overscan={Infinity}
+      />,
+    );
+    await act(async () => undefined);
+    const viewer = screen.getByRole('document', { name: 'Mixed faces' });
+    const healthy = [...added].find((font) => font.id === 5)?.family;
+    expect(healthy).toMatch(/^Healthy de-\d+$/u);
+    expect(fontFamily(viewer)).toBe(`"${healthy}"`);
+    expect(fontFamily(viewer, 'heading-1')).toBe(fontFamily(viewer));
+    expect(fontFamily(viewer, 'heading-2')).toBe(fontFamily(viewer));
+    expect(viewer.querySelector('p.de-forced-lines')).toHaveAttribute('data-lines', '3');
+    expect([...added].map(({ id }) => id)).toEqual([1, 2, 5]);
+    unmount();
+    expect([...added].map(({ id }) => id)).toEqual([1, 2]);
+    unmountOther();
+    expect(added.size).toBe(0);
+    Reflect.deleteProperty(document, 'fonts');
+  });
+
+  it('DOCE-PAGINATION-13.8 keeps its pages and uses ordinary fallback when all supplied faces fail', async () => {
+    const added = stubViewerFaces(() => Promise.reject(new Error('Rejected face')));
+    const { container, unmount } = render(
+      <DocumentViewer
+        layout={{ ...tenPages(2), fonts: { faces: [face('Reading', 1)] } }}
+        template={{
+          ...BASE_TEMPLATE,
+          styles: {
+            ...BASE_TEMPLATE.styles,
+            paragraph: { font: 'Reading, sans-serif' },
+            heading1: { font: 'Reading' },
+          },
+        }}
+        label="Fallback"
+        overscan={Infinity}
+      />,
+    );
+    await act(async () => undefined);
+    const viewer = screen.getByRole('document', { name: 'Fallback' });
+    expect(fontFamily(viewer)).toBe('sans-serif');
+    expect(fontFamily(viewer, 'heading-1')).toBe('');
+    expect(drawn(container)).toEqual([0, 1]);
+    expect(viewer.querySelector('p.de-forced-lines')).toHaveAttribute('data-lines', '3');
+    expect(added.size).toBe(0);
+    unmount();
+    Reflect.deleteProperty(document, 'fonts');
+  });
+
+  it('DOCE-PAGINATION-12.8 DOCE-PAGINATION-13.8 discards released aliases and pending registrations when a previous layout returns', async () => {
+    const pending = deferred<void>();
+    const added = stubViewerFaces((id) => (id === 3 ? pending.promise : Promise.resolve()));
+    const pages = tenPages(1);
+    const first = { ...pages, fonts: { faces: [face('Arial', 2)] } };
+    const next = { ...pages, fonts: { faces: [face('Arial', 3)] } };
+    const { unmount: unmountOther } = render(
+      <DocumentViewer
+        layout={{ ...pages, fonts: { faces: [face('Arial', 1)] } }}
+        template={BASE_TEMPLATE}
+      />,
+    );
+    const { rerender, unmount } = render(
+      <DocumentViewer layout={first} template={BASE_TEMPLATE} label="Replace" />,
+    );
+    await act(async () => undefined);
+    const viewer = screen.getByRole('document', { name: 'Replace' });
+    expect(fontFamily(viewer)).toMatch(/^"Arial de-\d+"$/u);
+    rerender(<DocumentViewer layout={next} template={BASE_TEMPLATE} label="Replace" />);
+    expect([...added].map(({ id }) => id)).toEqual([1, 3]);
+    unmountOther();
+    rerender(<DocumentViewer layout={first} template={BASE_TEMPLATE} label="Replace" />);
+    expect([...added].map(({ id }) => id)).toEqual([2]);
+    expect(fontFamily(viewer)).toBe('Arial');
+    await act(async () => pending.resolve());
+    expect(fontFamily(viewer)).toBe('Arial');
+    expect([...added].map(({ id }) => id)).toEqual([2]);
+    unmount();
+    expect(added.size).toBe(0);
+    Reflect.deleteProperty(document, 'fonts');
+  });
+
+  it('DOCE-PAGINATION-12.8 DOCE-PAGINATION-13.8 reacquires the current family when a hidden viewer resumes', async () => {
+    const added = stubViewerFaces();
+    const pages = tenPages(1);
+    const layout = { ...pages, fonts: { faces: [face('Arial', 2)] } };
+    const { unmount: unmountOther } = render(
+      <DocumentViewer
+        layout={{ ...pages, fonts: { faces: [face('Arial', 1)] } }}
+        template={BASE_TEMPLATE}
+      />,
+    );
+    const view = (mode: 'visible' | 'hidden') => (
+      <Activity mode={mode}>
+        <DocumentViewer layout={layout} template={BASE_TEMPLATE} label="Resume" />
+      </Activity>
+    );
+    const { rerender, unmount } = render(view('visible'));
+    await act(async () => undefined);
+    expect(fontFamily(screen.getByRole('document', { name: 'Resume' }))).toMatch(
+      /^"Arial de-\d+"$/u,
+    );
+    rerender(view('hidden'));
+    expect([...added].map(({ id }) => id)).toEqual([1]);
+    unmountOther();
+    rerender(view('visible'));
+    await act(async () => undefined);
+    expect(fontFamily(screen.getByRole('document', { name: 'Resume' }))).toBe('Arial');
+    expect([...added].map(({ id }) => id)).toEqual([2]);
+    unmount();
     expect(added.size).toBe(0);
     Reflect.deleteProperty(document, 'fonts');
   });

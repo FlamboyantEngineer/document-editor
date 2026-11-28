@@ -39,6 +39,34 @@ const row = (cell: string, text: string) =>
   ]);
 const heights = (pages: LayoutBlock[][]) => pages.map((page) => page.map((entry) => entry.height));
 
+function paragraphWithNotes(notes: Readonly<Record<number, string>>): LayoutBlock {
+  const content = Array.from({ length: 8 }, (_, offset) => {
+    const footnoteId = notes[offset];
+    return footnoteId
+      ? documentSchema.node('footnote_reference', { footnoteId })
+      : documentSchema.text('x');
+  });
+  return {
+    ...paragraph(80),
+    node: documentSchema.node('paragraph', null, content),
+    measurement: {
+      offset: 0,
+      lines: { lines: content.map((_, from) => ({ from, height: 10 })) },
+      measure: () => ({ height: 80, lines: 8 }),
+    },
+  };
+}
+
+function roomWithNotes(blocks: readonly LayoutBlock[]): number {
+  const ids = new Set<string>();
+  for (const { node } of blocks) {
+    node.descendants((child) => {
+      if (child.type.name === 'footnote_reference') ids.add(String(child.attrs.footnoteId));
+    });
+  }
+  return 52 - 18 * ids.size;
+}
+
 // A paragraph split into a head that fills the height and a tail that starts the next page.
 const splitting: LayoutRules = {
   ...LAYOUT_RULES,
@@ -81,6 +109,12 @@ describe('page layout', () => {
     ];
     expect(stackedHeight(blocks)).toBe(32);
     expect(heights(layoutPages(blocks, { pageHeight: 34 }))).toEqual([[10, 10]]);
+  });
+
+  it('DOCE-PAGINATION-2.2 rounds a page’s total without rounding each addition', () => {
+    const blocks = Array.from({ length: 3 }, () => paragraph(0.0006));
+    expect(stackedHeight(blocks)).toBe(0.002);
+    expect(layoutPages(blocks, { pageHeight: 2.002 })).toEqual([blocks]);
   });
 
   it('DOCE-PAGINATION-2.3 splits a block that does not fit, and keeps an unsplittable one whole', () => {
@@ -180,5 +214,37 @@ describe('page layout', () => {
       [40],
       [40],
     ]);
+  });
+
+  it('DOCE-PAGINATION-2.6 supplies a block to a page height callback when probing a split', () => {
+    const pageHeight = ([first]: readonly LayoutBlock[]) => {
+      if (!first) throw new Error('No first block');
+      return first.node.type.name === 'paragraph' ? 52 : 60;
+    };
+    const pages = layoutPages([paragraphWithNotes({})], { pageHeight });
+    expect(heights(pages)).toEqual([[50], [30]]);
+  });
+
+  it('DOCE-PAGINATION-2.6 leaves later fragments’ footnotes on their own pages', () => {
+    const block = paragraphWithNotes({ 3: 'first', 7: 'last' });
+    const pages = layoutPages([block], { pageHeight: roomWithNotes });
+    expect(heights(pages)).toEqual([[30], [30], [20]]);
+    expect(pages.map(roomWithNotes)).toEqual([52, 34, 34]);
+  });
+
+  it('DOCE-PAGINATION-2.6 fills room freed by a footnote in the tail', () => {
+    const block = paragraphWithNotes({ 4: 'note' });
+    const pages = layoutPages([block], { pageHeight: roomWithNotes });
+    expect(heights(pages)).toEqual([[40], [20], [20]]);
+    expect(pages.map(roomWithNotes)).toEqual([52, 34, 52]);
+  });
+
+  it('DOCE-PAGINATION-2.5 keeps a heading when the lead fits beside its own footnotes', () => {
+    const block = paragraphWithNotes({ 2: 'first', 7: 'last' });
+    const pages = layoutPages([paragraph(10), heading(1, 10), block], {
+      pageHeight: roomWithNotes,
+    });
+    expect(heights(pages)).toEqual([[10, 10, 20], [30], [30]]);
+    expect(pages.map(roomWithNotes)).toEqual([52, 34, 34]);
   });
 });

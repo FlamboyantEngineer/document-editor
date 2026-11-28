@@ -8,6 +8,7 @@ import { splitContents } from './contents-split.js';
 import { splitHeldWith } from './held-split.js';
 import { imageBox } from './image-box.js';
 import { splitLayoutSection } from './layout-section-split.js';
+import { splitWithPageHeight } from './page-split.js';
 import { signatureSize } from './signature-size.js';
 import { splitTableFigureWith, splitTableWith } from './table-split.js';
 import { splitCode, splitParagraph } from './text-split.js';
@@ -181,19 +182,21 @@ function ruleFor(rules: LayoutRules, node: ProseMirrorNode): LayoutRule {
   return rule.size ? { ...rule, split: undefined } : rule;
 }
 
+function collapsedGap(previous: LayoutBlock | undefined, block: LayoutBlock): number {
+  return previous ? Math.max(previous.marginBottom, block.marginTop, 0) : 0;
+}
+
 /** The height blocks take stacked, with each pair's margins collapsed and no outer margins. */
 export function stackedHeight(blocks: readonly LayoutBlock[]): number {
   let height = 0;
   blocks.forEach((block, index) => {
     const previous = index > 0 ? blocks[index - 1] : undefined;
-    const gap = previous ? Math.max(previous.marginBottom, block.marginTop, 0) : 0;
-    height += gap + Math.max(0, block.height);
+    height += collapsedGap(previous, block) + Math.max(0, block.height);
   });
   return snap(height);
 }
 
-function resolvePageHeight(pageHeight: PageHeight, blocks: readonly LayoutBlock[], index: number) {
-  const height = typeof pageHeight === 'function' ? pageHeight(blocks, index) : pageHeight;
+function resolvePageHeight(height: number): number {
   return Number.isFinite(height) && height > 0 ? height : 1;
 }
 
@@ -222,29 +225,32 @@ function headingGroup(blocks: readonly LayoutBlock[], rules: LayoutRules): Layou
   return group;
 }
 
+interface PageFillOptions extends PageLayoutOptions {
+  /** The page's room before reserving any footnotes, when the caller knows it. */
+  readonly emptyPageHeight?: number;
+}
+
 interface PageFill {
   readonly blocks: LayoutBlock[];
   readonly index: number;
-  readonly options: PageLayoutOptions;
+  readonly options: PageFillOptions;
   readonly rules: LayoutRules;
+  used: number;
 }
 
-function gapBefore(page: PageFill, block: LayoutBlock): number {
-  const last = page.blocks.at(-1);
-  return last ? Math.max(0, last.marginBottom, block.marginTop) : 0;
+function appendBlock(page: PageFill, block: LayoutBlock): void {
+  page.used += collapsedGap(page.blocks.at(-1), block) + Math.max(0, block.height);
+  page.blocks.push(block);
 }
 
 // The height left on the page below its blocks and the gap before the next one.
-function remainingHeight(page: PageFill, candidates: readonly LayoutBlock[]) {
-  const [next] = candidates;
+function remainingHeight(page: PageFill, candidates: readonly LayoutBlock[], next = candidates[0]) {
+  const { pageHeight: height } = page.options;
   const pageHeight = resolvePageHeight(
-    page.options.pageHeight,
-    [...page.blocks, ...candidates],
-    page.index,
+    typeof height === 'function' ? height([...page.blocks, ...candidates], page.index) : height,
   );
-  const used = page.blocks.length ? stackedHeight(page.blocks) : 0;
-  const gap = next ? gapBefore(page, next) : 0;
-  return { pageHeight, remaining: Math.max(0, pageHeight - used - gap) };
+  const gap = next ? collapsedGap(page.blocks.at(-1), next) : 0;
+  return { pageHeight, remaining: Math.max(0, pageHeight - snap(page.used) - gap) };
 }
 
 function fittingHeight(remaining: number): number {
@@ -261,16 +267,48 @@ function splitContext(page: PageFill, pageHeight: number, remaining: number): Sp
   };
 }
 
+function splitOnPage(
+  page: PageFill,
+  block: LayoutBlock,
+  room: ReturnType<typeof remainingHeight>,
+): SplitBlock | null {
+  const split = ruleFor(page.rules, block.node).split;
+  if (!split) return null;
+  const context = splitContext(page, room.pageHeight, room.remaining);
+  const fitting = fittingHeight(room.remaining);
+  if (typeof page.options.pageHeight !== 'function') return split(block, fitting, context);
+  return splitWithPageHeight({
+    blockHeight: block.height,
+    fitting,
+    empty: page.blocks.length === 0,
+    vacant: () => {
+      if (page.blocks.length) return fittingHeight(remainingHeight(page, [], block).remaining);
+      const { emptyPageHeight } = page.options;
+      return emptyPageHeight === undefined
+        ? block.height
+        : fittingHeight(resolvePageHeight(emptyPageHeight));
+    },
+    trySplit: (limit) => {
+      if (limit === fitting) return split(block, limit, context);
+      const remaining = limit + PAGE_SAFETY_MARGIN_PX;
+      const used = snap(page.used) + collapsedGap(page.blocks.at(-1), block);
+      return split(block, limit, splitContext(page, used + remaining, remaining));
+    },
+    fits: (head) => head.height <= fittingHeight(remainingHeight(page, [head]).remaining),
+  });
+}
+
 // Whether the block a heading keeps with leaves no lead below the headings: it neither fits whole
 // nor splits with a first fragment there, so the split's own limits, such as a paragraph's two
 // lines on each side or a table's header and first row, decide.
 function leadMissing(page: PageFill, headings: readonly LayoutBlock[], block: LayoutBlock) {
-  const placed = { ...page, blocks: [...page.blocks, ...headings] };
-  const { pageHeight, remaining } = remainingHeight(placed, [block]);
-  const fitting = fittingHeight(remaining);
+  const placed = { ...page, blocks: [...page.blocks] };
+  for (const heading of headings) appendBlock(placed, heading);
+  const room = remainingHeight(placed, [block]);
+  const fitting = fittingHeight(room.remaining);
   if (block.height <= fitting) return false;
-  const split = ruleFor(page.rules, block.node).split;
-  return fitting <= 0 || !split?.(block, fitting, splitContext(placed, pageHeight, remaining));
+  if (fitting <= 0 && typeof page.options.pageHeight !== 'function') return true;
+  return !splitOnPage(placed, block, room);
 }
 
 // Whether a heading, and what it keeps with, would leave the page for the next one.
@@ -297,23 +335,42 @@ function placeNext(page: PageFill, queue: LayoutBlock[]): boolean {
   const [block] = queue;
   if (!block) return false;
   const rule = ruleFor(page.rules, block.node);
-  const { pageHeight, remaining } = remainingHeight(page, [block]);
-  const fitting = fittingHeight(remaining);
+  const room = remainingHeight(page, [block]);
+  const fitting = fittingHeight(room.remaining);
   if (rule.endsPage || block.height <= fitting || (!page.blocks.length && !rule.split)) {
-    page.blocks.push(block);
+    appendBlock(page, block);
     queue.shift();
     return !rule.endsPage;
   }
-  const parts = rule.split?.(block, fitting, splitContext(page, pageHeight, remaining));
+  const parts = splitOnPage(page, block, room);
   if (parts) {
-    page.blocks.push(parts.head);
+    appendBlock(page, parts.head);
     queue.splice(0, 1, ...parts.tail);
     return true;
   }
   if (page.blocks.length) return false;
-  page.blocks.push(block);
+  appendBlock(page, block);
   queue.shift();
   return true;
+}
+
+/** Fills one page with the room without footnotes supplied when it is available. */
+export function fillNextPage(
+  queue: LayoutBlock[],
+  pageIndex: number,
+  options: PageFillOptions,
+): LayoutBlock[] {
+  const page: PageFill = {
+    blocks: [],
+    used: 0,
+    index: pageIndex,
+    options,
+    rules: options.rules ?? LAYOUT_RULES,
+  };
+  while (queue.length && !pageEndsBefore(page, queue)) {
+    if (!placeNext(page, queue)) break;
+  }
+  return page.blocks;
 }
 
 /**
@@ -325,16 +382,7 @@ export function layoutNextPage(
   pageIndex: number,
   options: PageLayoutOptions,
 ): LayoutBlock[] {
-  const page: PageFill = {
-    blocks: [],
-    index: pageIndex,
-    options,
-    rules: options.rules ?? LAYOUT_RULES,
-  };
-  while (queue.length && !pageEndsBefore(page, queue)) {
-    if (!placeNext(page, queue)) break;
-  }
-  return page.blocks;
+  return fillNextPage(queue, pageIndex, options);
 }
 
 /** A section's blocks laid out on pages in order. */

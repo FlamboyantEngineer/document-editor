@@ -321,7 +321,61 @@ describe('loadPagesFonts', () => {
     other.destroy();
   });
 
+  it('DOCE-PAGINATION-12.5 retries the omitted family of a partial batch without asking again for its siblings', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const [reference] = filesOf(['Lab Geist']).faces;
+    if (!reference) throw new Error('Expected a reference face');
+    const files = vi.fn<NonNullable<FontsAdapter['files']>>();
+    files
+      .mockResolvedValueOnce(ok({ faces: [reference] }))
+      .mockResolvedValueOnce(ok({ faces: [{ ...reference, family: 'Sibling' }] }))
+      .mockResolvedValueOnce(ok({ faces: [{ ...reference, family: 'Later' }] }));
+    const served = await loadPagesFonts(fontAdapter(files), ['Lab Geist', 'Later'], { doc });
+    if (served.phase !== 'pretext') throw new Error('Expected usable fonts');
+
+    expect(await served.add(['later'])).toBe(false);
+    expect(files).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1000);
+    expect(await served.add(['Lab Geist', 'Later', 'Sibling'])).toBe(true);
+    expect(served.isFontServed('Sibling')).toBe(true);
+    expect(served.isFontServed('Later')).toBe(false);
+    vi.advanceTimersByTime(1999);
+    expect(await served.add(['Later', 'Sibling'])).toBe(false);
+    expect(files).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(1);
+    expect(await served.add(['"later"', 'Sibling'])).toBe(true);
+    expect(served.isFontServed('Later')).toBe(true);
+    expect(files.mock.calls.map(([families]) => families)).toEqual([
+      ['Lab Geist', 'Later'],
+      ['Later', 'Sibling'],
+      ['"later"'],
+    ]);
+    served.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 considers a generic delivered when a face-less batch maps it to an existing family', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const files = vi.fn<NonNullable<FontsAdapter['files']>>();
+    files
+      .mockResolvedValueOnce(ok(filesOf(['Lab Geist'])))
+      .mockResolvedValueOnce(ok({ faces: [], generics: { serif: 'Lab Geist' } }));
+    const served = await loadPagesFonts(fontAdapter(files), ['Lab Geist', 'serif'], { doc });
+    if (served.phase !== 'pretext') throw new Error('Expected usable fonts');
+
+    vi.advanceTimersByTime(1000);
+    expect(await served.add(['serif'])).toBe(true);
+    expect(served.generics.serif).toBe('Lab Geist');
+    vi.advanceTimersByTime(2000);
+    expect(await served.add(['serif'])).toBe(false);
+    expect(files.mock.calls.map(([families]) => families)).toEqual([
+      ['Lab Geist', 'serif'],
+      ['serif'],
+    ]);
+    served.destroy();
+  });
+
   it('DOCE-PAGINATION-12.5 does not serve a family the browser refuses a face of, nor a generic for it', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
     const added = new Set<unknown>();
     const browserDoc = {
       fonts: {
@@ -343,6 +397,7 @@ describe('loadPagesFonts', () => {
       shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())),
       files: (families) => Promise.resolve(ok(filesOf(families))),
     };
+    const files = vi.spyOn(fonts, 'files');
     const served = await loadPagesFonts(fonts, ['Lab Geist', 'Lab Geist Mono'], {
       doc: browserDoc,
     });
@@ -352,6 +407,9 @@ describe('loadPagesFonts', () => {
     expect(served.generics).toEqual({});
     expect(served.files().faces.map((face) => face.family)).not.toContain('Lab Geist Mono');
     expect([...added].every((face) => (face as RefusingFace).family === 'Lab Geist')).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(await served.add(['Lab Geist Mono'])).toBe(false);
+    expect(files).toHaveBeenCalledTimes(1);
     const context = served.measureContext();
     context.font = '16px "Lab Geist"';
     const regularWidth = context.measureText('Web typography').width;

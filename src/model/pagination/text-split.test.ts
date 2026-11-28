@@ -181,6 +181,15 @@ describe('text splits', () => {
     expect(
       planCodeSplit({ text, height: 26, fitting: 10, measurement: codeMeasurement(text, 6) }),
     ).toBeNull();
+    const endsWithBreak = 'a\n';
+    expect(
+      planCodeSplit({
+        text: endsWithBreak,
+        height: 20,
+        fitting: 12,
+        measurement: codeMeasurement(endsWithBreak),
+      }),
+    ).toBeNull();
   });
 
   it('DOCE-PAGINATION-3.3 reuses the original code breaks through successive fragments with a blank line', () => {
@@ -217,6 +226,33 @@ describe('text splits', () => {
       codeBlockContinued: true,
     });
   });
+
+  it.each(['code_block', 'linked_code_block'])(
+    'DOCE-PAGINATION-3.3 DOCE-PAGINATION-3.4 keeps the trailing line break in the last %s fragment',
+    (type) => {
+      const code = 'A\nB\n';
+      const linked = type === 'linked_code_block';
+      const node = linked
+        ? documentSchema.node(type, { dataId: 'code', code, startLine: 10 })
+        : documentSchema.node(type, { dataId: 'code' }, documentSchema.text(code));
+      const block = {
+        node,
+        height: 30,
+        marginTop: 0,
+        marginBottom: 0,
+        measurement: codeMeasurement(code),
+      };
+      const pages = layoutPages([block], { pageHeight: 22 });
+      expect(pages.map((page) => page.map((part) => part.height))).toEqual([[10], [20]]);
+      const parts = pages.flat().map((part) => part.node);
+      expect(parts.map((part) => (linked ? part.attrs.code : part.textContent))).toEqual([
+        'A',
+        'B\n',
+      ]);
+      expect(parts[1]?.attrs[linked ? 'startLine' : 'codeLineStart']).toBe(linked ? 11 : 2);
+      expect(joinFragments(parts)[0]?.eq(node)).toBe(true);
+    },
+  );
 
   it('DOCE-PAGINATION-3.5 lays a measured paragraph across pages and joins it back whole', () => {
     const block = paragraphBlock(words(16));

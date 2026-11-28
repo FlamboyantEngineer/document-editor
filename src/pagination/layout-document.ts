@@ -5,13 +5,8 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { hasContents } from '../engine/contents-presence.js';
-import {
-  type LayoutBlock,
-  layoutNextPage,
-  type LayoutRules,
-  type SectionPages,
-  stackedHeight,
-} from '../model/index.js';
+import type { LayoutBlock, LayoutRules, SectionPages } from '../model/index.js';
+import { fillNextPage, stackedHeight } from '../model/pagination/page-layout.js';
 import { hasBodyPageVariable } from './body-variables.js';
 import { type FootnoteArea, footnoteAreaHeight } from './footnote-area.js';
 import { forcedLinesKey } from './forced-lines.js';
@@ -203,7 +198,14 @@ function layoutSection(
       const { header, footer } = roomOn(index);
       return `${header}/${footer}`;
     },
-    next: (queue, index) => layoutNextPage(queue, index, { pageHeight, rules: fill.rules }),
+    next: (queue, index) => {
+      const emptyPageHeight = baseHeight(index);
+      return fillNextPage(queue, index, {
+        pageHeight: area?.entries.size ? pageHeight : emptyPageHeight,
+        emptyPageHeight,
+        rules: fill.rules,
+      });
+    },
     page(page) {
       const index = metrics.length;
       const available = pageHeight(page, index);

@@ -57,7 +57,8 @@ export interface LineTable {
   /**
    * The content ranges laid out as taking no room, `[from, to)`, as the suggestions a markup hides
    * (DOCE-PAGINATION-11.12); absent when none are. The lines still tile the content, the hidden
-   * ranges inside them; what draws a line starts and ends it at its first and last shown character.
+   * ranges inside them, in content order and without overlap; what draws a line starts and ends
+   * it at its first and last shown character.
    */
   readonly hidden?: readonly (readonly [number, number])[] | undefined;
   /**

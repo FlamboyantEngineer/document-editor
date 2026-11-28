@@ -9,6 +9,7 @@ import {
   LAYOUT_RULES,
   type LayoutBlock,
   layoutNextPage,
+  layoutPages,
   readDocumentFile,
   splitContainer,
   type SplitContext,
@@ -349,6 +350,40 @@ describe('container splits', () => {
     ]);
     expect(splitTableWith(false)(measured(spanning, 60, rows(3, 20)), 45)).toBeNull();
   });
+
+  it.each([28, 58])(
+    'DOCE-PAGINATION-2.1 DOCE-PAGINATION-4.5 lays out a nested table with %spx rows after a paragraph',
+    (rowHeight) => {
+      const table = node(
+        'table',
+        null,
+        ['One', 'Two', 'Three'].map((text) =>
+          node('table_row', null, [node('table_cell', null, [paragraph(text)])]),
+        ),
+      );
+      const figure = node('table_figure', null, [node('table_caption', null), table]);
+      const quote = node('blockquote', null, [paragraph('Lead'), figure]);
+      const block = measured(quote, 30 + 3 * rowHeight, [
+        { top: 0, bottom: 30 },
+        { top: 30, bottom: 30 + 3 * rowHeight, measurement: { children: rows(3, rowHeight) } },
+      ]);
+      const pages = layoutPages([block], { pageHeight: 52 });
+
+      expect(pages.map((page) => page.map((part) => part.node.textContent))).toEqual([
+        ['Lead'],
+        ['One'],
+        ['Two'],
+        ['Three'],
+      ]);
+      expect(pages.map((page) => page.map((part) => part.height))).toEqual([
+        [30],
+        [rowHeight],
+        [rowHeight],
+        [rowHeight],
+      ]);
+      expect(joinFragments(pages.flat().map((part) => part.node))[0]?.eq(quote)).toBe(true);
+    },
+  );
 });
 
 describe('script block and layout section splits', () => {

@@ -2,7 +2,7 @@ import { EditorState } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
-import { documentSchema } from '../../test/document-markup.js';
+import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -80,6 +80,60 @@ type RegionRoomBy = (texts: ReadonlyMap<string, string> | undefined) => RegionRo
 
 // One line paragraph and its spacing, as the engine lays it out under the fake Canvas.
 const LINE = 26;
+
+describe('footnote room', () => {
+  it('DOCE-PAGINATION-7.2 reserves footnote room only on the page of each paragraph fragment', () => {
+    installFakeCanvas();
+    const doc = parseMarkup(
+      '<div class="pm-section" data-pm-section="true">' +
+        '<p>abc<sup data-footnote-id="a"></sup>def<sup data-footnote-id="b"></sup></p>' +
+        '<div class="pm-page-footnotes" data-pm-page-footnotes="true">' +
+        '<p class="pm-footnote-entry" data-footnote-id="a">First</p>' +
+        '<p class="pm-footnote-entry" data-footnote-id="b">Second</p></div></div>',
+    );
+    const state = EditorState.create({ doc });
+    const real = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const engine: PagesTextEngine = {
+      ...real,
+      measureBlock: (node) => ({
+        node,
+        height: 80,
+        marginTop: 0,
+        marginBottom: 0,
+        measurement: {
+          offset: 0,
+          lines: { lines: Array.from({ length: 8 }, (_, from) => ({ from, height: 10 })) },
+          measure: () => ({ height: 80, lines: 8 }),
+        },
+      }),
+      measureRegion: (node) =>
+        node.type.name === 'page_footnotes'
+          ? {
+              height: 36,
+              gap: 0,
+              children: [
+                { top: 0, bottom: 18 },
+                { top: 18, bottom: 36 },
+              ],
+            }
+          : null,
+    };
+    const metrics: PageMetric[] = [];
+    const [pages] = layoutDocument(state, {
+      engine,
+      pageHeight: 52,
+      onPage: (page) => metrics.push(page),
+    });
+
+    expect(pages).toHaveLength(3);
+    expect(metrics.map(({ used, footnotes }) => [used, footnotes])).toEqual([
+      [30, 0],
+      [30, 18],
+      [20, 18],
+    ]);
+    real.destroy();
+  });
+});
 
 describe('headers and footers showing page numbers', () => {
   beforeEach(() => {

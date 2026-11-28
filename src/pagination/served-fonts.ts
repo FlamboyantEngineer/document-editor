@@ -57,15 +57,42 @@ function uniqueFamilies(families: readonly string[]): Map<string, string> {
   return names;
 }
 
-// Overlapping requests share a batch. Transport failures retry with backoff.
+interface FontBatch {
+  readonly changed: boolean;
+  readonly delivered: ReadonlySet<string>;
+}
+
+// A named file can arrive but be unusable. A generic needs a mapping to an installed family.
+function deliveredFamilies(
+  files: FontFiles,
+  generics: ServedFonts['generics'],
+): ReadonlySet<string> {
+  return new Set([...files.faces.map(({ family }) => familyKey(family)), ...Object.keys(generics)]);
+}
+
+// Overlapping requests share a batch. Each omitted family or transport failure retries with backoff.
 function requestFamilies(
-  initial: readonly string[],
-  load: (families: readonly string[]) => Promise<boolean | null>,
+  initial: Iterable<string>,
+  delivered: ReadonlySet<string>,
+  load: (families: readonly string[]) => Promise<FontBatch | null>,
 ) {
-  const requests = new Map<string, Promise<boolean> | null>(
-    initial.map((family) => [familyKey(family), null]),
-  );
+  const requests = new Map<string, Promise<boolean> | null>();
   const failures = new Map<string, { count: number; at: number }>();
+  const finish = (keys: Iterable<string>, delivered: ReadonlySet<string> | undefined) => {
+    const now = Date.now();
+    for (const key of keys) {
+      if (delivered?.has(key)) {
+        failures.delete(key);
+        requests.set(key, null);
+      } else {
+        const count = (failures.get(key)?.count ?? 0) + 1;
+        const delay = Math.min(RETRY_AFTER * 2 ** (count - 1), RETRY_AT_MOST);
+        failures.set(key, { count, at: now + delay });
+        requests.delete(key);
+      }
+    }
+  };
+  finish(initial, delivered);
   return async (families: readonly string[]): Promise<boolean> => {
     const wanted = uniqueFamilies(families);
     const waiting = new Set<Promise<boolean>>();
@@ -79,19 +106,9 @@ function requestFamilies(
       const batch = Promise.resolve()
         .then(() => load([...wanted.values()]))
         .catch(() => null)
-        .then((changed) => {
-          for (const key of wanted.keys()) {
-            if (changed === null) {
-              const count = (failures.get(key)?.count ?? 0) + 1;
-              const delay = Math.min(RETRY_AFTER * 2 ** (count - 1), RETRY_AT_MOST);
-              failures.set(key, { count, at: Date.now() + delay });
-              requests.delete(key);
-            } else {
-              failures.delete(key);
-              requests.set(key, null);
-            }
-          }
-          return changed ?? false;
+        .then((result) => {
+          finish(wanted.keys(), result?.delivered);
+          return result?.changed ?? false;
         });
       for (const key of wanted.keys()) requests.set(key, batch);
       waiting.add(batch);
@@ -107,34 +124,41 @@ function servedFonts(
   {
     faces,
     initial,
+    initialFiles,
     signal,
   }: {
     faces: ReturnType<typeof createServedFaces>;
-    initial: readonly string[];
+    initial: Iterable<string>;
+    initialFiles: FontFiles;
     signal?: AbortSignal | undefined;
   },
 ): ServedFonts {
   const files = fonts.files?.bind(fonts);
   let destroyed = false;
   const isDone = () => destroyed || signal?.aborted;
-  let installing = Promise.resolve(false);
-  const add = requestFamilies(initial, async (wanted) => {
-    if (!files || isDone()) return false;
-    const result = await files(wanted, { signal });
-    if (isDone()) return false;
-    if (!result.ok) return null;
-    const install = installing.then(async () => {
-      if (isDone()) return false;
-      const { readHostFaces } = await import('../layout-engine/font-files/host-faces.js');
-      const { faces: read } = await readHostFaces(result.value);
-      if (isDone()) return false;
-      const changed = await faces.add(read, result.value.generics);
-      return changed && !isDone();
-    });
-    // Fetches may overlap; each batch finishes installing before the next one changes the faces.
-    installing = install.catch(() => false);
-    return install;
-  });
+  let installing = Promise.resolve<FontBatch | null>(null);
+  const add = requestFamilies(
+    initial,
+    deliveredFamilies(initialFiles, faces.generics),
+    async (wanted) => {
+      if (!files || isDone()) return null;
+      const result = await files(wanted, { signal });
+      if (isDone() || !result.ok) return null;
+      const install = installing.then(async () => {
+        if (isDone()) return null;
+        const { readHostFaces } = await import('../layout-engine/font-files/host-faces.js');
+        const { faces: read } = await readHostFaces(result.value);
+        if (isDone()) return null;
+        const changed = await faces.add(read, result.value.generics);
+        return isDone()
+          ? null
+          : { changed, delivered: deliveredFamilies(result.value, faces.generics) };
+      });
+      // Fetches may overlap; each batch finishes installing before the next one changes the faces.
+      installing = install.catch(() => null);
+      return install;
+    },
+  );
   return {
     phase: 'pretext',
     measureContext: () => measurer.createContext() as unknown as MeasureContext,
@@ -166,29 +190,28 @@ export async function loadPagesFonts(
 ): Promise<PagesFonts> {
   // The shaper and its measurer load only with the option on, as the engine does.
   const { loadHostFonts } = await import('../layout-engine/font-files/host-fonts.js');
-  const initial = [...uniqueFamilies(families).values()];
-  const loaded = await loadHostFonts(fonts, initial, { signal });
+  const initial = uniqueFamilies(families);
+  const loaded = await loadHostFonts(fonts, [...initial.values()], { signal });
   if (loaded.phase === 'browser' || !fonts) {
     const reason = loaded.phase === 'browser' ? loaded.reason : 'no-shaper';
     return { phase: 'browser', reason: reason === 'pending' ? 'no-files' : reason };
   }
   const faces = createServedFaces(doc, loaded.measurer, signal);
-  const served = servedFonts(fonts, loaded.measurer, { faces, initial, signal });
-  // Fonts asked for by an editor that has gone, or that asks another adapter now, never draw.
-  if (signal?.aborted) {
-    served.destroy();
-    return served;
-  }
   try {
-    await faces.add(loaded.faces, loaded.generics);
+    await faces.add(loaded.faces, loaded.files.generics);
   } catch {
-    served.destroy();
+    faces.destroy();
     return { phase: 'browser', reason: 'shaper-failed' };
   }
-  if (signal?.aborted) served.destroy();
+  if (signal?.aborted) faces.destroy();
   else if (!faces.files().faces.length) {
-    served.destroy();
+    faces.destroy();
     return { phase: 'browser', reason: 'no-faces' };
   }
-  return served;
+  return servedFonts(fonts, loaded.measurer, {
+    faces,
+    initial: initial.keys(),
+    initialFiles: loaded.files,
+    signal,
+  });
 }

@@ -113,8 +113,13 @@ export function awaitLayoutInputs(
   ready: PromiseLike<unknown> | undefined,
   { settled, failed }: { settled: () => void; failed: () => void },
 ) {
+  if (!text) {
+    // Optional inputs may already be in flight, even though no engine can lay out the pages.
+    awaitReady(ready, () => undefined);
+    return { blocked: () => true, failed: () => true };
+  }
   const engine =
-    text?.engine() === null
+    text.engine() === null
       ? text.loaded.then(() => {
           if (!text.engine()) throw new Error('The page layout engine is unavailable.');
         })
