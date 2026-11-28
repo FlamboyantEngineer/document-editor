@@ -15,7 +15,7 @@ import {
 /**
  * The root size a template's `rem` lengths resolve against. They reach the stylesheet in pixels,
  * so a host page's own root size never moves what the layout engine laid out
- * (DOCE-PAGINATION-9.2).
+ * (DOCE-PAGINATION-10.9).
  */
 export const TEMPLATE_ROOT_SIZE = 16;
 

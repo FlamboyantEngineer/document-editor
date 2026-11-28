@@ -211,9 +211,7 @@ function show(result: FontWidthsResult) {
 }
 
 // The equations of test/math-layouts.ts laid out by MathJax, as Node lays them out (DOCE-LABS-7.5).
-window.mathLayouts = createMathJaxLayouter().then((layouter) =>
-  layouter ? fingerprintLayouts(layouter) : 'no layouter',
-);
+window.mathLayouts = fingerprintLayouts(createMathJaxLayouter());
 window.fontWidths = measure();
 window.fontWidths.then(show).catch((error: unknown) => {
   mount('#fw-status').textContent = error instanceof Error ? error.message : String(error);

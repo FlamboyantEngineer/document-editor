@@ -22,7 +22,8 @@ export function objectBoxAt(state: EditorState, pos: number): ObjectBox | null {
   const region = regionAt($inside);
   if (region?.kind !== 'content' || $inside.depth <= region.depth) return null;
   const block = $inside.node(region.depth + 1);
-  const inserted = node.type.name === 'table' ? insertedTexts(state, [forcedLinesKey]) : undefined;
+  // With the words the pages laid the block out with, so its kept layout is read.
+  const inserted = insertedTexts(state, [forcedLinesKey]);
   return engine.objectBoxes(block, sectionScope(region.section.node), inserted).get(node) ?? null;
 }
 

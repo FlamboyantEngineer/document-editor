@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { MathJaxStix2Font } from '@mathjax/mathjax-stix2-font/js/svg.js';
 import { liteAdaptor } from '@mathjax/src/js/adaptors/liteAdaptor.js';
 import { HTMLHandler } from '@mathjax/src/js/handlers/html/HTMLHandler.js';
 import { mathjax } from '@mathjax/src/js/mathjax.js';
@@ -7,15 +8,15 @@ import { asyncLoad } from '@mathjax/src/js/util/AsyncLoad.js';
 import { describe, expect, it, vi } from 'vitest';
 import { fingerprintLayouts, katexTree, mathCases } from '../../../test/math-layouts.js';
 import type { MathLayouter } from '../math-atoms.js';
-import { createMathJaxLayouter, mathMarkup } from './mathjax-layouter.js';
+import { createMathJaxLayouter, MATHJAX_RELEASE, mathMarkup } from './mathjax-layouter.js';
 
 // The fingerprint DOCE-LABS-7.4 pins in a page on Linux, Windows and macOS; Node gives the same.
 const LAYOUTS_FINGERPRINT = 'a68b7f24';
 
+// Async so each test awaits it as it would a loaded layouter; MathJax loads with the first prepare.
+// eslint-disable-next-line @typescript-eslint/require-await -- the layouter is made at once
 async function layouter(): Promise<MathLayouter> {
-  const created = await createMathJaxLayouter();
-  if (!created) throw new Error('MathJax is not installed');
-  return created;
+  return createMathJaxLayouter();
 }
 
 const elements = (tree: { tag: string; children: readonly unknown[] }): string[] => [
@@ -76,7 +77,8 @@ describe('DOCE-PAGINATION-12.12 equations laid out and drawn by MathJax', () => 
     await other.prepare(cases.map(({ tree }) => tree));
     for (const { tree, display } of cases)
       expect(other.layout(tree, display, 13)).toEqual(one.layout(tree, display, 13));
-    expect(one.key).toMatch(/^mathjax-4\.\d+\.\d+-stix2-/u);
+    expect(one.key).toBe(`mathjax-${mathjax.version}-stix2-${MathJaxStix2Font.NAME}`);
+    expect(MATHJAX_RELEASE).toBe(mathjax.version);
   });
 
   it('keeps the host’s loader and handlers intact while concurrent layouters load STIX2 ranges', async () => {

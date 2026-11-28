@@ -75,7 +75,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
     }
     // A list of contents is drawn by its node view, on the rows the engine laid out.
     if (child.type.name === 'toc_block') {
-      const drawn = builder.engine.contentsDrawn(child, at.name);
+      const drawn = builder.engine.contentsDrawn(child, at.name, builder.inserted);
       if (drawn) locals.push(Decoration.node(offset, end, {}, { contentsDrawn: drawn }));
       return;
     }
