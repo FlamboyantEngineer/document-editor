@@ -12,11 +12,11 @@ import { isHidden } from './hidden-suggestions.js';
 import type { InsertedText } from './inserted-text.js';
 import { type MathLayouts, type MathRecorder, placeMath } from './math-atoms.js';
 import { pageBoxWidth } from './page-box.js';
-import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
+import type { ReserveCluster, ReservedBox } from './reserved-boxes.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
 import { textPieces } from './text-pieces.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
-import { variablePieces } from './variable-pieces.js';
+import { holdsReserved, valueLines, type ValueWord, variableText } from './variable-pieces.js';
 import { wholeText } from './whole-text.js';
 
 /** An inline atom's box, in CSS pixels. */
@@ -54,6 +54,8 @@ export interface TextRun {
    * node's size: the page draws it in the node's one element; null for the block's own text.
    */
   readonly nodes: readonly (number | null)[];
+  /** For each line of a variable's value, its words (`valueLines`, DOCE-PAGINATION-9.5). */
+  readonly words?: readonly (readonly ValueWord[] | null)[];
 }
 
 /** A content range laid out as taking no room, `[from, to)`. */
@@ -122,6 +124,7 @@ interface Builder {
   atoms: (InlineAtomSize | null)[];
   sides: (number | null)[];
   nodes: (number | null)[];
+  words: (readonly ValueWord[] | null)[];
   start: number;
   /** The inline code element the last node is drawn in (`code-boxes.ts`). */
   code: OpenCode | null;
@@ -133,6 +136,7 @@ const startRun = (start: number): Builder => ({
   atoms: [],
   sides: [],
   nodes: [],
+  words: [],
   start,
   code: null,
 });
@@ -148,6 +152,7 @@ function addText(
     side = null,
     marks = null,
     node = null,
+    words = null,
   }: {
     item: RichInlineItem | RichInlineBox;
     offset: number;
@@ -155,6 +160,7 @@ function addText(
     side?: number | null;
     marks?: readonly Mark[] | null;
     node?: number | null;
+    words?: readonly ValueWord[] | null;
   },
 ) {
   run.items.push(item);
@@ -162,6 +168,7 @@ function addText(
   run.atoms.push(box);
   run.sides.push(side);
   run.nodes.push(node);
+  run.words.push(words);
   const index = run.items.length - 1;
   const { open, continues } = continueCode(run.code, marks);
   if (continues) joinCode(run.items, { before: run.code?.index ?? null, after: index });
@@ -280,36 +287,20 @@ function addVariable(run: Builder, at: InlinePlace): string | null {
   return null;
 }
 
-// The text a variable shows, and whether it is a value: without `variables` or `bodyVariables`, as
-// where no page variables draw it (a footnote area), the text it holds.
-function variableText(
-  child: ProseMirrorNode,
-  { key, variables, body }: { key: string; variables?: VariableTexts; body?: BodyVariables },
-): { text: string; value: boolean } {
-  if (!variables && !body) return { text: child.textContent, value: false };
-  const text = (variables ? variables.get(key) : body?.text(key)) ?? '';
-  return { text, value: text !== '' };
-}
-
-const holdsReserved = (text: string, font: string, reserve: ReserveCluster | undefined) =>
-  reserve !== undefined && reservedBoxes(text, { offset: 0, font, reserve }).length > 0;
-
-// A variable's value word by word, as the page variables draw it inside the variable
-// (`variablePieces`): each word an item at the variable's inside, at its element's side, so a
-// line breaks between two words as among inserted words; a line feed ends its run, as the browser
-// breaks the line there, and a line its feeds leave empty takes no width.
+// A variable's value, each of its lines one item at the variable's inside (`valueLines`), at its
+// first word's side; a line feed ends its run, as the browser breaks the line there.
 function addValuePieces(
   run: Builder,
   at: InlinePlace & { text: string; font: string; box: InlineAtomSize | null },
 ) {
   const { child, offset, input, font, box } = at;
-  const inside = offset + 1;
+  const [inside, marks] = [offset + 1, child.marks];
   let current = run;
-  for (const piece of variablePieces(at.text)) {
-    const text = piece.text.endsWith('\n') ? piece.text.slice(0, -1) : piece.text;
-    const item = text ? markedItem({ text, font }, child.marks) : { width: 0 };
-    addText(current, { item, offset: inside, box: text ? box : null, side: piece.side });
-    if (text !== piece.text) current = input.breakRun?.(inside) ?? current;
+  for (const { text, words, feed } of valueLines(at.text)) {
+    const item = text ? markedItem({ text, font }, marks) : { width: 0 };
+    const side = words[0]?.side ?? 0;
+    addText(current, { item, offset: inside, box: text ? box : null, side, marks, words });
+    if (feed) current = input.breakRun?.(inside) ?? current;
   }
 }
 

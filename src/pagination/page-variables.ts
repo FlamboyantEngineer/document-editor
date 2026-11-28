@@ -140,18 +140,31 @@ function editsTextOnly(tr: Transaction): boolean {
   });
 }
 
+/** A word of a variable's value, as drawn inside it, by its widget's side. */
+export interface ShownWord {
+  readonly text: string;
+  readonly side: number;
+}
+
 /**
- * The value a variable shows, as its words drawn inside it at `inside` (just past its start) say
- * it, in their order; empty when it shows none.
+ * The words of the value a variable shows, as drawn inside it at `inside` (just past its start),
+ * in their order; none when it shows none.
  */
-export function shownVariableText(shown: DecorationSet | undefined, inside: number): string {
+export function shownVariableWords(
+  shown: DecorationSet | undefined,
+  inside: number,
+): readonly ShownWord[] {
   const words = (shown?.find(inside, inside) ?? []).flatMap((each) => {
     const { text, side } = each.spec as { text?: unknown; side?: unknown };
     if (each.from !== inside || typeof text !== 'string') return [];
     return [{ text, side: typeof side === 'number' ? side : 0 }];
   });
-  return words
-    .sort((a, b) => a.side - b.side)
+  return words.sort((a, b) => a.side - b.side);
+}
+
+/** The value a variable shows, its words joined (`shownVariableWords`); empty when it shows none. */
+export function shownVariableText(shown: DecorationSet | undefined, inside: number): string {
+  return shownVariableWords(shown, inside)
     .map((word) => word.text)
     .join('');
 }

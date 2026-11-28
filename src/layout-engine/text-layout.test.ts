@@ -646,6 +646,38 @@ describe('createTextLayout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-9.5 pads a code variable’s value once, as one code element with the code before it', () => {
+    const code = documentSchema.marks.code?.create();
+    if (!code) throw new Error('schema has no code mark');
+    const variable = documentSchema.nodes.template_variable?.create(
+      { variableKey: 'title' },
+      null,
+      [code],
+    );
+    if (!variable) throw new Error('schema has no template variable');
+    const layout = createTextLayout({ template: BASE_TEMPLATE });
+    const lay = (content: ProseMirrorNode[], value: string, width = 600) => {
+      const node = documentSchema.node('paragraph', null, content);
+      const result = layout.layoutText(node, { width, variables: new Map([['title', value]]) });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map((line) => [line.end, line.width]);
+    };
+    const x = documentSchema.text('x ');
+    const y = documentSchema.text(' y');
+    const coded = (text: string) => documentSchema.text(text, [code]);
+    // The value takes the widths the same text in code takes: 34, 46.5, 59 and 71.5px.
+    for (const value of ['aa', 'aa bb', 'aa bb cc', 'aa bb cc dd'])
+      expect([value, lay([x, variable, y], value)]).toEqual([value, lay([x, coded(value), y], '')]);
+    // After code text with the same marks, the value continues its element.
+    expect(lay([x, coded('aa '), variable, y], 'bb cc')).toEqual(
+      lay([x, coded('aa bb cc'), y], ''),
+    );
+    // Wrapped, each line takes the widths wrapped code text does.
+    expect(lay([x, variable, y], 'aaaa bbbb cccc', 50)).toEqual(
+      lay([x, coded('aaaa bbbb cccc'), y], '', 50),
+    );
+  });
+
   it('DOCE-PAGINATION-11.11 lays an inserted word before the template variable at its anchor', () => {
     const variable = documentSchema.nodes.template_variable?.create({
       variableKey: 'document.title',

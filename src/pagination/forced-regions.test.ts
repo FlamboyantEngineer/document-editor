@@ -109,6 +109,40 @@ describe('forcedRegions', () => {
     expect(shown?.lines?.map((line) => line.text).join('')).toBe('Title: A long title');
   });
 
+  it('DOCE-PAGINATION-9.5 gives each line the words of a variable’s value drawn on it', () => {
+    const base = stubEngine();
+    const engine: PagesTextEngine = {
+      ...base,
+      // The value broken twice, both lines starting among its words, after the side before them.
+      lines: (block) => {
+        const size = block.content.size;
+        const line = (from: number, to: number, side?: number) => ({
+          from,
+          to,
+          width: 10,
+          left: 0,
+          top: 0,
+          height: 20,
+          end: to === size ? ('end' as const) : ('wrap' as const),
+          ...(side === undefined ? {} : { side }),
+        });
+        const lines = [line(0, 3), line(3, 3, 1), line(3, size, 3)];
+        return { width: 100, lines, height: 60, overhead: 0, justify: false };
+      },
+    };
+    const text = node('paragraph', null, [
+      documentSchema.text('ab'),
+      node('template_variable', { variableKey: 'document.title' }),
+      documentSchema.text('cd'),
+    ]);
+    const doc = pagesDocument([page([text])]);
+    const values = { 'document.title': 'one two three' };
+    const state = stateWith(doc.type.create({ ...doc.attrs, values }, doc.content), engine);
+    const [first] = pageTextLines(state);
+    const shown = first?.blocks.find((block) => !block.region);
+    expect(shown?.lines?.map((line) => line.text)).toEqual(['abone ', 'two ', 'threecd']);
+  });
+
   it('DOCE-PAGINATION-11.2 draws an unchanged region in its new section scope', () => {
     const wide = stubEngine({ perLine: 20 });
     const narrow = stubEngine({ perLine: 5 });
