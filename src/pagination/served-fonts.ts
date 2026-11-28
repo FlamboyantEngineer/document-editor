@@ -87,7 +87,8 @@ type LoadFamilies = (families: readonly string[]) => Promise<FontBatch | null>;
 
 const NOTHING: FontBatch = { changed: false };
 
-// A named file can arrive but be unusable. A generic needs a mapping to an installed family.
+// The families an answer brought: each one it names a face of, read or not, since asking again
+// brings the same bytes, and each generic mapped to an installed family.
 function deliveredFamilies(
   files: FontFiles,
   generics: ServedFonts['generics'],
@@ -295,19 +296,22 @@ export async function loadPagesFonts(
       signal,
       retried,
     });
-  // Fonts asked for by an editor that has gone, or that asks another adapter now, never draw.
-  if (signal?.aborted) {
-    faces.destroy();
-    return serve();
-  }
+  // Fonts asked for by an editor that has gone, or that asks another adapter now, never draw: the
+  // load comes back destroyed.
+  const gone = () => {
+    const served = serve();
+    served.destroy();
+    return served;
+  };
+  if (signal?.aborted) return gone();
   try {
     await faces.add(loaded.faces, loaded.files.generics);
   } catch {
     faces.destroy();
     return { phase: 'browser', reason: 'shaper-failed', retry: false };
   }
-  if (signal?.aborted) faces.destroy();
-  else if (!faces.files().faces.length) {
+  if (signal?.aborted) return gone();
+  if (!faces.files().faces.length) {
     faces.destroy();
     return { phase: 'browser', reason: 'no-faces', retry: false };
   }
