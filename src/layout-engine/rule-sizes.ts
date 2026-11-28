@@ -47,9 +47,11 @@ export interface RuleSizes {
   version(): number;
   /**
    * The errors the rules gave, by node type, the latest of a type's nodes that still fail: what the
-   * host is told. A node's error goes once it sizes well, and a type's once no rule sizes it.
+   * host is told. A node's error goes once it sizes well, a type's once no rule sizes it, and, given
+   * the document laid out, the error of a node no longer in it: one taken out, or one without an
+   * element id edited since.
    */
-  errors(): ReadonlyMap<string, string>;
+  errors(doc?: ProseMirrorNode): ReadonlyMap<string, string>;
 }
 
 const ruleOf = (rules: LayoutRules | undefined, node: ProseMirrorNode): LayoutRule | undefined =>
@@ -180,6 +182,18 @@ function createRuleErrors() {
         if (!(rules && Object.hasOwn(rules, type) && rules[type]?.size)) byType.delete(type);
       }
     },
+    // Forgets the errors of the nodes not in a document, by element id or by the node itself.
+    keepIn(doc: ProseMirrorNode) {
+      if (byType.size === 0) return;
+      const present = new Set<unknown>();
+      doc.descendants((node) => {
+        if (byType.has(node.type.name)) present.add(keyOf(node));
+      });
+      for (const [type, failing] of byType) {
+        for (const key of [...failing.keys()]) if (!present.has(key)) failing.delete(key);
+        if (failing.size === 0) byType.delete(type);
+      }
+    },
     read(): ReadonlyMap<string, string> {
       const latest = (failing: Map<unknown, string>) => [...failing.values()].at(-1) ?? '';
       return new Map([...byType].map(([type, failing]) => [type, latest(failing)]));
@@ -262,6 +276,9 @@ export function createRuleSizes(source: RuleSizeSource): RuleSizes {
     },
     placed: (node) => placed.get(node) ?? null,
     version: () => version,
-    errors: () => errors.read(),
+    errors(doc) {
+      if (doc) errors.keepIn(doc);
+      return errors.read();
+    },
   };
 }

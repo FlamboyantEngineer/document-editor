@@ -25,7 +25,6 @@ import {
   type ResolvedContentsList,
 } from '../../model/templates/template-settings.js';
 import { resolveLength, resolveSize } from '../template-lengths.js';
-import { snap } from '../typography.js';
 
 /** A template scope's block geometry numbers, in CSS pixels. */
 export interface BlockMetrics {
@@ -118,7 +117,7 @@ function objectNumbers(
 // size, as the stylesheet sets them on the area.
 function regionNumbers(template: TemplateFile, section: TemplateSection | null, em: number) {
   const footnotes = resolveFootnoteSettings(template, section);
-  const size = snap(resolveSize(footnotes.text.size, em) ?? DEFAULT_FOOTNOTE_SIZE);
+  const size = resolveSize(footnotes.text.size, em) ?? DEFAULT_FOOTNOTE_SIZE;
   const inArea = (length: unknown) => pixels(length, '0px', size);
   const region = (name: 'header' | 'footer'): RegionMetrics => ({
     minHeight: pixels(resolveRegionHeight(template, section, name)),
@@ -142,8 +141,8 @@ function regionNumbers(template: TemplateFile, section: TemplateSection | null, 
 export function blockMetrics(template: TemplateFile, scope: string | null = null): BlockMetrics {
   const section = findTemplateSection(template, scope);
   const styles = templateScopeStyles(template, section);
-  // The page content's font size, which the paragraph's sets; an em size is of the default.
-  const em = snap(resolveSize(styles.paragraph?.size, DEFAULT_FONT_SIZE) ?? DEFAULT_FONT_SIZE);
+  // The page content's font size, which the paragraph's sets, as the stylesheet's em is: unsnapped.
+  const em = resolveSize(styles.paragraph?.size, DEFAULT_FONT_SIZE) ?? DEFAULT_FONT_SIZE;
   const numbers = templateBlockNumbers(styles);
   const sheet = (name: keyof BlockNumbers) => blockPixels(numbers[name], em);
   return {

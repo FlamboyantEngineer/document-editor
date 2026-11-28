@@ -55,4 +55,24 @@ describe('rule sizes', () => {
     sizes.block(schema.node('heading', { dataId: 'h3' }, schema.text('any')), 100, null);
     expect(sizes.errors().size).toBe(0);
   });
+
+  it('DOCE-PAGINATION-14.1 forgets the error of a node no longer in the document laid out', () => {
+    const sizes = sizesWith({ current: sizing });
+    const doc = (...blocks: ReturnType<typeof block>[]) => schema.node('doc', null, blocks);
+    // A failing node taken out: the next document holds only a node that sizes well.
+    const failing = block('a4', 'bad');
+    sizes.block(failing, 100, null);
+    expect(sizes.errors(doc(failing)).get('paragraph')).toMatch(/no size/u);
+    const good = block('b4', 'good');
+    sizes.block(good, 100, null);
+    expect(sizes.errors(doc(good)).size).toBe(0);
+    // A failing node without an element id, edited so it sizes well: the old node is gone.
+    const plain = (content: string) => schema.node('paragraph', null, schema.text(content));
+    const before = plain('bad');
+    sizes.block(before, 100, null);
+    expect(sizes.errors(doc(before)).size).toBe(1);
+    const after = plain('fixed');
+    sizes.block(after, 100, null);
+    expect(sizes.errors(doc(after)).size).toBe(0);
+  });
 });
