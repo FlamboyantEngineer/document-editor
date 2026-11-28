@@ -242,6 +242,24 @@ describe('createTextLayout', () => {
     expect(small.lines[0]?.height).toBe(18);
   });
 
+  it('DOCE-PAGINATION-14.1 keeps inline code open across an inline node a host rule sizes', () => {
+    const { code } = documentSchema.marks;
+    const atom = documentSchema.nodes.math_inline?.create();
+    if (!code || !atom) throw new Error('schema has no code mark or inline math');
+    const marks = [code.create()];
+    const coded = documentSchema.nodes.paragraph?.create(null, [
+      documentSchema.text('aa', marks),
+      atom.mark(marks),
+      documentSchema.text('aa', marks),
+    ]);
+    if (!coded) throw new Error('schema has no paragraph');
+    const box = () => ({ width: 30, height: 10 });
+    // One code element: its 3px paddings at its two ends only, around 5px code characters.
+    const measured = table(coded, 400, { measureAtom: box });
+    expect(measured.lines[0]?.width).toBe(3 + 10 + 30 + 10 + 3);
+    expect(table(coded, 400, { sizeAtom: box }).lines[0]?.width).toBe(measured.lines[0]?.width);
+  });
+
   it('DOCE-PAGINATION-12.10 scales inline math wider than its whole line down to fit, and records where it placed it', () => {
     const atom = documentSchema.nodes.math_inline?.create(null, documentSchema.text('x'));
     const paragraph = atom && documentSchema.nodes.paragraph?.create(null, [atom]);
