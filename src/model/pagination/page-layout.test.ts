@@ -209,7 +209,9 @@ describe('page layout', () => {
       readonly at: number;
       readonly height: number;
     }
-    const notesOf = (entry: LayoutBlock) => (entry.measurement as Note[] | undefined) ?? [];
+    // A heading's measurement is its level, so only a list is a paragraph's notes.
+    const notesOf = (entry: LayoutBlock): readonly Note[] =>
+      Array.isArray(entry.measurement) ? (entry.measurement as Note[]) : [];
     const noted: LayoutRules = {
       ...LAYOUT_RULES,
       paragraph: {
@@ -260,6 +262,39 @@ describe('page layout', () => {
           { at: 380, height: 10 },
         ]),
       ).toEqual([[[150, 1]], [[130, 1]], [[120, 1]]]);
+    });
+
+    it('looks above a height the split refuses for a shorter head that leaves out a marker', () => {
+      // Two lines on each side, as a paragraph keeps: a three-line head holds the first marker
+      // and leaves itself too little room, the room that marker leaves is under two lines, and
+      // the two-line head between them is the one that fits, so the heading keeps with it.
+      const twoLines: LayoutRules = {
+        ...noted,
+        paragraph: {
+          ...noted.paragraph,
+          split: (entry, height, context) =>
+            Math.floor(height / 10) < 2 || entry.height - Math.floor(height / 10) * 10 < 20
+              ? null
+              : (noted.paragraph?.split?.(entry, height, context) ?? null),
+        },
+      };
+      const notes = [
+        { at: 20, height: 18 },
+        { at: 70, height: 18 },
+      ];
+      const pages = layoutPages(
+        [paragraph(10), heading(2, 10), paragraph(80, { measurement: notes })],
+        {
+          pageHeight: (blocks) =>
+            52 - blocks.flatMap(notesOf).reduce((sum, note) => sum + note.height, 0),
+          rules: twoLines,
+        },
+      );
+      expect(pages.map((page) => page.map((entry) => entry.height))).toEqual([
+        [10, 10, 20],
+        [30],
+        [30],
+      ]);
     });
   });
 });
