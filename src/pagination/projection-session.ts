@@ -19,7 +19,6 @@ import type { LayoutPace } from './layout-pace.js';
 import { followDocument } from './layout-source.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { afterComposition, frameIn, type settleEdits } from './layout-triggers.js';
-import { waitsForMath } from './math-wait.js';
 import type { createPageMapScope } from './page-map.js';
 import type { PagedProjectionOptions } from './projection.js';
 import {
@@ -31,12 +30,12 @@ import {
 import { layOutProjection } from './projection-layout.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { mirrorChange } from './projection-mirror.js';
+import { readyEngine } from './ready-engine.js';
 import {
   canonicalSelection,
   selectionAcrossBreak,
   showsCellSelection,
 } from './selection-mirror.js';
-import { engineOrFailure } from './text-engine-holder.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 import type { TypingProbe } from './typing-probe.js';
 
@@ -232,16 +231,6 @@ function keepShownSelection(session: Session): void {
   syncSelection(session);
 }
 
-// The engine once it and its math are ready; else null, pending, or failed without one to wait for.
-function readyEngine(session: Session): PagesTextEngine | null {
-  const { pace, options } = session;
-  if (session.destroyed || pace.ready.blocked()) return null;
-  const engine = pace.readiness.engine(engineOrFailure(pace.text), options.trace);
-  if (!engine) return null;
-  const waiting = { ...session, owner: session.options.element.ownerDocument };
-  return waitsForMath(waiting, () => requestLayout(session)) ? null : engine;
-}
-
 /**
  * Lays the pages out from the canonical document, steps the projection onto them and builds the map again;
  * fails when layouts keep moving the pages with no change in between.
@@ -257,7 +246,7 @@ export function layout(session: Session): void {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
     return afterComposition(view, () => requestLayout(session));
   }
-  const engine = readyEngine(session);
+  const engine = readyEngine(session, () => requestLayout(session));
   if (!engine) return;
   keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
