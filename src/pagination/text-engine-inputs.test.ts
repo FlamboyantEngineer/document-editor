@@ -220,6 +220,37 @@ describe('the pages engine and its inputs', () => {
     }
   });
 
+  it('DOCE-PAGINATION-12.10 keeps placements for projected copies of the current equations through replacement and undo', () => {
+    const equation = (id: string, source: string): StoredNode => ({
+      type: 'mathBlock',
+      attrs: { id, source },
+    });
+    const doc = read([equation('kept', 'x'), equation('removed', 'x+y'), equation('edited', 'z')]);
+    const [kept, removed, edited] = blocksOf(doc);
+    if (!kept || !removed || !edited) throw new Error('No equations');
+    const copy = (node: ProseMirrorNode) => node.type.create(node.attrs, node.content, node.marks);
+    const changed = EditorState.create({ doc })
+      .tr.insertText('+z', positionOf(doc, edited) + 2)
+      .delete(positionOf(doc, removed), positionOf(doc, removed) + removed.nodeSize).doc;
+    const engine = engineOfEquations();
+    try {
+      engine.number(doc);
+      for (const node of [kept, removed, edited]) engine.measureBlock(node, null);
+      const prior = [kept, removed, edited].map((node) => engine.mathOf(copy(node)));
+      expect(prior.every((placement) => placement !== null)).toBe(true);
+
+      engine.number(changed);
+      expect(engine.mathOf(copy(kept))).toBe(prior[0]);
+      expect(engine.mathOf(copy(removed))).toBeNull();
+      expect(engine.mathOf(copy(edited))).toBeNull();
+
+      engine.number(doc);
+      expect([kept, removed, edited].map((node) => engine.mathOf(copy(node)))).toEqual(prior);
+    } finally {
+      engine.destroy();
+    }
+  });
+
   it('DOCE-PAGINATION-10.8 DOCE-PAGINATION-14.4 lays out inline math with no layouter in its reserved box, never as drawn', () => {
     const doc = read([
       paragraph(text('aa '), { type: 'math_inline', content: [text('x^2')] }, text(' bb')),

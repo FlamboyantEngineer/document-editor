@@ -14,8 +14,15 @@ export interface TextMeasure {
 }
 
 /** The lines a layout engine laid a text block out on, by content offset in the whole block. */
+interface MeasuredLine {
+  readonly from: number;
+  readonly height: number;
+  /** A line that starts among widgets at `from`. A fragment boundary cannot divide them. */
+  readonly side?: number | undefined;
+}
+
 interface MeasuredLines {
-  readonly lines: readonly { readonly from: number; readonly height: number }[];
+  readonly lines: readonly MeasuredLine[];
 }
 
 /** What the editor measured a text block's layout from. */
@@ -147,6 +154,23 @@ function chooseLineCount(heights: readonly number[], overhead: number, input: Te
   return count >= MINIMUM_SPLIT_LINES ? count : -1;
 }
 
+// A split must advance through the block's content and leave the widgets at one offset together.
+function canSplitAt(
+  lines: readonly MeasuredLine[],
+  count: number,
+  { offset, end }: { offset: number; end: number },
+): boolean {
+  const line = lines[count];
+  return (
+    line !== undefined &&
+    line.from > offset &&
+    line.from < end &&
+    line.side === undefined &&
+    line.from !== lines[count - 1]?.from &&
+    line.from !== lines[count + 1]?.from
+  );
+}
+
 // A paragraph's split at a computed line's start, from the lines the fragment holds.
 function planLineSplit(input: TextSplitInput, measured: MeasuredLines): TextSplitPlan | null {
   const { offset } = input.measurement;
@@ -158,9 +182,10 @@ function planLineSplit(input: TextSplitInput, measured: MeasuredLines): TextSpli
   const heights = lines.map((line) => line.height);
   const total = heights.reduce((sum, height) => sum + height, 0);
   const overhead = Math.max(0, input.height - total);
-  const count = chooseLineCount(heights, overhead, input);
+  let count = chooseLineCount(heights, overhead, input);
+  while (count >= MINIMUM_SPLIT_LINES && !canSplitAt(lines, count, { offset, end })) count -= 1;
   const next = lines[count]?.from;
-  if (count < 0 || next === undefined) return null;
+  if (count < MINIMUM_SPLIT_LINES || next === undefined) return null;
   const headHeight = snap(
     overhead + heights.slice(0, count).reduce((sum, height) => sum + height, 0),
     1,

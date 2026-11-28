@@ -25,7 +25,7 @@ export function drawnContents(
   const width = at.text.contentsTextWidth;
   if (!list || !width) return null;
   const result = at.geometry.layoutBlock(node, { width: at.width, scope: at.scope });
-  if (!result.ok) return null;
+  if (!result.ok || !result.block.measurement) return null;
   const { rows, title, empty } = result.block.measurement as {
     rows: readonly ContentsRowLayout[];
     title?: readonly number[];

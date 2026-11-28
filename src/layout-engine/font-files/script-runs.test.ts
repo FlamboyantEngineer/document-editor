@@ -30,6 +30,40 @@ describe('DOCE-PAGINATION-12.2 script runs as Blink shapes them', () => {
     ]);
   });
 
+  it('restores the outer pair’s script after closing a nested pair of the same type', () => {
+    expect(runs('א (b [ع (c) d] e) f')).toEqual([
+      ['א (', 'Hebr', true],
+      ['b [', 'Latn', false],
+      ['ع (', 'Arab', true],
+      ['c', 'Latn', false],
+      [') ', 'Arab', true],
+      ['d] e', 'Latn', false],
+      [') ', 'Hebr', true],
+      ['f', 'Latn', false],
+    ]);
+  });
+
+  it('discards skipped openers when a closer matches an outer pair', () => {
+    expect(runs('א [b (ع [c) d] e) f')).toEqual([
+      ['א [', 'Hebr', true],
+      ['b (', 'Latn', false],
+      ['ع [', 'Arab', true],
+      ['c) d', 'Latn', false],
+      ['] ', 'Hebr', true],
+      ['e) f', 'Latn', false],
+    ]);
+  });
+
+  it('uses the opening script throughout a deeply nested sequence', () => {
+    const opening = 'א' + '(['.repeat(1024);
+    const closing = '])'.repeat(1024);
+    expect(runs(`${opening}x${closing}`)).toEqual([
+      [opening, 'Hebr', true],
+      ['x', 'Latn', false],
+      [closing, 'Hebr', true],
+    ]);
+  });
+
   it('keeps a text of no script in one run of none', () => {
     expect(runs('123 (45)')).toEqual([['123 (45)', null, false]]);
   });

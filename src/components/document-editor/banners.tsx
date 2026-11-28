@@ -12,7 +12,15 @@ import type { Tone } from '@flamboyantengineer/ui-components/core';
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { scriptsState } from '../../engine/script-state.js';
 import { suggestionRefusalOf } from '../../engine/suggestion-refusal.js';
 import {
@@ -20,7 +28,7 @@ import {
   syncTemplateSections,
   templateSectionDrift,
 } from '../../engine/template-sync.js';
-import type { FontsAdapter } from '../../host/index.js';
+import type { FontsAdapter, HostResult } from '../../host/index.js';
 import { findTemplateSection, type TemplateFile } from '../../model/index.js';
 import type { BrowserLayoutReason } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -61,6 +69,7 @@ const hooks = createHooks('document-editor', ['banners']);
 // How long the document rests before the editor checks it against its template again, since the
 // check reads every section the writer cannot edit.
 const DRIFT_DELAY = 500;
+const noMissingFonts: readonly string[] = [];
 
 // The banners shown: the latest, or those shown when a gesture began, until it ends.
 function useHeldDuringGesture(
@@ -110,26 +119,47 @@ function useTemplateDrift(state: EditorState, template: TemplateFile, isEnabled:
  * that did not; with `timeout`, each load waits that long instead of the editor's default.
  */
 export function useReportedFonts(fonts: FontsAdapter | undefined, timeout?: number) {
-  const [missing, setMissing] = useState<readonly string[]>([]);
-  const reported = useMemo<FontsAdapter | undefined>(
-    () =>
-      fonts && {
-        // The font files and shaper of Pretext layout pass through unchanged (DOCE-HOST-1.14.1).
-        ...(fonts.files ? { files: fonts.files.bind(fonts) } : {}),
-        ...(fonts.shaper ? { shaper: fonts.shaper.bind(fonts) } : {}),
-        async load(families, options) {
-          const result = await fonts.load(families, {
-            ...options,
-            timeout: timeout ?? options.timeout,
-          });
+  const source = useMemo(() => ({ fonts, timeout }), [fonts, timeout]);
+  const [report, setReport] = useState<{
+    source: typeof source;
+    missing: readonly string[];
+  } | null>(null);
+  const active = useRef<typeof source | null>(null);
+  const reported = useMemo(() => {
+    const { fonts, timeout } = source;
+    if (!fonts) return undefined;
+    let newest = 0;
+    const wrapper: FontsAdapter = {
+      // The font files and shaper of Pretext layout pass through unchanged (DOCE-HOST-1.14.1).
+      ...(fonts.files ? { files: fonts.files.bind(fonts) } : {}),
+      ...(fonts.shaper ? { shaper: fonts.shaper.bind(fonts) } : {}),
+      async load(families, options) {
+        const request = ++newest;
+        const result = await Promise.resolve()
+          .then(() => fonts.load(families, { ...options, timeout: timeout ?? options.timeout }))
+          .catch((): HostResult<readonly string[]> => ({
+            ok: false,
+            error: { kind: 'unavailable' },
+          }));
+        if (active.current === source && request === newest && !options.signal?.aborted) {
           const loaded = new Set(result.ok ? result.value : []);
-          setMissing(families.filter((family) => !loaded.has(family)));
-          return result;
-        },
+          setReport({ source, missing: families.filter((family) => !loaded.has(family)) });
+        }
+        return result;
       },
-    [fonts, timeout],
-  );
-  return { fonts: reported, missing };
+    };
+    return wrapper;
+  }, [source]);
+  useLayoutEffect(() => {
+    active.current = source;
+    return () => {
+      active.current = null;
+    };
+  }, [source]);
+  return {
+    fonts: reported,
+    missing: report?.source === source ? report.missing : noMissingFonts,
+  };
 }
 
 interface DocumentBannersProps {

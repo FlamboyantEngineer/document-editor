@@ -83,6 +83,12 @@ interface LinesPlace {
   readonly inserted?: readonly InsertedText[] | undefined;
 }
 
+/** Inputs to a container layout that come from the pages' document. */
+export interface NestedLinesPlace {
+  readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
+  readonly inserted?: InsertedTexts | undefined;
+}
+
 /** A text block's lines as the pages draw them, and whether it justifies them. */
 export interface DrawnLines extends LineTable {
   readonly justify: boolean;
@@ -138,7 +144,7 @@ export interface PagesTextEngine {
   readonly fonts?: (() => FontFiles) | undefined;
   /** The language the engine was made to lay the pages out in (DOCE-PAGINATION-9.7). */
   readonly language?: string | undefined;
-  /** Everything its layout depends on besides the document (DOCE-PAGINATION-13.12). */
+  /** The layout inputs the engine records (DOCE-PAGINATION-13.12). */
   inputs(): LayoutInputs;
   /** Counts the measured document's numbered headings and paragraphs, for `measureBlock`. */
   number(doc: ProseMirrorNode): void;
@@ -191,7 +197,7 @@ export interface PagesTextEngine {
   nestedLines(
     container: ProseMirrorNode,
     scope: string | null,
-    labelOf?: (caption: ProseMirrorNode) => string | undefined,
+    place?: NestedLinesPlace,
   ): ReadonlyMap<ProseMirrorNode, DrawnLines>;
   /**
    * The box of each figure and table in a top-level block of a page's content, as the engine lays
@@ -200,6 +206,7 @@ export interface PagesTextEngine {
   objectBoxes(
     block: ProseMirrorNode,
     scope: string | null,
+    inserted?: InsertedTexts,
   ): ReadonlyMap<ProseMirrorNode, ObjectBox>;
   /**
    * Whether the math layouter still loads what laying a document's math out needs, such as glyph

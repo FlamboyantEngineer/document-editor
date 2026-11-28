@@ -221,6 +221,7 @@ export function startPaging(
     rules: sectionRules(latest),
     fragmentRules: fragmentRulesOf(latest.current),
     footnoteNumbering: settings.footnoteNumbering,
+    fontsPending: () => latest.current.text.isPending,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
     trace: () => latest.current.debug?.trace ?? null,
     overflow: () => latest.current.debug?.overflow ?? false,

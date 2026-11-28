@@ -599,8 +599,10 @@ Verification: `src/engine/print-images.test.ts`
 
 The handle's `exportSnapshotAsync(options)` shall give the snapshot `exportSnapshot` gives once the pages are ready to print (`documentSnapshotWhenReady`): after they settle (`whenSettled`) and their fonts load, with each image's address as its `resolveImage` resolves it, once for each address, which may answer later; null before the editor is mounted. `printSnapshot(page, html, { timeout })`, from the server-safe `./document` entry, shall print a snapshot to PDF in a headless browser's page the host gives (`HeadlessPage`: `setContent`, `evaluate` and `pdf`, as Playwright and Puppeteer pages have): it loads the snapshot, asks for each face its text is drawn in, so a face the snapshot holds inline that nothing loaded yet is loaded too, waits until its fonts have loaded and every image has loaded or failed, then prints each page on its sheet with its backgrounds, naming the images that failed, and prints nothing if loading and resource readiness exceed one deadline (`timeout`, 30 seconds by default). The print lab's preview is made this way, and the print gate (DOCE-EDITOR-6.19) prints every snapshot through `printSnapshot`.
 
-Implementation: `src/engine/snapshot-ready.ts`, `src/document/headless-print.ts`, `src/components/document-editor/editor-handle.ts`, `labs/src/print.lab.tsx`
-Verification: `src/engine/snapshot-ready.test.ts`, `src/document/headless-print.test.ts`, `e2e/print.spec.ts`
+For a paged snapshot, the handle shall take the settled view's drawn template and served faces together after any current font requests, without waiting for unrelated font loads in the document. If that view is replaced while the snapshot waits, the request shall fail.
+
+Implementation: `src/engine/snapshot-ready.ts`, `src/document/headless-print.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/editor-snapshots.ts`, `labs/src/print.lab.tsx`
+Verification: `src/engine/snapshot-ready.test.ts`, `src/document/headless-print.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `e2e/print.spec.ts`
 
 ### DOCE-EDITOR-6.27 - A static render of a stored document
 

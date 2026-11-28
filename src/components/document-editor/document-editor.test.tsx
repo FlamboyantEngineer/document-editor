@@ -12,6 +12,7 @@ import {
   useState,
 } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../../test/deferred.js';
 import { documentSchema, findNode } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { TEST_FONTS } from '../../../test/served-fonts.js';
@@ -577,9 +578,23 @@ describe('DocumentEditor', () => {
     expect(handle.current?.exportSnapshot()).not.toContain('Unserved Face');
   });
 
-  it('DOCE-PAGINATION-12.5 draws a family a later template names in its own faces once they arrive', async () => {
+  it('DOCE-PAGINATION-12.5 DOCE-PAGINATION-13.2 DOCE-EDITOR-6.26 waits for a revisited template’s pending fonts', async () => {
     const handle = createRef<DocumentEditorHandle>();
-    const later = { ...TEMPLATE, styles: { paragraph: { font: 'Later Face' } } };
+    const later = {
+      ...TEMPLATE,
+      styles: { paragraph: { font: 'Later Face' }, heading1: { font: 'Unavailable Face' } },
+    };
+    const other = { ...TEMPLATE, styles: { paragraph: { font: 'Other Face' } } };
+    const serve = TEST_FONTS.files?.bind(TEST_FONTS);
+    if (!serve) throw new Error('the test fonts serve no files');
+    const laterFiles = deferred<Awaited<ReturnType<typeof serve>>>();
+    const otherFiles = deferred<Awaited<ReturnType<typeof serve>>>();
+    const files = vi.fn<NonNullable<FontsAdapter['files']>>((families, options) => {
+      if (families.includes('Later Face')) return laterFiles.promise;
+      if (families.includes('Other Face')) return otherFiles.promise;
+      return serve(families, options);
+    });
+    const fonts = { ...TEST_FONTS, files };
     const shown = (template: TemplateFile) => (
       <DocumentEditor
         state={initial()}
@@ -588,16 +603,48 @@ describe('DocumentEditor', () => {
         layout="page"
         aria-label="Report"
         handleRef={handle}
-        fonts={TEST_FONTS}
+        fonts={fonts}
       />
     );
     const { container, rerender } = render(shown(TEMPLATE));
+    const requestsFor = (family: string) =>
+      files.mock.calls.filter(([families]) => families.includes(family));
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     rerender(shown(later));
+    await waitFor(() => expect(requestsFor('Later Face')).toHaveLength(1));
+    rerender(shown(other));
+    await waitFor(() => expect(requestsFor('Other Face')).toHaveLength(1));
+    rerender(shown(later));
     const drawn = () => container.querySelector('.de-document-editor')?.getAttribute('style');
+    const settled = handle.current?.whenSettled();
+    const snapshot = handle.current?.exportSnapshotAsync();
+    const resolved = vi.fn();
+    void settled?.then(resolved);
+    await act(async () => Promise.resolve());
+    expect(drawn()).not.toContain('Later Face');
+    expect(screen.queryByText(/shows in a fallback font/u)).not.toBeInTheDocument();
+    expect(handle.current?.pagesLayout()?.provisional).toBe(true);
+    expect(resolved).not.toHaveBeenCalled();
+    const laterResult = await serve(['Later Face'], {});
+    const otherResult = await serve([], {});
+    await act(() => laterFiles.resolve(laterResult));
     await waitFor(() => expect(drawn()).toContain('Later Face'));
+    expect(
+      await screen.findByText(/Unavailable Face shows in a fallback font/u),
+    ).toBeInTheDocument();
+    // Another template's request is still pending, but the current template has settled.
+    await expect(settled).resolves.toBe('settled');
+    expect(handle.current?.pagesLayout()?.provisional).toBe(false);
+    const html = await snapshot;
+    expect(html?.match(/--doc-paragraph-font-family: ([^;]+);/u)?.[1]).toBe('"Later Face"');
+    expect(html?.includes('@font-face { font-family: "Later Face";')).toBe(true);
+    await act(() => otherFiles.resolve(otherResult));
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    expect(screen.getByText(/Unavailable Face shows in a fallback font/u)).toBeInTheDocument();
     expect(screen.queryByText(/Later Face shows in a fallback font/u)).not.toBeInTheDocument();
+    expect(requestsFor('Later Face')).toHaveLength(1);
+    expect(requestsFor('Other Face')).toHaveLength(1);
+    expect(requestsFor('Test Serif')).toHaveLength(0);
   });
 
   it('DOCE-EDITOR-6.12 is settled at once in the web layout', async () => {
@@ -609,6 +656,28 @@ describe('DocumentEditor', () => {
     );
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     expect(handle.current?.layoutStats()).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-13.2 DOCE-EDITOR-6.26 settles and snapshots while unrelated document fonts load', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    render(<Harness editable layout="page" handleRef={handle} />);
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    const existing = Object.getOwnPropertyDescriptor(document, 'fonts');
+    const unrelated = deferred<void>();
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      value: { status: 'loading', ready: unrelated.promise },
+    });
+    try {
+      expect(handle.current?.pagesLayout()?.provisional).toBe(false);
+      const printed = vi.fn();
+      void handle.current?.exportSnapshotAsync().then((html) => printed(html?.includes('Hello')));
+      await waitFor(() => expect(printed).toHaveBeenCalledWith(true));
+    } finally {
+      unrelated.resolve();
+      if (existing) Object.defineProperty(document, 'fonts', existing);
+      else Reflect.deleteProperty(document, 'fonts');
+    }
   });
 
   it('DOCE-EDITOR-6.1 tells the host of review-only changes, never made suggestions', async () => {

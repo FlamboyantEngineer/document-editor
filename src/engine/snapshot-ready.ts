@@ -16,6 +16,11 @@ export interface ReadySnapshotOptions extends Omit<SnapshotOptions, 'resolveImag
   readonly resolveImage?: ResolveImageAsync | undefined;
 }
 
+interface LiveSnapshotOptions extends Pick<ReadySnapshotOptions, 'whenSettled' | 'resolveImage'> {
+  readonly readSnapshot: () => SnapshotOptions;
+  readonly waitForDocumentFonts: () => boolean;
+}
+
 // Each image address the pages show, with the address it prints from, resolved together.
 async function resolveImages(
   view: EditorView,
@@ -47,17 +52,22 @@ export async function documentSnapshotWhenReady(
  */
 export async function snapshotOnceReady(
   view: EditorView,
-  { whenSettled, resolveImage, ...options }: ReadySnapshotOptions,
+  { whenSettled, resolveImage, ...options }: ReadySnapshotOptions | LiveSnapshotOptions,
   around: (take: () => string) => string,
 ): Promise<string> {
-  if ((await whenSettled()) === 'failed' || view.isDestroyed)
-    throw new Error('The document layout is unavailable.');
-  await view.dom.ownerDocument.fonts?.ready;
+  const waitForLayout = async () => {
+    if ((await whenSettled()) === 'failed' || view.isDestroyed)
+      throw new Error('The document layout is unavailable.');
+  };
+  await waitForLayout();
+  const live = 'readSnapshot' in options;
+  if (!live || options.waitForDocumentFonts()) await view.dom.ownerDocument.fonts?.ready;
   const images = resolveImage ? await resolveImages(view, resolveImage) : null;
+  if (live && images) await waitForLayout();
   if (view.isDestroyed) throw new Error('The document layout is unavailable.');
   return around(() =>
     documentSnapshot(view, {
-      ...options,
+      ...(live ? options.readSnapshot() : options),
       ...(images ? { resolveImage: (src: string) => images.get(src) ?? null } : {}),
     }),
   );

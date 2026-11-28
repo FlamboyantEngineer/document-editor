@@ -1,112 +1,114 @@
-// The template the pages are drawn and laid out in under `textLayout: 'pretext'` with served fonts
-// (DOCE-PAGINATION-12.5): a generic family the template names (`Serif`, `monospace`), and the
-// paragraph and code fonts it leaves to the stylesheet's generic fallbacks, become the served
-// family the host says the keyword stands for. A generic keyword drawn as it is would be whatever
-// face the browser picks, which no served file measures.
+// The portable font choices in the template the engine lays pages out with and every surface
+// draws them with (DOCE-PAGINATION-12.5). A surface applies its own registered aliases afterward.
 
+import type { FontFiles } from '../host/font-files.js';
 import type { TemplateFile } from '../model/index.js';
 import { firstFamily, splitFontFamilies } from '../model/templates/template-css-values.js';
+import { familyKey, isGenericFamily } from '../utils/font-keys.js';
 
-const GENERICS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui']);
+// The editor's drawn templates keep their resolved source for cross-document layout comparisons.
+const portableTemplates = new WeakMap<TemplateFile, TemplateFile>();
 
 /** The generic keywords the pages ask the host for, as the stylesheet's fallbacks and templates use them. */
 export const PAGE_GENERICS: readonly string[] = ['serif', 'sans-serif', 'monospace'];
 
-const genericOf = (font: string) =>
-  font
-    .trim()
-    .replace(/^["']|["']$/gu, '')
-    .toLowerCase();
+// A served family name as a token in a CSS font stack, preserving a comma in the name.
+const fontToken = (family: string) => (family.includes(',') ? `"${family}"` : family);
 
-// A template's value with each font it names as `rename` gives it.
-function renamed(value: unknown, rename: (font: string) => string): unknown {
-  if (Array.isArray(value)) return value.map((item) => renamed(item, rename));
+function replaceFonts(value: unknown, replace: (stack: string) => string): unknown {
+  if (Array.isArray(value)) return value.map((item) => replaceFonts(item, replace));
   if (!value || typeof value !== 'object') return value;
-  const entries = Object.entries(value).map(([key, child]) =>
-    key === 'font' && typeof child === 'string'
-      ? [key, splitFontFamilies(child).map(renameFamily(rename)).join(', ')]
-      : [key, renamed(child, rename)],
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [
+      key,
+      key === 'font' && typeof child === 'string' ? replace(child) : replaceFonts(child, replace),
+    ]),
   );
-  return Object.fromEntries(entries);
 }
 
-function renameFamily(rename: (font: string) => string) {
-  return (font: string) => {
-    const name = rename(font);
-    return name !== font && name.includes(',') ? `"${name}"` : name;
-  };
+function renameStack(stack: string, rename: (font: string) => string): string {
+  return splitFontFamilies(stack)
+    .map((font) => {
+      const name = rename(font);
+      return name === font ? font : fontToken(name);
+    })
+    .join(', ');
 }
 
-/**
- * The template with each family it names as `rename` gives it, such as the family a surface draws
- * a served family under (DOCE-PAGINATION-12.8).
- */
+/** The template with each served family under the name a surface draws it in (DOCE-PAGINATION-12.8). */
 export function renameTemplateFonts(
   template: TemplateFile,
   rename: (font: string) => string,
 ): TemplateFile {
-  return renamed(template, rename) as TemplateFile;
+  return replaceFonts(template, (stack) => renameStack(stack, rename)) as TemplateFile;
 }
 
-function served(template: TemplateFile, families: Readonly<Record<string, string>>): TemplateFile {
-  return renameTemplateFonts(template, (font) => {
-    const generic = genericOf(font);
-    return GENERICS.has(generic) ? (families[generic] ?? font) : font;
-  });
-}
+/** The resolved template before the editor assigned local aliases to its font families. */
+export const portableTemplateOf = (template: TemplateFile): TemplateFile =>
+  portableTemplates.get(template) ?? template;
 
-/**
- * The template with each generic family it names, and its unset paragraph and code fonts, as the
- * served family `families` names for the keyword; the template itself when none is served.
- */
-export function servedTemplate(
+/** Gives an editor its local font aliases while retaining the portable source template. */
+export function aliasTemplateFonts(
   template: TemplateFile,
-  families: Readonly<Record<string, string>>,
+  alias: (font: string) => string,
 ): TemplateFile {
-  if (!Object.keys(families).length) return template;
-  const drawn = served(template, families);
-  const styles = drawn.styles ?? {};
-  const paragraph = families.serif && !styles.paragraph?.font;
-  const code = families.monospace && !styles.codeBlock?.font;
-  if (!paragraph && !code) return drawn;
+  let changed = false;
+  const drawn = renameTemplateFonts(template, (font) => {
+    const family = alias(font);
+    changed ||= family !== font;
+    return family;
+  });
+  if (!changed) return template;
+  portableTemplates.set(drawn, portableTemplateOf(template));
+  return drawn;
+}
+
+function withDefaultFonts(template: TemplateFile, paragraph: string, code: string): TemplateFile {
+  const styles = template.styles ?? {};
+  if (styles.paragraph?.font && styles.codeBlock?.font) return template;
   return {
-    ...drawn,
+    ...template,
     styles: {
       ...styles,
-      ...(paragraph ? { paragraph: { ...styles.paragraph, font: families.serif } } : {}),
-      ...(code ? { codeBlock: { ...styles.codeBlock, font: families.monospace } } : {}),
+      ...(!styles.paragraph?.font ? { paragraph: { ...styles.paragraph, font: paragraph } } : {}),
+      ...(!styles.codeBlock?.font ? { codeBlock: { ...styles.codeBlock, font: code } } : {}),
     },
   };
 }
 
-// A template's value with each font stack whose first family `isServed` refuses as `fallback`,
-// the refused families added to `unserved`.
-function withServed(
-  value: unknown,
-  at: { isServed: (family: string) => boolean; fallback: string; unserved: Set<string> },
-): unknown {
-  if (Array.isArray(value)) return value.map((item) => withServed(item, at));
-  if (!value || typeof value !== 'object') return value;
-  const entries = Object.entries(value).map(([key, child]) => {
-    if (key !== 'font' || typeof child !== 'string') return [key, withServed(child, at)];
-    const first = firstFamily(child);
-    if (!first || at.isServed(first)) return [key, child];
-    at.unserved.add(first);
-    return [key, at.fallback];
-  });
-  return Object.fromEntries(entries);
-}
-
-/**
- * The template with each font whose first family no host file serves as `fallback`, the served
- * body family, so the engine and every drawing of the pages lay it out and draw it alike, and the
- * browser never picks a local font of that name (DOCE-PAGINATION-12.5); and those families.
- */
-export function servedFamiliesOnly(
+/** Resolves template generics, unset fonts and unserved families against the layout's font files. */
+export function resolveServedTemplate(
   template: TemplateFile,
-  { isServed, fallback }: { isServed: (family: string) => boolean; fallback: string },
+  files: FontFiles | null,
 ): { readonly template: TemplateFile; readonly unserved: readonly string[] } {
+  const first = files?.faces[0];
+  if (!first) return { template, unserved: [] };
+  const served = new Set(files.faces.map((face) => familyKey(face.family)));
+  const generics = files.generics ?? {};
+  const resolveGeneric = (font: string) => {
+    const key = familyKey(font);
+    return isGenericFamily(key) ? (generics[key] ?? font) : font;
+  };
+  const body = resolveGeneric(firstFamily(template.styles?.paragraph?.font ?? ''));
+  const fallback = fontToken(
+    [body, ...PAGE_GENERICS.map((generic) => generics[generic])].find(
+      (family) => family && served.has(familyKey(family)),
+    ) ?? first.family,
+  );
   const unserved = new Set<string>();
-  const drawn = withServed(template, { isServed, fallback, unserved }) as TemplateFile;
-  return unserved.size ? { template: drawn, unserved: [...unserved] } : { template, unserved: [] };
+  const drawn = replaceFonts(template, (stack) => {
+    const resolved = renameStack(stack, resolveGeneric);
+    const family = firstFamily(resolved);
+    if (!family || served.has(familyKey(family))) return resolved;
+    unserved.add(firstFamily(stack));
+    return fallback;
+  }) as TemplateFile;
+  const defaultFont = (key: string) => {
+    const family = generics[key];
+    return family && served.has(familyKey(family)) ? fontToken(family) : fallback;
+  };
+  return {
+    template: withDefaultFonts(drawn, defaultFont('serif'), defaultFont('monospace')),
+    unserved: [...unserved],
+  };
 }

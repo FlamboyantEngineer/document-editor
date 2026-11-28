@@ -3,10 +3,11 @@ import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { deferred } from '../../../test/deferred.js';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
-import type { FontsAdapter } from '../../host/index.js';
+import type { FontsAdapter, HostResult } from '../../host/index.js';
 import {
   BASE_TEMPLATE,
   readDocumentFile,
@@ -272,6 +273,28 @@ describe('DocumentBanners', () => {
     const { result: failed } = renderHook(() => useReportedFonts(failing));
     await act(() => failed.current.fonts?.load(['Geist'], { timeout: 10 }));
     expect(failed.current.missing).toEqual(['Geist']);
+  });
+
+  it('DOCE-PAGINATION-12.7 keeps font reports from a replaced adapter out of the editor', async () => {
+    const pending = deferred<HostResult<readonly string[]>>();
+    const previous: FontsAdapter = { load: () => pending.promise };
+    const next: FontsAdapter = {
+      load: () => {
+        throw new Error('Font service unavailable');
+      },
+    };
+    const { result, rerender } = renderHook((fonts) => useReportedFonts(fonts), {
+      initialProps: previous,
+    });
+    const oldLoad = result.current.fonts?.load(['Old font'], { timeout: 10 });
+    rerender(next);
+    await act(() => result.current.fonts?.load(['New font'], { timeout: 10 }));
+    expect(result.current.missing).toEqual(['New font']);
+    await act(async () => {
+      pending.resolve({ ok: true, value: [] });
+      await oldLoad;
+    });
+    expect(result.current.missing).toEqual(['New font']);
   });
 
   it('DOCE-EDITOR-7.4 holds the banners while the reader presses in the editor', async () => {

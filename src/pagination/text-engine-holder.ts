@@ -171,8 +171,11 @@ export function holdTextEngine(options: {
   };
   // The engine measures again once the faces of a family the template names newly arrive.
   const askFor = (template: TemplateFile) => {
-    if (fonts?.phase !== 'pretext') return;
-    void fonts.add(templateFontFamilies(template)).then((added) => {
+    const served = fonts;
+    if (served?.phase !== 'pretext') return;
+    const wanted = templateFontFamilies(template).filter((family) => !served.isFontServed(family));
+    if (!wanted.length) return;
+    void served.add(wanted).then((added) => {
       if (!added || destroyed) return;
       drop();
       settled();

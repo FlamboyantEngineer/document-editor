@@ -1,6 +1,5 @@
-// Everything the pages' layout depends on besides the document, as one key: two machines whose
-// keys are equal lay the same document out on the same pages, and two whose keys differ may not
-// (DOCE-PAGINATION-13.12). Each input is named, so a difference says which input it is.
+// The pages' recorded layout inputs besides the document, as one key (DOCE-PAGINATION-13.12).
+// Each input is named, so a difference says which input it is.
 
 import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import { UNICODE_VERSION } from '../layout-engine/bidi-classes.js';
@@ -11,7 +10,10 @@ import {
   type LayoutRules,
   type TemplateFile,
 } from '../model/index.js';
+import { bytesHash } from '../utils/bytes-hash.js';
 import { segmentationFingerprint } from '../utils/segmentation.js';
+import { stableKey } from '../utils/stable-key.js';
+import { portableTemplateOf } from './served-template.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
 /** The release of the Pretext fork the engine breaks lines with; a test checks it is installed. */
@@ -22,7 +24,7 @@ export const HARFBUZZJS_RELEASE = '1.6.4';
 
 /** The inputs a layout was made from, each as a short key. */
 export interface LayoutInputs {
-  /** The served faces, by family, weight, style, range and a hash of their bytes. */
+  /** The served faces in precedence order, by family, weight, style, range and bytes. */
   readonly fonts: string;
   /** The family each generic keyword stands for. */
   readonly generics: string;
@@ -30,7 +32,7 @@ export interface LayoutInputs {
   readonly shaper: string;
   /** The math layouter's own key; empty without one. */
   readonly math: string;
-  /** A hash of the resolved template the pages are laid out in. */
+  /** A hash of the resolved template with portable font family names. */
   readonly template: string;
   readonly language: string;
   /** How suggestions are shown, which decides the room they take. */
@@ -53,7 +55,7 @@ export interface LayoutInputs {
 
 // The version of the library's own layout in the key's prefix: moved by hand whenever the same
 // inputs lay a document out on other pages, or the key is made otherwise.
-const LAYOUT_KEY_VERSION = 2;
+const LAYOUT_KEY_VERSION = 3;
 
 // FNV-1a, 32 bits, as eight hex digits, over text or bytes.
 function fnv(feed: (step: (unit: number) => void) => void, seed = 0x811c9dc5): string {
@@ -69,27 +71,13 @@ const hashText = (text: string) =>
     for (let index = 0; index < text.length; index += 1) step(text.charCodeAt(index));
   });
 
-// A face's bytes are hashed once, however many layouts read them.
-const faceHashes = new WeakMap<object, string>();
-
-function bytesHash(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): string {
-  const known = faceHashes.get(bytes);
-  if (known) return known;
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  const hash = fnv((step) => {
-    for (const byte of view) step(byte);
-  });
-  faceHashes.set(bytes, hash);
-  return hash;
-}
-
 // A template is hashed once for as long as it is kept, however many layouts read it.
 const templateHashes = new WeakMap<TemplateFile, string>();
 
 function templateHash(template: TemplateFile): string {
   let hash = templateHashes.get(template);
   if (hash === undefined) {
-    hash = hashText(JSON.stringify(template));
+    hash = hashText(stableKey(template));
     templateHashes.set(template, hash);
   }
   return hash;
@@ -128,7 +116,7 @@ export function layoutInputs(input: {
   readonly hostViews?: readonly string[] | undefined;
   readonly refusedTextAtoms?: ReadonlyMap<string, string> | undefined;
 }): LayoutInputs {
-  const faces = (input.fonts?.faces ?? []).map(faceKey).sort();
+  const faces = (input.fonts?.faces ?? []).map(faceKey);
   const generics = Object.entries(input.fonts?.generics ?? {}).sort(([a], [b]) => (a < b ? -1 : 1));
   return {
     fonts: hashText(faces.join('\n')),
@@ -136,7 +124,7 @@ export function layoutInputs(input: {
     pretext: PRETEXT_RELEASE,
     shaper: `harfbuzzjs-${HARFBUZZJS_RELEASE}`,
     math: input.math ?? '',
-    template: templateHash(input.template),
+    template: templateHash(portableTemplateOf(input.template)),
     language: input.language,
     markup: input.markup,
     codeLineNumbers: input.codeLineNumbers ? 'on' : 'off',

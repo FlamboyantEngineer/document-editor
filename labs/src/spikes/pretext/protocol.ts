@@ -1,4 +1,5 @@
 import type { fixture } from './fixtures.js';
+import type { FontSetup } from './fonts.js';
 import type { Line } from './prediction.js';
 
 export interface BlockReport {
@@ -46,3 +47,10 @@ export interface LayoutRequest {
    */
   readonly packedShare?: number;
 }
+
+export type PredictionMessage =
+  { readonly setup: FontSetup } | { readonly id: number; readonly request: LayoutRequest };
+
+export type PredictionReply =
+  | { readonly id: number; readonly result: LayoutResult }
+  | { readonly id: number; readonly error: string };
