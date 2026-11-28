@@ -2,11 +2,16 @@ import type { Node } from 'prosemirror-model';
 import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
+import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { STUB_INPUTS } from '../../test/pages-fixtures.js';
 import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
 import type { TextLine } from '../layout-engine/line-table.js';
+import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
+import { insertedTexts } from './inserted-texts.js';
+import { objectBoxAt } from './object-boxes.js';
+import { createPagesTextEngine } from './text-engine.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 import { pageTextLines } from './text-lines.js';
 
@@ -130,6 +135,36 @@ function positionOf(doc: Node, text: string): number {
     return found < 0;
   });
   return found;
+}
+
+function stateWithWords(doc: Node, read: () => { pos: number; side: number }) {
+  installFakeCanvas();
+  const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+  const forced = forcedLines({ engine: () => engine, version: () => 0 });
+  const words = new Plugin({
+    props: {
+      decorations(state) {
+        const { pos, side } = read();
+        const widgets = Array.from({ length: 40 }, (_, index) =>
+          Decoration.widget(pos, () => document.createElement('del'), {
+            insertedText: 'gone ',
+            insertedGroup: 'g',
+            side: side + 2 * index,
+          }),
+        );
+        return DecorationSet.create(state.doc, widgets);
+      },
+    },
+  });
+  const state = EditorState.create({ doc, plugins: [forced, words] });
+  const breaks = (on: EditorState) => {
+    const set = forced.props.decorations?.call(forced, on);
+    return (set instanceof DecorationSet ? set.find() : []).flatMap((each) => {
+      const { key, side } = each.spec as { key?: string; side?: number };
+      return key?.startsWith('de-forced-lines__break|') ? [{ pos: each.from, side }] : [];
+    });
+  };
+  return { engine, state, breaks };
 }
 
 describe('forcedLines', () => {
@@ -284,6 +319,71 @@ describe('forcedLines', () => {
     expect(dirs).toEqual(['rtl', 'rtl']);
   });
 
+  it('DOCE-PAGINATION-11.11 moves the breaks when the same words move to another block', () => {
+    const doc = pagesDoc([[paragraph('first'), paragraph('second')]]);
+    const first = positionOf(doc, 'first') + 1;
+    const second = positionOf(doc, 'second') + 1;
+    let pos = first;
+    const { engine, state, breaks } = stateWithWords(doc, () => ({ pos, side: -80 }));
+    expect(breaks(state).map((each) => each.pos)).toEqual([first]);
+    pos = second;
+    const moved = state.apply(state.tr);
+    expect(breaks(moved).map((each) => each.pos)).toEqual([second]);
+    // Editing after the anchor changes the text block's node and keeps the widget's position.
+    const edited = moved.apply(moved.tr.insertText('x', second + 1));
+    expect(breaks(edited).map((each) => each.pos)).toEqual([second]);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.2 DOCE-PAGINATION-11.11 measures the table row containing inserted words and leaves its lines to the browser', () => {
+    const row = (text: string) =>
+      create('table_row', null, [create('table_cell', null, [paragraph(text)])]);
+    const table = create('table', null, [row('first'), row('second')]);
+    const figure = create('table_figure', null, [create('table_caption', null), table]);
+    const doc = pagesDoc([[figure]]);
+    const first = positionOf(doc, 'first') + 1;
+    const second = positionOf(doc, 'second') + 1;
+    let pos = first;
+    const { engine, state, breaks } = stateWithWords(doc, () => ({ pos, side: -80 }));
+    const tablePos = first - 4;
+    const rows = (on: EditorState) => {
+      const box = objectBoxAt(on, tablePos);
+      if (box?.kind !== 'table') throw new Error('no table box');
+      return box.rows;
+    };
+    const measure = (on: EditorState) =>
+      engine.measureBlock(figure, 'Body', insertedTexts(on, [forcedLinesKey])).measurement;
+    expect(breaks(state)).toEqual([]);
+    expect(pageTextLines(state)[0]?.blocks.find((block) => block.pos === first - 1)?.reason).toBe(
+      'inserted words',
+    );
+    const firstRows = rows(state);
+    expect(firstRows[0]).toBeGreaterThan(firstRows[1] ?? 0);
+    const firstMeasurement = measure(state);
+
+    pos = second;
+    const moved = state.apply(state.tr);
+    expect(breaks(moved)).toEqual([]);
+    expect(rows(moved)).toEqual([...firstRows].reverse());
+    expect(measure(moved)).not.toEqual(firstMeasurement);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.11 updates a caption’s breaks when the widgets’ sides change', () => {
+    const caption = create('figure_caption', null, [documentSchema.text('Caption')]);
+    const figure = create('figure', { src: 'a.png', width: 550, height: 100 }, [caption]);
+    const doc = pagesDoc([[figure]]);
+    const pos = positionOf(doc, 'Caption') + 1;
+    let side = -80;
+    const { engine, state, breaks } = stateWithWords(doc, () => ({ pos, side }));
+    const [original] = breaks(state);
+    expect(original?.pos).toBe(pos);
+    side -= 100;
+    const changed = state.apply(state.tr);
+    expect(breaks(changed)[0]).toEqual({ pos, side: (original?.side ?? 0) - 100 });
+    engine.destroy();
+  });
+
   it("DOCE-PAGINATION-11.2 marks each paragraph in a table's cells, and leaves numbered ones alone", () => {
     const cell = (text: string, id: string) =>
       create('table_cell', null, [paragraph(text, { dataId: id })]);
@@ -356,7 +456,10 @@ describe('forcedLines', () => {
     const at = positionOf(doc, 'abcdefghijklmnop');
     const label = positionOf(doc, 'Listing');
     // The figure is laid out whole, its caption with its code.
-    expect(nested).toHaveBeenCalledWith(figure, 'Body', undefined);
+    expect(nested).toHaveBeenCalledWith(figure, 'Body', {
+      inserted: expect.objectContaining({ key: '' }),
+      labelOf: undefined,
+    });
     expect(calls.map(({ text }) => text)).toEqual(['Listing', 'abcdefghijklmnop']);
     const block = decorations(state)
       .find()

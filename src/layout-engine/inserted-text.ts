@@ -21,16 +21,10 @@ export interface InsertedText {
   readonly alone?: 'before' | 'after' | undefined;
 }
 
-/**
- * The inserted text of a block as a key: blocks laid out with different text differ, and so do
- * blocks whose words are drawn at other sides, where their lines break at other widgets.
- */
+/** The words, their boundaries and their positions among the block's widgets, as a key. */
 export const insertedKey = (inserted: readonly InsertedText[] | undefined): string =>
   inserted?.length
-    ? inserted
-        .map(
-          (each) =>
-            `${String(each.offset)}${each.alone ?? ''}:${JSON.stringify(each.pieces)}${each.sides.join(',')}`,
-        )
-        .join('|')
+    ? JSON.stringify(
+        inserted.map(({ offset, alone, pieces, sides }) => [offset, alone, pieces, sides]),
+      )
     : '';

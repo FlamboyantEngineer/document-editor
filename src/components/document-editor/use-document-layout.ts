@@ -310,6 +310,8 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [template]);
 
+  useEffect(() => active.current?.refresh(), [text.isPending]);
+
   const { previous, display, suggestions, generated, scope } = options.compare ?? {};
   const scopeKey = scope?.join(' ');
   useEffect(() => {

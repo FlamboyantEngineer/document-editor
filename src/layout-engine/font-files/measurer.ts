@@ -3,6 +3,7 @@
 // reaches it as bytes, so it runs the same in a page, a worker or Node, and fetches nothing.
 
 import type { FontFiles, FontShaper } from '../../host/font-files.js';
+import { uniqueFontFaces } from '../../utils/font-keys.js';
 import type { ReserveCluster } from '../reserved-boxes.js';
 import { reserveUnserved } from './cluster-faces.js';
 import { createFaceSet, type ServedFace } from './faces.js';
@@ -55,6 +56,7 @@ export async function createFontFileMeasurer({
   const harfBuzz = await createHarfBuzz(wasm);
   const faceSet = createFaceSet(harfBuzz, await unpacked(faces), generics);
   const problems = createMeasureProblems();
+  const kept = new Set<string>();
   return {
     createContext: () => createFontFileContext(faceSet, problems),
     problems,
@@ -62,7 +64,11 @@ export async function createFontFileMeasurer({
     heapBytes: () => harfBuzz.heapBytes(),
     async addFiles(files) {
       const read = await readHostFaces(files);
-      faceSet.add(read.faces, files.generics);
+      const fresh = uniqueFontFaces(read.faces, (face) => face.key).filter(
+        (face) => !kept.has(face.key),
+      );
+      faceSet.add(fresh, files.generics);
+      for (const face of fresh) kept.add(face.key);
       return read.problems;
     },
     alias: (name, family) => faceSet.alias(name, family),

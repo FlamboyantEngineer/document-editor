@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { FontFaceFile } from '../host/font-files.js';
 import type { TemplateFile } from '../model/index.js';
-import { renameTemplateFonts, servedFamiliesOnly, servedTemplate } from './served-template.js';
+import { renameTemplateFonts, resolveServedTemplate } from './served-template.js';
 
 const template = {
   styles: {
@@ -11,56 +12,64 @@ const template = {
   sections: [{ name: 'notes', styles: { paragraph: { font: '"monospace"' } } }],
 } as unknown as TemplateFile;
 
-describe('servedTemplate', () => {
-  it('DOCE-PAGINATION-12.5 names the served family for each generic keyword and unset font', () => {
-    const drawn = servedTemplate(template, { serif: 'Lab Serif', monospace: 'Lab Mono' });
+const face = (family: string): FontFaceFile => ({
+  family,
+  weight: 400,
+  style: 'normal',
+  bytes: new Uint8Array(0),
+});
+
+describe('resolveServedTemplate', () => {
+  it('DOCE-PAGINATION-12.5 resolves generics and unset fonts and names unserved families', () => {
+    const { template: drawn, unserved } = resolveServedTemplate(template, {
+      faces: [face('Lab Serif'), face('Lab Mono')],
+      generics: { serif: 'Lab Serif', monospace: 'Lab Mono' },
+    });
     expect(drawn.styles).toEqual({
       paragraph: { font: 'Lab Serif', size: '11pt' },
-      heading1: { font: 'Arial' },
+      heading1: { font: 'Lab Serif' },
       codeBlock: { background: '#eee', font: 'Lab Mono' },
     });
     expect(drawn.sections?.[0]?.styles).toEqual({ paragraph: { font: 'Lab Mono' } });
+    expect(unserved).toEqual(['Arial']);
+  });
+
+  it('DOCE-PAGINATION-12.5 uses the first served face if neither body nor generics were served', () => {
+    const files = { faces: [face('Lab, Display'), face('Lab Mono')] };
+    const { template: drawn, unserved } = resolveServedTemplate(template, files);
+    expect(drawn.styles?.paragraph?.font).toBe('"Lab, Display"');
+    expect(drawn.styles?.heading1?.font).toBe('"Lab, Display"');
+    expect(drawn.styles?.codeBlock?.font).toBe('"Lab, Display"');
+    expect(drawn.sections?.[0]?.styles?.paragraph?.font).toBe('"Lab, Display"');
+    expect(unserved).toEqual(['Serif', 'Arial', 'monospace']);
+    const unset = resolveServedTemplate({ ...template, styles: {} }, files).template;
+    expect(unset.styles?.paragraph?.font).toBe('"Lab, Display"');
+  });
+
+  it('DOCE-PAGINATION-12.5 falls back to the first face of the body font stack', () => {
+    const { template: drawn } = resolveServedTemplate(
+      { ...template, styles: { ...template.styles, paragraph: { font: 'lab serif, Arial' } } },
+      { faces: [face('Lab Mono'), face('Lab Serif')] },
+    );
+    expect(drawn.styles?.paragraph?.font).toBe('lab serif, Arial');
+    expect(drawn.styles?.heading1?.font).toBe('lab serif');
+    expect(drawn.styles?.codeBlock?.font).toBe('lab serif');
   });
 
   it('DOCE-PAGINATION-12.5 DOCE-PAGINATION-12.8 resolves and aliases families within a stack in order', () => {
     const styles = { paragraph: { font: 'A Family, "Another, Face", serif' } };
-    const served = servedTemplate({ ...template, styles }, { serif: 'Lab Serif' });
-    const aliased = renameTemplateFonts(served, (font) =>
+    const { template: portable } = resolveServedTemplate(
+      { ...template, styles },
+      { faces: [face('A Family'), face('Lab Serif')], generics: { serif: 'Lab Serif' } },
+    );
+    const aliased = renameTemplateFonts(portable, (font) =>
       font === 'A Family' ? 'A Family de-2' : font,
     );
     expect(aliased.styles?.paragraph?.font).toBe('A Family de-2, "Another, Face", Lab Serif');
   });
 
-  it('DOCE-PAGINATION-12.5 keeps a generic no family is served for, and the template without any', () => {
-    expect(servedTemplate(template, {})).toBe(template);
-    const drawn = servedTemplate(template, { monospace: 'Lab Mono' });
-    expect(drawn.styles?.paragraph).toEqual({ font: 'Serif', size: '11pt' });
-  });
-});
-
-describe('servedFamiliesOnly', () => {
-  const served = new Set(['Lab Serif', 'Lab Mono']);
-  const isServed = (family: string) => served.has(family);
-
-  it('DOCE-PAGINATION-12.5 draws each font whose first family no file serves in the served body family, and names it', () => {
-    const drawn = servedTemplate(template, { serif: 'Lab Serif', monospace: 'Lab Mono' });
-    const only = servedFamiliesOnly(drawn, { isServed, fallback: 'Lab Serif' });
-    expect(only.template.styles).toEqual({
-      paragraph: { font: 'Lab Serif', size: '11pt' },
-      heading1: { font: 'Lab Serif' },
-      codeBlock: { background: '#eee', font: 'Lab Mono' },
-    });
-    expect(only.unserved).toEqual(['Arial']);
-  });
-
-  it('DOCE-PAGINATION-12.5 keeps a template whose fonts are all served', () => {
-    const drawn = servedTemplate(
-      { ...template, styles: { paragraph: { font: 'Lab Serif, Arial' } } } as TemplateFile,
-      { monospace: 'Lab Mono' },
-    );
-    expect(servedFamiliesOnly(drawn, { isServed, fallback: 'Lab Serif' })).toEqual({
-      template: drawn,
-      unserved: [],
-    });
+  it('DOCE-PAGINATION-12.5 keeps the original template without served faces', () => {
+    for (const files of [null, { faces: [] }])
+      expect(resolveServedTemplate(template, files)).toEqual({ template, unserved: [] });
   });
 });

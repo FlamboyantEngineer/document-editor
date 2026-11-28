@@ -284,6 +284,7 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
   // The words other plugins insert in the blocks, as last read, and the decorations drawn with
   // words read since the state was built.
   let inserted = NO_INSERTED;
+  let insertedDoc: ProseMirrorNode | null = null;
   let redrawn: { value: ForcedLinesState; decorations: DecorationSet } | null = null;
   const build = (
     state: { doc: ProseMirrorNode; selection: Selection },
@@ -291,7 +292,8 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
   ): ForcedLinesState => {
     const near = all ? null : (pages?.drawn() ?? null);
     const drawn = { drawn: near, caret: pageAt(state.doc, state.selection.head) };
-    const made = decorate(source, { doc: state.doc, drawn, inserted, tr }, builder);
+    const words = state.doc === insertedDoc ? inserted : NO_INSERTED;
+    const made = decorate(source, { doc: state.doc, drawn, inserted: words, tr }, builder);
     builder = made.builder;
     const { engine, version } = source;
     return {
@@ -300,7 +302,7 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
       numbers: numbersOf(engine()),
       decorations: made.decorations,
       ...drawn,
-      inserted,
+      inserted: words,
     };
   };
   // The decorations of a state, drawn again when other plugins insert other words in its blocks,
@@ -311,8 +313,10 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
     if (!value) return undefined;
     const now = insertedTexts(state, [forcedLinesKey]);
     if (sameInserted(now, value.inserted)) return value.decorations;
-    if (redrawn?.value === value && sameInserted(now, inserted)) return redrawn.decorations;
+    if (redrawn?.value === value && insertedDoc === state.doc && sameInserted(now, inserted))
+      return redrawn.decorations;
     inserted = now;
+    insertedDoc = state.doc;
     redrawn = { value, decorations: build(state).decorations };
     return redrawn.decorations;
   };

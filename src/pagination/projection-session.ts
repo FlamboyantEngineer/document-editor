@@ -188,6 +188,7 @@ function syncSelection(session: Session): void {
 
 /** Lays the pages out once the scheduler runs, unless a layout is already due. */
 export function requestLayout(session: Session): void {
+  if (session.pace.ready.failed()) return;
   session.pace.readiness.pending();
   if (session.cancelLayout) return;
   writeTrace(session.options.trace, 'request');
@@ -206,7 +207,7 @@ export function refreshLayout(session: Session, remeasure: boolean): void {
 /** A change, or the host asking for a layout: the count of layouts in a row starts over. */
 function markChanged(session: Session): void {
   session.pace.changed = true;
-  session.pace.readiness.pending();
+  if (!session.pace.ready.failed()) session.pace.readiness.pending();
 }
 
 // Lays the pages out with the engine from the layout's source state, moved onto the canonical
@@ -237,11 +238,9 @@ function keepShownSelection(session: Session): void {
 // The engine once it and the math's glyphs are ready, or null with the layout left pending: nothing
 // is laid out before the engine is, since the pages are never measured in the DOM.
 function readyEngine(session: Session): PagesTextEngine | null {
+  if (session.pace.ready.blocked()) return null;
   const engine = session.pace.text?.engine();
-  if (!engine) {
-    session.pace.readiness.pending();
-    return null;
-  }
+  if (!engine) return null;
   const waiting = { ...session, owner: session.options.element.ownerDocument };
   return waitsForMath(waiting, () => requestLayout(session)) ? null : engine;
 }
@@ -292,8 +291,8 @@ export function layout(session: Session): void {
 }
 
 // Whether no layout is due: none scheduled, no edit waiting and nothing the pages wait for.
-function isIdle(session: Session): boolean {
-  return session.cancelLayout === null && !session.edits.waiting() && !session.pace.ready.waiting();
+function isIdle({ cancelLayout, edits, pace, options }: Session): boolean {
+  return !cancelLayout && !edits.waiting() && !pace.ready.blocked() && !options.fontsPending?.();
 }
 
 /**

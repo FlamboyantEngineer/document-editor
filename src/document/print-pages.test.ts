@@ -516,29 +516,40 @@ describe("the engine's numbers in static pages", () => {
 });
 
 describe('served faces in static pages', () => {
-  it('DOCE-PAGINATION-13.8 prints the layout in the served faces the engine measured with', () => {
+  it('DOCE-PAGINATION-12.5 DOCE-PAGINATION-13.8 prints the layout in the served faces the engine measured with', () => {
     const bytes = new Uint8Array([0x77, 0x4f, 0x46, 0x46]);
     const fonts = {
       faces: [{ family: 'Tinos', weight: 400, style: 'normal' as const, bytes }],
       generics: { serif: 'Tinos' },
     };
     const engine = { ...stubEngine(), fonts: () => fonts };
-    const doc = pagesDocument([page([paragraph([text('Served')], { dataId: 'p1' })])]);
+    const doc = pagesDocument([page([paragraph([text('Served')], { dataId: 'p1' })])], 'notes');
     const layout = pagesLayout(pagesState(doc, engine));
     if (!layout) throw new Error('no layout');
     expect(layout.fonts).toBe(fonts);
     const styles = BASE_TEMPLATE.styles ?? {};
     const serif: TemplateFile = {
       ...BASE_TEMPLATE,
-      styles: { ...styles, paragraph: { ...styles.paragraph, font: 'Serif' } },
+      styles: {
+        ...styles,
+        paragraph: { ...styles.paragraph, font: 'Serif' },
+        heading1: { ...styles.heading1, font: 'Unserved Heading' },
+      },
+      sections: [{ name: 'notes', styles: { paragraph: { font: 'Unserved Notes' } } }],
     };
-    const rules = new DOMParser().parseFromString(renderLayoutPrintPage(layout, serif), 'text/html')
-      .head.textContent;
+    const printed = new DOMParser().parseFromString(
+      renderLayoutPrintPage(layout, serif),
+      'text/html',
+    );
+    const rules = printed.head.textContent;
     expect(rules).toContain(
       `@font-face { font-family: "Tinos"; src: url(data:font/woff;base64,${btoa('wOFF')});`,
     );
-    // The paragraph font the template names as the generic serif is the served family.
-    expect(rules).toMatch(/--doc-[a-z-]*font-family: Tinos/u);
+    expect(rules).toContain('--doc-paragraph-font-family: Tinos');
+    expect(rules).toContain('--doc-heading-1-font-family: Tinos');
+    expect(rules).not.toContain('Unserved Heading');
+    const section = printed.querySelector<HTMLElement>('.pm-section');
+    expect(section?.style.getPropertyValue('--doc-paragraph-font-family')).toBe('Tinos');
   });
 
   it('DOCE-PAGINATION-13.8 holds no faces when the host serves none', () => {

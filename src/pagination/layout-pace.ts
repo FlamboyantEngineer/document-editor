@@ -3,6 +3,7 @@
 
 import type { LayoutMemory } from './layout-document.js';
 import type { createLayoutReadiness } from './layout-readiness.js';
+import type { awaitLayoutInputs } from './layout-triggers.js';
 import type { DrawChecks } from './layout-validation.js';
 import type { createPaginationCounter } from './pagination-stats.js';
 import type { TextEngineHolder } from './text-engine-holder.js';
@@ -20,7 +21,7 @@ export interface LayoutPace {
   /** What the latest layout found, which the next starts from (`LayoutMemory`). */
   readonly memory: LayoutMemory;
   /** Whether the pages still wait for what they measure with, such as the template's fonts. */
-  readonly ready: { waiting(): boolean };
+  readonly ready: ReturnType<typeof awaitLayoutInputs>;
   /** What is checked once a layout is drawn: pages drawn taller than they are (`checkDraws`). */
   readonly draws: DrawChecks;
   /** The text layout engine, with the `textLayout` option. */

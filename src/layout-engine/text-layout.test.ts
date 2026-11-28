@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema, findNode, parseMarkup } from '../../test/document-markup.js';
 import type { TemplateFile } from '../model/format/template-format.js';
+import { type LayoutBlock, layoutNextPage } from '../model/pagination/page-layout.js';
 import { planParagraphSplit } from '../model/pagination/text-split.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import type { InsertedText } from './inserted-text.js';
@@ -534,6 +535,51 @@ describe('createTextLayout', () => {
       [0, 0, 'break', -3],
       [0, 9, 'end', undefined],
     ]);
+  });
+
+  it('DOCE-PAGINATION-11.11 lays an inserted word before the template variable at its anchor', () => {
+    const variable = documentSchema.nodes.template_variable?.create({
+      variableKey: 'document.title',
+    });
+    if (!variable) throw new Error('schema has no template variable');
+    const node = documentSchema.node('paragraph', null, [documentSchema.text('aaaa '), variable]);
+    const result = createTextLayout({ template: BASE_TEMPLATE }).layoutText(node, {
+      width: 60,
+      variables: new Map([['document.title', 'bb cc']]),
+      inserted: [{ offset: 5, pieces: ['xxxx '], sides: [-2] }],
+    });
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.table.lines.map(({ from, to, side }) => [from, to, side])).toEqual([
+      [0, 5, undefined],
+      [5, node.content.size, -1],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-11.11 places an oversized paragraph whole when a split would keep its content unchanged', () => {
+    const node = block('<p>kept</p>');
+    const result = createTextLayout({ template: BASE_TEMPLATE }).layoutText(node, {
+      width: 30,
+      inserted: [
+        {
+          offset: 0,
+          pieces: ['aaaa ', 'bbbb ', 'cccc ', 'dddd'],
+          sides: [-8, -6, -4, -2],
+          alone: 'before',
+        },
+      ],
+    });
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.table.lines.map(({ from }) => from)).toEqual([0, 0, 0, 0, 0]);
+    const measured: LayoutBlock = {
+      node,
+      height: result.table.height,
+      marginTop: 0,
+      marginBottom: 0,
+      measurement: lineTableMeasurement(result.table),
+    };
+    const queue = [measured];
+    expect(layoutNextPage(queue, 0, { pageHeight: 40 })).toEqual([measured]);
+    expect(queue).toEqual([]);
   });
 
   it('DOCE-PAGINATION-11.11 lays a block out again when its inserted words change', () => {

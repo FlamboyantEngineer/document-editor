@@ -18,7 +18,7 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
-import { servedTemplate } from '../pagination/served-template.js';
+import { renameTemplateFonts, resolveServedTemplate } from '../pagination/served-template.js';
 import { fontFaceRules } from './font-faces.js';
 import {
   type PagesLayout,
@@ -238,13 +238,6 @@ function pageSheetRules(doc: ProseMirrorNode, template: TemplateFile): string {
 }
 
 /**
- * The template a layout's pages were drawn in: each generic family as the served family it stands
- * for, as the editor's pages draw it (DOCE-PAGINATION-12.5).
- */
-export const layoutTemplate = (layout: PagesLayout, template: TemplateFile): TemplateFile =>
-  servedTemplate(template, layout.fonts?.generics ?? {});
-
-/**
  * What a static drawing of a layout holds beside it: as a print's, but its suggestions show as the
  * layout was laid out with them (`PagesLayout.markup`, DOCE-PAGINATION-11.12).
  */
@@ -296,7 +289,14 @@ interface LayoutSectionDrawing {
 interface LayoutDrawing {
   /** The pages' document. */
   readonly doc: ProseMirrorNode;
+  /** The template with the fonts this surface draws. */
+  readonly template: TemplateFile;
   readonly sections: readonly LayoutSectionDrawing[];
+}
+
+interface LayoutDrawingOptions extends LayoutPrintOptions {
+  /** The family each served family is drawn under on this surface. */
+  readonly drawnFamily?: ((family: string) => string) | undefined;
 }
 
 // An element's own attributes as the allow-list keeps them, without its content.
@@ -314,9 +314,11 @@ function allowedAttrs(tree: PrintTree | undefined, markup: PrintMarkup) {
 export function drawLayoutPages(
   layout: PagesLayout,
   template: TemplateFile,
-  options: LayoutPrintOptions = {},
+  { drawnFamily, ...options }: LayoutDrawingOptions = {},
 ): LayoutDrawing {
-  const { doc, trees } = linkedLayout(layout, layoutTemplate(layout, template), options);
+  const portable = resolveServedTemplate(template, layout.fonts).template;
+  const drawnTemplate = drawnFamily ? renameTemplateFonts(portable, drawnFamily) : portable;
+  const { doc, trees } = linkedLayout(layout, drawnTemplate, options);
   const { markup } = layout;
   const sections: LayoutSectionDrawing[] = [];
   doc.forEach((section, offset, index) => {
@@ -335,7 +337,7 @@ export function drawLayoutPages(
     });
     sections.push({ attrs: allowedAttrs(tree, markup), pages });
   });
-  return { doc, sections };
+  return { doc, template: drawnTemplate, sections };
 }
 
 /**
@@ -349,7 +351,7 @@ export function renderLayoutPrintPage(
   template: TemplateFile,
   options: LayoutPrintOptions = {},
 ): string {
-  const drawn = layoutTemplate(layout, template);
+  const drawn = resolveServedTemplate(template, layout.fonts).template;
   const { doc, trees } = linkedLayout(layout, drawn, options);
   const { markup } = layout;
   const root = printElement(

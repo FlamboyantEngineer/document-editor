@@ -3,6 +3,7 @@
 // with other rules' sizes are laid out again.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { createRuleSizes, type RuleSizes, ruleSizesKey } from '../layout-engine/rule-sizes.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
@@ -45,32 +46,65 @@ export function reportUnplacedWords(
 }
 
 /**
- * The host's layout rules as the engine reads them: the host's views that take no room, less those
- * its rules size (DOCE-PAGINATION-14.1). Read before each block is laid out; when the rules' sizes
- * changed since the last read, `changed` is told first, so nothing laid out with them is kept.
+ * Refresh before reading kept layouts so sizes from older rules are discarded. Sized nodes also
+ * depend on markup even without a suggestion (DOCE-PAGINATION-14.1).
  */
 export function watchedRules(options: TextEngineOptions, changed: () => void) {
   const rulesNow = rulesOf(options);
-  let seen = ruleSizesKey(rulesNow());
+  let seen: string | undefined;
+  let sizedTypes = new Set<string>();
+  let sizedBlocks = new WeakMap<ProseMirrorNode, boolean>();
+  let hostViews = new Set<string>();
+  let markup = options.markup?.() ?? 'all';
+  let markupVersion = 0;
+  const holdsSized = (node: ProseMirrorNode): boolean => {
+    const kept = sizedBlocks.get(node);
+    if (kept !== undefined) return kept;
+    let found = sizedTypes.has(node.type.name);
+    if (!found && sizedTypes.size) {
+      node.descendants((child) => {
+        found ||= sizedTypes.has(child.type.name);
+        return !found;
+      });
+    }
+    sizedBlocks.set(node, found);
+    return found;
+  };
   return {
-    hostViews() {
+    refresh() {
+      const nextMarkup = options.markup?.() ?? 'all';
+      if (markup !== nextMarkup) {
+        markup = nextMarkup;
+        markupVersion += 1;
+      }
       const rules = rulesNow();
       const key = ruleSizesKey(rules);
-      if (key !== seen) {
-        seen = key;
-        changed();
-      }
-      return new Set((options.hostViews ?? []).filter((type) => !rules[type]?.size));
+      if (key === seen) return;
+      if (seen !== undefined) changed();
+      seen = key;
+      sizedTypes = new Set(Object.keys(rules).filter((type) => rules[type]?.size));
+      sizedBlocks = new WeakMap();
+      hostViews = new Set((options.hostViews ?? []).filter((type) => !sizedTypes.has(type)));
     },
+    hostViews: () => hostViews,
+    markupKey: (node: ProseMirrorNode) =>
+      options.markup && holdsSized(node)
+        ? // Refresh placements even when returning to a markup whose rule sizes are already kept.
+          String(markupVersion)
+        : suggestionKey(node, options.markup),
   };
 }
 
 /** The sizes of the host's nodes its layout rules size, with text measured by the engine's layout. */
-export function hostRuleSizes(options: TextEngineOptions, text: () => TextLayout) {
+export function hostRuleSizes(
+  options: TextEngineOptions,
+  text: () => TextLayout,
+  language: string,
+) {
   return createRuleSizes({
     rules: rulesOf(options),
     text,
-    language: options.language ?? '',
+    language,
     markup: () => options.markup?.() ?? 'all',
   });
 }

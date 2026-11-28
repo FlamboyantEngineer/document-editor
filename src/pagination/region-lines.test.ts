@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import type { BlockGeometry, RegionGeometry } from '../layout-engine/blocks/types.js';
+import { holdInsertedTexts } from './inserted-texts.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { createRegionLines, REGIONS_KEPT_PER_NODE } from './region-lines.js';
 
@@ -121,6 +122,8 @@ describe('a layout that throws', () => {
       },
     };
     const nested = createNestedLines({
+      words: holdInsertedTexts(),
+      markupKey: () => '',
       geometry,
       recorder,
       widthOf: () => 100,
@@ -129,7 +132,9 @@ describe('a layout that throws', () => {
     const quote = documentSchema.node('blockquote', null, [
       documentSchema.node('paragraph', null, documentSchema.text('Quoted')),
     ]);
-    expect(() => nested.lines(quote, null, () => 'Figure 1')).toThrow('a host rule failed');
+    expect(() => nested.lines(quote, null, { labelOf: () => 'Figure 1' })).toThrow(
+      'a host rule failed',
+    );
     expect(recorder.lines).toBeNull();
     expect(recorder.labelOf ?? null).toBeNull();
   });

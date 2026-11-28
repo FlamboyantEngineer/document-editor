@@ -126,15 +126,15 @@ export interface PagesLayout {
    */
   readonly language: string;
   /**
-   * Everything the layout depended on besides the document, each input as a short key
+   * The layout's recorded inputs besides the document, each as a short key
    * (DOCE-PAGINATION-13.12): the served faces, the shaper, Pretext, the math layouter, the
    * template, the language, the markup, the code line numbers and the runtime's segmentation data.
    */
   readonly inputs: LayoutInputs;
   /**
-   * One key of `inputs`: two layouts of a document with equal keys are on the same pages, and a
-   * host that compares the keys of two machines, such as an editor and a server, learns when they
-   * may not be.
+   * One key of `inputs`, for a host to compare the recorded inputs of two layouts, such as an
+   * editor's and a server's. Comparing page breaks also requires matching layout-generated text
+   * and the behavior of custom layout rules.
    */
   readonly inputsKey: string;
   /**

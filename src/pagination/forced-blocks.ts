@@ -147,8 +147,7 @@ function topLevel(engine: PagesTextEngine, node: ProseMirrorNode, at: ForcedPlac
   return { node, pos, table, prefix, prefixed: Boolean(prefix), nested: false };
 }
 
-// Why a text block inside a container is left to the browser before it is laid out: a number the
-// browser draws for it, or words inserted in it, which the container is not laid out with.
+// The browser draws nested blocks with their own numbers or with other plugins' words.
 function nestedRefusal(at: ForcedPlace, node: ProseMirrorNode, pos: number): string | null {
   if (at.numbered.has(pos)) return 'numbered paragraph';
   if (at.headings.has(pos)) return 'numbered heading';
@@ -204,7 +203,10 @@ function linkedCode(
 }
 
 function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedPlace) {
-  const lines = engine.nestedLines(container, at.scope, at.labelOf);
+  const lines = engine.nestedLines(container, at.scope, {
+    labelOf: at.labelOf,
+    inserted: at.inserted,
+  });
   const blocks: ForcedBlock[] = [];
   container.descendants((node, offset, parent) => {
     if (isCaption(node)) {

@@ -18,16 +18,16 @@ describe('math places', () => {
     const places = mathPlaces();
     places.record(kept, small);
     places.record(edited, small);
-    let doc = schema.node('doc', null, [kept, edited]);
-    const reading = places.reading(
-      () => ({ laid: 0, refused: 0, reasons: new Map() }),
-      () => doc,
-    );
+    const doc = schema.node('doc', null, [kept, edited]);
+    places.number(doc);
+    const reading = places.reading(() => ({ laid: 0, refused: 0, reasons: new Map() }));
     expect(reading.stats().smallMath).toBe(2);
     // The second equation was edited: its old node is not in the document any more.
-    doc = schema.node('doc', null, [kept]);
+    places.number(schema.node('doc', null, [kept]));
     expect(reading.stats().smallMath).toBe(1);
     expect(reading.mathOf(kept)).toBe(small);
+    places.number(doc);
+    expect(reading.stats().smallMath).toBe(2);
   });
 
   it('DOCE-PAGINATION-12.11 finds the placement of an equal copy of the laid node by its element id', () => {
@@ -38,10 +38,7 @@ describe('math places', () => {
       schema.node('math_display', { dataId: id }, [schema.text(latex)]);
     const places = mathPlaces();
     places.record(equation('m1', 'a+b'), at);
-    const reading = places.reading(
-      () => ({ laid: 0, refused: 0, reasons: new Map() }),
-      () => null,
-    );
+    const reading = places.reading(() => ({ laid: 0, refused: 0, reasons: new Map() }));
     // The pages edited the equation in their own copy of it.
     expect(reading.mathOf(equation('m1', 'a+b'))).toBe(at);
     expect(reading.mathOf(equation('m1', 'a+c'))).toBeNull();
@@ -56,10 +53,7 @@ describe('math places', () => {
       schema.node('math_display', { dataId: id }, [schema.text('a')]);
     const places = mathPlaces();
     for (let index = 0; index <= 4000; index += 1) places.record(equation(`m${String(index)}`), at);
-    const reading = places.reading(
-      () => ({ laid: 0, refused: 0, reasons: new Map() }),
-      () => null,
-    );
+    const reading = places.reading(() => ({ laid: 0, refused: 0, reasons: new Map() }));
     expect(reading.mathOf(equation('m0'))).toBeNull();
     expect(reading.mathOf(equation('m4000'))).toBe(at);
   });

@@ -46,7 +46,7 @@ export async function loadHostFonts(
       .catch(() => null),
   ]);
   if (!shaper?.ok) return { phase: 'browser', reason: 'shaper-failed' };
-  if (!files?.ok) return { phase: 'browser', reason: 'files-failed' };
+  if (!files?.ok || options.signal?.aborted) return { phase: 'browser', reason: 'files-failed' };
   try {
     const { measurer, problems } = await createHostMeasurer(shaper.value, files.value);
     if (problems.length === files.value.faces.length)

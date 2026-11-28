@@ -114,6 +114,31 @@ describe('DOCE-PAGINATION-12.2 scripts, emoji and fallback', () => {
     expect([...problems.missingGlyphs]).toEqual([]);
   });
 
+  it('DOCE-PAGINATION-12.2 trims every adjacent CJK stop in long words', async () => {
+    const context = (await scriptMeasurer()).createContext();
+    context.font = '16px "Lab Noto SC"';
+    // Each word ends in one full-width stop. Reusing the context must work at every length.
+    for (const count of [16, 17, 18, 32, 257, 2, 257]) {
+      const width = context.measureText('。'.repeat(count)).width;
+      expect(Math.abs(width - 8 * (count + 1))).toBeLessThan(2 / 64);
+    }
+    context.fontKerning = 'none';
+    context.letterSpacing = '0.5px';
+    expect(Math.abs(context.measureText('。'.repeat(32)).width - 280)).toBeLessThan(2 / 64);
+  });
+
+  it('DOCE-PAGINATION-12.2 keeps script and direction across many Canvas words', async () => {
+    const { createContext, problems } = await scriptMeasurer();
+    const context = createContext();
+    context.font = SCRIPT_FONT;
+    const phrase = 'שלום123AV 中文 e\u0301te\u0301 😀 ';
+    const count = 64;
+    const width = context.measureText(phrase).width;
+    const long = context.measureText(phrase.repeat(count)).width;
+    expect(Math.abs(long - width * count)).toBeLessThan(2 / 64);
+    expect([...problems.missingGlyphs]).toEqual([]);
+  });
+
   it('draws an emoji presentation sequence from the color face whatever the family order', async () => {
     const context = (await scriptMeasurer()).createContext();
     context.font = '16px "Lab Geist", "Lab Noto Symbols 2", "Lab Noto Color Emoji"';
@@ -185,5 +210,27 @@ describe('DOCE-HOST-1.14.1 the measurer from what the host serves', () => {
     const problems = await host.addFiles({ faces: others.map(asFile) });
     expect(problems).toEqual([]);
     expect(context.measureText('code').width).not.toBe(before);
+  });
+
+  it('DOCE-PAGINATION-12.8 uses the last matching subset and retains it when a kept file is repeated', async () => {
+    const faces = referenceFaces();
+    const sans = faces.find((face) => face.family === 'Lab Geist' && face.weight === 400);
+    const mono = faces.find((face) => face.family === 'Lab Geist Mono' && face.weight === 400);
+    if (!sans || !mono) throw new Error('Expected reference faces');
+    const first = asFile({ ...sans, family: 'Reading' });
+    const subset = asFile({ ...mono, family: 'Reading', unicodeRange: 'U+0057' });
+    const { measurer: host } = await createHostMeasurer(harfBuzzWasm(), {
+      faces: [first, asFile(sans), subset, asFile(mono)],
+    });
+    const context = host.createContext();
+    const width = (family: string, text: string) => {
+      context.font = `16px "${family}"`;
+      return context.measureText(text).width;
+    };
+    expect(width('Lab Geist', 'W')).not.toBe(width('Lab Geist Mono', 'W'));
+    expect(width('Reading', 'W')).toBe(width('Lab Geist Mono', 'W'));
+    expect(width('Reading', 'i')).toBe(width('Lab Geist', 'i'));
+    await host.addFiles({ faces: [first] });
+    expect(width('Reading', 'W')).toBe(width('Lab Geist Mono', 'W'));
   });
 });

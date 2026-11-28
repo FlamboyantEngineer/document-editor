@@ -3,7 +3,7 @@
 // resolved thread or a re-run signature never reads as a change to what was reviewed.
 
 import type { DocumentFile, StoredMark, StoredNode } from '../model/index.js';
-import { stableKey } from '../session/stored-equality.js';
+import { stableKey } from '../utils/stable-key.js';
 import { storedElementId } from './stored-walk.js';
 
 /** What `authoredContent` reads, and what else it leaves out. */
