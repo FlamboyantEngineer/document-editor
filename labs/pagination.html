@@ -28,100 +28,23 @@
         position: absolute;
         left: -10000px;
         top: 0;
-      }
-      /* The page, not only its content, takes the width, so its footnote area wraps to it too. */
-      .lab-measure,
-      .lab-pages .pm-page {
         width: var(--lab-width);
       }
-      .lab-pages .pm-section {
+      /*
+       * The pages draw the content in the reference stylesheet from the template the engine lays
+       * them out in; only the page box is the lab's: its content the lab's width and 360 pixels
+       * tall, the template's side margins leaving that width.
+       */
+      .lab-pages.de-document-editor .pm-section {
         display: flex;
         flex-wrap: wrap;
         gap: 24px;
       }
-      .lab-pages .pm-page {
-        display: flex;
-        flex-direction: column;
+      .lab-pages.de-document-editor .pm-page {
         box-sizing: content-box;
+        width: var(--lab-width);
         height: 360px;
         padding: 32px;
-        background: #fff;
-        color: #1d2129;
-        box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
-      }
-      .lab-pages .pm-page-content {
-        flex: 1;
-      }
-      .pm-page-footnotes {
-        border-top: 1px solid #c4c8cf;
-        padding-top: 6px;
-        font-size: 13px;
-        line-height: 18px;
-      }
-      .pm-footnote-entry {
-        margin: 0 0 4px;
-      }
-      .pm-footnote-entry-number {
-        margin-right: 6px;
-      }
-      .footnote-reference {
-        font-size: 11px;
-        line-height: 0;
-      }
-      .ProseMirror {
-        outline: none;
-      }
-      .pm-page-header,
-      .pm-page-footer,
-      .pm-page-footnotes:empty {
-        display: none;
-      }
-      .pm-page-content > :first-child {
-        margin-top: 0;
-      }
-      .pm-page-content > :last-child {
-        margin-bottom: 0;
-      }
-      button {
-        margin: 0 0 16px;
-        padding: 6px 12px;
-        font: inherit;
-      }
-      p,
-      pre,
-      ul,
-      ol,
-      blockquote,
-      .doc-table-figure,
-      .doc-code-figure {
-        margin: 0 0 12px;
-      }
-      .doc-code-figure > pre {
-        margin: 0;
-      }
-      h1,
-      h2 {
-        margin: 16px 0 8px;
-        line-height: 1.2;
-      }
-      pre {
-        padding: 8px;
-        background: #f3f4f6;
-        font: 14px/20px monospace;
-        white-space: pre-wrap;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-      }
-      td,
-      th {
-        border: 1px solid #c4c8cf;
-        padding: 4px 8px;
-      }
-      td > p,
-      th > p {
-        margin: 0;
       }
     </style>
     <script type="module" src="build/chrome.js"></script>
@@ -138,7 +61,7 @@
       </p>
       <button type="button" class="lab-narrow" aria-pressed="false">Narrow pages</button>
       <div class="lab-measure" aria-hidden="true"></div>
-      <div class="lab-pages"></div>
+      <div class="lab-pages de-document-editor"></div>
     </main>
   </body>
 </html>

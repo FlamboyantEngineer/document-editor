@@ -1,25 +1,18 @@
 // What a projection's layouts have done since it was made, counted as it lays the pages out, so a
-// test or a host's telemetry can tell a layout that measured and rebuilt little from one that did it all.
+// test or a host's telemetry can tell a layout that laid out and rebuilt little from one that did it all.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { SectionReport } from './layout-document.js';
-import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
 
 /** What a projection's layouts did since it was made (`PagedProjection.stats`). */
 export interface PaginationStats {
   /** Layouts run. */
   readonly layouts: number;
-  /** Blocks measured in the measuring view rather than taken from the cache. */
+  /** Blocks the layout engine laid out anew rather than taking from what it kept. */
   readonly blocksMeasured: number;
-  /** Blocks taken from the cache. */
-  readonly cacheHits: number;
-  /** Blocks the cache did not hold. */
-  readonly cacheMisses: number;
-  /** Blocks forgotten alone because their element changed size after they were measured. */
-  readonly blocksDrifted: number;
-  /** Sections laid out with at least one block measured again. */
+  /** Sections laid out with at least one block laid out anew. */
   readonly sectionsRelaid: number;
-  /** Sections laid out from cached measurements alone. */
+  /** Sections laid out from the blocks the engine kept alone. */
   readonly sectionsReused: number;
   /** Pages broken from their blocks; a layout reuses the others from the one before it. */
   readonly pagesLaidOut: number;
@@ -54,8 +47,8 @@ function pagesOf(doc: ProseMirrorNode): ProseMirrorNode[] {
   return pages;
 }
 
-/** Counts what a projection's layouts do, beside what its measure cache serves. */
-export function createPaginationCounter(cache: MeasureCache) {
+/** Counts what a projection's layouts do, beside the blocks its layout engine has laid out (`laid`). */
+export function createPaginationCounter(laid: () => number) {
   const counts: { -readonly [Key in keyof LayoutCounts]: number } = {
     layouts: 0,
     sectionsRelaid: 0,
@@ -86,14 +79,7 @@ export function createPaginationCounter(cache: MeasureCache) {
       }
     },
     stats(): PaginationStats {
-      const { hits, misses, measured, drifted } = measureCacheCounts(cache);
-      return {
-        ...counts,
-        blocksMeasured: measured,
-        cacheHits: hits,
-        cacheMisses: misses,
-        blocksDrifted: drifted,
-      };
+      return { ...counts, blocksMeasured: laid() };
     },
   };
 }

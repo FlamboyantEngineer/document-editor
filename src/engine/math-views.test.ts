@@ -119,21 +119,17 @@ describe('a renderer that does not answer', () => {
     const state = EditorState.create({ doc, plugins });
     view = new EditorView(document.createElement('div'), { state });
     const drawn = view.dom.querySelector<HTMLElement>('.de-math');
-    const remeasured = vi.fn();
-    drawn?.addEventListener('de-remeasure', remeasured);
     await vi.advanceTimersByTimeAsync(4_999);
     expect(drawn?.dataset.state).toBe('pending');
     await vi.advanceTimersByTimeAsync(1);
     expect(drawn?.dataset.state).toBe('invalid');
     expect(drawn?.title).toBe('Too slow (5 s)');
     expect(drawn?.textContent).toBe(DEFAULT_INVALID_MATH_TEXT.inline);
-    expect(remeasured).toHaveBeenCalledTimes(1);
     expect(typesetMathOf(state, inline)?.state).toBe('invalid');
     // The pages were laid out with the invalid math, so an answer after the deadline changes nothing.
     answer({ ok: true, mathml: '<math><mi>x</mi></math>' });
     await vi.advanceTimersByTimeAsync(0);
     expect(drawn?.dataset.state).toBe('invalid');
-    expect(remeasured).toHaveBeenCalledTimes(1);
     expect(typesetMathOf(state, inline)?.state).toBe('invalid');
     vi.useRealTimers();
   });

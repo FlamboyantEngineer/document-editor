@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { mathOf, standInMathLayouter } from '../../test/math-layout-fixtures.js';
 import type { MathTree, TypesetMath } from '../engine/math-typeset.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
-import type { AtomMeasurer } from './atoms.js';
 import {
   createMathAtomMeasurer,
   fitScale,
@@ -32,13 +31,11 @@ const ready = (tokens: readonly string[], block = false): TypesetMath => ({
 function measurer(
   typesets: Map<ProseMirrorNode, TypesetMath>,
   options: Parameters<typeof standInMathLayouter>[0] = {},
-  inner: AtomMeasurer = () => ({ size: { width: 7, height: 7 } }),
 ) {
   const { layouter, calls } = standInMathLayouter(options);
   const missing = vi.fn<(text: string) => void>();
   const refused = vi.fn<(text: string) => void>();
   const measure = createMathAtomMeasurer({
-    inner,
     layouter: () => layouter,
     typesetOf: (node) => typesets.get(node) ?? null,
     sizeOf: () => 20,
@@ -86,28 +83,25 @@ describe('math atoms sized from their layout', () => {
 
   it('DOCE-PAGINATION-12.10 sizes typeset math from its layout at its font size, without the DOM', () => {
     const atom = inline('ab');
-    const inner = vi.fn<AtomMeasurer>(() => ({ size: { width: 7, height: 7 } }));
-    const { measure, calls } = measurer(new Map([[atom, ready(['a', 'b'])]]), {}, inner);
+    const { measure, calls } = measurer(new Map([[atom, ready(['a', 'b'])]]));
     // Two characters at 20px: 20px wide, 14px above the baseline and 4px below.
     expect(measure(atom, 0)).toEqual({
-      size: {
-        width: 20,
-        height: 18,
-        baseline: 14,
-        math: { math: expect.objectContaining({ width: 20, ascent: 14, descent: 4 }) as unknown },
-      },
+      width: 20,
+      height: 18,
+      baseline: 14,
+      math: { math: expect.objectContaining({ width: 20, ascent: 14, descent: 4 }) as unknown },
     });
     expect(calls).toEqual([{ text: 'ab', display: false, size: 20 }]);
-    expect(inner).not.toHaveBeenCalled();
-    // Other atoms, and math not typeset, are measured by the inner measurer.
+    // It sizes nothing but math, and math not typeset yet takes the reserved box.
     const image = schema.nodes.image?.create({
       src: 'https://example.org/a.png',
       templateImageWidth: 7,
       templateImageHeight: 7,
     });
     if (!image) throw new Error('schema has no image');
-    expect(measure(image, 0)).toEqual({ size: { width: 7, height: 7 } });
-    expect(measure(inline('c'), 0)).toEqual({ size: { width: 7, height: 7 } });
+    expect(measure(image, 0)).toBeNull();
+    expect(measure(inline('c'), 0)).toMatchObject({ width: 20, height: 20 });
+    expect(measure(inline('c'), 0)?.math?.reserved).toBe(true);
   });
 
   it('DOCE-PAGINATION-12.10 lays a display equation and its tag out apart', () => {
@@ -150,7 +144,7 @@ describe('math atoms sized from their layout', () => {
       ],
     };
     const { measure, calls } = measurer(new Map([[equation, { state: 'ready', math: tagged }]]));
-    const size = measure(equation, 600)?.size;
+    const size = measure(equation, 600);
     expect(calls).toEqual([
       { text: 'xy', display: true, size: 20 },
       { text: '(1)', display: false, size: 20 },
@@ -168,41 +162,26 @@ describe('math atoms sized from their layout', () => {
     ]);
     const { measure, missing } = measurer(typesets, { missing: '日' });
     // One em per cluster, 0.8em above the baseline and 0.2em below.
-    expect(measure(missingAtom, 0)?.size).toMatchObject({ width: 40, height: 20, baseline: 16 });
-    expect(measure(missingAtom, 0)?.size.math?.reserved).toBe(true);
+    expect(measure(missingAtom, 0)).toMatchObject({ width: 40, height: 20, baseline: 16 });
+    expect(measure(missingAtom, 0)?.math?.reserved).toBe(true);
     expect(missing).toHaveBeenCalledWith('日');
     const refusing = measurer(new Map([[refusedAtom, ready(['b'])]]), { refuse: ['mi'] });
-    expect(refusing.measure(refusedAtom, 0)?.size).toMatchObject({ width: 20, height: 20 });
+    expect(refusing.measure(refusedAtom, 0)).toMatchObject({ width: 20, height: 20 });
     expect(refusing.refused).toHaveBeenCalledWith('b');
     expect(reservedMath(3, true, 10)).toMatchObject({ math: { width: 0, ascent: 20, descent: 0 } });
   });
 
-  it('DOCE-PAGINATION-12.10 keeps math provisional while its glyphs load, then sizes it from its layout', async () => {
+  it('DOCE-PAGINATION-12.10 DOCE-PAGINATION-14.4 tells that math waits for its glyphs, and sizes it from its layout once they load', async () => {
     const atom = inline('ab');
     let loaded = () => undefined as void;
     const loading = new Promise<void>((resolve) => {
       loaded = resolve;
     });
     const { measure } = measurer(new Map([[atom, ready(['a', 'b'])]]), { loading });
-    const result = measure(atom, 0);
-    expect(result?.size).toEqual({ width: 7, height: 7 });
+    // The pages wait while the layouter loads (`mathPending`), so this box is never laid out.
+    expect(measure(atom, 0)?.math?.reserved).toBe(true);
     loaded();
-    expect(await result?.settled).toMatchObject({ width: 20, height: 18, baseline: 14 });
-  });
-
-  it('DOCE-PAGINATION-12.10 sizes math typeset after it was first measured from its layout', async () => {
-    const atom = inline('ab');
-    const typesets = new Map<ProseMirrorNode, TypesetMath>();
-    let drawn = () => undefined as void;
-    const settled = new Promise<{ width: number; height: number }>((resolve) => {
-      drawn = () => resolve({ width: 9, height: 9 });
-    });
-    const inner: AtomMeasurer = () => ({ size: { width: 7, height: 7 }, settled });
-    const { measure } = measurer(typesets, {}, inner);
-    const result = measure(atom, 0);
-    expect(result?.size).toEqual({ width: 7, height: 7 });
-    typesets.set(atom, ready(['a', 'b']));
-    drawn();
-    expect(await result?.settled).toMatchObject({ width: 20, height: 18 });
+    await loading;
+    expect(measure(atom, 0)).toMatchObject({ width: 20, height: 18, baseline: 14 });
   });
 });

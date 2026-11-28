@@ -1,28 +1,29 @@
 // Shows the layout rules on fixed-height pages: headings that keep with the block they head, by
 // that block's own split, over short paragraphs and captioned tables; a script block's output and a
 // layout section's columns split across pages; and a host's own node type, a numbered log, that
-// brings its own measure, split and fragment rule.
+// its own rule sizes from its entries before it is drawn, moved to the next page whole.
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node, NodeSpec } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import {
+  BASE_TEMPLATE,
   createDocumentSchema,
   type DocumentFile,
   FRAGMENT_RULES,
   type FragmentRules,
   joinDocumentPages,
   LAYOUT_RULES,
-  type LayoutBlock,
   type LayoutRules,
-  type MeasureInput,
   readDocumentFile,
+  type RuleSize,
   sameStructure,
-  type SplitBlock,
+  type SizeInput,
   type StoredNode,
 } from '../../src/model/index.js';
-import { showOnPages } from './lab-pages.js';
+import { applyTemplate } from './lab-document.js';
+import { showOnPages, templateOfWidth } from './lab-pages.js';
 
 const SENTENCES = [
   'The survey covered every room on the ground floor and two on the first.',
@@ -96,7 +97,7 @@ const keepCases: StoredNode[] = [
 /** The id of the paragraph the host's log takes the place of. */
 const LOG_SLOT = 'log-slot';
 const LOG_ENTRIES = Array.from(
-  { length: 30 },
+  { length: 12 },
   (_, index) => `Reading ${String(index + 1)} logged at ${String(8 + (index % 10))}:00.`,
 );
 
@@ -129,8 +130,8 @@ const SAMPLE: DocumentFile = {
   ],
 };
 
-// The host's node type: a numbered log whose entries are an attribute, so the editor's own
-// measuring does not know where they sit.
+// The host's node type: a numbered log whose entries are an attribute, which the engine cannot
+// lay out, so its rule sizes it.
 const LOG_NODE = 'lab_log';
 
 const logSpec: NodeSpec = {
@@ -153,79 +154,27 @@ const logExtension: RichTextExtension = {
   nodes: [{ name: LOG_NODE, spec: logSpec, order: 145 }],
 };
 
-interface LogMeasurement {
-  /** Where each entry sits from the log's top. */
-  readonly rows: readonly { top: number; bottom: number }[];
-}
+// The log's left padding, which its entries' numbers sit in (`.lab-log ol` in the lab's page).
+const LOG_INDENT = 32;
+// The space below the log's list.
+const LOG_FOOT = 12;
 
-function measureLog({ element, scale }: MeasureInput): LogMeasurement {
-  const top = element.getBoundingClientRect().top;
-  const rows = [...element.querySelectorAll('li')].map((entry) => {
-    const rect = entry.getBoundingClientRect();
-    return { top: (rect.top - top) / scale, bottom: (rect.bottom - top) / scale };
-  });
-  return { rows };
-}
-
-// Splits the log after its last entry that fits, keeping two entries on each side.
-function splitLog(block: LayoutBlock, fitting: number): SplitBlock | null {
-  const { rows } = block.measurement as LogMeasurement;
-  const entries = block.node.attrs.entries as string[];
-  if (rows.length !== entries.length) return null;
-  const foot = Math.max(0, block.height - (rows.at(-1)?.bottom ?? 0));
-  const count = rows.filter((entry) => entry.bottom + foot <= fitting).length;
-  const at = Math.min(count, entries.length - 2);
-  const next = rows[at];
-  if (at < 2 || !next) return null;
-  const { node } = block;
-  const part = Number(node.attrs.splitPartIndex ?? 0);
-  const create = (attrs: Record<string, unknown>) =>
-    node.type.create({ ...node.attrs, ...attrs }, null, node.marks);
-  return {
-    head: {
-      ...block,
-      node: create({ entries: entries.slice(0, at), splitPartIndex: part }),
-      height: (rows[at - 1]?.bottom ?? 0) + foot,
-      measurement: { rows: rows.slice(0, at) },
-    },
-    tail: [
-      {
-        ...block,
-        node: create({
-          entries: entries.slice(at),
-          first: Number(node.attrs.first) + at,
-          splitPartIndex: part + 1,
-        }),
-        height: block.height - next.top,
-        breakBefore: true,
-        measurement: {
-          rows: rows.slice(at).map((entry) => ({
-            top: entry.top - next.top,
-            bottom: entry.bottom - next.top,
-          })),
-        },
-      },
-    ],
-  };
-}
-
-// Joins the log that starts at `pos` into the one before: its entries follow on.
-function joinLogs(tr: Transform, pos: number) {
-  const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
-  if (!previous || !next) return;
-  const entries = [...(previous.attrs.entries as string[]), ...(next.attrs.entries as string[])];
-  tr.delete(pos, pos + next.nodeSize);
-  tr.setNodeAttribute(pos - previous.nodeSize, 'entries', entries);
+// The log's box, worked out from its entries before it is drawn: each entry wrapped in the served
+// fonts at the width beside the numbers, and the space below the list. A sized block moves whole.
+function sizeLog({ node, width, text }: SizeInput): RuleSize {
+  const entries = node.attrs.entries as string[];
+  const height = entries.reduce(
+    (sum, entry) => sum + text.lines(entry, { width: width - LOG_INDENT }).height,
+    0,
+  );
+  return { height: height + LOG_FOOT };
 }
 
 const RULES: LayoutRules = {
   ...LAYOUT_RULES,
-  [LOG_NODE]: { keepsWithHeading: true, measure: measureLog, split: splitLog },
+  [LOG_NODE]: { keepsWithHeading: true, size: sizeLog },
 };
-const FRAGMENTS: FragmentRules = {
-  ...FRAGMENT_RULES,
-  [LOG_NODE]: { whole: { splitPartIndex: null }, join: joinLogs },
-};
+const FRAGMENTS: FragmentRules = FRAGMENT_RULES;
 
 // The sample with the host's log in its slot.
 function sampleDocument(): Node {
@@ -272,11 +221,15 @@ function render(): void {
   const mount = document.querySelector<HTMLElement>('.lab-pages');
   if (!measureIn || !mount) return;
   const pageHeight = Number.parseFloat(getComputedStyle(measureIn).getPropertyValue('--lab-page'));
+  const width = Number.parseFloat(getComputedStyle(measureIn).width);
+  const template = templateOfWidth(BASE_TEMPLATE, width);
+  applyTemplate(template, []);
   showOnPages(
     { mount, measureIn },
     {
       state: EditorState.create({ doc: sampleDocument() }),
       pageHeight,
+      template: () => template,
       rules: RULES,
       fragmentRules: FRAGMENTS,
       onLayout: reportPages,

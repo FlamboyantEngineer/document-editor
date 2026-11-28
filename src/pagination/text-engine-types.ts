@@ -24,10 +24,6 @@ export type TextLayoutMode = 'dom' | 'pretext';
 /** What the pages' text layout engine is made from. */
 export interface TextEngineOptions {
   readonly template: TemplateFile;
-  /** Where atoms only the browser can size are measured, out of sight. */
-  readonly measureIn: HTMLElement;
-  /** Called when atoms that were still loading have their final sizes. */
-  readonly onAtomsSettled: () => void;
   /** Where text widths come from; by default a Canvas measuring unhinted (geometricPrecision). */
   readonly measureContext?: (() => MeasureContext) | undefined;
   /** Whether a family has served faces; a block in another family is left to the DOM. */
@@ -47,20 +43,21 @@ export interface TextEngineOptions {
    */
   readonly language?: string | undefined;
   /**
-   * The view that measures the pages, which draws each atom as the pages do; atoms are measured as
-   * it draws them (DOCE-PAGINATION-10.2). Without it, an atom is drawn in a host of its own.
+   * The view that measures the pages, whose state's math views typeset its math
+   * (DOCE-PAGINATION-10.8); nothing is read from what it draws.
    */
   readonly view?: (() => EditorView | null) | undefined;
-  /** How much that view is scaled on screen, such as by a zoom. */
-  readonly scale?: (() => number) | undefined;
-  /** The node types a host draws with node views of its own, measured as drawn, never as text. */
+  /**
+   * The node types a host draws with node views of its own, never laid out as text: one its rule
+   * does not size takes no room.
+   */
   readonly hostViews?: readonly string[] | undefined;
   /**
-   * The host's layout rules now: a node whose rule has `size` is laid out at that size, never
-   * measured as drawn (DOCE-PAGINATION-14.1).
+   * The layout rules now, the library's own (`LAYOUT_RULES`) when not given: a node whose rule has
+   * `size` is laid out at that size (DOCE-PAGINATION-14.1).
    */
   readonly layoutRules?: (() => LayoutRules | undefined) | undefined;
-  /** The text atoms left to the DOM, with why; `REFUSED_TEXT_ATOMS` by default. */
+  /** The text atoms not laid out as text, with why; `REFUSED_TEXT_ATOMS` by default. */
   readonly refusedTextAtoms?: ReadonlyMap<string, string> | undefined;
   /**
    * How the pages show suggestions now: the suggestions the markup hides take no room
@@ -69,8 +66,8 @@ export interface TextEngineOptions {
   readonly markup?: (() => SuggestionMarkup) | undefined;
   /**
    * Lays typeset math out from a math font's data (DOCE-PAGINATION-12.10), so its box and drawing
-   * come from one layout on every system; null while there is none. Math is measured as drawn
-   * without it, or without `typesetOf`.
+   * come from one layout on every system; null while there is none. Math takes the reserved box
+   * without it, or without `typesetOf` (DOCE-PAGINATION-12.9).
    */
   readonly mathLayouter?: (() => MathLayouter | null) | undefined;
   /** What a math node was typeset as, by the math views the pages draw with. */
@@ -106,12 +103,18 @@ interface DocumentNumbering {
   readonly labelsKey?: string | undefined;
 }
 
-/** What the engine laid out and left to the DOM so far. */
+/** What the engine laid out, and could not, so far. */
 export interface TextEngineStats {
   readonly laid: number;
+  /** Nodes it could not lay out, each taking no room (DOCE-PAGINATION-14.4). */
   readonly refused: number;
-  /** Why blocks were left to the DOM, with how many. */
+  /** Why nodes could not be laid out, with how many. */
   readonly reasons: ReadonlyMap<string, number>;
+  /**
+   * The last nodes it could not lay out, at most 100, by their type and element id (`type#id`),
+   * with why.
+   */
+  readonly refusedNodes?: ReadonlyMap<string, string> | undefined;
   /** How many equations are scaled to fit below `MATH_MIN_REPORTED_SCALE`. */
   readonly smallMath?: number | undefined;
   /**
@@ -153,13 +156,9 @@ export interface PagesTextEngine {
   contentsDrawn(node: ProseMirrorNode, scope: string | null): ContentsDrawn | null;
   /**
    * A top-level block of a section's page content, laid out with the words inserted in its text
-   * blocks; null when the DOM must measure it.
+   * blocks; one it cannot lay out takes no room, counted in its stats.
    */
-  measureBlock(
-    node: ProseMirrorNode,
-    scope: string | null,
-    inserted?: InsertedTexts,
-  ): LayoutBlock | null;
+  measureBlock(node: ProseMirrorNode, scope: string | null, inserted?: InsertedTexts): LayoutBlock;
   /**
    * A section's page header, footer or footnote area, laid out with the text its template variables
    * show (none when absent, so a region with one is left to the DOM); null when the DOM must
@@ -206,13 +205,14 @@ export interface PagesTextEngine {
     scope: string | null,
   ): ReadonlyMap<ProseMirrorNode, ObjectBox>;
   /**
-   * Whether an atom the engine measured, such as an image or math, still waits for its final size,
-   * so the blocks holding it, and the page breaks after them, may move.
+   * Whether the math layouter still loads what laying a document's math out needs, such as glyph
+   * ranges: a promise that settles once it has, which the pages wait for before they lay the
+   * document out (DOCE-PAGINATION-14.4); null when nothing is to load.
    */
-  provisional(): boolean;
+  mathPending(doc: ProseMirrorNode): Promise<void> | null;
   /**
    * The layout a math node was laid out from, with the box and scale it takes on the pages
-   * (DOCE-PAGINATION-12.10); null for math measured as drawn.
+   * (DOCE-PAGINATION-12.10); null for math it has not laid out.
    */
   mathOf(node: ProseMirrorNode): PlacedMath | null;
   /**

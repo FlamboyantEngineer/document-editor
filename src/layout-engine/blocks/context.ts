@@ -23,8 +23,13 @@ export interface BlockContext {
 }
 
 /** A block laid out. */
-export function laid(block: LayoutBlock, provisional = false): Laid {
-  return { ok: true, block, provisional };
+export function laid(block: LayoutBlock): Laid {
+  return { ok: true, block };
+}
+
+/** A block that takes no room, as one the engine cannot lay out does. */
+export function noRoom(node: ProseMirrorNode): LayoutBlock {
+  return { node, height: 0, marginTop: 0, marginBottom: 0 };
 }
 
 /** A block the engine cannot lay out yet. */
@@ -32,25 +37,28 @@ export function notLaid(node: ProseMirrorNode, reason: string): Laid {
   return { ok: false, node, reason };
 }
 
-/** A node's children, laid out in order, or the first that cannot be. */
+/**
+ * A node's children, laid out in order, or the first that cannot be. With `onRefused`, a child that
+ * cannot be laid out takes no room instead, and is told of (DOCE-PAGINATION-14.4).
+ */
 export function layChildren(
   context: BlockContext,
   node: ProseMirrorNode,
   at: { width: number; parent: BlockParent },
-): { readonly blocks: LayoutBlock[]; readonly provisional: boolean } | Laid {
+): { readonly blocks: LayoutBlock[] } | Laid {
   const blocks: LayoutBlock[] = [];
-  let provisional = false;
   let failed: Laid | null = null;
   node.forEach((child) => {
     if (failed) return;
     const result = context.child(child, at);
-    if (!result.ok) failed = result;
+    if (result.ok) blocks.push(result.block);
+    else if (!context.options.onRefused) failed = result;
     else {
-      blocks.push(result.block);
-      provisional ||= result.provisional;
+      context.options.onRefused(result.node, result.reason);
+      blocks.push(noRoom(child));
     }
   });
-  return failed ?? { blocks, provisional };
+  return failed ?? { blocks };
 }
 
 /** Whether a children result is a failure. */

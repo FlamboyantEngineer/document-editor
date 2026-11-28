@@ -1,5 +1,5 @@
 // Shows a sample document on fixed-height pages, a read-only projection of the whole document
-// (`createProjectionView`): the whole document is measured in a hidden view, and the pages move
+// (`createProjectionView`): the whole document is laid out by the layout engine, and the pages move
 // onto each new layout by steps after every edit and when the page width changes, with the caret
 // staying on its text, undo undoing edits, and each page leaving room for the footnotes it holds.
 // The page holding the caret is read from the layout (`pageMap`).
@@ -10,6 +10,7 @@ import { keymap } from 'prosemirror-keymap';
 import type { Node } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
 import {
+  BASE_TEMPLATE,
   createDocumentSchema,
   type DocumentFile,
   joinDocumentPages,
@@ -18,7 +19,8 @@ import {
   type StoredNode,
 } from '../../src/model/index.js';
 import { pageMap, type ProjectionView } from '../../src/pagination/index.js';
-import { showOnPages } from './lab-pages.js';
+import { applyTemplate } from './lab-document.js';
+import { showOnPages, templateOfWidth } from './lab-pages.js';
 
 /** The content height of each page, in pixels. */
 const PAGE_HEIGHT = 360;
@@ -170,6 +172,8 @@ function render(): void {
   const mount = document.querySelector<HTMLElement>('.lab-pages');
   const button = document.querySelector<HTMLButtonElement>('.lab-narrow');
   if (!measureIn || !mount || !button) return;
+  let template = templateOfWidth(BASE_TEMPLATE, WIDTHS.wide);
+  let applied = applyTemplate(template, []);
   const pages = showOnPages(
     { mount, measureIn },
     {
@@ -182,6 +186,7 @@ function render(): void {
         ],
       }),
       pageHeight: PAGE_HEIGHT,
+      template: () => template,
       ghostPlugins: [],
       dispatch: () => reportCaret(pages),
       onLayout: reportPages,
@@ -193,6 +198,8 @@ function render(): void {
     button.setAttribute('aria-pressed', String(narrow));
     const width = narrow ? WIDTHS.narrow : WIDTHS.wide;
     document.documentElement.style.setProperty('--lab-width', `${String(width)}px`);
+    template = templateOfWidth(BASE_TEMPLATE, width);
+    applied = applyTemplate(template, applied);
     pages.refresh({ remeasure: true });
   });
 }

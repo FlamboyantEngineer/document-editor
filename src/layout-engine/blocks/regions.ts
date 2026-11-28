@@ -14,21 +14,19 @@ type Lay = (node: ProseMirrorNode) => ReturnType<typeof layTextBlock>;
 function stackedRegion(
   region: ProseMirrorNode,
   lay: Lay,
-): { blocks: LayoutBlock[]; provisional: boolean } | RegionGeometry {
+): { blocks: LayoutBlock[] } | RegionGeometry {
   const blocks: LayoutBlock[] = [];
-  let provisional = false;
   for (let index = 0; index < region.childCount; index += 1) {
     const result = lay(region.child(index));
     if (!result.ok) return result;
     blocks.push({ ...result.block, marginTop: 0, marginBottom: 0 });
-    provisional ||= result.provisional;
   }
-  return { blocks, provisional };
+  return { blocks };
 }
 
 const isGeometry = (value: object): value is RegionGeometry => 'ok' in value;
 
-const EMPTY: RegionGeometry = { ok: true, height: 0, gap: 0, children: [], provisional: false };
+const EMPTY: RegionGeometry = { ok: true, height: 0, gap: 0, children: [] };
 
 /** A page header's or footer's height and the space between it and the content. */
 export function layHeaderOrFooter(
@@ -47,7 +45,6 @@ export function layHeaderOrFooter(
     height: Math.max(own.minHeight, span),
     gap: own.gap,
     children,
-    provisional: stacked.provisional,
   };
 }
 
@@ -71,6 +68,5 @@ export function layFootnoteArea(context: BlockContext, area: ProseMirrorNode): R
     height: separator + spacing + bottom,
     gap: 0,
     children,
-    provisional: stacked.provisional,
   };
 }

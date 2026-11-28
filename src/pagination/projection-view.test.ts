@@ -17,7 +17,6 @@ import {
 import { createContents } from '../engine/contents.js';
 import { createMathViews } from '../engine/math-views.js';
 import { BASE_TEMPLATE, joinDocumentPages, sameStructure } from '../model/index.js';
-import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { canonicalView } from './canonical-view.js';
 import { type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import { layoutNow } from './layout-latency.js';
@@ -593,7 +592,8 @@ describe('projection view', () => {
     drain();
     expect(projection.layoutState()).toBe('settled');
     expect(pageMap(projection.state, projection.view).pages()).toHaveLength(3);
-    expect(projection.stats()).toMatchObject({ layouts: 2 });
+    // Nothing is laid out before the fonts: the first layout is the one after them.
+    expect(projection.stats()).toMatchObject({ layouts: 1 });
   });
 });
 
@@ -655,15 +655,13 @@ describe('projection layouts', () => {
     expect(projection.stats().layouts).toBe(layouts + 1);
   });
 
-  it('DOCE-PAGINATION-7.5 counts layouts, measured and cached blocks, sections and pages', () => {
+  it('DOCE-PAGINATION-7.5 counts layouts, blocks laid out, sections and pages', () => {
     const { projection, drain } = mount();
     // The first layout runs while the projection is made.
     const first = projection.stats();
     expect(first).toMatchObject({
       layouts: 1,
       blocksMeasured: 5,
-      cacheHits: 0,
-      cacheMisses: 5,
       sectionsRelaid: 1,
       sectionsReused: 0,
       pagesLaidOut: 3,
@@ -676,8 +674,6 @@ describe('projection layouts', () => {
     expect(projection.stats()).toMatchObject({
       layouts: 2,
       blocksMeasured: 6,
-      cacheHits: 4,
-      cacheMisses: 6,
       sectionsRelaid: 2,
       sectionsReused: 0,
       overflowPages: 0,
@@ -745,20 +741,20 @@ describe('projection layouts', () => {
     expect(projection.stats().layouts).toBe(layouts + 1);
   });
 
-  it('DOCE-PAGINATION-5.9 measures again once after a change when a page overflows', () => {
+  it('DOCE-PAGINATION-5.9 DOCE-PAGINATION-5.4 DOCE-PAGINATION-5.14 counts the pages drawn taller than they are, and lays nothing out again for them', () => {
     // The test DOM draws pages with no height, so a page of two paragraphs overflows.
     const { projection, drain } = mount(
       { state: canonicalState([], ['One', 'Two']) },
       { height: 100, boxes: true },
     );
     drain();
-    expect(projection.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4, overflowPages: 2 });
+    expect(projection.stats()).toMatchObject({ layouts: 1, blocksMeasured: 2, overflowPages: 1 });
     expect(projection.layoutState()).toBe('settled');
     edit(projection, (state) =>
       layoutNow(state.tr.insertText('First ', positionOf(state.doc, 'One'))),
     );
     drain();
-    expect(projection.stats()).toMatchObject({ layouts: 4, overflowPages: 4 });
+    expect(projection.stats()).toMatchObject({ layouts: 2, overflowPages: 2 });
   });
 
   it('DOCE-PAGINATION-7.6 settles two frames after a layout with none due, and pends on a change', async () => {
@@ -817,40 +813,6 @@ describe('projection layouts', () => {
     broken = false;
     projection.refresh();
     drain();
-    expect(projection.layoutState()).toBe('settled');
-  });
-
-  it('DOCE-PAGINATION-7.6 fails when layouts keep moving the pages with no change in between', () => {
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((run) => {
-      run(0);
-      return 0;
-    });
-    let calls = 0;
-    // Every other layout fits two paragraphs on a page, so each moves the pages again.
-    const measureIn = document.body.appendChild(document.createElement('div'));
-    const { projection, drain } = mount(
-      {
-        measureIn,
-        state: canonicalState([], ['One', 'Two', 'Three', 'Four']),
-        pageHeight: () => {
-          calls += 1;
-          return calls % 2 ? 150 : 250;
-        },
-      },
-      { height: 100 },
-    );
-    drain();
-    for (let index = 0; index < 10; index += 1) {
-      measureIn.dispatchEvent(new Event(REMEASURE_EVENT));
-      drain();
-    }
-    expect(projection.layoutState()).toBe('failed');
-    const { layouts } = projection.stats();
-    edit(projection, (state) =>
-      layoutNow(state.tr.insertText('First ', positionOf(state.doc, 'One'))),
-    );
-    drain();
-    expect(projection.stats().layouts).toBe(layouts + 1);
     expect(projection.layoutState()).toBe('settled');
   });
 });

@@ -33,27 +33,6 @@ export function fixedImageBox(
   return { width: shown, height: width ? (height * shown) / width : 0 };
 }
 
-function atomBlock(context: BlockContext, node: ProseMirrorNode, margins = { top: 0, bottom: 0 }) {
-  const size = context.options.atoms.measureBlockAtom(
-    node,
-    context.place.width,
-    context.place.scope,
-  );
-  if (!size) return notLaid(node, `${node.type.name} has no measured size`);
-  const flush = context.parent === 'region';
-  // The stylesheet's margins, or wider ones the atom is drawn with.
-  const drawn = size.margins ?? { top: 0, bottom: 0 };
-  return laid(
-    {
-      node,
-      height: size.height,
-      marginTop: flush ? 0 : Math.max(margins.top, drawn.top),
-      marginBottom: flush ? 0 : Math.max(margins.bottom, drawn.bottom),
-    },
-    size.provisional,
-  );
-}
-
 function captionHeight(
   context: BlockContext,
   caption: ProseMirrorNode,
@@ -155,8 +134,8 @@ export function layLinkedCode(context: BlockContext, node: ProseMirrorNode): Lai
 }
 
 /**
- * A display equation, with the stylesheet's margins: from its layout, scaled down to fit the line
- * less its tag (DOCE-PAGINATION-12.10), or measured as an atom.
+ * A display equation, with the stylesheet's margins: from its layout, or the reserved box, scaled
+ * down to fit the line less its tag (DOCE-PAGINATION-12.10).
  */
 export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): Laid {
   const { math } = context.metrics;
@@ -166,7 +145,7 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
     context.place.width,
     context.place.scope,
   );
-  if (!size?.math) return atomBlock(context, node, margins);
+  if (!size?.math) return notLaid(node, 'math without a layout');
   const end = endRoom(context, node, size.math);
   const fitted = placeMath(size.math, context.place.width, end.room);
   const placed = end.tag ? { ...fitted, tagEnd: end.tag } : fitted;
@@ -176,15 +155,12 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
   // The tag sits on the equation's baseline, unscaled.
   const height = Math.max(ascent, tag?.ascent ?? 0) + Math.max(descent, tag?.descent ?? 0);
   const flush = context.parent === 'region';
-  return laid(
-    {
-      node,
-      height,
-      marginTop: flush ? 0 : margins.top,
-      marginBottom: flush ? 0 : margins.bottom,
-    },
-    size.provisional,
-  );
+  return laid({
+    node,
+    height,
+    marginTop: flush ? 0 : margins.top,
+    marginBottom: flush ? 0 : margins.bottom,
+  });
 }
 
 // The room a display equation's line keeps at its end: its tag, then its automatic number, side
@@ -223,7 +199,10 @@ export function layPageBreak(node: ProseMirrorNode): Laid {
   return laid({ node, height: 0, marginTop: 0, marginBottom: 0 });
 }
 
-/** A block drawn from stored or generated markup, measured as an atom. */
-export function layMarkupBlock(context: BlockContext, node: ProseMirrorNode): Laid {
-  return atomBlock(context, node);
+/**
+ * A kept block, which holds content the schema does not know as markup: nothing lays it out, so it
+ * takes no room and is reported (DOCE-PAGINATION-14.4).
+ */
+export function layKeptBlock(node: ProseMirrorNode): Laid {
+  return notLaid(node, 'kept content the schema does not know takes no room');
 }

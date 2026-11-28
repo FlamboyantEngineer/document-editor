@@ -53,7 +53,7 @@ function stacked(context: BlockContext, node: ProseMirrorNode, at: StackAt): Lai
   const children = layChildren(context, node, at);
   if (isLaid(children)) return children;
   const blocks = at.adjust ? at.adjust(children.blocks) : children.blocks;
-  return laid(container(node, blocks, at.box), children.provisional);
+  return laid(container(node, blocks, at.box));
 }
 
 /** A list item: its blocks, a checklist item's beside its box. */
@@ -73,10 +73,7 @@ function layListItem(context: BlockContext, node: ProseMirrorNode, last: boolean
   });
   if (!result.ok || !isTask) return result;
   const minimum = TASK_BOX_EM * context.metrics.em;
-  return laid(
-    { ...result.block, height: Math.max(result.block.height, minimum) },
-    result.provisional,
-  );
+  return laid({ ...result.block, height: Math.max(result.block.height, minimum) });
 }
 
 /** A bulleted or numbered list: its items indented by the template's indentation. */
@@ -84,14 +81,12 @@ export function layList(context: BlockContext, list: ProseMirrorNode): Laid {
   const { metrics, place } = context;
   const width = place.width - metrics.list.indent;
   const blocks: LayoutBlock[] = [];
-  let provisional = false;
   for (let index = 0; index < list.childCount; index += 1) {
     const item = list.child(index);
     const itemContext = { ...context, place: { ...place, width }, parent: 'other' as const };
     const result = layListItem(itemContext, item, index === list.childCount - 1);
     if (!result.ok) return result;
     blocks.push(result.block);
-    provisional ||= result.provisional;
   }
   const box = {
     marginTop: metrics.list.before,
@@ -99,7 +94,7 @@ export function layList(context: BlockContext, list: ProseMirrorNode): Laid {
     top: 0,
     bottom: 0,
   };
-  return laid(container(list, blocks, box), provisional);
+  return laid(container(list, blocks, box));
 }
 
 /** A quote: its blocks indented on both sides, with the stylesheet's margins above and below. */
@@ -167,29 +162,24 @@ export function layLayoutSection(context: BlockContext, node: ProseMirrorNode): 
   const total = tracks.reduce((sum, track) => sum + track, 0) || 1;
   const free = Math.max(0, context.place.width - gap * Math.max(0, tracks.length - 1));
   const columns: LayoutBlock[] = [];
-  let provisional = false;
   for (let index = 0; index < node.childCount; index += 1) {
     const result = layColumn(context, node.child(index), (free * (tracks[index] ?? 1)) / total);
     if (!result.ok) return result;
     columns.push(result.block);
-    provisional ||= result.provisional;
   }
   const height = Math.max(0, ...columns.map((column) => column.height));
-  return laid(
-    {
-      node,
-      height,
-      marginTop: 0,
-      marginBottom: after,
-      measurement: {
-        children: columns.map((column) => ({
-          top: 0,
-          bottom: height,
-          measurement: column.measurement,
-        })),
-        overhead: 0,
-      },
+  return laid({
+    node,
+    height,
+    marginTop: 0,
+    marginBottom: after,
+    measurement: {
+      children: columns.map((column) => ({
+        top: 0,
+        bottom: height,
+        measurement: column.measurement,
+      })),
+      overhead: 0,
     },
-    provisional,
-  );
+  });
 }

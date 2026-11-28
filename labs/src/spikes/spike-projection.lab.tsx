@@ -12,6 +12,7 @@ import type { Node } from 'prosemirror-model';
 import { EditorState, type Selection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import {
+  BASE_TEMPLATE,
   createDocumentSchema,
   type DocumentFile,
   joinDocumentPages,
@@ -20,6 +21,7 @@ import {
   type StoredNode,
 } from '../../../src/model/index.js';
 import { createProjectionView, type ProjectionView } from '../../../src/pagination/index.js';
+import { labTextLayout } from '../lab-pages.js';
 
 const PAGE_HEIGHT = 360;
 
@@ -226,6 +228,7 @@ function mountProjection(doc: Node, mount: HTMLElement, measureIn: HTMLElement):
     measureIn,
     state: EditorState.create({ doc: joinDocumentPages(doc).doc, plugins: [history()] }),
     pageHeight: PAGE_HEIGHT,
+    textLayout: labTextLayout(() => BASE_TEMPLATE),
     keys: {
       'Mod-z': undo,
       'Mod-y': redo,

@@ -1,5 +1,6 @@
-// Lays a whole document out on pages from a view that renders it: each section's blocks measured,
-// and each page left the room its header and footer and the footnote entries it will hold take.
+// Lays a whole document out on pages from a view that holds it: each section's blocks laid out by
+// the pages' text layout engine, with no DOM, and each page left the room its header and footer
+// and the footnote entries it will hold take.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
@@ -12,16 +13,14 @@ import {
   stackedHeight,
 } from '../model/index.js';
 import { hasBodyPageVariable } from './body-variables.js';
+import { type FootnoteArea, footnoteAreaHeight } from './footnote-area.js';
 import { forcedLinesKey } from './forced-lines.js';
 import {
   type IncrementalResult,
   layoutSectionIncrementally,
   type SectionLayout,
 } from './incremental-layout.js';
-import { insertedTexts, NO_INSERTED } from './inserted-texts.js';
-import { measureChildBlocks } from './measure-blocks.js';
-import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
-import { type FootnoteArea, footnoteAreaHeight } from './measure-footnotes.js';
+import { insertedTexts } from './inserted-texts.js';
 import { footnoteArea, roomsFor, type SectionRegions, sectionRegions } from './page-regions.js';
 import { cited, sectionPlaces } from './section-places.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -42,19 +41,17 @@ export interface DocumentLayoutOptions {
   rules?: SectionLayoutRules | undefined;
   /** Whether footnotes are numbered, and their entries shown, through the document or per page. */
   footnoteNumbering?: 'document' | 'page' | undefined;
-  scale?: number | undefined;
-  cache?: MeasureCache | undefined;
   /** Receives each page laid out: the height its blocks take and the height it has for them. */
   onPage?: ((page: PageMetric) => void) | undefined;
   /**
-   * Receives each section laid out, with how many of its blocks were measured in the view rather
-   * than taken from the cache, and how many of its pages were laid out rather than reused.
+   * Receives each section laid out, with how many of its blocks the engine laid out rather than
+   * kept, and how many of its pages were laid out rather than reused.
    */
   onSection?: ((section: SectionReport) => void) | undefined;
   /** Where each section's layout is kept, so the next layout reuses the pages a change leaves. */
   memory?: LayoutMemory | undefined;
-  /** Lays the blocks it can out without the DOM (`textLayout: 'pretext'`, DOCE-PAGINATION-11.1). */
-  engine?: PagesTextEngine | null | undefined;
+  /** Lays every block out, with no DOM (DOCE-PAGINATION-11.1). */
+  engine: PagesTextEngine;
   /** Receives why a layout stopped before its lists of contents settled, as after too many passes. */
   onUnsettled?: ((reason: string) => void) | undefined;
 }
@@ -220,28 +217,27 @@ function layoutSection(
   return { result, metrics };
 }
 
-// The blocks, footnote area, page height and regions of each section the view renders.
+// The blocks, footnote area, page height and regions of each section the view holds.
 function sectionFills(view: EditorView, options: DocumentLayoutOptions) {
-  const { scale, cache, engine } = options;
-  const ratio = scale && scale > 0 ? scale : 1;
-  const measuredSoFar = () => (cache ? measureCacheCounts(cache).measured : 0);
+  const { engine } = options;
+  const laidSoFar = () => engine.stats().laid;
   // The words other plugins draw in its text blocks, such as a comparison's deleted words.
-  const inserted = engine ? insertedTexts(view.state, [forcedLinesKey]) : NO_INSERTED;
+  const inserted = insertedTexts(view.state, [forcedLinesKey]);
   return sectionPlaces(view.state.doc).map((place, index) => {
     const { section, content, footnotes } = place;
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
     const scope = (section.attrs.sectionName as string | null | undefined) ?? null;
-    const at = { ratio, scope, engine };
+    const at = { scope, engine };
     const regions = sectionRegions(view, at, place);
-    const before = measuredSoFar();
+    const before = laidSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const laid = engine
-      ? (node: ProseMirrorNode) => engine.measureBlock(node, scope, inserted)
-      : undefined;
-    const blocks = measureChildBlocks(view, content, { scale, cache, rules, engine: laid });
-    const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
+    const blocks: LayoutBlock[] = [];
+    view.state.doc.nodeAt(content)?.forEach((node) => {
+      blocks.push(engine.measureBlock(node, scope, inserted));
+    });
+    const blocksMeasured = laidSoFar() - before;
     const area = footnoteArea(view, footnotes, at);
     const fill: SectionFill = { blocks, area, pageHeight, regions, rules };
     return { fill, blocksMeasured };
@@ -343,11 +339,11 @@ const DIGIT_PASSES = 3;
 // and the room only grows.
 function settleDigits(view: EditorView, options: DocumentLayoutOptions) {
   const { engine } = options;
-  let digits = engine?.pageDigits(0) ?? 0;
+  let digits = engine.pageDigits(0);
   let fills = sectionFills(view, options);
   let settled = settlePasses(fills, options);
   const { doc } = view.state;
-  if (!engine || !(hasContents(doc) || hasBodyPageVariable(doc))) return { fills, settled };
+  if (!(hasContents(doc) || hasBodyPageVariable(doc))) return { fills, settled };
   for (let count = 1; ; count += 1) {
     const needed = engine.pageDigits(Math.max(settled.pass.counted, 10 ** (digits - 1)));
     if (needed === digits) break;
@@ -366,13 +362,14 @@ function settleDigits(view: EditorView, options: DocumentLayoutOptions) {
 }
 
 /**
- * The pages of each section of the whole document a view renders, as `projectDocument` takes them:
- * every block measured, cached ones reused, and each page short by its header's, its footer's and
- * its footnote entries' heights, each laid out with the page's own number and the page count.
+ * The pages of each section of the whole document a view holds, as `projectDocument` takes them:
+ * every block laid out by the engine, those it kept reused, and each page short by its header's,
+ * its footer's and its footnote entries' heights, each laid out with the page's own number and the
+ * page count.
  */
 export function layoutDocument(view: EditorView, options: DocumentLayoutOptions): SectionPages[] {
   const { memory, engine } = options;
-  engine?.number(view.state.doc);
+  engine.number(view.state.doc);
   const { fills, settled } = settleDigits(view, options);
   const { pass, laidOut, layouts, pages } = settled;
   pass.laid.forEach(({ result, metrics }, index) => {

@@ -21,7 +21,7 @@ export interface LayoutBlock {
   readonly marginBottom: number;
   /** Whether it starts a new page, as the fragments after a split's first do. */
   readonly breakBefore?: boolean | undefined;
-  /** What the editor measured it from, for its split to read. */
+  /** What the layout engine laid it out as, for its split to read. */
   readonly measurement?: unknown;
 }
 
@@ -41,14 +41,6 @@ export interface SplitContext {
 export interface SplitBlock {
   head: LayoutBlock;
   tail: LayoutBlock[];
-}
-
-/** What a rule measures a block from: the element the editor rendered it as. */
-export interface MeasureInput {
-  readonly node: ProseMirrorNode;
-  readonly element: HTMLElement;
-  /** How much the view is scaled on screen; sizes read from the element divide by it. */
-  readonly scale: number;
 }
 
 /** Text a size rule measures, in the template's paragraph or code block typography. */
@@ -114,11 +106,6 @@ export interface LayoutRule {
   /** The block split to fit a height, or null when it cannot split there; never with `size`. */
   readonly split?:
     ((block: LayoutBlock, height: number, context: SplitContext) => SplitBlock | null) | undefined;
-  /**
-   * What the block's split reads (`LayoutBlock.measurement`), measured from its element in place
-   * of the editor's own measuring, for a host's node type.
-   */
-  readonly measure?: ((input: MeasureInput) => unknown) | undefined;
 }
 
 /** Layout rules by node type name. */

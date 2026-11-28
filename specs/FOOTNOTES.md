@@ -86,7 +86,7 @@ Verification: `src/engine/footnote-numbers.test.ts`, `src/collab/sync.test.ts`, 
 
 Typing in a footnote entry that leaves its height as it was shall leave every entry on the page it was on, and the entry shall keep drawing its number while the writer types; inserting a footnote lays its page out again in the same layout (DOCE-PAGINATION-7.2).
 
-Implementation: `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `src/model/schema/footnote-nodes.ts`
+Implementation: `src/pagination/layout-document.ts`, `src/pagination/footnote-area.ts`, `src/model/schema/footnote-nodes.ts`
 Verification: `e2e/regression.spec.ts`
 
 ## Hooks

@@ -25,8 +25,8 @@ const figure = (attrs: Record<string, unknown>, length = 0) =>
   ]);
 
 describe('figures', () => {
-  it('DOCE-PAGINATION-10.4 sizes an image from its stored size without measuring it', () => {
-    const measure = vi.fn(() => ({ size: { width: 1, height: 1 } }));
+  it('DOCE-PAGINATION-10.4 DOCE-PAGINATION-5.15 sizes an image from its stored size without measuring it', () => {
+    const measure = vi.fn(() => ({ width: 1, height: 1 }));
     const { layout } = standInBlockLayout({ measure });
     const block = blockOf(layout.layoutBlock(figure({ width: 300, height: 200 }, 10), place));
     expect(block).toMatchObject({ height: 200 + 16, marginTop: 0, marginBottom: 8 });
@@ -138,8 +138,10 @@ describe('linked code', () => {
 });
 
 describe('equations, rules and markup', () => {
-  it('DOCE-PAGINATION-10.4 measures a display equation as an atom with 6px margins', () => {
-    const measure = vi.fn(() => ({ size: { width: 200, height: 40 } }));
+  it('DOCE-PAGINATION-10.4 lays a display equation out from its math layout with 6px margins', () => {
+    const svg = { tag: 'svg', attrs: {}, children: [] };
+    const math = { math: { width: 200, ascent: 30, descent: 10, svg, missing: '' } };
+    const measure = vi.fn(() => ({ width: 200, height: 40, math }));
     const { layout } = standInBlockLayout({ measure });
     const equation = node('math_display', null, [schema.text('a^2 + b^2')]);
     expect(blockOf(layout.layoutBlock(equation, place))).toMatchObject({
@@ -149,6 +151,12 @@ describe('equations, rules and markup', () => {
     });
     layout.layoutBlock(equation, place);
     expect(measure).toHaveBeenCalledTimes(1);
+    // A box with no math layout is no equation's.
+    const unlaid = standInBlockLayout({ measure: () => ({ width: 200, height: 40 }) }).layout;
+    expect(unlaid.layoutBlock(equation, place)).toMatchObject({
+      ok: false,
+      reason: 'math without a layout',
+    });
   });
 
   it('DOCE-PAGINATION-12.10 scales a display equation wider than its line less its tag and an em down to fit', () => {
@@ -158,7 +166,7 @@ describe('equations, rules and markup', () => {
     const math = { math: { width: 1120, ascent: 30, descent: 12, svg, missing: '' }, tag };
     const placed = vi.fn();
     const { layout } = standInBlockLayout({
-      measure: () => ({ size: { width: 1160, height: 42, math } }),
+      measure: () => ({ width: 1160, height: 42, math }),
       onMath: placed,
     });
     const equation = node('math_display', null, [schema.text('x')]);
@@ -181,7 +189,7 @@ describe('equations, rules and markup', () => {
     const placed = vi.fn();
     const equation = node('math_display', null, [schema.text('x')]);
     const { layout } = standInBlockLayout({
-      measure: () => ({ size: { width: 1120, height: 42, math } }),
+      measure: () => ({ width: 1120, height: 42, math }),
       onMath: placed,
       equationOf: (of) => (of === equation ? '(4)' : undefined),
     });
@@ -200,7 +208,7 @@ describe('equations, rules and markup', () => {
     const placed = vi.fn();
     const equation = node('math_display', null, [schema.text('x')]);
     const { layout } = standInBlockLayout({
-      measure: () => ({ size: { width: 1110, height: 42, math } }),
+      measure: () => ({ width: 1110, height: 42, math }),
       onMath: placed,
       equationOf: () => '(4)',
     });
@@ -231,29 +239,14 @@ describe('equations, rules and markup', () => {
     });
   });
 
-  it('DOCE-PAGINATION-10.8 takes the margins a block atom is drawn with, its content’s that pass through its edges among them', () => {
-    const { layout } = standInBlockLayout({
-      measure: () => ({ size: { width: 600, height: 18, margins: { top: 0, bottom: 8 } } }),
-    });
-    const markup = node('kept_block', { stored: { type: 'unknown' } });
-    expect(blockOf(layout.layoutBlock(markup, place))).toMatchObject({
-      height: 18,
-      marginTop: 0,
-      marginBottom: 8,
-    });
-    // An equation keeps the stylesheet's margins where it is drawn with less.
-    const equation = node('math_display', null, [schema.text('x')]);
-    expect(blockOf(layout.layoutBlock(equation, place))).toMatchObject({
-      marginTop: 6,
-      marginBottom: 8,
-    });
-  });
-
-  it('DOCE-PAGINATION-10.4 measures a kept block as an atom', () => {
-    const { layout } = standInBlockLayout({
-      measure: () => ({ size: { width: 600, height: 33 } }),
-    });
+  it('DOCE-PAGINATION-14.6 gives a kept block no room, since nothing sizes it', () => {
+    const measure = vi.fn(() => ({ width: 600, height: 33 }));
+    const { layout } = standInBlockLayout({ measure });
     const kept = node('kept_block', { stored: { type: 'host_box' } });
-    expect(blockOf(layout.layoutBlock(kept, place))).toMatchObject({ height: 33, marginBottom: 0 });
+    expect(layout.layoutBlock(kept, place)).toMatchObject({
+      ok: false,
+      reason: 'kept content the schema does not know takes no room',
+    });
+    expect(measure).not.toHaveBeenCalled();
   });
 });

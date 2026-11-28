@@ -19,7 +19,6 @@ import type { LayoutPace } from './layout-pace.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
 import { waitsForMath } from './math-wait.js';
-import type { MeasureCache } from './measure-cache.js';
 import type { createPageMapScope } from './page-map.js';
 import type { PagedProjectionOptions } from './projection.js';
 import {
@@ -36,6 +35,7 @@ import {
   selectionAcrossBreak,
   showsCellSelection,
 } from './selection-mirror.js';
+import type { PagesTextEngine } from './text-engine-types.js';
 import type { TypingProbe } from './typing-probe.js';
 
 /** Marks the transactions the projection takes: a layout's, or a canonical change mirrored. */
@@ -49,7 +49,6 @@ const LAYOUT_PASSES = 8;
 export interface Session {
   readonly options: PagedProjectionOptions;
   readonly rules: FragmentRules;
-  readonly cache: MeasureCache;
   readonly pageMaps: ReturnType<typeof createPageMapScope>;
   readonly cells: ReturnType<typeof holdCellSelection>;
   readonly counts: { refused: number; relaid: number };
@@ -192,15 +191,9 @@ export function requestLayout(session: Session): void {
   session.cancelLayout = schedule(() => layout(session));
 }
 
-/**
- * Lays the pages out again soon; `remeasure` forgets every measurement and starts the ghost's
- * plugins over.
- */
+/** Lays the pages out again soon; `remeasure` starts the ghost's plugins over. */
 export function refreshLayout(session: Session, remeasure: boolean): void {
-  if (remeasure) {
-    session.cache.clear();
-    session.pace.restart = true;
-  }
+  if (remeasure) session.pace.restart = true;
   markChanged(session);
   session.edits.cancel();
   requestLayout(session);
@@ -209,21 +202,21 @@ export function refreshLayout(session: Session, remeasure: boolean): void {
 /** A change, or the host asking for a layout: the count of layouts in a row starts over. */
 function markChanged(session: Session): void {
   session.pace.changed = true;
-  session.pace.draws.changed();
   session.pace.readiness.pending();
 }
 
-// Lays the pages out from the ghost, with its plugins started over when the host asked.
-function layOutPages(session: Session) {
-  const { ghost, canonical, projection, cache, options, rules, pace } = session;
+// Lays the pages out from the ghost with the engine, with its plugins started over when the host
+// asked.
+function layOutPages(session: Session, engine: PagesTextEngine) {
+  const { ghost, canonical, projection, options, rules, pace } = session;
   if (pace.restart) {
     pace.restart = false;
     const { doc, plugins } = ghost.view.state;
     ghost.show(EditorState.create({ doc, plugins }));
   }
   return layOutProjection(
-    { projection, ghost, canonical, cache, memory: pace.memory, onSection: pace.counter.section },
-    { ...options, fragmentRules: rules, engine: pace.text?.engine() },
+    { projection, ghost, canonical, memory: pace.memory, onSection: pace.counter.section },
+    { ...options, fragmentRules: rules, engine },
   );
 }
 
@@ -235,6 +228,17 @@ function keepShownSelection(session: Session): void {
   if (!session.view || session.shown !== session.canonical.doc) return;
   readDom(session);
   syncSelection(session);
+}
+
+// The engine once it and the math's glyphs are ready, or null with the layout left pending: nothing
+// is laid out before the engine is, since the pages are never measured in the DOM.
+function readyEngine(session: Session): PagesTextEngine | null {
+  const engine = session.pace.text?.engine();
+  if (!engine) {
+    session.pace.readiness.pending();
+    return null;
+  }
+  return waitsForMath(session, () => requestLayout(session)) ? null : engine;
 }
 
 /**
@@ -252,7 +256,8 @@ export function layout(session: Session): void {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
     return requestLayout(session);
   }
-  if (waitsForMath(session, () => requestLayout(session))) return;
+  const engine = readyEngine(session);
+  if (!engine) return;
   keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
   else if (pace.passes >= LAYOUT_PASSES) {
@@ -263,7 +268,7 @@ export function layout(session: Session): void {
   const traced = traceLayout(trace, session.options.measureIn.ownerDocument.defaultView);
   let laidOut: ReturnType<typeof layOutProjection>;
   try {
-    laidOut = layOutPages(session);
+    laidOut = layOutPages(session, engine);
   } catch (error) {
     pace.readiness.fail();
     throw error;

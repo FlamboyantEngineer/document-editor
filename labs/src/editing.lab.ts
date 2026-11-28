@@ -69,6 +69,7 @@ function render(): void {
   const pages = showOnPages(mounts, {
     state: loaded.apply(identified),
     pageHeight: () => bodyHeight(TEMPLATE),
+    template: () => TEMPLATE,
     dispatch: () => {
       blockId.value = caretBlockId(pages.state);
     },

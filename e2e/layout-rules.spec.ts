@@ -73,17 +73,23 @@ test.describe('layout rules lab', () => {
     await expect(sections.nth(1).locator('.doc-layout-column')).toHaveCount(2);
   });
 
-  test('DOCE-PAGINATION-5.2 lays a host node type out by its own measure, split and join', async ({
+  test('DOCE-PAGINATION-5.2 DOCE-PAGINATION-14.1 sizes a host node type by its rule and moves it whole', async ({
     lab,
     page,
   }) => {
     await lab.open('layout-rules');
     await expect(page.locator('html')).toHaveAttribute('data-lab-joins-whole', 'true');
+    // A box its rule sizes never splits: one log, with every entry, on one page.
     const logs = page.locator('.lab-pages .lab-log');
-    expect(await logs.count()).toBeGreaterThan(1);
-    await expect(page.locator('.lab-pages .lab-log li')).toHaveCount(30);
-    const second = await logs.nth(1).locator('ol').getAttribute('start');
-    const firstCount = await logs.nth(0).locator('li').count();
-    expect(Number(second)).toBe(firstCount + 1);
+    await expect(logs).toHaveCount(1);
+    await expect(logs.locator('li')).toHaveCount(12);
+    await expect(logs).not.toHaveAttribute('data-split-part-index', /.*/);
+    // Its box is the rule's height: the entries fit inside it.
+    const fits = await logs.evaluate((log) => {
+      const box = log.getBoundingClientRect();
+      const last = log.querySelector('li:last-child')?.getBoundingClientRect();
+      return last !== undefined && last.bottom <= box.bottom + 0.5;
+    });
+    expect(fits).toBe(true);
   });
 });

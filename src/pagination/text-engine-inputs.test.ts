@@ -3,8 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { EditorView } from 'prosemirror-view';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
 import { note, paragraph, text } from '../../test/footnote-fixtures.js';
@@ -53,8 +53,6 @@ function positionOf(doc: ProseMirrorNode, target: ProseMirrorNode): number {
 function engineOf(view?: EditorView) {
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: view?.dom.parentElement ?? document.createElement('div'),
-    onAtomsSettled: () => undefined,
     refusedTextAtoms: new Map(),
     ...(view ? { view: () => view } : {}),
   });
@@ -64,8 +62,6 @@ function engineOfEquations() {
   const glyph = { tag: 'mi', attrs: {}, children: ['x'] };
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
     typesetOf: () => ({ state: 'ready', math: { tag: 'math', attrs: {}, children: [glyph] } }),
     mathLayouter: () => ({
       key: 'fixed-equation',
@@ -229,30 +225,20 @@ describe('the pages engine and its inputs', () => {
     }
   });
 
-  it('DOCE-PAGINATION-10.8 measures an inline atom as the pages measuring view draws it', () => {
+  it('DOCE-PAGINATION-10.8 DOCE-PAGINATION-14.4 lays out inline math with no layouter in its reserved box, never as drawn', () => {
     const doc = read([
       paragraph(text('aa '), { type: 'math_inline', content: [text('x^2')] }, text(' bb')),
     ]);
-    const element = document.createElement('div');
-    document.body.append(element);
-    const view = new EditorView(element, {
-      state: EditorState.create({ doc }),
-      editable: () => false,
-    });
-    const engine = engineOf(view);
+    const engine = engineOf();
     engine.number(doc);
     const block = blocksOf(doc)[0];
     if (!block) throw new Error('no block');
-    expect(engine.measureBlock(block, null)).not.toBeNull();
+    expect(engine.measureBlock(block, null).height).toBeGreaterThan(0);
     expect(engine.stats()).toMatchObject({ laid: 1, refused: 0 });
-    // Measured in copies, removed after.
-    expect(element.querySelector('.de-atom-measure')?.childElementCount).toBe(0);
     engine.destroy();
-    view.destroy();
-    element.remove();
   });
 
-  it('DOCE-PAGINATION-11.1 leaves only captions, template variables and contents lists of the stored documents to the DOM', () => {
+  it('DOCE-PAGINATION-11.1 lays out every block of the stored documents, none left without room', () => {
     const documents = join(
       dirname(fileURLToPath(import.meta.url)),
       '../../test/fixtures/documents',
@@ -266,8 +252,6 @@ describe('the pages engine and its inputs', () => {
       const { doc } = readDocumentFile(file, documentSchema);
       const engine = createPagesTextEngine({
         template,
-        measureIn: document.createElement('div'),
-        onAtomsSettled: () => undefined,
       });
       engine.number(doc);
       doc.forEach((section) => {
@@ -280,50 +264,31 @@ describe('the pages engine and its inputs', () => {
       engine.destroy();
     }
     expect(laid).toBeGreaterThanOrEqual(721);
-    // Blocks holding a template variable are always the DOM's, since its value may be the page's
-    // own number (DOCE-PAGINATION-9.5).
-    const left = [...reasons].filter((reason) => reason !== 'template variable');
-    expect(left).toEqual([]);
+    // Nothing of a stored document takes no room (DOCE-PAGINATION-14.6).
+    expect([...reasons]).toEqual([]);
   });
-  it('DOCE-PAGINATION-11.1 tells that an atom it measured still loads until it settles', async () => {
-    const settled = vi.fn();
-    const measureIn = document.createElement('div');
-    document.body.append(measureIn);
+
+  it('DOCE-PAGINATION-14.6 DOCE-PAGINATION-5.16 gives a kept node the schema does not know no room, and reports it', () => {
     const doc = readDocumentFile(
-      { formatVersion: 1, sections: [{ name: null, content: [{ type: 'plan' }] }] },
+      {
+        formatVersion: 1,
+        sections: [{ name: null, content: [{ type: 'plan', attrs: { id: 'kept-1' } }] }],
+      },
       documentSchema,
       { unknown: 'keep' },
     ).doc;
-    // A block measured as drawn whose drawing holds an image that has not loaded.
-    const view = new EditorView(measureIn, {
-      state: EditorState.create({ doc }),
-      editable: () => false,
-      nodeViews: {
-        kept_block: () => {
-          const dom = document.createElement('div');
-          dom.append(
-            Object.assign(document.createElement('img'), { src: 'https://example.org/a.png' }),
-          );
-          return { dom, ignoreMutation: () => true };
-        },
-      },
-    });
-    const engine = createPagesTextEngine({
-      template: BASE_TEMPLATE,
-      measureIn,
-      onAtomsSettled: settled,
-      view: () => view,
-    });
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
     engine.number(doc);
     const [block] = blocksOf(doc);
     if (!block) throw new Error('no kept block');
-    expect(engine.measureBlock(block, null)).not.toBeNull();
-    expect(engine.provisional()).toBe(true);
-    view.dom.querySelector('img')?.dispatchEvent(new Event('load'));
-    await vi.waitFor(() => expect(settled).toHaveBeenCalled());
-    expect(engine.provisional()).toBe(false);
+    expect(engine.measureBlock(block, null)).toMatchObject({
+      height: 0,
+      marginTop: 0,
+      marginBottom: 0,
+    });
+    const reason = 'kept content the schema does not know takes no room';
+    expect(engine.stats().reasons.get(reason)).toBe(1);
+    expect([...(engine.stats().refusedNodes ?? new Map()).values()]).toEqual([reason]);
     engine.destroy();
-    view.destroy();
-    measureIn.remove();
   });
 });

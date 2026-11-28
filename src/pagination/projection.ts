@@ -46,7 +46,6 @@ import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import type { LayoutTraceSink } from './layout-trace.js';
 import { awaitReady, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
-import { createMeasureCache } from './measure-cache.js';
 import { pageChromeDecorations } from './page-chrome.js';
 import { createPageMapScope } from './page-map.js';
 import { layoutSettled, pagesLayout } from './pages-layout.js';
@@ -149,10 +148,13 @@ export interface PagedProjectionOptions {
   /** Where the layout's trace goes while it is read (`LayoutTrace`); nothing is written otherwise. */
   readonly trace?: LayoutTraceSink | undefined;
   /**
-   * Lays the text out with the layout engine and draws its lines on the pages (`textLayout:
-   * 'pretext'`, DOCE-PAGINATION-11); measured in the DOM when absent.
+   * Lays the pages out with the layout engine, which it loads, and draws its lines on the pages
+   * (DOCE-PAGINATION-11). Without it or `textEngine` the pages are not laid out: nothing is
+   * measured in the DOM.
    */
   readonly textLayout?: TextLayoutSetting | undefined;
+  /** A layout engine already held, in place of the one `textLayout` loads, as tests hold one. */
+  readonly textEngine?: TextEngineHolder | undefined;
 }
 
 /** What a projection has done since it was made: what its layouts did. */
@@ -235,10 +237,14 @@ function sourceOf(session: () => Session): CanonicalPluginsSource {
 function projectionState(
   options: PagedProjectionOptions,
   session: () => Session,
-  text: TextEngineHolder | null,
+  { text, firstMap }: { text: TextEngineHolder | null; firstMap: ProjectionMap },
 ): EditorState {
   const source = sourceOf(session);
-  return EditorState.create({
+  // A plugin made with an engine already held reads the map as the state is made, before the
+  // session holds it.
+  let making = true;
+  const map = () => (making ? firstMap : source.map());
+  const state = EditorState.create({
     doc: options.state.doc,
     selection: options.state.selection,
     plugins: [
@@ -256,7 +262,7 @@ function projectionState(
       splitBreaksPlugin(),
       ...(text
         ? textLayoutPlugins(text, {
-            map: source.map,
+            map,
             redraw: () => take(session(), session().projection.tr.setMeta(forcedLinesKey, true)),
           })
         : []),
@@ -266,19 +272,21 @@ function projectionState(
       ...withFootnoteNumbers(options.plugins ?? [], options.footnoteNumbering),
     ],
   });
+  making = false;
+  return state;
 }
 
 // The session of a new projection: the ghost, the pace of its layouts, and the first states.
 function startSession(options: PagedProjectionOptions, session: () => Session): Session {
   const rules = options.fragmentRules ?? FRAGMENT_RULES;
   const schedule = options.schedule ?? frameIn(options.measureIn);
-  const cache = createMeasureCache();
   const mount = options.mountGhost ?? mountMeasuringView;
   const holding = { changed: () => requestLayout(session()), view: () => session().ghost.view };
-  const text = options.textLayout
-    ? holdTextEngine({ setting: options.textLayout, measureIn: options.measureIn, ...holding })
-    : null;
-  const ready = text ? Promise.all([options.ready, text.loaded]) : options.ready;
+  const text =
+    options.textEngine ??
+    (options.textLayout ? holdTextEngine({ setting: options.textLayout, ...holding }) : null);
+  // An engine already held, as a test's, is not waited for.
+  const ready = text?.engine() === null ? Promise.all([options.ready, text.loaded]) : options.ready;
   const ghost = mount(options.measureIn, {
     state: EditorState.create({
       doc: options.state.doc,
@@ -287,10 +295,10 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     }),
     nodeViews: options.nodeViews,
   });
+  const map = createProjectionMap(options.state.doc, rules);
   return {
     options,
     rules,
-    cache,
     pageMaps: createPageMapScope(),
     cells: holdCellSelection(),
     counts: { refused: 0, relaid: 0 },
@@ -303,7 +311,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       schedule: options.schedule,
     }),
     pace: {
-      counter: createPaginationCounter(cache),
+      counter: createPaginationCounter(() => session().pace.text?.engine()?.stats().laid ?? 0),
       readiness: createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange }),
       changed: true,
       passes: 0,
@@ -312,16 +320,13 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       ready: awaitReady(ready, () => refreshLayout(session(), true)),
       text,
       draws: checkDraws({
-        scale: options.scale,
-        cache,
         count: (pages) => session().pace.counter.overflow(pages),
-        request: () => requestLayout(session()),
       }),
     },
     canonical: options.state,
-    projection: projectionState(options, session, text),
+    projection: projectionState(options, session, { text, firstMap: map }),
     shown: options.state.doc,
-    map: createProjectionMap(options.state.doc, rules),
+    map,
     view: null,
     cancelLayout: null,
     quiet: 0,

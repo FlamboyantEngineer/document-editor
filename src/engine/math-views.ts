@@ -2,16 +2,14 @@
 // library's KaTeX renderer, in every view the plugin runs in, the pages' measuring view too. Each
 // source is typeset once, by the plugin's typesetter (`math-typesetter.ts`), which the pages wait
 // for before laying math out (`mathTypesetReady`). The LaTeX source shows until the math is
-// typeset; math that does not typeset says so instead, its renderer's reason as its title. A view
-// whose math changes size asks the pages to measure again (`de-remeasure`), where they measure it
-// as drawn. The plugin also writes math as it is typed and keeps the math edited in place
+// typeset; math that does not typeset says so instead, its renderer's reason as its title. Its size
+// on the pages comes from the math layouter, never from what is drawn. The plugin also writes math as it is typed and keeps the math edited in place
 // (`math-input.ts`).
 
 import { type MathRenderer, renderKatexMath } from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import type { Decoration, EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
-import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { drawnMathIn } from './math-drawing.js';
 import {
   cancelMath,
@@ -52,9 +50,7 @@ function mathView(
   let source: string | null = null;
   let current = node;
   const drawing = drawnMathIn(dom, decorations);
-  const window = owner.defaultView;
-  // Shows what the source typeset as, or what invalid math shows and why, and asks the pages to
-  // measure it again where they measure it as drawn.
+  // Shows what the source typeset as, or what invalid math shows and why.
   const show = ({ typeset, element }: TypesetAnswer) => {
     drawing.show(element ? owner.importNode(element, true) : null);
     if (typeset.state === 'invalid') {
@@ -62,8 +58,6 @@ function mathView(
       dom.title = typeset.message;
     }
     dom.dataset.state = typeset.state;
-    const Event = window?.CustomEvent;
-    if (Event) dom.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
   };
   const draw = (next: ProseMirrorNode) => {
     current = next;

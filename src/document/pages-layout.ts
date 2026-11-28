@@ -71,8 +71,8 @@ export type PagesLayoutMath = TypesetMath & {
   readonly pos: number;
   /**
    * Where the engine placed typeset math laid out from a math font's data (DOCE-PAGINATION-12.11):
-   * its layout, with the SVG every drawing draws, and its box and scale; absent for math measured
-   * as drawn.
+   * its layout, with the SVG every drawing draws, and its box and scale; absent for math in the
+   * reserved box.
    */
   readonly drawing?: PlacedMath | undefined;
 };

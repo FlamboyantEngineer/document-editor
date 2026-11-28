@@ -91,12 +91,6 @@ test('DOCE-LABS-5.2 compares natural HTML offsets, heights, boundaries and overf
     ).toBeGreaterThan(1);
   }
   expect(parity.map(({ htmlPages }) => htmlPages)).toEqual([4, 4, 5]);
-
-  const production = await page.evaluate(() =>
-    window.pretextPagination.compareProductionBoundaries(),
-  );
-  expect(production.html.length).toBeGreaterThan(1);
-  expect(production.predicted).toEqual(production.html);
 });
 
 test('DOCE-LABS-5.1 reuses prepared rich text when only page width changes', async ({ page }) => {

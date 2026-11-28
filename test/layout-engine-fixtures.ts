@@ -85,9 +85,25 @@ export function standInTextLayout(refuse: readonly string[] = []): BlockTextLayo
 }
 
 /** Block geometry over the stand-in, a template and an atom measurer. */
+// The stand-in's math measurer: every equation 120px wide, 30px above its baseline and 10px below.
+const STAND_IN_MATH: AtomMeasurer = () => ({
+  width: 120,
+  height: 40,
+  baseline: 30,
+  math: {
+    math: {
+      width: 120,
+      ascent: 30,
+      descent: 10,
+      svg: { tag: 'svg', attrs: {}, children: [] },
+      missing: '',
+    },
+  },
+});
+
 export function standInBlockLayout({
   template = BASE_TEMPLATE,
-  measure = () => ({ size: { width: 120, height: 40 } }),
+  measure = STAND_IN_MATH,
   refuse = [],
   labelOf,
   footnoteOf,

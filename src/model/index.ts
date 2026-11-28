@@ -88,7 +88,6 @@ export type {
   LayoutRule,
   LayoutRuleOptions,
   LayoutRules,
-  MeasureInput,
   PageHeight,
   PageLayoutOptions,
   RuleSize,

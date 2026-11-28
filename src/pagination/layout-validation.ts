@@ -1,5 +1,6 @@
 // Checks the pages as a view drew them: a page whose content, footnotes or footer reach below its
-// own bottom overflows, which means a measurement was wrong, so the layout measures again.
+// own bottom overflows, which is counted for reports. The count never feeds the layout: every size
+// comes from the layout engine, so laying out again would give the same pages.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
@@ -8,7 +9,6 @@ import { scrollerOf } from '../utils/scroll-frame.js';
 import { keepCaretInPlace } from './caret.js';
 import { forcedLinesKey } from './forced-lines.js';
 import { isPaginationTransaction, pageMetrics } from './layout-marks.js';
-import type { MeasureCache } from './measure-cache.js';
 import { pageElements } from './page-geometry.js';
 
 /** A page drawn taller than it is. */
@@ -104,34 +104,21 @@ function nearFrame(view: EditorView, caret: number): PageFilter {
 export interface DrawChecks {
   /** The caret back where it was on screen (`keepCaretInPlace`), and the drawn pages checked. */
   drawn(view: EditorView, caret: number | null): void;
-  /** A change came: the next overflow measures again. */
-  changed(): void;
 }
 
 /**
- * Checks each layout the editor draws: puts the caret back where it was on screen, counts the
- * pages drawn taller than they are, and, once after each change, forgets every measurement and
- * asks for a layout when one overflows.
+ * Checks each layout the editor draws: puts the caret back where it was on screen and counts the
+ * pages drawn taller than they are. It never asks for another layout.
  */
 export function checkDraws(options: {
   readonly scale?: (() => number) | undefined;
-  readonly cache: MeasureCache;
   readonly count: (pages: number) => void;
-  readonly request: () => void;
 }): DrawChecks {
-  let corrected = false;
   return {
     drawn(view, caret) {
       keepCaretInPlace(view, caret);
       const overflow = findPageOverflow(view, { scale: options.scale?.(), pages: drawnOnly(view) });
       options.count(overflow.length);
-      if (!overflow.length || corrected) return;
-      corrected = true;
-      options.cache.clear();
-      options.request();
-    },
-    changed() {
-      corrected = false;
     },
   };
 }

@@ -7,7 +7,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { MathTree, TypesetMath } from '../engine/math-typeset.js';
 import { clusterCount, mathTreeText } from '../utils/math-text.js';
-import type { AtomMeasure, AtomMeasurer, AtomPlace, AtomSize } from './atoms.js';
+import type { AtomMeasurer, AtomPlace, AtomSize } from './atoms.js';
 import { splitTag } from './math-tags.js';
 
 /**
@@ -176,8 +176,6 @@ const isMathNode = (node: ProseMirrorNode) =>
 
 /** What the math measurer lays out with. */
 interface MathAtomOptions {
-  /** Measures the atoms it does not lay out: other atoms, and math it cannot. */
-  readonly inner: AtomMeasurer;
   /** The layouter, or null while there is none (no math face served, or not loaded yet). */
   readonly layouter: () => MathLayouter | null;
   /** What a math node was typeset as, by the math views; null before it is. */
@@ -225,40 +223,43 @@ function layoutsOf(
 }
 
 /**
- * The atom measurer that sizes typeset math from its layout (DOCE-PAGINATION-12.10), and everything
- * else, and math it cannot lay out, with `inner`. Math whose glyphs still load, or still
- * typesetting, takes `inner`'s provisional size, and its layout once ready.
+ * The atom measurer that sizes typeset math from its layout (DOCE-PAGINATION-12.10), and nothing
+ * else. Math it cannot lay out now takes the reserved box: without a layouter, before its source is
+ * typeset or once it typeset as invalid, or while its glyphs still load, which the pages wait for
+ * before they lay it out (`mathPending`, DOCE-PAGINATION-14.4).
  */
 export function createMathAtomMeasurer(options: MathAtomOptions): AtomMeasurer {
-  const { inner, layouter, typesetOf, sizeOf } = options;
-  // The layout of a node now, a promise of it once its glyphs load, or null without one.
-  const laidOut = (
-    node: ProseMirrorNode,
-    place: AtomPlace,
-  ): AtomSize | Promise<AtomSize | null> | null => {
+  const { layouter, typesetOf, sizeOf } = options;
+  return (node, _width, place = {}): AtomSize | null => {
+    if (!isMathNode(node)) return null;
+    const display = !node.isInline;
+    const size = sizeOf(node, place);
     const using = layouter();
     const typeset = using ? typesetOf(node) : null;
-    if (!using || typeset?.state !== 'ready') return null;
-    const display = !node.isInline;
+    if (!using || typeset?.state !== 'ready' || mathPending(using, [typeset.math], display)) {
+      const text = node.textContent;
+      return sizeOfLaid(reservedMath(clusterCount(text), display, size), !display);
+    }
     const tree = typeset.math;
     const parts = display ? splitTag(tree) : { math: tree, tag: null };
-    const at = { display, size: sizeOf(node, place), options };
-    const lay = () => sizeOfLaid(layoutsOf(using, { tree, parts }, at), !display);
-    const loading = using.prepare(parts.tag ? [parts.math, parts.tag] : [parts.math]);
-    return loading ? loading.then(lay, () => null) : lay();
+    return sizeOfLaid(layoutsOf(using, { tree, parts }, { display, size, options }), !display);
   };
-  return (node, width, drawing = {}): AtomMeasure | null => {
-    if (!isMathNode(node)) return inner(node, width, drawing);
-    const now = laidOut(node, drawing);
-    if (now && !(now instanceof Promise)) return { size: now };
-    const measured = inner(node, width, drawing);
-    if (now instanceof Promise) {
-      const fallback = measured?.size ?? { width: 0, height: 0 };
-      return { size: fallback, settled: now.then((size) => size ?? fallback) };
-    }
-    if (!measured?.settled) return measured;
-    // Math still typesetting: its layout once typeset, or what the view then draws.
-    const settled = measured.settled.then(async (drawn) => (await laidOut(node, drawing)) ?? drawn);
-    return { size: measured.size, settled };
-  };
+}
+
+/**
+ * Whether a layouter still loads what laying typeset math out needs, such as glyph ranges: a
+ * promise that settles once it has, or null when it can lay all of it out now. A display
+ * equation's tag is prepared with it.
+ */
+export function mathPending(
+  layouter: MathLayouter,
+  trees: readonly MathTree[],
+  display: boolean,
+): Promise<void> | null {
+  const parts = trees.flatMap((tree) => {
+    if (!display) return [tree];
+    const split = splitTag(tree);
+    return split.tag ? [split.math, split.tag] : [split.math];
+  });
+  return parts.length ? layouter.prepare(parts) : null;
 }

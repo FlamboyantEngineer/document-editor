@@ -51,7 +51,7 @@ function stubEngine(options: StubOptions = {}) {
       headings: options.headings ?? new Map(),
       paragraphs: options.paragraphs ?? new Set(),
     }),
-    measureBlock: () => null,
+    measureBlock: (node) => ({ node, height: 20, marginTop: 0, marginBottom: 0 }),
     pageDigits: () => 3,
     contentsDrawn: () => null,
     measureRegion: () => null,
@@ -93,7 +93,7 @@ function stubEngine(options: StubOptions = {}) {
       };
       return table;
     },
-    provisional: () => false,
+    mathPending: () => null,
     mathOf: () => null,
     stats: () => ({ laid: 0, refused: 0, reasons: new Map() }),
     destroy: () => undefined,

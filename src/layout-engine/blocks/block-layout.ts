@@ -18,8 +18,8 @@ import {
   layCodeFigure,
   layDisplayMath,
   layFigure,
+  layKeptBlock,
   layLinkedCode,
-  layMarkupBlock,
   layPageBreak,
   layRule,
 } from './objects.js';
@@ -47,7 +47,7 @@ const LAYS: Readonly<Record<string, Lay>> = {
   math_display: layDisplayMath,
   horizontal_rule: layRule,
   page_break: (_context, node) => layPageBreak(node),
-  kept_block: layMarkupBlock,
+  kept_block: (_context, node) => layKeptBlock(node),
   dynamic_template: layTemplateBlock,
   toc_block: layContents,
 };

@@ -47,8 +47,6 @@ function find(doc: ProseMirrorNode, type: string) {
 function engineOf(): PagesTextEngine {
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
   });
 }
 

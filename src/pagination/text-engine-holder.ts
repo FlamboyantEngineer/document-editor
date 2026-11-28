@@ -66,7 +66,7 @@ interface EngineModule {
 type LoadedEngine = EngineModule & { readonly layouter: MathLayouter | null };
 
 // Loads the engine's module, the served fonts and the math layouter; a layouter that fails to load
-// leaves math measured as drawn.
+// leaves math in the reserved box (DOCE-PAGINATION-12.9).
 const loadEngine = (setting: TextLayoutSetting) =>
   Promise.all([
     import('./text-engine.js'),
@@ -122,15 +122,13 @@ function numberedLike(engine: PagesTextEngine, counted: Counted) {
 }
 
 /**
- * Loads and holds a text layout engine; `changed` is told when its atoms' sizes settle or font
- * faces load in the measuring document, which makes the engine again: widths measured before a
- * face loaded were measured in a fallback font.
+ * Loads and holds a text layout engine; `changed` is told when the served faces of a family the
+ * template newly names arrive, which makes the engine again.
  */
 export function holdTextEngine(options: {
   readonly setting: TextLayoutSetting;
-  readonly measureIn: HTMLElement;
   readonly changed: () => void;
-  /** The view that measures the pages, which atoms are measured as drawn in. */
+  /** The view that measures the pages, whose math views typeset its math. */
   readonly view?: (() => EditorView | null) | undefined;
 }): TextEngineHolder {
   let made: LoadedEngine | null = null;
@@ -163,16 +161,6 @@ export function holdTextEngine(options: {
       settled();
     });
   };
-  // A face loading in the measuring document may change what atoms measure as drawn, so the
-  // engine is made again; its text widths still come from the served files.
-  const faces = options.measureIn.ownerDocument.fonts as FontFaceSet | undefined;
-  const onFonts = () => {
-    if (!made || destroyed || !current) return;
-    drop();
-    made.forgetFontWidths();
-    settled();
-  };
-  faces?.addEventListener('loadingdone', onFonts);
   return {
     engine() {
       if (!made || destroyed || fonts?.phase !== 'pretext') return null;
@@ -191,8 +179,6 @@ export function holdTextEngine(options: {
         template,
         codeLineNumbers,
         language,
-        measureIn: options.measureIn,
-        onAtomsSettled: settled,
         view: options.view,
         ...settingInputs(options.setting, made),
       });
@@ -206,7 +192,6 @@ export function holdTextEngine(options: {
     remeasure: drop,
     destroy() {
       destroyed = true;
-      faces?.removeEventListener('loadingdone', onFonts);
       drop();
     },
   };

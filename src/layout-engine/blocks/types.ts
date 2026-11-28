@@ -116,8 +116,6 @@ export type BlockGeometry =
   | {
       readonly ok: true;
       readonly block: LayoutBlock;
-      /** Whether an atom in it still loads, so its size may change. */
-      readonly provisional: boolean;
     }
   | {
       readonly ok: false;
@@ -136,7 +134,6 @@ export type RegionGeometry =
       readonly gap: number;
       /** Where each block or entry sits, from the first one's top. */
       readonly children: readonly ChildLayout[];
-      readonly provisional: boolean;
     }
   | { readonly ok: false; readonly node: ProseMirrorNode; readonly reason: string };
 
@@ -168,6 +165,12 @@ export interface BlockLayoutOptions {
   readonly onObject?: ((node: ProseMirrorNode, box: ObjectBox) => void) | undefined;
   /** The nodes the host's layout rules size (DOCE-PAGINATION-14.1), over the engine's own layout. */
   readonly ruleSizes?: RuleSizes | undefined;
+  /**
+   * Told of each block inside another that cannot be laid out, with why; the block then takes no
+   * room and the one holding it is laid out. Without it, the one holding it cannot be laid out
+   * either.
+   */
+  readonly onRefused?: ((node: ProseMirrorNode, reason: string) => void) | undefined;
 }
 
 /**

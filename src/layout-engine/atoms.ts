@@ -1,8 +1,7 @@
-// The atom cache: the sizes of what only the browser can size, such as an image without a stored
-// size, an equation, an embed or a host's node view. Each atom is measured once in the DOM, by the
-// host's measurer, and kept by its content, so the layout engine reads the same size for the same
-// content without measuring again. An atom whose image still loads has a provisional size; when
-// its final size arrives the cache keeps it and tells its listeners, which lay out again.
+// The atom cache: the sizes of the atoms the engine sizes by a measurer of its own, such as math
+// from its layout (DOCE-PAGINATION-12.10). Each atom is sized once and kept by its content, so the
+// layout engine reads the same size for the same content without sizing it again. Nothing is read
+// from the DOM, and a size never changes once given.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { MathLayouts } from './math-atoms.js';
@@ -21,22 +20,6 @@ export interface AtomSize {
   readonly math?: MathLayouts | undefined;
 }
 
-/** A cached atom's box, and whether it may still change. */
-interface MeasuredAtom extends AtomSize {
-  /** Whether an image in it still loads without a fixed box, so its final size may differ. */
-  readonly provisional: boolean;
-}
-
-/** What a host's measurer reports for one atom. */
-export interface AtomMeasure {
-  readonly size: AtomSize;
-  /**
-   * The final size once the atom's images load or its view draws it, when its size may still
-   * change; null when the measurer cannot tell it, so the atom is measured again when next asked.
-   */
-  readonly settled?: Promise<AtomSize | null> | undefined;
-}
-
 /**
  * Where an atom is drawn, beside its width: the template section its page is in and, for an
  * inline atom, the text block holding it, whose font and marks it inherits.
@@ -53,15 +36,12 @@ interface AtomDrawing extends AtomPlace {
   readonly shown?: string | undefined;
 }
 
-/**
- * Measures one atom in the DOM at an available width, where it is drawn, drawing `shown` as a leaf
- * atom's text when given; null when it cannot measure it.
- */
+/** Sizes one atom at an available width, where it is drawn; null when it cannot size it. */
 export type AtomMeasurer = (
   node: ProseMirrorNode,
   width: number,
   drawing?: AtomDrawing,
-) => AtomMeasure | null;
+) => AtomSize | null;
 
 /** Where the atom cache gets its sizes from. */
 interface AtomCacheOptions {
@@ -75,23 +55,12 @@ interface AtomCacheOptions {
   readonly limit?: number | undefined;
 }
 
-/** Called with the atoms whose final sizes arrived. */
-type AtomListener = (nodes: readonly ProseMirrorNode[]) => void;
-
 /** The atom cache. */
 export interface AtomCache {
   /** An inline atom's size in its text block and scope, for the text layout engine's `measureAtom`. */
   measureAtom(node: ProseMirrorNode, place?: AtomPlace): AtomSize | null;
   /** A block atom's size at an available width, such as an equation or an unsized image. */
-  measureBlockAtom(
-    node: ProseMirrorNode,
-    width: number,
-    scope?: string | null,
-  ): MeasuredAtom | null;
-  /** Listens for final sizes; returns the function that stops listening. */
-  subscribe(listener: AtomListener): () => void;
-  /** Whether an atom it measured still waits for its final size. */
-  pending(): boolean;
+  measureBlockAtom(node: ProseMirrorNode, width: number, scope?: string | null): AtomSize | null;
 }
 
 /** The default number of atoms a cache keeps. */
@@ -149,14 +118,8 @@ function isSize(size: AtomSize | null | undefined): size is AtomSize {
   );
 }
 
-interface Entry {
-  size: MeasuredAtom;
-  /** The nodes that asked for it while it was provisional, each told when it settles. */
-  readonly nodes: ProseMirrorNode[];
-}
-
 // A cached atom's size as an inline atom's: its box, baseline, alignment and math layout.
-function inlineSize(size: MeasuredAtom | null): AtomSize | null {
+function inlineSize(size: AtomSize | null): AtomSize | null {
   if (!size) return null;
   const { width, height, baseline, align, math } = size;
   return {
@@ -168,19 +131,17 @@ function inlineSize(size: MeasuredAtom | null): AtomSize | null {
   };
 }
 
-/** Creates an atom cache over a host's measurer. */
+/** Creates an atom cache over a measurer. */
 export function createAtomCache({
   measure,
   shownOf,
   limit = DEFAULT_ATOM_CACHE_LIMIT,
 }: AtomCacheOptions): AtomCache {
-  const entries = new Map<string, Entry>();
-  const listeners = new Set<AtomListener>();
-  let unsettled = 0;
+  const entries = new Map<string, AtomSize>();
 
-  const keep = (key: string, entry: Entry) => {
+  const keep = (key: string, size: AtomSize) => {
     entries.delete(key);
-    entries.set(key, entry);
+    entries.set(key, size);
     while (entries.size > Math.max(1, limit)) {
       const oldest = entries.keys().next().value;
       if (oldest === undefined) break;
@@ -188,59 +149,27 @@ export function createAtomCache({
     }
   };
 
-  const settle = (key: string, entry: Entry, settled: Promise<AtomSize | null>) => {
-    unsettled += 1;
-    settled.then(
-      (size) => {
-        unsettled -= 1;
-        if (entries.get(key) !== entry) return;
-        if (size === null) entries.delete(key);
-        else
-          entry.size = isSize(size)
-            ? { ...size, provisional: false }
-            : { ...entry.size, provisional: false };
-        for (const listener of [...listeners]) listener([...entry.nodes]);
-      },
-      () => {
-        unsettled -= 1;
-        // A failed load leaves the box the browser drew while it loaded, which is final.
-        if (entries.get(key) === entry) entry.size = { ...entry.size, provisional: false };
-      },
-    );
-  };
-
   const measured = (
     node: ProseMirrorNode,
     width: number,
     place: AtomPlace = {},
-  ): MeasuredAtom | null => {
+  ): AtomSize | null => {
     const shown = shownOf?.(node);
     const drawing = shown === undefined ? place : { ...place, shown };
     const key = atomKey(node, width, drawing);
     const cached = entries.get(key);
     if (cached) {
       keep(key, cached);
-      if (cached.size.provisional && !cached.nodes.includes(node)) cached.nodes.push(node);
-      return cached.size;
+      return cached;
     }
-    const result = measure(node, width, drawing);
-    if (!result || !isSize(result.size)) return null;
-    const entry: Entry = {
-      nodes: [node],
-      size: { ...result.size, provisional: Boolean(result.settled) },
-    };
-    keep(key, entry);
-    if (result.settled) settle(key, entry, result.settled);
-    return entry.size;
+    const size = measure(node, width, drawing);
+    if (!isSize(size)) return null;
+    keep(key, size);
+    return size;
   };
 
   return {
     measureAtom: (node, place) => inlineSize(measured(node, INLINE_WIDTH, place)),
     measureBlockAtom: (node, width, scope) => measured(node, width, { scope }),
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    pending: () => unsettled > 0,
   };
 }

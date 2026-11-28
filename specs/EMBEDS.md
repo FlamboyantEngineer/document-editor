@@ -93,9 +93,9 @@ Verification: `src/engine/embed-inline.test.ts`, `src/components/document-editor
 
 ### DOCE-EMBEDS-4.1 - Split across pages
 
-The page layout shall split an embed that does not fit below the blocks on a page as it splits a quote (DOCE-PAGINATION-2.3): between the blocks it holds, and through a table it holds between its rows, each later part a fragment of the same embed (`splitPartIndex`) with its kind, source and label, joined again in the document. An embed the editor did not measure, which no split can read, starts the next page whole.
+The page layout shall split an embed that does not fit below the blocks on a page as it splits a quote (DOCE-PAGINATION-2.3): between the blocks it holds, and through a table it holds between its rows, each later part a fragment of the same embed (`splitPartIndex`) with its kind, source and label, joined again in the document. An embed the layout engine cannot lay out takes no room and is reported (DOCE-PAGINATION-14.6).
 
-Implementation: `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`, `src/pagination/measure-blocks.ts`
+Implementation: `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`, `src/layout-engine/blocks/containers.ts`
 Verification: `src/engine/embeds.test.ts`
 
 ## Hooks

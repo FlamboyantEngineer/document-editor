@@ -58,8 +58,6 @@ function refusalsOf(file: DocumentFile): Refusals {
   const { doc } = readDocumentFile(file, documentSchema);
   const engine = createPagesTextEngine({
     template,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
   });
   engine.number(doc);
   doc.forEach((section) => {

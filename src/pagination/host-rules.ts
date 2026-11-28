@@ -1,17 +1,18 @@
 // The host's layout rules and views as the pages' engine reads them (DOCE-PAGINATION-14.1): a
-// block a host's view draws is measured as drawn unless the host's rule sizes it, and the blocks
-// laid out with other rules' sizes are laid out again.
+// block a host's view draws takes no room unless the host's rule sizes it, and the blocks laid out
+// with other rules' sizes are laid out again.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createRuleSizes, type RuleSizes, ruleSizesKey } from '../layout-engine/rule-sizes.js';
 import { REFUSED_TEXT_ATOMS, TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
+import { LAYOUT_RULES, type LayoutRules } from '../model/pagination/page-layout.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { NodeNumbers } from './node-numbers.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
-// Whether a block is one a host draws with a node view of its own, or holds one: it takes the room
-// that view shows, which only drawing it tells, so it is measured as drawn.
+// Whether a block is one a host draws with a node view of its own, or holds one: only drawing it
+// would tell its room, so without a rule that sizes it, it takes none.
 function holdsHostBlock(node: ProseMirrorNode, host: ReadonlySet<string>): boolean {
   if (host.size === 0) return false;
   let found = host.has(node.type.name);
@@ -22,9 +23,8 @@ function holdsHostBlock(node: ProseMirrorNode, host: ReadonlySet<string>): boole
   return found;
 }
 
-// Why a block is left to be measured as drawn before the engine lays it out, or null: words
-// inserted outside a text block take room the engine cannot lay out, and a host's view the room it
-// shows.
+// Why a block takes no room before the engine lays it out, or null: words inserted outside a text
+// block take room the engine cannot lay out, and a host's view the room only drawing it tells.
 export function refusedAsDrawn(
   node: ProseMirrorNode,
   inserted: InsertedTexts,
@@ -34,22 +34,28 @@ export function refusedAsDrawn(
   return holdsHostBlock(node, hostViews) ? 'drawn by a host view' : null;
 }
 
+/** The layout rules the engine sizes nodes by: the host's, else the library's own (`LAYOUT_RULES`). */
+export function rulesOf(options: TextEngineOptions): () => LayoutRules {
+  return () => options.layoutRules?.() ?? LAYOUT_RULES;
+}
+
 /**
- * The host's layout rules as the engine reads them: the host's views measured as drawn, less those
+ * The host's layout rules as the engine reads them: the host's views that take no room, less those
  * its rules size (DOCE-PAGINATION-14.1). Read before each block is laid out; when the rules' sizes
  * changed since the last read, `changed` is told first, so nothing laid out with them is kept.
  */
 export function watchedRules(options: TextEngineOptions, changed: () => void) {
-  let seen = ruleSizesKey(options.layoutRules?.());
+  const rulesNow = rulesOf(options);
+  let seen = ruleSizesKey(rulesNow());
   return {
     hostViews() {
-      const rules = options.layoutRules?.();
-      const now = ruleSizesKey(rules);
-      if (now !== seen) {
-        seen = now;
+      const rules = rulesNow();
+      const key = ruleSizesKey(rules);
+      if (key !== seen) {
+        seen = key;
         changed();
       }
-      return new Set((options.hostViews ?? []).filter((type) => !rules?.[type]?.size));
+      return new Set((options.hostViews ?? []).filter((type) => !rules[type]?.size));
     },
   };
 }
@@ -57,7 +63,7 @@ export function watchedRules(options: TextEngineOptions, changed: () => void) {
 /** The sizes of the host's nodes its layout rules size, with text measured by the engine's layout. */
 export function hostRuleSizes(options: TextEngineOptions, text: () => TextLayout) {
   return createRuleSizes({
-    rules: options.layoutRules ?? (() => undefined),
+    rules: rulesOf(options),
     text,
     language: options.language ?? '',
     markup: () => options.markup?.() ?? 'all',

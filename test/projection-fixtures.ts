@@ -1,5 +1,6 @@
 // A paged projection in the test DOM, for the tests of what runs on its pages: a canonical state
-// of paragraphs, a layout that measures each of them alike, and frames the test draws itself.
+// of paragraphs, a stand-in layout engine that lays each of them out alike, and frames the test
+// draws itself.
 
 import { history } from 'prosemirror-history';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -11,13 +12,15 @@ import {
   type ProjectionViewOptions,
 } from '../src/pagination/projection-view.js';
 import { documentSchema } from './document-markup.js';
+import { heldEngine, stubEngine } from './pages-fixtures.js';
 
 export const PARAGRAPH_HEIGHT = 400;
 export const TEXTS = ['Alpha one', 'Beta two', 'Gamma three', 'Delta four', 'Epsilon five'];
 
-// How the test DOM lays out: each paragraph `height` pixels tall, 400 by default so that pages
-// 1,000 pixels tall hold two paragraphs each, with no margins; every other element and range
-// measures as empty.
+// How the pages lay out: the stand-in engine lays each top-level paragraph out `height` pixels
+// tall, 400 by default so that pages 1,000 pixels tall hold two paragraphs each, with no margins,
+// and every other block in no room; the test DOM draws each paragraph that tall too, and every
+// other element and range as empty.
 // With `boxes`, elements are drawn with boxes, so the pages, drawn with no height, overflow.
 export interface StubbedLayout {
   readonly height?: number;
@@ -71,7 +74,15 @@ export function canonicalState(plugins: readonly Plugin[] = [], texts = TEXTS): 
 export function mount(options: Partial<ProjectionViewOptions> = {}, layout: StubbedLayout = {}) {
   stubLayout(layout);
   const queue: (() => void)[] = [];
+  const blockHeight = layout.height ?? PARAGRAPH_HEIGHT;
   const projection = createProjectionView({
+    // Lines long enough that no paragraph wraps, so the forced lines split no text.
+    textEngine: heldEngine(
+      stubEngine({
+        perLine: 1000,
+        blockHeight: (node) => (node.type.name === 'paragraph' ? blockHeight : 0),
+      }),
+    ),
     mount: document.body.appendChild(document.createElement('div')),
     measureIn: document.body.appendChild(document.createElement('div')),
     state: canonicalState(),

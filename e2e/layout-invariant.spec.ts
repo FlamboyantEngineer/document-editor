@@ -637,8 +637,9 @@ const PINNED: Readonly<
   'heading-keep-with-next': { lines: 'f3b2f4d0f58c7941', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
-  // measured to the layout unit (DOCE-PAGINATION-10.10), 0.005 px taller.
-  'long-mixed': { lines: '3918f8cba38d7fed', heights: 'f0c1f577f1ffdd2d' },
+  // the engine's height, no longer rounded up to the browser's layout unit (DOCE-PAGINATION-10.10),
+  // so the pages with footnotes have 0.005 px more room.
+  'long-mixed': { lines: '3918f8cba38d7fed', heights: 'b4cfd9dd8d7e41fe' },
   'oversized-blocks': { lines: '3855b1312e8943bb', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: 'd40800e840119375' },
 };

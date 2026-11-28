@@ -68,11 +68,8 @@ export function createRegionLines(source: RegionSource) {
       const result = geometry.layoutRegion(node, place);
       const laid = { room: roomOf(result), lines: result.ok ? recorder.lines : NONE };
       recorder.lines = null;
-      if (!result.ok || !result.provisional) {
-        if (regions.size >= REGIONS_KEPT_PER_NODE)
-          regions.delete(regions.keys().next().value ?? '');
-        kept.set(node, regions.set(key, laid));
-      }
+      if (regions.size >= REGIONS_KEPT_PER_NODE) regions.delete(regions.keys().next().value ?? '');
+      kept.set(node, regions.set(key, laid));
       return laid;
     },
     forget() {

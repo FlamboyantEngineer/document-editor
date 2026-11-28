@@ -9,6 +9,7 @@ import { type ReservedBox, reservedBoxes } from '../src/layout-engine/reserved-b
 import { forcedLines } from '../src/pagination/forced-lines.js';
 import type { LayoutInputs } from '../src/pagination/layout-inputs.js';
 import { createPageVariables } from '../src/pagination/page-variables.js';
+import type { TextEngineHolder } from '../src/pagination/text-engine-holder.js';
 import type { DrawnLines, PagesTextEngine } from '../src/pagination/text-engine-types.js';
 import { documentSchema } from './document-markup.js';
 
@@ -48,6 +49,8 @@ export const pagesDocument = (pages: Node[], sectionName: string | null = null) 
 export interface StubEngineOptions {
   /** Characters on a line. */
   readonly perLine?: number;
+  /** The height of each top-level block it lays out (`measureBlock`), or a block's own height. */
+  readonly blockHeight?: number | ((node: Node) => number);
   readonly left?: number;
   readonly justify?: boolean;
   readonly headings?: ReadonlyMap<number, string>;
@@ -89,12 +92,27 @@ export const STUB_INPUTS: LayoutInputs = {
 
 export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
   const perLine = options.perLine ?? 10;
+  let laid = 0;
+  const seen = new WeakSet<Node>();
   return {
     template: {} as PagesTextEngine['template'],
     inputs: () => STUB_INPUTS,
     number: () => undefined,
     numbering: () => ({ headings: options.headings ?? new Map(), paragraphs: new Set() }),
-    measureBlock: () => null,
+    measureBlock: (node) => {
+      // Each node laid out once, as the engine keeps a block by its node.
+      if (!seen.has(node)) laid += 1;
+      seen.add(node);
+      return {
+        node,
+        height:
+          typeof options.blockHeight === 'function'
+            ? options.blockHeight(node)
+            : (options.blockHeight ?? 20),
+        marginTop: 0,
+        marginBottom: 0,
+      };
+    },
     pageDigits: () => 3,
     contentsDrawn: () => null,
     measureRegion: () => null,
@@ -138,9 +156,9 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
       const reserve = (cluster: string) => (reserved?.has(cluster) ? 16 : null);
       return reserved ? reservedBoxes(word, { offset: 0, font: '', reserve }) : [];
     },
-    provisional: () => false,
+    mathPending: () => null,
     mathOf: () => null,
-    stats: () => ({ laid: 0, refused: 0, reasons: new Map() }),
+    stats: () => ({ laid, refused: 0, reasons: new Map() }),
     destroy: () => undefined,
   };
 }
@@ -152,4 +170,15 @@ export function pagesState(doc: Node, engine: PagesTextEngine | null, plugins: P
     doc,
     plugins: [forcedLines(source), createPageVariables(), ...plugins],
   });
+}
+
+/** A layout engine held as a projection's (`PagedProjectionOptions.textEngine`), loaded at once. */
+export function heldEngine(engine: PagesTextEngine): TextEngineHolder {
+  return {
+    engine: () => engine,
+    version: () => 0,
+    loaded: Promise.resolve(),
+    remeasure: () => undefined,
+    destroy: () => undefined,
+  };
 }

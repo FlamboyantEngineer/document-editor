@@ -216,6 +216,7 @@ function render(): void {
   const pages = showOnPages(mounts, {
     state: EditorState.create({ doc: readDocumentFile(sample(), schema).doc, plugins: [contents] }),
     pageHeight: () => bodyHeight(TEMPLATE),
+    template: () => TEMPLATE,
   });
   let added = 0;
   insert.addEventListener('click', () => {
