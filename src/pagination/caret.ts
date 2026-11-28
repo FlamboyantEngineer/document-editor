@@ -69,6 +69,14 @@ export function takeCaretBefore(doc: ProseMirrorNode): number | null {
   return caret;
 }
 
+/**
+ * Records where the caret of a view was on screen before a layout's transaction, when the layout may
+ * move it (`movesCaret`).
+ */
+export function rememberMovedCaret(tr: Transaction, view: EditorView): void {
+  if (movesCaret(tr, view.state.selection.head)) rememberCaret(tr.doc, caretPlace(view));
+}
+
 /** Records where the caret was on screen before the layout that made a document. */
 export function rememberCaret(doc: ProseMirrorNode, caret: number | null): void {
   caretBefore.set(doc, caret);

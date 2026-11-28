@@ -36,6 +36,11 @@ export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOpt
     pending: () => set('pending'),
     /** The pages could not be laid out. */
     fail: () => set('failed'),
+    /** No engine to lay the pages out with: pending while it loads, failed when there can be none. */
+    withoutEngine: (failure: string | null): null => {
+      set(failure ? 'failed' : 'pending');
+      return null;
+    },
     /**
      * A layout landed: the pages settle two frames on, once the views that follow them have drawn,
      * unless another layout is due by then.

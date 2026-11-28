@@ -83,6 +83,46 @@ describe('starting the projection', () => {
     projection.destroy();
   });
 
+  // A projection with a layout engine setting, or none, whose frames run at once.
+  const started = (textLayout?: Parameters<typeof createPagedProjection>[0]['textLayout']) =>
+    createPagedProjection({
+      element: document.body.appendChild(document.createElement('div')),
+      state: canonicalState(),
+      pageHeight: 1000,
+      settle: 0,
+      schedule: (run) => {
+        queueMicrotask(run);
+        return () => undefined;
+      },
+      dispatch: () => undefined,
+      onProjection: () => undefined,
+      ...(textLayout ? { textLayout } : {}),
+    });
+
+  it('DOCE-PAGINATION-12.5 fails, rather than waits, without a layout engine', async () => {
+    stubLayout({});
+    const projection = started();
+    await expect(projection.whenSettled()).resolves.toBe('failed');
+    expect(projection.stats().layouts).toBe(0);
+    projection.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 fails once the served fonts cannot be read, or the engine cannot load', async () => {
+    stubLayout({});
+    const unread = started({
+      template: () => BASE_TEMPLATE,
+      fonts: Promise.resolve({ phase: 'browser', reason: 'no-faces' } as const),
+    });
+    await expect(unread.whenSettled()).resolves.toBe('failed');
+    unread.destroy();
+    const refused = started({
+      template: () => BASE_TEMPLATE,
+      fonts: Promise.reject(new Error('The fonts were refused.')),
+    });
+    await expect(refused.whenSettled()).resolves.toBe('failed');
+    refused.destroy();
+  });
+
   it('DOCE-PAGINATION-7.10 dispatches nothing as it starts, and keeps the canonical selection', () => {
     stubLayout({});
     const start = canonicalState();

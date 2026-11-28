@@ -10,7 +10,7 @@ import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
-import { caretPlace, movesCaret, rememberCaret } from './caret.js';
+import { rememberMovedCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import { redrawRefused } from './dropped-composition.js';
 import { type Showing, shownBy } from './layout-latency.js';
@@ -36,6 +36,7 @@ import {
   selectionAcrossBreak,
   showsCellSelection,
 } from './selection-mirror.js';
+import { engineOrFailure } from './text-engine-holder.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 import type { TypingProbe } from './typing-probe.js';
 
@@ -234,13 +235,12 @@ function keepShownSelection(session: Session): void {
   syncSelection(session);
 }
 
-// The engine once it and the math's glyphs are ready, or null with the layout left pending: nothing
-// is laid out before the engine is, since the pages are never measured in the DOM.
+// The engine once it and its math are ready; else null, pending, or failed without one to wait for.
 function readyEngine(session: Session): PagesTextEngine | null {
-  const engine = session.pace.text?.engine();
-  if (!engine) {
-    session.pace.readiness.pending();
-    return null;
+  const engine = engineOrFailure(session.pace.text);
+  if (!engine || typeof engine === 'string') {
+    if (engine) writeTrace(session.options.trace, 'fail', () => ({ reason: engine }));
+    return session.pace.readiness.withoutEngine(engine);
   }
   const waiting = { ...session, owner: session.options.element.ownerDocument };
   return waitsForMath(waiting, () => requestLayout(session)) ? null : engine;
@@ -282,8 +282,7 @@ export function layout(session: Session): void {
   pace.passes = laidOut.tr.docChanged ? pace.passes + 1 : 0;
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
-  if (view && movesCaret(laidOut.tr, view.state.selection.head))
-    rememberCaret(laidOut.tr.doc, caretPlace(view));
+  if (view) rememberMovedCaret(laidOut.tr, view);
   session.probe.laidOut(laidOut.metrics);
   const stats = pace.counter.stats();
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));
