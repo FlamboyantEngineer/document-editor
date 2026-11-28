@@ -189,6 +189,6 @@ export function pagesLayout(
     fonts: engine.fonts?.() ?? null,
     language: engine.language ?? '',
     ...withInputsKey(engine.inputs()),
-    provisional: options.settled === false || engine.provisional(),
+    provisional: options.settled === false,
   };
 }

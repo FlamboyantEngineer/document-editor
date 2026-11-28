@@ -1,10 +1,8 @@
-// Measures a page's footnote area as an editor view laid it out: how tall each entry is, and what
-// the area takes beyond its entries, such as its separator, so a page can leave room for the
-// footnotes its blocks cite.
+// A page's footnote area as the layout engine lays it out: how tall each entry is, and what the
+// area takes beyond its entries, such as its separator, so a page can leave room for the footnotes
+// its blocks cite.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
-import { unzoom } from './measure-scale.js';
 
 /** A footnote area's measurements, in CSS pixels. */
 export interface FootnoteArea {
@@ -28,24 +26,10 @@ interface PlacedEntry extends PlacedBox {
   readonly id: string;
 }
 
-function placedEntries(view: EditorView, pos: number): PlacedEntry[] {
-  const area = view.state.doc.nodeAt(pos);
-  const placed: PlacedEntry[] = [];
-  area?.forEach((entry, offset) => {
-    const dom = view.nodeDOM(pos + 1 + offset);
-    const id = entry.attrs.footnoteId as unknown;
-    if (!dom || dom.nodeType !== 1 || typeof id !== 'string' || !id) return;
-    const rect = (dom as HTMLElement).getBoundingClientRect();
-    placed.push({ id, top: rect.top, bottom: rect.bottom });
-  });
-  return placed;
-}
-
 // The area's measurements from its entries' boxes and what it takes beyond them.
 function areaOf(
   placed: readonly PlacedEntry[],
   overhead: (first: PlacedEntry, end: PlacedEntry) => number,
-  ratio = 1,
 ): FootnoteArea {
   const entries = new Map<string, number>();
   const last = new Map<string, number>();
@@ -53,31 +37,17 @@ function areaOf(
     const next = placed[index + 1];
     const height = (next ? next.top : entry.bottom) - entry.top;
     if (entries.has(entry.id)) return;
-    entries.set(entry.id, unzoom(Math.max(0, height), ratio));
-    last.set(entry.id, unzoom(Math.max(0, entry.bottom - entry.top), ratio));
+    entries.set(entry.id, Math.max(0, height));
+    last.set(entry.id, Math.max(0, entry.bottom - entry.top));
   });
   const [first, end] = [placed[0], placed.at(-1)];
   if (!first || !end) return { overhead: 0, entries, last };
-  return { overhead: unzoom(Math.max(0, overhead(first, end)), ratio), entries, last };
-}
-
-/** The footnote area at a position, measured; an area with no entries measures nothing. */
-export function measureFootnotes(
-  view: EditorView,
-  pos: number,
-  { scale = 1 }: { scale?: number | undefined } = {},
-): FootnoteArea {
-  const ratio = scale > 0 ? scale : 1;
-  const dom = view.nodeDOM(pos);
-  const placed = dom && dom.nodeType === 1 ? placedEntries(view, pos) : [];
-  const height =
-    dom && dom.nodeType === 1 ? (dom as HTMLElement).getBoundingClientRect().height : 0;
-  return areaOf(placed, (first, end) => height - (end.bottom - first.top), ratio);
+  return { overhead: Math.max(0, overhead(first, end)), entries, last };
 }
 
 /**
  * A footnote area's measurements from where its entries sit and its height, as the layout engine
- * lays them out (`PagesTextEngine.measureRegion`), in the shape `measureFootnotes` gives.
+ * lays them out (`PagesTextEngine.measureRegion`).
  */
 export function footnoteAreaOf(
   area: ProseMirrorNode,

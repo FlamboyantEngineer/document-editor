@@ -43,8 +43,6 @@ function paragraphOf(doc: ProseMirrorNode): ProseMirrorNode {
 function engineOf() {
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
   });
 }
 

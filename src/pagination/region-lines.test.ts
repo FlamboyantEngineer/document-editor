@@ -10,7 +10,7 @@ function footerRegions() {
   const geometry = {
     layoutRegion: (): RegionGeometry => {
       laidOut += 1;
-      return { ok: true, height: 10, gap: 0, children: [], provisional: false };
+      return { ok: true, height: 10, gap: 0, children: [] };
     },
   };
   const regions = createRegionLines({
@@ -69,7 +69,7 @@ describe('the laid header and footer regions', () => {
     const geometry = {
       layoutRegion: (): RegionGeometry => {
         laidOut += 1;
-        return { ok: true, height: 10, gap: 0, children: [], provisional: false };
+        return { ok: true, height: 10, gap: 0, children: [] };
       },
     };
     let number = '1';

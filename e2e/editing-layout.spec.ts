@@ -38,8 +38,7 @@ const settle = (page: Page) =>
 /** How long a settled layout may stay provisional. */
 const FINAL_WAIT = 30_000;
 
-// Settles the pages until their layout is final: an image or math the engine measured may still
-// wait for its size after the pages settle, and its layout is provisional until then
+// Settles the pages until their layout is final: it is provisional until the pages settle
 // (DOCE-PAGINATION-13.2).
 async function settleFinal(page: Page, side: 'edited' | 'fresh') {
   await settle(page);

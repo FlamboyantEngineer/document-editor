@@ -149,7 +149,7 @@ test.describe('equations on the engine’s lines', () => {
         paragraph(text('Following paragraph')),
       ),
     );
-    // Longer than the measurer waits for an image out of sight.
+    // Long enough that the pages would have been laid out by now were they not waiting for the math.
     await page.waitForTimeout(11_000);
     await expect(page.locator(MATH).first()).toHaveAttribute('data-state', 'pending');
     expect(await provisional(page)).toBe(true);

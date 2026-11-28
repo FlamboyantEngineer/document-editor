@@ -38,8 +38,6 @@ function stateOf(content: StoredNode[]): EditorState {
 function engineOf(): PagesTextEngine {
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
   });
 }
 

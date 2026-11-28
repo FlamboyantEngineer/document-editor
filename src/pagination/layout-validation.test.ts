@@ -5,7 +5,6 @@ import { documentSchema } from '../../test/document-markup.js';
 import { node, page, pagesDocument, pagesState, stubEngine } from '../../test/pages-fixtures.js';
 import { readDocumentFile } from '../model/index.js';
 import { checkDraws, findPageOverflow, findWrappedLines } from './layout-validation.js';
-import type { MeasureCache } from './measure-cache.js';
 
 const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
@@ -103,11 +102,7 @@ describe('checkDraws', () => {
     ]);
   const counted = (view: EditorView) => {
     const counts: number[] = [];
-    const cache = { clear: () => undefined } as unknown as MeasureCache;
-    checkDraws({ cache, count: (pages) => counts.push(pages), request: () => undefined }).drawn(
-      view,
-      null,
-    );
+    checkDraws({ count: (pages) => counts.push(pages) }).drawn(view, null);
     return counts;
   };
 

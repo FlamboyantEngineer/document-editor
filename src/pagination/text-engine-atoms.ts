@@ -1,45 +1,64 @@
-// The pages' text layout engine's atoms (DOCE-PAGINATION-10.2, 12.10): measured as the pages'
-// measuring view draws them, and typeset math sized from its layout where a math layouter is
-// given, with where each equation was placed kept for the renderers.
+// The pages' text layout engine's atoms (DOCE-PAGINATION-12.10): typeset math sized from its
+// layout, with where each equation was placed kept for the renderers. Nothing is measured in the
+// DOM.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import { typesetMathOf } from '../engine/math-views.js';
-import { createDomAtomMeasurer } from '../layout-engine/dom-atoms.js';
 import {
   createMathAtomMeasurer,
   MATH_MIN_REPORTED_SCALE,
+  mathPending,
   type PlacedMath,
 } from '../layout-engine/math-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
 import { markedFont } from '../layout-engine/typography.js';
-import { createDrawnAtomMeasurer } from './drawn-atoms.js';
 import type { TextEngineOptions, TextEngineStats } from './text-engine-types.js';
 
-// Measures atoms as the pages' measuring view draws them, or, without one, in a host of its own;
-// typeset math from its layout where a math layouter is given (DOCE-PAGINATION-12.10), at the
-// font size it is drawn at.
+// What math was typeset as: by the options' reader, or the math views of the view that measures
+// the pages; nothing without either.
+const typesetReader = (options: TextEngineOptions) =>
+  options.typesetOf ?? (options.view ? typesetIn(options.view) : () => null);
+
+// Sizes typeset math from its layout (DOCE-PAGINATION-12.10), at the font size it is drawn at, and
+// math it cannot lay out with the reserved box; no other atom.
 export function atomMeasurer(
   options: TextEngineOptions,
-  { host, typography }: { host: HTMLElement; typography: () => TextLayout['typography'] },
+  { typography }: { typography: () => TextLayout['typography'] },
 ) {
-  const { view } = options;
-  const inner = view
-    ? createDrawnAtomMeasurer({ view, host, scale: options.scale })
-    : createDomAtomMeasurer({ host });
-  const { mathLayouter } = options;
-  const typesetOf = options.typesetOf ?? (view ? typesetIn(view) : null);
-  if (!mathLayouter || !typesetOf) return inner;
   return createMathAtomMeasurer({
-    inner,
-    layouter: mathLayouter,
-    typesetOf,
+    layouter: options.mathLayouter ?? (() => null),
+    typesetOf: typesetReader(options),
     missing: options.missing,
     sizeOf: (node, place) => {
       const style = typography()(place.parent ?? node, place.scope);
       return place.parent ? markedFont(style, node.marks).size : style.font.size;
     },
   });
+}
+
+/**
+ * Whether the math layouter still loads what laying a document's typeset math out needs: a promise
+ * that settles once it has, which the pages wait for (DOCE-PAGINATION-14.4); null when it can lay
+ * all of it out now.
+ */
+export function documentMathPending(
+  options: TextEngineOptions,
+  doc: ProseMirrorNode,
+): Promise<void> | null {
+  const layouter = options.mathLayouter?.();
+  if (!layouter) return null;
+  const typesetOf = typesetReader(options);
+  const waits: Promise<void>[] = [];
+  doc.descendants((node) => {
+    if (node.type.name !== 'math_inline' && node.type.name !== 'math_display') return true;
+    const typeset = typesetOf(node);
+    const wait =
+      typeset?.state === 'ready' ? mathPending(layouter, [typeset.math], !node.isInline) : null;
+    if (wait) waits.push(wait);
+    return false;
+  });
+  return waits.length ? Promise.all(waits).then(() => undefined) : null;
 }
 
 // What math was typeset as by the math views of the view that measures the pages, which runs the

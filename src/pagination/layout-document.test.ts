@@ -20,7 +20,6 @@ import {
   type PageMetric,
   type SectionReport,
 } from './layout-document.js';
-import { createMeasureCache } from './measure-cache.js';
 import { createPageVariables } from './page-variables.js';
 import { createPagesTextEngine } from './text-engine.js';
 import type { PagesTextEngine, RegionRoom } from './text-engine-types.js';
@@ -65,8 +64,6 @@ function layOut(
   const view = new EditorView(document.createElement('div'), { state });
   const real = createPagesTextEngine({
     template,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
   });
   const { regionRoom, ...options } = more;
   const engine: PagesTextEngine = regionRoom
@@ -100,7 +97,7 @@ describe('headers and footers showing page numbers', () => {
   });
 
   it.each(['header', 'footer'] as const)(
-    'DOCE-PAGINATION-5.5 lays cached body blocks out again when the %s grows or shrinks',
+    'DOCE-PAGINATION-5.5 lays the body blocks out again when the %s grows or shrinks',
     (region) => {
       const template = templateWith({ [region]: [line(text('Report'))] });
       const content = ['one', 'two', 'three'].map((value) => line(text(value)));
@@ -111,30 +108,29 @@ describe('headers and footers showing page numbers', () => {
       const view = new EditorView(document.createElement('div'), {
         state: EditorState.create({ doc: setPageRegions(new Transform(doc), template).doc }),
       });
+      const real = createPagesTextEngine({ template });
       let height = 10;
-      vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function (
-        this: HTMLElement,
-      ) {
-        const measured = this.classList.contains(`pm-page-${region}`)
-          ? height
-          : this.tagName === 'P'
-            ? 25
-            : 0;
-        return new DOMRect(0, 0, 100, measured);
-      });
+      const engine: PagesTextEngine = {
+        ...real,
+        measureRegion: (node) => ({
+          height: node.type.name === `page_${region}` ? height : 0,
+          gap: 0,
+          children: [],
+        }),
+      };
       const memory = createLayoutMemory();
-      const cache = createMeasureCache();
       const layout = (incremental: boolean) => {
         const pages: PageMetric[] = [];
         layoutDocument(view, {
           pageHeight: 80,
           rules: {},
-          cache,
+          engine,
           memory: incremental ? memory : undefined,
           onPage: (page) => pages.push(page),
         });
         return pages;
       };
+      // Two of the paragraphs fit on a page beside a 10px region, one beside a 35px region.
       expect(layout(true)).toHaveLength(2);
       height = 35;
       const grown = layout(true);
@@ -145,6 +141,7 @@ describe('headers and footers showing page numbers', () => {
       const shrunk = layout(true);
       expect(shrunk).toHaveLength(2);
       expect(shrunk).toEqual(layout(false));
+      real.destroy();
       view.destroy();
     },
   );

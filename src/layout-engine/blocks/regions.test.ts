@@ -27,7 +27,6 @@ describe('page regions', () => {
         { top: 0, bottom: 26, measurement: expect.anything() as unknown },
         { top: 26, bottom: 44, measurement: expect.anything() as unknown },
       ],
-      provisional: false,
     });
     const footer = node('page_footer', null, [paragraph(250)]);
     expect(layout.layoutRegion(footer, place)).toMatchObject({ ok: true, height: 54, gap: 9 });

@@ -30,7 +30,7 @@ import {
 import { markReadyWhenSettled } from '../lab-ready.js';
 import { COUSINE_FONTS, LAB_FONTS, SLOW_LAB_FONTS } from '../served-fonts.js';
 import { useStressProbe } from '../stress/stress-probe.js';
-import { HOST_VIEWS } from './host-quote-view.js';
+import { HOST_RULES, HOST_VIEWS } from './host-quote-view.js';
 import { REGRESSION_CODE } from './regression-code.js';
 import {
   REGRESSION_DOCUMENTS,
@@ -211,6 +211,7 @@ function RegressionLab() {
         compare={COMPARE}
         debug={DEBUG}
         nodeViews={HOST ? HOST_VIEWS : undefined}
+        layoutRules={HOST ? HOST_RULES : undefined}
         codeSource={REGRESSION_CODE}
         scrollable
         statusBar

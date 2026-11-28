@@ -9,11 +9,11 @@ const math = (tex: string, dataId = 'aaaaaaaa') =>
 const equation = (tex: string) => schema.node('math_display', null, schema.text(tex));
 
 function sized(width: number, height: number, baseline?: number): AtomMeasurer {
-  return vi.fn(() => ({ size: { width, height, baseline } }));
+  return vi.fn(() => ({ width, height, baseline }));
 }
 
 describe('atom cache', () => {
-  it('DOCE-PAGINATION-10.1 measures an atom once and keeps it by its content', () => {
+  it('DOCE-PAGINATION-10.1 DOCE-PAGINATION-10.2 sizes an atom once and keeps it by its content', () => {
     const measure = sized(40, 14, 11);
     const cache = createAtomCache({ measure });
     expect(cache.measureAtom(math('x^2'))).toEqual({ width: 40, height: 14, baseline: 11 });
@@ -30,7 +30,8 @@ describe('atom cache', () => {
 
   it('DOCE-PAGINATION-10.7 keeps a footnote marker by the number a view draws in it', () => {
     const measure = vi.fn<AtomMeasurer>((_node, _width, drawing) => ({
-      size: { width: 6 * (drawing?.shown ?? '').length, height: 10 },
+      width: 6 * (drawing?.shown ?? '').length,
+      height: 10,
     }));
     const numbers = new Map<string, string>([
       ['n1', '9'],
@@ -66,25 +67,6 @@ describe('atom cache', () => {
     expect(measure).toHaveBeenCalledTimes(2);
   });
 
-  it('DOCE-PAGINATION-10.2 measures an atom again whose final size its measurer cannot tell', async () => {
-    let settle: (size: null) => void = () => undefined;
-    const measure = vi.fn<AtomMeasurer>(() => ({
-      size: { width: 10, height: 10 },
-      settled: new Promise<null>((resolve) => {
-        settle = resolve;
-      }),
-    }));
-    const cache = createAtomCache({ measure });
-    const listener = vi.fn();
-    cache.subscribe(listener);
-    const atom = math('x');
-    cache.measureAtom(atom);
-    settle(null);
-    await vi.waitFor(() => expect(listener).toHaveBeenCalledWith([atom]));
-    cache.measureAtom(atom);
-    expect(measure).toHaveBeenCalledTimes(2);
-  });
-
   it('DOCE-PAGINATION-10.1 keys a figure without its caption, which the engine lays out as text', () => {
     const figure = (caption: string) =>
       schema.node('figure', { src: 'https://example.org/a.png', width: 40, height: 30 }, [
@@ -110,17 +92,16 @@ describe('atom cache', () => {
       width: 200,
       height: 40,
       baseline: undefined,
-      provisional: false,
     });
     cache.measureBlockAtom(node, 300);
     cache.measureBlockAtom(node, 500);
     expect(measure).toHaveBeenCalledTimes(2);
   });
 
-  it('DOCE-PAGINATION-10.1 measures nothing it cannot size', () => {
+  it('DOCE-PAGINATION-10.1 keeps nothing its measurer cannot size', () => {
     const cache = createAtomCache({ measure: () => null });
     expect(cache.measureAtom(math('x'))).toBeNull();
-    const broken = createAtomCache({ measure: () => ({ size: { width: Number.NaN, height: 3 } }) });
+    const broken = createAtomCache({ measure: () => ({ width: Number.NaN, height: 3 }) });
     expect(broken.measureBlockAtom(equation('x'), 100)).toBeNull();
   });
 
@@ -136,69 +117,5 @@ describe('atom cache', () => {
     expect(measure).toHaveBeenCalledTimes(3);
     cache.measureAtom(math('b'));
     expect(measure).toHaveBeenCalledTimes(4);
-  });
-
-  it('DOCE-PAGINATION-10.2 reports a provisional size until the final one arrives', async () => {
-    let finish: (size: { width: number; height: number }) => void = () => undefined;
-    const settled = new Promise<{ width: number; height: number }>((resolve) => {
-      finish = resolve;
-    });
-    const cache = createAtomCache({ measure: () => ({ size: { width: 0, height: 24 }, settled }) });
-    const listener = vi.fn();
-    const stop = cache.subscribe(listener);
-    const node = equation('\\int f');
-    expect(cache.measureBlockAtom(node, 400)?.provisional).toBe(true);
-    finish({ width: 320, height: 180 });
-    await settled;
-    await Promise.resolve();
-    expect(cache.measureBlockAtom(node, 400)).toEqual({
-      width: 320,
-      height: 180,
-      provisional: false,
-    });
-    expect(listener).toHaveBeenCalledWith([node]);
-    stop();
-  });
-
-  it('DOCE-PAGINATION-10.2 tells every node that shares a loading atom when it settles', async () => {
-    let finish: (size: { width: number; height: number }) => void = () => undefined;
-    const settled = new Promise<{ width: number; height: number }>((resolve) => {
-      finish = resolve;
-    });
-    const measure = vi.fn(() => ({ size: { width: 0, height: 0 }, settled }));
-    const cache = createAtomCache({ measure });
-    const listener = vi.fn();
-    cache.subscribe(listener);
-    const image = (dataId: string) =>
-      schema.node('figure', { dataId, src: 'https://example.org/a.png', width: 40, height: 30 }, [
-        schema.node('figure_caption'),
-      ]);
-    const [first, second] = [image('aaaaaaaa'), image('bbbbbbbb')];
-    cache.measureBlockAtom(first, 400);
-    cache.measureBlockAtom(second, 400);
-    expect(measure).toHaveBeenCalledTimes(1);
-    finish({ width: 80, height: 40 });
-    await settled;
-    await Promise.resolve();
-    expect(listener).toHaveBeenCalledWith([first, second]);
-  });
-
-  it('DOCE-PAGINATION-10.2 keeps the size drawn while loading when the load fails', async () => {
-    const settled = Promise.reject(new Error('not found'));
-    const cache = createAtomCache({
-      measure: () => ({ size: { width: 16, height: 16 }, settled }),
-    });
-    const listener = vi.fn();
-    cache.subscribe(listener);
-    const node = equation('z');
-    cache.measureBlockAtom(node, 100);
-    await settled.catch(() => undefined);
-    await Promise.resolve();
-    expect(cache.measureBlockAtom(node, 100)).toEqual({
-      width: 16,
-      height: 16,
-      provisional: false,
-    });
-    expect(listener).not.toHaveBeenCalled();
   });
 });

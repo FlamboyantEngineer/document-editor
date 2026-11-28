@@ -193,7 +193,7 @@ test.describe('pagination lab', () => {
     }
   });
 
-  test('DOCE-PAGINATION-5.6 measures again once a delayed font loads, and the pages hold their content', async ({
+  test('DOCE-PAGINATION-5.6 lays nothing out again when a face the page loads arrives', async ({
     // The lab fixture still collects the page's errors.
     lab: _lab,
     page,
@@ -212,7 +212,7 @@ test.describe('pagination lab', () => {
       const response = await route.fetch();
       const style =
         '<style>@font-face { font-family: LabDelayed; src: url(lab-fonts/delayed.woff2); size-adjust: 160% }' +
-        ' :is(.lab-pages, .lab-measure) p { font-family: LabDelayed, serif !important }</style>';
+        ' .lab-measure p { font-family: LabDelayed, serif !important }</style>';
       await route.fulfill({
         response,
         body: (await response.text()).replace('</head>', `${style}</head>`),
@@ -228,66 +228,10 @@ test.describe('pagination lab', () => {
     await expect
       .poll(() => page.evaluate(() => document.fonts.check('16px LabDelayed')))
       .toBe(true);
-    await expect
-      .poll(async () => Number(await html.getAttribute('data-lab-layouts')))
-      .toBeGreaterThan(before);
-    await expect.poll(() => pages(page).count()).toBeGreaterThan(pagesBefore);
-    await expect
-      .poll(async () => Math.max(...(await contentHeights(page))))
-      .toBeLessThanOrEqual(PAGE_HEIGHT + 1);
+    // The pages are laid out with the served fonts, never the page's own faces.
+    await page.waitForTimeout(500);
+    expect(Number(await html.getAttribute('data-lab-layouts'))).toBe(before);
+    expect(await pages(page).count()).toBe(pagesBefore);
     await expectPagesHoldContent(page);
-  });
-
-  test('DOCE-PAGINATION-5.14 lays the pages out again when blocks shrink after they were measured', async ({
-    lab: _lab,
-    page,
-  }) => {
-    await page.route('**/pagination.html', async (route) => {
-      const response = await route.fetch();
-      const style =
-        '<style id="lab-tall">:is(.lab-pages, .lab-measure) p { padding-bottom: 60px }</style>';
-      await route.fulfill({
-        response,
-        body: (await response.text()).replace('</head>', `${style}</head>`),
-      });
-    });
-    await page.goto('pagination.html');
-    await waitForLab(page);
-    const tall = await pages(page).count();
-    // A late change of style the measuring cannot see: every block shrinks.
-    await page.evaluate(() => document.getElementById('lab-tall')?.remove());
-    await expect.poll(() => pages(page).count()).toBeLessThan(tall);
-    await expectPagesHoldContent(page);
-  });
-
-  test('DOCE-PAGINATION-5.15 loads a lazy image of the measuring view and measures its block again', async ({
-    lab,
-    page,
-  }) => {
-    await page.route('**/lab-lazy.svg', (route) =>
-      route.fulfill({
-        contentType: 'image/svg+xml',
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="240"></svg>',
-      }),
-    );
-    await lab.open('pagination');
-    const html = page.locator('html');
-    const ghostImage = page.locator('.lab-measure img');
-    await page.evaluate(() => {
-      const image = document.createElement('img');
-      image.setAttribute('loading', 'lazy');
-      image.src = 'lab-lazy.svg';
-      document.querySelector('.lab-measure p')?.append(image);
-    });
-    const before = Number(await html.getAttribute('data-lab-layouts'));
-    // Measuring every block again measures the paragraph that holds the image.
-    await page.getByRole('button', { name: 'Narrow pages' }).click();
-    await expect(ghostImage).toHaveAttribute('loading', 'eager');
-    await expect
-      .poll(() => ghostImage.evaluate((image: HTMLImageElement) => image.complete))
-      .toBe(true);
-    await expect
-      .poll(async () => Number(await html.getAttribute('data-lab-layouts')))
-      .toBeGreaterThan(before + 1);
   });
 });

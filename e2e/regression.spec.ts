@@ -488,13 +488,30 @@ test.describe('caret across a re-layout', () => {
   });
 });
 
+// Each top-level quote's planned height on the pages, in order, its split parts summed.
+const quoteHeights = (page: Page) =>
+  page.evaluate(() => {
+    const heights: number[] = [];
+    const quotes = document.querySelectorAll<HTMLElement>(
+      '.de-document-editor__content:not(.de-document-editor__measure *) .pm-page-content > [data-debug-type="blockquote"]',
+    );
+    for (const quote of quotes) {
+      const height = Number(quote.dataset.debugHeight);
+      const part = Number(quote.dataset.splitPartIndex ?? 0);
+      if (part > 0) heights.push((heights.pop() ?? 0) + height);
+      else heights.push(height);
+    }
+    return heights;
+  });
+
 test.describe('host views on the projection', () => {
-  test('DOCE-LABS-4.2 DOCE-PAGINATION-7.17 measures blocks a host view draws as the pages draw them', async ({
+  test('DOCE-LABS-4.2 DOCE-PAGINATION-7.17 DOCE-PAGINATION-14.1 sizes blocks a host view draws by its layout rule', async ({
     page,
   }) => {
-    await openDocument(page, 'blockquotes');
-    const plain = (await pagesOf(page)).length;
-    await page.goto('regression.html?document=blockquotes&layout=page&hostViews');
+    await page.goto('regression.html?document=blockquotes&layout=page&debug');
+    await waitForLab(page);
+    const plain = await quoteHeights(page);
+    await page.goto('regression.html?document=blockquotes&layout=page&debug&hostViews');
     await waitForLab(page);
     await expect(page.locator('.pm-page blockquote[data-host-view]').first()).toBeVisible();
     // The ghost draws the host's view too, in the editor's measuring element.
@@ -503,10 +520,14 @@ test.describe('host views on the projection', () => {
     // Under the editor's own providers, as the pages draw it.
     await expect(measuring.locator('blockquote[data-in-editor="false"]')).toHaveCount(0);
     await expect(page.locator('.pm-page blockquote[data-in-editor="false"]')).toHaveCount(0);
-    // The taller quotes take more pages, and every page holds what it shows.
-    const pages = await pagesOf(page);
-    expect(pages.length).toBeGreaterThan(plain);
-    expectPagesHoldContent(pages);
+    // Each quote takes the box the host's rule gives it, its view's padding above and below its
+    // text, moved whole, and every page holds what it shows.
+    const hosted = await quoteHeights(page);
+    expect(hosted).toHaveLength(plain.length);
+    for (const [index, height] of hosted.entries()) {
+      expect(height, `quote ${String(index + 1)}`).toBeGreaterThan(plain[index] ?? 0);
+    }
+    expectPagesHoldContent(await pagesOf(page));
   });
 });
 

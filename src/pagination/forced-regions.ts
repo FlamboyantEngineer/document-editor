@@ -25,7 +25,7 @@ export const FORCED_REGIONS: ReadonlyMap<string, ForcedRegion> = new Map([
 ]);
 
 /** The texts a region's template variables show, by key, as the view draws them. */
-function regionVariableTexts(
+export function regionVariableTexts(
   region: ProseMirrorNode,
   pos: number,
   shown: DecorationSet | undefined,

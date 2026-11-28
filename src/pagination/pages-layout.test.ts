@@ -121,12 +121,10 @@ describe('pagesLayout', () => {
     expect(pagesLayout(pagesState(doc, null))).toBeNull();
   });
 
-  it('DOCE-PAGINATION-13.2 says the layout is provisional until the pages settle and atoms load', () => {
+  it('DOCE-PAGINATION-13.2 says the layout is provisional until the pages settle', () => {
     const doc = pagesDocument([page([paragraph('One')])]);
     const engine = stubEngine();
     expect(pagesLayout(pagesState(doc, engine), { settled: true })?.provisional).toBe(false);
     expect(pagesLayout(pagesState(doc, engine), { settled: false })?.provisional).toBe(true);
-    const loading = { ...engine, provisional: () => true };
-    expect(pagesLayout(pagesState(doc, loading), { settled: true })?.provisional).toBe(true);
   });
 });

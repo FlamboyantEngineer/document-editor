@@ -38,7 +38,8 @@ test.describe('templates lab', () => {
       expect(box.height).toBeCloseTo((297 * 96) / 25.4, 0);
       expect(box.used).toBeLessThanOrEqual(box.room + 1);
     }
-    expect(await headingNumber(page)).toBe('counter(h1) ". "');
+    // The engine numbers the headings in the template's format (DOCE-PAGINATION-11.9).
+    expect(await headingNumber(page)).toBe('"1. " / ""');
   });
 
   test('DOCE-TEMPLATES-5.6 restyles and lays the pages out again when the template changes', async ({
@@ -52,7 +53,7 @@ test.describe('templates lab', () => {
       expect(box).toMatchObject({ width: 1056, height: 816 });
       expect(box.used).toBeLessThanOrEqual(box.room + 1);
     }
-    expect(await headingNumber(page)).toBe('counter(h1, upper-alpha) ". "');
+    expect(await headingNumber(page)).toBe('"A. " / ""');
     const font = await page
       .locator('.lab-pages p')
       .first()

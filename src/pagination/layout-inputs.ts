@@ -6,6 +6,7 @@ import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import { UNICODE_VERSION } from '../layout-engine/bidi-classes.js';
 import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
 import { segmentationFingerprint } from '../utils/segmentation.js';
+import { rulesOf } from './host-rules.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
 /** The release of the Pretext fork the engine breaks lines with; a test checks it is installed. */
@@ -135,6 +136,6 @@ export const engineSources = (options: TextEngineOptions) => ({
       markup: options.markup?.() ?? 'all',
       codeLineNumbers: options.codeLineNumbers ?? false,
       math: options.mathLayouter?.()?.key ?? null,
-      rules: options.layoutRules?.(),
+      rules: rulesOf(options)(),
     }),
 });

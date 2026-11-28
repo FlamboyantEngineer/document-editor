@@ -91,7 +91,7 @@ export function createNestedLines(source: NestedSource) {
         ? recorder.lines
         : new Map();
       recorder.lines = null;
-      if (!result.ok || !result.provisional) kept.set(container, { key, lines });
+      kept.set(container, { key, lines });
       return lines;
     },
     forget() {

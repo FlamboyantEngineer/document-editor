@@ -1,19 +1,50 @@
 // Shows a lab's canonical state on pages, as the document editor does: a read-only projection
-// renders the pages in `.lab-pages`, a ghost in `.de-document-editor__measure` measures, and every
-// edit on the pages goes to the canonical state. The root reports the page count
+// renders the pages in `.lab-pages`, laid out by the layout engine in the labs' served fonts and
+// the lab's template, with a ghost in `.de-document-editor__measure`, and every edit on the pages
+// goes to the canonical state. The root reports the page count
 // (`data-lab-pages`) and that the pages are laid out (`data-lab-ready`) after each layout.
 
 import type { Node } from 'prosemirror-model';
+import { BASE_TEMPLATE, type TemplateFile, templatePageMetrics } from '../../src/model/index.js';
 import {
   createProjectionView,
+  loadPagesFonts,
+  PAGE_GENERICS,
   type ProjectionView,
   type ProjectionViewOptions,
+  templateFontFamilies,
+  type TextLayoutSetting,
 } from '../../src/pagination/index.js';
+import { LAB_FONTS } from './served-fonts.js';
 
 /** How a lab's pages are set up: a projection view's options, without where it mounts. */
 export interface LabPagesOptions extends Omit<ProjectionViewOptions, 'mount' | 'measureIn'> {
+  /** The template the pages are laid out in now; the base template when not given. */
+  readonly template?: (() => TemplateFile) | undefined;
   /** Called after each layout, once the root reports it. */
   readonly onLaidOut?: ((pages: ProjectionView) => void) | undefined;
+}
+
+/** A template with side margins that leave `width` pixels of content, which the engine lays out in. */
+export function templateOfWidth(template: TemplateFile, width: number): TemplateFile {
+  const margin = `${String((templatePageMetrics(template).width - width) / 2)}px`;
+  const page = template.page ?? {};
+  return {
+    ...template,
+    page: { ...page, margins: { ...page.margins, left: margin, right: margin } },
+  };
+}
+
+/**
+ * The layout engine a lab's projection lays its pages out with: the labs' served fonts
+ * (`LAB_FONTS`), for the families `template` names and the generic keywords.
+ */
+export function labTextLayout(
+  template: () => TemplateFile,
+  rest: Omit<TextLayoutSetting, 'template' | 'fonts'> = {},
+): TextLayoutSetting {
+  const families = [...new Set([...templateFontFamilies(template()), ...PAGE_GENERICS])];
+  return { ...rest, template, fonts: loadPagesFonts(LAB_FONTS, families, { doc: document }) };
 }
 
 const pageCount = (doc: Node) => {
@@ -38,13 +69,16 @@ export function labMounts(): {
 /** Shows a canonical state on pages in the lab's mount points. */
 export function showOnPages(
   mounts: { readonly mount: HTMLElement; readonly measureIn: HTMLElement },
-  { onLaidOut, onLayout, ...options }: LabPagesOptions,
+  { onLaidOut, onLayout, template, ...options }: LabPagesOptions,
 ): ProjectionView {
   let pages: ProjectionView | null = null;
   pages = createProjectionView({
     ...mounts,
-    // The ghost measures the blocks as the canonical plugins draw them, as DocumentEditor's does.
+    // The ghost holds the canonical plugins, as DocumentEditor's does.
     ghostPlugins: options.state.plugins,
+    textLayout: labTextLayout(template ?? (() => BASE_TEMPLATE), {
+      layoutRules: () => (typeof options.rules === 'object' ? options.rules : undefined),
+    }),
     ...options,
     onLayout(tr) {
       onLayout?.(tr);

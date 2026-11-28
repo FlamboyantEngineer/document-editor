@@ -14,8 +14,6 @@ export function baseEngine(): PagesTextEngine {
   installFakeCanvas();
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
   });
 }
 

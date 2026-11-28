@@ -11,6 +11,7 @@ import {
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { createAtomCache } from '../layout-engine/atoms.js';
 import { createBlockLayout } from '../layout-engine/blocks/block-layout.js';
+import { noRoom } from '../layout-engine/blocks/context.js';
 import { blockMetrics } from '../layout-engine/blocks/metrics.js';
 import { hiddenSuggestion, suggestionKey } from '../layout-engine/hidden-suggestions.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
@@ -23,6 +24,7 @@ import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import {
   hostRuleSizes,
   refusedAsDrawn,
+  reportUnplacedWords,
   sizedReading,
   textAtomsOf,
   watchedRules,
@@ -34,8 +36,8 @@ import { holdNodeNumbers, markerKey, type NodeNumbers } from './node-numbers.js'
 import { numberedText } from './numbered-text.js';
 import { createObjectRecorder } from './object-recorder.js';
 import { createRegionLines } from './region-lines.js';
-import { atomMeasurer, mathPlaces } from './text-engine-atoms.js';
-import { createCounts } from './text-engine-counts.js';
+import { atomMeasurer, documentMathPending, mathPlaces } from './text-engine-atoms.js';
+import { createCounts, createRefusals, unsized } from './text-engine-counts.js';
 import type { DrawnLines, PagesTextEngine, TextEngineOptions } from './text-engine-types.js';
 
 interface KeptBlock {
@@ -46,17 +48,6 @@ interface KeptBlock {
 interface KeptLines {
   readonly key: string;
   readonly table: DrawnLines | null;
-}
-
-// Where the engine measures its atoms: out of sight, beside the view that measures the pages, whose
-// ancestors' copies the atoms are drawn in; in a page's content of its own without that view, so
-// the stylesheet draws them as on the pages.
-function atomHost(measureIn: HTMLElement, drawn: boolean): HTMLElement {
-  const host = measureIn.ownerDocument.createElement('div');
-  host.className = drawn ? 'de-atom-measure' : 'pm-page-content de-atom-measure';
-  host.setAttribute('aria-hidden', 'true');
-  measureIn.append(host);
-  return host;
 }
 
 // The width source by default: a Canvas measuring unhinted, as the pages draw their text under
@@ -98,11 +89,14 @@ function engineLayouts(
     inserted,
     recorder,
     contents,
+    refused,
   }: {
     numbers: () => NodeNumbers;
     inserted: () => InsertedTexts;
     recorder: LinesRecorder;
     contents: ContentsLists;
+    /** Told of each node that cannot be laid out, which takes no room. */
+    refused: (node: ProseMirrorNode, reason: string) => void;
   },
 ) {
   // What the body text's variables show, and the key a kept layout of a block holding some matches.
@@ -112,7 +106,6 @@ function engineLayouts(
   const measureContext = options.measureContext ?? unhintedContext;
   const select = measuringWith(measureContext);
   select();
-  const host = atomHost(options.measureIn, Boolean(options.view));
   const equationOf = (equation: ProseMirrorNode) => numbers().equationOf(equation);
   const math = mathPlaces(equationOf);
   // The text layout is made after the atom cache it measures atoms with.
@@ -122,8 +115,8 @@ function engineLayouts(
     return laying;
   };
   const typography = () => textNow().typography;
-  const atoms = createAtomCache({ measure: atomMeasurer(options, { host, typography }) });
-  // The host's nodes its layout rules size, before anything measures them as drawn.
+  const atoms = createAtomCache({ measure: atomMeasurer(options, { typography }) });
+  // The nodes the layout rules size, before the engine's own sizes.
   const sizes = hostRuleSizes(options, textNow);
   const text = createTextLayout({
     template,
@@ -134,8 +127,11 @@ function engineLayouts(
     codeLineNumbers: options.codeLineNumbers,
     language: options.language ?? documentLanguage(null, template),
     reserve: options.reserve,
+    // An inline atom nothing sizes, such as kept content the schema does not know, takes no room.
     measureAtom: (node, place) =>
-      sizes.inline(node, place?.width ?? 0, place?.scope ?? null) ?? atoms.measureAtom(node, place),
+      sizes.inline(node, place?.width ?? 0, place?.scope ?? null) ??
+      atoms.measureAtom(node, place) ??
+      unsized(node, refused),
     onMath: math.record,
     textAtoms: textAtomsOf(options, numbers),
   });
@@ -152,13 +148,11 @@ function engineLayouts(
     onMath: math.record,
     onObject: objects.record,
     ruleSizes: sizes,
+    onRefused: refused,
   });
   laying = text;
-  atoms.subscribe(math.forget);
   const labelOf = (caption: ProseMirrorNode) => numbers().labelOf(caption);
   return {
-    host,
-    atoms,
     text,
     geometry,
     // The figure and table boxes of a top-level block laid out in its section's content width.
@@ -232,15 +226,17 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   let current = NO_INSERTED;
   const recorder: LinesRecorder = { lines: null };
   const contents = createContentsLists(template, options.view);
+  const refusals = createRefusals();
   const layouts = engineLayouts(options, {
     numbers: numbers.current,
     inserted: () => current,
     recorder,
     contents,
+    refused: refusals.refuse,
   });
-  const { host, atoms, text, geometry, select, measureContext, variablesKey, labelOf } = layouts;
+  const { text, geometry, select, measureContext, variablesKey, labelOf } = layouts;
   let blocks = new WeakMap<ProseMirrorNode, KeptBlock>();
-  const counts = createCounts(layouts.sizes.errors);
+  const counts = createCounts(layouts.sizes.errors, refusals);
   const rules = watchedRules(options, () => forget());
   const widthOf = contentWidths(template);
   const tables = keptLines(text, { widthOf, markup, numbers: numbers.current, variablesKey });
@@ -252,7 +248,6 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     blocks = new WeakMap();
     for (const kept of [tables, regions, nested]) kept.forget();
   };
-  const unsubscribe = atoms.subscribe(() => [forget(), options.onAtomsSettled()]);
   return {
     ...engineSources(options),
     number: numbers.number,
@@ -271,11 +266,12 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     ),
     measureBlock(node, scope, inserted = NO_INSERTED) {
       select();
-      const refusal = refusedAsDrawn(node, inserted, rules.hostViews());
+      const refusal = refusedAsDrawn(node, rules.hostViews());
       if (refusal) {
-        counts.refuse(refusal);
-        return null;
+        refusals.refuse(node, refusal);
+        return noRoom(node);
       }
+      reportUnplacedWords(node, inserted, refusals.refuse);
       const listed = contents.keyOf(node, numbers.current().doc) + variablesKey(node);
       const key = `${scope ?? ''}|${numbers.current().keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, options.markup)}${listed}`;
       const kept = blocks.get(node);
@@ -284,11 +280,11 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
       const result = geometry.layoutBlock(node, { width: widthOf(scope), scope });
       current = NO_INSERTED;
       if (!result.ok) {
-        counts.refuse(result.reason);
-        return null;
+        refusals.refuse(result.node, result.reason);
+        return noRoom(node);
       }
       counts.laid();
-      if (!result.provisional) blocks.set(node, { key, block: result.block });
+      blocks.set(node, { key, block: result.block });
       return result.block;
     },
     insertedReserved: (node, scope, word) => text.insertedReserved(node, scope, word),
@@ -297,12 +293,10 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     lines: selecting(select, (node, place) => tables.lines(node, place)),
     nestedLines: selecting(select, (...at) => nested.lines(...at)),
     objectBoxes: selecting(select, layouts.objectBoxes(widthOf)),
-    provisional: atoms.pending,
+    mathPending: (doc) => documentMathPending(options, doc),
     ...layouts.math.reading(counts.stats, () => numbers.current().doc),
     ...sizedReading(layouts.sizes),
     destroy() {
-      unsubscribe();
-      host.remove();
       if (measuring === measureContext) measuring = null;
     },
   };

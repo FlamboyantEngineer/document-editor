@@ -11,7 +11,7 @@ interface StandInOptions {
   readonly missing?: string;
   /** Tags of elements it refuses. */
   readonly refuse?: readonly string[];
-  /** Whether `prepare` loads something first, settling with the returned promise. */
+  /** What `prepare` loads first, until the promise it returns settles. */
   readonly loading?: Promise<void> | null;
 }
 
@@ -37,9 +37,14 @@ export function mathOf(tokens: readonly string[], display = false): MathTree {
 /** The stand-in layouter, with the calls it was asked. */
 export function standInMathLayouter(options: StandInOptions = {}) {
   const calls: { text: string; display: boolean; size: number }[] = [];
+  // What `prepare` still loads: nothing once its promise has settled.
+  let loading = options.loading ?? null;
+  void loading?.then(() => {
+    loading = null;
+  });
   const layouter: MathLayouter = {
     key: 'stand-in',
-    prepare: () => options.loading ?? null,
+    prepare: () => loading,
     layout(tree, display, size): LaidMath | null {
       const text = mathTreeText(tree);
       calls.push({ text, display, size });

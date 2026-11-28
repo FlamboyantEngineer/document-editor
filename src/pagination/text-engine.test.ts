@@ -12,7 +12,7 @@ import {
 } from '../model/index.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
-import { footnoteAreaHeight, footnoteAreaOf } from './measure-footnotes.js';
+import { footnoteAreaHeight, footnoteAreaOf } from './footnote-area.js';
 import type { ServedFonts } from './served-fonts.js';
 import { createPagesTextEngine } from './text-engine.js';
 import { holdTextEngine } from './text-engine-holder.js';
@@ -30,28 +30,19 @@ beforeEach(() => {
 });
 
 describe('createPagesTextEngine', () => {
-  it('DOCE-PAGINATION-11.1 lays a paragraph out once, and keeps it while its node does', () => {
-    const measureIn = document.createElement('div');
-    const engine = createPagesTextEngine({
-      template: BASE_TEMPLATE,
-      measureIn,
-      onAtomsSettled: () => undefined,
-    });
+  it('DOCE-PAGINATION-11.1 DOCE-PAGINATION-5.3 lays a paragraph out once, and keeps it while its node does', () => {
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
     const node = paragraph(WORDS);
     const block = engine.measureBlock(node, null);
-    expect(block?.height).toBeGreaterThan(0);
+    expect(block.height).toBeGreaterThan(0);
     expect(engine.measureBlock(node, null)).toBe(block);
     expect(engine.stats().laid).toBe(1);
-    expect(measureIn.querySelector('.de-atom-measure')).not.toBeNull();
     engine.destroy();
-    expect(measureIn.querySelector('.de-atom-measure')).toBeNull();
   });
 
-  it('DOCE-PAGINATION-11.1 DOCE-PAGINATION-7.17 leaves a block a host view draws, or one holding it, to be measured as drawn', () => {
+  it('DOCE-PAGINATION-11.1 DOCE-PAGINATION-7.17 gives a block a host view draws, or one holding it, no room when no rule sizes it', () => {
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       hostViews: ['blockquote'],
     });
     const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
@@ -60,9 +51,10 @@ describe('createPagesTextEngine', () => {
       'bullet_list',
     );
     if (!quote || !list) throw new Error('no blocks');
-    expect(engine.measureBlock(quote, null)).toBeNull();
-    expect(engine.measureBlock(list, null)).toBeNull();
-    expect(engine.measureBlock(paragraph(WORDS), null)).not.toBeNull();
+    const none = { height: 0, marginTop: 0, marginBottom: 0 };
+    expect(engine.measureBlock(quote, null)).toMatchObject(none);
+    expect(engine.measureBlock(list, null)).toMatchObject(none);
+    expect(engine.measureBlock(paragraph(WORDS), null).height).toBeGreaterThan(0);
     expect(engine.stats().reasons.get('drawn by a host view')).toBe(2);
     engine.destroy();
   });
@@ -79,8 +71,6 @@ describe('createPagesTextEngine', () => {
     };
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       hostViews: ['blockquote'],
       layoutRules: () => rules.current,
     });
@@ -104,8 +94,6 @@ describe('createPagesTextEngine', () => {
   it('DOCE-PAGINATION-14.1 gives a block whose host rule fails no room, and keeps the error for the host', () => {
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       layoutRules: () => ({
         blockquote: {
           size: () => {
@@ -142,8 +130,6 @@ describe('createPagesTextEngine', () => {
     };
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       hostViews: ['mention'],
       layoutRules: () => rules.current,
     });
@@ -167,8 +153,6 @@ describe('createPagesTextEngine', () => {
   it('DOCE-PAGINATION-14.2 DOCE-PAGINATION-14.3 sizes a signature by the library’s rule and keeps its box to draw it in', () => {
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       layoutRules: () => LAYOUT_RULES,
     });
     const signature = '<span data-signature="u1" data-signature-name="Ann Lee"></span>';
@@ -191,8 +175,6 @@ describe('createPagesTextEngine', () => {
     let calls = 0;
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       layoutRules: () => ({ horizontal_rule: { size: () => ({ height: (calls += 1) }) } }),
     });
     const rule = findNode(parseMarkup('<hr>'), 'horizontal_rule');
@@ -206,8 +188,6 @@ describe('createPagesTextEngine', () => {
     let markup: 'all' | 'final' | 'original' = 'all';
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       markup: () => markup,
     });
     const suggested = paragraph(`aaaa <del data-id="s1">${WORDS}</del>`);
@@ -228,8 +208,6 @@ describe('createPagesTextEngine', () => {
   it('DOCE-PAGINATION-11.2 gives the lines it measured a paragraph with, tiling its content', () => {
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
     });
     const node = paragraph(WORDS);
     const table = engine.lines(node, { scope: null });
@@ -248,8 +226,6 @@ describe('createPagesTextEngine', () => {
     const fonts: string[] = [];
     const engine = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
       reserve: (cluster, font) => {
         fonts.push(font);
         return cluster === '\u2603' ? 12 : null;
@@ -265,27 +241,24 @@ describe('createPagesTextEngine', () => {
     engine.destroy();
     const plain = createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
     });
     expect(plain.insertedReserved(paragraph('kept'), null, '\u2603')).toEqual([]);
     plain.destroy();
   });
 
   it('DOCE-PAGINATION-10.9 lays blocks out with the template’s numbers, not the page’s stylesheet', () => {
-    const measureIn = document.createElement('div');
-    measureIn.style.setProperty('--de-quote-spacing', '50px');
-    document.body.append(measureIn);
+    const { style } = document.documentElement;
+    style.setProperty('--de-quote-spacing', '50px');
     const template = {
       ...BASE_TEMPLATE,
       styles: { ...BASE_TEMPLATE.styles, blocks: { quoteSpacing: '30px' } },
     };
-    const engine = createPagesTextEngine({ template, measureIn, onAtomsSettled: () => undefined });
+    const engine = createPagesTextEngine({ template });
     const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
     if (!quote) throw new Error('no quote');
     expect(engine.measureBlock(quote, null)).toMatchObject({ marginTop: 30, marginBottom: 30 });
     engine.destroy();
-    measureIn.remove();
+    style.removeProperty('--de-quote-spacing');
   });
 });
 
@@ -300,8 +273,6 @@ describe('the engine on page regions', () => {
   const engine = () =>
     createPagesTextEngine({
       template: BASE_TEMPLATE,
-      measureIn: document.createElement('div'),
-      onAtomsSettled: () => undefined,
     });
 
   it('DOCE-PAGINATION-11.10 lays a header out with its gap, keeps it by node, and refuses a block', () => {
@@ -458,19 +429,17 @@ function served(added: string[] = []): ServedFonts {
 
 describe('holdTextEngine', () => {
   it('DOCE-PAGINATION-9.16 lays the pages out in the document language, never the page around them', async () => {
-    const host = document.createElement('section');
-    const measureIn = host.appendChild(document.createElement('div'));
-    host.lang = 'zh-Hans';
+    // The page around the pages names another language, which the engine never reads.
+    document.documentElement.lang = 'zh-Hans';
     const holder = holdTextEngine({
       setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
-      measureIn,
       changed: () => undefined,
     });
     await holder.loaded;
     // Without the document's, the template's: the base template's English.
     const first = holder.engine();
     expect(first?.language).toBe('en');
-    host.lang = 'ja';
+    document.documentElement.lang = 'ja';
     expect(holder.engine()).toBe(first);
     holder.destroy();
     let language = 'ja';
@@ -480,7 +449,6 @@ describe('holdTextEngine', () => {
         fonts: Promise.resolve(served()),
         language: () => language,
       },
-      measureIn,
       changed: () => undefined,
     });
     await named.loaded;
@@ -493,6 +461,7 @@ describe('holdTextEngine', () => {
     expect(thai).not.toBe(japanese);
     expect(thai?.language).toBe('th');
     named.destroy();
+    document.documentElement.removeAttribute('lang');
   });
 
   it('DOCE-PAGINATION-11.12 keeps the engine in another markup, its lines moved', async () => {
@@ -503,7 +472,6 @@ describe('holdTextEngine', () => {
         fonts: Promise.resolve(served()),
         markup: () => markup,
       },
-      measureIn: document.createElement('div'),
       changed: () => undefined,
     });
     await holder.loaded;
@@ -520,7 +488,6 @@ describe('holdTextEngine', () => {
   it('DOCE-PAGINATION-10.7 numbers an engine made again with the document the last one was numbered with', async () => {
     const holder = holdTextEngine({
       setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
-      measureIn: document.createElement('div'),
       changed: () => undefined,
     });
     await holder.loaded;
@@ -542,7 +509,6 @@ describe('holdTextEngine', () => {
     let template = BASE_TEMPLATE;
     const holder = holdTextEngine({
       setting: { template: () => template, fonts: Promise.resolve(served()) },
-      measureIn: document.createElement('div'),
       changed: () => undefined,
     });
     expect(holder.engine()).toBeNull();
@@ -564,7 +530,6 @@ describe('holdTextEngine', () => {
         template: () => BASE_TEMPLATE,
         fonts: Promise.resolve({ phase: 'browser', reason: 'no-shaper' }),
       },
-      measureIn: document.createElement('div'),
       changed: () => undefined,
     });
     await browser.loaded;
@@ -578,7 +543,6 @@ describe('holdTextEngine', () => {
         template: () => template as typeof BASE_TEMPLATE,
         fonts: Promise.resolve(served(added)),
       },
-      measureIn: document.createElement('div'),
       changed,
     });
     await holder.loaded;
@@ -590,84 +554,11 @@ describe('holdTextEngine', () => {
     expect(holder.engine()).not.toBe(first);
     holder.destroy();
   });
-
-  it('DOCE-PAGINATION-5.6 DOCE-PAGINATION-12.5 makes the engine again once when faces load, then settles', async () => {
-    const fonts = new EventTarget();
-    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
-    try {
-      let changes = 0;
-      const holder = holdTextEngine({
-        setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
-        measureIn: document.createElement('div'),
-        changed: () => {
-          changes += 1;
-        },
-      });
-      await holder.loaded;
-      const first = holder.engine();
-      const version = holder.version();
-      fonts.dispatchEvent(new Event('loadingdone'));
-      expect(changes).toBe(1);
-      expect(holder.version()).toBe(version + 1);
-      const second = holder.engine();
-      expect(second).not.toBe(first);
-      expect(second?.measureBlock(paragraph(WORDS), null)?.height).toBeGreaterThan(0);
-      holder.destroy();
-      fonts.dispatchEvent(new Event('loadingdone'));
-      expect(changes).toBe(1);
-    } finally {
-      Reflect.deleteProperty(document, 'fonts');
-    }
-  });
-  it('DOCE-PAGINATION-9.1 lays a kept node out again with the widths of faces that loaded later', async () => {
-    const fonts = new EventTarget();
-    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
-    let scale = 1;
-    class WideningContext {
-      font = '10px sans-serif';
-      letterSpacing = '0px';
-      textRendering = 'auto';
-      fontKerning = 'auto';
-      measureText(text: string) {
-        const size = Number(/(\d+(?:\.\d+)?)px/u.exec(this.font)?.[1] ?? 16);
-        return { width: [...text].length * (size / 2) * scale };
-      }
-    }
-    vi.stubGlobal(
-      'OffscreenCanvas',
-      class {
-        getContext() {
-          return new WideningContext();
-        }
-      },
-    );
-    try {
-      const holder = holdTextEngine({
-        setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
-        measureIn: document.createElement('div'),
-        changed: () => undefined,
-      });
-      await holder.loaded;
-      const node = paragraph(WORDS);
-      const before = holder.engine()?.measureBlock(node, null)?.height ?? 0;
-      // A wider face loads: the remade engine prepares the same node again, at its widths.
-      scale = 2;
-      fonts.dispatchEvent(new Event('loadingdone'));
-      const after = holder.engine()?.measureBlock(node, null)?.height ?? 0;
-      expect(before).toBeGreaterThan(0);
-      expect(after).toBeGreaterThan(before);
-      holder.destroy();
-    } finally {
-      Reflect.deleteProperty(document, 'fonts');
-    }
-  });
 });
 
 function engineOf(measureContext?: () => MeasureContext) {
   return createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
     measureContext,
   });
 }

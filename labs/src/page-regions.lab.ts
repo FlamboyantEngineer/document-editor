@@ -61,6 +61,7 @@ function render(): void {
   const pages = showOnPages(mounts, {
     state: EditorState.create({ doc: setPageRegions(new Transform(doc), template).doc }),
     pageHeight: () => bodyHeight(template),
+    template: () => template,
     plugins: [variables],
     onLayout: () => {
       document.documentElement.dataset.labLaidOut = template.id;

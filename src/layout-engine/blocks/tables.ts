@@ -27,7 +27,7 @@ function cellHeight(
   context: BlockContext,
   cell: ProseMirrorNode,
   { width, box }: { width: number; box: CellBox },
-): { height: number; provisional: boolean } | Laid {
+): { height: number } | Laid {
   const inner = Math.max(0, width - 2 * box.padding - box.borders.vertical);
   const children = layChildren(context, cell, { width: inner, parent: 'cell' });
   if (isLaid(children)) return children;
@@ -41,7 +41,7 @@ function cellHeight(
   });
   const own = Number(cell.attrs.rowHeight);
   const minimum = Number.isFinite(own) && own > 0 ? own + 2 * edge : 0;
-  return { height: Math.max(stacked.height, minimum), provisional: children.provisional };
+  return { height: Math.max(stacked.height, minimum) };
 }
 
 // Each row's height: its single-row cells' tallest, then a cell spanning rows adds what it lacks
@@ -72,7 +72,6 @@ function layTable(context: BlockContext, table: ProseMirrorNode): Laid {
   const columns = tableColumns(table, { available: place.width, borders, count: map.width });
   const cells: PlacedCell[] = [];
   const seen = new Set<number>();
-  let provisional = false;
   for (const pos of map.map) {
     if (seen.has(pos)) continue;
     seen.add(pos);
@@ -84,7 +83,6 @@ function layTable(context: BlockContext, table: ProseMirrorNode): Laid {
       .reduce((sum, column) => sum + column, 0);
     const result = cellHeight(context, cell, { width, box });
     if ('ok' in result) return result;
-    provisional ||= result.provisional;
     cells.push({ top: rect.top, bottom: rect.bottom, height: result.height });
   }
   const heights = rowHeights(cells, map.height);
@@ -108,7 +106,7 @@ function layTable(context: BlockContext, table: ProseMirrorNode): Laid {
     marginBottom: 0,
     measurement: { children: rows },
   };
-  return laid(block, provisional);
+  return laid(block);
 }
 
 /** The width a table takes in its place, its outer border included. */
@@ -150,17 +148,14 @@ export function layTableFigure(context: BlockContext, figure: ProseMirrorNode): 
     captionHeight = line.block.height + 2 * context.metrics.table.captionPadding;
     continuedCaption = continuedCaptionGrowth(own, caption, line.block.height);
   }
-  return laid(
-    {
-      node: figure,
-      height: captionHeight + laidTable.block.height,
-      marginTop: 0,
-      marginBottom: context.metrics.paragraphAfter,
-      measurement: withCaption(laidTable.block.measurement, {
-        caption: captionHeight,
-        continuedCaption,
-      }),
-    },
-    laidTable.provisional,
-  );
+  return laid({
+    node: figure,
+    height: captionHeight + laidTable.block.height,
+    marginTop: 0,
+    marginBottom: context.metrics.paragraphAfter,
+    measurement: withCaption(laidTable.block.measurement, {
+      caption: captionHeight,
+      continuedCaption,
+    }),
+  });
 }

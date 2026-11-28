@@ -56,6 +56,7 @@ function render(): void {
   const pages = showOnPages(mounts, {
     state: EditorState.create({ doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc }),
     pageHeight: () => bodyHeight(current),
+    template: () => current,
     onLayout: () => {
       document.documentElement.dataset.labLaidOut = current.id;
     },

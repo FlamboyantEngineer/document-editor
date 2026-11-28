@@ -70,36 +70,6 @@ test('DOCE-LABS-5.1 explains unsupported features in the full pagination stress 
   ).toHaveCount(0);
 });
 
-// The production projection, laid out by the prediction's rules with its paragraphs split at the
-// lines its own measuring view drew, puts the same source ranges on every page.
-const production = [
-  { name: 'long', widths: [601.6875, 481.6875], pages: [300, 320] },
-  { name: 'stress-fragments', widths: [601.6875, 601, 375.5], pages: [6, 6, 7] },
-  { name: 'stress-text', widths: [601.6875, 480], pages: [300, 354] },
-  { name: 'stress-distinct', widths: [601.6875], pages: [312] },
-  { name: 'stress-lists', widths: [601.6875, 480, 375.5], pages: [110, 130, 174] },
-  { name: 'stress-mixed', widths: [601.6875, 601, 480, 375.5], pages: [70, 70, 81, 97] },
-] as const;
-
-for (const { name, widths, pages } of production) {
-  test(`DOCE-LABS-5.2 matches production source ranges on every page of the ${name} document`, async ({
-    page,
-  }) => {
-    test.setTimeout(180_000);
-    await page.goto('/pretext-pagination.html?measure');
-    for (const [at, width] of widths.entries()) {
-      const result = await page.evaluate(
-        ({ name, width }) => window.pretextPagination.compareProductionBoundaries(name, width),
-        { name, width },
-      );
-      const where = `${name} at ${String(width)} px`;
-      expect(result.firstDivergence, `first page that differs, ${where}`).toBeNull();
-      expect(result.html, where).toHaveLength(pages[at] ?? 0);
-      expect(result.predicted, where).toEqual(result.html);
-    }
-  });
-}
-
 // The oracle fills its pages with a packer of its own, so pages the prediction packs into a share
 // of their room show as pages ended too soon, and pages packed past it as pages ended too late.
 test('DOCE-LABS-5.2 finds pages the prediction filled short of or past their room', async ({

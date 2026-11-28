@@ -3,16 +3,15 @@
 // page: `Page 9` and `Page 10` can wrap differently (DOCE-PAGINATION-11.10).
 
 import type { EditorView } from 'prosemirror-view';
-import { blockMargin } from './measure-cache.js';
-import { type FootnoteArea, footnoteAreaOf, measureFootnotes } from './measure-footnotes.js';
-import { unzoom } from './measure-scale.js';
+import { type FootnoteArea, footnoteAreaOf } from './footnote-area.js';
+import { regionVariableTexts } from './forced-regions.js';
+import { pageVariablesKey } from './page-variables.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
-/** Where a section's regions are measured: at the view's scale, or by the layout engine in a scope. */
+/** Where a section's regions are laid out: by the layout engine, in a scope. */
 interface RegionAt {
-  readonly ratio: number;
   readonly scope: string | null;
-  readonly engine: PagesTextEngine | null | undefined;
+  readonly engine: PagesTextEngine;
 }
 
 /** Which page numbers a section's regions show, so its pages depend on them. */
@@ -41,39 +40,17 @@ const READS_NONE: RegionReads = { current: false, total: false };
 
 const fixed = (height: number): RegionRoomOf => ({ room: () => height, reads: READS_NONE });
 
-// The text each template variable in a header or footer shows, as the view draws it
-// (`createPageVariables`): the engine lays the region out with these values.
-function variableTexts(region: HTMLElement): Map<string, string> {
-  const texts = new Map<string, string>();
-  for (const variable of region.querySelectorAll<HTMLElement>('[data-template-variable]')) {
-    texts.set(variable.dataset.templateVariable ?? '', variable.textContent);
-  }
-  return texts;
-}
-
-// The room the view's box of a region takes, with its margins.
-function viewRoom(element: HTMLElement, height: number, ratio: number): number {
-  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  if (!style) return unzoom(height, ratio);
-  const margins =
-    (parseFloat(blockMargin(style, 'start')) || 0) + (parseFloat(blockMargin(style, 'end')) || 0);
-  return unzoom(height, ratio) + margins;
-}
-
-// The room a page header or footer takes, with its margins, on each page; one the view hides takes
-// none. The layout engine gives it when it lays the region out (`measureRegion`), with the page's
-// own number and count where it shows them; the view's box otherwise, the same on every page.
+// The room a page header or footer takes, with its margins, on each page; an empty one takes none.
+// The layout engine gives it as it lays the region out (`measureRegion`), with the texts its
+// template variables show (`createPageVariables`) and the page's own number and count where it
+// shows them; one it cannot lay out takes none. Nothing is read from what the view draws.
 function regionRoom(view: EditorView, pos: number | null, at: RegionAt): RegionRoomOf {
-  const dom = pos === null ? null : view.nodeDOM(pos);
-  if (!dom || dom.nodeType !== 1) return fixed(0);
-  const element = dom as HTMLElement;
-  const { height } = element.getBoundingClientRect();
-  if (!height) return fixed(0);
   const node = pos === null ? null : view.state.doc.nodeAt(pos);
+  if (pos === null || !node) return fixed(0);
   const { engine, scope } = at;
-  const texts = variableTexts(element);
-  const first = node && engine ? engine.measureRegion(node, scope, texts) : null;
-  if (!node || !engine || !first) return fixed(viewRoom(element, height, at.ratio));
+  const texts = new Map(regionVariableTexts(node, pos, pageVariablesKey.getState(view.state)));
+  const first = engine.measureRegion(node, scope, texts);
+  if (!first) return fixed(0);
   const reads = { current: texts.has(PAGE_CURRENT), total: texts.has(PAGE_TOTAL) };
   const roomOf = (room: typeof first) => (room.height > 0 ? room.height + room.gap : 0);
   if (!reads.current && !reads.total) return fixed(roomOf(first));
@@ -118,7 +95,7 @@ export function roomsFor(regions: SectionRegions, page: number, counts: readonly
   return { header, footer };
 }
 
-/** A section's footnote area, laid out by the layout engine when it can, else measured in the view. */
+/** A section's footnote area, laid out by the layout engine; none when it cannot lay it out. */
 export function footnoteArea(
   view: EditorView,
   pos: number | null,
@@ -126,7 +103,6 @@ export function footnoteArea(
 ): FootnoteArea | null {
   if (pos === null) return null;
   const node = view.state.doc.nodeAt(pos);
-  const room = node ? at.engine?.measureRegion(node, at.scope) : null;
-  if (node && room) return footnoteAreaOf(node, room);
-  return measureFootnotes(view, pos, { scale: at.ratio });
+  const room = node ? at.engine.measureRegion(node, at.scope) : null;
+  return node && room ? footnoteAreaOf(node, room) : null;
 }

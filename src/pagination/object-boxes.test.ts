@@ -28,8 +28,6 @@ beforeEach(() => {
   installFakeCanvas();
   engine = createPagesTextEngine({
     template: BASE_TEMPLATE,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
   });
 });
 

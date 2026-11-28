@@ -45,8 +45,6 @@ const engines: PagesTextEngine[] = [];
 const engineWith = (face: 'arimo' | 'cousine') => {
   const engine = createPagesTextEngine({
     template,
-    measureIn: document.createElement('div'),
-    onAtomsSettled: () => undefined,
     measureContext: contexts[face],
     isFontServed: (family) => family === FAMILY,
   });
