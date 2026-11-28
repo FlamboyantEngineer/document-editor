@@ -9,5 +9,7 @@ describe('preloadEditorSurfaces', () => {
     expect(figure.FigureDialog).toEqual(expect.any(Function));
     const symbols = await SURFACE_LOADERS.symbols();
     expect(symbols.CharacterGrid).toEqual(expect.any(Function));
+    const math = await SURFACE_LOADERS.math();
+    expect(math.MathField).toEqual(expect.any(Function));
   });
 });

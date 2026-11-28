@@ -167,4 +167,33 @@ describe('math edited in place', () => {
     expect(findNode(shown.state.doc, 'math_inline')).toBeUndefined();
     expect(paragraphText(shown, 0)).toBe('It Is ');
   });
+
+  it('DOCE-OBJECTS-1.8 keeps math edited in place as it is while keys reach the view before its field', () => {
+    const shown = viewOf(['Is ']);
+    type(shown, '$x$');
+    shown.dispatch(shown.state.tr.setSelection(NodeSelection.create(shown.state.doc, 4)));
+    press(shown, 'Enter');
+    type(shown, 'yz');
+    expect(press(shown, 'Backspace')).toBe(true);
+    expect(press(shown, 'Delete')).toBe(true);
+    expect(findNode(shown.state.doc, 'math_inline')?.textContent).toBe('x');
+    expect(mathEditingAt(shown.state)?.pos).toBe(4);
+    expect(cancelMathEditing(shown.state, shown.dispatch)).toBe(true);
+    // Once the edit is over, the view takes typing again.
+    type(shown, 'y');
+    expect(paragraphText(shown, 0)).toBe('Is xy');
+  });
+
+  it('DOCE-OBJECTS-1.8 holds only the selected math: words typed elsewhere land, and the selection stays there', () => {
+    const shown = viewOf(['Is ']);
+    type(shown, '$x$');
+    shown.dispatch(shown.state.tr.setSelection(NodeSelection.create(shown.state.doc, 4)));
+    press(shown, 'Enter');
+    shown.dispatch(shown.state.tr.setSelection(TextSelection.create(shown.state.doc, 2)));
+    type(shown, 'y');
+    expect(press(shown, 'Backspace')).toBe(false);
+    expect(paragraphText(shown, 0)).toBe('Iys x');
+    expect(cancelMathEditing(shown.state, shown.dispatch)).toBe(true);
+    expect(shown.state.selection.from).toBe(3);
+  });
 });

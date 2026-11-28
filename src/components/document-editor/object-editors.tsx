@@ -5,19 +5,83 @@
 // what it holds. Captions are document content, edited as text.
 
 import { useResizeObserver } from '@flamboyantengineer/ui-components/core';
-import { MathField } from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
+import { type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type CSSProperties, type FocusEvent, useLayoutEffect, useRef, useState } from 'react';
+import {
+  type ComponentProps,
+  type CSSProperties,
+  type FocusEvent,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { cancelMathEditing, commitMathEditing, mathEditingAt } from '../../engine/index.js';
+import type { FeedbackAdapter } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { DialogLoadFailed, lazyDialog } from './lazy-dialog.js';
+import { preloadEditorSurfaces, SURFACE_LOADERS } from './lazy-surfaces.js';
+
+type MathFieldProps = ComponentProps<
+  Awaited<ReturnType<(typeof SURFACE_LOADERS)['math']>>['MathField']
+>;
+
+// The field loads the first time a writer edits an equation, with the code editor it is built on,
+// so the editor's own code does not carry them (DOCE-ENTRY-2.2). One that fails to load cancels
+// the edit, leaving the math as it is, and loads again the next time (DOCE-ENTRY-2.4).
+const MathField = /* @__PURE__ */ lazyDialog(async () => {
+  const { MathField: Field } = await SURFACE_LOADERS.math();
+  return function LoadedMathField({ onClose, onShown, ...props }: LoadedFieldProps) {
+    useLayoutEffect(onShown, [onShown]);
+    return <Field {...props} onCancel={onClose} />;
+  };
+});
+
+type LoadedFieldProps = MathFieldProps & {
+  readonly onClose: () => void;
+  /** Called once the field has loaded and shows. */
+  readonly onShown: () => void;
+};
+
+// Ends an edit whose field has not shown yet once the selection leaves the edited math, as a
+// press elsewhere in the document does: the writer has moved on, so the field must not appear
+// late and take focus from where they type (DOCE-OBJECTS-1.8).
+function useEditLeftEnded(view: EditorView | null, state: EditorState, key: string | null) {
+  const shown = useRef<string | null>(null);
+  const edited = mathEditingAt(state);
+  const { selection } = state;
+  const left =
+    edited !== null && !(selection instanceof NodeSelection && selection.from === edited.pos);
+  useLayoutEffect(() => {
+    if (!view || !left || key === null || shown.current === key) return;
+    cancelMathEditing(view.state, view.dispatch);
+  }, [view, left, key]);
+  return useCallback(() => {
+    shown.current = key;
+  }, [key]);
+}
+
+// Starts loading the field once math is selected, the step before it is edited, so it has loaded
+// by the time the writer edits it.
+function useFieldWarmed(state: EditorState) {
+  const { selection } = state;
+  const selectsMath =
+    selection instanceof NodeSelection && selection.node.type.name.startsWith('math_');
+  useEffect(() => {
+    if (selectsMath) void preloadEditorSurfaces(['math']);
+  }, [selectsMath]);
+}
 
 interface ObjectEditorsProps {
   view: EditorView | null;
   state: EditorState;
   labels: DocumentEditorLabels;
+  /** The host's feedback, which tells the writer when the field could not load. */
+  host: { readonly feedback?: FeedbackAdapter | undefined };
 }
 
 /** The math edited in place, with its position. */
@@ -105,11 +169,13 @@ function useEditKey(edited: Edited | null): string | null {
 }
 
 /** The field that edits the math the engine is editing in place. */
-export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
+export function ObjectEditors({ view, state, labels, host }: ObjectEditorsProps) {
+  useFieldWarmed(state);
   const math = mathEditingAt(state);
   const edited: Edited | null = math;
   const { setLayer, box } = useEditedBox(view, edited, state);
   const key = useEditKey(edited);
+  const onShown = useEditLeftEnded(view, state, key);
   // The text the field holds now, committed when focus leaves the layer, and the edit already
   // finished: the field's own commit and focus leaving finish it once.
   const draft = useRef<string | null>(null);
@@ -125,6 +191,7 @@ export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
     command(view.state, view.dispatch);
     view.focus();
   };
+  const failed = () => host.feedback?.notify({ tone: 'error', text: labels.mathFieldUnavailable });
   const onBlur = (event: FocusEvent<HTMLDivElement>) => {
     if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
     finish(draft.current);
@@ -137,18 +204,23 @@ export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
           {...hooks.slot('field', { kind: 'math' })}
           style={boxProperties(box)}
         >
-          <MathField
-            label={labels.mathSource}
-            labelLayout="control-only"
-            display={math.node.type.name === 'math_display' ? 'display' : 'inline'}
-            defaultValue={math.node.textContent}
-            autoFocus
-            onChange={(value) => {
-              draft.current = value;
-            }}
-            onSubmit={finish}
-            onCancel={() => finish(null)}
-          />
+          <DialogLoadFailed value={failed}>
+            <Suspense fallback={null}>
+              <MathField
+                label={labels.mathSource}
+                labelLayout="control-only"
+                display={math.node.type.name === 'math_display' ? 'display' : 'inline'}
+                defaultValue={math.node.textContent}
+                autoFocus
+                onChange={(value) => {
+                  draft.current = value;
+                }}
+                onSubmit={finish}
+                onClose={() => finish(null)}
+                onShown={onShown}
+              />
+            </Suspense>
+          </DialogLoadFailed>
         </div>
       ) : null}
     </div>

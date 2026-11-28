@@ -38,6 +38,8 @@ const { webpack } = webpackModule;
 // What the editor loads the first time a writer opens it, never with the entry (DOCE-ENTRY-2.2).
 const ON_FIRST_USE = [
   'dist/components/document-editor/(figure|reference|abbreviation|script|linked-code)-dialog\\.js',
+  'dist/components/document-editor/math-source-field\\.js',
+  `${UI}/math-preview/math-field\\.js`,
   `${UI}/(asset-picker|file-upload|character-grid)/`,
   'node_modules/katex/',
   'node_modules/@y/',

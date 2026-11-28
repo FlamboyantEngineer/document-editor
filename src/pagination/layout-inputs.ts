@@ -4,9 +4,13 @@
 
 import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import { UNICODE_VERSION } from '../layout-engine/bidi-classes.js';
-import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
+import {
+  documentLanguage,
+  LAYOUT_RULES,
+  type LayoutRules,
+  type TemplateFile,
+} from '../model/index.js';
 import { segmentationFingerprint } from '../utils/segmentation.js';
-import { rulesOf } from './host-rules.js';
 import type { TextEngineOptions } from './text-engine-types.js';
 
 /** The release of the Pretext fork the engine breaks lines with; a test checks it is installed. */
@@ -122,6 +126,11 @@ export function layoutInputs(input: {
 export function layoutInputsKey(inputs: LayoutInputs): string {
   const names = Object.keys(inputs).sort() as (keyof LayoutInputs)[];
   return `1-${hashText(names.map((name) => `${name}=${inputs[name]}`).join('\n'))}`;
+}
+
+/** The layout rules the engine sizes nodes by: the host's, else the library's own (`LAYOUT_RULES`). */
+export function rulesOf(options: TextEngineOptions): () => LayoutRules {
+  return () => options.layoutRules?.() ?? LAYOUT_RULES;
 }
 
 /** An engine's template and fonts, and what its layout depends on besides the document. */

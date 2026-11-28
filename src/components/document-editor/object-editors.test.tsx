@@ -1,14 +1,25 @@
 import { act, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { EditorState, NodeSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { createRef, type Ref, useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing, editCaption, markRemote } from '../../engine/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
+import { SURFACE_LOADERS } from './lazy-surfaces.js';
+import type * as MathSourceField from './math-source-field.js';
+
+// The math field's load, which a test makes fail as a dropped connection would.
+vi.mock(import('./lazy-surfaces.js'), async (load) => {
+  const actual = await load();
+  return {
+    ...actual,
+    SURFACE_LOADERS: { ...actual.SURFACE_LOADERS, math: vi.fn(actual.SURFACE_LOADERS.math) },
+  };
+});
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
 
@@ -45,7 +56,12 @@ const initial = () =>
     plugins: createDocumentEditing(documentSchema),
   });
 
-function Harness({ handleRef }: { handleRef: Ref<DocumentEditorHandle> }) {
+interface HarnessProps {
+  readonly handleRef: Ref<DocumentEditorHandle>;
+  readonly notify?: (message: { readonly text: string }) => void;
+}
+
+function Harness({ handleRef, notify }: HarnessProps) {
   const [state, setState] = useState(initial);
   return (
     <DocumentEditor
@@ -54,6 +70,7 @@ function Harness({ handleRef }: { handleRef: Ref<DocumentEditorHandle> }) {
       template={TEMPLATE}
       layout="web"
       handleRef={handleRef}
+      feedback={notify ? { notify } : undefined}
       aria-label="Report"
     />
   );
@@ -62,9 +79,9 @@ function Harness({ handleRef }: { handleRef: Ref<DocumentEditorHandle> }) {
 installEditorDom();
 
 // The mounted editor's handle and view.
-function mounted() {
+function mounted(notify?: HarnessProps['notify']) {
   const handleRef = createRef<DocumentEditorHandle>();
-  render(<Harness handleRef={handleRef} />);
+  render(<Harness handleRef={handleRef} notify={notify} />);
   const handle = handleRef.current;
   const view = handle?.view();
   if (!handle || !view) throw new Error('The editor mounts its view.');
@@ -92,6 +109,61 @@ function typeRemotely({ view }: ReturnType<typeof mounted>) {
 }
 
 describe('ObjectEditors', () => {
+  // First, while the field has not loaded yet: once loaded, it stays loaded.
+  it('DOCE-ENTRY-2.2 DOCE-ENTRY-2.4 leaves the math as it is when its field fails to load, and loads it again next time', async () => {
+    const user = userEvent.setup();
+    const notify = vi.fn();
+    const editor = mounted(notify);
+    const load = vi.mocked(SURFACE_LOADERS.math);
+    load.mockRejectedValue(new Error('offline'));
+    selectNode(editor, 'math_inline');
+    await user.keyboard('{Enter}');
+    await vi.waitFor(() => {
+      expect(notify).toHaveBeenCalledWith({
+        tone: 'error',
+        text: 'The math could not be edited. Try again.',
+      });
+    });
+    expect(screen.queryByRole('textbox', { name: 'LaTeX' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Report' })).toHaveTextContent('x^2');
+    load.mockRestore();
+    selectNode(editor, 'math_inline');
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('textbox', { name: 'LaTeX' })).toHaveValue('x^2');
+  });
+  it('DOCE-OBJECTS-1.8 ends an edit whose field has not loaded once the writer types elsewhere', async () => {
+    const user = userEvent.setup();
+    const editor = mounted();
+    const load = vi.mocked(SURFACE_LOADERS.math);
+    let release = () => undefined as void;
+    const actual = await vi.importActual<typeof MathSourceField>('./math-source-field.js');
+    load.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(actual);
+        }),
+    );
+    selectNode(editor, 'math_inline');
+    await user.keyboard('{Enter}');
+    act(() => {
+      const { view } = editor;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 8)));
+      view.focus();
+    });
+    await user.keyboard('abc');
+    // The words land where the writer put the caret, and the math stays as it was.
+    const { doc } = editor.view.state;
+    expect(doc.textBetween(0, doc.content.size, '|')).toBe(
+      'Opabcening words|So x^2|The board|x = 1',
+    );
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole('textbox', { name: 'LaTeX' })).not.toBeInTheDocument();
+    load.mockRestore();
+  });
+
   it('DOCE-OBJECTS-1.8 keeps the LaTeX being typed while a change before the math moves it', async () => {
     const user = userEvent.setup();
     const editor = mounted();

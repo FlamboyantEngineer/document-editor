@@ -348,7 +348,7 @@ export function EditorBody({
       {editable && !suggesting && props.tableHandles ? (
         <TableHandles view={view} state={state} labels={labels} />
       ) : null}
-      {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
+      {editable ? <ObjectEditors view={view} state={state} labels={labels} host={props} /> : null}
     </div>
   );
 }
