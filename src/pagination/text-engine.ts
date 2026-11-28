@@ -22,7 +22,7 @@ import { contentWidths } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import { hostRuleSizes, sizedReading, textAtomsOf, watchedRules } from './host-rules.js';
-import { holdInsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { holdInsertedTexts, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { engineSources } from './layout-inputs.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { holdNodeNumbers, type NodeNumbers } from './node-numbers.js';
@@ -158,6 +158,22 @@ function engineLayouts(
 
 // A way into the engine that measures, setting Pretext's width source to the engine's own first
 // (DOCE-PAGINATION-12.6).
+// The engine's top-level blocks, read with its fonts selected.
+function blockReading(select: () => void, blocks: ReturnType<typeof keptBlocks>) {
+  return {
+    measureBlock: selecting(
+      select,
+      (node: ProseMirrorNode, scope: string | null, inserted: InsertedTexts = NO_INSERTED) =>
+        blocks.measure(node, scope, inserted),
+    ),
+    measureContent: selecting(
+      select,
+      (content: ProseMirrorNode, scope: string | null, inserted: InsertedTexts = NO_INSERTED) =>
+        blocks.measureContent(content, scope, inserted),
+    ),
+  };
+}
+
 function selecting<Args extends unknown[], Result>(
   select: () => void,
   measure: (...args: Args) => Result,
@@ -289,9 +305,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     pageDigits: (count) => contents.pageDigits(count),
     contentsKeyOf: (node) => contents.keyOf(node, numbers.current().doc),
     ...drawings.reading,
-    measureBlock: selecting(select, (node, scope, inserted = NO_INSERTED) =>
-      blocks.measure(node, scope, inserted),
-    ),
+    ...blockReading(select, blocks),
     mathPending: (doc) => documentMathPending(options, doc),
     // Blocks and lines with provisional math are never kept. Regions and containers are laid out
     // again once it settles.

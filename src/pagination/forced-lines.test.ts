@@ -59,6 +59,8 @@ function stubEngine(options: StubOptions = {}) {
       paragraphs: options.paragraphs ?? new Set(),
     }),
     measureBlock: (node) => ({ node, height: 20, marginTop: 0, marginBottom: 0 }),
+    measureContent: (content) =>
+      content.children.map((node) => ({ node, height: 20, marginTop: 0, marginBottom: 0 })),
     pageDigits: () => 3,
     contentsDrawn: () => null,
     measureRegion: () => null,

@@ -939,6 +939,13 @@ A document that differs from the one the engine last numbered only in the text o
 Implementation: `src/pagination/typed-text.ts`, `src/pagination/node-numbers.ts`, `src/pagination/numbered-text.ts`
 Verification: `src/pagination/node-numbers-typing.test.ts`
 
+### DOCE-PAGINATION-11.15 - Sections kept while typing
+
+The engine shall give a section's page content's blocks (`measureContent`) kept by the content's node, without looking each block up again, while the document keeps its numbering (DOCE-PAGINATION-11.14), the section its scope and the engine its host views, and none of the section's blocks holds a list of contents, a template variable or a suggestion, holds words other plugins insert, or was laid out with provisional math (DOCE-PAGINATION-12.13): what those read lies outside their node. A letter typed in one section of a document then walks only that section's blocks; a structural edit, such as a heading added in an earlier section, lays out every section's blocks again with their new numbers.
+
+Implementation: `src/pagination/text-engine-kept.ts`, `src/pagination/text-engine.ts`, `src/pagination/layout-document.ts`, `src/pagination/node-numbers.ts`
+Verification: `src/pagination/text-engine-kept.test.ts`
+
 ## DOCE-PAGINATION-12 - Widths from the font files
 
 Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.

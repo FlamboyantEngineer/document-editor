@@ -15,6 +15,11 @@ import { typedTextPath } from './typed-text.js';
 /** A document's numbers by node, for the blocks laid out next. */
 export interface NodeNumbers {
   readonly doc: ProseMirrorNode | null;
+  /**
+   * What the numbers were counted for: the same for every document typed from the one numbered,
+   * whose blocks' keys outside the typed block are unchanged (DOCE-PAGINATION-11.14).
+   */
+  readonly counted: object;
   /** A numbered heading's number and the space after it. */
   readonly prefixOf: (heading: ProseMirrorNode) => string | undefined;
   /** A numbered paragraph's number. */
@@ -32,6 +37,7 @@ export interface NodeNumbers {
 /** No numbers, before a document is numbered. */
 const NO_NUMBERS: NodeNumbers = {
   doc: null,
+  counted: {},
   prefixOf: () => undefined,
   paragraphOf: () => undefined,
   labelOf: () => undefined,
@@ -86,6 +92,7 @@ type NumberedAs = (node: ProseMirrorNode) => ProseMirrorNode;
 function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
   const { headings, paragraphs } = documentNumbers(doc, template);
   const labels = captionNumbers(doc, template);
+  const counted = {};
   const perPage = resolveFootnoteSettings(template).numbering === 'page';
   let footnotes: ReturnType<typeof footnotesOf> | null = null;
   const footnotesOnce = () => (footnotes ??= footnotesOf(doc, perPage));
@@ -115,6 +122,7 @@ function numbersByNode(doc: ProseMirrorNode, template: TemplateFile) {
     const footnotes = footnotesOnce();
     return {
       doc: shown,
+      counted,
       prefixOf: (heading) => prefixes.get(as(heading)),
       paragraphOf: (paragraph) => numbered.get(as(paragraph)),
       labelOf: (caption) => labels.labelOf(as(caption)),
