@@ -88,12 +88,6 @@ export function createPreparationCache({
   });
 }
 
-/** Whether code, or a code figure's code, ends in a line break, which shows as an empty line. */
-export function endsInLineBreak(node: Node): boolean {
-  const code = node.type.name === 'code_figure' ? node.lastChild : node;
-  return code?.type.name === 'code_block' && code.textContent.endsWith('\n');
-}
-
 export function blockId(node: Node): string | null {
   const id: unknown = node.attrs.dataId;
   return typeof id === 'string' ? id : null;
@@ -127,17 +121,13 @@ class Predictor {
     const table = laid.ok ? laid.table : undefined;
     const style = this.cache.typography(node);
     const lines = table?.lines.map((line) => ({ from: line.from, width: line.width })) ?? [];
-    // Code ending in a line break shows the empty line after it, as the editor draws it (html.ts).
-    const last = table?.lines.at(-1);
-    const trailing = last && endsInLineBreak(node) ? last.height : 0;
-    if (trailing) lines.push({ from: node.content.size, width: 0 });
     return {
       node,
       path,
       width,
       lines,
       ...(table ? { table } : {}),
-      height: table ? table.height + table.overhead + trailing : 0,
+      height: table ? table.height + table.overhead : 0,
       before: nested ? 0 : style.marginTop,
       after: nested ? 0 : style.marginBottom,
     };

@@ -22,15 +22,11 @@ function footerRegions() {
     widthOf: () => 100,
     footnoteOf: () => undefined,
   });
-  const lay = (page: number, pages: number) =>
-    regions.lay(
-      footer,
-      null,
-      new Map([
-        ['page.current', String(page)],
-        ['page.total', String(pages)],
-      ]),
-    );
+  const lay = (page: number, pages?: number) => {
+    const variables = new Map([['page.current', String(page)]]);
+    if (pages !== undefined) variables.set('page.total', String(pages));
+    return regions.lay(footer, null, variables);
+  };
   return { lay, laidOut: () => laidOut };
 }
 
@@ -75,6 +71,14 @@ describe('the laid header and footer regions', () => {
     expect(laidOut()).toBe(laid);
     lay(2, 1);
     expect(laidOut()).toBe(laid + 1);
+  });
+
+  it('DOCE-PAGINATION-11.10 keeps every region on a long document with only page.current', () => {
+    const { lay, laidOut } = footerRegions();
+    const pages = REGIONS_KEPT_PER_NODE + 1;
+    for (let page = 1; page <= pages; page += 1) lay(page);
+    for (let page = 1; page <= pages; page += 1) lay(page);
+    expect(laidOut()).toBe(pages);
   });
 
   it('DOCE-PAGINATION-11.10 lays a footnote area out again when its entries are numbered again', () => {

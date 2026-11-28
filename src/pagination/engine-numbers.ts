@@ -8,9 +8,13 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { keepsNumbering } from '../engine/paragraph-numbering.js';
 import { captionNumbers } from '../layout-engine/blocks/numbers.js';
 import type { TemplateFile } from '../model/format/template-format.js';
-import { trackTableHeaderCopies } from '../model/pagination/table-header-copies.js';
+import {
+  type TableHeaderVisit,
+  trackTableHeaderCopies,
+} from '../model/pagination/table-header-copies.js';
 import { CAPTION_HOLDER_TYPES, isCaptionNode } from '../model/schema/caption-content.js';
 import { isContinued } from './block-directions.js';
 import { equationNumbers } from './equation-numbers.js';
@@ -65,10 +69,11 @@ const css = (value: string) => `"${value.replace(/["\\]/gu, (char) => `\\${char}
 function drawEquationNumbers(map: ProjectionMap, { equations, equationFor }: ObjectNumbers) {
   const headerCopy = trackTableHeaderCopies();
   let copy: { start: number; end: number; original: number } | null = null;
-  return (node: ProseMirrorNode, pos: number, parent: ProseMirrorNode | null) => {
+  return (visit: TableHeaderVisit) => {
+    const [node, pos] = visit;
     if (copy && pos >= copy.end) copy = null;
     if (!copy) {
-      const original = headerCopy(node, parent, pos);
+      const original = headerCopy(pos, visit)?.original ?? null;
       if (original !== null) copy = { start: pos, end: pos + node.nodeSize, original };
     }
     if (node.type.name !== 'math_display') return undefined;
@@ -106,8 +111,9 @@ function numberDecorations(
         { number: value, heading: false },
       ),
     );
-  doc.descendants((node, pos, parent) => {
-    const equationNumber = equation(node, pos, parent);
+  doc.descendants((...visit) => {
+    const [node, pos, parent] = visit;
+    const equationNumber = equation(visit);
     if (node.type.name === 'heading') {
       const value = isContinued(node) ? '' : (headings.get(pos) ?? '');
       found.push(
@@ -187,7 +193,12 @@ export function engineNumbers(source: EngineNumbersSource): Plugin<DecorationSet
       apply: (tr, set) => {
         if (source.engine() !== engine) return build(tr.doc);
         if (!tr.docChanged) return set;
-        return keepsAllNumbers(tr) ? set.map(tr.mapping, tr.doc) : build(tr.doc);
+        const marksOnly = tr.steps.every(
+          (step) => step instanceof AddMarkStep || step instanceof RemoveMarkStep,
+        );
+        return keepsAllNumbers(tr) && (marksOnly || keepsNumbering(tr))
+          ? set.map(tr.mapping, tr.doc)
+          : build(tr.doc);
       },
     },
     props: { decorations: (state) => engineNumbersKey.getState(state) },

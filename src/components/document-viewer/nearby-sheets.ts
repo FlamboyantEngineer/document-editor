@@ -18,9 +18,9 @@ function createObserver(
 
 /**
  * Reports sheets within one viewport height above or below the viewer's scrolling frame. The frame
- * is found again when an ancestor other than it scrolls (a container that has started scrolling)
- * and when the viewer's size changes (moved into another container, which takes it off the page
- * and back), so a viewer whose frame changes keeps drawing the pages near it (DOCE-PAGINATION-13.6).
+ * is found again when another ancestor scrolls, when the viewport starts scrolling in place of a
+ * container, and when the viewer's size changes, so a viewer whose frame changes keeps drawing
+ * the pages near it (DOCE-PAGINATION-13.6).
  */
 export function watchNearbySheets(
   element: HTMLElement,
@@ -67,10 +67,11 @@ export function watchNearbySheets(
     height = -1;
     watch();
   };
-  // Only the scroll of another ancestor can be a new frame; the window's never is one.
   const scrolled = (event: Event) => {
     const { target } = event;
-    if (target !== frame && isElement(target) && target.contains(element)) findFrame();
+    const viewportScrolled = target === doc && frame !== null;
+    const ancestorScrolled = target !== frame && isElement(target) && target.contains(element);
+    if (viewportScrolled || ancestorScrolled) findFrame();
   };
   doc.addEventListener('scroll', scrolled, { capture: true, passive: true });
   const moved = view.ResizeObserver ? new view.ResizeObserver(findFrame) : null;

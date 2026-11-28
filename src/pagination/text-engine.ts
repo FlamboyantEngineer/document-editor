@@ -317,8 +317,8 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   };
   return {
     ...engineSources(options),
-    number(doc) {
-      numbers.number(doc);
+    number(doc, footnoteNumbering) {
+      numbers.number(doc, footnoteNumbering);
       layouts.math.number(doc);
     },
     numbersVersion: numbers.version,

@@ -8,6 +8,7 @@ import {
   documentLanguage,
   LAYOUT_RULES,
   type LayoutRules,
+  type ResolvedFootnoteSettings,
   type TemplateFile,
 } from '../model/index.js';
 import { familyKey, fontFaceKey, uniqueFontFaces } from '../utils/font-keys.js';
@@ -38,6 +39,8 @@ export interface LayoutInputs {
   readonly math: string;
   /** A hash of the resolved template with portable font family names. */
   readonly template: string;
+  /** The footnote numbering used in place of the template's, when different. */
+  readonly footnoteNumbering?: ResolvedFootnoteSettings['numbering'] | undefined;
   readonly language: string;
   /** How suggestions are shown, which decides the room they take. */
   readonly markup: string;
@@ -59,7 +62,7 @@ export interface LayoutInputs {
 
 // The version of the library's own layout in the key's prefix: moved by hand whenever the same
 // inputs lay a document out on other pages, or the key is made otherwise.
-const LAYOUT_KEY_VERSION = 9;
+const LAYOUT_KEY_VERSION = 10;
 
 // FNV-1a, 32 bits, as eight hex digits, over text or bytes.
 function fnv(feed: (step: (unit: number) => void) => void, seed = 0x811c9dc5): string {

@@ -1,14 +1,16 @@
 import * as Y from '@y/y';
 import type { Node } from 'prosemirror-model';
 import { type EditorState, TextSelection, type Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deferred } from '../../test/deferred.js';
 import { documentSchema } from '../../test/document-markup.js';
+import { heldEngine, stubEngine } from '../../test/pages-fixtures.js';
 import {
   canonicalState,
   edit,
   mount,
+  pageCount,
   positionOf,
   stubLayout,
   textOf,
@@ -36,6 +38,80 @@ function countScrolls(view: EditorView): () => number {
 
 afterEach(() => {
   document.body.replaceChildren();
+});
+
+describe('changing the view of a projection', () => {
+  it.each(['detach before the pause', 'replace during a press', 'replace during composition'])(
+    'DOCE-PAGINATION-5.7 DOCE-PAGINATION-7.1 keeps the pending edit layout when asked to %s',
+    async (change) => {
+      vi.useFakeTimers({ toFake: ['performance', 'setTimeout', 'clearTimeout'] });
+      stubLayout({});
+      const element = document.body.appendChild(document.createElement('div'));
+      const renderer: { view: EditorView | null } = { view: null };
+      let height = 1000;
+      const projection = createPagedProjection({
+        element,
+        state: canonicalState(),
+        pageHeight: () => height,
+        settle: 10,
+        schedule(run) {
+          const timer = window.setTimeout(run, 1);
+          return () => window.clearTimeout(timer);
+        },
+        onProjection: (state) => renderer.view?.updateState(state),
+        textEngine: heldEngine(stubEngine({ perLine: 1000, blockHeight: 400 })),
+      });
+      const attach = () => {
+        const view = new EditorView(element, {
+          state: projection.projection,
+          dispatchTransaction: projection.receive,
+        });
+        renderer.view = view;
+        return { view, detach: projection.attach(view) };
+      };
+      try {
+        const first = attach();
+        vi.advanceTimersByTime(2);
+        expect(pageCount(projection.projection.doc)).toBe(3);
+        expect(projection.layoutState()).toBe('settled');
+        if (change === 'replace during a press') {
+          vi.spyOn(first.view, 'posAtCoords').mockReturnValue(null);
+          first.view.dom.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        }
+        if (change === 'replace during composition') {
+          Object.defineProperty(first.view, 'composing', { get: () => true });
+        }
+        const { state } = first.view;
+        const from = positionOf(state.doc, 'Alpha one');
+        first.view.dispatch(state.tr.delete(from, from + 'Alpha one'.length));
+        height = 1300;
+        const pending = projection.whenSettled();
+        if (change !== 'detach before the pause') vi.advanceTimersByTime(20);
+        expect(projection.layoutState()).toBe('pending');
+        expect(projection.stats().layouts).toBe(1);
+
+        if (change === 'detach before the pause') {
+          first.detach();
+          renderer.view = null;
+        } else {
+          attach();
+        }
+        first.view.destroy();
+        vi.advanceTimersByTime(20);
+        await expect(Promise.race([pending, Promise.resolve('pending')])).resolves.toBe('settled');
+        expect(pageCount(projection.projection.doc)).toBe(2);
+        if (renderer.view) expect(renderer.view.state).toBe(projection.projection);
+
+        edit(projection, (state) => state.tr.insertText('Later ', positionOf(state.doc, 'Beta')));
+        vi.advanceTimersByTime(20);
+        expect(projection.layoutState()).toBe('settled');
+      } finally {
+        projection.destroy();
+        renderer.view?.destroy();
+        vi.useRealTimers();
+      }
+    },
+  );
 });
 
 describe('scrolling to the selection on the pages', () => {

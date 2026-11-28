@@ -18,6 +18,7 @@ import {
   rememberJoinedParts,
 } from './fragment-parts.js';
 import { mirrorPageMove } from './page-moves.js';
+import { leadingHeaderRows, projectedHeaderRows } from './table-headers.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -263,29 +264,35 @@ function joinLayoutSections(tr: Transform, pos: number, rules: FragmentRules) {
   if (right) tr.delete(rightPos, rightPos + right.nodeSize);
 }
 
-function isHeaderRow(row: ProseMirrorNode): boolean {
-  return row.childCount > 0 && row.children.every((cell) => cell.type.name === 'table_header');
+// How much of the continuation was appended by the split. Older parts recorded no count:
+// their header must match, and a captioned part must have repeated its caption as well.
+function repeatedHeaderSize(
+  previous: ProseMirrorNode,
+  next: ProseMirrorNode,
+  legacyRepeats: boolean,
+): number {
+  const count = projectedHeaderRows(next);
+  if (count !== null) return rowSize(next.children.slice(0, count));
+  if (!legacyRepeats) return 0;
+  const header = previous.children.slice(0, leadingHeaderRows(previous));
+  const matches = header.every((row, index) => {
+    const copy = next.maybeChild(index);
+    return copy && row.eq(copy);
+  });
+  return matches ? rowSize(header) : 0;
 }
 
-function headerRows(table: ProseMirrorNode): ProseMirrorNode[] {
-  const rows = table.children;
-  const count = rows.findIndex((row) => !isHeaderRow(row));
-  return rows.slice(0, count < 0 ? rows.length : count);
-}
+const rowSize = (rows: readonly ProseMirrorNode[]) =>
+  rows.reduce((sum, row) => sum + row.nodeSize, 0);
 
 // A table's continuation may repeat its header rows; the whole table keeps them once.
 function joinTables(tr: Transform, pos: number) {
   const $pos = tr.doc.resolve(pos);
   const { nodeBefore: previous, nodeAfter: next } = $pos;
   if (!previous || !next) return;
-  const header = headerRows(previous);
-  const rows = next.children;
-  const repeats =
-    header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
+  const size = repeatedHeaderSize(previous, next, true);
   tr.join(pos);
-  if (!repeats) return;
-  const size = header.reduce((sum, row) => sum + row.nodeSize, 0);
-  tr.delete(pos - 1, pos - 1 + size);
+  if (size) tr.delete(pos - 1, pos - 1 + size);
 }
 
 // A table with its caption joins as its tables join: the caption a later part repeats goes, and
@@ -296,18 +303,10 @@ function joinTableFigures(tr: Transform, pos: number, rules: FragmentRules) {
   const repeated = next?.firstChild;
   const later = next?.lastChild;
   if (!previous || !first || !repeated || !later || next.childCount !== 2) return;
-  const header = headerRows(first);
-  const rows = later.children;
-  const repeats =
-    typeof repeated.attrs.continuedText === 'string' &&
-    header.length > 0 &&
-    header.every((row, index) => rows[index] && row.eq(rows[index]));
+  const size = repeatedHeaderSize(first, later, typeof repeated.attrs.continuedText === 'string');
   // Inside the first table after its rows, to inside the later one before its rows.
   tr.step(new ReplaceStep(pos - 2, pos + 2 + repeated.nodeSize, Slice.empty));
-  if (repeats) {
-    const size = header.reduce((sum, row) => sum + row.nodeSize, 0);
-    tr.delete(pos - 2, pos - 2 + size);
-  }
+  if (size) tr.delete(pos - 2, pos - 2 + size);
   makeWhole(tr, pos - previous.nodeSize + 1 + (previous.firstChild?.nodeSize ?? 0), rules);
 }
 
@@ -377,7 +376,10 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
     whole: { ...PART, codeBlockContinued: false, codeLineContinued: false },
     join: joinLinkedCode,
   },
-  table: { whole: { ...PART, projectedColumnWidths: null }, join: joinTables },
+  table: {
+    whole: { ...PART, projectedColumnWidths: null, projectedHeaderRows: null },
+    join: joinTables,
+  },
   table_figure: { whole: PART, join: joinTableFigures },
   code_figure: { whole: PART, join: joinCodeFigures },
   blockquote: { whole: PART, join: joinContainers },

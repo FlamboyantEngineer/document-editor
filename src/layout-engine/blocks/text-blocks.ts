@@ -45,7 +45,7 @@ export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid
     height: table.height + table.overhead,
     marginTop: margins.marginTop,
     marginBottom: margins.marginBottom,
-    measurement: lineTableMeasurement(table),
+    measurement: lineTableMeasurement(table, 0, node),
   });
 }
 

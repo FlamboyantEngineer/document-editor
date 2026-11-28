@@ -90,13 +90,21 @@ describe('holdNodeNumbers', () => {
       return true;
     });
     expect(new Set(laid)).toEqual(new Set(['0']));
-    const key = keyOf(doc.child(0).child(0));
+    const block = (whole: ProseMirrorNode) => whole.child(0).child(0).child(1).child(0);
+    const key = keyOf(block(doc));
     // Renumbering the footnotes changes no width the engine lays out.
     const version = numbers.version();
     const renumbered = cited([...ids].reverse());
     numbers.number(renumbered);
     expect(numbers.version()).toBe(version);
-    expect(numbers.current().keyOf(renumbered.child(0).child(0))).toBe(key);
+    expect(numbers.current().keyOf(block(renumbered))).toBe(key);
+    // On the same document, the explicit mode is still part of the measurement's key.
+    numbers.number(renumbered, 'document');
+    expect(numbers.current().keyOf(block(renumbered))).not.toBe(key);
+    expect(numbers.version()).toBe(version + 1);
+    numbers.number(renumbered);
+    expect(numbers.current().keyOf(block(renumbered))).toBe(key);
+    expect(numbers.version()).toBe(version + 2);
   });
 
   it('DOCE-PAGINATION-12.10 gives each display equation the automatic number the pages draw, in its block key', () => {

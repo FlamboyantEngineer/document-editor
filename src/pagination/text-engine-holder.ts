@@ -9,7 +9,12 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
-import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
+import {
+  documentLanguage,
+  type LayoutRules,
+  type ResolvedFootnoteSettings,
+  type TemplateFile,
+} from '../model/index.js';
 import { stableKey } from '../utils/stable-key.js';
 import { templateFontFamilies } from './fonts.js';
 import type { PagesFonts, ServedFonts } from './served-fonts.js';
@@ -115,11 +120,9 @@ function makingNow(setting: TextLayoutSetting): Making {
     template,
     codeLineNumbers: setting.codeLineNumbers?.() ?? false,
     language: setting.language?.() ?? documentLanguage(null, template),
-    hostViews: setting.hostViews?.() ?? [],
+    hostViews: [...new Set(setting.hostViews?.())].sort(),
   };
 }
-
-const viewsKey = (views: readonly string[]) => [...views].sort().join(',');
 
 // Whether an engine made for one setting serves another: an equal template, as a host that
 // builds its template on each render hands over, keeps it.
@@ -127,7 +130,8 @@ const sameMaking = (made: Making, now: Making) =>
   sameTemplate(made.template, now.template) &&
   made.codeLineNumbers === now.codeLineNumbers &&
   made.language === now.language &&
-  viewsKey(made.hostViews) === viewsKey(now.hostViews);
+  made.hostViews.length === now.hostViews.length &&
+  made.hostViews.every((type, index) => type === now.hostViews[index]);
 
 // How many times the markup the pages are laid out in has changed, as it is read.
 function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => number {
@@ -143,17 +147,19 @@ function markupChanges(markup: (() => SuggestionMarkup) | undefined): () => numb
 // The document the pages' engine was last numbered with.
 interface Counted {
   doc: ProseMirrorNode | null;
+  footnoteNumbering?: ResolvedFootnoteSettings['numbering'] | undefined;
 }
 
 // Numbers an engine made again with the document the one before it was last numbered with, so a
 // region drawn before the next layout draws its footnotes with their numbers
 // (DOCE-PAGINATION-10.7), and gives its `number`, which keeps each document it is numbered with.
 function numberedLike(engine: PagesTextEngine, counted: Counted) {
-  if (counted.doc) engine.number(counted.doc);
+  if (counted.doc) engine.number(counted.doc, counted.footnoteNumbering);
   const count = engine.number.bind(engine);
-  return (doc: ProseMirrorNode) => {
+  return (doc: ProseMirrorNode, footnoteNumbering?: ResolvedFootnoteSettings['numbering']) => {
     counted.doc = doc;
-    count(doc);
+    counted.footnoteNumbering = footnoteNumbering;
+    count(doc, footnoteNumbering);
   };
 }
 

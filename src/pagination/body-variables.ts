@@ -56,13 +56,13 @@ export function bodyVariablesKey(node: ProseMirrorNode, variables: BodyVariables
   return `|${JSON.stringify(shown)}`;
 }
 
-// The page regions, whose variables are laid out with their page's own values.
-const REGIONS = new Set(['page_header', 'page_footer', 'page_footnotes']);
+// Headers and footers use their own page values for layout.
+const REGIONS = new Set(['page_header', 'page_footer']);
 
 // Whether each node's body holds a page variable, kept for as long as the node is.
 const pagesHeld = new WeakMap<ProseMirrorNode, boolean>();
 
-/** Whether a node's body text, outside its page regions, holds a page's number or the page count. */
+/** Whether a node's body or footnote text holds a page's number or the page count. */
 export function hasBodyPageVariable(node: ProseMirrorNode): boolean {
   if (REGIONS.has(node.type.name)) return false;
   if (node.isTextblock) return variableKeysOf(node).some((key) => PAGE_VARIABLES.has(key));

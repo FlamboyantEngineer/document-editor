@@ -7,6 +7,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { Step } from 'prosemirror-transform';
+import type { ResolvedFootnoteSettings } from '../model/index.js';
 import { type ChangedRange, changedRanges, isTextStep } from '../utils/changed-ranges.js';
 import { forcedLinesKey } from './forced-lines.js';
 import { insertedTexts } from './inserted-texts.js';
@@ -25,6 +26,7 @@ interface TypedPages {
   readonly projection: ProseMirrorNode;
   readonly map: ProjectionMap;
   readonly source: EditorState;
+  readonly footnoteNumbering: ResolvedFootnoteSettings['numbering'];
   readonly engine: PagesTextEngine | null;
 }
 
@@ -99,12 +101,15 @@ function contentBlockAt(doc: ProseMirrorNode, pos: number) {
 // than the latest layout gave it, whole, beyond half a pixel: the whole block is compared whether
 // or not it is split, since a split block's parts repeat its caption, header row or edges.
 // It is laid out as the next layout lays it out, from the layout's source, which keeps it.
-function heightMoved({ map, source, engine, laid }: Typed, block: PageBlock): boolean {
+function heightMoved(
+  { map, source, engine, laid, footnoteNumbering }: Typed,
+  block: PageBlock,
+): boolean {
   const at = map.toCanonical(block.pos + 1, 1);
   const found = at === null ? null : contentBlockAt(source.doc, at);
   const before = found ? laid[found.section]?.[found.index] : undefined;
   if (!found || before === undefined) return true;
-  engine.number(source.doc);
+  engine.number(source.doc, footnoteNumbering);
   const inserted = insertedTexts(source, [forcedLinesKey]);
   const now = engine.measureBlock(found.node, found.scope, inserted).height;
   return Math.abs(now - before) > MOVED;

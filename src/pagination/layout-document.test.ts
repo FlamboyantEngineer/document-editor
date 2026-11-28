@@ -8,6 +8,9 @@ import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
+  joinFragments,
+  layoutPages,
+  PAGE_SAFETY_MARGIN_PX,
   projectDocument,
   readDocumentFile,
   resolveTemplateFile,
@@ -572,6 +575,72 @@ describe('code longer than a page', () => {
     expect(codes.map((each) => each?.textContent).join('')).toBe(code);
     expect(codes.slice(1).every((each) => each?.attrs.codeLineContinued === true)).toBe(true);
     expect(codes.every((each) => each?.attrs.codeLineStart === 1)).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-3.3 fits a blank line between code fragments without counting it twice', () => {
+    const source = 'a\n\nb\nc';
+    const node = documentSchema.node('code_block', null, [documentSchema.text(source)]);
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const block = engine.measureBlock(node, null);
+    const row = engine.lines(node, { scope: null });
+    if (!row?.lines[0]) throw new Error('Code has no measured row');
+    const height = row.overhead + row.lines[0].height;
+    const pages = layoutPages([block], { pageHeight: height + PAGE_SAFETY_MARGIN_PX });
+    const parts = pages.flat().map((part) => ({
+      text: part.node.textContent,
+      number: part.node.attrs.codeLineStart,
+      continuation: part.node.attrs.codeLineContinued,
+      height: part.height,
+      drawn: engine.measureBlock(part.node, null).height,
+    }));
+    engine.destroy();
+    expect(parts).toEqual(
+      ['a', '', 'b', 'c'].map((text, index) => ({
+        text,
+        number: index + 1,
+        continuation: false,
+        height,
+        drawn: height,
+      })),
+    );
+    expect(joinFragments(pages.flat().map((part) => part.node))[0]?.textContent).toBe(source);
+  });
+
+  it('DOCE-PAGINATION-3.3 numbers a wrapped code line that starts on the page after a blank line', () => {
+    const source = `\n${'x'.repeat(512)}`;
+    const node = documentSchema.node('code_block', null, [documentSchema.text(source)]);
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const block = engine.measureBlock(node, null);
+    const row = engine.lines(node, { scope: null });
+    if (!row?.lines[0]) throw new Error('Code has no measured row');
+    const height = row.overhead + row.lines[0].height;
+    const pages = layoutPages([block], { pageHeight: height + PAGE_SAFETY_MARGIN_PX });
+    engine.destroy();
+    const [blank, next, wrapped] = pages.flat().map((part) => part.node);
+    expect(blank?.textContent).toBe('');
+    expect(next?.attrs).toMatchObject({ codeLineStart: 2, codeLineContinued: false });
+    expect(wrapped?.attrs).toMatchObject({ codeLineStart: 2, codeLineContinued: true });
+    expect(joinFragments(pages.flat().map((part) => part.node))[0]?.textContent).toBe(source);
+  });
+
+  it('DOCE-PAGINATION-3.3 splits before a terminal newline and reserves its caret line', () => {
+    const node = documentSchema.node('code_block', null, [documentSchema.text('a\nb\nc\n')]);
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const block = engine.measureBlock(node, null);
+    const row = engine.lines(node, { scope: null });
+    if (!row?.lines[0]) throw new Error('Code has no measured row');
+    // The text before the last newline fits, but its caret row makes the whole block too tall.
+    const lineHeight = row.lines[0].height;
+    const height = row.overhead + 2 * lineHeight;
+    const pages = layoutPages([block], {
+      pageHeight: height + lineHeight + PAGE_SAFETY_MARGIN_PX,
+    });
+    const parts = pages.flat();
+    const drawn = parts.map((part) => engine.measureBlock(part.node, null).height);
+    engine.destroy();
+    expect(parts.map((part) => part.node.textContent)).toEqual(['a\nb', 'c\n']);
+    expect(parts.map((part) => part.height)).toEqual([height, height]);
+    expect(drawn).toEqual([height, height]);
   });
 });
 

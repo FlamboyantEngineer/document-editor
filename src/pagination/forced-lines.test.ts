@@ -15,6 +15,7 @@ import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import { insertedTexts } from './inserted-texts.js';
 import { paginationKey } from './layout-marks.js';
 import { objectBoxAt } from './object-boxes.js';
+import { pagesLayout } from './pages-layout.js';
 import { createPagesTextEngine } from './text-engine.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
 import { pageTextLines } from './text-lines.js';
@@ -244,6 +245,43 @@ describe('forcedLines', () => {
       .filter((each) => each.class === 'de-forced-lines')
       .map((each) => each.dir);
     expect(directions).toEqual(['rtl', 'ltr', 'rtl']);
+  });
+
+  it('DOCE-PAGINATION-9.12 DOCE-PAGINATION-13.2 draws each split part in the direction of the first strong text, even on a later page', () => {
+    const first = create('paragraph', { dataId: 'p', splitPartIndex: 0 }, [
+      create('hard_break', null),
+    ]);
+    const neutral = paragraph('123', { dataId: 'p', splitPartIndex: 1 });
+    const rtl = paragraph('אבג', { dataId: 'p', splitPartIndex: 2 });
+    const ltr = paragraph('hello', { dataId: 'p', splitPartIndex: 3 });
+    const last = paragraph('שלום', { dataId: 'p', splitPartIndex: 4 });
+    const doc = pagesDoc([[first], [neutral], [rtl], [ltr], [last]]);
+    const state = stateWith(doc, stubEngine().engine);
+    const directions = (current: EditorState) =>
+      drawn(current)
+        .filter((each) => each.class === 'de-forced-lines')
+        .map((each) => each.dir);
+    expect(directions(state)).toEqual(['rtl', 'rtl', 'rtl', 'rtl', 'rtl']);
+    expect(pagesLayout(state)?.blocks.map(({ direction }) => direction)).toEqual([
+      'rtl',
+      'rtl',
+      'rtl',
+      'rtl',
+      'rtl',
+    ]);
+
+    const at = positionOf(doc, 'אבג') + 1;
+    const edited = state.apply(state.tr.insertText('....', at, at + 3));
+    expect(edited.doc.firstChild?.firstChild).toBe(doc.firstChild?.firstChild);
+    expect(edited.doc.firstChild?.lastChild).toBe(doc.firstChild?.lastChild);
+    expect(directions(edited)).toEqual(['ltr', 'ltr', 'ltr', 'ltr', 'ltr']);
+    expect(pagesLayout(edited)?.blocks.map(({ direction }) => direction ?? 'ltr')).toEqual([
+      'ltr',
+      'ltr',
+      'ltr',
+      'ltr',
+      'ltr',
+    ]);
   });
 
   it('DOCE-PAGINATION-9.12 draws a block, and its later part, in its first strong character’s Bidi_Class', () => {
@@ -1437,22 +1475,63 @@ describe('the caret at a forced line start', () => {
     mount.remove();
   });
 
-  it('DOCE-PAGINATION-11.7 draws a caret the view wrote at a line end at the next line start', () => {
-    const doc = pagesDoc([[paragraph('aaaaaaaaaabbbbbbbbbb')]]);
-    const state = EditorState.create({
-      doc,
-      plugins: [forcedLines({ engine: () => stubEngine().engine, version: () => 0 })],
-    });
-    const mount = document.body.appendChild(document.createElement('div'));
-    const view = new EditorView(mount, { state });
-    view.focus();
-    // The position between the two lines, which ProseMirror writes after the first line's text.
-    const at = positionOf(doc, 'aaaaaaaaaabbbbbbbbbb') + 11;
-    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
-    const selection = document.getSelection();
-    expect(selection?.anchorNode?.textContent).toBe('bbbbbbbbbb');
-    expect(selection?.anchorOffset).toBe(0);
-    view.destroy();
-    mount.remove();
-  });
+  it.each(['document', 'iframe'])(
+    'DOCE-PAGINATION-11.7 draws a caret the view wrote at a line end at the next line start in a %s',
+    (surface) => {
+      const doc = pagesDoc([[paragraph('aaaaaaaaaabbbbbbbbbb')]]);
+      const state = EditorState.create({
+        doc,
+        plugins: [forcedLines({ engine: () => stubEngine().engine, version: () => 0 })],
+      });
+      const frame =
+        surface === 'iframe' ? document.body.appendChild(document.createElement('iframe')) : null;
+      const owner = frame?.contentDocument ?? document;
+      const mount = owner.body.appendChild(owner.createElement('div'));
+      const view = new EditorView(mount, { state });
+      view.focus();
+      // The position between the two lines, which ProseMirror writes after the first line's text.
+      const at = positionOf(doc, 'aaaaaaaaaabbbbbbbbbb') + 11;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+      const selection = owner.getSelection();
+      expect(selection?.anchorNode?.textContent).toBe('bbbbbbbbbb');
+      expect(selection?.anchorOffset).toBe(0);
+      view.destroy();
+      mount.remove();
+      frame?.remove();
+    },
+  );
+
+  it.each([
+    ['mention', { userId: 'reader', label: 'Reader' }],
+    [
+      'image',
+      { src: 'image.png', alt: 'Diagram', templateImageWidth: 16, templateImageHeight: 16 },
+    ],
+  ])(
+    'DOCE-PAGINATION-11.7 keeps the caret before an inline %s at the start of the next forced line',
+    (name, attrs) => {
+      const before = 'aaaaaaaaaa';
+      const after = 'bbbbbbbbbb';
+      const block = create('paragraph', null, [
+        documentSchema.text(before),
+        create(name, attrs),
+        documentSchema.text(after),
+      ]);
+      const doc = pagesDoc([[block]]);
+      const state = stateWith(doc, stubEngine().engine);
+      const mount = document.body.appendChild(document.createElement('div'));
+      const view = new EditorView(mount, { state });
+      view.focus();
+      const at = positionOf(doc, before + after) + before.length + 1;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+      const selection = document.getSelection();
+      const anchor = selection?.anchorNode;
+      if (!anchor || !selection) throw new Error('The view writes the caret');
+      expect(anchor.nodeValue).toBe('a');
+      expect(selection.anchorOffset).toBe(1);
+      expect(view.posAtDOM(anchor, selection.anchorOffset)).toBe(at);
+      view.destroy();
+      mount.remove();
+    },
+  );
 });

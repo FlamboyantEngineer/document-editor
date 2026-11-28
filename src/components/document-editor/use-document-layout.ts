@@ -33,7 +33,6 @@ import {
   type FragmentRules,
   joinDocumentPages,
   type LayoutRules,
-  resolveFootnoteSettings,
   type TemplateFile,
   type TemplatePartChange,
 } from '../../model/index.js';
@@ -147,7 +146,7 @@ export interface DocumentLayoutOptions {
   readonly telemetry?: TelemetryAdapter | undefined;
   /**
    * The host's React node views, whose nodes the layout engine sizes by the host's rules, never as
-   * text, read when the pages mount.
+   * text. Adding or removing a node type lays the pages out again.
    */
   readonly nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
   /**
@@ -199,15 +198,20 @@ const restyleSections = (template: TemplateFile) => (state: EditorState) =>
 // A state compared with the older version again, out of the history.
 const recompare = (state: EditorState) => state.apply(refreshVersionChanges(state.tr));
 
-// The pages laid out again when the host hands in other layout rules, so every section, not only
-// those that change next, takes them; rules passed inline with the same entries change nothing.
-function useHostRules(layoutRules: LayoutRules | undefined, refresh: PagingRefs['refresh']) {
-  const seen = useRef(layoutRules);
+// Layout rules and the set of host-drawn node types affect measurements even in an idle editor.
+function useHostLayoutInputs(
+  { layoutRules, nodeViews }: Pick<DocumentLayoutOptions, 'layoutRules' | 'nodeViews'>,
+  refresh: PagingRefs['refresh'],
+) {
+  const nodeViewTypes = JSON.stringify(Object.keys(nodeViews ?? {}).sort());
+  const seen = useRef({ layoutRules, nodeViewTypes });
   useEffect(() => {
-    if (sameRules(seen.current, layoutRules)) return;
-    seen.current = layoutRules;
+    const before = seen.current;
+    if (before.nodeViewTypes === nodeViewTypes && sameRules(before.layoutRules, layoutRules))
+      return;
+    seen.current = { layoutRules, nodeViewTypes };
     refresh.current?.();
-  }, [layoutRules, refresh]);
+  }, [layoutRules, nodeViewTypes, refresh]);
 }
 
 // A state with each section's pages joined into one and its footnotes numbered again, out of the
@@ -252,7 +256,6 @@ export function useDocumentLayout(
   // The template's settings that change how the pages are laid out: the pagination starts over
   // when they do.
   const repeatHeaders = repeatHeaderKey(template);
-  const footnoteNumbering = resolveFootnoteSettings(template, null).numbering ?? 'document';
   // The layout engine lays the pages' text out only with the fonts the host serves.
   const { text } = options;
   const { fonts: servedFonts } = text;
@@ -294,11 +297,11 @@ export function useDocumentLayout(
       return undefined;
     }
     return startPaging(element, latest, {
-      settings: { footnoteNumbering, fonts: servedFonts, markup: markup.now },
+      settings: { fonts: servedFonts, markup: markup.now },
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, root, repeatHeaders, footnoteNumbering, servedFonts, schema, markup]);
+  }, [layout, root, repeatHeaders, servedFonts, schema, markup]);
 
   useLayoutPlugins(options, ownPlugins);
 
@@ -317,7 +320,7 @@ export function useDocumentLayout(
     latest.current.onStateChange(recompare);
     refresh.current?.();
   }, [previous, display, suggestions, generated, scopeKey]);
-  useHostRules(options.layoutRules, refresh);
+  useHostLayoutInputs(options, refresh);
   useLayoutDebug(options.debug, options.onStateChange, redraw);
   useRegionsEditable(
     `${String(Boolean(options.onRegionChange))} ${String(Boolean(options.onTemplatePartChange))}`,

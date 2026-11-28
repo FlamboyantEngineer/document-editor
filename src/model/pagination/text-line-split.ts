@@ -65,27 +65,27 @@ interface FragmentLines {
   readonly lines: readonly MeasuredLine[];
   readonly first: number;
   readonly last: number;
-  readonly height: number;
+  readonly heights: Float64Array | null;
 }
 
-function linesWithin(lines: readonly MeasuredLine[], start: number, end: number): FragmentLines {
+function rangeHeight({ lines, first, last, heights }: FragmentLines): number {
+  return heights ? (heights[last] ?? 0) - (heights[first] ?? 0) : sumHeights(lines, first, last);
+}
+
+/** Finds a fragment's range in an ordered table, or keeps the original order of a legacy table. */
+export function measuredLineRange(
+  lines: readonly MeasuredLine[],
+  { start, end, includeEnd }: { start: number; end: number; includeEnd: boolean },
+): FragmentLines {
   const { ordered, heights } = indexed(lines);
+  const beforeEnd = (from: number) => (includeEnd ? from <= end : from < end);
   if (!ordered) {
-    const found = lines.filter((line) => line.from >= start && line.from <= end);
-    return {
-      lines: found,
-      first: 0,
-      last: found.length,
-      height: sumHeights(found, 0, found.length),
-    };
+    const found = lines.filter(({ from }) => from >= start && beforeEnd(from));
+    return { lines: found, first: 0, last: found.length, heights: null };
   }
   const first = countPrefix(lines.length, (index) => !((lines[index]?.from ?? 0) >= start));
-  // The empty line after a final hard break starts at the fragment's end and counts as a line.
-  const last = countPrefix(lines.length, (index) => (lines[index]?.from ?? 0) <= end);
-  const height = heights
-    ? (heights[last] ?? 0) - (heights[first] ?? 0)
-    : sumHeights(lines, first, last);
-  return { lines, first, last, height };
+  const last = countPrefix(lines.length, (index) => beforeEnd(lines[index]?.from ?? 0));
+  return { lines, first, last, heights };
 }
 
 // A split must advance through the block's content and leave the widgets at one offset together.
@@ -118,8 +118,14 @@ export function planLineSplit(
   const { offset } = input.measurement;
   const start = offset + (input.hiddenStart ?? 0);
   const end = offset + input.length;
-  const { lines, first, last, height } = linesWithin(measured.lines, start, end);
-  const overhead = Math.max(0, input.height - height);
+  // The empty line after a final hard break starts at the fragment's end and counts as a line.
+  const range = measuredLineRange(measured.lines, {
+    start,
+    end,
+    includeEnd: true,
+  });
+  const { lines, first, last } = range;
+  const overhead = Math.max(0, input.height - rangeHeight(range));
   const trailing = Math.max(MINIMUM_SPLIT_LINES, Math.floor(input.minimumTrailingLines ?? 0));
   // Only the visible part of this page needs sequential fitting checks. Keep the same order of
   // additions used to decide whether a fractional height exactly fits.

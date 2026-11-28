@@ -13,8 +13,9 @@ import {
   ReplaceStep,
   type Step,
 } from 'prosemirror-transform';
-import { leadingHeaderRows } from '../model/index.js';
+import { splitPartOf } from '../model/pagination/split-part.js';
 import { isTableHeaderCopy } from '../model/pagination/table-header-copies.js';
+import { leadingHeaderRows, projectedHeaderRows } from '../model/pagination/table-headers.js';
 import { footnoteAt, footnoteCopies } from './footnote-positions.js';
 import type { MapDirection } from './page-positions.js';
 import type { Mirrored, ProjectionMap } from './projection-map.js';
@@ -127,16 +128,33 @@ function headerEdit(step: RangeStep, doc: ProseMirrorNode) {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const table = $from.node(depth);
     if (table.type.name !== 'table') continue;
-    const id = table.attrs.dataId as unknown;
-    if (typeof id !== 'string' || !id || table.attrs.splitPartIndex !== 0) return null;
+    if (table.attrs.splitPartIndex !== 0) continue;
+    const id: unknown = table.attrs.dataId;
     const row = $from.index(depth);
-    if (depth === $from.depth || row >= leadingHeaderRows(table)) return null;
+    if (depth === $from.depth || row >= leadingHeaderRows(table)) continue;
     const start = $from.posAtIndex(row, depth);
     const original = table.child(row);
     if (step.to > start + original.nodeSize) return null;
-    return { id, row, start, original, offset: step.from - start };
+    return {
+      id: typeof id === 'string' && id ? id : null,
+      row,
+      start,
+      original,
+      offset: step.from - start,
+    };
   }
   return null;
+}
+
+function mayRepeatRow(table: ProseMirrorNode, parent: ProseMirrorNode | null, row: number) {
+  const count = projectedHeaderRows(table);
+  if (count !== null) return row < count;
+  if (
+    parent?.type.name === 'table_figure' &&
+    typeof parent.firstChild?.attrs.continuedText !== 'string'
+  )
+    return false;
+  return row < leadingHeaderRows(table);
 }
 
 // Positions before the edit, where every actual copy of the original row starts.
@@ -145,22 +163,16 @@ function copyStarts(map: ProjectionMap, edit: NonNullable<ReturnType<typeof head
   const original = map.toCanonical(edit.start + 1, 1);
   map.projection.descendants((node, pos, parent) => {
     if (node.type.name !== 'table') return !node.isTextblock;
-    if (
-      parent?.type.name === 'table_figure' &&
-      typeof parent.firstChild?.attrs.continuedText !== 'string'
-    ) {
-      return false;
-    }
-    const part: unknown = node.attrs.splitPartIndex;
-    if (node.attrs.dataId !== edit.id || typeof part !== 'number' || part < 1) return false;
+    if ((node.attrs.dataId ?? null) !== edit.id || (splitPartOf(node) ?? 0) === 0) return false;
+    if (!mayRepeatRow(node, parent, edit.row)) return false;
     const copy = node.maybeChild(edit.row);
-    if (!copy || edit.row >= leadingHeaderRows(node)) return false;
+    if (!copy) return false;
     let from = pos + 1;
     for (let index = 0; index < edit.row; index += 1) from += node.child(index).nodeSize;
     // Editing an anonymous copy may replace the shared row node. Its mapped position still
     // identifies the original, unlike a distinct body row that happens to use header cells.
     const samePosition = original !== null && map.toCanonical(from + 1, 1) === original;
-    if (isTableHeaderCopy(edit.original, copy) || samePosition) starts.push(from);
+    if (samePosition || (edit.id && isTableHeaderCopy(edit.original, copy))) starts.push(from);
     return false;
   });
   return starts;
