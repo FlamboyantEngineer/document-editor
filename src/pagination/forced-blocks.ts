@@ -106,8 +106,10 @@ export function continuingParts(doc: ProseMirrorNode): ReadonlySet<number> {
   const continued = new Set<string>();
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true;
+    // A block no split made has no part to continue, nor is one: no key is made for it.
+    if (node.attrs.splitPartIndex === null || node.attrs.splitPartIndex === undefined) return false;
     const key = partKey(node);
-    if (!node.isTextblock || !key) return false;
+    if (!key) return false;
     parts.set(key, pos);
     const part = Number(node.attrs.splitPartIndex ?? 0);
     // A code part continues its line before it only where the split cut that line
