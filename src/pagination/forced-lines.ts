@@ -22,11 +22,11 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
-import { forcedBlocksOf } from './forced-blocks.js';
+import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
 import { numberingFor, sameNumbers } from './forced-numbering.js';
 import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
-import { type InsertedTexts, insertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { type InsertedTexts, insertedTexts, NO_INSERTED, sameInserted } from './inserted-texts.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
@@ -40,8 +40,8 @@ export interface ForcedLinesState {
   readonly drawn: ReadonlySet<number> | null;
   /** The page the caret is on, which is always drawn. */
   readonly caret: number;
-  /** The words other plugins insert in the blocks, which the lines were laid out with. */
-  readonly inserted: string;
+  /** The words other plugins insert in the blocks, by block, which the lines were laid out with. */
+  readonly inserted: InsertedTexts;
 }
 
 /** The forced lines' plugin key. */
@@ -49,6 +49,16 @@ export const forcedLinesKey = new PluginKey<ForcedLinesState>('forced-lines');
 
 interface Scope {
   readonly name: string | null;
+}
+
+// What a top-level block's kept set is drawn with besides its node: its number, whether a later
+// part continues it, and the words inserted in it.
+function blockKey(
+  builder: Builder,
+  { node, pos, prefix }: { node: ProseMirrorNode; pos: number; prefix: string | undefined },
+): string {
+  const continued = builder.continuing.has(pos) ? 'c' : '';
+  return `${prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
 }
 
 // A page's content: each forced block marked, with its lines inside it.
@@ -76,6 +86,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       numbered: builder.skipped,
       inserted: builder.inserted,
       labelOf: builder.labelOf,
+      continuing: builder.continuing,
     };
     const forced = forcedBlocksOf(builder.engine, child, place);
     const [first] = forced;
@@ -83,7 +94,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       const lines = new Map(
         forced.flatMap(({ node, owner, table }) => (table ? [[owner ?? node, table]] : [])),
       );
-      const { set } = containerSet(builder, child, lines);
+      const { set } = containerSet(builder, child, { lines, pos });
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;
     }
@@ -96,7 +107,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       return;
     }
     locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
-    const key = `${first.prefix ?? ''}|${insertedKey(builder.inserted.byBlock.get(child))}`;
+    const key = blockKey(builder, { node: child, pos, prefix: first.prefix });
     const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
     if (set !== DecorationSet.empty) children.push(offset, end, set);
   });
@@ -210,6 +221,7 @@ function decorate(
   const numbering = numberingFor(engine, state, previous);
   const numbers = numbering.headings;
   const directions = continuedDirections(doc);
+  const continuing = continuingParts(doc);
   const footnotes = numbersOf(engine);
   const values: unknown = doc.attrs.values;
   const same =
@@ -218,7 +230,11 @@ function decorate(
     previous.footnotes === footnotes &&
     previous.values === values &&
     previous.labels === numbering.labelsKey &&
-    sameNumbers(previous, { numbers, skipped: numbering.paragraphs, directions }, state);
+    sameNumbers(
+      previous,
+      { numbers, skipped: numbering.paragraphs, directions, continuing },
+      state,
+    );
   const builder: ContentBuilder = {
     engine,
     numbers,
@@ -230,6 +246,7 @@ function decorate(
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
     directions,
+    continuing,
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
     nested: same && previous.inserted === state.inserted ? previous.nested : new WeakMap(),
@@ -277,23 +294,24 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
     const made = decorate(source, { doc: state.doc, drawn, inserted, tr }, builder);
     builder = made.builder;
     const { engine, version } = source;
-    const words = inserted.key;
     return {
       engine: engine(),
       version: version(),
       numbers: numbersOf(engine()),
       decorations: made.decorations,
       ...drawn,
-      inserted: words,
+      inserted,
     };
   };
   // The decorations of a state, drawn again when other plugins insert other words in its blocks,
-  // such as a comparison that changed (DOCE-PAGINATION-11.11).
+  // such as a comparison that changed, or the same words in a block an edit made anew, which a
+  // state built from the transaction laid out with the words of the state before
+  // (DOCE-PAGINATION-11.11).
   const decorationsOf = (state: EditorState, value: ForcedLinesState | undefined) => {
     if (!value) return undefined;
     const now = insertedTexts(state, [forcedLinesKey]);
-    if (now.key === value.inserted) return value.decorations;
-    if (redrawn?.value === value && now.key === inserted.key) return redrawn.decorations;
+    if (sameInserted(now, value.inserted)) return value.decorations;
+    if (redrawn?.value === value && sameInserted(now, inserted)) return redrawn.decorations;
     inserted = now;
     redrawn = { value, decorations: build(state).decorations };
     return redrawn.decorations;

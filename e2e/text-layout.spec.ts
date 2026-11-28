@@ -433,13 +433,14 @@ test.describe('editing on the engine lines', () => {
     expect(laid.mismatched).toEqual([]);
   }
 
-  // Each drawn line of a block, but its last: how far its first and last characters stand in from
-  // the block's text column, spaces left out. The column is the block's box less its end overhang.
-  const lineInsets = (page: Page, selector: string) =>
+  // Each drawn line of a block, but its last unless `last`: how far its first and last characters
+  // stand in from the block's text column, spaces left out. The column is the block's box less its
+  // end overhang.
+  const lineInsets = (page: Page, selector: string, last = false) =>
     page
       .locator(selector)
       .first()
-      .evaluate((element) => {
+      .evaluate((element, keepLast) => {
         const box = element.getBoundingClientRect();
         const style = getComputedStyle(element);
         const left = box.left + parseFloat(style.paddingLeft);
@@ -465,9 +466,112 @@ test.describe('editing on the engine lines', () => {
         }
         return [...lines.entries()]
           .sort(([a], [b]) => a - b)
-          .slice(0, -1)
+          .slice(0, keepLast ? undefined : -1)
           .map(([, line]) => ({ before: line.left - left, after: right - line.right }));
-      });
+      }, last);
+
+  test('DOCE-PAGINATION-11.2 draws the caret of an empty centred block and line where their text will start', async ({
+    page,
+  }) => {
+    await open(page, 'inline-geometry', true);
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const empty = { type: 'heading', attrs: { title: true } };
+      const broken = {
+        type: 'heading',
+        attrs: { title: true },
+        content: [{ type: 'text', text: 'Centred' }, { type: 'hard_break' }],
+      };
+      window.regressionLab.load({ ...file, sections: [{ ...section, content: [empty, broken] }] });
+    });
+    await waitForLab(page);
+    await settle(page);
+    // Where each title's trailing break, at which the caret of its empty line is drawn, stands
+    // from the middle of its column.
+    const offsets = await page
+      .locator('.de-document-editor__content .pm-page-content > h1.de-forced-lines')
+      .evaluateAll((titles) =>
+        titles.map((title) => {
+          const box = title.getBoundingClientRect();
+          const style = getComputedStyle(title);
+          const left = box.left + parseFloat(style.paddingLeft);
+          const right = box.right - parseFloat(style.paddingRight) - 8;
+          const br = [...title.querySelectorAll('br')].at(-1);
+          const at = br?.getBoundingClientRect().left ?? left;
+          return at - (left + right) / 2;
+        }),
+      );
+    expect(offsets).toHaveLength(2);
+    for (const offset of offsets)
+      expect(Math.abs(offset), 'the caret sits mid column').toBeLessThan(2);
+  });
+
+  test('DOCE-PAGINATION-11.2 stretches only the text spaces of a justified line, not those inside an atom', async ({
+    page,
+  }) => {
+    await open(page, 'inline-geometry', true);
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const mention = { type: 'mention', attrs: { person: 'person-01', label: 'Alex Van Doe' } };
+      const words = {
+        type: 'text',
+        text: ' wrote the notes on the rows of beans by the wall, then ',
+      };
+      const content = Array.from({ length: 12 }, () => [mention, words]).flat();
+      const justified = { type: 'paragraph', attrs: { style: 'justified' }, content };
+      window.regressionLab.load({ ...file, sections: [{ ...section, content: [justified] }] });
+    });
+    await waitForLab(page);
+    await settle(page);
+    const lines = await lineInsets(
+      page,
+      '.de-document-editor__content .pm-page-content > p.justified.de-forced-lines',
+    );
+    expect(lines.length, 'wrapped justified lines').toBeGreaterThan(2);
+    for (const line of lines) {
+      expect(Math.abs(line.before), 'a justified line starts at the edge').toBeLessThan(1);
+      expect(Math.abs(line.after), 'a justified line ends at the edge').toBeLessThan(1);
+    }
+  });
+
+  test('DOCE-PAGINATION-11.2 fills the column with the last line of a justified part another part continues', async ({
+    page,
+  }) => {
+    await open(page, 'inline-geometry', true);
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const text = 'Rows of beans, paths and benches by the north wall of the garden. '.repeat(120);
+      const long = {
+        type: 'paragraph',
+        attrs: { style: 'justified' },
+        content: [{ type: 'text', text }],
+      };
+      window.regressionLab.load({ ...file, sections: [{ ...section, content: [long] }] });
+    });
+    await waitForLab(page);
+    await settle(page);
+    // Its parts; a page far from the screen is not drawn on forced lines (DOCE-PAGINATION-11.6).
+    const ids = await page
+      .locator('.de-document-editor__content .pm-page-content > p.justified')
+      .evaluateAll((parts) => parts.map((part) => (part as HTMLElement).dataset.id));
+    expect(ids.length, 'the paragraph runs over two pages or more').toBeGreaterThan(1);
+    expect(new Set(ids).size, 'as parts of one paragraph').toBe(1);
+    const head = await lineInsets(
+      page,
+      '.de-document-editor__content .pm-page-content > p.justified.de-forced-lines',
+      true,
+    );
+    const bottom = head.at(-1);
+    expect(bottom, 'the line at the page break').toBeDefined();
+    expect(Math.abs(bottom?.before ?? 1), 'it starts at the edge').toBeLessThan(1);
+    expect(Math.abs(bottom?.after ?? 1), 'it ends at the edge').toBeLessThan(1);
+  });
 
   test('DOCE-PAGINATION-11.2 fills the column with each wrapped justified line and centres each centred one', async ({
     page,

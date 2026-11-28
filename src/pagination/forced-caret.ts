@@ -25,12 +25,16 @@ function textAfter(node: Node, block: Element): Text | null {
 }
 
 // Where a caret at a DOM point is drawn at a forced line's end: the text after it, on the next
-// line; null when it is not drawn at one.
+// line; null when it is not drawn at one. The point is at the end of the line's last text, which
+// can sit in an element inside the line's end mark, such as a reserved box or a link.
 function nextLineStart(node: Node | null, offset: number): Text | null {
   if (!(node instanceof Text) || offset !== node.length) return null;
-  if (!node.parentElement?.classList.contains(END)) return null;
-  const block = node.parentElement.closest('.de-forced-lines');
-  return block ? textAfter(node, block) : null;
+  const end = node.parentElement?.closest(`.${END}`);
+  const block = end?.closest('.de-forced-lines');
+  if (!end || !block) return null;
+  const next = textAfter(node, block);
+  // Text after it inside the end mark is still on this line.
+  return next && !end.contains(next) ? next : null;
 }
 
 // The view's own selection, which ProseMirror reads back without a change.

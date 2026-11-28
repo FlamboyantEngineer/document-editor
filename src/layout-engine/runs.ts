@@ -49,6 +49,11 @@ export interface TextRun {
   readonly atoms: readonly (InlineAtomSize | null)[];
   /** For each item of inserted text (`InsertedText`), its side among the elements there. */
   readonly sides: readonly (number | null)[];
+  /**
+   * For each item that is the text an inline node shows, as a text atom's or a variable's, the
+   * node's size: the page draws it in the node's one element; null for the block's own text.
+   */
+  readonly nodes: readonly (number | null)[];
 }
 
 /** A content range laid out as taking no room, `[from, to)`. */
@@ -110,6 +115,7 @@ interface Builder {
   offsets: number[];
   atoms: (InlineAtomSize | null)[];
   sides: (number | null)[];
+  nodes: (number | null)[];
   start: number;
   /** The inline code element the last node is drawn in (`code-boxes.ts`). */
   code: OpenCode | null;
@@ -120,6 +126,7 @@ const startRun = (start: number): Builder => ({
   offsets: [],
   atoms: [],
   sides: [],
+  nodes: [],
   start,
   code: null,
 });
@@ -134,18 +141,21 @@ function addText(
     box,
     side = null,
     marks = null,
+    node = null,
   }: {
     item: RichInlineItem | RichInlineBox;
     offset: number;
     box: InlineAtomSize | null;
     side?: number | null;
     marks?: readonly Mark[] | null;
+    node?: number | null;
   },
 ) {
   run.items.push(item);
   run.offsets.push(offset);
   run.atoms.push(box);
   run.sides.push(side);
+  run.nodes.push(node);
   const index = run.items.length - 1;
   const { open, continues } = continueCode(run.code, marks);
   if (continues) joinCode(run.items, { before: run.code?.index ?? null, after: index });
@@ -180,6 +190,26 @@ function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInli
   return markedItem({ text: child.text ?? child.textContent, font }, child.marks);
 }
 
+type AtomItem = { item: RichInlineItem | RichInlineBox; size: InlineAtomSize | null } | string;
+
+// A text atom as the text the page draws in it, in its marks' font, growing its line as their text
+// does; a footnote marker's `sup` does not.
+function textAtom(child: ProseMirrorNode, input: RunInput): AtomItem {
+  const item = textAtomItem(child, input.typography, input.textAtoms ?? {});
+  if (!item) return `no text for inline ${child.type.name}`;
+  const size = child.type.name === 'footnote_reference' ? null : textBox(child, input);
+  return { item: 'font' in item ? markedItem(item, child.marks) : item, size };
+}
+
+// Any other inline atom as the box it is measured to take.
+function measuredAtom(child: ProseMirrorNode, input: RunInput): AtomItem {
+  const place = { parent: input.node, scope: input.scope, width: input.lineWidth };
+  let size = input.measureAtom?.(child, place) ?? null;
+  if (!size) return `no size for inline ${child.type.name}`;
+  if (size.math) size = placedInline(child, size.math, input);
+  return { item: { width: size.width }, size };
+}
+
 // Adds an inline atom to a run: as its text, or as a box of the size measured; the reason when it
 // cannot be laid out.
 function addAtom(
@@ -189,22 +219,13 @@ function addAtom(
   const name = child.type.name;
   const refused = input.textAtoms?.refused?.get(name);
   if (refused !== undefined) return refused;
-  let item: RichInlineItem | RichInlineBox | null;
-  let size: InlineAtomSize | null;
-  if ((input.textAtoms?.types ?? TEXT_ATOMS).has(name)) {
-    item = textAtomItem(child, input.typography, input.textAtoms ?? {});
-    if (!item) return `no text for inline ${name}`;
-    if ('font' in item) item = markedItem(item, child.marks);
-    // In its marks' font, it grows its line as their text does; a footnote marker's `sup` does not.
-    size = name === 'footnote_reference' ? null : textBox(child, input);
-  } else {
-    const place = { parent: input.node, scope: input.scope, width: input.lineWidth };
-    size = input.measureAtom?.(child, place) ?? null;
-    if (!size) return `no size for inline ${name}`;
-    if (size.math) size = placedInline(child, size.math, input);
-    item = { width: size.width };
-  }
-  addText(run, { item, offset, box: size, marks: child.marks });
+  const atom = (input.textAtoms?.types ?? TEXT_ATOMS).has(name)
+    ? textAtom(child, input)
+    : measuredAtom(child, input);
+  if (typeof atom === 'string') return atom;
+  const { item, size } = atom;
+  const node = 'font' in item ? child.nodeSize : null;
+  addText(run, { item, offset, box: size, marks: child.marks, node });
   return null;
 }
 
@@ -237,7 +258,8 @@ function addVariable(
   const text = (variables || body ? value : child.textContent) ?? '';
   // In its marks' font, padded in inline code and growing its line, as their text is.
   const item = text ? markedItem({ text, font, break: 'never' }, child.marks) : { width: 0 };
-  addText(run, { item, offset, box: text ? textBox(child, input) : null, marks: child.marks });
+  const box = text ? textBox(child, input) : null;
+  addText(run, { item, offset, box, marks: child.marks, node: child.nodeSize });
   return null;
 }
 

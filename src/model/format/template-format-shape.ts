@@ -6,6 +6,7 @@ import { PAGE_SIZE_DIMENSIONS } from '../templates/template-css-values.js';
 /** The kind of value a setting takes. */
 export type SettingShape =
   | 'length'
+  | 'size'
   | 'color'
   | 'text'
   | 'boolean'
@@ -27,7 +28,7 @@ const sides = {
 
 const FONT = {
   font: 'text',
-  size: 'length',
+  size: 'size',
   weight: 'weight',
   italic: 'boolean',
   underline: 'boolean',
@@ -70,7 +71,7 @@ const CONTENTS_LIST = {
   levels: {
     list: {
       object: {
-        size: 'length',
+        size: 'size',
         weight: 'weight',
         italic: 'boolean',
         indentation: 'length',

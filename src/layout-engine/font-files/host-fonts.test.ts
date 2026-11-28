@@ -82,4 +82,21 @@ describe('DOCE-HOST-1.14.1 Pretext layout waits for the host font files', () => 
   it('keeps the browser layout without a fonts adapter', async () => {
     expect(await loadHostFonts(undefined, [])).toEqual({ phase: 'browser', reason: 'no-shaper' });
   });
+
+  it('fails with a reason, never a throw, when the adapter throws instead of rejecting', async () => {
+    const broken = () => {
+      throw new Error('broken adapter');
+    };
+    await expect(
+      loadHostFonts(adapter({ shaper: broken, files: () => Promise.resolve(ok(served())) }), [
+        'Lab Geist',
+      ]),
+    ).resolves.toEqual({ phase: 'browser', reason: 'shaper-failed' });
+    await expect(
+      loadHostFonts(
+        adapter({ shaper: () => Promise.resolve(ok<FontShaper>(harfBuzzWasm())), files: broken }),
+        ['Lab Geist'],
+      ),
+    ).resolves.toEqual({ phase: 'browser', reason: 'files-failed' });
+  });
 });
