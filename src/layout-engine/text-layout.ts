@@ -7,6 +7,7 @@ import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 import type { BodyVariables } from './body-variables.js';
+import { codeGutterWidth } from './code-gutter.js';
 import { type ContentsLayout, createContentsLayout } from './contents-layout.js';
 import { continuedCaption } from './continued-caption.js';
 import { footnoteMarkerItem } from './footnote-marker.js';
@@ -14,7 +15,7 @@ import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { type CacheStats, createLineCache, layoutLines } from './lines.js';
 import type { MathRecorder } from './math-atoms.js';
-import { createStruts, type MetricsContext, textWidth } from './metrics.js';
+import { createStruts, keptWidths, type MetricsContext, textWidth } from './metrics.js';
 import { type ParagraphNumber, placeNumber } from './numbers.js';
 import { type ReserveCluster, type ReservedBox, reservedBoxes } from './reserved-boxes.js';
 import { buildRuns, type MeasureAtom, type TextRun, type VariableTexts } from './runs.js';
@@ -205,28 +206,16 @@ function withReserved(
   return reserved.length ? { ...table, reserved } : table;
 }
 
-/** The fewest digits a code gutter is wide for, and the room beside them (`document.css`). */
-const GUTTER_DIGITS = 3;
-const GUTTER_ROOM = 6 + 8;
-
-/**
- * The width a code block's gutter of line numbers takes from its text: as many widths of the code
- * font's zero as its highest number has digits, at least three, and 14px more, truncated to the
- * layout unit as Chromium's padding is.
- */
-function codeGutterWidth(node: ProseMirrorNode, font: string): number {
-  const start = Number(node.attrs.codeLineStart);
-  const first = Number.isInteger(start) && start > 0 ? start : 1;
-  const last = first + node.textContent.split('\n').length - 1;
-  const digits = Math.max(GUTTER_DIGITS, String(last).length);
-  return Math.floor((digits * textWidth('0', font) + GUTTER_ROOM) * 64) / 64;
-}
-
 // Where a block's lines start from its left content edge: a numbered paragraph's first line at its
 // number's box and the others at its text position, a code block's beside its gutter.
 function lineStarts(
   node: ProseMirrorNode,
-  input: { style: BlockTypography; place: TextBlockPlace; codeLineNumbers: boolean | undefined },
+  input: {
+    style: BlockTypography;
+    place: TextBlockPlace;
+    codeLineNumbers: boolean | undefined;
+    width: typeof textWidth;
+  },
 ): { firstStart: number; restStart: number; lead?: number | undefined; inset?: number } {
   const { style, place } = input;
   const font = fontString(style.font);
@@ -235,12 +224,14 @@ function lineStarts(
       number: place.number,
       size: style.font.size,
       indentation: style.indentation,
-      measure: (text) => textWidth(text, font),
+      measure: (text) => input.width(text, font),
     });
     return { firstStart: numbered.firstStart, restStart: numbered.restStart, lead: numbered.box };
   }
   const gutter =
-    input.codeLineNumbers && node.type.name === 'code_block' ? codeGutterWidth(node, font) : 0;
+    input.codeLineNumbers && node.type.name === 'code_block'
+      ? codeGutterWidth(node, font, input.width)
+      : 0;
   return { firstStart: gutter, restStart: gutter, inset: gutter };
 }
 
@@ -306,6 +297,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
     hinted: options.hinted,
   });
   const boxOf = fontBoxes(strutOf);
+  const width = keptWidths();
   const typography = (node: ProseMirrorNode, scope?: string | null) =>
     blockTypography(node, { template: options.template, fontStacks: options.fontStacks, scope });
   // What a block draws before its content in a font of its own: a footnote entry's number, or a
@@ -322,7 +314,7 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   return {
     typography,
     insertedReserved: insertedReservedIn(typography, options.reserve),
-    textWidth: (text, node, scope) => textWidth(text, fontString(typography(node, scope).font)),
+    textWidth: (text, node, scope) => width(text, fontString(typography(node, scope).font)),
     stats: cache.stats,
     ...createContentsLayout({ ...options, cache, strutOf }),
     layoutText(given, place) {
@@ -338,7 +330,12 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
       });
       if (unserved) return { ok: false, reason: `font not served: ${unserved}` };
       const font = fontString(style.font);
-      const starts = lineStarts(node, { style, place, codeLineNumbers: options.codeLineNumbers });
+      const starts = lineStarts(node, {
+        style,
+        place,
+        codeLineNumbers: options.codeLineNumbers,
+        width,
+      });
       const lineWidth = Math.max(1, place.width - 2 * style.padding);
       const runs = buildRuns({
         node,

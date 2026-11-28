@@ -658,7 +658,7 @@ Verification: `src/layout-engine/text-layout.test.ts`, `src/layout-engine/text-r
 
 A line shall start at the block's left padding plus, when the block is centred, half the room its line leaves, and when right-aligned, all of it; a justified line starts at the edge. A code block's lines shall be laid out inside its 8px padding and, with the `codeLineNumbers` option (the template's `styles.codeBlock.lineNumbers`, DOCE-OBJECTS-3.1), beside its gutter of line numbers, as the reference stylesheet draws it: as many widths of the code font's zero as its highest line number (from its `codeLineStart`) has digits, at least three, and 14px more, truncated to the layout unit, in from the left of each line, in a table cell too. The pages' engine takes the option from the state's object views, on when they number all code (`lineNumbers: 'all'`, the default), and is made again when that changes.
 
-Implementation: `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`, `src/engine/object-views.ts`, `src/pagination/text-engine-holder.ts`
+Implementation: `src/layout-engine/lines.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/code-gutter.ts`, `src/engine/object-views.ts`, `src/pagination/text-engine-holder.ts`
 Verification: `src/layout-engine/text-layout.test.ts`, `e2e/inline-geometry.spec.ts`
 
 ### DOCE-PAGINATION-9.7 - Served fonts and language
@@ -677,10 +677,10 @@ Verification: `src/layout-engine/text-layout.test.ts`, `src/model/pagination/tex
 
 ### DOCE-PAGINATION-9.9 - Heading and paragraph numbers
 
-`documentNumbers(doc, template)` shall give, by block position, each numbered heading's number with the space after it, as its scope's heading numbering shows it (`numberedHeadings`), and each numbered paragraph's number, level and level positions, counted as the paragraph numbering counts them (DOCE-NUMBERING-6). A heading's number shall be laid out as its place's `prefix`. A paragraph given its `number` shall start its first line at the number position, with the number in a box as wide as the gap to the text position or as the number and a space, whichever is wider, and its other lines at the text position: the level's, or after the indentation (20pt a level below the first, else the paragraph style's), the number position and the room the label reserves in widths of the font's zero.
+`documentNumbers(doc, template)` shall give, by block position, each numbered heading's number with the space after it, as its scope's heading numbering shows it (`numberedHeadings`), and each numbered paragraph's number, level and level positions, counted as the paragraph numbering counts them (DOCE-NUMBERING-6). A heading's number shall be laid out as its place's `prefix`. A paragraph given its `number` shall start its first line at the number position, with the number in a box as wide as the gap to the text position or as the number and a space, whichever is wider, and its other lines at the text position: the level's, or after the indentation (20pt a level below the first, else the paragraph style's), the number position and the room the label reserves in widths of the font's zero. The engine shall keep the widths of the texts it measures for numbers and gutters, so blocks that show the same number or gutter measure them once.
 
-Implementation: `src/layout-engine/numbers.ts`, `src/engine/paragraph-numbering.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`
-Verification: `src/layout-engine/numbers.test.ts`
+Implementation: `src/layout-engine/numbers.ts`, `src/engine/paragraph-numbering.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/lines.ts`, `src/layout-engine/metrics.ts`
+Verification: `src/layout-engine/numbers.test.ts`, `src/layout-engine/text-layout-work.test.ts`
 
 ### DOCE-PAGINATION-9.10 - Footnote entries
 
