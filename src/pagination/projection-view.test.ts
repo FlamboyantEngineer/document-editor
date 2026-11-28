@@ -669,6 +669,21 @@ describe('projection layouts', () => {
     );
   });
 
+  it('DOCE-PAGINATION-7.1 schedules no layout during a composition, and lays out once it ends', () => {
+    const { projection, next, drain, scheduled } = mount();
+    drain();
+    let composing = true;
+    Object.defineProperty(projection.view, 'composing', { get: () => composing });
+    edit(projection, (state) => layoutNow(state.tr.split(positionOf(state.doc, 'one'))));
+    for (let frame = 0; frame < 5; frame += 1) next();
+    expect(projection.stats().layouts).toBe(1);
+    expect(scheduled()).toBe(0);
+    composing = false;
+    projection.view.dom.dispatchEvent(new CompositionEvent('compositionend', { data: '' }));
+    drain();
+    expect(projection.stats().layouts).toBe(2);
+  });
+
   it('DOCE-PAGINATION-5.7 lays out on the next frame after a change of structure, but settles typing', () => {
     const { projection, drain } = mount({ settle: 150 });
     expect(projection.stats().layouts).toBe(1);

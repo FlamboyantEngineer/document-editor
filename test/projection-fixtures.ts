@@ -106,7 +106,7 @@ export function mount(options: Partial<ProjectionViewOptions> = {}, layout: Stub
   const drain = () => {
     while (queue.length) next();
   };
-  return { projection, next, drain };
+  return { projection, next, drain, scheduled: () => queue.length };
 }
 
 // Has the host make a change to the canonical state and show it on the projection.

@@ -118,3 +118,21 @@ export function beforePaintIn(container: HTMLElement): (run: () => void) => () =
     };
   };
 }
+
+// The views whose composition's end a layout waits for.
+const composing = new WeakSet<EditorView>();
+
+/**
+ * Runs `ended` once the view's composition ends, however often a layout asks while it lasts, so
+ * nothing is scheduled frame after frame meanwhile; a composition the browser dropped is ended by
+ * `redrawRefused`.
+ */
+export function afterComposition(view: EditorView, ended: () => void): void {
+  if (composing.has(view)) return;
+  composing.add(view);
+  const end = () => {
+    composing.delete(view);
+    ended();
+  };
+  view.dom.addEventListener('compositionend', end, { once: true });
+}

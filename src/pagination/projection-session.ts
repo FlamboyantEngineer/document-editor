@@ -18,7 +18,7 @@ import { markLayout } from './layout-marks.js';
 import type { LayoutPace } from './layout-pace.js';
 import { followDocument } from './layout-source.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
-import { frameIn, type settleEdits } from './layout-triggers.js';
+import { afterComposition, frameIn, type settleEdits } from './layout-triggers.js';
 import { waitsForMath } from './math-wait.js';
 import type { createPageMapScope } from './page-map.js';
 import type { PagedProjectionOptions } from './projection.js';
@@ -259,7 +259,7 @@ export function layout(session: Session): void {
   const { trace } = options;
   if (view?.composing) {
     writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
-    return requestLayout(session);
+    return afterComposition(view, () => requestLayout(session));
   }
   const engine = readyEngine(session);
   if (!engine) return;
