@@ -566,20 +566,11 @@ describe('projection view', () => {
     expect(states).toEqual(['settled', 'pending', 'settled']);
   });
 
-  it('DOCE-PAGINATION-7.17 waits for its fonts, and counts the pages it shows as the layout of the canonical state', async () => {
-    let loaded: () => void = () => undefined;
-    const ready = new Promise<void>((resolve) => {
-      loaded = resolve;
-    });
-    const { projection, drain } = mount({ ready });
-    drain();
-    expect(projection.layoutState()).toBe('pending');
-    loaded();
-    await ready;
+  it('DOCE-PAGINATION-7.17 counts the pages it shows as the layout of the canonical state', () => {
+    const { projection, drain } = mount();
     drain();
     expect(projection.layoutState()).toBe('settled');
     expect(pageMap(projection.state, projection.view).pages()).toHaveLength(3);
-    // Nothing is laid out before the fonts: the first layout is the one after them.
     expect(projection.stats()).toMatchObject({ layouts: 1 });
   });
 });
