@@ -51,6 +51,15 @@ test.describe('counter budgets', () => {
     expectMeets(BUDGETS.startupAfterSettle, afterSettle);
   });
 
+  test('DOCE-LABS-2.5 DOCE-PAGINATION-7.17 renders 24 pages in one view and at most 800 elements', async ({
+    lab,
+    page,
+  }) => {
+    const { views, elements } = await measureStartup(lab, page);
+    expectMeets(BUDGETS.startupViews, views);
+    expectMeets(BUDGETS.startupElements, elements);
+  });
+
   test('DOCE-LABS-2.5 DOCE-PAGINATION-5.17 lays out a remote keystroke that starts a line in 1600 blocks without relaying the document', async ({
     lab,
     page,

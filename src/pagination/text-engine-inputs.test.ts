@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
@@ -50,12 +49,8 @@ function positionOf(doc: ProseMirrorNode, target: ProseMirrorNode): number {
 }
 
 // The pages' engine; footnote markers laid out too, as once thread Q3's superscript fix lands.
-function engineOf(view?: EditorView) {
-  return createPagesTextEngine({
-    template: BASE_TEMPLATE,
-    refusedTextAtoms: new Map(),
-    ...(view ? { view: () => view } : {}),
-  });
+function engineOf() {
+  return createPagesTextEngine({ template: BASE_TEMPLATE, refusedTextAtoms: new Map() });
 }
 
 function engineOfEquations() {

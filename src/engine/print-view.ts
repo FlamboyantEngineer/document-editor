@@ -12,7 +12,6 @@ const VIEW_STATE_ATTRIBUTES = new Set([
   'data-layout-state',
   'data-debug',
   'data-debug-blocks',
-  'data-debug-measure',
   'data-debug-source',
   'data-formatting-marks',
 ]);

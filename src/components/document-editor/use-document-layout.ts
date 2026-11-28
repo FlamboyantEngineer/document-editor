@@ -12,7 +12,6 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Plugin, Transaction } from 'prosemirror-state';
 import {
   type ComponentType,
-  type ReactNode,
   type RefObject,
   useEffect,
   useMemo,
@@ -157,12 +156,10 @@ export interface DocumentLayoutOptions {
   /** The host's telemetry, told of a template block two editors render otherwise. */
   readonly telemetry?: TelemetryAdapter | undefined;
   /**
-   * The host's React node views, which a projection's ghost renders as the pages do, read when the
-   * pages mount.
+   * The host's React node views, whose nodes the layout engine sizes by the host's rules, never as
+   * text, read when the pages mount.
    */
   readonly nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
-  /** Wraps the ghost's React node views in the providers the editor's own views render under. */
-  readonly wrapGhost?: ((view: ReactNode) => ReactNode) | undefined;
   /**
    * Takes each canonical transaction input on the projection's pages makes; gives what another
    * transaction taken in its place made (`CanonicalTaken`).
@@ -254,12 +251,11 @@ function useLayoutPlugins(options: DocumentLayoutOptions, own: RefObject<readonl
 
 /**
  * Shows each section in its template section's scope, lays the document out on a paged projection
- * in page layout, measuring it in the element `measureIn` holds, and joins its pages in the web
- * layout. A new
- * template restyles the sections and lays the pages out again.
+ * in page layout, in the document of the element `root` holds, and joins its pages in the web
+ * layout. A new template restyles the sections and lays the pages out again.
  */
 export function useDocumentLayout(
-  measureIn: RefObject<HTMLDivElement | null>,
+  root: RefObject<HTMLElement | null>,
   options: DocumentLayoutOptions,
 ): LayoutProgress & { readonly paged: PagedEditor | null; readonly text: PagesFontsState } {
   const { layout, template } = options;
@@ -301,7 +297,7 @@ export function useDocumentLayout(
   // a host opening another document may hand in, starts them over.
   const { schema } = options.state;
   useEffect(() => {
-    const element = measureIn.current;
+    const element = root.current;
     if (layout !== 'page' || !element) {
       latest.current.onStateChange((state) => joinPages(state, fragmentRulesOf(latest.current)));
       latest.current.onLayoutStateChange?.('settled');
@@ -312,16 +308,7 @@ export function useDocumentLayout(
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [
-    layout,
-    measureIn,
-    repeatHeaders,
-    footnoteNumbering,
-    textLayout,
-    servedFonts,
-    schema,
-    markup,
-  ]);
+  }, [layout, root, repeatHeaders, footnoteNumbering, textLayout, servedFonts, schema, markup]);
 
   useLayoutPlugins(options, ownPlugins);
 

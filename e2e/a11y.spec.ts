@@ -66,14 +66,11 @@ test.describe('accessibility under the shadcn/ui stylesheet', () => {
   }
 });
 
-test('DOCE-PAGINATION-8.5 DOCE-EDITOR-1.6 hides the measuring view and the repeated page chrome', async ({
+test('DOCE-PAGINATION-8.5 DOCE-EDITOR-1.6 hides the repeated page chrome', async ({
   lab,
   page,
 }) => {
   await lab.open('document-editor');
-  const measure = page.locator('.de-document-editor__measure');
-  await expect(measure).toHaveAttribute('aria-hidden', 'true');
-  await expect(measure).toHaveAttribute('inert');
   const pages = page.locator('.de-document-editor__content .pm-page');
   expect(await pages.count()).toBeGreaterThan(1);
   await expect(pages.first().locator('> .pm-page-header')).not.toHaveAttribute('aria-hidden');

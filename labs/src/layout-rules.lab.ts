@@ -217,15 +217,15 @@ function reportPages(tr: Transaction): void {
 }
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.lab-measure');
+  const sizes = document.querySelector<HTMLElement>('.lab-measure');
   const mount = document.querySelector<HTMLElement>('.lab-pages');
-  if (!measureIn || !mount) return;
-  const pageHeight = Number.parseFloat(getComputedStyle(measureIn).getPropertyValue('--lab-page'));
-  const width = Number.parseFloat(getComputedStyle(measureIn).width);
+  if (!sizes || !mount) return;
+  const pageHeight = Number.parseFloat(getComputedStyle(sizes).getPropertyValue('--lab-page'));
+  const width = Number.parseFloat(getComputedStyle(sizes).width);
   const template = templateOfWidth(BASE_TEMPLATE, width);
   applyTemplate(template, []);
   showOnPages(
-    { mount, measureIn },
+    { mount },
     {
       state: EditorState.create({ doc: sampleDocument() }),
       pageHeight,

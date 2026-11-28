@@ -1,13 +1,14 @@
-// The hidden view that measures a whole document follows it by the smallest replacements, so the
-// blocks around a change keep their nodes, their rendering and their cached measurements.
+// The state the pages are laid out from: the canonical document with the plugins that change what
+// takes room, held without a view, since nothing drawn is measured (DOCE-PAGINATION-7.17). It
+// follows the canonical document by the smallest replacements, so the blocks around a change keep
+// their nodes, and the layout engine its results for them.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
-import { type EditorProps, EditorView } from 'prosemirror-view';
 import { markRemote } from '../engine/transaction-kind.js';
 import { diffFragments } from '../utils/fragment-diff.js';
 
-// A node of the view's document and where its content starts.
+// A node of the state's document and where its content starts.
 interface Placed {
   readonly node: ProseMirrorNode;
   readonly pos: number;
@@ -50,57 +51,24 @@ function patchContent(tr: Transaction, from: Placed, to: ProseMirrorNode) {
 }
 
 /**
- * A view that measures a document, mounted out of sight: the view, how it shows another state,
- * drawn before it returns, and how it goes.
+ * Moves a state onto a document by the smallest replacements, node by node where the two documents
+ * pair up, so its plugins map what they hold rather than build it again; or a new state with the
+ * same plugins when that fails.
  */
-export interface MeasuringView {
-  readonly view: EditorView;
-  show(state: EditorState): void;
-  destroy(): void;
-}
-
-/** What a measuring view is mounted with: its first state and the node views it renders with. */
-export interface MeasuringViewOptions {
-  readonly state: EditorState;
-  readonly nodeViews?: EditorProps['nodeViews'];
-}
-
-/** Mounts a measuring view of the state: a view that is not editable, with the node views given. */
-export function mountMeasuringView(
-  element: HTMLElement,
-  { state, nodeViews }: MeasuringViewOptions,
-): MeasuringView {
-  const view = new EditorView(element, {
-    state,
-    editable: () => false,
-    nodeViews: nodeViews ?? {},
-  });
-  return {
-    view,
-    show: (next) => view.updateState(next),
-    destroy: () => view.destroy(),
-  };
-}
-
-/**
- * Moves a view onto a document by the smallest replacements, node by node where the two documents
- * pair up, or onto a new state when that fails; `show` draws the state, by default the view's own
- * `updateState`.
- */
-export function followDocument(
-  view: EditorView,
-  whole: ProseMirrorNode,
-  show: (state: EditorState) => void = (state) => view.updateState(state),
-): void {
-  const { state } = view;
-  if (state.doc.eq(whole)) return;
+export function followDocument(state: EditorState, whole: ProseMirrorNode): EditorState {
+  if (state.doc.eq(whole)) return state;
   // A remote change, out of the history: no plugin such as an edit lock refuses it, and none that
   // derives writes from the writer's edits, such as the page regions' reset, writes into it.
   const tr = markRemote(state.tr);
   patchContent(tr, { node: state.doc, pos: 0 }, whole);
   const applied = tr.doc.eq(whole) ? state.apply(tr) : null;
-  // The ghost measures exactly the document it follows: a state a plugin changed is not used.
-  show(
-    applied?.doc.eq(whole) ? applied : EditorState.create({ doc: whole, plugins: state.plugins }),
-  );
+  // The layout reads exactly the document it follows: a state a plugin changed is not used.
+  return applied?.doc.eq(whole)
+    ? applied
+    : EditorState.create({ doc: whole, plugins: state.plugins });
+}
+
+/** A new state of the same document and plugins, its plugins' states started over. */
+export function startedOver(state: EditorState): EditorState {
+  return EditorState.create({ doc: state.doc, plugins: state.plugins });
 }

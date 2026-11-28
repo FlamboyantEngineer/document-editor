@@ -1,7 +1,6 @@
 // Shows a lab's canonical state on pages, as the document editor does: a read-only projection
 // renders the pages in `.lab-pages`, laid out by the layout engine in the labs' served fonts and
-// the lab's template, with a ghost in `.de-document-editor__measure`, and every edit on the pages
-// goes to the canonical state. The root reports the page count
+// the lab's template, and every edit on the pages goes to the canonical state. The root reports the page count
 // (`data-lab-pages`) and that the pages are laid out (`data-lab-ready`) after each layout.
 
 import type { Node } from 'prosemirror-model';
@@ -18,7 +17,7 @@ import {
 import { LAB_FONTS } from './served-fonts.js';
 
 /** How a lab's pages are set up: a projection view's options, without where it mounts. */
-export interface LabPagesOptions extends Omit<ProjectionViewOptions, 'mount' | 'measureIn'> {
+export interface LabPagesOptions extends Omit<ProjectionViewOptions, 'mount'> {
   /** The template the pages are laid out in now; the base template when not given. */
   readonly template?: (() => TemplateFile) | undefined;
   /** Called after each layout, once the root reports it. */
@@ -56,26 +55,22 @@ const pageCount = (doc: Node) => {
   return count;
 };
 
-/** The lab's mount points: the pages and the measuring element; null when the page lacks one. */
-export function labMounts(): {
-  readonly mount: HTMLElement;
-  readonly measureIn: HTMLElement;
-} | null {
-  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
+/** The lab's mount point for the pages; null when the page lacks one. */
+export function labMounts(): { readonly mount: HTMLElement } | null {
   const mount = document.querySelector<HTMLElement>('.lab-pages');
-  return measureIn && mount ? { mount, measureIn } : null;
+  return mount ? { mount } : null;
 }
 
 /** Shows a canonical state on pages in the lab's mount points. */
 export function showOnPages(
-  mounts: { readonly mount: HTMLElement; readonly measureIn: HTMLElement },
+  mounts: { readonly mount: HTMLElement },
   { onLaidOut, onLayout, template, ...options }: LabPagesOptions,
 ): ProjectionView {
   let pages: ProjectionView | null = null;
   pages = createProjectionView({
     ...mounts,
-    // The ghost holds the canonical plugins, as DocumentEditor's does.
-    ghostPlugins: options.state.plugins,
+    // The pages are laid out from a state with the canonical plugins, as DocumentEditor's are.
+    layoutPlugins: options.state.plugins,
     textLayout: labTextLayout(template ?? (() => BASE_TEMPLATE), {
       layoutRules: () => (typeof options.rules === 'object' ? options.rules : undefined),
     }),

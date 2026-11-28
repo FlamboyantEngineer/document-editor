@@ -76,21 +76,16 @@ function Following({ onDebugChange }: { onDebugChange: (debug: DocumentEditorDeb
 
 installEditorDom();
 
-const measure = (container: HTMLElement) => container.querySelector('.de-document-editor__measure');
-
 describe('DebugPane', () => {
-  it('DOCE-EDITOR-6.29 shows the measuring view beside the pages in place of the end panel', () => {
+  it('DOCE-EDITOR-6.29 shows the pane beside the pages in place of the end panel', () => {
     const { container, rerender } = render(<Harness debug={{}} />);
-    const measuring = measure(container);
     expect(screen.getByRole('complementary', { name: 'Details' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Layout debugging' })).not.toBeInTheDocument();
-    rerender(<Harness debug={{ measure: true }} />);
+    rerender(<Harness debug={{ source: true }} />);
     const pane = screen.getByRole('region', { name: 'Layout debugging' });
     expect(pane).toHaveClass('de-document-editor__debug');
-    expect(pane).toHaveAttribute('data-view', 'measure');
+    expect(pane).toHaveAttribute('data-view', 'source');
     expect(pane).toHaveAttribute('style', expect.stringContaining('--de-debug-width: 480px'));
-    expect(measure(container)).toBe(measuring);
-    expect(pane).toContainElement(measuring as HTMLElement);
     expect(screen.getByRole('separator', { name: 'Resize the layout debugging' })).toBeVisible();
     expect(screen.queryByRole('complementary', { name: 'Details' })).not.toBeInTheDocument();
     rerender(<Harness debug={{}} />);
@@ -98,12 +93,13 @@ describe('DebugPane', () => {
     expect(
       screen.queryByRole('separator', { name: 'Resize the layout debugging' }),
     ).not.toBeInTheDocument();
-    expect(measure(container)).toBe(measuring);
+    // DOCE-EDITOR-1.1: the document is rendered once, on the pages, with no hidden copy.
+    expect(container.querySelectorAll('.ProseMirror')).toHaveLength(1);
   });
 
   it('DOCE-EDITOR-6.29 resizes the pane by keyboard', async () => {
     const user = userEvent.setup();
-    render(<Harness debug={{ measure: true }} />);
+    render(<Harness debug={{ source: true }} />);
     const handle = screen.getByRole('separator', { name: 'Resize the layout debugging' });
     handle.focus();
     await user.keyboard('{ArrowLeft}');
@@ -119,8 +115,6 @@ describe('DebugPane', () => {
     expect(within(pane).queryByRole('textbox')).not.toBeInTheDocument();
     rerender(<Harness debug={{ source: true }} layout="web" />);
     expect(screen.getByRole('region', { name: 'Layout debugging' })).toBeInTheDocument();
-    rerender(<Harness debug={{ measure: true }} layout="web" />);
-    expect(screen.queryByRole('region', { name: 'Layout debugging' })).not.toBeInTheDocument();
   });
 
   it('DOCE-EDITOR-6.29 prints one element a line by depth, text escaped', () => {
@@ -162,11 +156,10 @@ describe('DebugPane', () => {
     const onDebugChange = vi.fn();
     render(<Following onDebugChange={onDebugChange} />);
     await user.click(screen.getByRole('textbox', { name: 'Report' }));
-    for (let press = 0; press < 4; press += 1)
+    for (let press = 0; press < 3; press += 1)
       await user.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
     expect(onDebugChange.mock.calls.map(([debug]) => debug as DocumentEditorDebug)).toEqual([
       { pages: true, blocks: true },
-      { pages: true, blocks: true, measure: true },
       { source: true },
       {},
     ]);

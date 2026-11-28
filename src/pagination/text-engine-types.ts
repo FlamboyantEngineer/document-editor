@@ -3,7 +3,7 @@
 
 import type { MeasureContext } from '@chenglou/pretext';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import type { TypesetMath } from '../engine/math-typeset.js';
 import type { FontFiles } from '../host/font-files.js';
 import type { ContentsDrawn, ObjectBox } from '../layout-engine/blocks/types.js';
@@ -43,10 +43,10 @@ export interface TextEngineOptions {
    */
   readonly language?: string | undefined;
   /**
-   * The view that measures the pages, whose state's math views typeset its math
-   * (DOCE-PAGINATION-10.8); nothing is read from what it draws.
+   * The state the pages are laid out from, whose math views typeset its math
+   * (DOCE-PAGINATION-10.8) and whose plugin lists its contents.
    */
-  readonly view?: (() => EditorView | null) | undefined;
+  readonly state?: (() => EditorState | null) | undefined;
   /**
    * The node types a host draws with node views of its own, never laid out as text: one its rule
    * does not size takes no room.

@@ -339,8 +339,8 @@ export function createAwarenessPresence(options: AwarenessPresenceOptions): Plug
   const gate: PlacementGate = { placed: false };
   return new Plugin<Activity>({
     key: activityKey,
-    // Kept out of the paged layout's measuring view: a second view would share its own cursor and
-    // status for the reader, and take the changes that view follows for the reader's input.
+    // Kept out of the state the paged layout lays out from, and out of any second view, which would
+    // share its own cursor and status for the reader, and take the changes it follows for input.
     measured: false,
     state: {
       init: () => ({ local: 0, remote: 0, kind: 'viewing' }),

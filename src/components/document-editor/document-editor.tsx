@@ -45,13 +45,7 @@ import type { DocumentStatusBarOptions } from './document-status-bar.js';
 import { EditorBody } from './editor-body.js';
 import { useWheelZoom } from './editor-chrome.js';
 import type { EditorContentsOptions } from './editor-contents.js';
-import {
-  type DocumentMarkup,
-  type EditorContext,
-  type ReferenceKind,
-  useLatestContext,
-  useShownContext,
-} from './editor-context.js';
+import { type DocumentMarkup, type ReferenceKind, useShownContext } from './editor-context.js';
 import { type DocumentEditorHandle, useCommentRefs } from './editor-handle.js';
 import { useKeyDialog } from './editor-keys.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
@@ -87,8 +81,6 @@ export interface DocumentEditorIdRepair {
 
 /** What the layout debugging shows. */
 export interface DocumentEditorDebug extends PageDebugParts {
-  /** The hidden view the pages are measured in, shown in a pane beside them. */
-  readonly measure?: boolean | undefined;
   /** The pages' markup, read-only and highlighted, in a pane beside them. */
   readonly source?: boolean | undefined;
   /** Receives the layout's trace, a line for each layout, mirror and scheduling event. */
@@ -376,19 +368,16 @@ const hooks = createHooks('document-editor', ['toolbar', 'body', 'content', 'sta
  */
 export function DocumentEditor(given: DocumentEditorProps) {
   const authored = usePinnedScripts(useActiveProps(given));
-  const measureIn = useRef<HTMLDivElement>(null);
-  const { props, ...fonts } = useShownFonts(authored, measureIn);
-  const { state, template, layout = 'page', editable = true, className } = props;
   const root = useRef<HTMLDivElement>(null);
+  const { props, ...fonts } = useShownFonts(authored, root);
+  const { state, template, editable = true, className } = props;
   useWheelZoom(root, props);
   useSaveShortcut(root, props);
   useDebugShortcut(root, props);
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props, tap);
-  const editorContext = useRef<EditorContext | null>(null);
   const { progress, view, layoutState, surface } = useEditorLayout(props, engine, {
-    measureIn,
-    context: editorContext,
+    root,
     fonts,
     ready,
   });
@@ -403,7 +392,6 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const { dialog, open: openDialog, close: closeDialog } = useObjectDialog(editable);
   const context = useShownContext(props, { view, labels, openDialog });
-  useLatestContext(editorContext, context);
   const pages = progress.paged?.state ?? null;
   const { startCommentRef } = refs;
   const { toolbarMenus, keyDialog } = useKeyDialog(openDialog);
@@ -433,7 +421,6 @@ export function DocumentEditor(given: DocumentEditorProps) {
         style={rootStyle(props, templateStyle)}
       >
         <EditorSurface
-          measureIn={layout === 'page' ? measureIn : null}
           chrome={chrome}
           following={{ top, bottom }}
           root={root}

@@ -1,6 +1,5 @@
 import { EditorState } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
-import { EditorView } from 'prosemirror-view';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
@@ -47,7 +46,7 @@ function templateWith(regions: { header?: StoredNode[]; footer?: StoredNode[] })
   );
 }
 
-// A view of a document of one-line paragraphs, with the template's header and footer showing
+// A state of a document of one-line paragraphs, with the template's header and footer showing
 // their variables, and the room each page laid out in it gave its regions.
 function layOut(
   template: TemplateFile,
@@ -61,7 +60,6 @@ function layOut(
     doc: setPageRegions(new Transform(doc), template).doc,
     plugins: [createPageVariables()],
   });
-  const view = new EditorView(document.createElement('div'), { state });
   const real = createPagesTextEngine({
     template,
   });
@@ -71,10 +69,9 @@ function layOut(
     : real;
   const pages: PageMetric[] = [];
   const layout = { ...options, pageHeight, engine, onPage: (page: PageMetric) => pages.push(page) };
-  layoutDocument(view, layout);
-  layoutDocument(view, { ...layout, onPage: undefined });
+  layoutDocument(state, layout);
+  layoutDocument(state, { ...layout, onPage: undefined });
   real.destroy();
-  view.destroy();
   return pages;
 }
 
@@ -105,9 +102,7 @@ describe('headers and footers showing page numbers', () => {
         { formatVersion: 1, sections: [{ content }] },
         documentSchema,
       );
-      const view = new EditorView(document.createElement('div'), {
-        state: EditorState.create({ doc: setPageRegions(new Transform(doc), template).doc }),
-      });
+      const state = EditorState.create({ doc: setPageRegions(new Transform(doc), template).doc });
       const real = createPagesTextEngine({ template });
       let height = 10;
       const engine: PagesTextEngine = {
@@ -121,7 +116,7 @@ describe('headers and footers showing page numbers', () => {
       const memory = createLayoutMemory();
       const layout = (incremental: boolean) => {
         const pages: PageMetric[] = [];
-        layoutDocument(view, {
+        layoutDocument(state, {
           pageHeight: 80,
           rules: {},
           engine,
@@ -142,7 +137,6 @@ describe('headers and footers showing page numbers', () => {
       expect(shrunk).toHaveLength(2);
       expect(shrunk).toEqual(layout(false));
       real.destroy();
-      view.destroy();
     },
   );
 

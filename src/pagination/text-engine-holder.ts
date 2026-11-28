@@ -6,7 +6,7 @@
 // template names.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import type { MathLayouter } from '../layout-engine/math-atoms.js';
 import { documentLanguage, type LayoutRules, type TemplateFile } from '../model/index.js';
@@ -128,8 +128,8 @@ function numberedLike(engine: PagesTextEngine, counted: Counted) {
 export function holdTextEngine(options: {
   readonly setting: TextLayoutSetting;
   readonly changed: () => void;
-  /** The view that measures the pages, whose math views typeset its math. */
-  readonly view?: (() => EditorView | null) | undefined;
+  /** The state the pages are laid out from, whose math views typeset its math. */
+  readonly state?: (() => EditorState | null) | undefined;
 }): TextEngineHolder {
   let made: LoadedEngine | null = null;
   let fonts: PagesFonts | null = null;
@@ -179,7 +179,7 @@ export function holdTextEngine(options: {
         template,
         codeLineNumbers,
         language,
-        view: options.view,
+        state: options.state,
         ...settingInputs(options.setting, made),
       });
       // What draws the pages draws them in the language they were laid out in (DOCE-PAGINATION-13.10).

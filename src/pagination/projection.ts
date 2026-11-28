@@ -1,6 +1,6 @@
 // The paged projection (PG-40): the canonical state holds the whole document, each section on one
 // page with whole blocks, and takes every edit and the undo history. A projection state shows it
-// on pages, and a hidden ghost view renders the canonical document to measure them. The
+// on pages, laid out by the layout engine from the canonical document, with no DOM read. The
 // projection's document changes only by a layout or by a canonical change mirrored onto it: any
 // other change is input, routed to the canonical state, or refused. Canonical changes reach the
 // projection at once, step by step; the pages are laid out again once the writer pauses.
@@ -18,7 +18,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { columnResizing } from 'prosemirror-tables';
-import type { EditorProps, EditorView } from 'prosemirror-view';
+import type { EditorView } from 'prosemirror-view';
 import type { PagesLayout } from '../document/pages-layout.js';
 import { withFootnoteNumbers } from '../engine/footnote-numbers.js';
 import { typesetMathOf } from '../engine/math-views.js';
@@ -34,8 +34,6 @@ import {
 import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
 import { forcedLinesKey } from './forced-lines.js';
-import { remeasureGhost } from './ghost-measuring.js';
-import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
   type SectionLayoutRules,
@@ -83,23 +81,21 @@ import { createTypingProbe } from './typing-probe.js';
 
 /** How a paged projection is set up. */
 export interface PagedProjectionOptions {
-  /** Where the ghost view that measures mounts, laid out as a page's content. */
-  readonly measureIn: HTMLElement;
+  /**
+   * An element of the document the pages show in: its window schedules the layouts and times the
+   * pause after typing, and its fonts tell when the pages are settled.
+   */
+  readonly element: HTMLElement;
   /** The canonical state: the whole document, each section on one page with whole blocks. */
   readonly state: EditorState;
   readonly pageHeight: SectionPageHeight;
   readonly rules?: SectionLayoutRules | undefined;
   readonly fragmentRules?: FragmentRules | undefined;
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
-  /** The node views the ghost renders with, as the projection does. */
-  readonly nodeViews?: EditorProps['nodeViews'];
   /**
-   * Mounts the ghost in `measureIn`, such as with the host's React node views, so it measures the
-   * blocks as the pages draw them; by default a plain view with `nodeViews` (`mountMeasuringView`).
+   * Plugins that change what the document renders, run on the projection and on the state the
+   * pages are laid out from.
    */
-  readonly mountGhost?:
-    ((element: HTMLElement, options: MeasuringViewOptions) => MeasuringView) | undefined;
-  /** Plugins that change what the document renders, run on the projection and the ghost. */
   readonly plugins?: readonly Plugin[] | undefined;
   /**
    * Whether the pages resize a table's columns by its borders, setting the column of the whole
@@ -108,10 +104,12 @@ export interface PagedProjectionOptions {
    */
   readonly resizeColumns?: boolean | undefined;
   /**
-   * Plugins only the ghost runs, beside `plugins`: the canonical state's plugins that change what
-   * takes room, such as changes marked in place, whose decorations the projection draws already.
+   * Plugins only the state the pages are laid out from runs, beside `plugins`: the canonical
+   * state's plugins that change what takes room, such as changes marked in place, whose
+   * decorations the projection draws already. That state has no view, so their plugin views do not
+   * run there (DOCE-PAGINATION-7.17).
    */
-  readonly ghostPlugins?: readonly Plugin[] | undefined;
+  readonly layoutPlugins?: readonly Plugin[] | undefined;
   /** Commands on the canonical state by key, beside Enter, Backspace and Delete. */
   readonly keys?: Readonly<Record<string, Command>> | undefined;
   /**
@@ -203,8 +201,8 @@ export interface PagedProjection {
    */
   drawAllLines(all: boolean): void;
   /**
-   * Lays the pages out again soon. `remeasure` forgets every measurement and starts the ghost's
-   * plugins over, as after a width change or a change to a value a plugin shows.
+   * Lays the pages out again soon. `remeasure` forgets every measurement and starts the plugins of
+   * the state the pages are laid out from over, as after a width change or a change to a value a plugin shows.
    */
   refresh(options?: { readonly remeasure?: boolean }): void;
   /** Whether the pages are being laid out, are settled, or could not be laid out. */
@@ -276,24 +274,21 @@ function projectionState(
   return state;
 }
 
-// The session of a new projection: the ghost, the pace of its layouts, and the first states.
+// The session of a new projection: the state the pages are laid out from, the pace of its layouts,
+// and the first states.
 function startSession(options: PagedProjectionOptions, session: () => Session): Session {
   const rules = options.fragmentRules ?? FRAGMENT_RULES;
-  const schedule = options.schedule ?? frameIn(options.measureIn);
-  const mount = options.mountGhost ?? mountMeasuringView;
-  const holding = { changed: () => requestLayout(session()), view: () => session().ghost.view };
+  const schedule = options.schedule ?? frameIn(options.element);
+  const holding = { changed: () => requestLayout(session()), state: () => session().source };
   const text =
     options.textEngine ??
     (options.textLayout ? holdTextEngine({ setting: options.textLayout, ...holding }) : null);
   // An engine already held, as a test's, is not waited for.
   const ready = text?.engine() === null ? Promise.all([options.ready, text.loaded]) : options.ready;
-  const ghost = mount(options.measureIn, {
-    state: EditorState.create({
-      doc: options.state.doc,
-      // Footnotes numbered through the document, as no page's own numbers outgrow in digits.
-      plugins: withFootnoteNumbers([...(options.plugins ?? []), ...(options.ghostPlugins ?? [])]),
-    }),
-    nodeViews: options.nodeViews,
+  const source = EditorState.create({
+    doc: options.state.doc,
+    // Footnotes numbered through the document, as no page's own numbers outgrow in digits.
+    plugins: withFootnoteNumbers([...(options.plugins ?? []), ...(options.layoutPlugins ?? [])]),
   });
   const map = createProjectionMap(options.state.doc, rules);
   return {
@@ -302,9 +297,10 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     pageMaps: createPageMapScope(),
     cells: holdCellSelection(),
     counts: { refused: 0, relaid: 0 },
-    ghost,
+    source,
+    destroyed: false,
     edits: settleEdits(options, () => settleTyping(session())),
-    probe: createTypingProbe(options.measureIn, {
+    probe: createTypingProbe(options.element, {
       view: () => session().view,
       scale: options.scale,
       moved: () => requestLayout(session()),
@@ -343,7 +339,6 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
   };
   const live = startSession(options, session);
   current = live;
-  const unlisten = remeasureGhost(live);
   // The text is laid out with the layout engine once it loads, never measured before it.
   if (live.pace.text && live.pace.ready.waiting()) live.pace.readiness.pending();
   else layout(live);
@@ -362,7 +357,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     receive: (tr) => receive(live, tr),
     update(state, tr) {
       // A projection gone keeps what it last showed, as a renderer may still hold it.
-      if (state === live.canonical || live.ghost.view.isDestroyed) return;
+      if (state === live.canonical || live.destroyed) return;
       const replugged = state.plugins !== live.canonical.plugins;
       live.canonical = state;
       if (replugged) replug(live);
@@ -391,21 +386,20 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     }),
     textLines: () => pageTextLines(live.projection),
     pagesLayout: () => {
-      const settled = layoutSettled(live.pace.readiness.state(), options.measureIn);
+      const settled = layoutSettled(live.pace.readiness.state(), options.element);
       const markup = options.textLayout?.markup?.() ?? 'all';
       const typesetOf = (node: ProseMirrorNode) => typesetMathOf(live.canonical, node);
       return pagesLayout(live.projection, { ...options, settled, markup, typesetOf });
     },
     servedFonts: () => live.pace.text?.engine()?.fonts?.() ?? null,
     destroy() {
+      live.destroyed = true;
       mounted.detach();
-      unlisten();
       live.cells.release();
       live.cancelLayout?.();
       live.edits.cancel();
       live.pace.readiness.destroy();
       live.probe.stop();
-      live.ghost.destroy();
       live.pace.text?.destroy();
     },
   };

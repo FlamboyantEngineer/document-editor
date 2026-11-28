@@ -44,8 +44,8 @@ function newPart(before: ProseMirrorNode, after: ProseMirrorNode): Inserted | nu
   return diff && diff.endB > diff.start ? { from: diff.start, to: diff.endB } : null;
 }
 
-// Whether a step lays pages out rather than inserting the writer's content: a view following
-// another document, as the measuring view does, replaces whole pages.
+// Whether a step lays pages out rather than inserting the writer's content: a state following
+// another document, as the paged layout's does, replaces whole pages.
 function laysOut(step: ReplaceStep): boolean {
   let pages = false;
   step.slice.content.descendants((node) => {

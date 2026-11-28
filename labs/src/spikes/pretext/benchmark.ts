@@ -61,10 +61,7 @@ export function baseline(root: HTMLElement) {
   surface.className = 'de-document-editor pretext-baseline';
   const mount = document.createElement('div');
   mount.className = 'pretext-scroll';
-  const measureIn = document.createElement('div');
-  measureIn.className = 'de-document-editor__measure';
-  measureIn.setAttribute('aria-hidden', 'true');
-  surface.append(mount, measureIn);
+  surface.append(mount);
   root.append(surface);
   let projection: ProjectionView | null = null;
   let laidOut = 0;
@@ -79,7 +76,6 @@ export function baseline(root: HTMLElement) {
       if (file) {
         projection = createProjectionView({
           mount,
-          measureIn,
           state: EditorState.create({ doc: readFixture(file) }),
           pageHeight: contentHeight,
           resizeColumns: false,

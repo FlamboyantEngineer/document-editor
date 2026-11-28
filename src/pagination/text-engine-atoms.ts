@@ -3,7 +3,7 @@
 // DOM.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import { typesetMathOf } from '../engine/math-views.js';
 import {
   createMathAtomMeasurer,
@@ -15,10 +15,10 @@ import type { TextLayout } from '../layout-engine/text-layout.js';
 import { markedFont } from '../layout-engine/typography.js';
 import type { TextEngineOptions, TextEngineStats } from './text-engine-types.js';
 
-// What math was typeset as: by the options' reader, or the math views of the view that measures
-// the pages; nothing without either.
+// What math was typeset as: by the options' reader, or the math views of the state the pages are
+// laid out from; nothing without either.
 const typesetReader = (options: TextEngineOptions) =>
-  options.typesetOf ?? (options.view ? typesetIn(options.view) : () => null);
+  options.typesetOf ?? (options.state ? typesetIn(options.state) : () => null);
 
 // Sizes typeset math from its layout (DOCE-PAGINATION-12.10), at the font size it is drawn at, and
 // math it cannot lay out with the reserved box; no other atom.
@@ -61,10 +61,10 @@ export function documentMathPending(
   return waits.length ? Promise.all(waits).then(() => undefined) : null;
 }
 
-// What math was typeset as by the math views of the view that measures the pages, which runs the
-// canonical state's plugins.
-const typesetIn = (view: () => EditorView | null) => (node: ProseMirrorNode) => {
-  const state = view()?.state;
+// What math was typeset as by the math views of the state the pages are laid out from, which runs
+// the canonical state's plugins.
+const typesetIn = (source: () => EditorState | null) => (node: ProseMirrorNode) => {
+  const state = source();
   return state ? typesetMathOf(state, node) : null;
 };
 

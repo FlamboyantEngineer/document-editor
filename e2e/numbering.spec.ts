@@ -1,10 +1,7 @@
 import { expect, test } from './fixtures.js';
 
 test.describe('numbering', () => {
-  test('DOCE-NUMBERING-6.4 counts captioned objects in the measuring view as on the pages', async ({
-    lab,
-    page,
-  }) => {
+  test('DOCE-NUMBERING-6.4 counts captioned objects on the pages', async ({ lab, page }) => {
     await lab.open('full-editor');
     const increments = (root: string) =>
       page.evaluate((selector) => {
@@ -17,8 +14,6 @@ test.describe('numbering', () => {
     const shown = await increments('.de-document-editor__content');
     expect(shown.length).toBeGreaterThan(0);
     expect(shown[0]).toBe('table 1');
-    const measured = await increments('.de-document-editor__measure');
-    expect(measured[0]).toBe('table 1');
   });
 
   test('DOCE-NUMBERING-6.5 DOCE-NUMBERING-3.4 numbers paragraphs after their heading, in a gutter before the text', async ({

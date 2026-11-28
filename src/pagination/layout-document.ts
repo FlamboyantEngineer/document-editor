@@ -1,9 +1,9 @@
-// Lays a whole document out on pages from a view that holds it: each section's blocks laid out by
+// Lays a whole document out on pages from a state that holds it: each section's blocks laid out by
 // the pages' text layout engine, with no DOM, and each page left the room its header and footer
 // and the footnote entries it will hold take.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
 import { hasContents } from '../engine/contents-presence.js';
 import {
   type LayoutBlock,
@@ -217,28 +217,28 @@ function layoutSection(
   return { result, metrics };
 }
 
-// The blocks, footnote area, page height and regions of each section the view holds.
-function sectionFills(view: EditorView, options: DocumentLayoutOptions) {
+// The blocks, footnote area, page height and regions of each section of the state.
+function sectionFills(state: EditorState, options: DocumentLayoutOptions) {
   const { engine } = options;
   const laidSoFar = () => engine.stats().laid;
   // The words other plugins draw in its text blocks, such as a comparison's deleted words.
-  const inserted = insertedTexts(view.state, [forcedLinesKey]);
-  return sectionPlaces(view.state.doc).map((place, index) => {
+  const inserted = insertedTexts(state, [forcedLinesKey]);
+  return sectionPlaces(state.doc).map((place, index) => {
     const { section, content, footnotes } = place;
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
     const scope = (section.attrs.sectionName as string | null | undefined) ?? null;
     const at = { scope, engine };
-    const regions = sectionRegions(view, at, place);
+    const regions = sectionRegions(state, at, place);
     const before = laidSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
     const blocks: LayoutBlock[] = [];
-    view.state.doc.nodeAt(content)?.forEach((node) => {
+    state.doc.nodeAt(content)?.forEach((node) => {
       blocks.push(engine.measureBlock(node, scope, inserted));
     });
     const blocksMeasured = laidSoFar() - before;
-    const area = footnoteArea(view, footnotes, at);
+    const area = footnoteArea(state, footnotes, at);
     const fill: SectionFill = { blocks, area, pageHeight, regions, rules };
     return { fill, blocksMeasured };
   });
@@ -337,12 +337,12 @@ const DIGIT_PASSES = 3;
 // boxes keeping room for the digits of the page count it comes to (DOCE-PAGINATION-10.11, 11.13).
 // Every layout starts from the least room, so the pages are the same whatever was laid out before,
 // and the room only grows.
-function settleDigits(view: EditorView, options: DocumentLayoutOptions) {
+function settleDigits(state: EditorState, options: DocumentLayoutOptions) {
   const { engine } = options;
   let digits = engine.pageDigits(0);
-  let fills = sectionFills(view, options);
+  let fills = sectionFills(state, options);
   let settled = settlePasses(fills, options);
-  const { doc } = view.state;
+  const { doc } = state;
   if (!(hasContents(doc) || hasBodyPageVariable(doc))) return { fills, settled };
   for (let count = 1; ; count += 1) {
     const needed = engine.pageDigits(Math.max(settled.pass.counted, 10 ** (digits - 1)));
@@ -355,22 +355,22 @@ function settleDigits(view: EditorView, options: DocumentLayoutOptions) {
       break;
     }
     digits = needed;
-    fills = sectionFills(view, options);
+    fills = sectionFills(state, options);
     settled = settlePasses(fills, options);
   }
   return { fills, settled };
 }
 
 /**
- * The pages of each section of the whole document a view holds, as `projectDocument` takes them:
+ * The pages of each section of the whole document a state holds, as `projectDocument` takes them:
  * every block laid out by the engine, those it kept reused, and each page short by its header's,
  * its footer's and its footnote entries' heights, each laid out with the page's own number and the
  * page count.
  */
-export function layoutDocument(view: EditorView, options: DocumentLayoutOptions): SectionPages[] {
+export function layoutDocument(state: EditorState, options: DocumentLayoutOptions): SectionPages[] {
   const { memory, engine } = options;
-  engine.number(view.state.doc);
-  const { fills, settled } = settleDigits(view, options);
+  engine.number(state.doc);
+  const { fills, settled } = settleDigits(state, options);
   const { pass, laidOut, layouts, pages } = settled;
   pass.laid.forEach(({ result, metrics }, index) => {
     for (const metric of metrics) options.onPage?.(metric);

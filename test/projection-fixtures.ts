@@ -84,7 +84,6 @@ export function mount(options: Partial<ProjectionViewOptions> = {}, layout: Stub
       }),
     ),
     mount: document.body.appendChild(document.createElement('div')),
-    measureIn: document.body.appendChild(document.createElement('div')),
     state: canonicalState(),
     pageHeight: 1000,
     settle: 0,

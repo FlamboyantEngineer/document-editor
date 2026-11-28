@@ -225,7 +225,7 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
   // The words inserted in the blocks being measured.
   let current = NO_INSERTED;
   const recorder: LinesRecorder = { lines: null };
-  const contents = createContentsLists(template, options.view);
+  const contents = createContentsLists(template, options.state);
   const refusals = createRefusals();
   const layouts = engineLayouts(options, {
     numbers: numbers.current,

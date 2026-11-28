@@ -81,6 +81,18 @@ export const BUDGETS = {
     target: '0',
     meets: atMost(0),
   },
+  startupViews: {
+    bar: 'Startup, 24 pages',
+    metric: 'views rendering the document',
+    target: '1',
+    meets: atMost(1),
+  },
+  startupElements: {
+    bar: 'Startup, 24 pages',
+    metric: 'elements in the editor',
+    target: '≤ 800',
+    meets: atMost(800),
+  },
   remoteBlocksMeasured: {
     bar: 'Remote keystroke, 1600 blocks',
     metric: 'blocks measured',
@@ -451,7 +463,8 @@ export async function measureSectionsEdit(lab: LabFixture, page: Page) {
 
 /**
  * The 24-page document's startup: its layouts and blocks measured when it first settles, against
- * its blocks, and the layouts in the second after, which a pass that only renumbers would add.
+ * its blocks, the layouts in the second after, which a pass that only renumbers would add, and the
+ * views and elements the editor renders then.
  */
 export async function measureStartup(lab: LabFixture, page: Page) {
   await openScale(lab, page, SIZE.pages24);
@@ -463,10 +476,16 @@ export async function measureStartup(lab: LabFixture, page: Page) {
     .count();
   await page.waitForTimeout(1000);
   const settled = await stats(page);
+  // What the editor renders: the pages alone, with no second view of the document to measure it.
+  const rendered = await page.evaluate(() => ({
+    views: document.querySelectorAll('.de-document-editor .ProseMirror').length,
+    elements: document.querySelectorAll('.de-document-editor *').length,
+  }));
   return {
     layouts: atReady.layouts,
     remeasured: Math.max(0, atReady.blocksMeasured - blocks),
     afterSettle: settled.layouts - atReady.layouts,
+    ...rendered,
   };
 }
 

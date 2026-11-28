@@ -37,7 +37,7 @@ const NO_NUMBERS: NodeNumbers = {
   keyOf: () => '',
 };
 
-// Each footnote's number by its id, through the document as the measuring view numbers them, and
+// Each footnote's number by its id, through the document as the state laid out numbers them, and
 // the numbers of the markers in each top-level block, in order, as the key a kept block's must
 // match: a marker renumbered changes its width (DOCE-PAGINATION-10.7).
 function footnotesOf(doc: ProseMirrorNode) {

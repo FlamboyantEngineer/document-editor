@@ -34,7 +34,7 @@ Verification: `src/engine/search.test.ts`
 
 ### DOCE-SEARCH-1.5 - Two searches
 
-`createSearch('pane')` shall keep the search pane's search apart from the find bar's (`createSearch()`, the `find` scope): its own query, options, matches and current match, set, revealed and replaced by the same commands given the `pane` scope (`setSearch(query, options, 'pane')`, `replaceMatch(replacement, 'pane')`, `replaceAllMatches(replacement, 'pane')`), and marked by decorations carrying `data-search-result` instead of `data-search-match`. A change to one search never changes the other's query or current match. Replacing from the pane leaves the selection where it was. The editor installs both; its hidden measuring view runs neither.
+`createSearch('pane')` shall keep the search pane's search apart from the find bar's (`createSearch()`, the `find` scope): its own query, options, matches and current match, set, revealed and replaced by the same commands given the `pane` scope (`setSearch(query, options, 'pane')`, `replaceMatch(replacement, 'pane')`, `replaceAllMatches(replacement, 'pane')`), and marked by decorations carrying `data-search-result` instead of `data-search-match`. A change to one search never changes the other's query or current match. Replacing from the pane leaves the selection where it was. The editor installs both; the state its pages are laid out from runs neither.
 
 Implementation: `src/engine/search.ts`, `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/start-paging.ts`
 Verification: `src/engine/search.test.ts`, `e2e/search.spec.ts`

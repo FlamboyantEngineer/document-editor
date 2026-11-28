@@ -186,12 +186,11 @@ describe('DocumentEditor', () => {
     );
   });
 
-  it('DOCE-EDITOR-1.3 measures the pages in a hidden slot in page layout', () => {
+  it('DOCE-EDITOR-1.3 renders the document once in page layout, with no hidden copy to measure', () => {
     const { container } = render(<Harness editable layout="page" />);
-    const measure = container.querySelector('.de-document-editor__measure');
-    expect(measure).toHaveAttribute('aria-hidden', 'true');
-    expect(measure).toHaveAttribute('inert');
     expect(container.querySelector('.de-document-editor')).toHaveAttribute('data-layout', 'page');
+    expect(container.querySelectorAll('.ProseMirror')).toHaveLength(1);
+    expect(container.querySelector('[aria-hidden="true"] .ProseMirror')).toBeNull();
   });
 
   it('DOCE-EDITOR-1.7 runs a toolbar button kept from an earlier state on the state shown', async () => {
@@ -423,8 +422,7 @@ describe('DocumentEditor', () => {
       />,
     );
     await handle.current?.whenSettled();
-    // The field on the pages, not the one the measuring view draws, once the plain view draws
-    // them with the host views in it.
+    // The field on the pages, once the plain view draws them with the host views in it.
     const pages = () => screen.getByRole('textbox', { name: 'Report' });
     await waitFor(() => expect(pages().querySelector('.de-host-view input')).not.toBeNull());
     const field = within(pages()).getByRole('textbox', { name: 'Note' });

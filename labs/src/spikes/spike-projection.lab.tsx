@@ -217,7 +217,7 @@ function timedFrame(times: number[]) {
   };
 }
 
-function mountProjection(doc: Node, mount: HTMLElement, measureIn: HTMLElement): () => LabStats {
+function mountProjection(doc: Node, mount: HTMLElement): () => LabStats {
   const { schema } = doc.type;
   const layoutMs: number[] = [];
   let outOfSync = 0;
@@ -225,7 +225,6 @@ function mountProjection(doc: Node, mount: HTMLElement, measureIn: HTMLElement):
   let shown: ProjectionView | null = null;
   const projection = createProjectionView({
     mount,
-    measureIn,
     state: EditorState.create({ doc: joinDocumentPages(doc).doc, plugins: [history()] }),
     pageHeight: PAGE_HEIGHT,
     textLayout: labTextLayout(() => BASE_TEMPLATE),
@@ -265,8 +264,7 @@ let editor: LabEditor | null = null;
 
 function render(): void {
   const mount = document.querySelector<HTMLElement>('.lab-pages');
-  const measureIn = document.querySelector<HTMLElement>('.lab-measure');
-  if (!mount || !measureIn) return;
+  if (!mount) return;
   const params = new URLSearchParams(window.location.search);
   const copies = Math.max(1, Number(params.get('copies') ?? 1) || 1);
   const doc = readDocumentFile(sample(copies), createDocumentSchema()).doc;
@@ -294,7 +292,7 @@ function render(): void {
     },
   };
   window.projectionSpike = probe;
-  const stats = mountProjection(doc, mount, measureIn);
+  const stats = mountProjection(doc, mount);
 }
 
 render();

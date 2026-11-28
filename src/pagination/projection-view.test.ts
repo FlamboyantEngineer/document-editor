@@ -18,7 +18,6 @@ import { createContents } from '../engine/contents.js';
 import { createMathViews } from '../engine/math-views.js';
 import { BASE_TEMPLATE, joinDocumentPages, sameStructure } from '../model/index.js';
 import { canonicalView } from './canonical-view.js';
-import { type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import { layoutNow } from './layout-latency.js';
 import { isPaginationTransaction, layoutStats, pageMetrics } from './layout-marks.js';
 import { pageMap } from './page-map.js';
@@ -40,32 +39,18 @@ describe('projection view', () => {
     expect(projection.stats()).toMatchObject({ layouts: 1, refused: 0, relaid: 0 });
   });
 
-  it('DOCE-PAGINATION-7.17 measures in the ghost the host mounts, shown each document it lays out', () => {
-    const shown: EditorState[] = [];
-    const destroyed = vi.fn();
-    const mountGhost = vi.fn((element: HTMLElement, options: MeasuringViewOptions) => {
-      const ghost = mountMeasuringView(element, options);
-      return {
-        view: ghost.view,
-        show: (state: EditorState) => {
-          shown.push(state);
-          ghost.show(state);
-        },
-        destroy: () => {
-          destroyed();
-          ghost.destroy();
-        },
-      };
-    });
-    const { projection, drain } = mount({ mountGhost });
-    expect(mountGhost).toHaveBeenCalledOnce();
+  it('DOCE-PAGINATION-7.17 renders the document only on its pages, laid out from a state with no view', () => {
+    const { projection, drain } = mount();
+    const views = () => document.querySelectorAll('.ProseMirror').length;
+    expect(views()).toBe(1);
     const at = positionOf(projection.view.state.doc, 'Alpha');
     projection.view.dispatch(layoutNow(projection.view.state.tr.insertText('New ', at)));
     drain();
-    expect(shown.at(-1)?.doc.eq(projection.state.doc)).toBe(true);
+    expect(views()).toBe(1);
+    expect(inSync(projection)).toBe(true);
     expect(pageCount(projection.view.state.doc)).toBe(3);
     projection.destroy();
-    expect(destroyed).toHaveBeenCalledOnce();
+    expect(views()).toBe(0);
   });
 
   it('DOCE-PAGINATION-7.10 refuses a change to the pages that is not an edit of the canonical state', () => {

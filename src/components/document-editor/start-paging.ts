@@ -1,10 +1,7 @@
 // Starts laying a document editor's pages out, in page layout: by a projection of its state on
 // pages (DOCE-PAGINATION-7.17), which the editor renders.
 
-import {
-  mountRichTextView,
-  withoutReactKeys,
-} from '@flamboyantengineer/ui-components/rich-text-editor';
+import { withoutReactKeys } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin, PluginKey } from 'prosemirror-state';
 import type { RefObject } from 'react';
@@ -28,8 +25,6 @@ import {
   type LayoutState,
   listStartsKey,
   loadTemplateFonts,
-  type MeasuringView,
-  type MeasuringViewOptions,
   pageDebugKey,
   type PagedProjection,
   type PagedProjectionOptions,
@@ -61,11 +56,11 @@ function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
   return height - margins.top - margins.bottom;
 }
 
-// The plugins the measuring view runs: the editor's, with the layout's own plugins once, less one
-// whose key a plugin of the host's already holds, such as its own lists of contents. Proofing
-// and search are left out: their marks take no room, and the hidden view would do their work again.
-// So is a plugin whose spec says `measured: false`, such as the shared document's sync, whose view
-// would bind the hidden view to the shared document a second time.
+// The plugins of the state the pages are laid out from: the editor's, with the layout's own
+// plugins once, less one whose key a plugin of the host's already holds, such as its own lists of
+// contents. Proofing and search are left out: their marks take no room, and that state would do
+// their work again. So is a plugin whose spec says `measured: false`, such as the shared
+// document's sync, which belongs to the editor's own state alone.
 const UNMEASURED = new Set<PluginKey>([proofingKey, searchKey, searchPaneKey]);
 
 function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
@@ -207,7 +202,8 @@ function textLayoutOf(
   };
 }
 
-// Lays the pages out in the element given, as a projection of the state; returns how to stop.
+// Lays the pages out as a projection of the state, the element given in the document they show in;
+// returns how to stop.
 export function startPaging(
   element: HTMLElement,
   latest: RefObject<DocumentLayoutOptions>,
@@ -222,7 +218,7 @@ export function startPaging(
   },
 ): () => void {
   const setup = {
-    measureIn: element,
+    element,
     pageHeight: (section: ProseMirrorNode) => bodyHeight(latest.current.template, section),
     rules: sectionRules(latest),
     fragmentRules: fragmentRulesOf(latest.current),
@@ -231,11 +227,7 @@ export function startPaging(
     trace: () => latest.current.debug?.trace ?? null,
     textLayout: textLayoutOf(settings, latest),
   };
-  const start = () => startProjectionOf(setup, latest, { refs, setPaged });
-  if (!ghostWith(latest)) return start();
-  // Pending until the ghost has mounted, so nothing reads the pages as settled before then.
-  setup.onLayoutStateChange('pending');
-  return afterCommit(start);
+  return startProjectionOf(setup, latest, { refs, setPaged });
 }
 
 // The layout's plugins that read the pages, which run on a projection's pages rather than on the
@@ -298,8 +290,8 @@ function startProjectionOf(
   };
 }
 
-// A projection of the state on pages: the ghost measures with the state's plugins that take room,
-// the plugins that read the pages run on them, and the editor renders each projection state.
+// A projection of the state on pages: laid out from a state with the plugins that take room, the
+// plugins that read the pages run on them, and the editor renders each projection state.
 function startProjection(
   setup: PagingSetup,
   latest: RefObject<DocumentLayoutOptions>,
@@ -317,12 +309,11 @@ function startProjection(
     ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
     // The pages render in a plain view (DOCE-EDITOR-1.8), which keeps no React node identities.
     plugins: [...pages],
-    // The ghost takes no React keys of the engine's: it keys the states it renders itself.
-    ghostPlugins: withOwn(
+    // The state laid out takes no React keys of the engine's: it renders nothing.
+    layoutPlugins: withOwn(
       withoutReactKeys(latest.current.state).plugins.filter((plugin) => !pages.includes(plugin)),
       own,
     ),
-    mountGhost: ghostWith(latest),
     // The engine's own border resize runs on the pages, on the whole table.
     resizeColumns: false,
     dispatch: (tr, change) => latest.current.onCanonical?.(tr, change),
@@ -335,42 +326,4 @@ function startProjection(
   setPaged({ projection, state: projection.projection });
   setup.onLayoutStateChange?.(projection.layoutState());
   return projection;
-}
-
-// How the ghost mounts: with the host's React node views, which it renders as the pages do, under
-// the providers the editor's own views read, so a block they draw is measured as it shows; a plain
-// view without them. The node views are those the pages mount with: a host that swaps them has the
-// ghost keep the old ones until the pages mount again.
-function ghostWith(
-  latest: RefObject<DocumentLayoutOptions>,
-): ((element: HTMLElement, options: MeasuringViewOptions) => MeasuringView) | undefined {
-  const { nodeViews } = latest.current;
-  if (!nodeViews || Object.keys(nodeViews).length === 0) return undefined;
-  return (element, { state }) => {
-    const mounted = mountRichTextView(element, {
-      state,
-      nodeViews,
-      wrap: (shown) => latest.current.wrapGhost?.(shown) ?? shown,
-    });
-    return {
-      view: mounted.view,
-      show: (next) => mounted.update(next),
-      destroy: () => mounted.destroy(),
-    };
-  };
-}
-
-// Starts something once React has left the commit it was asked in, as a projection whose ghost
-// mounts a React root of its own, drawn at once, which React cannot do inside an effect; returns
-// how to stop it, started or not.
-function afterCommit(start: () => () => void): () => void {
-  let stop: (() => void) | null = null;
-  let cancelled = false;
-  queueMicrotask(() => {
-    if (!cancelled) stop = start();
-  });
-  return () => {
-    cancelled = true;
-    stop?.();
-  };
 }
