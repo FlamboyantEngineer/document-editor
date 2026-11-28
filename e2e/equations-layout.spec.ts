@@ -288,7 +288,7 @@ test.describe('equations on the engine’s lines', () => {
     await printed.close();
   });
 
-  test('DOCE-PAGINATION-11.9 DOCE-PAGINATION-12.10 DOCE-PAGINATION-12.11 fits equations after the contents beside their numbers and tags', async ({
+  test('DOCE-PAGINATION-11.9 DOCE-PAGINATION-12.10 DOCE-PAGINATION-12.11 DOCE-PAGINATION-12.14 fits equations after the contents beside their numbers and tags', async ({
     page,
   }) => {
     await page.setViewportSize(ROOMY);
@@ -314,7 +314,12 @@ test.describe('equations on the engine’s lines', () => {
     const expectSpacing = async (view: Page, root: string) => {
       const boxes = await equationSpacing(view, root);
       expect(boxes.map(({ number }) => number)).toEqual(['"(Eq. 1.)"', '"(Eq. 2.)"', '"(Eq. 3.)"']);
-      const [, plain, tagged] = boxes;
+      const [short, plain, tagged] = boxes;
+      // A short equation's block is as tall as its number's line, the equation centred in it
+      // (DOCE-PAGINATION-12.14).
+      for (const box of boxes) expect(box.numberRoom).toBeGreaterThanOrEqual(-0.01);
+      expect(short?.numberRoom).toBeCloseTo(0, 1);
+      expect(short?.offCentre).toBeLessThan(0.1);
       expect(plain?.lineWidth).toBeCloseTo(400, 1);
       expect(plain?.numberGap).toBeGreaterThan(0);
       expect(tagged?.tagGap).toBeGreaterThan(4);
@@ -405,7 +410,8 @@ const drawnMath = (page: Page, root: string) =>
     root,
   );
 
-// The clearance beside the actual drawing and tag, including the generated number’s width.
+// The clearance beside the actual drawing and tag, including the generated number’s width, the
+// room the block keeps beyond its number's line, and how far the drawing is from its centre.
 const equationSpacing = (page: Page, root: string) =>
   page.locator(`${root} .pm-page-content .de-math[data-display='display']`).evaluateAll((nodes) =>
     nodes.map((node) => {
@@ -416,6 +422,8 @@ const equationSpacing = (page: Page, root: string) =>
       const number = getComputedStyle(node, '::after');
       return {
         lineWidth: line.width,
+        numberRoom: line.height - Number.parseFloat(number.height),
+        offCentre: Math.abs(equation.top + equation.bottom - line.top - line.bottom) / 2,
         number: number.content,
         numberGap: line.right - Number.parseFloat(number.width) - (tag?.right ?? equation.right),
         tagGap: tag ? tag.left - equation.right : null,

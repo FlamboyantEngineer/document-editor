@@ -16,6 +16,7 @@ import { deriveLinkedCodeBlockCaption, normalizeCaptionText } from './caption-te
 import {
   CODE_BLOCK_CONTINUED_ATTR,
   CODE_CAPTION_TEXT_ATTR,
+  CODE_LINE_CONTINUED_ATTR,
   CODE_LINE_START_ATTR,
   type DomAttributes,
 } from './dom-attributes.js';
@@ -49,18 +50,21 @@ function readCodeBlockAttrs(dom: HTMLElement) {
     language: readLanguage(dom),
     captionEnabled: dom.getAttribute('data-caption-enabled') !== 'false',
     codeBlockContinued: dom.getAttribute(CODE_BLOCK_CONTINUED_ATTR) === 'true',
+    codeLineContinued: dom.getAttribute(CODE_LINE_CONTINUED_ATTR) === 'true',
     codeLineStart: readLineStart(dom),
   };
 }
 
 function renderCodeBlock(node: ProseMirrorNode) {
-  const { language, captionEnabled, codeBlockContinued, codeLineStart } = node.attrs;
+  const { language, captionEnabled, codeBlockContinued, codeLineContinued, codeLineStart } =
+    node.attrs;
   const attrs: DomAttributes = {
     'data-code-language': String(language || 'plaintext'),
     spellcheck: 'false',
   };
   if (captionEnabled === false) attrs['data-caption-enabled'] = 'false';
   if (codeBlockContinued) attrs[CODE_BLOCK_CONTINUED_ATTR] = 'true';
+  if (codeLineContinued) attrs[CODE_LINE_CONTINUED_ATTR] = 'true';
   if (Number.isInteger(codeLineStart) && Number(codeLineStart) > 1) {
     attrs[CODE_LINE_START_ATTR] = String(codeLineStart);
   }
@@ -76,6 +80,7 @@ const codeBlock: NodeSpec = {
     language: { default: 'plaintext' },
     captionEnabled: { default: true },
     codeBlockContinued: { default: false },
+    codeLineContinued: { default: false },
     codeLineStart: { default: 1 },
   },
   parseDOM: [
@@ -125,6 +130,7 @@ function renderLinkedCodeBlock(node: ProseMirrorNode) {
     class: 'linked-code-block',
   };
   if (node.attrs.codeBlockContinued) attrs[CODE_BLOCK_CONTINUED_ATTR] = 'true';
+  if (node.attrs.codeLineContinued) attrs[CODE_LINE_CONTINUED_ATTR] = 'true';
   const caption = linkedCaptionLine(deriveLinkedCodeBlockCaption(node.attrs.url || ''));
   const code = ['code', { spellcheck: 'false' }, String(node.attrs.code || '')];
   const pre = ['pre', { 'data-code-language': language, spellcheck: 'false' }, caption, code];
@@ -140,6 +146,7 @@ const linkedCodeBlock: NodeSpec = {
     code: { default: '' },
     startLine: { default: 1 },
     codeBlockContinued: { default: false },
+    codeLineContinued: { default: false },
   },
   parseDOM: [
     {
@@ -150,6 +157,7 @@ const linkedCodeBlock: NodeSpec = {
         code: dom.querySelector('code')?.textContent || '',
         startLine: Number(dom.getAttribute('data-start-line') || 1),
         codeBlockContinued: dom.getAttribute(CODE_BLOCK_CONTINUED_ATTR) === 'true',
+        codeLineContinued: dom.getAttribute(CODE_LINE_CONTINUED_ATTR) === 'true',
       }),
     },
   ],

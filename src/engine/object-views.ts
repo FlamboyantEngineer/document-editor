@@ -19,7 +19,7 @@ import { normalizeSignatureVector } from '../model/index.js';
 import { firstRowColumnWidths } from '../model/schema/object-layout.js';
 import { isElement } from '../utils/is-element.js';
 import { editCaptionText, selectFigureOnImage } from './caption-editing.js';
-import { firstCodeLine, gutterText } from './code-drawing.js';
+import { continuesCodeLine, firstCodeLine, gutterText } from './code-drawing.js';
 import { drawGutter, forcedLinesIn } from './code-gutter.js';
 import { paintCodeHighlights } from './code-highlighting.js';
 import { drawLinkedCode } from './linked-code.js';
@@ -66,7 +66,10 @@ function codeView(
     if (code && next.type.name === 'linked_code_block' && lines !== drawnOn)
       drawLinkedCode(code, next, lines);
     drawnOn = lines;
-    if (numbered) drawGutter(gutter, gutterText(next), { first: firstCodeLine(next), lines });
+    if (numbered) {
+      const at = { first: firstCodeLine(next), lines, continued: continuesCodeLine(next) };
+      drawGutter(gutter, gutterText(next), at);
+    }
   };
   draw(node, drawing.decorations);
   return {

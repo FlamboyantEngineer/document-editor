@@ -1674,6 +1674,7 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
       ['a list item marked as a part', listOf({ splitPartIndex: 0 })],
       ['a continued code block', heldCode({ codeBlockContinued: true })],
       ['code starting at a later line', heldCode({ codeLineStart: 5 })],
+      ['code continuing a line from a page', heldCode({ codeLineContinued: true })],
       ['a code holder marked as a part', heldCode({}, { splitPartIndex: 1 })],
       ['a code caption showing text only the pages draw', heldCode({}, {}, 'Not its text')],
       ['continued linked code', nodes.linked_code_block?.create({ codeBlockContinued: true })],

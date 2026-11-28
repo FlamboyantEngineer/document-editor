@@ -1991,7 +1991,9 @@ a.de-contents__entry {
    already applied. Drawn from its layout (`laid`), its SVG fills the box and its MathML is hidden
    from sight but kept for screen readers, copy and find; a display equation's SVG is centred, or
    moved towards the line's start as far as it must to keep clear of the room `--de-math-end` its
-   tag or automatic number takes at the line's end, and its tag sits there on the same baseline. In the reserved box (`reserved`), the
+   tag or automatic number takes at the line's end, and its tag sits there on the same baseline; a
+   numbered equation shorter than its number's line `--de-math-number-line` sits
+   `--de-math-number-lift` lower, centred in it. In the reserved box (`reserved`), the
    MathML is centred in the box and may reach past it without moving anything. */
 .de-math[data-math-layout] {
   position: relative;
@@ -2002,13 +2004,26 @@ a.de-contents__entry {
 }
 
 .de-math[data-math-layout][data-display='display'] {
-  --de-math-top: max(var(--de-math-ascent), var(--de-math-tag-ascent, 0px));
-  display: block;
+  --de-math-top: calc(
+    max(var(--de-math-ascent), var(--de-math-tag-ascent, 0px)) + var(--de-math-number-lift, 0px)
+  );
+  /* Its own formatting context, so the drawing's top margin stays inside it. */
+  display: flow-root;
   inline-size: auto;
   block-size: calc(
-    var(--de-math-top) + max(var(--de-math-descent), var(--de-math-tag-descent, 0px))
+    var(--de-math-top) + max(var(--de-math-descent), var(--de-math-tag-descent, 0px)) +
+      var(--de-math-number-lift, 0px)
   );
   vertical-align: baseline;
+}
+
+/* A numbered equation's number takes the line the engine gave it, centred on the block, which is
+   at least as tall (DOCE-PAGINATION-12.14). */
+:where(.de-document-editor)
+  .pm-page-content
+  .de-math[data-math-layout][data-display='display']::after {
+  line-height: var(--de-math-number-line, normal);
+  white-space: nowrap;
 }
 
 .de-math[data-math-layout] > .de-math__drawing {

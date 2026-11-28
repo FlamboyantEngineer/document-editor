@@ -140,6 +140,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
       language: 'language',
       captionEnabled: 'captionEnabled',
       codeBlockContinued: null,
+      codeLineContinued: null,
       codeLineStart: null,
     },
   },
@@ -151,6 +152,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
       code: 'code',
       startLine: 'startLine',
       codeBlockContinued: null,
+      codeLineContinued: null,
     },
   },
   figure: {

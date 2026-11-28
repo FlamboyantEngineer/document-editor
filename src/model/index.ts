@@ -70,6 +70,7 @@ export {
   paragraphNumberWidth,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
+export { planCodeSplit, splitCode, splitLinkedCode } from './pagination/code-split.js';
 export * from './pagination/container-split.js';
 export * from './pagination/contents-split.js';
 export type { BlockRun, FragmentRule, FragmentRules } from './pagination/fragments.js';
@@ -124,10 +125,7 @@ export {
   contentText,
   isTextMeasurement,
   MINIMUM_SPLIT_LINES,
-  planCodeSplit,
   planParagraphSplit,
-  splitCode,
-  splitLinkedCode,
   splitParagraph,
   splitParagraphWith,
   splitTextNode,
