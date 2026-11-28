@@ -114,4 +114,16 @@ describe('line widths', () => {
     // `aaa ` is 21px with the fake Canvas.
     expect(broken.lines[0]?.width).toBe(21);
   });
+
+  it('DOCE-PAGINATION-9.1 leaves out spaces that end a block across elements in other fonts', () => {
+    const width = (...children: ProseMirrorNode[]) =>
+      laid(create('paragraph', children), {}).lines.at(-1)?.width;
+    const bold = (text: string) => documentSchema.text(text, [mark('strong')]);
+    const italic = (text: string) => documentSchema.text(text, [mark('em')]);
+    const plain = (text: string) => documentSchema.text(text);
+    const word = width(bold('word'));
+    expect(width(bold('word '), plain(' '))).toBe(word);
+    expect(width(plain('word '), bold(' '))).toBe(width(plain('word')));
+    expect(width(plain('word '), italic('  '))).toBe(width(plain('word')));
+  });
 });

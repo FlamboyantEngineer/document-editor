@@ -88,15 +88,23 @@ function tellLocale(language: string | undefined): void {
 
 const toEnd: RichInlineCursor = { itemIndex: 0, segmentIndex: 0, graphemeIndex: 0 };
 
-// The width of the spaces and tabs a fragment's text ends with, in its item's font.
+// The width of the spaces and tabs a line's text ends with, each fragment's in its item's font:
+// spaces that end a block hang whichever element holds them, so the walk goes back over every
+// fragment that is white space only.
 function trailingWidth(
   items: TextRun['items'],
-  last: { itemIndex: number; text: string } | undefined,
+  fragments: readonly { itemIndex: number; text: string }[],
 ) {
-  const item = last ? items[last.itemIndex] : undefined;
-  if (!last || !item || !('font' in item)) return 0;
-  const trailing = /[ \t]+$/u.exec(last.text)?.[0] ?? '';
-  return trailing ? textWidth(trailing, item.font) : 0;
+  let width = 0;
+  for (let index = fragments.length - 1; index >= 0; index -= 1) {
+    const fragment = fragments[index];
+    const item = fragment ? items[fragment.itemIndex] : undefined;
+    if (!fragment || !item || !('font' in item)) break;
+    const trailing = /[ \t]+$/u.exec(fragment.text)?.[0] ?? '';
+    if (trailing) width += textWidth(trailing, item.font);
+    if (trailing.length < fragment.text.length) break;
+  }
+  return width;
 }
 
 function walk(
@@ -106,14 +114,15 @@ function walk(
 ): RunLine[] {
   const lines: RunLine[] = [];
   let cursor: RichInlineCursor = toEnd;
-  let last: { itemIndex: number; text: string } | undefined;
+  let lastFragments: readonly { itemIndex: number; text: string }[] = [];
   for (;;) {
     const width = Math.max(1, lines.length ? widths.rest : widths.first);
     const range = layoutNextRichInlineLineRange(prepared, width, cursor);
     if (!range) break;
     const { fragments } = materializeRichInlineLineRange(prepared, range);
     const first = fragments[0];
-    last = fragments.at(-1);
+    const last = fragments.at(-1);
+    lastFragments = fragments;
     lines.push({
       item: first?.itemIndex ?? 0,
       sourceStart: first?.sourceStart ?? 0,
@@ -126,7 +135,7 @@ function walk(
   }
   // A wrapped line leaves its hanging spaces out already; the run's last line counts them.
   const end = lines.at(-1);
-  if (end) lines[lines.length - 1] = { ...end, trailing: trailingWidth(items, last) };
+  if (end) lines[lines.length - 1] = { ...end, trailing: trailingWidth(items, lastFragments) };
   return lines;
 }
 
