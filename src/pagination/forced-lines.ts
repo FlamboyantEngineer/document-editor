@@ -22,7 +22,7 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
-import { forcedBlocksOf } from './forced-blocks.js';
+import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
 import { numberingFor, sameNumbers } from './forced-numbering.js';
 import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
@@ -76,6 +76,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       numbered: builder.skipped,
       inserted: builder.inserted,
       labelOf: builder.labelOf,
+      continuing: builder.continuing,
     };
     const forced = forcedBlocksOf(builder.engine, child, place);
     const [first] = forced;
@@ -96,7 +97,8 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       return;
     }
     locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
-    const key = `${first.prefix ?? ''}|${insertedKey(builder.inserted.byBlock.get(child))}`;
+    const continued = builder.continuing.has(pos) ? 'c' : '';
+    const key = `${first.prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(child))}`;
     const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
     if (set !== DecorationSet.empty) children.push(offset, end, set);
   });
@@ -230,6 +232,7 @@ function decorate(
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
     directions,
+    continuing: continuingParts(doc),
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
     nested: same && previous.inserted === state.inserted ? previous.nested : new WeakMap(),

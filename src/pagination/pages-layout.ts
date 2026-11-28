@@ -25,7 +25,7 @@ import {
 } from '../layout-engine/line-marks.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { engineNumbersKey } from './engine-numbers.js';
-import { forcedBlocksOf } from './forced-blocks.js';
+import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, sectionScope } from './forced-lines.js';
 import { FORCED_REGIONS, regionBlocksOf } from './forced-regions.js';
 import { NO_INSERTED } from './inserted-texts.js';
@@ -61,13 +61,22 @@ function forcedBlocks(state: EditorState, engine: PagesTextEngine): PagesLayoutB
   const { headings, paragraphs, labelOf } = engine.numbering(state.doc);
   const blocks: PagesLayoutBlock[] = [];
   const directions = continuedDirections(state.doc);
+  const continuing = continuingParts(state.doc);
   let scope: string | null = null;
   state.doc.descendants((node, pos, parent) => {
     const name = node.type.name;
     if (name === 'page_section') scope = sectionScope(node);
     const region = FORCED_REGIONS.has(name);
     if (!region && parent?.type.name !== 'page_content') return !node.isTextblock;
-    const place = { pos, scope, headings, numbered: paragraphs, inserted: NO_INSERTED, labelOf };
+    const place = {
+      pos,
+      scope,
+      headings,
+      numbered: paragraphs,
+      inserted: NO_INSERTED,
+      labelOf,
+      continuing,
+    };
     const forced = region
       ? regionBlocksOf(engine, node, { pos, scope, shown: pageVariablesKey.getState(state) })
       : forcedBlocksOf(engine, node, place);

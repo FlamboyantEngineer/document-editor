@@ -122,6 +122,7 @@ const builderFor = (engine: PagesTextEngine, version: number): Builder => ({
   numbers: new Map(),
   skipped: new Set(),
   directions: new Map(),
+  continuing: new Set(),
   blocks: new WeakMap(),
   containers: new WeakMap(),
   inserted: NO_INSERTED,

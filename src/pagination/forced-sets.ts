@@ -39,6 +39,8 @@ export interface Builder {
   readonly labels?: string | undefined;
   /** The direction of each later part of a split block, by position. */
   readonly directions: ReadonlyMap<number, TextDirection>;
+  /** The top-level parts of split blocks that a later part continues, by position. */
+  readonly continuing: ReadonlySet<number>;
   readonly blocks: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
   readonly containers: WeakMap<ProseMirrorNode, DecorationSet>;
   readonly inserted: InsertedTexts;

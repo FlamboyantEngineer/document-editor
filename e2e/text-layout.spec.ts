@@ -433,13 +433,14 @@ test.describe('editing on the engine lines', () => {
     expect(laid.mismatched).toEqual([]);
   }
 
-  // Each drawn line of a block, but its last: how far its first and last characters stand in from
-  // the block's text column, spaces left out. The column is the block's box less its end overhang.
-  const lineInsets = (page: Page, selector: string) =>
+  // Each drawn line of a block, but its last unless `last`: how far its first and last characters
+  // stand in from the block's text column, spaces left out. The column is the block's box less its
+  // end overhang.
+  const lineInsets = (page: Page, selector: string, last = false) =>
     page
       .locator(selector)
       .first()
-      .evaluate((element) => {
+      .evaluate((element, keepLast) => {
         const box = element.getBoundingClientRect();
         const style = getComputedStyle(element);
         const left = box.left + parseFloat(style.paddingLeft);
@@ -465,9 +466,44 @@ test.describe('editing on the engine lines', () => {
         }
         return [...lines.entries()]
           .sort(([a], [b]) => a - b)
-          .slice(0, -1)
+          .slice(0, keepLast ? undefined : -1)
           .map(([, line]) => ({ before: line.left - left, after: right - line.right }));
-      });
+      }, last);
+
+  test('DOCE-PAGINATION-11.2 fills the column with the last line of a justified part another part continues', async ({
+    page,
+  }) => {
+    await open(page, 'inline-geometry', true);
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const text = 'Rows of beans, paths and benches by the north wall of the garden. '.repeat(120);
+      const long = {
+        type: 'paragraph',
+        attrs: { style: 'justified' },
+        content: [{ type: 'text', text }],
+      };
+      window.regressionLab.load({ ...file, sections: [{ ...section, content: [long] }] });
+    });
+    await waitForLab(page);
+    await settle(page);
+    // Its parts; a page far from the screen is not drawn on forced lines (DOCE-PAGINATION-11.6).
+    const ids = await page
+      .locator('.de-document-editor__content .pm-page-content > p.justified')
+      .evaluateAll((parts) => parts.map((part) => (part as HTMLElement).dataset.id));
+    expect(ids.length, 'the paragraph runs over two pages or more').toBeGreaterThan(1);
+    expect(new Set(ids).size, 'as parts of one paragraph').toBe(1);
+    const head = await lineInsets(
+      page,
+      '.de-document-editor__content .pm-page-content > p.justified.de-forced-lines',
+      true,
+    );
+    const bottom = head.at(-1);
+    expect(bottom, 'the line at the page break').toBeDefined();
+    expect(Math.abs(bottom?.before ?? 1), 'it starts at the edge').toBeLessThan(1);
+    expect(Math.abs(bottom?.after ?? 1), 'it ends at the edge').toBeLessThan(1);
+  });
 
   test('DOCE-PAGINATION-11.2 fills the column with each wrapped justified line and centres each centred one', async ({
     page,
