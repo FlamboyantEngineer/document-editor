@@ -156,19 +156,23 @@ export function createFaceSet(
     },
     hasFamily: (family) => families.has(resolve(family)),
     add(more, moreGenerics = {}) {
-      for (const { family, weight, italic, bytes, unicodeRange } of more) {
-        const key = familyKey(family);
-        const list = families.get(key) ?? [];
-        list.push({
+      // A failure allocating one file must leave the existing font choices in place.
+      const ready = more.map(({ family, weight, italic, bytes, unicodeRange }) => ({
+        key: familyKey(family),
+        entry: {
           weight,
           italic,
           face: harfBuzz.createFace(bytes),
           covers: parseUnicodeRange(unicodeRange),
-        });
+        },
+      }));
+      for (const { key, entry } of ready) {
+        const list = families.get(key) ?? [];
+        list.push(entry);
         families.set(key, list);
       }
-      addFontGenerics(named, moreGenerics, (family) => families.has(family));
-      version += 1;
+      const mapped = addFontGenerics(named, moreGenerics, (family) => families.has(family));
+      if (ready.length || mapped) version += 1;
     },
     alias(name, family) {
       const key = familyKey(name);

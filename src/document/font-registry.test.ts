@@ -4,7 +4,10 @@ import type { FontFaceFile } from '../host/font-files.js';
 import { registerFaces } from './font-registry.js';
 
 // A document whose face set the test reads, with faces the browser loads unless told to refuse.
-function browserDocument(refuse: ReadonlySet<string> = new Set()) {
+function browserDocument({
+  refuse = new Set<string>(),
+  refuseAt = 'loading',
+}: { refuse?: ReadonlySet<string>; refuseAt?: 'construction' | 'load call' | 'loading' } = {}) {
   const made: string[] = [];
   class Face {
     constructor(
@@ -12,14 +15,18 @@ function browserDocument(refuse: ReadonlySet<string> = new Set()) {
       _bytes: unknown,
       readonly descriptors: FontFaceDescriptors = {},
     ) {
+      if (refuseAt === 'construction' && this.isRefused()) throw new Error('Cannot create face');
       made.push(family);
     }
-    // Refused by family, or by family and weight.
+    isRefused() {
+      return (
+        refuse.has(this.family) || refuse.has(`${this.family} ${this.descriptors.weight ?? '400'}`)
+      );
+    }
     load() {
-      const weighted = `${this.family} ${this.descriptors.weight ?? '400'}`;
-      return refuse.has(this.family) || refuse.has(weighted)
-        ? Promise.reject(new Error('bad font'))
-        : Promise.resolve(this);
+      if (!this.isRefused()) return Promise.resolve(this);
+      if (refuseAt === 'load call') throw new Error('Cannot load face');
+      return Promise.reject(new Error('Cannot load face'));
     }
   }
   vi.stubGlobal('FontFace', Face);
@@ -56,19 +63,22 @@ describe('registerFaces', () => {
     expect(added.size).toBe(0);
   });
 
-  it('DOCE-PAGINATION-12.5 takes every face of a family out when the browser refuses one, and names it', async () => {
-    const { doc, added } = browserDocument(new Set(['Broken 700']));
-    const registration = registerFaces(doc, {
-      faces: [
-        face('Broken', new Uint8Array([5])),
-        { ...face('Broken', new Uint8Array([7])), weight: 700 },
-        face('Arial', new Uint8Array([6])),
-      ],
-    });
-    expect(await registration.loaded).toEqual(new Set(['broken']));
-    expect([...added].map((each) => (each as { family: string }).family)).toEqual(['Arial']);
-    registration.release();
-  });
+  it.each(['construction', 'load call', 'loading'] as const)(
+    'DOCE-PAGINATION-12.5 takes the family out when the browser refuses one face during %s',
+    async (refuseAt) => {
+      const { doc, added } = browserDocument({ refuse: new Set(['Broken 700']), refuseAt });
+      const registration = registerFaces(doc, {
+        faces: [
+          face('Broken', new Uint8Array([5])),
+          { ...face('Broken', new Uint8Array([7])), weight: 700 },
+          face('Arial', new Uint8Array([6])),
+        ],
+      });
+      expect(await registration.loaded).toEqual(new Set(['broken']));
+      expect([...added].map((each) => (each as { family: string }).family)).toEqual(['Arial']);
+      registration.release();
+    },
+  );
 });
 
 class OrderedTestFace {

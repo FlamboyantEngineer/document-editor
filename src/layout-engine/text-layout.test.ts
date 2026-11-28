@@ -802,4 +802,56 @@ describe('createTextLayout', () => {
     });
     expect(tail).toBeNull();
   });
+
+  it('DOCE-PAGINATION-9.8 measures duplicate offsets, empty lines, and ranges in the whole block', () => {
+    const table: LineTable = {
+      width: 50,
+      height: 65,
+      overhead: 4,
+      lines: (
+        [
+          { from: 0, to: 4, top: 0, height: 10, end: 'wrap' },
+          { from: 4, to: 4, top: 10, height: 12, end: 'wrap' },
+          { from: 4, to: 4, top: 22, height: 7, end: 'wrap' },
+          { from: 4, to: 9, top: 29, height: 18, end: 'break' },
+          { from: 9, to: 9, top: 47, height: 18, end: 'end' },
+        ] as const
+      ).map((line) => ({ ...line, width: 40, left: 0 })),
+    };
+    const measurement = lineTableMeasurement(table, 4);
+    expect(measurement).toMatchObject({ offset: 4, overhead: 4, lines: table });
+    expect(measurement.measure(0, 4)).toEqual({ height: 10, lines: 1 });
+    expect(measurement.measure(3, 5)).toEqual({ height: 47, lines: 4 });
+    expect(measurement.measure(4, 4)).toEqual({ height: 37, lines: 3 });
+    expect(measurement.measure(4.5, 4.5)).toEqual({ height: 37, lines: 3 });
+    expect(measurement.measure(4, 9)).toEqual({ height: 18, lines: 1 });
+    expect(measurement.measure(9, 9)).toEqual({ height: 18, lines: 1 });
+    expect(measurement.measure(9, 10)).toEqual({ height: 0, lines: 0 });
+    expect(measurement.measure(0, Number.POSITIVE_INFINITY)).toEqual({ height: 65, lines: 5 });
+    expect(measurement.measure(Number.NaN, 9)).toEqual({ height: 0, lines: 0 });
+  });
+
+  it('DOCE-PAGINATION-9.8 finds ranges in a long line table without reading every line for each call', () => {
+    let reads = 0;
+    const lines: LineTable['lines'] = Array.from({ length: 4_096 }, (_, index) => ({
+      get from() {
+        reads += 1;
+        return index * 10;
+      },
+      to: (index + 1) * 10,
+      top: index * 12,
+      height: 12,
+      width: 57,
+      left: 0,
+      end: 'wrap',
+    }));
+    const measurement = lineTableMeasurement({ width: 60, overhead: 0, height: 49_152, lines });
+    expect(measurement.measure(0, 21)).toEqual({ height: 36, lines: 3 });
+    reads = 0;
+    for (let page = 1; page <= 64; page += 1) {
+      const offset = page * 300;
+      expect(measurement.measure(offset, offset + 21)).toEqual({ height: 36, lines: 3 });
+    }
+    expect(reads).toBeLessThan(1_000);
+  });
 });

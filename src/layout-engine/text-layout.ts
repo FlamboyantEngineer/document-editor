@@ -4,7 +4,6 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile } from '../model/format/template-format.js';
-import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
 import { labelInput, leadingItem, leadReserved, withLabelBoxes } from './block-lead.js';
 import type { BodyVariables } from './body-variables.js';
@@ -359,27 +358,4 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
   };
 }
 
-/**
- * A line table as the measurement the page packer's splitters read: the lines a range of the
- * block touches and their height. `offset` is where the fragment starts in the whole block.
- */
-export function lineTableMeasurement(table: LineTable, offset = 0): TextMeasurement {
-  return {
-    offset,
-    overhead: table.overhead,
-    lines: table,
-    measure(from, to) {
-      const touched = table.lines.filter((line) =>
-        from === to
-          ? line.from <= from && from < Math.max(line.to, line.from + 1)
-          : line.from < to && line.to > from,
-      );
-      const first = touched[0];
-      const last = touched.at(-1);
-      return {
-        height: first && last ? last.top + last.height - first.top : 0,
-        lines: touched.length,
-      };
-    },
-  };
-}
+export { lineTableMeasurement } from './line-measurement.js';
