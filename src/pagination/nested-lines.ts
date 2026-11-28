@@ -84,15 +84,14 @@ export function createNestedLines(source: NestedSource) {
       const found = kept.get(container);
       if (found?.key === key) return found.lines;
       const { geometry, recorder, words } = source;
-      recorder.lines = new Map();
+      const recorded = new Map<ProseMirrorNode, DrawnLines>();
+      recorder.lines = recorded;
       recorder.labelOf = labelOf ?? null;
       try {
         const result = words.with(inserted, () =>
           geometry.layoutBlock(container, { width: source.widthOf(scope), scope }),
         );
-        const lines: ReadonlyMap<ProseMirrorNode, DrawnLines> = result.ok
-          ? recorder.lines
-          : new Map();
+        const lines: ReadonlyMap<ProseMirrorNode, DrawnLines> = result.ok ? recorded : new Map();
         kept.set(container, { key, lines });
         return lines;
       } finally {
