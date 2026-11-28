@@ -18,6 +18,7 @@ interface DrawnNumbers {
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
   readonly labels?: string | undefined;
   readonly directions: ReadonlyMap<number, unknown>;
+  readonly continuing: ReadonlySet<number>;
 }
 
 /** A document, and the transaction that made it from the one drawn before, if any. */
@@ -61,25 +62,28 @@ function sameAt<T>(
   return true;
 }
 
-// Whether the blocks of a document show the numbers and directions they did in the builder's: by
-// position, so a heading whose number another heading took is drawn again, though the numbers in
-// order are the same (DOCE-PAGINATION-11.2).
+// Whether the blocks of a document show the numbers and directions they did in the builder's, and
+// the same parts run on into a next part: by position, so a heading whose number another heading
+// took is drawn again, though the numbers in order are the same, and a part whose next part now
+// starts at a hard break draws its last line as the block's own (DOCE-PAGINATION-11.2).
 export function sameNumbers(
   previous: DrawnNumbers,
   next: {
     numbers: ReadonlyMap<number, string>;
     skipped: ReadonlySet<number>;
     directions: ReadonlyMap<number, unknown>;
+    continuing: ReadonlySet<number>;
   },
   { doc, tr }: Drawing,
 ): boolean {
   const mapped = previous.doc === doc ? null : tr?.before === previous.doc ? tr.mapping : undefined;
   if (mapped === undefined) return false;
   const map = (pos: number) => (mapped ? mapped.map(pos) : pos);
-  const skipped = (set: ReadonlySet<number>) => new Map([...set].map((pos) => [pos, true]));
+  const marked = (set: ReadonlySet<number>) => new Map([...set].map((pos) => [pos, true]));
   return (
     sameAt(previous.numbers, next.numbers, map) &&
-    sameAt(skipped(previous.skipped), skipped(next.skipped), map) &&
-    sameAt(previous.directions, next.directions, map)
+    sameAt(marked(previous.skipped), marked(next.skipped), map) &&
+    sameAt(previous.directions, next.directions, map) &&
+    sameAt(marked(previous.continuing), marked(next.continuing), map)
   );
 }

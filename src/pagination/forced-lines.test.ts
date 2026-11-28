@@ -706,6 +706,29 @@ describe('forcedLines', () => {
     expect(classes).toEqual([]);
   });
 
+  it('DOCE-PAGINATION-11.2 draws a kept page again when the part after it starts or stops at a hard break', () => {
+    const head = paragraph('aaaa bbbb cccc dd', { dataId: 'p1', splitPartIndex: 0 });
+    const tail = paragraph('ee ff', { dataId: 'p1', splitPartIndex: 1 });
+    const doc = pagesDoc([[head], [tail]]);
+    const state = stateWith(doc, stubEngine({ justify: true }).engine);
+    const at = positionOf(doc, head.textContent);
+    const lastLine = (on: EditorState) =>
+      drawn(on)
+        .filter((each) => Number(each.from) > at + 10 && Number(each.to) <= at + head.nodeSize)
+        .map((each) => each.class);
+    const breakNode = documentSchema.nodes.hard_break?.create();
+    if (!breakNode) throw new Error('hard_break');
+    const tailAt = positionOf(doc, 'ee ff');
+    expect(lastLine(state)).toEqual(['de-forced-lines__justified', 'de-forced-lines__end']);
+    // A break typed at the top of the next part ends the paragraph's run there: the head's last
+    // line is the block's own last line again, though the head's page is the same node.
+    const broken = state.apply(state.tr.insert(tailAt + 1, breakNode));
+    expect(lastLine(broken)).toEqual([]);
+    // And taken out again, it wraps on into the next part.
+    const joined = broken.apply(broken.tr.delete(tailAt + 1, tailAt + 2));
+    expect(lastLine(joined)).toEqual(['de-forced-lines__justified', 'de-forced-lines__end']);
+  });
+
   it("DOCE-PAGINATION-11.2 gives a heading's first part the engine's number and leaves numbered paragraphs alone", () => {
     const heading = create('heading', { level: 1, dataId: 'h1' }, [documentSchema.text('Scope')]);
     const rest = create('heading', { level: 1, dataId: 'h1', splitPartIndex: 1 }, [

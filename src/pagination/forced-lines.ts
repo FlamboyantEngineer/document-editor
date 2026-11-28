@@ -221,6 +221,7 @@ function decorate(
   const numbering = numberingFor(engine, state, previous);
   const numbers = numbering.headings;
   const directions = continuedDirections(doc);
+  const continuing = continuingParts(doc);
   const footnotes = numbersOf(engine);
   const values: unknown = doc.attrs.values;
   const same =
@@ -229,7 +230,11 @@ function decorate(
     previous.footnotes === footnotes &&
     previous.values === values &&
     previous.labels === numbering.labelsKey &&
-    sameNumbers(previous, { numbers, skipped: numbering.paragraphs, directions }, state);
+    sameNumbers(
+      previous,
+      { numbers, skipped: numbering.paragraphs, directions, continuing },
+      state,
+    );
   const builder: ContentBuilder = {
     engine,
     numbers,
@@ -241,7 +246,7 @@ function decorate(
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
     directions,
-    continuing: continuingParts(doc),
+    continuing,
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
     nested: same && previous.inserted === state.inserted ? previous.nested : new WeakMap(),
