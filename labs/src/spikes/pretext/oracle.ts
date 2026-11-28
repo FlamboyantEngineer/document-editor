@@ -1,6 +1,5 @@
 // The verification path alone draws and measures an entire unpaginated HTML column.
 import type { Node } from 'prosemirror-model';
-import { layoutMargin } from '../../../../src/pagination/measure-scale.js';
 import { requireValue } from './fixtures.js';
 import { pageContent, renderBlock } from './html.js';
 import { browserLines } from './natural-lines.js';
@@ -101,6 +100,13 @@ function measure(
     ...actual,
     children: nested,
   };
+}
+
+// A margin as Chromium lays it out: a computed style gives the length it resolves (`0.667em` at
+// 14px is 9.333px), and layout keeps it as whole layout units of 1/64 px, dropping what is left
+// over (9.328125px), as the layout engine keeps its margins (DOCE-PAGINATION-9.2).
+function layoutMargin(length: number): number {
+  return Math.trunc(length * 64 + Math.sign(length) * 1e-6) / 64;
 }
 
 // Whether the page's text or an atom reaches past its content's right edge. White space that hangs

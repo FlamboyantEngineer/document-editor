@@ -155,6 +155,64 @@ describe('headers and footers showing page numbers', () => {
     }
   });
 
+  it('DOCE-PAGINATION-11.10 counts a sheet with no body blocks when measuring every header', () => {
+    const template = templateWith({
+      header: [line(variable('page.current'), text(' of '), variable('page.total'))],
+    });
+    const { doc } = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [{ content: [line(text('Removed'))] }, { content: [line(text('Body'))] }],
+      },
+      documentSchema,
+    );
+    const emptied = new Transform(doc);
+    doc.descendants((node, pos) => {
+      if (node.type.name !== 'paragraph' || node.textContent !== 'Removed') return true;
+      emptied.delete(pos, pos + node.nodeSize);
+      return false;
+    });
+    const state = EditorState.create({
+      doc: setPageRegions(emptied, template).doc,
+      plugins: [createPageVariables()],
+    });
+    const real = createPagesTextEngine({ template });
+    const engine: PagesTextEngine = {
+      ...real,
+      measureRegion: (node, scope, texts) =>
+        node.type.name === 'page_header'
+          ? {
+              height: 10 * Number(texts?.get('page.current')) + Number(texts?.get('page.total')),
+              gap: 0,
+              children: [],
+            }
+          : real.measureRegion(node, scope, texts),
+    };
+    const memory = createLayoutMemory();
+    const headers: number[] = [];
+    const sections: SectionReport[] = [];
+    const layout = () =>
+      layoutDocument(state, {
+        pageHeight: 100,
+        engine,
+        memory,
+        onPage: (page) => headers.push(page.header),
+        onSection: (section) => sections.push(section),
+      });
+
+    expect(
+      layout().map((pages) => pages.map((page) => page.map((node) => node.textContent))),
+    ).toEqual([[[]], [['Body']]]);
+    expect(headers).toEqual([12, 22]);
+    layout();
+    expect(headers).toEqual([12, 22, 12, 22]);
+    expect(sections.slice(2).map(({ pages, pagesLaidOut }) => [pages, pagesLaidOut])).toEqual([
+      [1, 0],
+      [1, 0],
+    ]);
+    real.destroy();
+  });
+
   it('DOCE-PAGINATION-11.10 gives each page the footer room its own number takes, 99 to 100', () => {
     const template = templateWith({ footer: [line(report(91), variable('page.current'))] });
     const pages = layOut(template, 102, LINE + 36);
@@ -207,6 +265,87 @@ describe('headers and footers showing page numbers', () => {
     // Every page takes the taller room, so the count drawn, whichever it is, fits its footer.
     for (const page of pages) expect(page.footer).toBe(2 * LINE);
     expect(pages.length).toBe(10);
+  });
+
+  it('DOCE-PAGINATION-11.10 says why when the page count still moves after its last pass', () => {
+    // A footer taller the more pages there are: each count lays out more pages than the one before.
+    const regionRoom: RegionRoomBy = (texts) => {
+      const total = Number(texts?.get('page.total') ?? 0);
+      return { height: Math.min(total * 6, 200), gap: 0, children: [] };
+    };
+    const template = templateWith({ footer: [line(variable('page.total'))] });
+    const reasons: string[] = [];
+    layOut(template, 76, 280, { regionRoom, onUnsettled: (reason) => reasons.push(reason) });
+    expect(reasons).toEqual([
+      'the page count moved after 3 passes',
+      'the page count moved after 3 passes',
+    ]);
+  });
+});
+
+describe('region rooms across passes', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-11.10 lays a "page X of Y" footer out once for each page and count', () => {
+    const template = templateWith({
+      footer: [line(text('Page '), variable('page.current'), text(' of '), variable('page.total'))],
+    });
+    let calls = 0;
+    const pages = layOut(template, 30 * 4, 4 * LINE + 36, {
+      regionRoom: () => {
+        calls += 1;
+        return { height: LINE, gap: 0, children: [] };
+      },
+    });
+    expect(pages.length).toBe(40);
+    // Two layouts of 40 pages, each footer laid out once for each page and page count a layout
+    // tries, however often its passes read it: 246 times when every read laid it out again.
+    expect(calls).toBe(166);
+  });
+});
+
+describe('blocks the engine cannot lay out', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-11.1 lays out again only the page an edit reaches, between two blocks the engine refuses', () => {
+    // A host draws quotes with a node view of its own and no rule sizes them: the engine refuses
+    // them, and they take no room.
+    const quote: StoredNode = { type: 'blockquote', content: [line(text('Quoted'))] };
+    const lines = Array.from({ length: 60 }, (_, index) => line(text(`Line ${String(index)}`)));
+    const content = [quote, ...lines, quote];
+    const { doc } = readDocumentFile({ formatVersion: 1, sections: [{ content }] }, documentSchema);
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE, hostViews: ['blockquote'] });
+    const memory = createLayoutMemory();
+    const layout = (state: EditorState) => {
+      const sections: SectionReport[] = [];
+      layoutDocument(state, {
+        pageHeight: 4 * LINE,
+        engine,
+        memory,
+        onSection: (section) => sections.push(section),
+      });
+      return sections[0];
+    };
+    const state = EditorState.create({ doc });
+    const first = layout(state);
+    expect(first?.pages).toBeGreaterThan(10);
+    const before = engine.stats().refused;
+    expect(before).toBe(2);
+    // Typing on a page near the end: the refused quotes are the blocks they were.
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Line 50') at = pos + node.nodeSize;
+      return at < 0;
+    });
+    const edited = layout(state.apply(state.tr.insertText(', typed', at)));
+    expect(edited?.pages).toBe(first?.pages);
+    expect(edited?.pagesLaidOut).toBeLessThanOrEqual(2);
+    expect(engine.stats().refused).toBe(before);
+    engine.destroy();
   });
 });
 

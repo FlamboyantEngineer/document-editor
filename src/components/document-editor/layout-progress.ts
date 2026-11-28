@@ -20,8 +20,8 @@ export interface LayoutProgress {
   textLines(): PageTextLines[];
   /** The pages' layout as data (`textLayout: 'pretext'`); null else. */
   pagesLayout(): PagesLayout | null;
-  /** Runs `take` with the pages laid out in a markup for that moment (`useLayoutMarkup`). */
-  inMarkup<T>(markup: SuggestionMarkup, take: () => T): T;
+  /** Runs `take` and tells it whether the pages could be laid out in the requested markup. */
+  inMarkup<T>(markup: SuggestionMarkup, take: (available: boolean) => T): T;
   /** The served faces the pages are measured and drawn with (`textLayout: 'pretext'`); null else. */
   servedFonts(): FontFiles | null;
   /**

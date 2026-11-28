@@ -85,6 +85,11 @@ export interface DocumentEditorDebug extends PageDebugParts {
   readonly source?: boolean | undefined;
   /** Receives the layout's trace, a line for each layout, mirror and scheduling event. */
   readonly trace?: ((entry: LayoutTrace) => void) | undefined;
+  /**
+   * Counts the pages drawn taller than they are after each layout (`overflowPages` in the layout
+   * stats), reading each drawn page's box; the count stays 0 without it.
+   */
+  readonly overflow?: boolean | undefined;
 }
 import type { DocumentComparison, DocumentLayout } from './use-document-layout.js';
 

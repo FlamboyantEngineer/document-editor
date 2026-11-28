@@ -64,7 +64,7 @@ describe('typography', () => {
     expect(at('8pt', 1.5)).toBe(16);
   });
 
-  it('DOCE-PAGINATION-9.2 truncates a margin to the layout unit, as Chromium draws it', () => {
+  it('DOCE-PAGINATION-9.2 DOCE-PAGINATION-2.2 truncates a margin to the layout unit, as Chromium draws it', () => {
     const margins = (spaceBefore: string, spaceAfter: string) =>
       blockTypography(first('<p>a</p>', 'paragraph'), {
         template: { ...BASE_TEMPLATE, styles: { paragraph: { spaceBefore, spaceAfter } } },

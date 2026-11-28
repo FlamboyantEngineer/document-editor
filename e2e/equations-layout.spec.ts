@@ -28,8 +28,7 @@ const documentOf = (...content: Stored[]): DocumentFile =>
 const TALL = `\\begin{matrix}${Array.from({ length: 13 }, (_, row) => String(row + 1)).join('\\\\')}\\end{matrix}`;
 
 // The editor's pages, the read-only viewer's and a print's.
-const EDITOR =
-  ':not(.de-document-viewer) > .de-document-editor__content:not(.de-document-editor__measure *)';
+const EDITOR = ':not(.de-document-viewer) > .de-document-editor__content';
 const VIEWER = '.de-document-viewer';
 const PRINTED = 'body';
 const MATH = `${EDITOR} .de-math`;

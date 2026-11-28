@@ -19,14 +19,25 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { insertedKey } from '../layout-engine/inserted-text.js';
+import { hasContents } from '../engine/contents-presence.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
 import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
 import { numberingFor, sameNumbers } from './forced-numbering.js';
-import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
+import {
+  blockAttrs,
+  blockSet,
+  type Builder,
+  containerSet,
+  type ContentsInput,
+  findKeptPage,
+  type KeptPage,
+  makeSet,
+  topLevelBlockKey,
+} from './forced-sets.js';
 import { type InsertedTexts, insertedTexts, NO_INSERTED, sameInserted } from './inserted-texts.js';
+import { isPaginationTransaction } from './layout-marks.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
@@ -47,41 +58,37 @@ export interface ForcedLinesState {
 /** The forced lines' plugin key. */
 export const forcedLinesKey = new PluginKey<ForcedLinesState>('forced-lines');
 
-interface Scope {
-  readonly name: string | null;
-}
-
-// What a top-level block's kept set is drawn with besides its node: its number, whether a later
-// part continues it, and the words inserted in it.
-function blockKey(
-  builder: Builder,
-  { node, pos, prefix }: { node: ProseMirrorNode; pos: number; prefix: string | undefined },
-): string {
-  const continued = builder.continuing.has(pos) ? 'c' : '';
-  return `${prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
+interface BlockPlace {
+  readonly pos: number;
+  readonly scope: string | null;
 }
 
 // A page's content: each forced block marked, with its lines inside it.
-function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: number } & Scope) {
+function contentSet(
+  builder: Builder,
+  content: ProseMirrorNode,
+  at: BlockPlace & { lists: ContentsInput[] },
+) {
   const locals: Decoration[] = [];
   const children: (number | DecorationSet)[] = [];
   content.forEach((child, offset) => {
     const pos = at.pos + 1 + offset;
     const end = offset + child.nodeSize;
-    const kept = builder.nested.get(child)?.set;
-    if (kept) {
-      if (kept !== DecorationSet.empty) children.push(offset, end, kept);
+    const kept = builder.nested.get(child);
+    if (kept?.scope === at.scope) {
+      if (kept.set !== DecorationSet.empty) children.push(offset, end, kept.set);
       return;
     }
     // A list of contents is drawn by its node view, on the rows the engine laid out.
     if (child.type.name === 'toc_block') {
-      const drawn = builder.engine.contentsDrawn(child, at.name);
+      at.lists.push({ node: child, key: builder.engine.contentsKeyOf?.(child) });
+      const drawn = builder.engine.contentsDrawn(child, at.scope);
       if (drawn) locals.push(Decoration.node(offset, end, {}, { contentsDrawn: drawn }));
       return;
     }
     const place = {
       pos,
-      scope: at.name,
+      scope: at.scope,
       headings: builder.numbers,
       numbered: builder.skipped,
       inserted: builder.inserted,
@@ -94,7 +101,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       const lines = new Map(
         forced.flatMap(({ node, owner, table }) => (table ? [[owner ?? node, table]] : [])),
       );
-      const { set } = containerSet(builder, child, { lines, pos });
+      const { set } = containerSet(builder, child, { lines, pos, scope: at.scope });
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;
     }
@@ -107,45 +114,42 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       return;
     }
     locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
-    const key = blockKey(builder, { node: child, pos, prefix: first.prefix });
+    const key = topLevelBlockKey(builder, child, { pos, scope: at.scope, prefix: first.prefix });
     const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
     if (set !== DecorationSet.empty) children.push(offset, end, set);
   });
   return locals.length || children.length ? new makeSet(locals, children) : DecorationSet.empty;
 }
 
-// A page's set, kept by node: its page content holds the forced blocks.
-function pageSet(
-  builder: Builder,
-  page: ProseMirrorNode,
-  at: { pos: number } & Scope,
-): DecorationSet {
-  const kept = builder.containers.get(page);
+// A page's set, kept while its scope and the measured inputs of its lists are the same.
+function pageSet(builder: ContentBuilder, page: ProseMirrorNode, at: BlockPlace): DecorationSet {
+  const kept = findKeptPage(builder.pages.get(page), at.scope, builder.engine);
   if (kept) return kept;
   const children: (number | DecorationSet)[] = [];
+  const lists: ContentsInput[] = [];
   page.forEach((child, offset) => {
     if (child.type.name !== 'page_content') return;
-    const set = contentSet(builder, child, { pos: at.pos + 1 + offset, name: at.name });
+    const set = contentSet(builder, child, { pos: at.pos + 1 + offset, scope: at.scope, lists });
     if (set !== DecorationSet.empty) children.push(offset, offset + child.nodeSize, set);
   });
   const set = children.length ? new makeSet([], children) : DecorationSet.empty;
-  builder.containers.set(page, set);
+  builder.pages.set(page, { scope: at.scope, lists, set });
   return set;
 }
 
 // The document's set: the kept sets of the pages drawn, in their sections (DOCE-PAGINATION-11.6).
-function documentSet(builder: Builder, doc: ProseMirrorNode, drawn: Drawn): DecorationSet {
+function documentSet(builder: ContentBuilder, doc: ProseMirrorNode, drawn: Drawn): DecorationSet {
   let index = 0;
   const sections: (number | DecorationSet)[] = [];
   doc.forEach((section, sectionOffset) => {
     const pages: (number | DecorationSet)[] = [];
-    const name = sectionScope(section);
+    const scope = sectionScope(section);
     section.forEach((page, offset) => {
       if (page.type.name !== 'page') return;
       const shown = drawn.drawn === null || drawn.drawn.has(index) || drawn.caret === index;
       index += 1;
       if (!shown) return;
-      const set = pageSet(builder, page, { pos: sectionOffset + 1 + offset, name });
+      const set = pageSet(builder, page, { pos: sectionOffset + 1 + offset, scope });
       if (set !== DecorationSet.empty) pages.push(offset, offset + page.nodeSize, set);
     });
     if (pages.length)
@@ -201,6 +205,7 @@ type ContentBuilder = Builder & {
   readonly doc: ProseMirrorNode;
   readonly footnotes: number;
   readonly values: unknown;
+  readonly pages: WeakMap<ProseMirrorNode, KeptPage>;
 };
 
 // The decorations of a document, with the builder's kept sets when the engine and the numbers are
@@ -248,7 +253,7 @@ function decorate(
     directions,
     continuing,
     blocks: same ? previous.blocks : new WeakMap(),
-    containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
+    pages: same && previous.inserted === state.inserted ? previous.pages : new WeakMap(),
     nested: same && previous.inserted === state.inserted ? previous.nested : new WeakMap(),
     inserted: state.inserted,
   };
@@ -274,7 +279,7 @@ const isDrawAll = (meta: unknown): meta is DrawAllPages =>
 
 /**
  * The plugin that draws the forced lines on the pages. It lays out only what changed: a block keeps
- * its decorations while its node and number do.
+ * its decorations while its node and drawing inputs stay the same.
  */
 export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState> {
   let builder: ContentBuilder | null = null;
@@ -335,7 +340,8 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
         const redrawn = meta !== undefined;
         if (isDrawAll(meta)) all = meta.drawAll;
         const moved = tr.selectionSet && pageAt(tr.doc, tr.selection.head) !== value.caret;
-        return tr.docChanged || fresh || redrawn || moved ? build(tr, tr) : value;
+        const contents = isPaginationTransaction(tr) && hasContents(tr.doc);
+        return tr.docChanged || fresh || redrawn || moved || contents ? build(tr, tr) : value;
       },
     },
     props: {

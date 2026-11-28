@@ -175,6 +175,30 @@ test.describe('the read-only viewer', () => {
     expect(drawn).toBeLessThanOrEqual(4);
   });
 
+  test('DOCE-PAGINATION-13.6 uses its scroll frame’s height to draw nearby sheets and follows a resize', async ({
+    page,
+  }) => {
+    await open(page, 'long-ordered-list');
+    await page.addStyleTag({
+      content:
+        '.lab-fill .lab-document-viewer { flex: none; width: 1600px; height: 160px; overflow: auto; }',
+    });
+    await showViewer(page, 0);
+    const first = page.locator(SHEETS).first();
+    const next = page.locator(SHEETS).nth(1);
+    await expect(first).toHaveAttribute('data-drawn', 'true');
+    await expect(next).not.toHaveAttribute('data-drawn');
+    const beyondFrame = await next.evaluate((sheet) => {
+      const frame = sheet.closest<HTMLElement>('.lab-document-viewer');
+      if (!frame) throw new Error('Missing viewer frame');
+      const offset = sheet.getBoundingClientRect().top - frame.getBoundingClientRect().top;
+      frame.style.height = `${String(Math.ceil((offset * 2) / 3))}px`;
+      return sheet.getBoundingClientRect().top > frame.getBoundingClientRect().bottom;
+    });
+    expect(beyondFrame).toBe(true);
+    await expect(next).toHaveAttribute('data-drawn', 'true');
+  });
+
   test('DOCE-PAGINATION-13.13 draws every page while the host page prints, and only the near ones after', async ({
     page,
   }) => {

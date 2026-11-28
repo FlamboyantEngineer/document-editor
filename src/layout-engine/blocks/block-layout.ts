@@ -1,6 +1,6 @@
 // Block geometry: each block's height, margins and the measurement its split reads, computed from
 // the text layout engine's lines, the atom cache and the template's numbers, with no DOM. The
-// result has the shape the DOM measuring gives the page layout (`LayoutBlock`), so the page
+// result has the shape the page layout reads (`LayoutBlock`), so the page
 // packer and the splitters read it unchanged (DOCE-PAGINATION-10.3).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';

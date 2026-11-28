@@ -29,6 +29,8 @@ interface LayoutSource {
   readonly memory?: LayoutMemory | undefined;
   /** Told of each section laid out, by how many of its blocks the engine laid out again. */
   readonly onSection?: ((section: SectionReport) => void) | undefined;
+  /** Told when the layout stops with page numbers that still move (`onUnsettled`). */
+  readonly onUnsettled?: ((reason: string) => void) | undefined;
 }
 
 /** How the pages are laid out. */
@@ -47,21 +49,28 @@ interface ProjectionLayout {
   readonly map: ProjectionMap;
   /** How each page was laid out, in order. */
   readonly metrics: readonly PageMetric[];
+  /** The height the engine gave each top-level block, whole, by section. */
+  readonly heights: readonly (readonly number[])[];
 }
 
 /** The projection transaction onto the canonical document's pages, and the map after it. */
 export function layOutProjection(
-  { projection, source, canonical, memory, onSection }: LayoutSource,
+  { projection, source, canonical, memory, onSection, onUnsettled }: LayoutSource,
   options: ProjectionLayoutOptions,
 ): ProjectionLayout {
   const metrics: PageMetric[] = [];
+  const heights: (readonly number[])[] = [];
   const sections = layoutDocument(source, {
     pageHeight: options.pageHeight,
     rules: options.rules,
     footnoteNumbering: options.footnoteNumbering,
     memory,
     onPage: (page) => metrics.push(page),
-    onSection,
+    onSection: (section) => {
+      heights.push(section.heights);
+      onSection?.(section);
+    },
+    onUnsettled,
     engine: options.engine,
   });
   const target = projectDocument(source.doc, sections, options);
@@ -71,5 +80,5 @@ export function layOutProjection(
   tr.setSelection(
     projectionSelection(map, canonical.selection, nearAfter(projection.selection, tr)),
   );
-  return { tr, map, metrics };
+  return { tr, map, metrics, heights };
 }
