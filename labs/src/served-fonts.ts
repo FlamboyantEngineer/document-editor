@@ -54,6 +54,8 @@ function bytesOf(file: string): Promise<ArrayBuffer> {
       if (!response.ok) throw new Error(`Cannot load ${file}`);
       return response.arrayBuffer();
     });
+    // A file that failed is fetched again when next asked for, as a host would.
+    bytes.catch(() => kept.delete(file));
     kept.set(file, bytes);
   }
   return bytes;
