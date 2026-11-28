@@ -11,10 +11,10 @@ import type {
   TextSettings,
 } from '../model/format/template-format.js';
 import { resolveFontStack } from '../model/templates/template-css-values.js';
-import { templateScopeStyles } from '../model/templates/template-properties.js';
 import { resolveFootnoteSettings } from '../model/templates/template-scopes.js';
 import { findTemplateSection } from '../model/templates/template-sections.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
+import { scopeStyles } from './scope-styles.js';
 import { resolveLength, resolveSize } from './template-lengths.js';
 
 /** A font as the engine measures it, sizes in CSS pixels. */
@@ -181,9 +181,6 @@ function paragraphTypography(
 }
 
 /** The styles of a template scope: a section's over the template's, or the template's. */
-function scopeStyles(template: TemplateFile, scope: string | null | undefined) {
-  return templateScopeStyles(template, scope ? findTemplateSection(template, scope) : null);
-}
 
 // The paragraph font every other style falls back to, and the code font inline code takes.
 function scopeFonts(styles: TemplateStyles, fontStacks: FontStacks | undefined): ScopeFonts {
