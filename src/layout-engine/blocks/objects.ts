@@ -149,12 +149,21 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
   if (!size?.math) return notLaid(node, 'math without a layout');
   const end = endRoom(context, node, size.math);
   const fitted = placeMath(size.math, context.place.width, end.room);
-  const placed = end.tag ? { ...fitted, tagEnd: end.tag } : fitted;
-  context.options.onMath?.(node, placed);
-  const { ascent, descent } = placed.box;
+  const { ascent, descent } = fitted.box;
   const tag = size.math.tag;
   // The tag sits on the equation's baseline, unscaled.
-  const height = Math.max(ascent, tag?.ascent ?? 0) + Math.max(descent, tag?.descent ?? 0);
+  const own = Math.max(ascent, tag?.ascent ?? 0) + Math.max(descent, tag?.descent ?? 0);
+  // The automatic number's line, an em of the scope's text, is centred on the block, which is at
+  // least as tall, with the equation centred in it (DOCE-PAGINATION-12.14).
+  const numberLine = end.numbered ? context.metrics.em : 0;
+  const numberLift = Math.max(0, (numberLine - own) / 2);
+  const placed = {
+    ...fitted,
+    ...(end.tag ? { tagEnd: end.tag } : {}),
+    ...(numberLine ? { numberLine, numberLift } : {}),
+  };
+  context.options.onMath?.(node, placed);
+  const height = own + 2 * numberLift;
   const flush = context.parent === 'region';
   return laid({
     node,
@@ -167,19 +176,19 @@ export function layDisplayMath(context: BlockContext, node: ProseMirrorNode): La
 // The room a display equation's line keeps at its end: its tag, then its automatic number, side
 // by side with an em between them, and an em before the equation, the em the scope's text size, not a
 // glyph's width; and how far the tag sits from the line's end, past the number and its em. Both 0
-// without a tag or number.
+// without a tag or number; and whether it has a number.
 function endRoom(
   { options, place, metrics }: BlockContext,
   node: ProseMirrorNode,
   math: MathLayouts,
-): { room: number; tag: number } {
+): { room: number; tag: number; numbered: boolean } {
   const width = (text: string) => options.text.textWidth?.(text, node, place.scope) ?? 0;
   const number = options.equationOf?.(node);
   const { em } = metrics;
   const numbered = number ? width(number) : 0;
   const tag = math.tag && numbered ? numbered + em : 0;
   const end = tag + (math.tag?.width ?? 0) || numbered;
-  return { room: end ? end + em : 0, tag };
+  return { room: end ? end + em : 0, tag, numbered: numbered > 0 };
 }
 
 /** A horizontal rule: its borders, with the stylesheet's margins. */

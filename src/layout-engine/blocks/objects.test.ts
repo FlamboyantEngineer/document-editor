@@ -226,6 +226,34 @@ describe('equations, rules and markup', () => {
     );
   });
 
+  it('DOCE-PAGINATION-12.14 makes a numbered equation shorter than its number’s line as tall as that line, the equation centred in it', () => {
+    const svg = { tag: 'svg', attrs: {}, children: [] };
+    const math = { math: { width: 40, ascent: 4, descent: 2, svg, missing: '' } };
+    const placed = vi.fn();
+    const equation = node('math_display', null, [schema.text('x')]);
+    const numbered = (of: Node) => (of === equation ? '(4)' : undefined);
+    const { layout } = standInBlockLayout({
+      measure: () => ({ width: 40, height: 6, math }),
+      onMath: placed,
+      equationOf: numbered,
+    });
+    // The number's line is an em of the 12px text: 3px above the equation and 3px below it.
+    expect(blockOf(layout.layoutBlock(equation, place))).toMatchObject({ height: 12 });
+    expect(placed).toHaveBeenCalledWith(
+      equation,
+      expect.objectContaining({ numberLine: 12, numberLift: 3 }),
+    );
+    // A taller equation keeps its own height, and one with no number takes no line for it.
+    const tall = { math: { width: 40, ascent: 20, descent: 8, svg, missing: '' } };
+    const taller = standInBlockLayout({
+      measure: () => ({ width: 40, height: 28, math: tall }),
+      equationOf: numbered,
+    }).layout;
+    expect(blockOf(taller.layoutBlock(equation, place))).toMatchObject({ height: 28 });
+    const plain = standInBlockLayout({ measure: () => ({ width: 40, height: 6, math }) }).layout;
+    expect(blockOf(plain.layoutBlock(equation, place))).toMatchObject({ height: 6 });
+  });
+
   it('DOCE-PAGINATION-10.4 gives a rule its border, half its text size (12px) above and below, and a page break no height', () => {
     const { layout } = standInBlockLayout();
     expect(blockOf(layout.layoutBlock(node('horizontal_rule', null), place))).toMatchObject({

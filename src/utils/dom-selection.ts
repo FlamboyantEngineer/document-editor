@@ -113,6 +113,15 @@ function unreadSelection(view: EditorView): { anchor: DomPoint; focus: DomPoint 
 }
 
 /**
+ * Has the browser show the view's selection in place of one it put there and the view has not read
+ * yet, such as the caret a secondary press puts down: read later, that caret would move the
+ * selection off one a handler of the press set, or kept, before anything acts on it.
+ */
+export function showViewSelection(view: EditorView): void {
+  if (unreadSelection(view)) view.focus();
+}
+
+/**
  * Draws a state the writer did not make, such as new pages, keeping a selection the browser shows
  * and the view has not read yet, as a click's caret between the press and its report
  * (DOCE-PAGINATION-7.24). Drawing the state puts the view's selection on the page; the browser's

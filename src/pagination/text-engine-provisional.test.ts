@@ -78,8 +78,11 @@ describe('math measured before its typeset answer', () => {
     expect(after.height).toBeLessThan(before.height);
     // Kept once laid from its layout.
     expect(engine.measureBlock(block, null)).toBe(after);
-    // A fresh node with the same source takes the real size too, never the reserved box.
-    const [again] = blocksOf(read([displayEquation('x^2')]));
+    // A fresh node with the same source, numbered as the first, takes the real size too, never
+    // the reserved box.
+    const fresh = read([displayEquation('x^2')]);
+    engine.number(fresh);
+    const [again] = blocksOf(fresh);
     if (!again) throw new Error('no block');
     expect(engine.measureBlock(again, null).height).toBe(after.height);
     engine.destroy();

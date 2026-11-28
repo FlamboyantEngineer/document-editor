@@ -22,7 +22,7 @@ Verification: `src/model/pagination/fragments.test.ts`, `src/model/pagination/pa
 
 ### DOCE-PAGINATION-1.3 - Code
 
-A code block or linked code split at a line break shall join with that line break put back, and shall lose its continued marker and its fragment's first line number.
+A code block or linked code split at a line break shall join with that line break put back, and one split inside a line (DOCE-PAGINATION-3.3) with nothing put back; it shall lose its continued markers and its fragment's first line number.
 
 Implementation: `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -135,14 +135,16 @@ A measured code block shall split at the last line break whose lines fit with th
 
 Successive fragments reuse the source line break offsets and measure the same whole block at those offsets.
 
-Implementation: `src/model/pagination/text-split.ts`
-Verification: `src/model/pagination/text-split.test.ts`, `e2e/code-split-captions.spec.ts`
+On a page that holds nothing yet, code whose first line does not fit even there (one line longer than a page, as minified code or a long value) shall split instead at the start of the last of its wrapped lines that fits, keeping at least one line in each fragment and dropping nothing: the second fragment is also marked as going on with the line the first ends (`codeLineContinued`, `data-code-line-continued`), numbers its lines from that line's number and leaves its first gutter row blank, as a wrapped line's later rows are. On a page that holds blocks already, such code moves on to the next page.
+
+Implementation: `src/model/pagination/code-split.ts`, `src/model/pagination/fragments.ts`, `src/model/schema/code-nodes.ts`, `src/engine/code-drawing.ts`, `src/engine/code-gutter.ts`, `src/document/print-code.ts`
+Verification: `src/model/pagination/text-split.test.ts`, `src/model/pagination/fragments.test.ts`, `src/engine/code-drawing.test.ts`, `src/pagination/layout-document.test.ts`, `e2e/code-split-captions.spec.ts`
 
 ### DOCE-PAGINATION-3.4 - Linked code
 
 Linked code shall split the same way by its code, its second fragment numbered on from its start line. Its box shall take the code's margins and its code none, so the margins are measured, packed and dropped at a page's edges as a code block's are.
 
-Implementation: `src/model/pagination/text-split.ts`
+Implementation: `src/model/pagination/code-split.ts`
 Verification: `src/model/pagination/text-split.test.ts`
 
 ### DOCE-PAGINATION-3.5 - Laid out and joined back
@@ -154,7 +156,7 @@ Verification: `src/model/pagination/text-split.test.ts`
 
 ### DOCE-PAGINATION-3.6 - Splitting after a hard break
 
-A paragraph split at a line that a hard break ended shall move that break to the second fragment's start, so the first fragment ends on its last line's text and draws no line after it. The paged view shall mark such a break, the first node of a later fragment, with `de-split-break`, and the reference stylesheet hide it; the layout engine shall start no line with it, and a later split of that fragment shall count its lines from after it, so each fragment reserves the lines it draws and the fragments put together give back the paragraph. The empty line after a paragraph's last hard break belongs to its last fragment.
+A paragraph split at a line that a hard break ended shall move that break to the second fragment's start, so the first fragment ends on its last line's text and draws no line after it. The paged view shall mark such a break, the first node of a later fragment, with `de-split-break`, at the start of a page's first block and of each continued textblock inside it, as in each column of a continued layout section, and the reference stylesheet hide it; the layout engine shall start no line with it, and a later split of that fragment shall count its lines from after it, so each fragment reserves the lines it draws and the fragments put together give back the paragraph. The empty line after a paragraph's last hard break belongs to its last fragment.
 
 Implementation: `src/model/pagination/text-split.ts`, `src/pagination/split-breaks.ts`, `src/layout-engine/runs.ts`, `labs/reference/document.css`
 Verification: `src/model/pagination/text-split.test.ts`, `src/pagination/split-breaks.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/block-geometry.spec.ts`
@@ -1067,6 +1069,13 @@ The engine can be asked for a block holding math before the math views have type
 
 Implementation: `src/layout-engine/atoms.ts`, `src/layout-engine/math-atoms.ts`, `src/pagination/text-engine.ts`, `src/pagination/text-engine-atoms.ts`, `src/pagination/text-engine-holder.ts`
 Verification: `src/pagination/text-engine-provisional.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/equations-layout.spec.ts`
+
+### DOCE-PAGINATION-12.14 - A numbered equation as tall as its number
+
+A display equation's automatic number (DOCE-PAGINATION-11.9) is drawn on a line of its own centred on the equation's block, so the engine shall count that line: an em of the scope's text size (`numberLine`). A numbered equation, with its tag, shorter than the line shall be as tall as the line, the equation and its tag centred in it, sitting half the difference lower (`numberLift`); a taller one, or one with no number, keeps its own height. The pages shall draw the two as `--de-math-number-line` and `--de-math-number-lift` (`mathDrawingHooks`, DOCE-PAGINATION-12.11), and the reference stylesheet gives the number that line height and adds the lift above and below the equation, its block a formatting context of its own so the drawing’s offset stays inside it, so the number never reaches past the block the engine laid out.
+
+Implementation: `src/layout-engine/blocks/objects.ts`, `src/layout-engine/math-atoms.ts`, `src/engine/math-drawing.ts`, `labs/reference/document.css`
+Verification: `src/layout-engine/blocks/objects.test.ts`, `src/engine/math-drawing.test.ts`, `e2e/equations-layout.spec.ts`
 
 ## DOCE-PAGINATION-13 - Print and static pages on the engine's lines
 

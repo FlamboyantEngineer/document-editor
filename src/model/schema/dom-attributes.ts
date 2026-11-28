@@ -22,6 +22,8 @@ export const FORMAT_CHANGE_ATTR = 'data-format-change';
 export const PARAGRAPH_LEVEL_ATTR = 'data-paragraph-level';
 export const CODE_BLOCK_CONTINUED_ATTR = 'data-code-block-continued';
 export const CODE_LINE_START_ATTR = 'data-code-line-start';
+/** On a later part of split code whose first line goes on with the line the part before ends. */
+export const CODE_LINE_CONTINUED_ATTR = 'data-code-line-continued';
 export const CODE_CAPTION_TEXT_ATTR = 'data-code-caption-text';
 export const TABLE_CAPTION_TEXT_ATTR = 'data-caption-text';
 export const TABLE_BORDER_1PX_CLASS = 'table-border-1px';
