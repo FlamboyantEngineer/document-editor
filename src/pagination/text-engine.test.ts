@@ -560,6 +560,32 @@ describe('holdTextEngine', () => {
     holder.destroy();
   });
 
+  it('DOCE-PAGINATION-7.17 makes the engine again for a node view the host adds after mount', async () => {
+    let views: readonly string[] = [];
+    const holder = holdTextEngine({
+      setting: {
+        template: () => BASE_TEMPLATE,
+        fonts: Promise.resolve(served()),
+        hostViews: () => views,
+      },
+      changed: () => undefined,
+    });
+    await holder.loaded;
+    const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
+    if (!quote) throw new Error('no quote');
+    const first = holder.engine();
+    expect(first?.measureBlock(quote, null).height).toBeGreaterThan(0);
+    // The same names in another array keep the engine.
+    views = [];
+    expect(holder.engine()).toBe(first);
+    views = ['blockquote'];
+    const drawn = holder.engine();
+    expect(drawn).not.toBe(first);
+    expect(drawn?.measureBlock(quote, null).height).toBe(0);
+    expect(drawn?.inputs()).not.toEqual(first?.inputs());
+    holder.destroy();
+  });
+
   it('DOCE-PAGINATION-11.12 keeps the engine in another markup, its lines moved', async () => {
     let markup: 'all' | 'final' | 'original' = 'all';
     const holder = holdTextEngine({
@@ -582,8 +608,9 @@ describe('holdTextEngine', () => {
   });
 
   it('DOCE-PAGINATION-12.13 moves its version when the engine lays provisional math out again, and never back', async () => {
+    let template: TemplateFile = BASE_TEMPLATE;
     const holder = holdTextEngine({
-      setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
+      setting: { template: () => template, fonts: Promise.resolve(served()) },
       changed: () => undefined,
     });
     await holder.loaded;
@@ -595,7 +622,8 @@ describe('holdTextEngine', () => {
     atoms = 1;
     expect(holder.version()).toBe(version + 1);
     // An engine made again starts its own count; the holder's version still only moves on.
-    holder.remeasure();
+    // Another template makes the engine again.
+    template = { ...BASE_TEMPLATE, language: 'fr' };
     expect(holder.engine()).not.toBe(engine);
     expect(holder.version()).toBeGreaterThan(version + 1);
     holder.destroy();
@@ -613,8 +641,9 @@ describe('holdTextEngine', () => {
   });
 
   it('DOCE-PAGINATION-10.7 numbers an engine made again with the document the last one was numbered with', async () => {
+    let template: TemplateFile = BASE_TEMPLATE;
     const holder = holdTextEngine({
-      setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
+      setting: { template: () => template, fonts: Promise.resolve(served()) },
       changed: () => undefined,
     });
     await holder.loaded;
@@ -626,7 +655,8 @@ describe('holdTextEngine', () => {
     const drawn = () => [...(holder.engine()?.regionLines(area, null).values() ?? [])];
     holder.engine()?.number(doc);
     const numbered = drawn();
-    holder.remeasure();
+    // Another template makes the engine again.
+    template = { ...BASE_TEMPLATE, language: 'fr' };
     // Drawn before the next layout numbers it, as a region is drawn after the fonts load.
     expect(drawn()).toEqual(numbered);
     holder.destroy();

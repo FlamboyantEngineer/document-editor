@@ -186,7 +186,7 @@ function textLayoutOf(
     fonts,
     template: () => latest.current.template,
     codeLineNumbers: () => codeLineNumbers(latest.current.state) === 'all',
-    hostViews: Object.keys(latest.current.nodeViews ?? {}),
+    hostViews: () => Object.keys(latest.current.nodeViews ?? {}),
     // The library's rules, which size signatures, with the host's over them, which size its own
     // nodes (DOCE-PAGINATION-14.1, 14.3).
     layoutRules: engineRules(() => latest.current.layoutRules),

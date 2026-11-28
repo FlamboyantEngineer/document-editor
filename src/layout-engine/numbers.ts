@@ -17,6 +17,8 @@ export interface ParagraphNumber {
   readonly label: string;
   readonly level: number;
   readonly levelStyle: ParagraphLevelStyle;
+  /** A later part of a split paragraph: every line at the text position, with no number. */
+  readonly continued?: boolean | undefined;
 }
 
 /** A document's heading numbers and paragraph numbers, by the position of their block. */
@@ -53,9 +55,9 @@ const PX_PER_PT = 96 / 72;
 export function documentNumbers(doc: ProseMirrorNode, template: TemplateFile): DocumentNumbers {
   const headings = new Map(numberedHeadings(doc, template).map(({ pos, text }) => [pos, text]));
   const paragraphs = new Map(
-    numberedParagraphs(doc, template).map(({ pos, level, text, levelStyle }) => [
+    numberedParagraphs(doc, template).map(({ pos, level, text, levelStyle, continued }) => [
       pos,
-      { label: text, level, levelStyle },
+      { label: text, level, levelStyle, continued },
     ]),
   );
   return { headings, paragraphs };
@@ -65,7 +67,7 @@ export function documentNumbers(doc: ProseMirrorNode, template: TemplateFile): D
  * A numbered paragraph's line starts, as the stylesheet places them: its text at the level's text
  * position, else after the indentation, the number position and the room the label reserves (in
  * widths of the font's zero); its number at the number position, in a box at least as wide as the
- * gap to the text.
+ * gap to the text. A later part of a split paragraph starts every line at the text position.
  */
 export function placeNumber({ number, size, indentation, measure }: NumberPlacementInput) {
   const { level, label, levelStyle } = number;
@@ -75,6 +77,9 @@ export function placeNumber({ number, size, indentation, measure }: NumberPlacem
   const firstStart = textIndent === null ? indent + numberIndent : numberIndent;
   const reserved = Number.parseFloat(paragraphNumberWidth(label)) * measure('0');
   const restStart = textIndent ?? indent + numberIndent + reserved;
+  // A later part continues its first part's lines, which all start at the text position.
+  if (number.continued)
+    return { firstStart: restStart, restStart, box: 0 } satisfies NumberPlacement;
   const box = Math.max(restStart - firstStart, measure(`${label} `));
   return { firstStart, restStart, box } satisfies NumberPlacement;
 }

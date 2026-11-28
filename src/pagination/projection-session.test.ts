@@ -85,6 +85,35 @@ describe('starting the projection', () => {
     projection.destroy();
   });
 
+  it('DOCE-PAGINATION-11.1 leaves an engine holder it was handed to its caller', () => {
+    stubLayout({});
+    const destroy = vi.fn();
+    const holder = {
+      engine: () => null,
+      version: () => 0,
+      loaded: Promise.resolve(),
+      failure: () => null,
+      destroy,
+    };
+    const open = () =>
+      createPagedProjection({
+        element: document.body.appendChild(document.createElement('div')),
+        state: canonicalState(),
+        pageHeight: 1000,
+        settle: 0,
+        schedule: () => () => undefined,
+        dispatch: () => undefined,
+        onProjection: () => undefined,
+        textEngine: holder,
+      });
+    // Two projections share one holder; the first destroyed leaves it to the other.
+    const first = open();
+    const second = open();
+    first.destroy();
+    second.destroy();
+    expect(destroy).not.toHaveBeenCalled();
+  });
+
   // A projection with a layout engine setting, or none, whose frames run at once.
   const started = (textLayout?: Parameters<typeof createPagedProjection>[0]['textLayout']) =>
     createPagedProjection({

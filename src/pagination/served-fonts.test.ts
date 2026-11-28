@@ -179,6 +179,7 @@ describe('loadPagesFonts', () => {
     expect(await loadPagesFonts(undefined, ['Lab Geist'], { doc })).toEqual({
       phase: 'browser',
       reason: 'no-shaper',
+      retry: false,
     });
     const noFiles: FontsAdapter = {
       load: () => Promise.resolve(ok([])),
@@ -187,6 +188,7 @@ describe('loadPagesFonts', () => {
     expect(await loadPagesFonts(noFiles, ['Lab Geist'], { doc })).toEqual({
       phase: 'browser',
       reason: 'no-files',
+      retry: false,
     });
   });
 
@@ -204,12 +206,14 @@ describe('loadPagesFonts', () => {
     ).resolves.toEqual({
       phase: 'browser',
       reason: 'shaper-failed',
+      retry: true,
     });
     await expect(
       loadPagesFonts({ ...fonts, files: fail }, ['Lab Geist'], { doc }),
     ).resolves.toEqual({
       phase: 'browser',
       reason: 'files-failed',
+      retry: true,
     });
   });
 
@@ -321,6 +325,68 @@ describe('loadPagesFonts', () => {
     other.destroy();
   });
 
+  it('DOCE-PAGINATION-12.5 asks again by itself once a failed family is due, and says when its faces arrive', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const asked: string[][] = [];
+    let failing = 2;
+    const fonts = fontAdapter((families) => {
+      asked.push([...families]);
+      if (families.includes('Lab Geist Mono') && failing > 0) {
+        failing -= 1;
+        return Promise.reject(new Error('offline'));
+      }
+      return Promise.resolve(ok(filesOf(families)));
+    });
+    const arrived = deferred<void>();
+    const retried = vi.fn(() => arrived.resolve());
+    const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc, retried });
+    if (served.phase !== 'pretext') throw new Error('not served');
+    // The editor asks once; every later request is the served fonts' own.
+    expect(await served.add(['Lab Geist Mono'])).toBe(false);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(asked).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(asked).toHaveLength(3);
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(asked).toHaveLength(3);
+    await vi.advanceTimersByTimeAsync(1);
+    await arrived.promise;
+    expect(retried).toHaveBeenCalledTimes(1);
+    expect(served.isFontServed('Lab Geist Mono')).toBe(true);
+    expect(asked).toEqual([
+      ['Lab Geist'],
+      ['Lab Geist Mono'],
+      ['Lab Geist Mono'],
+      ['Lab Geist Mono'],
+    ]);
+    // Once served, it is never asked for again.
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(asked).toHaveLength(4);
+    served.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 counts a request the host never answers as failed, and stops asking once destroyed', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const signals: AbortSignal[] = [];
+    const fonts = fontAdapter((families, { signal }) => {
+      if (!families.includes('Lab Geist Mono')) return Promise.resolve(ok(filesOf(families)));
+      if (signal) signals.push(signal);
+      return new Promise(() => undefined);
+    });
+    const served = await loadPagesFonts(fonts, ['Lab Geist'], { doc });
+    if (served.phase !== 'pretext') throw new Error('not served');
+    const added = served.add(['Lab Geist Mono']);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await expect(added).resolves.toBe(false);
+    expect(signals.map((signal) => signal.aborted)).toEqual([true]);
+    // Asked again a second later, by itself; nothing more once the editor has gone.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(signals).toHaveLength(2);
+    served.destroy();
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(signals).toHaveLength(2);
+  });
+
   it('DOCE-PAGINATION-12.5 does not serve a family the browser refuses a face of, nor a generic for it', async () => {
     const added = new Set<unknown>();
     const browserDoc = {
@@ -412,6 +478,7 @@ describe('loadPagesFonts', () => {
     await expect(loadPagesFonts(fonts, ['Lab Geist'], { doc })).resolves.toEqual({
       phase: 'browser',
       reason: 'no-faces',
+      retry: false,
     });
     expect(faces.size).toBe(0);
   });
@@ -512,11 +579,12 @@ describe('loadPagesFonts', () => {
   it('DOCE-HOST-1.14.1 DOCE-PAGINATION-12.7 leaves failed or abandoned incremental loads unserved', async () => {
     const pending = deferred<HostResult<FontFiles>>();
     const controller = new AbortController();
+    const signals: (AbortSignal | undefined)[] = [];
     const fonts: FontsAdapter = {
       load: () => Promise.resolve(ok([])),
       shaper: () => Promise.resolve(ok(harfBuzzWasm())),
       files: (families, { signal }) => {
-        expect(signal).toBe(controller.signal);
+        signals.push(signal);
         if (families.includes('Lab Geist Mono')) return pending.promise;
         if (families.includes('Unserved')) throw new Error('Font service unavailable');
         return Promise.resolve(ok(filesOf(families)));
@@ -531,6 +599,8 @@ describe('loadPagesFonts', () => {
     pending.resolve(ok(filesOf(['Lab Geist Mono'])));
     await expect(added).resolves.toBe(false);
     expect(served.isFontServed('Lab Geist Mono')).toBe(false);
+    // The request still pending is aborted with the editor's signal.
+    expect(signals.at(-1)?.aborted).toBe(true);
     served.destroy();
   });
 });
