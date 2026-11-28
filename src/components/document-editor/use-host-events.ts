@@ -174,7 +174,8 @@ export function useElementIdRepair(
   const enabled = Boolean(repair);
   const author = typeof repair === 'object' ? (repair.author ?? null) : null;
   useEffect(() => {
-    if (!view || !enabled) return;
+    // A layout switch destroys the pages' view before this effect sees the next one.
+    if (!view || view.isDestroyed || !enabled) return;
     // One change for both repairs, since the view takes its next state from the host.
     const tokens = repairVariableTokens(view.state);
     const tr = tokens ?? view.state.tr;
