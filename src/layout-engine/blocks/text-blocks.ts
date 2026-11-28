@@ -14,9 +14,13 @@ function flushMargins(node: ProseMirrorNode, parent: BlockParent): boolean {
   return node.type.name === 'paragraph' && PARAGRAPH_FLUSH.has(parent);
 }
 
+// The blocks a table cell's alignment moves: the stylesheet draws code at its own alignment.
+const CELL_ALIGNED: ReadonlySet<string> = new Set(['paragraph', 'heading']);
+
 /** A text block's height, margins and lines at the context's width. */
 export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid {
   const { options, place, parent } = context;
+  const align = place.align ?? (CELL_ALIGNED.has(node.type.name) ? place.cellAlign : undefined);
   const scope = place.scope ?? null;
   // A caption's label, drawn before its text in the caption label font.
   const label = options.labelOf?.(node);
@@ -29,7 +33,7 @@ export function layTextBlock(context: BlockContext, node: ProseMirrorNode): Laid
     ...(footnoteNumber === undefined ? {} : { footnoteNumber }),
     ...(place.variables ? { variables: place.variables } : {}),
     ...(place.region === 'header' || place.region === 'footer' ? { inRegion: true } : {}),
-    ...(place.align ? { align: place.align } : {}),
+    ...(align ? { align } : {}),
   });
   if (!result.ok) return notLaid(node, result.reason);
   const { table } = result;
