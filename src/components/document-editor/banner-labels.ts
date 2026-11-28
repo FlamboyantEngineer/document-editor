@@ -52,6 +52,7 @@ const UNAVAILABLE: Readonly<Record<BrowserLayoutReason, string>> = {
   'no-files': 'The host serves no font files.',
   'shaper-failed': 'The text shaper did not load.',
   'files-failed': 'The font files did not load.',
+  'timed-out': 'The text shaper or the font files took too long to arrive.',
   'no-faces': 'None of the font files could be read.',
 };
 

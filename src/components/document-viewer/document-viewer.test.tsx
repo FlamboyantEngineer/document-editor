@@ -179,6 +179,79 @@ describe('DocumentViewer', () => {
     expect(observed.at(-1)?.init?.rootMargin).toBe('480px 0px');
   });
 
+  it('DOCE-PAGINATION-13.6 finds its scrolling frame again once another ancestor scrolls', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const { container } = render(
+      <div data-frame="">
+        <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />
+      </div>,
+    );
+    const frame = container.querySelector<HTMLElement>('[data-frame]');
+    if (!frame) throw new Error('no frame');
+    expect(observed.at(-1)?.init?.root).toBe(document);
+    const before = observed.length;
+    // The window scrolling, or the frame scrolling while it does not scroll by style, changes
+    // nothing.
+    act(() => {
+      document.dispatchEvent(new Event('scroll'));
+    });
+    act(() => {
+      frame.dispatchEvent(new Event('scroll'));
+    });
+    expect(observed).toHaveLength(before);
+    // The frame starts scrolling: its first scroll moves the observer onto it.
+    frame.style.overflowY = 'auto';
+    act(() => {
+      frame.dispatchEvent(new Event('scroll'));
+    });
+    expect(observed).toHaveLength(before + 1);
+    expect(observed.at(-1)?.init?.root).toBe(frame);
+    expect(observed.at(-1)?.targets).toHaveLength(10);
+    showInView([6]);
+    expect(drawn(container)).toEqual([5, 6, 7]);
+    // Its own scrolls make no new observer.
+    act(() => {
+      frame.dispatchEvent(new Event('scroll'));
+    });
+    expect(observed).toHaveLength(before + 1);
+  });
+
+  it('DOCE-PAGINATION-13.6 finds its scrolling frame again when moved into another', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const resized: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resized.push(callback);
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const { container } = render(
+      <div style={{ overflowY: 'auto' }} data-frame="one">
+        <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />
+      </div>,
+    );
+    const viewer = container.querySelector('.de-document-viewer');
+    const one = container.querySelector('[data-frame="one"]');
+    const other = document.createElement('div');
+    other.style.overflowY = 'scroll';
+    document.body.append(other);
+    expect(observed.at(-1)?.init?.root).toBe(one);
+    // The host moves the viewer: its size changes as it leaves and joins the page.
+    if (!viewer) throw new Error('no viewer');
+    other.append(viewer);
+    act(() => resized.forEach((callback) => callback([], {} as ResizeObserver)));
+    expect(observed.at(-1)?.init?.root).toBe(other);
+    showInView([0]);
+    expect(drawn(other)).toEqual([0, 1]);
+    one?.append(viewer);
+    other.remove();
+  });
+
   it('DOCE-PAGINATION-13.6 keeps its drawn pages when given options of the same fields again', () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     const layout = tenPages();
