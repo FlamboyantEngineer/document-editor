@@ -105,8 +105,9 @@ export function keptBlocks(inputs: BlockInputs) {
   let contents = new WeakMap<ProseMirrorNode, KeptContent>();
   const measure = measuring(inputs, () => kept);
   // Whether a block's key reads nothing outside its node and the numbering: no list of contents,
-  // template variable or suggestion markup, which its node alone decides.
-  const alone = new WeakMap<ProseMirrorNode, boolean>();
+  // template variable or suggestion markup, which its node alone decides under the host's rules now:
+  // a node holding a type they size reads the markup.
+  let alone = new WeakMap<ProseMirrorNode, boolean>();
   const isAlone = (node: ProseMirrorNode) => {
     let found = alone.get(node);
     if (found === undefined) {
@@ -123,6 +124,7 @@ export function keptBlocks(inputs: BlockInputs) {
     forget() {
       kept = new WeakMap();
       contents = new WeakMap();
+      alone = new WeakMap();
     },
     measure,
     /**

@@ -4,12 +4,14 @@ import { Transform } from 'prosemirror-transform';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
 import { documentSchema } from '../../test/document-markup.js';
+import type { SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import {
   BASE_TEMPLATE,
   readDocumentFile,
   setPageRegions,
   type StoredNode,
 } from '../model/index.js';
+import type { SizeInput } from '../model/pagination/page-layout.js';
 import { createLayoutMemory, layoutDocument } from './layout-document.js';
 import { createPagesTextEngine } from './text-engine.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -144,6 +146,27 @@ describe('the blocks of a section kept by its content', () => {
     layoutDocument(state, { pageHeight: 900, engine });
     expect(contentsOf(state.doc)[0]).toBe(first);
     expect(first ? given.get(first) : undefined).not.toBe(listed);
+    engine.destroy();
+  });
+  it('DOCE-PAGINATION-11.15 lays a section out again in another markup once the rules size a block it holds', () => {
+    const state = sectionsState([
+      [{ type: 'blockquote', content: [paragraph('A quoted paragraph')] }, ...section('One', 2)],
+    ]);
+    let markup: SuggestionMarkup = 'all';
+    let sized = false;
+    const size = (input: SizeInput) => ({ height: input.markup === 'all' ? 20 : 200 });
+    const engine = createPagesTextEngine({
+      template: BASE_TEMPLATE,
+      markup: () => markup,
+      layoutRules: () => (sized ? { blockquote: { size } } : undefined),
+    });
+    const [content] = contentsOf(state.doc);
+    const quoteHeight = () => (content ? engine.measureContent(content, null)[0]?.height : 0);
+    expect(quoteHeight()).not.toBe(20);
+    sized = true;
+    expect(quoteHeight()).toBe(20);
+    markup = 'final';
+    expect(quoteHeight()).toBe(200);
     engine.destroy();
   });
 });
