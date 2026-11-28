@@ -35,35 +35,36 @@ interface KeptInputs {
   readonly provisional: () => number;
 }
 
-// Keeps what `lay` lays out unless a provisional atom was sized while laying it out, or it gives
-// nothing to keep.
-function keptUnlessProvisional<Kept, Result>(
+// What `lay` lays out, kept unless a provisional atom was sized while laying it out.
+function keptUnlessProvisional<Kept>(
   kept: WeakMap<ProseMirrorNode, Kept>,
   node: ProseMirrorNode,
-  {
-    provisional,
-    lay,
-  }: { provisional: () => number; lay: () => { kept: Kept | null; result: Result } },
-): Result {
+  { provisional, lay }: { provisional: () => number; lay: () => Kept },
+): Kept {
   const before = provisional();
   const laid = lay();
-  if (laid.kept && provisional() === before) kept.set(node, laid.kept);
+  if (provisional() === before) kept.set(node, laid);
   else kept.delete(node);
-  return laid.result;
+  return laid;
 }
 
 /** Each text block's lines as the pages draw them, kept by node until what they depend on changes. */
 export function keptLines(text: ReturnType<typeof createTextLayout>, inputs: KeptInputs) {
   const { widthOf, numbers, markup, variablesKey, provisional } = inputs;
-  let kept = new WeakMap<ProseMirrorNode, KeptLines>();
+  // The lines read with other plugins' inserted words, as the editor draws them, apart from those
+  // read without, as the pages' layout for a print or viewer reads them: neither replaces the other.
+  let withWords = new WeakMap<ProseMirrorNode, KeptLines>();
+  let plain = new WeakMap<ProseMirrorNode, KeptLines>();
   return {
     forget() {
-      kept = new WeakMap();
+      withWords = new WeakMap();
+      plain = new WeakMap();
     },
     lines(node: ProseMirrorNode, place: Parameters<PagesTextEngine['lines']>[1]) {
       const markers = markerKey(node, numbers().footnoteOf);
       const words = insertedKey(place.inserted);
       const key = `${place.scope ?? ''}|${place.prefix ?? ''}|${place.number?.label ?? ''}|${markers}|${words}|${suggestionKey(node, markup)}${variablesKey(node)}`;
+      const kept = words ? withWords : plain;
       const found = kept.get(node);
       if (found?.key === key) return found.table;
       const width = widthOf(place.scope);
@@ -73,10 +74,9 @@ export function keptLines(text: ReturnType<typeof createTextLayout>, inputs: Kep
         lay: () => {
           const result = text.layoutText(node, { width, scope, prefix, number, inserted });
           const justify = text.typography(node, place.scope).align === 'justify';
-          const table = result.ok ? { ...result.table, justify } : null;
-          return { kept: { key, table }, result: table };
+          return { key, table: result.ok ? { ...result.table, justify } : null };
         },
-      });
+      }).table;
     },
   };
 }
@@ -101,30 +101,37 @@ export function keptBlocks(inputs: BlockInputs) {
       kept = new WeakMap();
     },
     measure(node: ProseMirrorNode, scope: string | null, inserted: InsertedTexts): LayoutBlock {
-      const refusal = refusedAsDrawn(node, inputs.hostViews());
-      if (refusal) {
-        refuse(node, refusal);
-        return noRoom(node);
-      }
-      reportUnplacedWords(node, inserted, refuse);
+      // Read first: rules that size otherwise forget every kept block.
+      const hostViews = inputs.hostViews();
       const listed = contents.keyOf(node, numbers().doc) + variablesKey(node);
-      const key = `${scope ?? ''}|${numbers().keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, inputs.markup)}${listed}`;
+      // Words inserted outside its text blocks take no room, but are reported when it is laid out.
+      const outside = inserted.outside.has(node) ? '!' : '';
+      const key = `${scope ?? ''}|${numbers().keyOf(node)}|${blockInsertedKey(node, inserted)}${outside}|${suggestionKey(node, inputs.markup)}${listed}`;
       const found = kept.get(node);
       if (found?.key === key) return found.block;
+      // A block that cannot be laid out is kept as one too, and counted once (DOCE-PAGINATION-14.6).
+      const refused = (at: ProseMirrorNode, reason: string) => {
+        refuse(at, reason);
+        return { key, block: noRoom(node) };
+      };
       return keptUnlessProvisional(kept, node, {
         provisional: inputs.provisional,
         lay: () => {
+          const refusal = refusedAsDrawn(node, hostViews);
+          if (refusal) return refused(node, refusal);
+          reportUnplacedWords(node, inserted, refuse);
           inputs.inserting(inserted);
-          const result = geometry.layoutBlock(node, { width: widthOf(scope), scope });
-          inputs.inserting(NO_INSERTED);
-          if (!result.ok) {
-            refuse(result.node, result.reason);
-            return { kept: null, result: noRoom(node) };
+          let result: ReturnType<typeof geometry.layoutBlock>;
+          try {
+            result = geometry.layoutBlock(node, { width: widthOf(scope), scope });
+          } finally {
+            inputs.inserting(NO_INSERTED);
           }
+          if (!result.ok) return refused(result.node, result.reason);
           inputs.laid();
-          return { kept: { key, block: result.block }, result: result.block };
+          return { key, block: result.block };
         },
-      });
+      }).block;
     },
   };
 }
