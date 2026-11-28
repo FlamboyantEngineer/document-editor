@@ -18,9 +18,6 @@ import type { LayoutBlock, LayoutRules, TemplateFile } from '../model/index.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { LayoutInputs } from './layout-inputs.js';
 
-/** How the editor lays its text out: measured in the DOM, or computed by the layout engine. */
-export type TextLayoutMode = 'dom' | 'pretext';
-
 /** What the pages' text layout engine is made from. */
 export interface TextEngineOptions {
   readonly template: TemplateFile;

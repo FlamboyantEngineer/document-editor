@@ -52,7 +52,10 @@ export interface DocumentLayoutOptions {
   memory?: LayoutMemory | undefined;
   /** Lays every block out, with no DOM (DOCE-PAGINATION-11.1). */
   engine: PagesTextEngine;
-  /** Receives why a layout stopped before its lists of contents settled, as after too many passes. */
+  /**
+   * Receives why a layout stopped before its page numbers settled: its lists of contents' digits,
+   * or the page count its headers and footers show, after their last pass.
+   */
   onUnsettled?: ((reason: string) => void) | undefined;
 }
 
@@ -61,6 +64,8 @@ export interface SectionReport {
   readonly blocksMeasured: number;
   readonly pagesLaidOut: number;
   readonly pages: number;
+  /** The height the engine gave each top-level block of its page content, whole, in order. */
+  readonly heights: readonly number[];
 }
 
 /** The sections' layouts a document was laid out with, for the next layout to reuse. */
@@ -325,7 +330,7 @@ function settlePasses(fills: SectionFills, options: DocumentLayoutOptions) {
     const start = { page: pass.starts[index] ?? 1, pages };
     return fill ? { ...result.layout, key: fillKey(fill, start, perPage) } : result.layout;
   });
-  return { pass, laidOut, layouts, pages };
+  return { pass, laidOut, layouts, pages, settled };
 }
 
 // Passes at most this many times over a document with a list of contents or a page variable in its
@@ -372,11 +377,15 @@ export function layoutDocument(state: EditorState, options: DocumentLayoutOption
   engine.number(state.doc);
   const { fills, settled } = settleDigits(state, options);
   const { pass, laidOut, layouts, pages } = settled;
+  if (!settled.settled) {
+    options.onUnsettled?.(`the page count moved after ${String(COUNT_PASSES)} passes`);
+  }
   pass.laid.forEach(({ result, metrics }, index) => {
     for (const metric of metrics) options.onPage?.(metric);
     const pagesLaidOut = laidOut[index] ?? 0;
     const blocksMeasured = fills[index]?.blocksMeasured ?? 0;
-    options.onSection?.({ blocksMeasured, pagesLaidOut, pages: result.pages.length });
+    const heights = fills[index]?.fill.blocks.map((block) => block.height) ?? [];
+    options.onSection?.({ blocksMeasured, pagesLaidOut, pages: result.pages.length, heights });
   });
   if (memory) {
     memory.sections = layouts;
