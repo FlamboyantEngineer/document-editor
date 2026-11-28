@@ -16,6 +16,7 @@ import { redrawRefused } from './dropped-composition.js';
 import { type Showing, shownBy } from './layout-latency.js';
 import { markLayout } from './layout-marks.js';
 import type { LayoutPace } from './layout-pace.js';
+import { followDocument } from './layout-source.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
 import { waitsForMath } from './math-wait.js';
@@ -208,14 +209,17 @@ function markChanged(session: Session): void {
   session.pace.readiness.pending();
 }
 
-// Lays the pages out from the layout's source state with the engine, with its plugins started over
-// when the host asked.
+// Lays the pages out with the engine from the layout's source state, moved onto the canonical
+// document first, since the engine reads it as it lays it out (its contents, its math), with its
+// plugins started over when the host asked.
 function layOutPages(session: Session, engine: PagesTextEngine) {
-  const { canonical, projection, options, rules, pace, source } = session;
-  const { restart, memory } = pace;
+  const { canonical, projection, options, rules, pace } = session;
+  const source = followDocument(session.source, canonical.doc, pace.restart);
+  session.source = source;
   pace.restart = false;
+  const { memory, counter } = pace;
   return layOutProjection(
-    { projection, source, canonical, restart, memory, onSection: pace.counter.section },
+    { projection, source, canonical, memory, onSection: counter.section },
     { ...options, fragmentRules: rules, engine },
   );
 }
@@ -276,7 +280,6 @@ export function layout(session: Session): void {
   }
   pace.counter.layout(session.projection.doc, laidOut.tr.doc);
   pace.passes = laidOut.tr.docChanged ? pace.passes + 1 : 0;
-  session.source = laidOut.source;
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
   if (laidOut.tr.docChanged && view) rememberCaret(laidOut.tr.doc, caretPlace(view));

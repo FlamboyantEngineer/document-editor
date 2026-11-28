@@ -53,9 +53,15 @@ function patchContent(tr: Transaction, from: Placed, to: ProseMirrorNode) {
 /**
  * Moves a state onto a document by the smallest replacements, node by node where the two documents
  * pair up, so its plugins map what they hold rather than build it again; or a new state with the
- * same plugins when that fails.
+ * same plugins when that fails. `restart` starts the plugins' states over first, as after a value
+ * a plugin shows changed.
  */
-export function followDocument(state: EditorState, whole: ProseMirrorNode): EditorState {
+export function followDocument(
+  from: EditorState,
+  whole: ProseMirrorNode,
+  restart = false,
+): EditorState {
+  const state = restart ? EditorState.create({ doc: from.doc, plugins: from.plugins }) : from;
   if (state.doc.eq(whole)) return state;
   // A remote change, out of the history: no plugin such as an edit lock refuses it, and none that
   // derives writes from the writer's edits, such as the page regions' reset, writes into it.
@@ -66,9 +72,4 @@ export function followDocument(state: EditorState, whole: ProseMirrorNode): Edit
   return applied?.doc.eq(whole)
     ? applied
     : EditorState.create({ doc: whole, plugins: state.plugins });
-}
-
-/** A new state of the same document and plugins, its plugins' states started over. */
-export function startedOver(state: EditorState): EditorState {
-  return EditorState.create({ doc: state.doc, plugins: state.plugins });
 }

@@ -1,5 +1,5 @@
-// A layout of the paged projection: the layout's source state follows the canonical document, the
-// pages are laid out from it by the layout engine, and the projection is stepped onto them, so its selection and the
+// A layout of the paged projection: the pages are laid out by the layout engine from a state that
+// holds the canonical document, and the projection is stepped onto them, so its selection and the
 // positions of its text map through. The map between the two documents is built again from the
 // page transform, and the selection is the canonical one, on the side of a page break nearest the
 // projection's.
@@ -14,7 +14,6 @@ import {
   type SectionPageHeight,
   type SectionReport,
 } from './layout-document.js';
-import { followDocument, startedOver } from './layout-source.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { nearAfter, projectionSelection } from './selection-mirror.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -23,10 +22,8 @@ import type { PagesTextEngine } from './text-engine-types.js';
 interface LayoutSource {
   /** The projection's state, stepped onto the new pages. */
   readonly projection: EditorState;
-  /** The state the pages were last laid out from (`followDocument`), moved onto `canonical`. */
+  /** The state the pages are laid out from, holding the canonical document (`followDocument`). */
   readonly source: EditorState;
-  /** Whether the source's plugins start over first, as after a value a plugin shows changed. */
-  readonly restart?: boolean | undefined;
   readonly canonical: EditorState;
   /** What the latest layout found, which this one starts from. */
   readonly memory?: LayoutMemory | undefined;
@@ -44,12 +41,8 @@ interface ProjectionLayoutOptions {
   readonly engine: PagesTextEngine;
 }
 
-/**
- * A layout: the projection transaction onto the new pages, the map after it, the pages, and the
- * state they were laid out from.
- */
+/** A layout: the projection transaction onto the new pages, the map after it, and the pages. */
 interface ProjectionLayout {
-  readonly source: EditorState;
   readonly tr: Transaction;
   readonly map: ProjectionMap;
   /** How each page was laid out, in order. */
@@ -58,10 +51,9 @@ interface ProjectionLayout {
 
 /** The projection transaction onto the canonical document's pages, and the map after it. */
 export function layOutProjection(
-  { projection, source: from, restart, canonical, memory, onSection }: LayoutSource,
+  { projection, source, canonical, memory, onSection }: LayoutSource,
   options: ProjectionLayoutOptions,
 ): ProjectionLayout {
-  const source = followDocument(restart ? startedOver(from) : from, canonical.doc);
   const metrics: PageMetric[] = [];
   const sections = layoutDocument(source, {
     pageHeight: options.pageHeight,
@@ -79,5 +71,5 @@ export function layOutProjection(
   tr.setSelection(
     projectionSelection(map, canonical.selection, nearAfter(projection.selection, tr)),
   );
-  return { tr, map, metrics, source };
+  return { tr, map, metrics };
 }
