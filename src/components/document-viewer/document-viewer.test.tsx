@@ -472,4 +472,13 @@ describe('DocumentViewer', () => {
     });
     expect(drawn(container)).toEqual([0, 1]);
   });
+
+  it('DOCE-PAGINATION-13.13 draws every page when mounted while the print media query already matches', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const query = Object.assign(new EventTarget(), { matches: true, media: 'print' });
+    vi.stubGlobal('matchMedia', () => query);
+    const { container } = render(<DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} />);
+    showInView([0]);
+    expect(drawn(container)).toHaveLength(10);
+  });
 });

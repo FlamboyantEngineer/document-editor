@@ -1114,7 +1114,7 @@ Verification: `src/pagination/layout-inputs.test.ts`
 
 ### DOCE-PAGINATION-13.13 - A host page printed with a viewer on it
 
-While the page that holds a `DocumentViewer` prints, from its `beforeprint` event to its `afterprint` event or while the `print` media query matches, which a print emulated without the events also changes, the viewer shall draw every page, so none prints as an empty sheet; once the print is done, it shall draw again only the pages in view and their `overscan` neighbours (DOCE-PAGINATION-13.6).
+While the page that holds a `DocumentViewer` prints, from its `beforeprint` event to its `afterprint` event or while the `print` media query matches, which a print emulated without the events also changes, including when it already matches as the viewer mounts, the viewer shall draw every page, so none prints as an empty sheet; once the print is done, it shall draw again only the pages in view and their `overscan` neighbours (DOCE-PAGINATION-13.6).
 
 Implementation: `src/components/document-viewer/document-viewer.tsx`
 Verification: `src/components/document-viewer/document-viewer.test.tsx`, `e2e/document-viewer.spec.ts`

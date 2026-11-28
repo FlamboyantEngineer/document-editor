@@ -199,6 +199,8 @@ function watchPrinting(element: HTMLElement, onChange: (printing: boolean) => vo
   view.addEventListener('beforeprint', before);
   view.addEventListener('afterprint', after);
   query?.addEventListener('change', report);
+  // A viewer mounted while the page already prints, as a print tool that sets the media first does.
+  if (query?.matches) report();
   return () => {
     view.removeEventListener('beforeprint', before);
     view.removeEventListener('afterprint', after);
