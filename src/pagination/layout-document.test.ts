@@ -246,3 +246,46 @@ describe('region rooms across passes', () => {
     expect(calls).toBe(166);
   });
 });
+
+describe('blocks the engine cannot lay out', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-11.1 lays out again only the page an edit reaches, between two blocks the engine refuses', () => {
+    // A host draws quotes with a node view of its own and no rule sizes them: the engine refuses
+    // them, and they take no room.
+    const quote: StoredNode = { type: 'blockquote', content: [line(text('Quoted'))] };
+    const lines = Array.from({ length: 60 }, (_, index) => line(text(`Line ${String(index)}`)));
+    const content = [quote, ...lines, quote];
+    const { doc } = readDocumentFile({ formatVersion: 1, sections: [{ content }] }, documentSchema);
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE, hostViews: ['blockquote'] });
+    const memory = createLayoutMemory();
+    const layout = (state: EditorState) => {
+      const sections: SectionReport[] = [];
+      layoutDocument(state, {
+        pageHeight: 4 * LINE,
+        engine,
+        memory,
+        onSection: (section) => sections.push(section),
+      });
+      return sections[0];
+    };
+    const state = EditorState.create({ doc });
+    const first = layout(state);
+    expect(first?.pages).toBeGreaterThan(10);
+    const before = engine.stats().refused;
+    expect(before).toBe(2);
+    // Typing on a page near the end: the refused quotes are the blocks they were.
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Line 50') at = pos + node.nodeSize;
+      return at < 0;
+    });
+    const edited = layout(state.apply(state.tr.insertText(', typed', at)));
+    expect(edited?.pages).toBe(first?.pages);
+    expect(edited?.pagesLaidOut).toBeLessThanOrEqual(2);
+    expect(engine.stats().refused).toBe(before);
+    engine.destroy();
+  });
+});
