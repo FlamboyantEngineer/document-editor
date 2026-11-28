@@ -53,7 +53,11 @@ export function provisionalMath(options: TextEngineOptions) {
   return {
     note(node: ProseMirrorNode) {
       count += 1;
+      waiting.delete(node);
       waiting.add(node);
+      // Math deleted before it was typeset never settles: the oldest waiting are let go.
+      if (waiting.size > WAITING_KEPT)
+        waiting.delete(waiting.values().next().value as ProseMirrorNode);
     },
     count: () => count,
     /** Moves once any math given a provisional box can be sized; `settled` is told first. */
@@ -119,6 +123,12 @@ function liveIn(doc: ProseMirrorNode | null, nodes: Set<ProseMirrorNode>): numbe
   return live.size;
 }
 
+// The most equations found by element id; the least recently placed go first.
+const MATH_PLACES_BY_ID = 4000;
+
+// The most math nodes waiting for what sizes them that the engine follows; the oldest go first.
+const WAITING_KEPT = 1000;
+
 interface MathPlacement {
   readonly at: PlacedMath;
   readonly number: string | undefined;
@@ -132,7 +142,7 @@ interface MathPlacement {
 export function mathPlaces(
   equationOf: (node: ProseMirrorNode) => string | undefined = () => undefined,
 ) {
-  let placed = new WeakMap<ProseMirrorNode, MathPlacement>();
+  const placed = new WeakMap<ProseMirrorNode, MathPlacement>();
   const byId = new Map<unknown, MathPlacement & { node: ProseMirrorNode }>();
   const small = new Set<ProseMirrorNode>();
   const find = (node: ProseMirrorNode): PlacedMath | null => {
@@ -151,7 +161,11 @@ export function mathPlaces(
       const number = equationOf(node);
       if (!samePlace(placed.get(node)?.at, at)) version += 1;
       placed.set(node, { at, number });
-      if (node.attrs.dataId) byId.set(node.attrs.dataId, { node, at, number });
+      if (node.attrs.dataId) {
+        byId.delete(node.attrs.dataId);
+        byId.set(node.attrs.dataId, { node, at, number });
+        if (byId.size > MATH_PLACES_BY_ID) byId.delete(byId.keys().next().value);
+      }
       if (at.box.scale < MATH_MIN_REPORTED_SCALE) small.add(node);
       else small.delete(node);
     },
@@ -161,11 +175,5 @@ export function mathPlaces(
       mathVersion: () => version,
       stats: (): TextEngineStats => ({ ...stats(), smallMath: liveIn(doc(), small) }),
     }),
-    forget() {
-      placed = new WeakMap();
-      byId.clear();
-      small.clear();
-      version += 1;
-    },
   };
 }

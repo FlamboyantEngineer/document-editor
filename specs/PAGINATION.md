@@ -1018,7 +1018,7 @@ The layout engine shall size and draw equations with one deterministic layouter,
 - **Drawing.** The drawing is an SVG tree of `svg`, `g`, `path`, `rect` and `line` elements with only geometry, fill and stroke attributes, its root carrying its view box and visible overflow, so every renderer draws the same shapes at any size.
 - **Missing glyphs.** Characters the font has no glyph for are left out of the drawing and named in `missing`, so the engine gives that equation its fixed reserved size.
 - **Refusals.** MathML MathJax refuses (an error node) lays nothing out: `layout` gives null.
-- **Cache.** Layouts are kept per tree and display, so each equation is typeset once and its box at another size is the same layout scaled. `key` names the MathJax version and the font, so stored layouts can be told apart when either changes.
+- **Cache.** Layouts are kept per tree and display, the 2,000 most recently used, so each equation is typeset once and its box at another size is the same layout scaled. `key` names the MathJax version and the font, so stored layouts can be told apart when either changes.
 - **Host builds.** MathJax's SVG output imports its default font through `#default-font`; a host's bundler maps it to `@mathjax/mathjax-stix2-font/mjs` (the labs build and the bundle check do), or MathJax's default font is bundled as well; the layouter draws with STIX Two either way.
 
 MathJax and its STIX Two font data are Apache-2.0 (the packages' `license` fields); the STIX Two outlines the data is drawn from are under the SIL Open Font License 1.1, which allows bundling them with software.
