@@ -10,14 +10,7 @@ import type {
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Plugin, Transaction } from 'prosemirror-state';
-import {
-  type ComponentType,
-  type RefObject,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ComponentType, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type CompareSuggestions,
   contentsKey,
