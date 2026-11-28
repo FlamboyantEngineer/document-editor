@@ -1,12 +1,20 @@
-import { describe, expect, it } from 'vitest';
-import { blockBuilders, standInBlockLayout } from '../../../test/layout-engine-fixtures.js';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { installFakeCanvas } from '../../../test/canvas-fixtures.js';
+import {
+  blockBuilders,
+  standInBlockLayout,
+  standInTextLayout,
+} from '../../../test/layout-engine-fixtures.js';
 import type { ContainerMeasurement, LayoutBlock } from '../../model/index.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
+import { BASE_TEMPLATE } from '../../model/templates/base-template.js';
+import { createPagesTextEngine } from '../../pagination/text-engine.js';
 import { tableBorders, tableColumns } from './table-columns.js';
 import type { BlockGeometry } from './types.js';
 
 const schema = createDocumentSchema();
-const { node, cell, row, table, caption } = blockBuilders(schema);
+const { node, cell, row, table, caption, paragraph, heading, item, list } = blockBuilders(schema);
 const { layout } = standInBlockLayout();
 const place = { width: 600 };
 
@@ -113,16 +121,24 @@ describe('table rows', () => {
     expect(block).toMatchObject({ height: 20 + 107, marginTop: 0, marginBottom: 8 });
   });
 
-  it('DOCE-PAGINATION-10.5 grows the last row a tall cell spans, and honours a row height', () => {
+  it('DOCE-PAGINATION-10.5 grows the rows a tall cell spans as Chromium does, and honours a row height', () => {
     const spanning = cell(300, { rowspan: 2 });
     const block = blockOf(
       layout.layoutBlock(figure(table(null, row(spanning, cell(10)), row(cell(10)))), place),
     );
-    // The spanning cell needs 7 lines (126 + 17): the second row takes the 108 the first lacks.
+    // The spanning cell needs 7 lines (126 + 17): the two rows of 35 share the 73 it lacks in
+    // proportion to their heights, as Chromium spreads it.
     expect(rowsOf(block)).toEqual([
-      [0, 35],
-      [35, 143],
+      [0, 71.5],
+      [71.5, 143],
     ]);
+    // Rows of 35 and 53 (two lines in the second): 143 - 88 = 55 shared 35 to 53.
+    const uneven = blockOf(
+      layout.layoutBlock(figure(table(null, row(spanning, cell(10)), row(cell(60)))), place),
+    );
+    const [first, second] = rowsOf(uneven);
+    expect(first?.[1]).toBeCloseTo(35 + (55 * 35) / 88, 9);
+    expect(second?.[1]).toBeCloseTo(143, 9);
     const tall = blockOf(
       layout.layoutBlock(figure(table(null, row(cell(10, { rowHeight: 60 })))), place),
     );
@@ -150,5 +166,88 @@ describe('table rows', () => {
       }),
     );
     expect(block).toMatchObject({ height: 18 + 1 + 1, marginBottom: 0 });
+  });
+});
+
+describe('cell alignment', () => {
+  // The alignment each text block is laid out with, by its type, in a table of one cell.
+  function alignsIn(own: ProseMirrorNode): (readonly [string, unknown])[] {
+    const standIn = standInTextLayout();
+    const aligns: (readonly [string, unknown])[] = [];
+    const { layout: recording } = standInBlockLayout({
+      text: {
+        ...standIn,
+        layoutText: (block, at) => {
+          aligns.push([block.type.name, at.align]);
+          return standIn.layoutText(block, at);
+        },
+      },
+    });
+    blockOf(recording.layoutBlock(figure(table(null, row(own))), place));
+    return aligns.filter(([name]) => name !== 'table_caption');
+  }
+
+  it('DOCE-PAGINATION-10.5 lays a cell’s paragraphs and headings out at its alignment, in lists too', () => {
+    for (const textAlign of ['center', 'right', 'justify']) {
+      const own = node('table_cell', { textAlign }, [
+        paragraph(4),
+        heading(4, 2),
+        list(item(paragraph(4))),
+      ]);
+      expect(alignsIn(own)).toEqual([
+        ['paragraph', textAlign],
+        ['heading', textAlign],
+        ['paragraph', textAlign],
+      ]);
+    }
+    // A header cell as a body cell.
+    const header = node('table_header', { textAlign: 'right' }, [paragraph(4)]);
+    expect(alignsIn(header)).toEqual([['paragraph', 'right']]);
+  });
+
+  it('DOCE-PAGINATION-10.5 leaves a block its own alignment in a cell at the default', () => {
+    expect(alignsIn(cell(4))).toEqual([['paragraph', undefined]]);
+    // A cell at the default inside a centred one clears the outer cell's alignment.
+    const inner = figure(table(null, row(cell(4))));
+    const outer = node('table_cell', { textAlign: 'center' }, [paragraph(4), inner]);
+    expect(alignsIn(outer)).toEqual([
+      ['paragraph', 'center'],
+      ['paragraph', undefined],
+    ]);
+  });
+});
+
+describe('cell alignment in the pages’ engine', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  // The first line of the one paragraph in a cell aligned so, as the pages draw it.
+  function cellLine(textAlign: string) {
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const own = node('table_cell', { textAlign }, [
+      node('paragraph', null, [schema.text('Start')]),
+    ]);
+    const wide = node('table_cell', null, [node('paragraph', null, [schema.text('Run')])]);
+    const shown = figure(table(null, row(own, wide)));
+    const [lines] = [...engine.nestedLines(shown, null).entries()]
+      .filter(([block]) => block === own.firstChild)
+      .map(([, drawn]) => drawn);
+    engine.destroy();
+    if (!lines) throw new Error('no lines for the cell');
+    return { line: lines.lines[0], width: lines.width, justify: lines.justify };
+  }
+
+  it('DOCE-PAGINATION-10.5 DOCE-PAGINATION-11.2 starts a centred or right-aligned cell’s line in from its left', () => {
+    const left = cellLine('left');
+    expect(left.line?.left).toBe(0);
+    const centred = cellLine('center');
+    const free = centred.width - (centred.line?.width ?? 0);
+    expect(free).toBeGreaterThan(0);
+    expect(centred.line?.left).toBeCloseTo(free / 2, 5);
+    const right = cellLine('right');
+    expect(right.line?.left).toBeCloseTo(free, 5);
+    expect(cellLine('justify').justify).toBe(true);
+    expect(centred.justify).toBe(false);
   });
 });

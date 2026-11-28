@@ -78,6 +78,58 @@ interface ForcedPlace {
   readonly inserted: InsertedTexts;
   /** The labels the pages' captions show, a split part's copy's among them. */
   readonly labelOf?: ((caption: ProseMirrorNode) => string | undefined) | undefined;
+  /** The top-level parts of split blocks that a later part continues, by position. */
+  readonly continuing?: ReadonlySet<number> | undefined;
+}
+
+const continuingKept = new WeakMap<ProseMirrorNode, ReadonlySet<number>>();
+
+// A split block's part, by its element id and part index.
+const partKey = (node: ProseMirrorNode) => {
+  const id: unknown = node.attrs.dataId;
+  return typeof id === 'string' && id
+    ? `${id}#${String(Number(node.attrs.splitPartIndex ?? 0))}`
+    : null;
+};
+
+/**
+ * The positions of the top-level parts of split text blocks in a pages' document that a later part
+ * continues on the next line (DOCE-PAGINATION-11.2): the part with the same element id and the next
+ * part index, unless that part starts at the hard break the split moved to it, which ended this
+ * part's last line.
+ */
+export function continuingParts(doc: ProseMirrorNode): ReadonlySet<number> {
+  const found = continuingKept.get(doc);
+  if (found) return found;
+  const parts = new Map<string, number>();
+  const continued = new Set<string>();
+  doc.descendants((node, pos, parent) => {
+    if (parent?.type.name !== 'page_content') return !node.isTextblock;
+    const key = partKey(node);
+    if (!node.isTextblock || !key) return false;
+    parts.set(key, pos);
+    const part = Number(node.attrs.splitPartIndex ?? 0);
+    if (part > 0 && node.firstChild?.type.name !== 'hard_break')
+      continued.add(`${String(node.attrs.dataId)}#${String(part - 1)}`);
+    return false;
+  });
+  const continuing = new Set([...continued].flatMap((key) => parts.get(key) ?? []));
+  continuingKept.set(doc, continuing);
+  return continuing;
+}
+
+const wrappedKept = new WeakMap<DrawnLines, DrawnLines>();
+
+// A part's lines with its last line wrapping, as it does in the whole block, kept by its lines.
+function wrappedAtEnd(table: DrawnLines): DrawnLines {
+  const last = table.lines.at(-1);
+  if (last?.end !== 'end') return table;
+  let wrapped = wrappedKept.get(table);
+  if (!wrapped) {
+    wrapped = { ...table, lines: [...table.lines.slice(0, -1), { ...last, end: 'wrap' }] };
+    wrappedKept.set(table, wrapped);
+  }
+  return wrapped;
 }
 
 function topLevel(engine: PagesTextEngine, node: ProseMirrorNode, at: ForcedPlace): ForcedBlock {
@@ -87,8 +139,11 @@ function topLevel(engine: PagesTextEngine, node: ProseMirrorNode, at: ForcedPlac
   const prefix =
     node.type.name !== 'heading' || isContinued(node) ? undefined : at.headings.get(pos);
   const inserted = at.inserted.byBlock.get(node);
-  const table = engine.lines(node, { scope: at.scope, prefix, inserted });
-  if (!table) return { node, pos, table, reason: 'not laid out by the engine', nested: false };
+  const laid = engine.lines(node, { scope: at.scope, prefix, inserted });
+  if (!laid) return { node, pos, table: laid, reason: 'not laid out by the engine', nested: false };
+  // A part a later part continues ends its last line at the page break, where the whole block
+  // wraps it: justified and hyphenated as a wrapped line, its height the same.
+  const table = at.continuing?.has(pos) ? wrappedAtEnd(laid) : laid;
   return { node, pos, table, prefix, prefixed: Boolean(prefix), nested: false };
 }
 

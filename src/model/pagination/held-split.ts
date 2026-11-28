@@ -4,9 +4,9 @@
 // later part is as much taller as that caption is (`continuedCaption`).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { LayoutBlock, SplitBlock } from './page-layout.js';
+import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
 
-type Split = (block: LayoutBlock, fitting: number) => SplitBlock | null;
+type Split = (block: LayoutBlock, fitting: number, context?: SplitContext) => SplitBlock | null;
 
 // The caption each later part's caption repeats, which numbers it.
 const repeats = new WeakMap<ProseMirrorNode, ProseMirrorNode>();
@@ -45,12 +45,12 @@ function grownBy(part: LayoutBlock, growth: number): LayoutBlock {
 
 /** A holder split as its object splits, the holder measured by its object. */
 export function splitHeldWith(splitObject: Split): Split {
-  return (block, fitting) => {
+  return (block, fitting, context) => {
     const { node } = block;
     const caption = node.firstChild;
     const object = node.lastChild;
     if (node.childCount !== 2 || !caption || !object) return null;
-    const split = splitObject({ ...block, node: object }, fitting);
+    const split = splitObject({ ...block, node: object }, fitting, context);
     if (!split) return null;
     const holder = (part: ProseMirrorNode, line: ProseMirrorNode) =>
       node.type.create({ ...node.attrs, splitPartIndex: part.attrs.splitPartIndex }, [line, part]);

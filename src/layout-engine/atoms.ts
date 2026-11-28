@@ -1,7 +1,8 @@
 // The atom cache: the sizes of the atoms the engine sizes by a measurer of its own, such as math
 // from its layout (DOCE-PAGINATION-12.10). Each atom is sized once and kept by its content, so the
 // layout engine reads the same size for the same content without sizing it again. Nothing is read
-// from the DOM, and a size never changes once given.
+// from the DOM, and a size never changes once kept: a provisional size, given before what sizes the
+// atom is known, is never kept (DOCE-PAGINATION-12.13).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { MathLayouts } from './math-atoms.js';
@@ -18,6 +19,11 @@ export interface AtomSize {
   readonly margins?: { readonly top: number; readonly bottom: number } | undefined;
   /** Math sized from its layout (DOCE-PAGINATION-12.10): the layout, which the engine may scale. */
   readonly math?: MathLayouts | undefined;
+  /**
+   * A size given before what sizes the atom is known, such as math's reserved box before its typeset
+   * answer (DOCE-PAGINATION-12.13): never kept, so the atom is sized again once it is.
+   */
+  readonly provisional?: true | undefined;
 }
 
 /**
@@ -53,6 +59,8 @@ interface AtomCacheOptions {
   readonly shownOf?: ((node: ProseMirrorNode) => string | undefined) | undefined;
   /** The most atoms kept; the least recently used go first. 2000 by default. */
   readonly limit?: number | undefined;
+  /** Told each atom given a provisional size, which is not kept (DOCE-PAGINATION-12.13). */
+  readonly provisional?: ((node: ProseMirrorNode) => void) | undefined;
 }
 
 /** The atom cache. */
@@ -95,17 +103,36 @@ function contentAttrs(node: ProseMirrorNode): Record<string, unknown> {
 export function atomKey(node: ProseMirrorNode, width: number, drawing: AtomDrawing = {}): string {
   const { shown, ...place } = drawing;
   const units = Math.round(Math.max(0, width) * LAYOUT_UNITS_PER_PX);
-  const key: unknown[] = [
-    node.type.name,
-    contentAttrs(node),
-    node.marks.map((mark) => mark.toJSON() as unknown),
-    TEXT_CONTENT_ATOMS.has(node.type.name) ? null : (node.content.toJSON() as unknown),
-    units,
-    place.scope ?? null,
-    place.parent ? [place.parent.type.name, contentAttrs(place.parent)] : null,
-  ];
-  if (shown !== undefined) key.push(shown);
-  return JSON.stringify(key);
+  const parent = place.parent ? parentKey(place.parent) : 'null';
+  const key = `[${ownKey(node)},${String(units)},${JSON.stringify(place.scope ?? null)},${parent}`;
+  return shown === undefined ? `${key}]` : `${key},${JSON.stringify(shown)}]`;
+}
+
+// The parts of a key a node gives, serialized once for each node, which is never changed.
+const ownKeys = new WeakMap<ProseMirrorNode, string>();
+const parentKeys = new WeakMap<ProseMirrorNode, string>();
+
+function ownKey(node: ProseMirrorNode): string {
+  let key = ownKeys.get(node);
+  if (key === undefined) {
+    key = JSON.stringify([
+      node.type.name,
+      contentAttrs(node),
+      node.marks.map((mark) => mark.toJSON() as unknown),
+      TEXT_CONTENT_ATOMS.has(node.type.name) ? null : (node.content.toJSON() as unknown),
+    ]).slice(1, -1);
+    ownKeys.set(node, key);
+  }
+  return key;
+}
+
+function parentKey(parent: ProseMirrorNode): string {
+  let key = parentKeys.get(parent);
+  if (key === undefined) {
+    key = JSON.stringify([parent.type.name, contentAttrs(parent)]);
+    parentKeys.set(parent, key);
+  }
+  return key;
 }
 
 function isSize(size: AtomSize | null | undefined): size is AtomSize {
@@ -136,6 +163,7 @@ export function createAtomCache({
   measure,
   shownOf,
   limit = DEFAULT_ATOM_CACHE_LIMIT,
+  provisional,
 }: AtomCacheOptions): AtomCache {
   const entries = new Map<string, AtomSize>();
 
@@ -164,7 +192,8 @@ export function createAtomCache({
     }
     const size = measure(node, width, drawing);
     if (!isSize(size)) return null;
-    keep(key, size);
+    if (size.provisional) provisional?.(node);
+    else keep(key, size);
     return size;
   };
 

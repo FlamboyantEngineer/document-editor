@@ -46,7 +46,21 @@ describe('math places', () => {
     expect(reading.mathOf(equation('m1', 'a+b'))).toBe(at);
     expect(reading.mathOf(equation('m1', 'a+c'))).toBeNull();
     expect(reading.mathOf(equation('m2', 'a+b'))).toBeNull();
-    places.forget();
-    expect(reading.mathOf(equation('m1', 'a+b'))).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-12.11 keeps a bounded number of equations by element id, the oldest let go', () => {
+    const laid = standInMathLayouter().layouter.layout(mathOf(['a']), true, 20);
+    if (!laid) throw new Error('the stand-in refused');
+    const at = placeMath({ math: laid }, 500);
+    const equation = (id: string) =>
+      schema.node('math_display', { dataId: id }, [schema.text('a')]);
+    const places = mathPlaces();
+    for (let index = 0; index <= 4000; index += 1) places.record(equation(`m${String(index)}`), at);
+    const reading = places.reading(
+      () => ({ laid: 0, refused: 0, reasons: new Map() }),
+      () => null,
+    );
+    expect(reading.mathOf(equation('m0'))).toBeNull();
+    expect(reading.mathOf(equation('m4000'))).toBe(at);
   });
 });

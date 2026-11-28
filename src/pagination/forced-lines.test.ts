@@ -232,6 +232,58 @@ describe('forcedLines', () => {
     ).toEqual(['rtl']);
   });
 
+  it('DOCE-PAGINATION-11.11 lays a block out again with its deleted words after an edit in it', () => {
+    const doc = pagesDoc([[paragraph('first')]]);
+    // A comparison's deleted word drawn at the paragraph's start, wherever an edit moves it.
+    const words = new Plugin({
+      props: {
+        decorations: (state) => {
+          const at = positionOf(state.doc, state.doc.textContent) + 1;
+          return DecorationSet.create(state.doc, [
+            Decoration.widget(at, () => document.createElement('del'), {
+              insertedText: 'old ',
+              insertedGroup: 'g',
+              side: -1,
+            }),
+          ]);
+        },
+      },
+    });
+    const laid: { text: string; words: number }[] = [];
+    const base = stubEngine().engine;
+    const engine: PagesTextEngine = {
+      ...base,
+      lines(node, place) {
+        laid.push({ text: node.textContent, words: place.inserted?.length ?? 0 });
+        return base.lines(node, place);
+      },
+    };
+    const plugin = forcedLines({ engine: () => engine, version: () => 0 });
+    const state = EditorState.create({ doc, plugins: [plugin, words] });
+    const drawnOf = (on: EditorState) => plugin.props.decorations?.call(plugin, on);
+    drawnOf(state);
+    const typed = state.apply(state.tr.insertText('x', positionOf(doc, 'first') + 6));
+    drawnOf(typed);
+    expect(laid.filter((each) => each.text === 'firstx').at(-1)).toEqual({
+      text: 'firstx',
+      words: 1,
+    });
+  });
+
+  it("DOCE-PAGINATION-9.12 draws a split paragraph's later part in a list in its first part's direction", () => {
+    const item = (text: string, part: number) =>
+      create('bullet_list', null, [
+        create('list_item', null, [paragraph(text, { dataId: 'p1', splitPartIndex: part })]),
+      ]);
+    // The first part starts right to left; the later part, on the next page, with Latin text.
+    const doc = pagesDoc([[item('שלום עולם', 0)], [item('world again', 1)]]);
+    const state = stateWith(doc, stubEngine().engine);
+    const dirs = drawn(state)
+      .filter((each) => each.class === 'de-forced-lines')
+      .map((each) => each.dir);
+    expect(dirs).toEqual(['rtl', 'rtl']);
+  });
+
   it("DOCE-PAGINATION-11.2 marks each paragraph in a table's cells, and leaves numbered ones alone", () => {
     const cell = (text: string, id: string) =>
       create('table_cell', null, [paragraph(text, { dataId: id })]);
@@ -613,6 +665,70 @@ describe('forcedLines', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-11.2 justifies and hyphenates the last line of a part that another part continues', () => {
+    const head = paragraph('aaaa bbbb cccc dd­', { dataId: 'p1', splitPartIndex: 0 });
+    const tail = paragraph('ee ff', { dataId: 'p1', splitPartIndex: 1 });
+    const doc = pagesDoc([[head], [tail]]);
+    const state = stateWith(doc, stubEngine({ justify: true }).engine);
+    const at = positionOf(doc, head.textContent);
+    const lines = drawn(state).filter(
+      (each) => Number(each.from) > at && Number(each.to) <= at + head.nodeSize,
+    );
+    // The head's last line, which the page break ends, is a wrapped line of the whole block.
+    expect(lines.slice(-2)).toEqual([
+      {
+        from: at + 11,
+        to: at + 19,
+        class: 'de-forced-lines__justified',
+        style: '--de-word-spacing: 90.000px',
+      },
+      { from: at + 18, to: at + 19, class: 'de-forced-lines__end de-forced-lines__hyphen' },
+    ]);
+    // The paragraph's true last line is not.
+    const end = positionOf(doc, 'ee ff');
+    expect(drawn(state).filter((each) => Number(each.from) > end)).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-11.2 leaves ragged the last line of a part whose next part starts at a hard break', () => {
+    const head = paragraph('aaaa bbbb cccc dd', { dataId: 'p1', splitPartIndex: 0 });
+    const breakNode = documentSchema.nodes.hard_break?.create();
+    if (!breakNode) throw new Error('hard_break');
+    const tail = create('paragraph', { dataId: 'p1', splitPartIndex: 1 }, [
+      breakNode,
+      documentSchema.text('ee'),
+    ]);
+    const doc = pagesDoc([[head], [tail]]);
+    const state = stateWith(doc, stubEngine({ justify: true }).engine);
+    const at = positionOf(doc, head.textContent);
+    const classes = drawn(state)
+      .filter((each) => Number(each.from) > at + 10 && Number(each.to) <= at + head.nodeSize)
+      .map((each) => each.class);
+    expect(classes).toEqual([]);
+  });
+
+  it('DOCE-PAGINATION-11.2 draws a kept page again when the part after it starts or stops at a hard break', () => {
+    const head = paragraph('aaaa bbbb cccc dd', { dataId: 'p1', splitPartIndex: 0 });
+    const tail = paragraph('ee ff', { dataId: 'p1', splitPartIndex: 1 });
+    const doc = pagesDoc([[head], [tail]]);
+    const state = stateWith(doc, stubEngine({ justify: true }).engine);
+    const at = positionOf(doc, head.textContent);
+    const lastLine = (on: EditorState) =>
+      drawn(on)
+        .filter((each) => Number(each.from) > at + 10 && Number(each.to) <= at + head.nodeSize)
+        .map((each) => each.class);
+    const breakNode = documentSchema.nodes.hard_break?.create();
+    if (!breakNode) throw new Error('hard_break');
+    const tailAt = positionOf(doc, 'ee ff');
+    expect(lastLine(state)).toEqual(['de-forced-lines__justified', 'de-forced-lines__end']);
+    // A break typed at the top of the next part ends the paragraph's run there: the head's last
+    // line is the block's own last line again, though the head's page is the same node.
+    const broken = state.apply(state.tr.insert(tailAt + 1, breakNode));
+    expect(lastLine(broken)).toEqual([]);
+    // And taken out again, it wraps on into the next part.
+    const joined = broken.apply(broken.tr.delete(tailAt + 1, tailAt + 2));
+    expect(lastLine(joined)).toEqual(['de-forced-lines__justified', 'de-forced-lines__end']);
+  });
+
   it("DOCE-PAGINATION-11.2 gives a heading's first part the engine's number and leaves numbered paragraphs alone", () => {
     const heading = create('heading', { level: 1, dataId: 'h1' }, [documentSchema.text('Scope')]);
     const rest = create('heading', { level: 1, dataId: 'h1', splitPartIndex: 1 }, [
@@ -674,6 +790,79 @@ describe('forcedLines', () => {
     expect(lineCount(state)).toEqual(['1', '1']);
     const typed = state.apply(state.tr.insertText('x', positionOf(doc, 'aaaa') + 1));
     expect(lineCount(typed)).toEqual(['2', '2']);
+  });
+
+  // An engine whose lines of one block hold `width` characters a line, which a test changes as a
+  // renumbering or a stored value would.
+  const widening = (state: { perLine: number; numbers: number }) => {
+    const engine: PagesTextEngine = {
+      ...stubEngine().engine,
+      numbersVersion: () => state.numbers,
+      lines: (node, place) => stubEngine({ perLine: state.perLine }).engine.lines(node, place),
+    };
+    return engine;
+  };
+  const lineCountOf = (on: EditorState, text: string) => {
+    const at = positionOf(on.doc, text);
+    const block = drawn(on).find((each) => each.from === at && each.class === 'de-forced-lines');
+    return block?.['data-lines'];
+  };
+
+  it("DOCE-PAGINATION-11.2 draws an unchanged page again when the footnotes' numbers move", () => {
+    const doc = pagesDoc([[paragraph('first')], [paragraph('aaaaaaaaaaaa')]]);
+    const held = { perLine: 20, numbers: 0 };
+    const state = stateWith(doc, widening(held));
+    expect(lineCountOf(state, 'aaaaaaaaaaaa')).toBe('1');
+    // A footnote cited on the first page renumbers a marker on the second, which widens.
+    held.perLine = 10;
+    held.numbers = 1;
+    const typed = state.apply(state.tr.insertText('x', positionOf(doc, 'first') + 1));
+    expect(lineCountOf(typed, 'aaaaaaaaaaaa')).toBe('2');
+  });
+
+  it('DOCE-PAGINATION-11.2 draws an unchanged page again when a stored variable value changes', () => {
+    const doc = pagesDoc([[paragraph('first')], [paragraph('aaaaaaaaaaaa')]]);
+    const held = { perLine: 20, numbers: 0 };
+    const state = stateWith(doc, widening(held));
+    expect(lineCountOf(state, 'aaaaaaaaaaaa')).toBe('1');
+    // The value a variable on the second page shows grows, as the engine lays it out.
+    held.perLine = 10;
+    const stored = state.apply(state.tr.setDocAttribute('values', { title: 'A longer title' }));
+    expect(lineCountOf(stored, 'aaaaaaaaaaaa')).toBe('2');
+  });
+
+  it('DOCE-PAGINATION-11.2 draws a heading again when its number moves to another heading', () => {
+    const heading = (text: string) => create('heading', { level: 1 }, [documentSchema.text(text)]);
+    // The engine numbers the headings in order, as the template does.
+    const engine: PagesTextEngine = {
+      ...stubEngine().engine,
+      numbering: (doc) => {
+        const headings = new Map<number, string>();
+        doc.descendants((node, pos) => {
+          if (node.type.name === 'heading') headings.set(pos, `${String(headings.size + 1)} `);
+          return !node.isTextblock;
+        });
+        return { headings, paragraphs: new Set() };
+      },
+    };
+    const doc = pagesDoc([[heading('One')], [heading('Two')], [heading('Three')]]);
+    const state = stateWith(doc, engine);
+    const numberOf = (on: EditorState, text: string) => {
+      const at = positionOf(on.doc, text);
+      return drawn(on).find((each) => each.from === at && each.class === 'de-forced-lines')?.[
+        'data-number'
+      ];
+    };
+    expect(numberOf(state, 'Two')).toBe('2 ');
+    // One step takes the first heading out and another adds one on the last page: the numbers in
+    // order are the same, but the second page's heading is now the first.
+    const one = positionOf(doc, 'One');
+    const tr = state.tr.setNodeMarkup(one, documentSchema.nodes.paragraph);
+    const three = positionOf(tr.doc, 'Three');
+    tr.insert(three + heading('Three').nodeSize, heading('Four'));
+    const moved = state.apply(tr);
+    expect(numberOf(moved, 'Two')).toBe('1 ');
+    expect(numberOf(moved, 'Four')).toBe('3 ');
   });
 
   it('DOCE-PAGINATION-11.2 draws nothing until the engine has loaded, and draws once it has', () => {
@@ -813,6 +1002,39 @@ describe('forced lines on the pages near the screen', () => {
 });
 
 describe('the caret at a forced line start', () => {
+  // Where the caret is drawn after the view writes the position between a block's two lines,
+  // in a view mounted in `mount`.
+  function caretBetweenLines(mount: HTMLElement, engine: PagesTextEngine) {
+    const doc = pagesDoc([[paragraph('aaaaaaaaaabbbbbbbbbb')]]);
+    const state = EditorState.create({
+      doc,
+      plugins: [forcedLines({ engine: () => engine, version: () => 0 })],
+    });
+    const view = new EditorView(mount, { state });
+    view.focus();
+    const at = positionOf(doc, 'aaaaaaaaaabbbbbbbbbb') + 11;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    const selection = document.getSelection();
+    const drawn = { text: selection?.anchorNode?.textContent, offset: selection?.anchorOffset };
+    view.destroy();
+    return drawn;
+  }
+
+  it('DOCE-PAGINATION-11.7 draws the caret at the next line start when the line ends in a box of its own', () => {
+    const base = stubEngine().engine;
+    // The first line's last character is drawn in a reserved box inside the line's end mark.
+    const engine: PagesTextEngine = {
+      ...base,
+      lines: (node, place) => {
+        const table = base.lines(node, place);
+        return table && { ...table, reserved: [{ from: 9, to: 10, width: 8 }] };
+      },
+    };
+    const mount = document.body.appendChild(document.createElement('div'));
+    expect(caretBetweenLines(mount, engine)).toEqual({ text: 'bbbbbbbbbb', offset: 0 });
+    mount.remove();
+  });
+
   it('DOCE-PAGINATION-11.7 draws a caret the view wrote at a line end at the next line start', () => {
     const doc = pagesDoc([[paragraph('aaaaaaaaaabbbbbbbbbb')]]);
     const state = EditorState.create({

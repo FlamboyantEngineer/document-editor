@@ -9,11 +9,13 @@ import { printNodes, type PrintTree } from '../document/print-tree.js';
 import { blockDirection, type TextDirection } from '../layout-engine/direction.js';
 import {
   drawnBlock,
+  emptyLineIndent,
   firstLineIndent,
   labelParts,
   type LineMark,
   lineMarks,
 } from '../layout-engine/line-marks.js';
+import { drawnDirection } from './block-directions.js';
 import { isCaption } from './forced-blocks.js';
 import type { InsertedTexts } from './inserted-texts.js';
 import type { DrawnLines, PagesTextEngine } from './text-engine-types.js';
@@ -39,6 +41,8 @@ export interface Builder {
   readonly labels?: string | undefined;
   /** The direction of each later part of a split block, by position. */
   readonly directions: ReadonlyMap<number, TextDirection>;
+  /** The top-level parts of split blocks that a later part continues, by position. */
+  readonly continuing: ReadonlySet<number>;
   readonly blocks: WeakMap<ProseMirrorNode, { key: string; set: DecorationSet }>;
   readonly containers: WeakMap<ProseMirrorNode, DecorationSet>;
   readonly inserted: InsertedTexts;
@@ -86,13 +90,14 @@ function shownWidgets(
   );
 }
 
-// Whether a range of a block's content is exactly one inline node other than text.
-function isWholeAtom(node: ProseMirrorNode, { from, to }: { from: number; to: number }): boolean {
-  let whole = false;
+// Where each inline node other than text ends in a block's content, by where it starts: a range
+// that is exactly one of them is drawn on its own element. Read once per block drawn.
+function atomEnds(node: ProseMirrorNode): ReadonlyMap<number, number> {
+  const ends = new Map<number, number>();
   node.forEach((child, start) => {
-    if (!child.isText && start === from && start + child.nodeSize === to) whole = true;
+    if (!child.isText) ends.set(start, start + child.nodeSize);
   });
-  return whole;
+  return ends;
 }
 
 // A forced block's own decorations, relative to its content, kept by node and number.
@@ -111,6 +116,7 @@ export function blockSet(
   const marks = lineMarks(drawnBlock(node, table), table, { prefixed });
   const shown = shownWidgets(table, { marks, key });
   const content = table.text === undefined ? marks : [];
+  const atoms = atomEnds(node);
   const own = content.map(({ from, to, inner, side, ...attrs }, index) => {
     if (side !== undefined) return breakWidget(from, { side, ...attrs });
     const before = content[index - 1];
@@ -118,7 +124,7 @@ export function blockSet(
     // A mark on an inline node other than text, such as math, is drawn on the node's own element:
     // a view draws an inline decoration only on text. A box on one, such as a page variable's, is
     // drawn on it too, with the marks on its range: the stylesheet draws its value in the box.
-    if (isWholeAtom(node, { from, to }))
+    if (atoms.get(from) === to)
       return Decoration.node(from, to, {
         class: attrs.class,
         ...(attrs.style ? { style: attrs.style } : {}),
@@ -151,7 +157,8 @@ export function blockAttrs(
     dir,
   };
   if (prefix) attrs['data-number'] = prefix;
-  const indent = prefixed ? firstLineIndent(table) : null;
+  // An empty block draws its line's indent as its own, where the caret is drawn.
+  const indent = prefixed ? firstLineIndent(table) : emptyLineIndent(table);
   if (indent) attrs.style = indent;
   return attrs;
 }
@@ -176,7 +183,7 @@ function linesKey(table: DrawnLines): string {
 export function containerSet(
   builder: Builder,
   container: ProseMirrorNode,
-  forced: ReadonlyMap<ProseMirrorNode, DrawnLines>,
+  { lines: forced, pos = -1 }: { lines: ReadonlyMap<ProseMirrorNode, DrawnLines>; pos?: number },
 ): { key: string; set: DecorationSet } {
   const keys: string[] = [];
   const locals: Decoration[] = [];
@@ -184,10 +191,15 @@ export function containerSet(
   container.forEach((child, offset) => {
     const end = offset + child.nodeSize;
     const table = forced.get(child);
+    const at = pos < 0 ? -1 : pos + 1 + offset;
     if (table) {
-      const key = linesKey(table);
+      // A split block's later part is drawn in its first part's direction (DOCE-PAGINATION-9.12).
+      const dir =
+        at < 0
+          ? blockDirection(child)
+          : drawnDirection(builder.directions, { node: child, pos: at });
+      const key = `${linesKey(table)}|${dir}`;
       keys.push(key);
-      const dir = blockDirection(child);
       // A caption is drawn after its label.
       const prefixed = isCaption(child);
       // The lines go with the block's element too, for a node view that draws beside them, such
@@ -201,7 +213,7 @@ export function containerSet(
       return;
     }
     if (child.isTextblock || child.isLeaf) return;
-    const inner = containerSet(builder, child, forced);
+    const inner = containerSet(builder, child, { lines: forced, pos: at });
     keys.push(inner.key);
     if (inner.set !== DecorationSet.empty) children.push(offset, end, inner.set);
   });

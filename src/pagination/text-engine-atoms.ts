@@ -9,6 +9,7 @@ import {
   createMathAtomMeasurer,
   MATH_MIN_REPORTED_SCALE,
   mathPending,
+  mathWaits,
   type PlacedMath,
 } from '../layout-engine/math-atoms.js';
 import type { TextLayout } from '../layout-engine/text-layout.js';
@@ -35,6 +36,42 @@ export function atomMeasurer(
       return place.parent ? markedFont(style, node.marks).size : style.font.size;
     },
   });
+}
+
+/**
+ * The math the engine gave a provisional reserved box, before its typeset answer or while its
+ * glyphs load (DOCE-PAGINATION-12.13). A result laid out with any is not kept (`count` moved while
+ * laying it out), and once any of them can be laid out from its layout, `settle` forgets the
+ * nodes and says so, so the engine moves its version and what drew them draws them again.
+ */
+export function provisionalMath(options: TextEngineOptions) {
+  const typesetOf = typesetReader(options);
+  const layouter = options.mathLayouter ?? (() => null);
+  const waiting = new Set<ProseMirrorNode>();
+  let count = 0;
+  let version = 0;
+  return {
+    note(node: ProseMirrorNode) {
+      count += 1;
+      waiting.delete(node);
+      waiting.add(node);
+      // Math deleted before it was typeset never settles: the oldest waiting are let go.
+      if (waiting.size > WAITING_KEPT)
+        waiting.delete(waiting.values().next().value as ProseMirrorNode);
+    },
+    count: () => count,
+    /** Moves once any math given a provisional box can be sized; `settled` is told first. */
+    version(settled: () => void): number {
+      for (const node of waiting) {
+        if (mathWaits({ layouter, typesetOf }, node)) continue;
+        waiting.clear();
+        settled();
+        version += 1;
+        break;
+      }
+      return version;
+    },
+  };
 }
 
 /**
@@ -86,6 +123,12 @@ function liveIn(doc: ProseMirrorNode | null, nodes: Set<ProseMirrorNode>): numbe
   return live.size;
 }
 
+// The most equations found by element id; the least recently placed go first.
+const MATH_PLACES_BY_ID = 4000;
+
+// The most math nodes waiting for what sizes them that the engine follows; the oldest go first.
+const WAITING_KEPT = 1000;
+
 interface MathPlacement {
   readonly at: PlacedMath;
   readonly number: string | undefined;
@@ -99,7 +142,7 @@ interface MathPlacement {
 export function mathPlaces(
   equationOf: (node: ProseMirrorNode) => string | undefined = () => undefined,
 ) {
-  let placed = new WeakMap<ProseMirrorNode, MathPlacement>();
+  const placed = new WeakMap<ProseMirrorNode, MathPlacement>();
   const byId = new Map<unknown, MathPlacement & { node: ProseMirrorNode }>();
   const small = new Set<ProseMirrorNode>();
   const find = (node: ProseMirrorNode): PlacedMath | null => {
@@ -118,7 +161,11 @@ export function mathPlaces(
       const number = equationOf(node);
       if (!samePlace(placed.get(node)?.at, at)) version += 1;
       placed.set(node, { at, number });
-      if (node.attrs.dataId) byId.set(node.attrs.dataId, { node, at, number });
+      if (node.attrs.dataId) {
+        byId.delete(node.attrs.dataId);
+        byId.set(node.attrs.dataId, { node, at, number });
+        if (byId.size > MATH_PLACES_BY_ID) byId.delete(byId.keys().next().value);
+      }
       if (at.box.scale < MATH_MIN_REPORTED_SCALE) small.add(node);
       else small.delete(node);
     },
@@ -128,11 +175,5 @@ export function mathPlaces(
       mathVersion: () => version,
       stats: (): TextEngineStats => ({ ...stats(), smallMath: liveIn(doc(), small) }),
     }),
-    forget() {
-      placed = new WeakMap();
-      byId.clear();
-      small.clear();
-      version += 1;
-    },
   };
 }

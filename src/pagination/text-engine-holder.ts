@@ -48,9 +48,12 @@ export interface TextLayoutSetting {
 export interface TextEngineHolder {
   /** The engine for the template now; null until its module has loaded. */
   engine(): PagesTextEngine | null;
-  /** Moves whenever the engine's lines may have changed: made again, or atoms settled. */
+  /**
+   * Moves whenever the engine's lines may have changed: made again, atoms settled, or provisional
+   * math laid out again (DOCE-PAGINATION-12.13).
+   */
   version(): number;
-  /** Settles once the engine's module has loaded, or could not. */
+  /** Settles once the engine's module has loaded, or failed to, which leaves no engine. */
   readonly loaded: Promise<unknown>;
   /** Why no engine can be made: the served fonts cannot be read, or the module failed to load. */
   failure?(): string | null;
@@ -142,6 +145,8 @@ export function holdTextEngine(options: {
   let version = 0;
   const markups = markupChanges(options.setting.markup);
   let destroyed = false;
+  // Settles either way: served fonts that fail leave no engine (DOCE-PAGINATION-12.5), and the
+  // pages say why, so nothing waits on a rejection no one handles.
   let failed: string | null = null;
   const loaded = loadEngine(options.setting).then(
     ([module, served, layouter]) => {
@@ -156,7 +161,11 @@ export function holdTextEngine(options: {
     version += 1;
     options.changed();
   };
+  // The holder's version moves with the engine's atoms (DOCE-PAGINATION-12.13), and keeps what
+  // they moved when the engine is made again, so it never goes back.
+  const atoms = () => current?.atomsVersion?.() ?? 0;
   const drop = () => {
+    version += atoms();
     current?.destroy();
     current = null;
   };
@@ -179,7 +188,7 @@ export function holdTextEngine(options: {
         return current;
       numbered = codeLineNumbers;
       spoken = language;
-      current?.destroy();
+      drop();
       version += 1;
       askFor(template);
       const engine = made.createPagesTextEngine({
@@ -194,8 +203,8 @@ export function holdTextEngine(options: {
       current = Object.assign(engine, { language, number: numberedLike(engine, counted) });
       return current;
     },
-    // Another markup keeps the engine, but moves the lines it draws.
-    version: () => version + markups(),
+    // Another markup keeps the engine, but moves the lines it draws, as math laid out again does.
+    version: () => version + markups() + atoms(),
     loaded,
     failure: () => failed ?? (fonts?.phase === 'browser' ? fonts.reason : null),
     remeasure: drop,

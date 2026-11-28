@@ -10,15 +10,18 @@ export const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPar
 
 const kept = new WeakMap<ProseMirrorNode, ReadonlyMap<number, TextDirection>>();
 
-/** The direction of each later part of a split block in the pages' document, by position. */
+/**
+ * The direction of each later part of a split text block in the pages' document, at any depth, by
+ * position.
+ */
 export function continuedDirections(doc: ProseMirrorNode): ReadonlyMap<number, TextDirection> {
   const found = kept.get(doc);
   if (found) return found;
   const firsts = new Map<string, TextDirection>();
   const directions = new Map<number, TextDirection>();
-  doc.descendants((node, pos, parent) => {
-    if (parent?.type.name !== 'page_content') return !node.isTextblock;
-    if (!node.isTextblock) return false;
+  // Every text block's, top-level or inside a container, such as a list item's paragraph.
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
     const id = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : null;
     if (!isContinued(node)) {
       if (id) firsts.set(id, blockDirection(node));

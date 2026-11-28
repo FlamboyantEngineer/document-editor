@@ -19,15 +19,14 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { keepsNumbering } from '../engine/paragraph-numbering.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
-import { keepsAllNumbers } from './engine-numbers.js';
-import { forcedBlocksOf } from './forced-blocks.js';
+import { continuingParts, forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
+import { numberingFor, sameNumbers } from './forced-numbering.js';
 import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
-import { type InsertedTexts, insertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { type InsertedTexts, insertedTexts, NO_INSERTED, sameInserted } from './inserted-texts.js';
 import type { PagesTextEngine } from './text-engine-types.js';
 
 /** What the forced lines drew a state's pages with. */
@@ -41,8 +40,8 @@ export interface ForcedLinesState {
   readonly drawn: ReadonlySet<number> | null;
   /** The page the caret is on, which is always drawn. */
   readonly caret: number;
-  /** The words other plugins insert in the blocks, which the lines were laid out with. */
-  readonly inserted: string;
+  /** The words other plugins insert in the blocks, by block, which the lines were laid out with. */
+  readonly inserted: InsertedTexts;
 }
 
 /** The forced lines' plugin key. */
@@ -50,6 +49,16 @@ export const forcedLinesKey = new PluginKey<ForcedLinesState>('forced-lines');
 
 interface Scope {
   readonly name: string | null;
+}
+
+// What a top-level block's kept set is drawn with besides its node: its number, whether a later
+// part continues it, and the words inserted in it.
+function blockKey(
+  builder: Builder,
+  { node, pos, prefix }: { node: ProseMirrorNode; pos: number; prefix: string | undefined },
+): string {
+  const continued = builder.continuing.has(pos) ? 'c' : '';
+  return `${prefix ?? ''}|${continued}|${insertedKey(builder.inserted.byBlock.get(node))}`;
 }
 
 // A page's content: each forced block marked, with its lines inside it.
@@ -77,6 +86,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       numbered: builder.skipped,
       inserted: builder.inserted,
       labelOf: builder.labelOf,
+      continuing: builder.continuing,
     };
     const forced = forcedBlocksOf(builder.engine, child, place);
     const [first] = forced;
@@ -84,7 +94,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       const lines = new Map(
         forced.flatMap(({ node, owner, table }) => (table ? [[owner ?? node, table]] : [])),
       );
-      const { set } = containerSet(builder, child, lines);
+      const { set } = containerSet(builder, child, { lines, pos });
       if (set !== DecorationSet.empty) children.push(offset, end, set);
       return;
     }
@@ -97,7 +107,7 @@ function contentSet(builder: Builder, content: ProseMirrorNode, at: { pos: numbe
       return;
     }
     locals.push(Decoration.node(offset, end, blockAttrs(table, { prefix: first.prefix, dir })));
-    const key = `${first.prefix ?? ''}|${insertedKey(builder.inserted.byBlock.get(child))}`;
+    const key = blockKey(builder, { node: child, pos, prefix: first.prefix });
     const set = blockSet(builder, child, { table, key, prefixed: Boolean(first.prefix) });
     if (set !== DecorationSet.empty) children.push(offset, end, set);
   });
@@ -181,30 +191,17 @@ interface ForcedLinesSource {
 // How often an engine's footnotes were numbered otherwise.
 const numbersOf = (engine: PagesTextEngine | null) => engine?.numbersVersion?.() ?? 0;
 
-type ContentBuilder = Builder & { readonly doc: ProseMirrorNode };
-
-// An ordinary text edit leaves the headings, numbered paragraph eligibility and caption nodes
-// as they were. Only their positions have moved.
-function numberingFor(
-  engine: PagesTextEngine,
-  { doc, tr }: { readonly doc: ProseMirrorNode; readonly tr?: Transaction | undefined },
-  previous: ContentBuilder | null,
-): ReturnType<PagesTextEngine['numbering']> {
-  if (previous?.engine !== engine) return engine.numbering(doc);
-  const { numbers, skipped, labelOf, labels } = previous;
-  if (previous.doc === doc) {
-    return { headings: numbers, paragraphs: skipped, labelOf, labelsKey: labels };
-  }
-  if (!tr || previous.doc !== tr.before || !keepsAllNumbers(tr) || !keepsNumbering(tr)) {
-    return engine.numbering(doc);
-  }
-  return {
-    headings: new Map([...numbers].map(([pos, text]) => [tr.mapping.map(pos), text])),
-    paragraphs: new Set([...skipped].map((pos) => tr.mapping.map(pos))),
-    labelOf,
-    labelsKey: labels,
-  };
-}
+/**
+ * A builder and what its kept sets were drawn with besides the nodes: how often the engine's
+ * footnotes were numbered otherwise, and the variable values the document stored. A kept page's
+ * set holds its blocks' lines, which a marker renumbered or a stored value changed elsewhere widens
+ * though the page's node stays the same (DOCE-PAGINATION-11.2).
+ */
+type ContentBuilder = Builder & {
+  readonly doc: ProseMirrorNode;
+  readonly footnotes: number;
+  readonly values: unknown;
+};
 
 // The decorations of a document, with the builder's kept sets when the engine and the numbers are
 // those it was made with.
@@ -224,35 +221,38 @@ function decorate(
   const numbering = numberingFor(engine, state, previous);
   const numbers = numbering.headings;
   const directions = continuedDirections(doc);
+  const continuing = continuingParts(doc);
+  const footnotes = numbersOf(engine);
+  const values: unknown = doc.attrs.values;
   const same =
     previous?.engine === engine &&
     previous.version === source.version() &&
-    previous.skipped.size === numbering.paragraphs.size &&
+    previous.footnotes === footnotes &&
+    previous.values === values &&
     previous.labels === numbering.labelsKey &&
-    sameValues(previous.numbers, numbers) &&
-    sameValues(previous.directions, directions);
+    sameNumbers(
+      previous,
+      { numbers, skipped: numbering.paragraphs, directions, continuing },
+      state,
+    );
   const builder: ContentBuilder = {
     engine,
     numbers,
     version: source.version(),
     doc,
+    footnotes,
+    values,
     skipped: numbering.paragraphs,
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
     directions,
+    continuing,
     blocks: same ? previous.blocks : new WeakMap(),
     containers: same && previous.inserted === state.inserted ? previous.containers : new WeakMap(),
     nested: same && previous.inserted === state.inserted ? previous.nested : new WeakMap(),
     inserted: state.inserted,
   };
   return { builder, decorations: documentSet(builder, doc, state.drawn) };
-}
-
-// Whether two numberings show the same numbers in the same order.
-function sameValues<T>(a: ReadonlyMap<number, T>, b: ReadonlyMap<number, T>): boolean {
-  if (a.size !== b.size) return false;
-  const left = [...a.values()];
-  return [...b.values()].every((value, index) => value === left[index]);
 }
 
 /**
@@ -294,23 +294,24 @@ export function forcedLines(source: ForcedLinesSource): Plugin<ForcedLinesState>
     const made = decorate(source, { doc: state.doc, drawn, inserted, tr }, builder);
     builder = made.builder;
     const { engine, version } = source;
-    const words = inserted.key;
     return {
       engine: engine(),
       version: version(),
       numbers: numbersOf(engine()),
       decorations: made.decorations,
       ...drawn,
-      inserted: words,
+      inserted,
     };
   };
   // The decorations of a state, drawn again when other plugins insert other words in its blocks,
-  // such as a comparison that changed (DOCE-PAGINATION-11.11).
+  // such as a comparison that changed, or the same words in a block an edit made anew, which a
+  // state built from the transaction laid out with the words of the state before
+  // (DOCE-PAGINATION-11.11).
   const decorationsOf = (state: EditorState, value: ForcedLinesState | undefined) => {
     if (!value) return undefined;
     const now = insertedTexts(state, [forcedLinesKey]);
-    if (now.key === value.inserted) return value.decorations;
-    if (redrawn?.value === value && now.key === inserted.key) return redrawn.decorations;
+    if (sameInserted(now, value.inserted)) return value.decorations;
+    if (redrawn?.value === value && sameInserted(now, inserted)) return redrawn.decorations;
     inserted = now;
     redrawn = { value, decorations: build(state).decorations };
     return redrawn.decorations;

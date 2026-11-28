@@ -81,6 +81,7 @@ function textRun(text: string, font: string): TextRun {
     offsets: items.map(() => 0),
     atoms: items.map(() => null),
     sides: items.map(() => null),
+    nodes: items.map(() => null),
   };
 }
 

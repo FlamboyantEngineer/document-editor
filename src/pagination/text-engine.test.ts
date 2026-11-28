@@ -59,6 +59,33 @@ describe('createPagesTextEngine', () => {
     engine.destroy();
   });
 
+  it('DOCE-PAGINATION-14.6 DOCE-PAGINATION-11.1 keeps a block that takes no room as the same object, counted once', () => {
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE, hostViews: ['blockquote'] });
+    const quote = findNode(parseMarkup(`<blockquote><p>${WORDS}</p></blockquote>`), 'blockquote');
+    if (!quote) throw new Error('no quote');
+    const first = engine.measureBlock(quote, null);
+    expect(engine.measureBlock(quote, null)).toBe(first);
+    expect(engine.measureBlock(quote, null)).toBe(first);
+    expect(engine.stats()).toMatchObject({ refused: 1 });
+    expect(engine.stats().reasons.get('drawn by a host view')).toBe(1);
+    // In another scope it is laid out, and refused, again.
+    expect(engine.measureBlock(quote, 'other')).not.toBe(first);
+    expect(engine.stats().refused).toBe(2);
+    engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.11 keeps a block’s lines read with and without inserted words apart', () => {
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const node = paragraph(WORDS);
+    const inserted = [{ offset: 4, pieces: ['new '], sides: [0] }];
+    const withWords = engine.lines(node, { scope: null, inserted });
+    const plain = engine.lines(node, { scope: null });
+    expect(plain).not.toBe(withWords);
+    expect(engine.lines(node, { scope: null, inserted })).toBe(withWords);
+    expect(engine.lines(node, { scope: null })).toBe(plain);
+    engine.destroy();
+  });
+
   it('DOCE-PAGINATION-14.1 lays a block its host rule sizes out at that size, though a host view draws it', () => {
     const rules: { current: LayoutRules } = {
       current: {
@@ -482,6 +509,37 @@ describe('holdTextEngine', () => {
     expect(holder.version()).toBe(version + 1);
     expect(holder.engine()).toBe(engine);
     expect(holder.version()).toBe(version + 1);
+    holder.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.13 moves its version when the engine lays provisional math out again, and never back', async () => {
+    const holder = holdTextEngine({
+      setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
+      changed: () => undefined,
+    });
+    await holder.loaded;
+    const engine = holder.engine();
+    if (!engine) throw new Error('no engine');
+    let atoms = 0;
+    Object.assign(engine, { atomsVersion: () => atoms });
+    const version = holder.version();
+    atoms = 1;
+    expect(holder.version()).toBe(version + 1);
+    // An engine made again starts its own count; the holder's version still only moves on.
+    holder.remeasure();
+    expect(holder.engine()).not.toBe(engine);
+    expect(holder.version()).toBeGreaterThan(version + 1);
+    holder.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 settles loaded with no engine when the served fonts fail', async () => {
+    const failed = Promise.reject(new Error('no fonts'));
+    const holder = holdTextEngine({
+      setting: { template: () => BASE_TEMPLATE, fonts: failed },
+      changed: () => undefined,
+    });
+    await expect(holder.loaded).resolves.toBeUndefined();
+    expect(holder.engine()).toBeNull();
     holder.destroy();
   });
 

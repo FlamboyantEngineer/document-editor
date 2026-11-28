@@ -109,6 +109,11 @@ export interface BlockPlace {
   readonly variables?: VariableTexts | undefined;
   /** The alignment its object gives a caption in place of the caption's own. */
   readonly align?: TextAlign | undefined;
+  /**
+   * The alignment the table cell holding it gives a paragraph or heading in place of its own, at
+   * any depth in the cell; none in a cell left at the default (DOCE-PAGINATION-10.5).
+   */
+  readonly cellAlign?: TextAlign | undefined;
 }
 
 /** A block laid out without the DOM, in the shape the page layout reads. */

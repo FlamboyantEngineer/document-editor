@@ -81,7 +81,54 @@ async function openMenuAt(page: Page, value: string) {
   await expect(menu(page)).toBeVisible();
 }
 
+// A 30 by 20 PNG, served at a web address the tests route, as a site would serve an image.
+const PNG_30_BY_20 =
+  'iVBORw0KGgoAAAANSUhEUgAAAB4AAAAUCAIAAAAVyRqTAAAAH0lEQVR4nGNoaPhPI8QwavSo0aNGjxo9avSo0UPRaAAiE63lHUyJnwAAAABJRU5ErkJggg==';
+
+// Pastes HTML into the document at the caret, as the clipboard hands it to the editor.
+async function pasteHtml(page: Page, html: string) {
+  await content(page).evaluate((element, markup) => {
+    const data = new DataTransfer();
+    data.setData('text/html', markup);
+    const target = element.querySelector('[contenteditable="true"]') ?? element;
+    target.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  }, html);
+}
+
 test.describe('document editor lab', () => {
+  test('DOCE-EDITING-5.5 DOCE-OBJECTS-1.12 pastes images at web addresses sized, in an editor without image storage and beside math copied as an image', async ({
+    lab,
+    page,
+  }) => {
+    await page.route('https://images.example.test/**', (route) =>
+      route.fulfill({ contentType: 'image/png', body: Buffer.from(PNG_30_BY_20, 'base64') }),
+    );
+    await lab.open('document-editor');
+    await heading(page, 'Timing').click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await pasteHtml(
+      page,
+      '<p>Seen <img src="https://images.example.test/a.png" alt="Pasted"> here</p>',
+    );
+    const pasted = content(page).locator('img[src="https://images.example.test/a.png"]');
+    await expect(pasted).toHaveCount(1);
+    await expect(content(page)).toContainText('Seen here');
+    await page.keyboard.press('Enter');
+    const maths = await content(page).locator('.de-math').count();
+    await pasteHtml(
+      page,
+      `<p>So <img src="data:image/png;base64,${PNG_30_BY_20}" data-latex="x^2" alt="x^2"> and <img src="https://images.example.test/b.png"></p>`,
+    );
+    await expect(content(page).locator('img[src="https://images.example.test/b.png"]')).toHaveCount(
+      1,
+    );
+    // The math image is pasted as math, not as a figure.
+    await expect(content(page).locator('.de-math')).toHaveCount(maths + 1);
+  });
+
   test('DOCE-EDITOR-2.1 DOCE-EDITOR-1.4 edits the document on pages that follow the edits', async ({
     lab,
     page,

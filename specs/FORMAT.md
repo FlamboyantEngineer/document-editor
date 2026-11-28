@@ -57,16 +57,16 @@ Verification: `src/model/format/document-format.test.ts`, `src/model/document-va
 
 ### DOCE-FORMAT-2.1 - Stored template
 
-A stored template (`TemplateFile`) shall hold `formatVersion` 1, its `id`, and optionally its `name`, its `parent`, and its `page`, `styles`, `header`, `footer`, `footnotes`, `references`, `changeBars`, `sections` and the host's own `extensions`, as `TEMPLATE_SHAPE` describes. A section may carry `extensions` of its own too. A scope's `styles.blocks` holds the block numbers no other setting gives (DOCE-PAGINATION-10.9). A key the format does not know is an error anywhere (DOCE-FORMAT-2.2), so a host keeps its own data under `extensions`. Lengths shall carry their unit, colors shall be CSS colors written plainly (a hex color, a color's name or a color function of numbers, `isCssColor`), a line height shall be a multiple of the font size and a font weight a number. A header, footer or section's content shall be stored content (DOCE-FORMAT-1.1).
+A stored template (`TemplateFile`) shall hold `formatVersion` 1, its `id`, and optionally its `name`, its `parent`, and its `page`, `styles`, `header`, `footer`, `footnotes`, `references`, `changeBars`, `sections` and the host's own `extensions`, as `TEMPLATE_SHAPE` describes. A section may carry `extensions` of its own too. A scope's `styles.blocks` holds the block numbers no other setting gives (DOCE-PAGINATION-10.9). A key the format does not know is an error anywhere (DOCE-FORMAT-2.2), so a host keeps its own data under `extensions`. Lengths shall carry their unit (`px`, `pt`, `mm`, `cm`, `in`, `em` or `rem`), written plainly and never negative (`isTemplateLength`); only a font size may also be a percentage of the size around it (`isTemplateSize`), since a margin's, an indent's or a border's percentage would be of a width the layout engine does not size it by; colors shall be CSS colors written plainly (a hex color, a color's name or a color function of numbers, `isCssColor`), a line height shall be a multiple of the font size and a font weight a number. A header, footer or section's content shall be stored content (DOCE-FORMAT-1.1).
 
 Implementation: `src/model/format/template-format.ts`, `src/model/format/template-format-shape.ts`, `src/model/format/template-format-validate.ts`
 Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-2.2 - Setting validation
 
-`validateTemplateFile(template, options)` shall return an error naming each setting the format does not know and each value not of its setting's kind, such as `template.page.margins.top must be a length with a unit, such as 12pt`; an absent or null setting shall be valid. A setting is known by the format's own names only: one named like a member of every object, such as `constructor` or `__proto__`, shall be reported as not a template setting, whatever its value, and never make validation throw.
+`validateTemplateFile(template, options)` shall return an error naming each setting the format does not know and each value not of its setting's kind, such as `template.page.margins.top must be a length with a unit, such as 12pt` or `template.styles.paragraph.size must be a font size with a unit, such as 12pt or 120%`; the template's custom properties carry only values of their kind (`cssLength`, `cssSize`), so the stylesheet falls back for any other, as the layout engine does; an absent or null setting shall be valid. A setting is known by the format's own names only: one named like a member of every object, such as `constructor` or `__proto__`, shall be reported as not a template setting, whatever its value, and never make validation throw.
 
-Implementation: `src/model/format/template-format-validate.ts`, `src/model/format/template-format-shape.ts`
+Implementation: `src/model/format/template-format-validate.ts`, `src/model/format/template-format-shape.ts`, `src/model/format/template-format-values.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-2.3 - Identity, references and sections
@@ -80,7 +80,7 @@ Verification: `src/model/format/template-format.test.ts`
 
 Given a schema, `validateTemplateFile` shall read each content setting as stored content and report where it cannot be read. A header's or footer's content shall hold only what a page header or footer holds, blocks: a node it does not allow, such as a column layout, which only a section's content holds, shall be reported by its place, such as `template.header.content: [1]: a page header or footer does not allow columns`. `TEMPLATE_SHAPE` names a region's content as a kind of its own, `regionContent`.
 
-Implementation: `src/model/format/template-format-validate.ts`, `src/model/format/template-format-shape.ts`
+Implementation: `src/model/format/template-format-validate.ts`, `src/model/format/template-format-shape.ts`, `src/model/format/template-format-values.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/format/template-format.test.ts`
 
 ## DOCE-FORMAT-3 - Template inheritance

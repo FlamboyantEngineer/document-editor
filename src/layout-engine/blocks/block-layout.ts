@@ -69,11 +69,16 @@ export function createBlockLayout(options: BlockLayoutOptions): BlockLayout {
     place,
     metrics: metricsOf(place.scope ?? null),
     parent,
-    child: (child, at) => layIn(child, { ...place, width: at.width }, at.parent),
+    child: (child, at) => {
+      const cell = 'cellAlign' in at ? { cellAlign: at.cellAlign } : {};
+      return layIn(child, { ...place, width: at.width, ...cell }, at.parent);
+    },
   });
 
-  function layIn(node: ProseMirrorNode, place: BlockPlace, parent: BlockParent): Laid {
-    if (!(place.width > 0)) return notLaid(node, 'no width is left for the block');
+  function layIn(node: ProseMirrorNode, at: BlockPlace, parent: BlockParent): Laid {
+    // Where no width is left, as for a list nested deep in a narrow cell, the block's content box
+    // is none wide, as the stylesheet's is: its text takes a grapheme a line (DOCE-PAGINATION-10.3).
+    const place = at.width > 0 ? at : { ...at, width: 0 };
     const height = options.ruleSizes?.block(node, place.width, place.scope ?? null);
     // A block its rule sizes, moved whole; one whose rule failed takes no room (DOCE-PAGINATION-14.1).
     if (typeof height === 'number') return laid({ node, height, marginTop: 0, marginBottom: 0 });

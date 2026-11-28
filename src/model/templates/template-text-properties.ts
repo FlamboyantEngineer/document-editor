@@ -16,6 +16,7 @@ import {
   cssKeyword,
   cssLength,
   cssLineHeight,
+  cssSize,
   cssWeight,
   TEXT_ALIGNMENTS,
 } from './template-property-values.js';
@@ -50,7 +51,7 @@ const ROOT_SIZE = 16;
  * page content takes this size, so every other style's relative size resolves against it.
  */
 function paragraphSize(size: unknown): string | null {
-  const length = cssLength(size);
+  const length = cssSize(size);
   const match = length ? /^(\d+(?:\.\d+)?)(em|rem|%)$/.exec(length) : null;
   if (!match) return length;
   const amount = Number(match[1]);
@@ -70,7 +71,7 @@ function textProperties(
   const properties: CustomProperties = {};
   if (!text) return properties;
   set(properties, `${prefix}-font-family`, resolveFontStack(text.font, '', fontStacks));
-  set(properties, `${prefix}-font-size`, cssLength(text.size));
+  set(properties, `${prefix}-font-size`, cssSize(text.size));
   set(properties, `${prefix}-font-weight`, cssWeight(text.weight));
   if (typeof text.italic === 'boolean') {
     set(properties, `${prefix}-font-style`, text.italic ? 'italic' : 'normal');

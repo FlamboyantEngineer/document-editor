@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode, parseMarkup } from '../../test/document-markup.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
-import { blockTypography, fontString, markedFont, resolveLength } from './typography.js';
+import { resolveLength, resolveSize } from './template-lengths.js';
+import { blockTypography, fontString, markedFont } from './typography.js';
 
 const template: TemplateFile = {
   ...BASE_TEMPLATE,
@@ -127,9 +128,21 @@ describe('typography', () => {
       template: bare,
     });
     expect(code).toMatchObject({ font: { family: 'monospace' }, padding: 8, codeSize: null });
-    expect(resolveLength('50%', 12)).toBe(6);
+    expect(resolveSize('50%', 12)).toBe(6);
     expect(resolveLength('2rem', 12)).toBe(32);
     expect(resolveLength('auto', 12)).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-9.2 reads the lengths the stylesheet is given, and no other', () => {
+    // The template's custom properties hold only lengths the format takes (`cssLength`), so the
+    // stylesheet falls back for any other form, as the engine does.
+    for (const value of ['.5em', '+1em', '12PT', 18, ' 12pt ', '-2pt', '1pc', '10%'])
+      expect([value, resolveLength(value, 12)]).toEqual([value, null]);
+    expect(resolveLength('0.5em', 12)).toBe(6);
+    expect(resolveLength('12pt', 12)).toBe(16);
+    // A percentage is a font size's alone, of the size around it.
+    expect(resolveSize('150%', 12)).toBe(18);
+    expect(resolveSize('-150%', 12)).toBeNull();
   });
 
   it('DOCE-PAGINATION-9.2 serves a family through the host font stacks', () => {
@@ -160,5 +173,37 @@ describe('typography', () => {
     const heading = blockTypography(first('<h1>a</h1>', 'heading'), { template });
     const strong = documentSchema.marks.strong?.create();
     expect(strong && markedFont(heading, [strong]).weight).toBe(900);
+  });
+});
+
+describe('fallbacks as the stylesheet inherits them', () => {
+  it('DOCE-PAGINATION-9.11 slants a caption as an italic paragraph style when its own sets nothing', () => {
+    const italic: TemplateFile = {
+      ...BASE_TEMPLATE,
+      styles: { ...BASE_TEMPLATE.styles, paragraph: { italic: true } },
+    };
+    const caption = documentSchema.nodes.table_caption?.create();
+    if (!caption) throw new Error('no table caption');
+    // The caption text's font style is `inherit`, from the page content's paragraph style.
+    expect(blockTypography(caption, { template: italic }).font.italic).toBe(true);
+    // A heading's is its own, `normal` when unset.
+    expect(blockTypography(first('<h2>a</h2>', 'heading'), { template: italic }).font.italic).toBe(
+      false,
+    );
+  });
+
+  it('DOCE-PAGINATION-9.3 sizes inline code in `em` against the block it is in', () => {
+    const relative: TemplateFile = {
+      ...BASE_TEMPLATE,
+      styles: { ...BASE_TEMPLATE.styles, codeBlock: { size: '0.5em' } },
+    };
+    const code = documentSchema.marks.code?.create();
+    if (!code) throw new Error('no code mark');
+    const sized = (markup: string, type: string) =>
+      markedFont(blockTypography(first(markup, type), { template: relative }), [code]).size;
+    // The stylesheet gives inline code `font-size: 0.5em`, of the element around it.
+    expect(sized('<p>a</p>', 'paragraph')).toBe(6);
+    // The base template's first heading is 22px.
+    expect(sized('<h1>a</h1>', 'heading')).toBe(11);
   });
 });

@@ -345,4 +345,79 @@ test.describe('inline geometry on the engine’s lines', () => {
       { box: 'inline', width: true, height: true },
     ]);
   });
+
+  // Lines that mix fonts of other metrics, at a tight line height, so each line's box is its
+  // tallest font's: the struts the engine builds them from round as the browser's do on every
+  // system it runs on (the weekly macOS and Windows run, `.github/workflows/systems.yml`).
+  test('DOCE-PAGINATION-9.5 grows lines that mix fonts as the browser does', async ({ page }) => {
+    await open(page);
+    const words = 'The keepers note each reading with its units and the counts of the beds';
+    const code = (text: string) => ({ type: 'text', text, marks: [{ type: 'code' }] });
+    const mixed = (id: string, extra: Record<string, unknown>[]) => ({
+      type: 'paragraph',
+      attrs: { id },
+      content: [
+        { type: 'text', text: `${words} ` },
+        code('gauge_17'),
+        { type: 'text', text: ` and ${words}, ` },
+        { type: 'text', text: 'bold', marks: [{ type: 'strong' }] },
+        { type: 'text', text: ' or ' },
+        { type: 'text', text: 'slanted', marks: [{ type: 'em' }] },
+        ...extra,
+        { type: 'text', text: ` ${words}.` },
+      ],
+    });
+    const file = {
+      formatVersion: 1,
+      template: { id: 'mixed-fonts' },
+      sections: [
+        {
+          name: 'body',
+          content: [
+            {
+              type: 'heading',
+              attrs: { id: 'h1' },
+              content: [{ type: 'text', text: 'Readings beside ' }, code('north_gate')],
+            },
+            mixed('p1', []),
+            mixed('p2', [{ type: 'text', text: ' ' }, code('rain_mm')]),
+          ],
+        },
+      ],
+    };
+    const fonts = (lineHeight: number) => ({
+      formatVersion: 1,
+      id: 'mixed-fonts',
+      page: { size: 'A5', orientation: 'portrait' },
+      styles: {
+        paragraph: { font: 'Lab Geist', size: '11pt', lineHeight },
+        heading1: { font: 'Times New Roman', size: '17pt' },
+        codeBlock: { font: 'Courier New', size: '14pt' },
+      },
+      sections: [{ name: 'body', label: 'Body', required: true }],
+    });
+    for (const lineHeight of [1, 1.15, 1.5]) {
+      await page.evaluate(
+        ([stored, template]) => {
+          window.regressionLab.load(stored as DocumentFile, template as never);
+        },
+        [file, fonts(lineHeight)] as const,
+      );
+      await waitForLab(page);
+      await page.evaluate(() => window.regressionLab.drawAllLines(true));
+      await expect(page.locator('.pm-page-content > p[data-lines]')).toHaveCount(2);
+      expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+      expect([lineHeight, await offPlan(page)]).toEqual([lineHeight, []]);
+      // The code raises the lines it is on above the paragraph's own line height.
+      const grown = await page.evaluate(
+        (leading) =>
+          [...document.querySelectorAll<HTMLElement>('.pm-page-content > p[data-lines]')].map(
+            (block) =>
+              Number(block.dataset.debugHeight) > Number(block.dataset.lines) * leading + 0.5,
+          ),
+        (11 * 4 * lineHeight) / 3,
+      );
+      expect(grown).toEqual([true, true]);
+    }
+  });
 });

@@ -1,10 +1,11 @@
-// Tables: every cell laid out in its columns' width, each row as tall as its tallest cell, a cell
-// that spans rows growing the last of them, and a table with its caption above or below it. Rows
-// are measured as the table splitter reads them (DOCE-PAGINATION-10.5).
+// Tables: every cell laid out in its columns' width and its alignment, each row as tall as its
+// tallest cell, a cell that spans rows growing them, and a table with its caption above or below
+// it. Rows are measured as the table splitter reads them (DOCE-PAGINATION-10.5).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { TableMap } from 'prosemirror-tables';
 import { isContainerMeasurement, type LayoutBlock } from '../../model/index.js';
+import type { TextAlign } from '../typography.js';
 import { type BlockContext, isLaid, type Laid, laid, layChildren, notLaid } from './context.js';
 import { stackContainer } from './stack.js';
 import { type TableBorders, tableBorders, tableColumns } from './table-columns.js';
@@ -22,6 +23,14 @@ interface CellBox {
   readonly borders: TableBorders;
 }
 
+// The alignment a cell gives its paragraphs and headings in place of their own: the one "Align
+// cells" sets. The default, left, cannot be told from no alignment set, so it leaves each its own,
+// and clears one a cell further out gives (DOCE-PAGINATION-10.5).
+function cellAlign(cell: ProseMirrorNode): TextAlign | undefined {
+  const align: unknown = cell.attrs.textAlign;
+  return align === 'center' || align === 'right' || align === 'justify' ? align : undefined;
+}
+
 // A cell's content width: its columns' less its padding and the halves of its side borders.
 function cellHeight(
   context: BlockContext,
@@ -29,7 +38,8 @@ function cellHeight(
   { width, box }: { width: number; box: CellBox },
 ): { height: number } | Laid {
   const inner = Math.max(0, width - 2 * box.padding - box.borders.vertical);
-  const children = layChildren(context, cell, { width: inner, parent: 'cell' });
+  const at = { width: inner, parent: 'cell', cellAlign: cellAlign(cell) } as const;
+  const children = layChildren(context, cell, at);
   if (isLaid(children)) return children;
   const edge = box.padding + box.borders.horizontal / 2;
   const stacked = stackContainer(children.blocks, {
@@ -45,7 +55,8 @@ function cellHeight(
 }
 
 // Each row's height: its single-row cells' tallest, then a cell spanning rows adds what it lacks
-// to the last row it spans.
+// to the rows it spans in proportion to their heights, as Chromium spreads it, or to the last when
+// they have none.
 function rowHeights(cells: readonly PlacedCell[], count: number): number[] {
   const heights = Array.from({ length: count }, () => 0);
   for (const cell of cells) {
@@ -56,8 +67,14 @@ function rowHeights(cells: readonly PlacedCell[], count: number): number[] {
   for (const cell of cells) {
     if (cell.bottom - cell.top <= 1) continue;
     const spanned = heights.slice(cell.top, cell.bottom).reduce((sum, height) => sum + height, 0);
-    const last = cell.bottom - 1;
-    if (cell.height > spanned) heights[last] = (heights[last] ?? 0) + cell.height - spanned;
+    const lacking = cell.height - spanned;
+    if (!(lacking > 0)) continue;
+    if (spanned > 0) {
+      for (let row = cell.top; row < cell.bottom; row += 1) {
+        const height = heights[row] ?? 0;
+        heights[row] = height + (lacking * height) / spanned;
+      }
+    } else heights[cell.bottom - 1] = lacking;
   }
   return heights;
 }
