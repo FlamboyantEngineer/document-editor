@@ -223,10 +223,26 @@ function layoutsOf(
 }
 
 /**
+ * Whether a math node waits for what sizes it: a layouter is there, but the node is not typeset
+ * yet, or its glyphs still load (DOCE-PAGINATION-12.13). Its reserved box is then provisional.
+ */
+export function mathWaits(
+  { layouter, typesetOf }: Pick<MathAtomOptions, 'layouter' | 'typesetOf'>,
+  node: ProseMirrorNode,
+): boolean {
+  const using = layouter();
+  if (!using || !isMathNode(node)) return false;
+  const typeset = typesetOf(node);
+  if (!typeset) return true;
+  return typeset.state === 'ready' && mathPending(using, [typeset.math], !node.isInline) !== null;
+}
+
+/**
  * The atom measurer that sizes typeset math from its layout (DOCE-PAGINATION-12.10), and nothing
  * else. Math it cannot lay out now takes the reserved box: without a layouter, before its source is
  * typeset or once it typeset as invalid, or while its glyphs still load, which the pages wait for
- * before they lay it out (`mathPending`, DOCE-PAGINATION-14.4).
+ * before they lay it out (`mathPending`, DOCE-PAGINATION-14.4). The box given while the math waits
+ * for its typeset answer or its glyphs is provisional (DOCE-PAGINATION-12.13).
  */
 export function createMathAtomMeasurer(options: MathAtomOptions): AtomMeasurer {
   const { layouter, typesetOf, sizeOf } = options;
@@ -238,7 +254,9 @@ export function createMathAtomMeasurer(options: MathAtomOptions): AtomMeasurer {
     const typeset = using ? typesetOf(node) : null;
     if (!using || typeset?.state !== 'ready' || mathPending(using, [typeset.math], display)) {
       const text = node.textContent;
-      return sizeOfLaid(reservedMath(clusterCount(text), display, size), !display);
+      const reserved = sizeOfLaid(reservedMath(clusterCount(text), display, size), !display);
+      const waits = using && (!typeset || typeset.state === 'ready');
+      return waits ? { ...reserved, provisional: true } : reserved;
     }
     const tree = typeset.math;
     const parts = display ? splitTag(tree) : { math: tree, tag: null };
