@@ -207,6 +207,16 @@ export type ObjectBox =
 export interface BlockLayout {
   /** A block's height, margins and the measurement its split reads. */
   layoutBlock(node: ProseMirrorNode, place: BlockPlace): BlockGeometry;
-  /** A page header's, footer's or footnote area's height, gap and children. */
-  layoutRegion(node: ProseMirrorNode, place: Omit<BlockPlace, 'region'>): RegionGeometry;
+  /**
+   * A page header's, footer's or footnote area's height, gap and children; a footnote area's
+   * entries each through `entry` when given, which may give back one laid out before.
+   */
+  layoutRegion(
+    node: ProseMirrorNode,
+    place: Omit<BlockPlace, 'region'>,
+    entry?: EntryLayout,
+  ): RegionGeometry;
 }
+
+/** Lays a footnote area's entry out (`lay`), or gives back what laying it out gave before. */
+export type EntryLayout = (entry: ProseMirrorNode, lay: () => BlockGeometry) => BlockGeometry;

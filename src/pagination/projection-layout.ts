@@ -73,7 +73,8 @@ export function layOutProjection(
     onUnsettled,
     engine: options.engine,
   });
-  const target = projectDocument(source.doc, sections, options);
+  const hidden = options.engine.hiddenSuggestion?.() ?? null;
+  const target = projectDocument(source.doc, sections, { ...options, hidden });
   const tr = projection.tr;
   repaginate(tr, target, options.fragmentRules);
   const map = createProjectionMap(tr.doc, options.fragmentRules);
