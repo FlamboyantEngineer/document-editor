@@ -105,18 +105,16 @@ describe('the blocks of a section kept by its content', () => {
     layoutDocument(state, { pageHeight: 900, engine, memory });
     const [, second] = contentsOf(state.doc);
     const kept = second ? given.get(second) : undefined;
+    expect(kept).toBeDefined();
     // A heading added in the first section renumbers the second's.
     const at = paragraphIn(state.doc, 0) - 1;
     state = state.apply(
-      state.tr.insert(
-        at,
-        documentSchema.nodes.heading!.create({ level: 1 }, documentSchema.text('New')),
-      ),
+      state.tr.insert(at, documentSchema.node('heading', { level: 1 }, documentSchema.text('New'))),
     );
     const pages = layoutDocument(state, { pageHeight: 900, engine, memory });
     const [, secondAfter] = contentsOf(state.doc);
     expect(secondAfter).toBe(second);
-    expect(given.get(secondAfter!)).not.toBe(kept);
+    expect(secondAfter ? given.get(secondAfter) : undefined).not.toBe(kept);
     const fresh = createPagesTextEngine({ template: BASE_TEMPLATE });
     expect(heights(pages)).toEqual(
       heights(layoutDocument(state, { pageHeight: 900, engine: fresh })),
@@ -134,6 +132,7 @@ describe('the blocks of a section kept by its content', () => {
     layoutDocument(state, { pageHeight: 900, engine });
     const [first] = contentsOf(state.doc);
     const listed = first ? given.get(first) : undefined;
+    expect(listed).toBeDefined();
     // Text typed in the second section's heading changes the first section's list.
     let headingAt = -1;
     let headings = 0;
@@ -144,7 +143,7 @@ describe('the blocks of a section kept by its content', () => {
     state = state.apply(state.tr.insertText('Renamed ', headingAt));
     layoutDocument(state, { pageHeight: 900, engine });
     expect(contentsOf(state.doc)[0]).toBe(first);
-    expect(given.get(first!)).not.toBe(listed);
+    expect(first ? given.get(first) : undefined).not.toBe(listed);
     engine.destroy();
   });
 });

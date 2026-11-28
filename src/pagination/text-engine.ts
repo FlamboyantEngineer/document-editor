@@ -23,7 +23,7 @@ import { contentWidths } from './content-width.js';
 import { drawnContents } from './contents-drawn.js';
 import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import { hostRuleSizes, sizedReading, textAtomsOf, watchedRules } from './host-rules.js';
-import { holdInsertedTexts, type InsertedTexts, NO_INSERTED } from './inserted-texts.js';
+import { holdInsertedTexts, NO_INSERTED } from './inserted-texts.js';
 import { engineSources } from './layout-inputs.js';
 import { createNestedLines, type LinesRecorder } from './nested-lines.js';
 import { holdNodeNumbers, type NodeNumbers } from './node-numbers.js';
@@ -174,8 +174,8 @@ function recordingBoxes(geometry: BlockLayout, objects: ReturnType<typeof create
   };
 }
 
-// The figure and table boxes and a list of contents' rows, read from the block layout the engine
-// kept, the one the pages were laid out with (DOCE-PAGINATION-10.11, 10.12).
+// The engine's top-level blocks, and the figure and table boxes and a list of contents' rows read
+// from the block layout it kept, the one the pages were laid out with (DOCE-PAGINATION-10.11, 10.12).
 function keptReadings(
   blocks: ReturnType<typeof keptBlocks>,
   layouts: ReturnType<typeof engineLayouts>,
@@ -188,8 +188,14 @@ function keptReadings(
     numbers: () => NodeNumbers;
     select: () => void;
   },
-): Pick<PagesTextEngine, 'contentsDrawn' | 'objectBoxes'> {
+): Pick<PagesTextEngine, 'contentsDrawn' | 'measureBlock' | 'measureContent' | 'objectBoxes'> {
   return {
+    measureBlock: selecting(select, (node, scope, inserted = NO_INSERTED) =>
+      blocks.measure(node, scope, inserted),
+    ),
+    measureContent: selecting(select, (content, scope, inserted = NO_INSERTED) =>
+      blocks.measureContent(content, scope, inserted),
+    ),
     objectBoxes: selecting(select, (block, scope, inserted = NO_INSERTED) =>
       layouts.recording.boxesOf(blocks.measure(block, scope, inserted)),
     ),
@@ -201,22 +207,6 @@ function keptReadings(
         contents,
         doc: numbers().doc,
       }),
-    ),
-  };
-}
-
-// The engine's top-level blocks, read with its fonts selected.
-function blockReading(select: () => void, blocks: ReturnType<typeof keptBlocks>) {
-  return {
-    measureBlock: selecting(
-      select,
-      (node: ProseMirrorNode, scope: string | null, inserted: InsertedTexts = NO_INSERTED) =>
-        blocks.measure(node, scope, inserted),
-    ),
-    measureContent: selecting(
-      select,
-      (content: ProseMirrorNode, scope: string | null, inserted: InsertedTexts = NO_INSERTED) =>
-        blocks.measureContent(content, scope, inserted),
     ),
   };
 }
@@ -336,7 +326,6 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     pageDigits: (count) => contents.pageDigits(count),
     contentsKeyOf: (node) => contents.keyOf(node, numbers.current().doc),
     ...drawings.reading,
-    ...blockReading(select, blocks),
     ...keptReadings(blocks, layouts, { contents, numbers: numbers.current, select }),
     mathPending: (doc) => documentMathPending(options, doc),
     // Blocks and lines with provisional math are never kept. Regions and containers are laid out
