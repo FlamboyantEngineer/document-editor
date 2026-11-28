@@ -199,6 +199,38 @@ test.describe('the read-only viewer', () => {
     await expect(next).toHaveAttribute('data-drawn', 'true');
   });
 
+  test('DOCE-PAGINATION-13.6 keeps drawing the pages near the view once moved into another scrolling container', async ({
+    page,
+  }) => {
+    await open(page, 'long-mixed');
+    await page.addStyleTag({
+      content: '.lab-document-viewer { height: 700px; overflow-y: auto; }',
+    });
+    await showViewer(page, 1);
+    const sheets = page.locator(SHEETS);
+    await expect(sheets.first()).toHaveAttribute('data-drawn', 'true');
+    // The host moves the viewer into a frame of its own, which scrolls to the last page.
+    await page.evaluate(() => {
+      const frame = document.createElement('div');
+      frame.className = 'moved-frame';
+      frame.style.cssText = 'position: fixed; inset: 0; overflow-y: auto; background: white;';
+      const viewer = document.querySelector('.lab-document-viewer .de-document-viewer');
+      if (!viewer) throw new Error('no viewer');
+      frame.append(viewer);
+      document.body.append(frame);
+    });
+    await page.evaluate(
+      () =>
+        new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))),
+    );
+    await page.evaluate(() => {
+      const frame = document.querySelector('.moved-frame');
+      if (frame) frame.scrollTop = frame.scrollHeight;
+    });
+    await expect(sheets.last()).toHaveAttribute('data-drawn', 'true');
+    await expect(sheets.first()).not.toHaveAttribute('data-drawn');
+  });
+
   test('DOCE-PAGINATION-13.13 draws every page while the host page prints, and only the near ones after', async ({
     page,
   }) => {

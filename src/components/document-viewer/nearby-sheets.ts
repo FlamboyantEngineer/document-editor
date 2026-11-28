@@ -1,3 +1,4 @@
+import { isElement } from '../../utils/is-element.js';
 import { scrollerOf } from '../../utils/scroll-frame.js';
 
 // A browser that takes only an element or null as the root throws for a document; the implicit
@@ -15,7 +16,12 @@ function createObserver(
   }
 }
 
-/** Reports sheets within one viewport height above or below the viewer's scrolling frame. */
+/**
+ * Reports sheets within one viewport height above or below the viewer's scrolling frame. The frame
+ * is found again when an ancestor other than it scrolls (a container that has started scrolling)
+ * and when the viewer's size changes (moved into another container, which takes it off the page
+ * and back), so a viewer whose frame changes keeps drawing the pages near it (DOCE-PAGINATION-13.6).
+ */
 export function watchNearbySheets(
   element: HTMLElement,
   sheets: readonly HTMLElement[],
@@ -24,8 +30,11 @@ export function watchNearbySheets(
   const doc = element.ownerDocument;
   const view = doc.defaultView;
   if (!view?.IntersectionObserver) return null;
-  const scroller = scrollerOf(element);
-  const frame = scroller === doc.scrollingElement ? null : scroller;
+  const frameOf = () => {
+    const scroller = scrollerOf(element);
+    return scroller === doc.scrollingElement ? null : scroller;
+  };
+  let frame = frameOf();
   let observer: IntersectionObserver | null = null;
   let height = -1;
   const watch = () => {
@@ -44,10 +53,29 @@ export function watchNearbySheets(
     observer = current;
     for (const sheet of sheets) current.observe(sheet);
   };
-  watch();
-  view.addEventListener('resize', watch);
-  const size = frame && view.ResizeObserver ? new view.ResizeObserver(watch) : null;
+  const size = view.ResizeObserver ? new view.ResizeObserver(watch) : null;
   if (frame) size?.observe(frame, { box: 'border-box' });
+  watch();
+  // A new frame is watched afresh, its size followed in place of the old one's.
+  const findFrame = () => {
+    if (!element.isConnected) return;
+    const next = frameOf();
+    if (next === frame) return;
+    if (frame) size?.unobserve(frame);
+    frame = next;
+    if (frame) size?.observe(frame, { box: 'border-box' });
+    height = -1;
+    watch();
+  };
+  // Only the scroll of another ancestor can be a new frame; the window's never is one.
+  const scrolled = (event: Event) => {
+    const { target } = event;
+    if (target !== frame && isElement(target) && target.contains(element)) findFrame();
+  };
+  doc.addEventListener('scroll', scrolled, { capture: true, passive: true });
+  const moved = view.ResizeObserver ? new view.ResizeObserver(findFrame) : null;
+  moved?.observe(element);
+  view.addEventListener('resize', watch);
   return {
     /** Asks for a fresh intersection report even if a link jump leaves the sheet out of view. */
     refresh(sheet: HTMLElement) {
@@ -56,6 +84,8 @@ export function watchNearbySheets(
     },
     disconnect() {
       view.removeEventListener('resize', watch);
+      doc.removeEventListener('scroll', scrolled, { capture: true });
+      moved?.disconnect();
       size?.disconnect();
       observer?.disconnect();
       observer = null;

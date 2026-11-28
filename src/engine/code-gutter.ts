@@ -4,7 +4,13 @@
 
 import type { Decoration } from 'prosemirror-view';
 import type { LineTable } from '../layout-engine/line-table.js';
-import { codeElements, gutterDigits, gutterLine, gutterRows } from './code-drawing.js';
+import {
+  codeElements,
+  gutterDigits,
+  gutterLine,
+  gutterNumber,
+  gutterRows,
+} from './code-drawing.js';
 
 /**
  * The lines the pages draw a block on, which forced lines hand its element's view with its
@@ -38,7 +44,7 @@ const drawnRows = new WeakMap<Element, string>();
 export function drawGutter(
   gutter: HTMLElement,
   text: string,
-  at: { first: number; lines: LineTable | null },
+  at: { first: number; lines: LineTable | null; continued?: boolean | undefined },
 ) {
   const owner = gutter.ownerDocument;
   const { first } = at;
@@ -46,7 +52,7 @@ export function drawGutter(
   const lines = gutterRows(text, at.lines ? wrapsOf(text, at.lines) : null);
   const kept = [...gutter.children];
   lines.forEach((pieces, index) => {
-    const number = String(first + index);
+    const number = gutterNumber(first, index, at.continued === true);
     const key = `${number}|${String(forced)}|${pieces.join('\n')}`;
     const existing = kept[index];
     if (existing && drawnRows.get(existing) === key) return;
