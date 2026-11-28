@@ -223,3 +223,26 @@ describe('headers and footers showing page numbers', () => {
     ]);
   });
 });
+
+describe('region rooms across passes', () => {
+  beforeEach(() => {
+    installFakeCanvas();
+  });
+
+  it('DOCE-PAGINATION-11.10 lays a "page X of Y" footer out once for each page and count', () => {
+    const template = templateWith({
+      footer: [line(text('Page '), variable('page.current'), text(' of '), variable('page.total'))],
+    });
+    let calls = 0;
+    const pages = layOut(template, 30 * 4, 4 * LINE + 36, {
+      regionRoom: () => {
+        calls += 1;
+        return { height: LINE, gap: 0, children: [] };
+      },
+    });
+    expect(pages.length).toBe(40);
+    // Two layouts of 40 pages, each footer laid out once for each page and page count a layout
+    // tries, however often its passes read it: 246 times when every read laid it out again.
+    expect(calls).toBe(166);
+  });
+});
