@@ -246,8 +246,11 @@ function insertedSide(run: TextRun, line: RunLine): number | undefined {
 function drawnLabel(input: LineLayoutInput, placed: readonly Placed[]): string | null {
   if (!input.label) return null;
   const starts = placed.flatMap((line) => (line.labelStart === undefined ? [] : [line.labelStart]));
-  // The line after the label's last starts at the content, so the label ends its line.
-  const ends = placed[starts.length + 1]?.from === input.runs[0]?.start;
+  // The line after the label's last starts at the content, so the label ends its line: at its
+  // first item, after any content hidden before it.
+  const run = input.runs[0];
+  const content = run?.offsets.find((offset, index) => offset >= 0 && run.sides[index] === null);
+  const ends = placed[starts.length + 1]?.from === (content ?? run?.start);
   if (!starts.length && !ends) return null;
   const { text } = input.label;
   const edges = [0, ...starts, text.length];

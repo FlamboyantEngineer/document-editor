@@ -172,17 +172,23 @@ function unservedFamily(
   return families.map(firstFamily).find((family) => !isFontServed(family)) ?? null;
 }
 
-// The clusters of a block's text items that take a reserved width; inserted words and a template
-// variable's text are not the block's content, so they are left out: an inserted word's element
-// draws its own boxes (`insertedReserved`, DOCE-PAGINATION-12.4).
+// The clusters of a block's text items that take a reserved width, a citation's identifiers
+// included; inserted words are not the block's content, so they are left out: an inserted word's
+// element draws its own boxes (`insertedReserved`, DOCE-PAGINATION-12.4). A text atom or variable
+// that holds such a cluster is drawn in one element the page cannot reach inside, so the box is
+// the whole node, at the width its text takes.
 function reservedOf(runs: readonly TextRun[], reserve: ReserveCluster): ReservedBox[] {
   const boxes: ReservedBox[] = [];
   for (const run of runs)
     run.items.forEach((item, index) => {
       const offset = run.offsets[index] ?? -1;
       const inserted = (run.sides[index] ?? null) !== null;
-      if (offset < 0 || inserted || !('font' in item) || item.break === 'never') return;
-      boxes.push(...reservedBoxes(item.text, { offset, font: item.font, reserve }));
+      if (offset < 0 || inserted || !('font' in item)) return;
+      const size = run.nodes[index] ?? null;
+      const own = reservedBoxes(item.text, { offset, font: item.font, reserve });
+      if (size === null) boxes.push(...own);
+      else if (own.length)
+        boxes.push({ from: offset, to: offset + size, width: textWidth(item.text, item.font) });
     });
   return boxes;
 }
