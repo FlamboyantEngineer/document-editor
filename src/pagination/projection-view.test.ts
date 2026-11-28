@@ -815,6 +815,35 @@ describe('projection layouts', () => {
     drain();
     expect(projection.layoutState()).toBe('settled');
   });
+
+  it('DOCE-PAGINATION-7.6 fails when layouts keep moving the pages with no change in between', () => {
+    let calls = 0;
+    // Every other layout fits two paragraphs on a page, so each moves the pages again.
+    const { projection, drain } = mount(
+      {
+        state: canonicalState([], ['One', 'Two', 'Three', 'Four']),
+        pageHeight: () => {
+          calls += 1;
+          return calls % 2 ? 150 : 250;
+        },
+      },
+      { height: 100 },
+    );
+    drain();
+    // Layouts asked for with no change in between.
+    for (let index = 0; index < 10; index += 1) {
+      projection.layout();
+      drain();
+    }
+    expect(projection.layoutState()).toBe('failed');
+    const { layouts } = projection.stats();
+    edit(projection, (state) =>
+      layoutNow(state.tr.insertText('First ', positionOf(state.doc, 'One'))),
+    );
+    drain();
+    expect(projection.stats().layouts).toBe(layouts + 1);
+    expect(projection.layoutState()).toBe('settled');
+  });
 });
 
 // A canonical plugin that marks the text from one string to the end of another.

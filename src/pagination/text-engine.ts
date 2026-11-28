@@ -24,6 +24,7 @@ import { type ContentsLists, createContentsLists } from './contents-lists.js';
 import {
   hostRuleSizes,
   refusedAsDrawn,
+  reportUnplacedWords,
   sizedReading,
   textAtomsOf,
   watchedRules,
@@ -265,11 +266,12 @@ export function createPagesTextEngine(options: TextEngineOptions): PagesTextEngi
     ),
     measureBlock(node, scope, inserted = NO_INSERTED) {
       select();
-      const refusal = refusedAsDrawn(node, inserted, rules.hostViews());
+      const refusal = refusedAsDrawn(node, rules.hostViews());
       if (refusal) {
         refusals.refuse(node, refusal);
         return noRoom(node);
       }
+      reportUnplacedWords(node, inserted, refusals.refuse);
       const listed = contents.keyOf(node, numbers.current().doc) + variablesKey(node);
       const key = `${scope ?? ''}|${numbers.current().keyOf(node)}|${blockInsertedKey(node, inserted)}|${suggestionKey(node, options.markup)}${listed}`;
       const kept = blocks.get(node);

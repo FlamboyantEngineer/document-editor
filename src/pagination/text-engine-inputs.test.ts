@@ -291,4 +291,46 @@ describe('the pages engine and its inputs', () => {
     expect([...(engine.stats().refusedNodes ?? new Map()).values()]).toEqual([reason]);
     engine.destroy();
   });
+
+  it('DOCE-PAGINATION-11.11 DOCE-PAGINATION-14.6 lays a block holding words outside its text blocks out without them, and reports them', () => {
+    // A quote whose deleted paragraph's words a comparison draws beside its rule, outside a text
+    // block: the quote keeps the room of what it holds.
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'blockquote',
+                attrs: { id: 'quote' },
+                content: [
+                  { type: 'rule' },
+                  {
+                    type: 'paragraph',
+                    attrs: { id: 'kept' },
+                    content: [{ type: 'text', text: 'Kept' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE });
+    engine.number(doc);
+    const [quote] = blocksOf(doc);
+    if (!quote) throw new Error('no quote');
+    const plain = engine.measureBlock(quote, null).height;
+    const inserted = { byBlock: new Map(), outside: new Set([quote]), key: 'outside' };
+    expect(plain).toBeGreaterThan(0);
+    expect(engine.measureBlock(quote, null, inserted).height).toBe(plain);
+    const reason = 'inserted words outside a text block';
+    expect(engine.stats().reasons.get(reason)).toBe(1);
+    expect([...(engine.stats().refusedNodes ?? new Map()).values()]).toEqual([reason]);
+    engine.destroy();
+  });
 });

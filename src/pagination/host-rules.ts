@@ -23,15 +23,25 @@ function holdsHostBlock(node: ProseMirrorNode, host: ReadonlySet<string>): boole
   return found;
 }
 
-// Why a block takes no room before the engine lays it out, or null: words inserted outside a text
-// block take room the engine cannot lay out, and a host's view the room only drawing it tells.
+// Why a block takes no room before the engine lays it out, or null: a host's view whose room only
+// drawing it tells.
 export function refusedAsDrawn(
   node: ProseMirrorNode,
-  inserted: InsertedTexts,
   hostViews: ReadonlySet<string>,
 ): string | null {
-  if (inserted.outside.has(node)) return 'inserted words outside a text block';
   return holdsHostBlock(node, hostViews) ? 'drawn by a host view' : null;
+}
+
+/**
+ * Reports words inserted outside a block's text blocks, which take no room: the block is laid out
+ * without them (DOCE-PAGINATION-11.11).
+ */
+export function reportUnplacedWords(
+  node: ProseMirrorNode,
+  inserted: InsertedTexts,
+  refuse: (node: ProseMirrorNode, reason: string) => void,
+): void {
+  if (inserted.outside.has(node)) refuse(node, 'inserted words outside a text block');
 }
 
 /** The layout rules the engine sizes nodes by: the host's, else the library's own (`LAYOUT_RULES`). */

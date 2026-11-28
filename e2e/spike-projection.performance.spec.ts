@@ -21,8 +21,9 @@ const percentile = (values: readonly number[], at: number) => {
 test.describe('paged projection spike', () => {
   test('check 5: typing p95 at 300 pages', async ({ lab, page }) => {
     test.setTimeout(180_000);
-    // Laying 300 pages out the first time takes longer than the fixture waits.
-    await page.goto('spike-projection.html?copies=60');
+    // Laying 300 pages out the first time takes longer than the fixture waits. In the base
+    // template's layout, 76 copies of the sample fill just over 300 pages.
+    await page.goto('spike-projection.html?copies=76');
     await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
       timeout: 120_000,
     });
