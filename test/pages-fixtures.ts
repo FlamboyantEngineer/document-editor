@@ -88,6 +88,8 @@ export const STUB_INPUTS: LayoutInputs = {
   segmentation: '',
   unicode: '',
   rules: '',
+  hostViews: '',
+  refusedTextAtoms: '',
 };
 
 export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {

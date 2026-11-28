@@ -4,6 +4,7 @@
 
 import type { FontFaceFile, FontFiles } from '../host/font-files.js';
 import { UNICODE_VERSION } from '../layout-engine/bidi-classes.js';
+import { REFUSED_TEXT_ATOMS } from '../layout-engine/text-atoms.js';
 import {
   documentLanguage,
   LAYOUT_RULES,
@@ -39,13 +40,24 @@ export interface LayoutInputs {
   /** The runtime's segmentation data (`segmentationFingerprint`) and the bidi data's Unicode. */
   readonly segmentation: string;
   readonly unicode: string;
-  /** The node types the host's layout rules size, each with its rule's `sizeKey`. */
+  /**
+   * The host's layout rules: the types they size, each with its rule's `sizeKey`, and those whose
+   * rule keeps the block with a heading, ends the page or splits it.
+   */
   readonly rules: string;
+  /** The node types the host draws with views of its own, which take no room unless sized. */
+  readonly hostViews: string;
+  /** The text atoms not laid out as text. */
+  readonly refusedTextAtoms: string;
 }
 
+// The version of the library's own layout in the key's prefix: moved by hand whenever the same
+// inputs lay a document out on other pages, or the key is made otherwise.
+const LAYOUT_KEY_VERSION = 2;
+
 // FNV-1a, 32 bits, as eight hex digits, over text or bytes.
-function fnv(feed: (step: (unit: number) => void) => void): string {
-  let hash = 0x811c9dc5;
+function fnv(feed: (step: (unit: number) => void) => void, seed = 0x811c9dc5): string {
+  let hash = seed;
   feed((unit) => {
     hash = Math.imul(hash ^ unit, 0x01000193) >>> 0;
   });
@@ -83,13 +95,23 @@ function templateHash(template: TemplateFile): string {
   return hash;
 }
 
-// The node types a host's rules size and their sizeKeys: what a rule's sizes follow from, the same
-// on every machine running the same host code.
-function sizedRulesKey(rules: LayoutRules | undefined): string {
-  const sized = Object.entries(rules ?? {}).filter(([, rule]) => rule.size);
-  const keys = sized.map(([type, rule]) => `${type}=${String(rule.sizeKey ?? '')}`).sort();
-  return keys.length ? hashText(keys.join('\n')) : '';
+// What a host's rules lay blocks out by, the same on every machine running the same host code: the
+// types they size with their sizeKeys (a function's identity differs by runtime), and the types
+// kept with a heading, ending a page or split by a rule of the host's.
+function rulesKey(rules: LayoutRules | undefined): string {
+  const keys = Object.entries(rules ?? {}).flatMap(([type, rule]) => {
+    const parts = [
+      rule.size ? `size=${String(rule.sizeKey ?? '')}` : '',
+      rule.keepsWithHeading ? 'keepsWithHeading' : '',
+      rule.endsPage ? 'endsPage' : '',
+      rule.split ? 'split' : '',
+    ].filter(Boolean);
+    return parts.length ? [`${type}:${parts.join(',')}`] : [];
+  });
+  return keys.length ? hashText(keys.sort().join('\n')) : '';
 }
+
+const namesKey = (names: Iterable<string>) => [...new Set(names)].sort().join(',');
 
 const faceKey = (face: FontFaceFile) =>
   [face.family, face.weight, face.style, face.unicodeRange ?? '', bytesHash(face.bytes)].join('|');
@@ -103,6 +125,8 @@ export function layoutInputs(input: {
   readonly codeLineNumbers: boolean;
   readonly math: string | null;
   readonly rules?: LayoutRules | undefined;
+  readonly hostViews?: readonly string[] | undefined;
+  readonly refusedTextAtoms?: ReadonlyMap<string, string> | undefined;
 }): LayoutInputs {
   const faces = (input.fonts?.faces ?? []).map(faceKey).sort();
   const generics = Object.entries(input.fonts?.generics ?? {}).sort(([a], [b]) => (a < b ? -1 : 1));
@@ -118,14 +142,20 @@ export function layoutInputs(input: {
     codeLineNumbers: input.codeLineNumbers ? 'on' : 'off',
     segmentation: segmentationFingerprint(),
     unicode: UNICODE_VERSION,
-    rules: sizedRulesKey(input.rules),
+    rules: rulesKey(input.rules),
+    hostViews: namesKey(input.hostViews ?? []),
+    refusedTextAtoms: namesKey((input.refusedTextAtoms ?? REFUSED_TEXT_ATOMS).keys()),
   };
 }
 
-/** The one key of a layout's inputs: equal for equal inputs, in any runtime. */
+/** The one key of a layout's inputs: equal for equal inputs, in any runtime; 64 bits of hash. */
 export function layoutInputsKey(inputs: LayoutInputs): string {
   const names = Object.keys(inputs).sort() as (keyof LayoutInputs)[];
-  return `1-${hashText(names.map((name) => `${name}=${inputs[name]}`).join('\n'))}`;
+  const text = names.map((name) => `${name}=${inputs[name]}`).join('\n');
+  const feed = (step: (unit: number) => void) => {
+    for (let index = 0; index < text.length; index += 1) step(text.charCodeAt(index));
+  };
+  return `${String(LAYOUT_KEY_VERSION)}-${fnv(feed)}${fnv(feed, 0x050c5d1f)}`;
 }
 
 /** The layout rules the engine sizes nodes by: the host's, else the library's own (`LAYOUT_RULES`). */
@@ -146,5 +176,7 @@ export const engineSources = (options: TextEngineOptions) => ({
       codeLineNumbers: options.codeLineNumbers ?? false,
       math: options.mathLayouter?.()?.key ?? null,
       rules: rulesOf(options)(),
+      hostViews: options.hostViews,
+      refusedTextAtoms: options.refusedTextAtoms,
     }),
 });
