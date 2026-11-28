@@ -18,7 +18,7 @@ import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { isElement } from '../../utils/is-element.js';
-import { scrollerOf } from '../../utils/scroll-frame.js';
+import { watchNearbySheets } from './nearby-sheets.js';
 
 const hooks = createHooks('document-viewer');
 
@@ -52,19 +52,6 @@ function sheetsHtml(sections: ReturnType<typeof drawLayoutPages>['sections']): s
   );
 }
 
-/**
- * How far beyond the viewer's scrolling frame a sheet counts as in view: a screen above and below,
- * so a fast scroll finds the next pages drawn.
- */
-const NEAR = '100% 0px';
-
-// The area the margin applies to: the viewer's scrolling ancestor, whose clip would otherwise cut
-// the margin off; the window when the document scrolls.
-function rootOf(element: Element): Element | null {
-  const scroller = scrollerOf(element);
-  return scroller === element.ownerDocument.scrollingElement ? null : scroller;
-}
-
 // Whether two options objects hold the same value in every field.
 function sameFields<T extends object>(one: T | undefined, other: T | undefined): boolean {
   if (one === other) return true;
@@ -90,8 +77,7 @@ function useSameOptions<T extends object>(options: T | undefined): T | undefined
 }
 
 // The pages to draw: those in view and as many on each side.
-function wantedPages(visible: ReadonlySet<number>, overscan: number, total: number): Set<number> {
-  if (overscan === Infinity) return new Set(Array.from({ length: total }, (_, index) => index));
+function wantedPages(visible: Iterable<number>, overscan: number, total: number): Set<number> {
   const wanted = new Set<number>();
   for (const index of visible) {
     const from = Math.max(0, index - overscan);
@@ -210,6 +196,90 @@ function watchPrinting(element: HTMLElement, onChange: (printing: boolean) => vo
   };
 }
 
+// Draws page content on demand, leaving sheets and previously drawn neighbours in place.
+function drawSheets(
+  sheets: readonly HTMLElement[],
+  pages: ReturnType<typeof drawLayoutPages>['sections'][number]['pages'],
+) {
+  const drawn = new Set<number>();
+  const mount = (index: number) => {
+    const sheet = sheets[index];
+    const page = pages[index];
+    if (!sheet || !page || drawn.has(index)) return;
+    sheet.innerHTML = page.html();
+    sheet.setAttribute('data-drawn', 'true');
+    drawn.add(index);
+  };
+  return (wanted: ReadonlySet<number> | null) => {
+    if (!wanted) {
+      if (drawn.size < sheets.length) sheets.forEach((_sheet, index) => mount(index));
+      return;
+    }
+    for (const index of drawn) {
+      if (wanted.has(index)) continue;
+      const sheet = sheets[index];
+      sheet?.replaceChildren();
+      sheet?.removeAttribute('data-drawn');
+      drawn.delete(index);
+    }
+    for (const index of wanted) mount(index);
+  };
+}
+
+function mountViewerPages(
+  element: HTMLElement,
+  { sections }: ReturnType<typeof drawLayoutPages>,
+  overscan: number,
+) {
+  element.innerHTML = sheetsHtml(sections);
+  const pages = sections.flatMap((section) => section.pages);
+  const sheets = [...element.querySelectorAll<HTMLElement>(':scope > * > .pm-page')];
+  const indexOf = new Map<Element, number>(sheets.map((sheet, index) => [sheet, index]));
+  const visible = new Set<number>();
+  const draw = drawSheets(sheets, pages);
+  let destination: number | undefined;
+  let printing = false;
+  const redraw = () => {
+    if (printing || overscan === Infinity || !observer) draw(null);
+    else {
+      const near = destination === undefined ? visible : [...visible, destination];
+      draw(wantedPages(near, overscan, pages.length));
+    }
+  };
+  const observer = watchNearbySheets(element, sheets, (entries) => {
+    let changed = false;
+    for (const { target, isIntersecting } of entries) {
+      const index = indexOf.get(target);
+      if (index === undefined) continue;
+      changed ||= visible.has(index) !== isIntersecting || destination === index;
+      if (isIntersecting) visible.add(index);
+      else visible.delete(index);
+      if (destination === index) destination = undefined;
+    }
+    if (changed) redraw();
+  });
+  redraw();
+  const pageOf = new Map(pages.flatMap((page, index) => page.anchors.map((id) => [id, index])));
+  const unfollow = followLinks(element, pageOf, ({ index, id }) => {
+    destination = index;
+    redraw();
+    const sheet = sheets[index];
+    if (sheet) observer?.refresh(sheet);
+    return anchorIn(sheet, id);
+  });
+  const unwatch = watchPrinting(element, (now) => {
+    if (printing === now) return;
+    printing = now;
+    redraw();
+  });
+  return () => {
+    unwatch();
+    unfollow();
+    observer?.disconnect();
+    element.replaceChildren();
+  };
+}
+
 /**
  * A document's laid-out pages, read-only (DOCE-PAGINATION-13.6): `de-document-viewer` beside the
  * editor's root class, in the template's properties, around an element with the classes of the
@@ -229,59 +299,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
   const style = useMemo(() => templateProperties(drawing.template) as CSSProperties, [drawing]);
   useEffect(() => {
     const element = content.current;
-    if (!element) return undefined;
-    element.innerHTML = sheetsHtml(drawing.sections);
-    const pages = drawing.sections.flatMap((section) => section.pages);
-    const sheets = [...element.querySelectorAll<HTMLElement>(':scope > * > .pm-page')];
-    const indexOf = new Map<Element, number>(sheets.map((sheet, index) => [sheet, index]));
-    const visible = new Set<number>();
-    // While the host page prints, every page is drawn, so none prints empty.
-    let printing = false;
-    const draw = () => {
-      const wanted = wantedPages(visible, printing ? Infinity : overscan, pages.length);
-      sheets.forEach((sheet, index) => {
-        const page = pages[index];
-        if (!page || wanted.has(index) === sheet.hasAttribute('data-drawn')) return;
-        if (!wanted.has(index)) {
-          sheet.replaceChildren();
-          sheet.removeAttribute('data-drawn');
-          return;
-        }
-        sheet.innerHTML = page.html();
-        sheet.setAttribute('data-drawn', 'true');
-      });
-    };
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const index = indexOf.get(entry.target) ?? -1;
-          if (entry.isIntersecting) visible.add(index);
-          else visible.delete(index);
-        }
-        draw();
-      },
-      { root: rootOf(element), rootMargin: NEAR },
-    );
-    for (const sheet of sheets) observer.observe(sheet);
-    draw();
-    const pageOf = new Map(pages.flatMap((page, index) => page.anchors.map((id) => [id, index])));
-    // The page a link goes to is drawn as a page in view; scrolled to its anchor, the observer
-    // then reports it in view, and out of it once scrolled away.
-    const unfollow = followLinks(element, pageOf, ({ index, id }) => {
-      visible.add(index);
-      draw();
-      return anchorIn(sheets[index], id);
-    });
-    const unwatch = watchPrinting(element, (now) => {
-      printing = now;
-      draw();
-    });
-    return () => {
-      unwatch();
-      unfollow();
-      observer.disconnect();
-      element.replaceChildren();
-    };
+    return element ? mountViewerPages(element, drawing, overscan) : undefined;
   }, [drawing, overscan]);
   return (
     <div

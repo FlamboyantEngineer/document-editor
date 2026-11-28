@@ -18,7 +18,8 @@ export interface FaceRegistration {
   readonly renamed: boolean;
   /**
    * Settles once every face has loaded or failed to, with the family key (`familyKey`) of each
-   * family the browser refused a face of; all of that family's faces are taken out of the document.
+   * family the browser refused to construct or load a face of. The document keeps none of that
+   * registration's faces for a refused family.
    */
   readonly loaded: Promise<ReadonlySet<string>>;
   /** Takes the surface's faces out of the document, once no other surface draws them. */
@@ -30,6 +31,7 @@ interface Held {
   readonly name: string;
   readonly files: string;
   readonly faces: readonly FontFace[];
+  readonly loaded: Promise<boolean>;
   users: number;
 }
 
@@ -62,17 +64,42 @@ function chooseName(faces: DocumentFaces, family: string, incoming: ReadonlySet<
 }
 
 // The faces of a family's files as the document draws them under `name`.
-function addFaces(doc: Document, name: string, files: readonly FontFaceFile[]): FontFace[] {
-  const faces = files.map(
-    (file) =>
-      new FontFace(name, file.bytes, {
+function addFaces(doc: Document, name: string, files: readonly FontFaceFile[]): FontFace[] | null {
+  const faces: FontFace[] = [];
+  try {
+    for (const file of files) {
+      const face = new FontFace(name, file.bytes, {
         weight: String(file.weight),
         style: file.style,
         ...(file.unicodeRange ? { unicodeRange: file.unicodeRange } : {}),
-      }),
-  );
-  for (const face of faces) doc.fonts.add(face);
+      });
+      faces.push(face);
+    }
+    for (const face of faces) doc.fonts.add(face);
+  } catch {
+    for (const face of faces) {
+      doc.fonts.delete(face);
+      // A binary face can start loading in its constructor.
+      void tryLoadFace(face);
+    }
+    return null;
+  }
   return faces;
+}
+
+async function tryLoadFace(face: FontFace): Promise<boolean> {
+  try {
+    await face.load();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadFaces(doc: Document, faces: readonly FontFace[]): Promise<boolean> {
+  const accepted = (await Promise.all(faces.map(tryLoadFace))).every(Boolean);
+  if (!accepted) for (const face of faces) doc.fonts.delete(face);
+  return accepted;
 }
 
 // The faces of one family's files: those another surface holds for the same files, or new ones,
@@ -81,7 +108,7 @@ function holdFamily(
   doc: Document,
   { family, files }: { family: string; files: readonly FontFaceFile[] },
   incoming: ReadonlySet<string>,
-): Held {
+): Held | null {
   const faces = facesOf(doc);
   const { families } = faces;
   const key = familyKey(family);
@@ -94,7 +121,15 @@ function holdFamily(
     return shared;
   }
   const name = chooseName(faces, family, incoming);
-  const holder: Held = { name, files: wanted, faces: addFaces(doc, name, files), users: 1 };
+  const added = addFaces(doc, name, files);
+  if (!added) return null;
+  const holder: Held = {
+    name,
+    files: wanted,
+    faces: added,
+    loaded: loadFaces(doc, added),
+    users: 1,
+  };
   faces.names.add(familyKey(name));
   holders.push(holder);
   families.set(key, holders);
@@ -121,29 +156,15 @@ const NONE: FaceRegistration = {
   release: () => undefined,
 };
 
-// Loads each held face and gives the keys of the families the browser refused a face of, every face
-// of those families taken out of the document.
 async function refusedFamilies(
-  doc: Document,
   holders: readonly (readonly [string, { readonly holder: Held }])[],
+  refused: Set<string>,
 ): Promise<ReadonlySet<string>> {
-  const refused = new Set<string>();
   await Promise.all(
-    holders.flatMap(([key, { holder }]) =>
-      holder.faces.map((face) =>
-        face.load().then(
-          () => undefined,
-          () => {
-            refused.add(key);
-          },
-        ),
-      ),
-    ),
+    holders.map(async ([key, { holder }]) => {
+      if (!(await holder.loaded)) refused.add(key);
+    }),
   );
-  // The family is no longer served, so none of its faces may draw: the browser would draw its text
-  // in faces the engine does not measure. Every surface sharing the faces is refused the same.
-  for (const [key, { holder }] of holders)
-    if (refused.has(key)) for (const face of holder.faces) doc.fonts.delete(face);
   return refused;
 }
 
@@ -162,9 +183,13 @@ export function registerFaces(doc: Document, fonts: FontFiles | null): FaceRegis
   }
   const holders = new Map<string, { family: string; holder: Held }>();
   const incoming = new Set(byFamily.keys());
-  for (const [key, entry] of byFamily)
-    holders.set(key, { family: entry.family, holder: holdFamily(doc, entry, incoming) });
-  const loaded = refusedFamilies(doc, [...holders]);
+  const refused = new Set<string>();
+  for (const [key, entry] of byFamily) {
+    const holder = holdFamily(doc, entry, incoming);
+    if (holder) holders.set(key, { family: entry.family, holder });
+    else refused.add(key);
+  }
+  const loaded = refusedFamilies([...holders], refused);
   let released = false;
   return {
     drawnFamily: (family) => holders.get(familyKey(family))?.holder.name ?? family,

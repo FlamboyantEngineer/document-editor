@@ -19,7 +19,9 @@ const filesOf = (families: readonly string[]): FontFiles => ({
 
 const doc = {} as Document;
 
-function fontDocument(waitFor?: (family: string) => Promise<void>) {
+function fontDocument(
+  waitFor?: (family: string, descriptors: FontFaceDescriptors) => Promise<void>,
+) {
   class TestFace {
     constructor(
       readonly family: string,
@@ -28,7 +30,7 @@ function fontDocument(waitFor?: (family: string) => Promise<void>) {
     ) {}
 
     async load() {
-      await waitFor?.(this.family);
+      await waitFor?.(this.family, this.descriptors);
       return this;
     }
   }
@@ -350,9 +352,112 @@ describe('loadPagesFonts', () => {
     expect(served.generics).toEqual({});
     expect(served.files().faces.map((face) => face.family)).not.toContain('Lab Geist Mono');
     expect([...added].every((face) => (face as RefusingFace).family === 'Lab Geist')).toBe(true);
+    const context = served.measureContext();
+    context.font = '16px "Lab Geist"';
+    const regularWidth = context.measureText('Web typography').width;
+    for (const font of ['"Lab Geist Mono"', 'monospace', '"Lab Geist Mono", "Lab Geist"']) {
+      context.font = `16px ${font}`;
+      expect(context.measureText('Web typography').width).toBe(regularWidth);
+    }
     served.destroy();
     expect(added.size).toBe(0);
   });
+
+  it('DOCE-PAGINATION-12.5 DOCE-PAGINATION-12.8 retains the measured and drawn family if its upgrade fails', async () => {
+    const started = deferred<void>();
+    const pending = deferred<void>();
+    const { doc, faces } = fontDocument((_family, { weight }) => {
+      if (weight !== '700') return Promise.resolve();
+      started.resolve();
+      return pending.promise.then(() => {
+        throw new Error('The browser refused the upgrade');
+      });
+    });
+    const reference = filesOf(['Lab Geist', 'Lab Geist Mono']).faces;
+    const regular = reference.find(
+      ({ family, weight }) => family === 'Lab Geist' && weight === 400,
+    );
+    const mono = reference.find(
+      ({ family, weight }) => family === 'Lab Geist Mono' && weight === 400,
+    );
+    if (!regular || !mono) throw new Error('Expected reference faces');
+    const changed = { ...mono, family: regular.family, weight: 700 };
+    const fonts = fontAdapter((families) =>
+      Promise.resolve(ok({ faces: families.includes(mono.family) ? [changed, mono] : [regular] })),
+    );
+    const served = await loadPagesFonts(fonts, [regular.family], { doc });
+    if (served.phase !== 'pretext') throw new Error('Expected usable fonts');
+    const context = served.measureContext();
+    context.font = `700 16px "${regular.family}"`;
+    const width = () => context.measureText('WWWW').width;
+    const before = width();
+    const adding = served.add([mono.family]);
+    await started.promise;
+    expect(width()).toBe(before);
+    pending.resolve();
+    expect(await adding).toBe(true);
+
+    expect(served.drawing().drawnFamily(regular.family)).toBe(regular.family);
+    expect(served.files().faces).toEqual([regular, mono]);
+    expect([...faces].map(({ family }) => family)).toEqual([regular.family, mono.family]);
+    expect(width()).toBe(before);
+    context.font = `16px "${mono.family}"`;
+    expect(width()).not.toBe(before);
+    served.destroy();
+  });
+
+  it('DOCE-PAGINATION-12.5 uses the web layout when no family passes browser acceptance', async () => {
+    const { doc, faces } = fontDocument(() => Promise.reject(new Error('Cannot load face')));
+    const fonts = fontAdapter((families) => Promise.resolve(ok(filesOf(families))));
+    await expect(loadPagesFonts(fonts, ['Lab Geist'], { doc })).resolves.toEqual({
+      phase: 'browser',
+      reason: 'no-faces',
+    });
+    expect(faces.size).toBe(0);
+  });
+
+  it.each(['abort', 'destroy'])(
+    'DOCE-PAGINATION-12.7 stops awaiting a pending shared browser registration on %s',
+    async (cancel) => {
+      const started = deferred<void>();
+      const pending = deferred<void>();
+      const controller = new AbortController();
+      const { doc, faces } = fontDocument((family) => {
+        if (family !== 'Pending') return Promise.resolve();
+        started.resolve();
+        return pending.promise;
+      });
+      const [reference] = filesOf(['Lab Geist']).faces;
+      if (!reference) throw new Error('Expected a reference face');
+      const fonts = fontAdapter((families) =>
+        Promise.resolve(ok({ faces: families.map((family) => ({ ...reference, family })) })),
+      );
+      const abandoned = await loadPagesFonts(fonts, ['Previous'], {
+        doc,
+        signal: controller.signal,
+      });
+      if (abandoned.phase !== 'pretext') throw new Error('Expected usable fonts');
+      const adding = abandoned.add(['Pending']);
+      await started.promise;
+      const shared = registerFaces(doc, { faces: [{ ...reference, family: 'Pending' }] });
+      if (cancel === 'abort') controller.abort();
+      else abandoned.destroy();
+      expect([...faces].map(({ family }) => family)).toEqual(['Pending']);
+      await expect(adding).resolves.toBe(false);
+      await expect(Promise.race([shared.loaded, Promise.resolve('loading')])).resolves.toBe(
+        'loading',
+      );
+
+      const next = await loadPagesFonts({ ...fonts }, ['Current'], { doc });
+      if (next.phase !== 'pretext') throw new Error('Expected usable fonts');
+      pending.resolve();
+      await expect(shared.loaded).resolves.toEqual(new Set());
+      shared.release();
+      expect(abandoned.isFontServed('Pending')).toBe(false);
+      expect([...faces].map(({ family }) => family)).toEqual(['Current']);
+      next.destroy();
+    },
+  );
 
   it('DOCE-PAGINATION-12.8 keeps once a face handed again in a new buffer', async () => {
     const fonts: FontsAdapter = {

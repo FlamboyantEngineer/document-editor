@@ -101,13 +101,11 @@ function printRules(template: TemplateFile, sizes: readonly string[]): string {
 }
 
 // The document's pages as markup, without the editing state or view-only decorations, with the
-// code highlights the view paints, the suggestions the markup shows and the links print keeps,
-// each section marked with its sheet.
-function pagesMarkup(
+// code highlights the view paints, the suggestions the markup shows and the links print keeps.
+function copyPages(
   view: EditorView,
-  options: SnapshotOptions & { readonly sections: readonly number[]; markup: SnapshotMarkup },
-): string {
-  const { sections, markup } = options;
+  options: SnapshotOptions & { readonly markup: SnapshotMarkup },
+): HTMLElement {
   const copy = view.dom.cloneNode(true) as HTMLElement;
   copyCodeHighlights(view, copy);
   // A page painted into a canvas (DOCE-EDITOR-1.9) is copied as its HTML, without the canvas.
@@ -117,21 +115,12 @@ function pagesMarkup(
   }
   for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
   removeViewOnlyDecorations(copy, view);
-  applySuggestionMarkup(copy, markup);
+  applySuggestionMarkup(copy, options.markup);
   addPrintLinks(copy, {
     numbers: elementNumbers(view.state.doc, options.template),
     href: options.citationHref,
   });
-  prepareSnapshotImages(copy, options.resolveImage);
-  allowSnapshotMarkup(copy);
-  for (const [index, element] of copy.querySelectorAll(':scope > .pm-section').entries()) {
-    element.setAttribute(SHEET_ATTRIBUTE, String(sections[index] ?? 0));
-  }
-  for (const element of [copy, ...copy.querySelectorAll('*')]) {
-    for (const name of EDITING_ATTRIBUTES) element.removeAttribute(name);
-  }
-  copy.classList.remove('ProseMirror-focused');
-  return copy.outerHTML;
+  return copy;
 }
 
 // The language the pages are laid out in, the document's own, else its template's
@@ -144,7 +133,7 @@ function languageAttribute(view: EditorView, template: TemplateFile): string {
 // The editor root's hooks around the pages, so stylesheets scoped to the editor style them too,
 // without the ones that describe the view; the snapshot is read, never edited, shows the markup
 // it was made with, and is marked as print (`data-print`) for a stylesheet's print overrides.
-function rootMarkup(view: EditorView, pages: string, markup: SnapshotMarkup): string {
+function rootTag(view: EditorView, markup: SnapshotMarkup): string {
   const root = view.dom.closest(`.${ROOT_CLASS}`);
   const data = [...(root?.attributes ?? [])]
     .filter(({ name }) => name.startsWith('data-') && !isViewStateAttribute(name))
@@ -152,14 +141,19 @@ function rootMarkup(view: EditorView, pages: string, markup: SnapshotMarkup): st
     .map(({ name, value }) => ` ${name}="${escapeHtml(value)}"`)
     .join('');
   const hooks = `data-mode="reading" data-markup="${markup}" data-print="true"`;
-  return `<div class="${ROOT_CLASS}" ${hooks}${data}>${pages}</div>`;
+  return `<div class="${ROOT_CLASS}" ${hooks}${data}>`;
 }
 
-/**
- * The document as its pages show it now, as a standalone HTML document: each page printed on its
- * section's sheet size, in the template's properties, styled by the host's stylesheets.
- */
-export function documentSnapshot(view: EditorView, options: SnapshotOptions): string {
+interface CapturedSnapshot {
+  readonly pages: HTMLElement;
+  html(resolveImage?: ResolveImage): string;
+}
+
+/** Captures the printed pages and their styles before a host can change the live view. */
+export function captureDocumentSnapshot(
+  view: EditorView,
+  options: SnapshotOptions,
+): CapturedSnapshot {
   const { sizes, sections } = sectionSheets(view, options.template);
   const markup = options.markup ?? editorMarkup(view);
   const properties = Object.entries(templateProperties(options.template))
@@ -169,7 +163,8 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
     .map((href) => `<link rel="stylesheet" href="${escapeHtml(href)}">`)
     .join('');
   const styles = (options.styles ?? []).map((css) => `<style>${css}</style>`).join('');
-  return [
+  const pages = copyPages(view, { ...options, markup });
+  const opening = [
     '<!doctype html>',
     `<html${languageAttribute(view, options.template)}><head><meta charset="utf-8">`,
     `<title>${escapeHtml(options.title ?? '')}</title>`,
@@ -177,7 +172,28 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
     links,
     styles,
     '</head><body class="de-snapshot">',
-    rootMarkup(view, pagesMarkup(view, { ...options, sections, markup }), markup),
-    '</body></html>',
+    rootTag(view, markup),
   ].join('');
+  return {
+    pages,
+    html(resolveImage) {
+      prepareSnapshotImages(pages, resolveImage);
+      allowSnapshotMarkup(pages);
+      for (const [index, element] of pages.querySelectorAll(':scope > .pm-section').entries())
+        element.setAttribute(SHEET_ATTRIBUTE, String(sections[index] ?? 0));
+      for (const element of [pages, ...pages.querySelectorAll('*')]) {
+        for (const name of EDITING_ATTRIBUTES) element.removeAttribute(name);
+      }
+      pages.classList.remove('ProseMirror-focused');
+      return `${opening}${pages.outerHTML}</div></body></html>`;
+    },
+  };
+}
+
+/**
+ * The document as its pages show it now, as a standalone HTML document: each page printed on its
+ * section's sheet size, in the template's properties, styled by the host's stylesheets.
+ */
+export function documentSnapshot(view: EditorView, options: SnapshotOptions): string {
+  return captureDocumentSnapshot(view, options).html(options.resolveImage);
 }
