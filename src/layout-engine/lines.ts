@@ -272,15 +272,12 @@ function runLines(
     return [{ ...empty, start: opening, lastOfRun: true, run }];
   }
   return lines.map((line, index) => {
-    const offset = run.offsets[line.item] ?? -1;
     const inLabel = first && index > 0 && line.item === input.label?.item;
-    // A line that starts inside an inserted word starts at the word's offset, in no content.
-    const inWord = index > 0 && line.sourceStart > 0 && (run.sides[line.item] ?? null) !== null;
+    const { from, side, inWord } = lineStart(run, line, index);
     return {
       ...(inLabel ? { labelStart: line.sourceStart } : {}),
-      // A run's first line starts at the run, before any hidden content its first item follows.
-      from: offset < 0 || index === 0 ? run.start : offset + (inWord ? 0 : line.sourceStart),
-      side: inWord ? undefined : insertedSide(run, line),
+      from,
+      side,
       inWord,
       width: shownWidth(run, line),
       height: lineHeight(run, line, input.strut),
@@ -303,6 +300,30 @@ function shownWidth(run: TextRun, line: RunLine): number {
     hanging += width;
   }
   return Math.max(0, line.width - hanging);
+}
+
+// Where a run's line starts: its content offset, and its side among the elements there.
+function lineStart(run: TextRun, line: RunLine, index: number) {
+  const offset = run.offsets[line.item] ?? -1;
+  // A line that starts among a variable's words starts before its first word's element.
+  const word = index > 0 && line.sourceStart > 0 ? valueWordAt(run, line) : undefined;
+  // A line that starts inside an inserted word starts at the word's offset, in no content.
+  const inserted = (run.sides[line.item] ?? null) !== null;
+  const inWord = word === undefined && index > 0 && line.sourceStart > 0 && inserted;
+  // A run's first line starts at the run, before any hidden content its first item follows.
+  const at = inWord || word !== undefined ? 0 : line.sourceStart;
+  return {
+    from: offset < 0 || index === 0 ? run.start : offset + at,
+    side: word ?? (inWord ? undefined : insertedSide(run, line)),
+    inWord,
+  };
+}
+
+// The side a line that starts at a word of a variable's value inside its item breaks before, as
+// its first word's element; undefined for any other line, as one inside a word.
+function valueWordAt(run: TextRun, line: RunLine): number | undefined {
+  const word = run.words?.[line.item]?.find((each) => each.start === line.sourceStart);
+  return word === undefined ? undefined : word.side - 1;
 }
 
 // Where a line that starts among inserted text breaks from the line before: before its first

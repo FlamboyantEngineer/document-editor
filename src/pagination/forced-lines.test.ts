@@ -10,6 +10,7 @@ import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
 import type { TextLine } from '../layout-engine/line-table.js';
 import type { ParagraphNumber } from '../layout-engine/numbers.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
+import { continuingParts } from './forced-blocks.js';
 import { forcedLines, forcedLinesKey } from './forced-lines.js';
 import { insertedTexts } from './inserted-texts.js';
 import { paginationKey } from './layout-marks.js';
@@ -770,6 +771,18 @@ describe('forcedLines', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-11.2 continues a code part’s last line only where the split cut that line', () => {
+    const code = (id: string, part: number, text: string, continued = false) =>
+      create('code_block', { dataId: id, splitPartIndex: part, codeLineContinued: continued }, [
+        documentSchema.text(text),
+      ]);
+    const doc = pagesDoc([
+      [code('c1', 0, 'one'), code('c2', 0, 'three')],
+      [code('c1', 1, 'two'), code('c2', 1, 'four', true)],
+    ]);
+    expect([...continuingParts(doc)]).toEqual([positionOf(doc, 'three')]);
+  });
+
   it('DOCE-PAGINATION-11.2 marks each paragraph in a quote', () => {
     const quote = create('blockquote', null, [paragraph('qq', { dataId: 'q1' })]);
     const doc = pagesDoc([[quote]]);
@@ -858,6 +871,31 @@ describe('forcedLines', () => {
     expect(drawn(state).filter((each) => Number(each.from) > end)).toEqual([]);
   });
 
+  it('DOCE-PAGINATION-11.2 justifies and hyphenates the last line of a part inside a quote that another part continues', () => {
+    const head = paragraph('aaaa bbbb cccc dd\u00ad', { dataId: 'p1', splitPartIndex: 0 });
+    const tail = paragraph('ee ff', { dataId: 'p1', splitPartIndex: 1 });
+    const quote = (part: number, child: Node) =>
+      create('blockquote', { dataId: 'q1', splitPartIndex: part }, [child]);
+    const doc = pagesDoc([[quote(0, head)], [quote(1, tail)]]);
+    const state = stateWith(doc, stubEngine({ justify: true }).engine);
+    const at = positionOf(doc, head.textContent);
+    const lines = drawn(state).filter(
+      (each) => Number(each.from) > at && Number(each.to) <= at + head.nodeSize,
+    );
+    // The head's last line, which the page break ends, is a wrapped line of the whole block.
+    expect(lines.slice(-2)).toEqual([
+      {
+        from: at + 11,
+        to: at + 19,
+        class: 'de-forced-lines__justified',
+        style: '--de-word-spacing: 90.000px',
+      },
+      { from: at + 18, to: at + 19, class: 'de-forced-lines__end de-forced-lines__hyphen' },
+    ]);
+    const end = positionOf(doc, 'ee ff');
+    expect(drawn(state).filter((each) => Number(each.from) > end)).toEqual([]);
+  });
+
   it('DOCE-PAGINATION-11.2 leaves ragged the last line of a part whose next part starts at a hard break', () => {
     const head = paragraph('aaaa bbbb cccc dd', { dataId: 'p1', splitPartIndex: 0 });
     const breakNode = documentSchema.nodes.hard_break?.create();
@@ -920,6 +958,28 @@ describe('forcedLines', () => {
       { text: 'item', scope: 'Body', prefix: undefined, number: '1.1.' },
       { text: 'more', scope: 'Body', prefix: undefined },
     ]);
+  });
+
+  it('DOCE-PAGINATION-12.4 draws a heading number that holds a reserved cluster, each such cluster in its box', () => {
+    const heading = create('heading', { level: 1, dataId: 'h1' }, [documentSchema.text('Scope')]);
+    const doc = pagesDoc([[heading]]);
+    const { engine } = stubEngine({ headings: new Map([[positionOf(doc, 'Scope'), '第1 ']]) });
+    const own = engine.lines.bind(engine);
+    engine.lines = (node, place) => {
+      const table = own(node, place);
+      return table && { ...table, label: '第1 ', prefixReserved: [{ from: 0, to: 1, width: 24 }] };
+    };
+    const state = stateWith(doc, engine);
+    const view = new EditorView(document.createElement('div'), { state });
+    // The pages draw the number, which the stylesheet's generated content would draw otherwise;
+    // it is drawn and not read, as that number is.
+    const label = view.dom.querySelector('h1 > .de-forced-lines__label');
+    expect(label?.getAttribute('aria-hidden')).toBe('true');
+    expect(label?.innerHTML).toBe(
+      '<span class="de-forced-lines__reserved" style="--de-reserved-width: 24.000px;">第</span>1 ',
+    );
+    expect(view.dom.querySelector('h1')?.textContent).toBe('第1 Scope');
+    view.destroy();
   });
 
   it("DOCE-PAGINATION-11.2 draws a numbered paragraph on its lines, its first line's indent before its number", () => {

@@ -697,6 +697,14 @@ div.de-host-view {
   word-spacing: normal;
 }
 
+/* A mention, a glossary reference and an inline embed are laid out whole, their white space
+   collapsed, a space at either end kept (DOCE-PAGINATION-9.5): the pages draw them so. */
+:where(.de-document-editor)
+  .de-forced-lines
+  :is([data-mention-user-id], [data-abbreviation-ref], span[data-embed-kind]) {
+  white-space: nowrap;
+}
+
 /* A cluster the engine cannot measure, such as one no served font draws, takes the width the
    engine reserved for it; its real glyph is drawn in the middle and may reach past the box, which
    moves nothing around it (DOCE-PAGINATION-12.4). */
@@ -1335,6 +1343,17 @@ div.de-host-view {
   .pm-page-content
   .doc-caption-line:has(> .doc-caption-text > .de-forced-lines__text)
   > .doc-caption-continued::after {
+  content: none;
+}
+
+/*
+ * A heading's number that holds a cluster no served font draws is drawn by the pages, each such
+ * cluster in the box the engine reserved for it (`de-forced-lines__label`, DOCE-PAGINATION-12.4),
+ * in place of the number the rules above generate.
+ */
+.de-document-editor
+  .pm-page-content
+  :is(h1, h2, h3, h4, h5, h6).de-forced-lines:has(> .de-forced-lines__label)::before {
   content: none;
 }
 

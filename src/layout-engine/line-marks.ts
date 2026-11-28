@@ -235,6 +235,8 @@ export interface LabelPart {
   readonly style?: string | undefined;
   /** Whether its line ends after it, before the content. */
   readonly breaks: boolean;
+  /** Its clusters drawn in a box of a reserved width, by offset in the part (DOCE-PAGINATION-12.4). */
+  readonly reserved?: readonly ReservedBox[] | undefined;
 }
 
 // The label's text on each line it starts.
@@ -244,23 +246,38 @@ function labelPartTexts(table: LineTable): string[] | null {
   return table.label.endsWith('\n') ? parts.slice(0, -1) : parts;
 }
 
+// The reserved boxes of a label that fall in one of its parts, by offset in that part.
+function partBoxes(
+  boxes: readonly ReservedBox[] | undefined,
+  { start, end }: { start: number; end: number },
+): ReservedBox[] {
+  return (boxes ?? [])
+    .filter((box) => box.from >= start && box.to <= end)
+    .map((box) => ({ ...box, from: box.from - start, to: box.to - start }));
+}
+
 /**
  * The parts of a caption's label on the lines they start, where a line breaks inside the label or
- * right after it (DOCE-PAGINATION-11.2): what the pages draw instead of the label alone, each part
- * after the first starting its line at its indent; null when the content starts on the label's
- * line.
+ * right after it (DOCE-PAGINATION-11.2), or of a label or a heading's number that holds a cluster
+ * of a reserved width (DOCE-PAGINATION-12.4): what the pages draw instead of the label or number
+ * the stylesheet generates, each part after the first starting its line at its indent and each
+ * reserved cluster in its box; null when the stylesheet draws it.
  */
 export function labelParts(table: LineTable): LabelPart[] | null {
   const texts = labelPartTexts(table);
   if (!texts) return null;
   const ends = table.label?.endsWith('\n') ?? false;
+  let start = 0;
   return texts.map((text, index) => {
     const line = table.lines[index];
     const indent = index > 0 && line ? indentOf(table, line) : 0;
+    const reserved = partBoxes(table.prefixReserved, { start, end: start + text.length });
+    start += text.length;
     return {
       text,
       ...(indent > 0.001 ? { style: `--de-line-indent: ${px(indent)}` } : {}),
       breaks: ends || index < texts.length - 1,
+      ...(reserved.length ? { reserved } : {}),
     };
   });
 }

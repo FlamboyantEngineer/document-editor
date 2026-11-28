@@ -154,6 +154,54 @@ describe('createTextLayout', () => {
     expect(table(block('<p>aa</p>'), 200, { reserve }).reserved).toBeUndefined();
   });
 
+  it('DOCE-PAGINATION-12.4 lists the reserved clusters of a heading’s number and a caption’s label', () => {
+    // Reserves each ideograph, in any font, at the font's size.
+    const reserve = (cluster: string, font: string) =>
+      /\p{Script=Han}/u.test(cluster) ? Number(/(\d+)px/u.exec(font)?.[1]) : null;
+    const heading = block('<h1>aaaa</h1>', 'heading');
+    const size = createTextLayout({ template: BASE_TEMPLATE }).typography(heading).font.size;
+    const numbered = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(heading, {
+      width: 400,
+      prefix: '第1章 ',
+    });
+    if (!numbered.ok) throw new Error(numbered.reason);
+    // The pages draw the number as they draw a caption's label, each ideograph in its box.
+    expect(numbered.table.label).toBe('第1章 ');
+    expect(numbered.table.prefixReserved).toEqual([
+      { from: 0, to: 1, width: size },
+      { from: 2, to: 3, width: size },
+    ]);
+    // The heading's content holds none.
+    expect(numbered.table.reserved).toBeUndefined();
+    const plain = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(heading, {
+      width: 400,
+      prefix: '1. ',
+    });
+    expect(plain.ok && plain.table.prefixReserved).toBeUndefined();
+
+    const caption = documentSchema.nodes.table_caption?.create(null, [documentSchema.text('ff')]);
+    if (!caption) throw new Error('no table caption');
+    const labelled = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(caption, {
+      width: 400,
+      label: '表 1 - ',
+    });
+    if (!labelled.ok) throw new Error(labelled.reason);
+    // The pages draw the label, which shares its line with the content, with its box.
+    expect(labelled.table).toMatchObject({
+      label: '表 1 - ',
+      prefixReserved: [{ from: 0, to: 1 }],
+    });
+    const latin = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(caption, {
+      width: 400,
+      label: 'Table 1 - ',
+    });
+    expect(latin.ok && latin.table).toMatchObject({ lines: [{ from: 0 }] });
+    expect(latin.ok && [latin.table.label, latin.table.prefixReserved]).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
   it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, each text node as its own item', () => {
     const plain = table(block(`<p>${WORDS}</p>`), 60);
     const linked = table(
@@ -284,6 +332,29 @@ describe('createTextLayout', () => {
       measureAtom: () => ({ width: 100, height: 48, baseline: 40, math: narrow }),
     });
     expect(fitted.lines[0]).toMatchObject({ width: 100, height: 48 });
+  });
+
+  it('DOCE-PAGINATION-9.5 lays a text atom out with its white space collapsed and a space at either end kept', () => {
+    const embed = (text: string) =>
+      documentSchema.nodes.embed_inline?.create({ kind: 'cell', source: 'book!B2', text });
+    const width = (text: string) => {
+      const atom = embed(text);
+      if (!atom) throw new Error('schema lacks an inline embed');
+      const node = documentSchema.node('paragraph', null, [
+        documentSchema.text('x '),
+        atom,
+        documentSchema.text(' y'),
+      ]);
+      return table(node, 400).lines[0]?.width;
+    };
+    // `x a b y` is 33px: white space inside collapses to one space, as `white-space: nowrap`
+    // draws it, a tab and a line feed too.
+    expect([width('a b'), width('a  b'), width('a\tb'), width('a\nb')]).toEqual([33, 33, 33, 33]);
+    // A space at either end is drawn, after the space before it, which is kept: `x  a  y`.
+    expect(width(' a ')).toBe(30);
+    expect(width('  a')).toBe(27);
+    // White space alone is one space.
+    expect(width('   ')).toBe(21);
   });
 
   it('DOCE-PAGINATION-9.5 lays footnote markers, mentions and glossary references out as their text', () => {
@@ -555,6 +626,76 @@ describe('createTextLayout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-9.5 wraps a variable’s value as text, between its words, inside the variable', () => {
+    const variable = documentSchema.nodes.template_variable?.create({ variableKey: 'title' });
+    if (!variable) throw new Error('schema has no template variable');
+    const node = documentSchema.node('paragraph', null, [
+      documentSchema.text('xx '),
+      variable,
+      documentSchema.text(' yy'),
+    ]);
+    const lay = (value: string, width: number) => {
+      const result = createTextLayout({ template: BASE_TEMPLATE }).layoutText(node, {
+        width,
+        variables: new Map([['title', value]]),
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map(({ from, to, side, end, width: drawn }) => [
+        from,
+        to,
+        side,
+        end,
+        drawn,
+      ]);
+    };
+    // `xx aaaa` is 39px. Each later line starts inside the variable (offset 4), before the
+    // element of the word it starts with, whose side is 2 for `bbbb ` and 4 for `cccc`.
+    expect(lay('aaaa bbbb cccc', 40)).toEqual([
+      [0, 4, undefined, 'wrap', 39],
+      [4, 4, 1, 'wrap', 24],
+      [4, node.content.size, 3, 'end', 39],
+    ]);
+    // Its white space is kept, as the page draws it: `xx aa  bb yy` is 60px, its two spaces 6px.
+    expect(lay('aa  bb', 200)).toEqual([[0, node.content.size, undefined, 'end', 60]]);
+    // A line feed in it ends its line, which the next starts after.
+    expect(lay('aaaa\nbb', 200)).toEqual([
+      [0, 4, undefined, 'break', 39],
+      [4, node.content.size, 1, 'end', 27],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-9.5 pads a code variable’s value once, as one code element with the code before it', () => {
+    const code = documentSchema.marks.code?.create();
+    if (!code) throw new Error('schema has no code mark');
+    const variable = documentSchema.nodes.template_variable?.create(
+      { variableKey: 'title' },
+      null,
+      [code],
+    );
+    if (!variable) throw new Error('schema has no template variable');
+    const layout = createTextLayout({ template: BASE_TEMPLATE });
+    const lay = (content: ProseMirrorNode[], value: string, width = 600) => {
+      const node = documentSchema.node('paragraph', null, content);
+      const result = layout.layoutText(node, { width, variables: new Map([['title', value]]) });
+      if (!result.ok) throw new Error(result.reason);
+      return result.table.lines.map((line) => [line.end, line.width]);
+    };
+    const x = documentSchema.text('x ');
+    const y = documentSchema.text(' y');
+    const coded = (text: string) => documentSchema.text(text, [code]);
+    // The value takes the widths the same text in code takes: 34, 46.5, 59 and 71.5px.
+    for (const value of ['aa', 'aa bb', 'aa bb cc', 'aa bb cc dd'])
+      expect([value, lay([x, variable, y], value)]).toEqual([value, lay([x, coded(value), y], '')]);
+    // After code text with the same marks, the value continues its element.
+    expect(lay([x, coded('aa '), variable, y], 'bb cc')).toEqual(
+      lay([x, coded('aa bb cc'), y], ''),
+    );
+    // Wrapped, each line takes the widths wrapped code text does.
+    expect(lay([x, variable, y], 'aaaa bbbb cccc', 50)).toEqual(
+      lay([x, coded('aaaa bbbb cccc'), y], '', 50),
+    );
+  });
+
   it('DOCE-PAGINATION-11.11 lays an inserted word before the template variable at its anchor', () => {
     const variable = documentSchema.nodes.template_variable?.create({
       variableKey: 'document.title',
@@ -567,9 +708,11 @@ describe('createTextLayout', () => {
       inserted: [{ offset: 5, pieces: ['xxxx '], sides: [-2] }],
     });
     if (!result.ok) throw new Error(result.reason);
+    // The word goes on the first line, before the variable, whose value starts the second inside
+    // the variable, before its first word's element (DOCE-PAGINATION-9.5).
     expect(result.table.lines.map(({ from, to, side }) => [from, to, side])).toEqual([
-      [0, 5, undefined],
-      [5, node.content.size, -1],
+      [0, 6, undefined],
+      [6, node.content.size, -1],
     ]);
   });
 

@@ -12,9 +12,12 @@ import { isHidden } from './hidden-suggestions.js';
 import type { InsertedText } from './inserted-text.js';
 import { type MathLayouts, type MathRecorder, placeMath } from './math-atoms.js';
 import { pageBoxWidth } from './page-box.js';
-import type { ReservedBox } from './reserved-boxes.js';
+import type { ReserveCluster, ReservedBox } from './reserved-boxes.js';
 import { TEXT_ATOMS, textAtomItem, type TextAtomSource } from './text-atoms.js';
+import { textPieces } from './text-pieces.js';
 import { type BlockTypography, fontString, type FontStyle, markedFont } from './typography.js';
+import { holdsReserved, valueLines, type ValueWord, variableText } from './variable-pieces.js';
+import { wholeText } from './whole-text.js';
 
 /** An inline atom's box, in CSS pixels. */
 interface InlineAtomSize {
@@ -51,6 +54,8 @@ export interface TextRun {
    * node's size: the page draws it in the node's one element; null for the block's own text.
    */
   readonly nodes: readonly (number | null)[];
+  /** For each line of a variable's value, its words (`valueLines`, DOCE-PAGINATION-9.5). */
+  readonly words?: readonly (readonly ValueWord[] | null)[];
 }
 
 /** A content range laid out as taking no room, `[from, to)`. */
@@ -107,6 +112,10 @@ interface RunInput {
   readonly inserted?: readonly InsertedText[] | undefined;
   /** The suggestion mark the markup hides (`hiddenSuggestion`): its content takes no room. */
   readonly hidden?: string | null | undefined;
+  /** The width a cluster the measurer cannot measure reliably takes (`ReserveCluster`). */
+  readonly reserve?: ReserveCluster | undefined;
+  /** Ends the run at a content offset and starts the next there, as a line feed in a value does. */
+  readonly breakRun?: ((at: number) => Builder) | undefined;
 }
 
 interface Builder {
@@ -115,6 +124,7 @@ interface Builder {
   atoms: (InlineAtomSize | null)[];
   sides: (number | null)[];
   nodes: (number | null)[];
+  words: (readonly ValueWord[] | null)[];
   start: number;
   /** The inline code element the last node is drawn in (`code-boxes.ts`). */
   code: OpenCode | null;
@@ -126,6 +136,7 @@ const startRun = (start: number): Builder => ({
   atoms: [],
   sides: [],
   nodes: [],
+  words: [],
   start,
   code: null,
 });
@@ -141,6 +152,7 @@ function addText(
     side = null,
     marks = null,
     node = null,
+    words = null,
   }: {
     item: RichInlineItem | RichInlineBox;
     offset: number;
@@ -148,6 +160,7 @@ function addText(
     side?: number | null;
     marks?: readonly Mark[] | null;
     node?: number | null;
+    words?: readonly ValueWord[] | null;
   },
 ) {
   run.items.push(item);
@@ -155,6 +168,7 @@ function addText(
   run.atoms.push(box);
   run.sides.push(side);
   run.nodes.push(node);
+  run.words.push(words);
   const index = run.items.length - 1;
   const { open, continues } = continueCode(run.code, marks);
   if (continues) joinCode(run.items, { before: run.code?.index ?? null, after: index });
@@ -184,20 +198,15 @@ function finish(run: Builder, end: number, endsWithBreak: boolean): TextRun {
   return { ...run, end, endsWithBreak };
 }
 
-function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInlineItem {
-  const font = fontString(markedFont(typography, child.marks));
-  return markedItem({ text: child.text ?? child.textContent, font }, child.marks);
-}
-
 type AtomItem = { item: RichInlineItem | RichInlineBox; size: InlineAtomSize | null } | string;
 
-// A text atom as the text the page draws in it, in its marks' font, growing its line as their text
-// does; a footnote marker's `sup` does not.
+// A text atom as the text the page draws in it, in its marks' font, with its white space collapsed,
+// growing its line as their text does; a footnote marker's `sup` does not.
 function textAtom(child: ProseMirrorNode, input: RunInput): AtomItem {
   const item = textAtomItem(child, input.typography, input.textAtoms ?? {});
   if (!item) return `no text for inline ${child.type.name}`;
   const size = child.type.name === 'footnote_reference' ? null : textBox(child, input);
-  return { item: 'font' in item ? markedItem(item, child.marks) : item, size };
+  return { item: 'font' in item ? wholeText(markedItem(item, child.marks)) : item, size };
 }
 
 // Any other inline atom as the box it is measured to take.
@@ -252,8 +261,8 @@ function placedInline(child: ProseMirrorNode, math: MathLayouts, input: RunInput
   return { width, height: ascent + descent, baseline: ascent };
 }
 
-// A template variable as the text it shows, unbroken as an atom is, in its marks' font; nothing
-// for one that shows none. In a page's body, a page variable takes its box (DOCE-PAGINATION-11.13).
+// A template variable as the text it shows, in its marks' font; nothing for one that shows none.
+// In a page's body, a page variable takes its box (DOCE-PAGINATION-11.13).
 function addVariable(run: Builder, at: InlinePlace): string | null {
   const { child, offset, input } = at;
   const { variables, bodyVariables: body } = input;
@@ -265,54 +274,38 @@ function addVariable(run: Builder, at: InlinePlace): string | null {
     at.boxes.push({ from: offset, to: offset + child.nodeSize, width });
     return null;
   }
-  // Without either, as where no page variables draw it (a footnote area), the text it holds.
-  const value = variables ? variables.get(key) : body?.text(key);
-  const text = (variables || body ? value : child.textContent) ?? '';
-  // In its marks' font, padded in inline code and growing its line, as their text is.
-  const item = text ? markedItem({ text, font, break: 'never' }, child.marks) : { width: 0 };
+  const { text, value } = variableText(child, { key, variables, body });
   const box = text ? textBox(child, input) : null;
+  if (value && !holdsReserved(text, font, input.reserve)) {
+    addValuePieces(run, { ...at, text, font, box });
+    return null;
+  }
+  // Whole, in its marks' font, padded in inline code and growing its line, as their text is: the
+  // text a variable holds, and a value with a cluster of a reserved width, which takes one box.
+  const item = text ? markedItem({ text, font, break: 'never' }, child.marks) : { width: 0 };
   addText(run, { item, offset, box, marks: child.marks, node: child.nodeSize });
   return null;
 }
 
+// A variable's value, each of its lines one item at the variable's inside (`valueLines`), at its
+// first word's side; a line feed ends its run, as the browser breaks the line there.
+function addValuePieces(
+  run: Builder,
+  at: InlinePlace & { text: string; font: string; box: InlineAtomSize | null },
+) {
+  const { child, offset, input, font, box } = at;
+  const [inside, marks] = [offset + 1, child.marks];
+  let current = run;
+  for (const { text, words, feed } of valueLines(at.text)) {
+    const item = text ? markedItem({ text, font }, marks) : { width: 0 };
+    const side = words[0]?.side ?? 0;
+    addText(current, { item, offset: inside, box: text ? box : null, side, marks, words });
+    if (feed) current = input.breakRun?.(inside) ?? current;
+  }
+}
+
 // A fragment after the first of a split block.
 const isContinued = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
-// A text node's pieces, cut where a citation's identifier starts and ends: each identifier piece
-// is one unbreakable item, as the stylesheet keeps it whole (DOCE-REFERENCES-1.13), and is its own
-// element on the line, as the identifier's decoration draws it.
-function textPieces(
-  child: ProseMirrorNode,
-  { offset, typography, identifiers, inserted }: PieceInput,
-): { item: RichInlineItem; offset: number }[] {
-  const item = textItem(child, typography);
-  const end = offset + child.nodeSize;
-  const inside = identifiers.filter(([from, to]) => from < end && to > offset);
-  // Text inserted inside the node is drawn between two of its pieces.
-  const between = inserted.filter((at) => at > offset && at < end);
-  if (!inside.length && !between.length) return [{ item, offset }];
-  const cuts = [...new Set([offset, ...inside.flat(), ...between, end])]
-    .filter((cut) => cut >= offset && cut <= end)
-    .sort((a, b) => a - b);
-  const pieces: { item: RichInlineItem; offset: number }[] = [];
-  for (let index = 0; index + 1 < cuts.length; index += 1) {
-    const from = cuts[index] ?? offset;
-    const to = cuts[index + 1] ?? end;
-    const text = item.text.slice(from - offset, to - offset);
-    const whole = inside.some(([start, stop]) => start <= from && to <= stop);
-    pieces.push({ item: { ...item, text, ...(whole ? { break: 'never' } : {}) }, offset: from });
-  }
-  return pieces;
-}
-
-interface PieceInput {
-  readonly offset: number;
-  readonly typography: BlockTypography;
-  /** The block's citation identifiers, as content ranges. */
-  readonly identifiers: readonly (readonly [number, number])[];
-  /** The offsets text is inserted at. */
-  readonly inserted: readonly number[];
-}
-
 // Adds the inserted text at or before an offset that is not added yet, in the run it is drawn in.
 function insertedUpTo(input: RunInput) {
   const waiting = (input.inserted ?? []).filter((each) => !each.alone);
@@ -347,6 +340,11 @@ export function buildRuns(input: RunInput): TextRuns {
   }
   const hidden: [number, number][] = [];
   const boxes: ReservedBox[] = [];
+  const breakRun = (at: number) => {
+    runs.push(finish(run, at, true));
+    run = startRun(at);
+    return run;
+  };
   node.forEach((child, offset) => {
     if (failure) return;
     if (isHidden(child, input.hidden)) {
@@ -376,7 +374,7 @@ export function buildRuns(input: RunInput): TextRuns {
       }
     } else {
       insert(run, offset);
-      failure = addInline(run, { child, offset, input, boxes });
+      failure = addInline(run, { child, offset, input: { ...input, breakRun }, boxes });
     }
   });
   if (failure) return { ok: false, reason: failure };
