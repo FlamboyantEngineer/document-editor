@@ -792,6 +792,31 @@ describe('forcedLines', () => {
     expect(drawn(state).filter((each) => Number(each.from) > end)).toEqual([]);
   });
 
+  it('DOCE-PAGINATION-11.2 justifies and hyphenates the last line of a part inside a quote that another part continues', () => {
+    const head = paragraph('aaaa bbbb cccc dd\u00ad', { dataId: 'p1', splitPartIndex: 0 });
+    const tail = paragraph('ee ff', { dataId: 'p1', splitPartIndex: 1 });
+    const quote = (part: number, child: Node) =>
+      create('blockquote', { dataId: 'q1', splitPartIndex: part }, [child]);
+    const doc = pagesDoc([[quote(0, head)], [quote(1, tail)]]);
+    const state = stateWith(doc, stubEngine({ justify: true }).engine);
+    const at = positionOf(doc, head.textContent);
+    const lines = drawn(state).filter(
+      (each) => Number(each.from) > at && Number(each.to) <= at + head.nodeSize,
+    );
+    // The head's last line, which the page break ends, is a wrapped line of the whole block.
+    expect(lines.slice(-2)).toEqual([
+      {
+        from: at + 11,
+        to: at + 19,
+        class: 'de-forced-lines__justified',
+        style: '--de-word-spacing: 90.000px',
+      },
+      { from: at + 18, to: at + 19, class: 'de-forced-lines__end de-forced-lines__hyphen' },
+    ]);
+    const end = positionOf(doc, 'ee ff');
+    expect(drawn(state).filter((each) => Number(each.from) > end)).toEqual([]);
+  });
+
   it('DOCE-PAGINATION-11.2 leaves ragged the last line of a part whose next part starts at a hard break', () => {
     const head = paragraph('aaaa bbbb cccc dd', { dataId: 'p1', splitPartIndex: 0 });
     const breakNode = documentSchema.nodes.hard_break?.create();

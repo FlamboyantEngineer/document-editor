@@ -93,7 +93,7 @@ const partKey = (node: ProseMirrorNode) => {
 };
 
 /**
- * The positions of the top-level parts of split text blocks in a pages' document that a later part
+ * The positions of the parts of split text blocks in a pages' document, at any depth, that a later part
  * continues on the next line (DOCE-PAGINATION-11.2): the part with the same element id and the next
  * part index, unless that part starts at the hard break the split moved to it, which ended this
  * part's last line.
@@ -103,8 +103,8 @@ export function continuingParts(doc: ProseMirrorNode): ReadonlySet<number> {
   if (found) return found;
   const parts = new Map<string, number>();
   const continued = new Set<string>();
-  doc.descendants((node, pos, parent) => {
-    if (parent?.type.name !== 'page_content') return !node.isTextblock;
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
     const key = partKey(node);
     if (!node.isTextblock || !key) return false;
     parts.set(key, pos);
@@ -225,7 +225,9 @@ function inside(engine: PagesTextEngine, container: ProseMirrorNode, at: ForcedP
     if (isContinuationPlaceholder(node)) return false;
     const pos = at.pos + 1 + offset;
     const reason = nestedRefusal(at, node, pos);
-    const table = reason ? null : (lines.get(node) ?? null);
+    const laid = reason ? null : (lines.get(node) ?? null);
+    // A part a later part continues ends its last line where the whole block wraps it, at any depth.
+    const table = laid && at.continuing?.has(pos) ? wrappedAtEnd(laid) : laid;
     const why = reason ?? 'not laid out by the engine';
     blocks.push({ node, pos, table, ...(table ? {} : { reason: why }), nested: true });
     return false;
