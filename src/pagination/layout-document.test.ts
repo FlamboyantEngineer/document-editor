@@ -109,6 +109,10 @@ describe('footnote room', () => {
           measure: () => ({ height: 80, lines: 8 }),
         },
       }),
+      // The page content's blocks are measured as each block is.
+      measureContent(content, scope, inserted) {
+        return content.children.map((node) => this.measureBlock(node, scope, inserted));
+      },
       measureRegion: (node) =>
         node.type.name === 'page_footnotes'
           ? {
