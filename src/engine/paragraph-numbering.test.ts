@@ -1,3 +1,4 @@
+import type { Node } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { type DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
@@ -46,6 +47,30 @@ const numbersOf = (doc: ReturnType<typeof documentOf>, template = TEMPLATE) =>
   numberedParagraphs(doc, template).map((entry) => entry.text);
 
 describe('paragraph numbering', () => {
+  it("DOCE-NUMBERING-6.1 gives a paragraph's later part on the pages its first part's number, counting nothing again", () => {
+    const node = (name: string, attrs: Record<string, unknown> | null, content?: Node[]) => {
+      const type = documentSchema.nodes[name];
+      if (!type) throw new Error(name);
+      return type.create(attrs, content);
+    };
+    const part = (value: string, attrs: Record<string, unknown>) =>
+      node('paragraph', attrs, [documentSchema.text(value)]);
+    const page = (blocks: Node[]) =>
+      node('page', null, [
+        node('page_header', null),
+        node('page_content', null, blocks),
+        node('page_footnotes', null, []),
+        node('page_footer', null),
+      ]);
+    const pages = node('doc', null, [
+      node('page_section', { sectionName: 'body' }, [
+        page([part('one', { dataId: 'p1', splitPartIndex: 0 })]),
+        page([part('more', { dataId: 'p1', splitPartIndex: 1 }), part('two', { dataId: 'p2' })]),
+      ]),
+    ]);
+    expect(numbersOf(pages)).toEqual(['1.', '1.', '2.']);
+  });
+
   it('DOCE-NUMBERING-6.1 numbers top-level paragraphs with text where the template numbers them', () => {
     const doc = documentOf(
       {

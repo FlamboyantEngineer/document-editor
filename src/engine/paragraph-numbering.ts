@@ -160,6 +160,20 @@ export function numberedHeadings(doc: ProseMirrorNode, template: TemplateFile): 
   return found;
 }
 
+// A split paragraph's part, by its element id and part index.
+const partOf = (node: ProseMirrorNode) => {
+  const id: unknown = node.attrs.dataId;
+  return typeof id === 'string' && id
+    ? `${id}#${String(Number(node.attrs.splitPartIndex ?? 0))}`
+    : null;
+};
+
+// The part before a later part of a split paragraph.
+const partBefore = (node: ProseMirrorNode) => {
+  const part = Number(node.attrs.splitPartIndex ?? 0);
+  return part > 0 ? `${String(node.attrs.dataId)}#${String(part - 1)}` : null;
+};
+
 /**
  * Every numbered paragraph of a document, in order: the top-level paragraphs of the body, with
  * text, in sections whose template numbers paragraphs, each after the number of the heading it is
@@ -170,6 +184,8 @@ export function numberedParagraphs(
   template: TemplateFile,
 ): NumberedParagraph[] {
   const found: NumberedParagraph[] = [];
+  // Each numbered paragraph's number by its part, which a later part shows again.
+  const byPart = new Map<string, NumberedParagraph>();
   let counting = freshCounting();
   doc.forEach((section, sectionOffset) => {
     if (section.type.name !== 'page_section') return;
@@ -180,6 +196,16 @@ export function numberedParagraphs(
       if (name === 'page' || name === 'page_content') return true;
       if (name === 'heading' && !node.attrs.docTitle) countHeading(node, counting, headings);
       if (name !== 'paragraph' || !config) return false;
+      // A later part of a paragraph split over pages shows its first part's number, and counts
+      // nothing again (DOCE-NUMBERING-6.1).
+      const before = partBefore(node);
+      const first = before === null ? undefined : byPart.get(before);
+      if (first) {
+        found.push({ ...first, pos: sectionOffset + 1 + offset });
+        const key = partOf(node);
+        if (key) byPart.set(key, first);
+        return false;
+      }
       if (!hasParagraphNumberingContent(node)) return false;
       const level = normalizeParagraphLevel(node.attrs.paragraphLevel);
       const levelStyle = resolveParagraphLevelStyle(config, level, counting.headingDepth);
@@ -194,7 +220,10 @@ export function numberedParagraphs(
         : '';
       if (text) {
         const style = paragraphNumberingIndentationStyle(levelStyle, { level, label: text });
-        found.push({ pos: sectionOffset + 1 + offset, level, text, style, levelStyle });
+        const numbered = { pos: sectionOffset + 1 + offset, level, text, style, levelStyle };
+        found.push(numbered);
+        const key = partOf(node);
+        if (key) byPart.set(key, numbered);
       }
       return false;
     });
