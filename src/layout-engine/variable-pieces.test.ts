@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { variablePieces } from './variable-pieces.js';
+import { valueLines, variablePieces } from './variable-pieces.js';
 
 const texts = (value: string) => variablePieces(value).map(({ text }) => text);
 
@@ -21,5 +21,27 @@ describe('variablePieces', () => {
     expect(texts('a\n\nb')).toEqual(['a\n', '\n', 'b']);
     // Line feeds that end the value are left out.
     expect(texts('a\n\n')).toEqual(['a']);
+  });
+
+  it('DOCE-PAGINATION-9.5 joins a value’s words into one line between its line feeds', () => {
+    expect(valueLines('First line\n\nSecond one')).toEqual([
+      {
+        text: 'First line',
+        words: [
+          { start: 0, side: 0 },
+          { start: 6, side: 2 },
+        ],
+        feed: true,
+      },
+      { text: '', words: [{ start: 0, side: 4 }], feed: true },
+      {
+        text: 'Second one',
+        words: [
+          { start: 0, side: 6 },
+          { start: 7, side: 8 },
+        ],
+        feed: false,
+      },
+    ]);
   });
 });
