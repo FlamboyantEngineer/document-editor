@@ -104,10 +104,9 @@ The editor loads no CSS. To use the neutral lab presentation explicitly, import
 `@flamboyantengineer/ui-components/reference.css`, then
 `@flamboyantengineer/document-editor/reference.css`. Document presentation uses the
 `document-reference` cascade layer; lab page layout is excluded. Hosts can instead
-style the documented hooks themselves. A host stylesheet of its own should keep
-`.de-document-editor__measure { zoom: var(--de-measure-zoom, 1); }`, so the pages are
-measured, and laid out, the same on every screen (DOCE-PAGINATION-10.10); without it they
-measure right at each screen's own device pixel ratio.
+style the documented hooks themselves. Nothing the pages are laid out with is measured in the
+browser, so a host stylesheet changes how the pages are drawn, never where they break, and the
+pages are the same on every screen (DOCE-PAGINATION-10.10).
 
 For the shadcn/ui look, import `@flamboyantengineer/ui-components/shadcn.css`, then
 `@flamboyantengineer/document-editor/shadcn.css`, instead of the two reference sheets. It draws
