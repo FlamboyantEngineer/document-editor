@@ -17,7 +17,7 @@ import type { PagesTextEngine } from './text-engine-types.js';
 const MOVED = 0.5;
 
 /** The pages typing reads: their document, the canonical one by their map, and the engine. */
-export interface TypedPages {
+interface TypedPages {
   readonly projection: ProseMirrorNode;
   readonly map: ProjectionMap;
   readonly engine: PagesTextEngine | null;

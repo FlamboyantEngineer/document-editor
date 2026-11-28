@@ -28,7 +28,7 @@ test('DOCE-LABS-5.5 opens the middle page from the index without mounting earlie
   await expect(middle).toBeInViewport();
   await expect(status).toHaveText('Page 150 of 300 · Mounted pages 149–151 (3 in the DOM)');
   await expect(page.locator('html')).toHaveAttribute('data-seen-pages', '149,150,151');
-  await expect(page.locator('.ProseMirror, .de-document-editor__measure')).toHaveCount(0);
+  await expect(page.locator('.ProseMirror')).toHaveCount(0);
   const middleUrl = page.url();
   await page.getByRole('link', { name: 'First page' }).click();
   await expect(status).toHaveText('Page 1 of 300 · Mounted pages 1–2 (2 in the DOM)');

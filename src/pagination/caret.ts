@@ -20,7 +20,7 @@ export function caretPlace(view: EditorView): number | null {
  * the caret is in, which may move the caret on screen; a layout that changes only what follows
  * that block leaves it where it is, and the caret need not be read.
  */
-export function movesCaret(tr: Transaction, head: number): boolean {
+function movesCaret(tr: Transaction, head: number): boolean {
   if (!tr.docChanged) return false;
   const diff = tr.before.content.findDiffStart(tr.doc.content);
   if (diff === null) return false;
@@ -78,6 +78,6 @@ export function rememberMovedCaret(tr: Transaction, view: EditorView): void {
 }
 
 /** Records where the caret was on screen before the layout that made a document. */
-export function rememberCaret(doc: ProseMirrorNode, caret: number | null): void {
+function rememberCaret(doc: ProseMirrorNode, caret: number | null): void {
   caretBefore.set(doc, caret);
 }
