@@ -59,6 +59,35 @@ describe('split block fragments', () => {
     expect(linked.map((block) => block.attrs.code)).toEqual(['a\nb']);
   });
 
+  it('DOCE-PAGINATION-1.3 joins a code block split inside a line without a line break', () => {
+    const head = node('code_block', { dataId: 'c1', splitPartIndex: 0 }, 'one tw');
+    const tail = node(
+      'code_block',
+      {
+        dataId: 'c1',
+        splitPartIndex: 1,
+        codeBlockContinued: true,
+        codeLineContinued: true,
+        codeLineStart: 1,
+      },
+      'o\nthree',
+    );
+    const [joined] = joinFragments([head, tail]);
+    expect(joined?.textContent).toBe('one two\nthree');
+    expect(joined?.attrs).toMatchObject({ codeLineContinued: false, codeLineStart: 1 });
+    const linked = joinFragments([
+      node('linked_code_block', { dataId: 'l1', code: 'a', splitPartIndex: 0 }),
+      node('linked_code_block', {
+        dataId: 'l1',
+        code: 'b',
+        splitPartIndex: 1,
+        codeBlockContinued: true,
+        codeLineContinued: true,
+      }),
+    ]);
+    expect(linked.map((block) => block.attrs.code)).toEqual(['ab']);
+  });
+
   it('DOCE-PAGINATION-1.4 keeps a split table header once', () => {
     const fragment = (index: number, text: string) =>
       node('table_figure', { splitPartIndex: index }, [

@@ -7,6 +7,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   type CodeTree,
   codeTrees,
+  continuesCodeLine,
   firstCodeLine,
   gutterDigits,
   gutterRows,
@@ -60,7 +61,9 @@ export function drawCodeParts(
   if (!block.gutter) return;
   const text = gutterText(node);
   const first = firstCodeLine(node);
-  const [gutter] = printTrees([gutterTree(text, { first, wraps: wrapsOfMarks(block.marks) })]);
+  const wraps = wrapsOfMarks(block.marks);
+  const continued = continuesCodeLine(node);
+  const [gutter] = printTrees([gutterTree(text, { first, wraps, continued })]);
   if (gutter) pre.children.splice(pre.children.indexOf(code), 0, gutter);
   const digits = gutterDigits(first, gutterRows(text, null).length);
   const style = pre.attrs.get('style');

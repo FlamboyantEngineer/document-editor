@@ -6,6 +6,7 @@ import type { LineTable, TextLine } from '../layout-engine/line-table.js';
 import {
   codeElements,
   codeTrees,
+  continuesCodeLine,
   firstCodeLine,
   gutterText,
   gutterTree,
@@ -52,6 +53,21 @@ describe('code drawing', () => {
     expect(drawn.querySelectorAll('.de-code-token').length).toBeGreaterThan(3);
     // Without marks, the tokens alone, as the browser's lines draw them.
     expect(html(codeTrees(CODE, 'typescript')).querySelector('.de-forced-lines__end')).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-3.3 leaves the first gutter row blank on code that goes on with an earlier line', () => {
+    const block = node('code_block', { codeLineStart: 99, codeLineContinued: true }, [
+      documentSchema.text(CODE),
+    ]);
+    const first = firstCodeLine(block);
+    const continued = continuesCodeLine(block);
+    const printed = html([gutterTree(gutterText(block), { first, wraps: null, continued })]);
+    const gutter = document.createElement('span');
+    document.createElement('pre').append(gutter);
+    drawGutter(gutter, gutterText(block), { first, lines: null, continued });
+    expect(printed.firstElementChild?.innerHTML).toBe(gutter.innerHTML);
+    const numbers = [...printed.querySelectorAll('.de-code-gutter__number')];
+    expect(numbers.map((each) => each.textContent)).toEqual(['', '100']);
   });
 
   it('DOCE-PAGINATION-11.2 draws a gutter from line marks as the editor draws it from its lines', () => {

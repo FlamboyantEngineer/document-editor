@@ -630,10 +630,12 @@ test.describe('DOCE-LABS-8.7 review and editing on a stress document', () => {
 // documents with them moved, their planned heights did not.
 // Every figure and image holds its stored size (DOCE-SCHEMA-3.14): the fixtures' figures take their
 // 1 by 1 images' size, not a broken image's box, so the documents with figures moved.
+// A numbered equation is as tall as its number's line (DOCE-PAGINATION-12.14): caption-numbering's
+// planned heights moved, its lines did not.
 const PINNED: Readonly<
   Partial<Record<RegressionDocumentName, { readonly lines: string; readonly heights: string }>>
 > = {
-  'caption-numbering': { lines: '413c009799e0d107', heights: 'b94dd743123e4fd3' },
+  'caption-numbering': { lines: '413c009799e0d107', heights: '344bb258abd39971' },
   'heading-keep-with-next': { lines: 'f3b2f4d0f58c7941', heights: '7adf329654b1bc43' },
   // Footnote entries lost the browser's paragraph margins (DOCE-PAGINATION-11.10), and the Serif
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are

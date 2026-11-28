@@ -38,4 +38,28 @@ describe('split breaks', () => {
     );
     expect(hidden(markup)).toEqual([]);
   });
+
+  it('DOCE-PAGINATION-3.6 hides the break each column of a continued layout section starts with', () => {
+    const column = (inner: string) =>
+      `<div class="doc-layout-column" data-layout-column="">${inner}</div>`;
+    const columns = (part: number, ...inner: string[]) =>
+      `<div class="doc-layout-section" data-layout-preset="halves" data-split-part-index="${part}">${inner.map(column).join('')}</div>`;
+    const markup = section(
+      page(
+        columns(
+          0,
+          '<p data-id="p1" data-split-part-index="0">a<br>b</p>',
+          '<p data-id="p2" data-split-part-index="0">e<br>f</p>',
+        ),
+      ),
+      page(
+        columns(
+          1,
+          '<p data-id="p1" data-split-part-index="1"><br>c</p>',
+          '<p data-id="p2" data-split-part-index="1"><br>g</p><p data-id="p3"><br>h</p>',
+        ),
+      ),
+    );
+    expect(hidden(markup)).toEqual(['c', 'g']);
+  });
 });

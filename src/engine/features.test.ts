@@ -110,10 +110,13 @@ describe('fragment rule registry', () => {
         continues: false,
       },
       code_block: {
-        whole: { ...part, codeBlockContinued: false, codeLineStart: 1 },
+        whole: { ...part, codeBlockContinued: false, codeLineContinued: false, codeLineStart: 1 },
         ...joined,
       },
-      linked_code_block: { whole: { ...part, codeBlockContinued: false }, ...joined },
+      linked_code_block: {
+        whole: { ...part, codeBlockContinued: false, codeLineContinued: false },
+        ...joined,
+      },
       table: { whole: { ...part, projectedColumnWidths: null }, ...joined },
       table_figure: { whole: part, ...joined },
       code_figure: { whole: part, ...joined },

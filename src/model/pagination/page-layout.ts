@@ -3,6 +3,7 @@
 // its type's split, which the editor provides because splitting measures text.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { splitCode } from './code-split.js';
 import { splitContainer, splitList, splitListItem } from './container-split.js';
 import { splitContents } from './contents-split.js';
 import { splitHeldWith } from './held-split.js';
@@ -10,7 +11,7 @@ import { imageBox } from './image-box.js';
 import { splitLayoutSection } from './layout-section-split.js';
 import { signatureSize } from './signature-size.js';
 import { splitTableFigureWith, splitTableWith } from './table-split.js';
-import { splitCode, splitParagraph } from './text-split.js';
+import { splitParagraph } from './text-split.js';
 
 /** A block with the measurements its page layout needs, in CSS pixels. */
 export interface LayoutBlock {
