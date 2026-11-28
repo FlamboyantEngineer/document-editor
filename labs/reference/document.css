@@ -707,6 +707,23 @@ div.de-host-view {
   word-spacing: var(--de-word-spacing, 0);
 }
 
+/* The engine lays an inline atom out at its own width, and a word other plugins draw in the line,
+   such as a comparison's deleted word, at its own: their spaces are not stretched with the line's
+   (DOCE-PAGINATION-11.2). In the editor every atom and widget is not editable; a static drawing
+   keeps the atoms' own attributes. */
+:where(.de-document-editor)
+  .de-forced-lines
+  :is(
+    [contenteditable='false'],
+    [data-mention-user-id],
+    [data-abbreviation-ref],
+    [data-template-variable],
+    [data-embed-kind],
+    [data-signature]
+  ) {
+  word-spacing: normal;
+}
+
 /* A cluster the engine cannot measure, such as one no served font draws, takes the width the
    engine reserved for it; its real glyph is drawn in the middle and may reach past the box, which
    moves nothing around it (DOCE-PAGINATION-12.4). */

@@ -470,6 +470,36 @@ test.describe('editing on the engine lines', () => {
           .map(([, line]) => ({ before: line.left - left, after: right - line.right }));
       }, last);
 
+  test('DOCE-PAGINATION-11.2 stretches only the text spaces of a justified line, not those inside an atom', async ({
+    page,
+  }) => {
+    await open(page, 'inline-geometry', true);
+    await page.evaluate(() => {
+      const file = window.regressionLab.stored();
+      const section = file?.sections[0];
+      if (!file || !section) throw new Error('The regression lab holds no document');
+      const mention = { type: 'mention', attrs: { person: 'person-01', label: 'Alex Van Doe' } };
+      const words = {
+        type: 'text',
+        text: ' wrote the notes on the rows of beans by the wall, then ',
+      };
+      const content = Array.from({ length: 12 }, () => [mention, words]).flat();
+      const justified = { type: 'paragraph', attrs: { style: 'justified' }, content };
+      window.regressionLab.load({ ...file, sections: [{ ...section, content: [justified] }] });
+    });
+    await waitForLab(page);
+    await settle(page);
+    const lines = await lineInsets(
+      page,
+      '.de-document-editor__content .pm-page-content > p.justified.de-forced-lines',
+    );
+    expect(lines.length, 'wrapped justified lines').toBeGreaterThan(2);
+    for (const line of lines) {
+      expect(Math.abs(line.before), 'a justified line starts at the edge').toBeLessThan(1);
+      expect(Math.abs(line.after), 'a justified line ends at the edge').toBeLessThan(1);
+    }
+  });
+
   test('DOCE-PAGINATION-11.2 fills the column with the last line of a justified part another part continues', async ({
     page,
   }) => {
