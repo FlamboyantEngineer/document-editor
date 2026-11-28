@@ -168,7 +168,7 @@ export function blockAttrs(
 function linesKey(table: DrawnLines): string {
   const lines = table.lines.map(
     (line) =>
-      `${String(line.from)}-${String(line.to)}:${String(line.width)}@${String(line.left)}${line.end}`,
+      `${String(line.from)}-${String(line.to)}:${String(line.width)}@${String(line.left)}${line.end}:${String(line.side ?? '')}`,
   );
   const reserved = table.reserved ? JSON.stringify(table.reserved) : '';
   // What a caption shows that it does not hold, its label's parts and a later part's text.

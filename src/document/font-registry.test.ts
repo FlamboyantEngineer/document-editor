@@ -70,3 +70,80 @@ describe('registerFaces', () => {
     registration.release();
   });
 });
+
+class OrderedTestFace {
+  constructor(
+    readonly family: string,
+    readonly bytes: FontFaceFile['bytes'],
+  ) {}
+
+  load() {
+    return Promise.resolve(this);
+  }
+}
+
+function orderedFontDocument() {
+  vi.stubGlobal('FontFace', OrderedTestFace);
+  const faces = new Set<OrderedTestFace>();
+  return { doc: { fonts: faces } as unknown as Document, faces };
+}
+
+const orderedFace = (family: string, id: number): FontFaceFile => ({
+  family,
+  weight: 400,
+  style: 'normal',
+  unicodeRange: 'U+0-FF',
+  bytes: new Uint8Array([id]),
+});
+
+describe('DOCE-PAGINATION-12.8 document font registrations', () => {
+  it('shares identical orders and gives a reversed order its own family', () => {
+    const { doc, faces } = orderedFontDocument();
+    const first = orderedFace('Reading', 1);
+    const last = orderedFace('Reading', 2);
+    const original = registerFaces(doc, { faces: [first, last] });
+    const shared = registerFaces(doc, { faces: [first, last, last] });
+    const reversed = registerFaces(doc, { faces: [first, last, first] });
+    const alias = reversed.drawnFamily('Reading');
+    expect(shared.drawnFamily('Reading')).toBe('Reading');
+    expect(alias).not.toBe('Reading');
+    const files = (family: string) =>
+      [...faces].filter((face) => face.family === family).map((face) => face.bytes);
+    expect(files('Reading')).toEqual([first.bytes, last.bytes]);
+    expect(files(alias)).toEqual([last.bytes, first.bytes]);
+    original.release();
+    expect(files('Reading')).toEqual([first.bytes, last.bytes]);
+    reversed.release();
+    shared.release();
+    expect(faces.size).toBe(0);
+  });
+
+  it('keeps aliases distinct from literal families already held or arriving in the same batch', () => {
+    const { doc, faces } = orderedFontDocument();
+    const first = registerFaces(doc, {
+      faces: [orderedFace('Reading', 1), orderedFace('Reading de-1', 2)],
+    });
+    const other = registerFaces(doc, {
+      faces: [orderedFace('Reading', 3), orderedFace('Reading de-2', 4)],
+    });
+    expect(other.drawnFamily('Reading de-2')).toBe('Reading de-2');
+    expect(other.drawnFamily('Reading')).not.toMatch(/^Reading(?: de-[12])?$/u);
+    expect(new Set([...faces].map((face) => face.family)).size).toBe(4);
+    first.release();
+    other.release();
+  });
+
+  it('assigns a new name when the requested literal name is already drawn as an alias', () => {
+    const { doc, faces } = orderedFontDocument();
+    const first = registerFaces(doc, { faces: [orderedFace('Reading', 1)] });
+    const other = registerFaces(doc, { faces: [orderedFace('Reading', 2)] });
+    const alias = other.drawnFamily('Reading');
+    const literal = registerFaces(doc, { faces: [orderedFace(alias, 3)] });
+    expect(literal.drawnFamily(alias)).not.toBe(alias);
+    expect(new Set([...faces].map((face) => face.family)).size).toBe(3);
+    other.release();
+    expect([...faces].map((face) => face.family)).toEqual(['Reading', literal.drawnFamily(alias)]);
+    first.release();
+    literal.release();
+  });
+});

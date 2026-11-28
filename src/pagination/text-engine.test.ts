@@ -9,11 +9,13 @@ import {
   type LayoutRules,
   SIGNATURE_DRAWING,
   splitParagraph,
+  type TemplateFile,
 } from '../model/index.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import { footnoteAreaHeight, footnoteAreaOf } from './footnote-area.js';
 import type { ServedFonts } from './served-fonts.js';
+import { aliasTemplateFonts } from './served-template.js';
 import { createPagesTextEngine } from './text-engine.js';
 import { holdTextEngine } from './text-engine-holder.js';
 
@@ -38,6 +40,17 @@ describe('createPagesTextEngine', () => {
     expect(engine.measureBlock(node, null)).toBe(block);
     expect(engine.stats().laid).toBe(1);
     engine.destroy();
+  });
+
+  it('DOCE-PAGINATION-11.11 lays a block out again when the same inserted text has different widget boundaries', () => {
+    const pages = createPagesTextEngine({ template: BASE_TEMPLATE });
+    const node = paragraph('kept');
+    const draw = (pieces: readonly string[]) =>
+      pages.lines(node, { scope: null, inserted: [{ offset: 0, pieces, sides: [-4, -2] }] });
+    const first = draw(['xx', 'yy']);
+    expect(draw(['xx', 'yy'])).toBe(first);
+    expect(draw(['x', 'xyy'])).not.toBe(first);
+    pages.destroy();
   });
 
   it('DOCE-PAGINATION-11.1 DOCE-PAGINATION-7.17 gives a block a host view draws, or one holding it, no room when no rule sizes it', () => {
@@ -378,9 +391,9 @@ describe('the engine on page regions', () => {
     const figure = type('table_figure').create(null, [caption, table]);
     const bare = pages.nestedLines(figure, null).get(caption)?.lines[0]?.width ?? 0;
     const labelOf = (node: ProseMirrorNode) => (node === caption ? 'Table 9 - ' : undefined);
-    const labelled = pages.nestedLines(figure, null, labelOf);
+    const labelled = pages.nestedLines(figure, null, { labelOf });
     expect(labelled.get(caption)?.lines[0]?.width).toBeGreaterThan(bare);
-    expect(pages.nestedLines(figure, null, labelOf)).toBe(labelled);
+    expect(pages.nestedLines(figure, null, { labelOf })).toBe(labelled);
     pages.destroy();
   });
 
@@ -439,13 +452,17 @@ function served(added: string[] = []): ServedFonts {
   return {
     phase: 'pretext',
     measureContext: () => new OffscreenCanvas(1, 1).getContext('2d') as unknown as MeasureContext,
-    isFontServed: () => true,
+    isFontServed: (family) => family !== 'Lab Serif' || added.includes(family),
     generics: {},
     reserve: () => null,
     files: () => ({ faces: [] }),
-    drawnFamily: (family) => family,
     missing: () => undefined,
-    drawnFiles: () => ({ faces: [] }),
+    drawing: () => ({
+      files: { faces: [] },
+      drawnFamily: (family) => family,
+      drawnFiles: () => ({ faces: [] }),
+      adopt: () => undefined,
+    }),
     add: (families) => {
       added.push(...families);
       return Promise.resolve(families.includes('Lab Serif'));
@@ -455,6 +472,35 @@ function served(added: string[] = []): ServedFonts {
 }
 
 describe('holdTextEngine', () => {
+  it('DOCE-PAGINATION-13.12 records portable template inputs across local font aliases', async () => {
+    const portable = {
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        paragraph: { ...BASE_TEMPLATE.styles?.paragraph, font: 'Lab Sans' },
+      },
+    };
+    const make = (template: TemplateFile) =>
+      holdTextEngine({
+        setting: { template: () => template, fonts: Promise.resolve(served()) },
+        changed: () => undefined,
+      });
+    const firstTemplate = aliasTemplateFonts(portable, (font) =>
+      font === 'Lab Sans' ? 'Lab Sans de-2' : font,
+    );
+    const secondTemplate = aliasTemplateFonts(portable, (font) =>
+      font === 'Lab Sans' ? 'Lab Sans de-4' : font,
+    );
+    const first = make(firstTemplate);
+    const second = make(secondTemplate);
+    await Promise.all([first.loaded, second.loaded]);
+    expect(first.engine()?.template.styles?.paragraph?.font).toBe('Lab Sans de-2');
+    expect(second.engine()?.template.styles?.paragraph?.font).toBe('Lab Sans de-4');
+    expect(second.engine()?.inputs()).toEqual(first.engine()?.inputs());
+    first.destroy();
+    second.destroy();
+  });
+
   it('DOCE-PAGINATION-9.16 lays the pages out in the document language, never the page around them', async () => {
     // The page around the pages names another language, which the engine never reads.
     document.documentElement.lang = 'zh-Hans';
@@ -605,7 +651,7 @@ describe('holdTextEngine', () => {
     });
     await holder.loaded;
     const first = holder.engine();
-    expect(added).toContain('Lab Serif');
+    expect(added).toEqual(['Lab Serif']);
     await vi.waitFor(() => {
       expect(changed).toHaveBeenCalled();
     });

@@ -11,13 +11,11 @@ import type { PagesLayout } from '../../document/pages-layout.js';
 import {
   drawLayoutPages,
   type LayoutPrintOptions,
-  layoutTemplate,
   VIEW_CLASSES,
 } from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
 import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
-import { renameTemplateFonts } from '../../pagination/served-template.js';
 import { createHooks } from '../../utils/hooks.js';
 import { isElement } from '../../utils/is-element.js';
 import { scrollerOf } from '../../utils/scroll-frame.js';
@@ -34,7 +32,7 @@ export interface DocumentViewerProps {
   template: TemplateFile;
   /** Links and the document kit, as for `renderLayoutPrintPage`; suggestions show as laid out. */
   options?: Omit<LayoutPrintOptions, 'title' | 'styles' | 'stylesheets'> | undefined;
-  /** How many pages before and after the ones in view are drawn; `Infinity` draws them all. */
+  /** How many whole pages before and after the ones in view are drawn; `Infinity` draws them all. */
   overscan?: number | undefined;
   /** The viewer's accessible name. */
   label?: string | undefined;
@@ -74,7 +72,11 @@ function sameFields<T extends object>(one: T | undefined, other: T | undefined):
   const fields = Object.entries(one);
   return (
     fields.length === Object.keys(other).length &&
-    fields.every(([key, value]) => Object.is((other as Record<string, unknown>)[key], value))
+    fields.every(
+      ([key, value]) =>
+        Object.prototype.propertyIsEnumerable.call(other, key) &&
+        Object.is((other as Record<string, unknown>)[key], value),
+    )
   );
 }
 
@@ -215,17 +217,16 @@ function watchPrinting(element: HTMLElement, onChange: (printing: boolean) => vo
  * (`data-drawn`) with the numbers the engine laid it out with.
  */
 export function DocumentViewer(props: DocumentViewerProps) {
-  const { layout, template, overscan = 1, label, className } = props;
+  const { layout, template, overscan: requestedOverscan = 1, label, className } = props;
+  const overscan = Math.max(0, Math.floor(requestedOverscan || 0));
   const options = useSameOptions(props.options);
   const content = useRef<HTMLDivElement>(null);
   const drawnFamily = useLayoutFaces(layout.fonts, content);
-  // The template as the viewer draws it: each served family under the family it draws it in.
-  const drawn = useMemo(
-    () => renameTemplateFonts(layoutTemplate(layout, template), drawnFamily),
-    [layout, template, drawnFamily],
+  const drawing = useMemo(
+    () => drawLayoutPages(layout, template, { ...options, drawnFamily }),
+    [layout, template, options, drawnFamily],
   );
-  const drawing = useMemo(() => drawLayoutPages(layout, drawn, options), [layout, drawn, options]);
-  const style = useMemo(() => templateProperties(drawn) as CSSProperties, [drawn]);
+  const style = useMemo(() => templateProperties(drawing.template) as CSSProperties, [drawing]);
   useEffect(() => {
     const element = content.current;
     if (!element) return undefined;

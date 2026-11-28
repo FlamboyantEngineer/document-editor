@@ -4,7 +4,7 @@
 // with its content, word by word, and the forced lines draw each line's break between two of
 // them (DOCE-PAGINATION-11.11).
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import type { EditorState, PluginKey } from 'prosemirror-state';
 import { type Decoration, DecorationSet } from 'prosemirror-view';
 import { insertedKey, type InsertedText } from '../layout-engine/inserted-text.js';
@@ -33,10 +33,31 @@ export interface InsertedTexts {
 /** No inserted words. */
 export const NO_INSERTED: InsertedTexts = { byBlock: new Map(), outside: new Set(), key: '' };
 
+/** The words active while the engine lays out a block or records a container's geometry. */
+export function holdInsertedTexts() {
+  let current = NO_INSERTED;
+  return {
+    current: () => current,
+    with<Result>(inserted: InsertedTexts, lay: () => Result): Result {
+      const previous = current;
+      current = inserted;
+      try {
+        return lay();
+      } finally {
+        current = previous;
+      }
+    },
+  };
+}
+
 const drawsInserted = (spec: InsertedSpec) => typeof spec.insertedText === 'string';
 
 // The widgets found in a set, kept by the set: a plugin whose set is unchanged is not read again.
 const found = new WeakMap<DecorationSet, Decoration[]>();
+const collected = new WeakMap<
+  ProseMirrorNode,
+  { widgets: readonly Decoration[]; inserted: InsertedTexts }
+>();
 
 function widgetsIn(set: DecorationSet): Decoration[] {
   let widgets = found.get(set);
@@ -58,54 +79,80 @@ function insertedWidgets(state: EditorState, skip: readonly PluginKey[]): Decora
 }
 
 // The top-level block of a page's content that holds a position.
-function topLevelBlock(state: EditorState, pos: number): ProseMirrorNode | null {
-  const $pos = state.doc.resolve(pos);
+function topLevelBlock($pos: ResolvedPos): { node: ProseMirrorNode; start: number } | null {
   for (let depth = $pos.depth; depth > 0; depth -= 1)
-    if ($pos.node(depth - 1).type.name === 'page_content') return $pos.node(depth);
+    if ($pos.node(depth - 1).type.name === 'page_content')
+      return { node: $pos.node(depth), start: $pos.before(depth) };
   return null;
+}
+
+// The widgets of one inserted text, ordered by their sides at the anchor.
+function groupedWords(offset: number, words: readonly Decoration[]): InsertedText {
+  const specs = words.map((word) => word.spec as InsertedSpec);
+  const sides = specs.map((spec) => (typeof spec.side === 'number' ? spec.side : 0));
+  const order = sides.map((_, index) => index).sort((a, b) => (sides[a] ?? 0) - (sides[b] ?? 0));
+  const alone = specs[0]?.alone;
+  return {
+    offset,
+    pieces: order.map((index) => String(specs[index]?.insertedText ?? '')),
+    sides: order.map((index) => sides[index] ?? 0),
+    ...(alone === 'before' || alone === 'after' ? { alone } : {}),
+  };
 }
 
 /** The words inserted in a state's text blocks by its plugins' widgets, but for `skip`'s. */
 export function insertedTexts(state: EditorState, skip: readonly PluginKey[] = []): InsertedTexts {
   const widgets = insertedWidgets(state, skip);
   if (!widgets.length) return NO_INSERTED;
-  const groups = new Map<string, { node: ProseMirrorNode; offset: number; words: Decoration[] }>();
-  const outside = new Set<ProseMirrorNode>();
+  // Projection plugins can read a changed decoration set without replacing their own state.
+  const kept = collected.get(state.doc);
+  if (
+    kept?.widgets.length === widgets.length &&
+    widgets.every((word, i) => word === kept.widgets[i])
+  )
+    return kept.inserted;
+  const inserted = collectWords(state.doc, widgets);
+  collected.set(state.doc, { widgets, inserted });
+  return inserted;
+}
+
+function collectWords(doc: ProseMirrorNode, widgets: readonly Decoration[]): InsertedTexts {
+  const groups = new Map<
+    string,
+    { node: ProseMirrorNode; start: number; offset: number; words: Decoration[] }
+  >();
+  const outside = new Map<ProseMirrorNode, number>();
   for (const widget of widgets) {
-    const pos = Math.min(widget.from, state.doc.content.size);
-    const $pos = state.doc.resolve(pos);
+    const pos = Math.min(widget.from, doc.content.size);
+    const $pos = doc.resolve(pos);
     if (!$pos.parent.isTextblock) {
-      const block = topLevelBlock(state, pos);
-      if (block) outside.add(block);
+      const block = topLevelBlock($pos);
+      if (block) outside.set(block.node, block.start);
       continue;
     }
     const spec = widget.spec as InsertedSpec;
     const key = `${String(pos)}|${String(spec.insertedGroup ?? spec.alone ?? '')}`;
-    const group = groups.get(key) ?? { node: $pos.parent, offset: pos - $pos.start(), words: [] };
+    const start = $pos.start();
+    const group = groups.get(key) ?? { node: $pos.parent, start, offset: pos - start, words: [] };
     group.words.push(widget);
     groups.set(key, group);
   }
   const byBlock = new Map<ProseMirrorNode, InsertedText[]>();
-  for (const { node, offset, words } of groups.values()) {
-    const specs = words.map((word) => word.spec as InsertedSpec);
-    const sides = specs.map((spec) => (typeof spec.side === 'number' ? spec.side : 0));
-    const order = sides.map((_, index) => index).sort((a, b) => (sides[a] ?? 0) - (sides[b] ?? 0));
-    const alone = specs[0]?.alone;
-    byBlock.set(node, [
-      ...(byBlock.get(node) ?? []),
-      {
-        offset,
-        pieces: order.map((index) => String(specs[index]?.insertedText ?? '')),
-        sides: order.map((index) => sides[index] ?? 0),
-        ...(alone === 'before' || alone === 'after' ? { alone } : {}),
-      },
-    ]);
+  const starts = new Map<ProseMirrorNode, number>();
+  for (const { node, start, offset, words } of groups.values()) {
+    starts.set(node, start);
+    byBlock.set(node, [...(byBlock.get(node) ?? []), groupedWords(offset, words)]);
   }
   // Texts at one offset in drawing order, as their sides go.
   for (const texts of byBlock.values())
     texts.sort((a, b) => a.offset - b.offset || (a.sides[0] ?? 0) - (b.sides[0] ?? 0));
-  const key = [...byBlock.values()].map((each) => insertedKey(each)).join('/');
-  return { byBlock, outside, key: `${key}/${String(outside.size)}` };
+  if (!byBlock.size && !outside.size) return NO_INSERTED;
+  const locations = [...starts].sort((a, b) => a[1] - b[1]);
+  const key = JSON.stringify([
+    locations.map(([node, start]) => [start, insertedKey(byBlock.get(node))]),
+    [...outside.values()].sort((a, b) => a - b),
+  ]);
+  return { byBlock, outside: new Set(outside.keys()), key };
 }
 
 /** Whether two readings insert the same words in the same blocks, by node. */
@@ -121,11 +168,12 @@ export function sameInserted(a: InsertedTexts, b: InsertedTexts): boolean {
 /** The words inserted in a block and the text blocks inside it, as a key. */
 export function blockInsertedKey(node: ProseMirrorNode, inserted: InsertedTexts): string {
   if (!inserted.byBlock.size) return '';
-  let key = insertedKey(inserted.byBlock.get(node));
-  node.descendants((child) => {
+  if (node.isTextblock) return insertedKey(inserted.byBlock.get(node));
+  const located: [number, string][] = [];
+  node.descendants((child, offset) => {
     const words = inserted.byBlock.get(child);
-    if (words) key += `/${insertedKey(words)}`;
+    if (words) located.push([offset, insertedKey(words)]);
     return !child.isTextblock;
   });
-  return key;
+  return located.length ? JSON.stringify(located) : '';
 }

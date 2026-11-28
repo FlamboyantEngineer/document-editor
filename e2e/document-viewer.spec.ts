@@ -70,6 +70,43 @@ async function linesAgainstComputed(page: Page) {
 }
 
 test.describe('the read-only viewer', () => {
+  test('DOCE-PAGINATION-13.8 draws a heading in the same served fallback as the editor and print', async ({
+    page,
+  }) => {
+    await open(page, 'minimal-paragraph');
+    await page.evaluate(() => {
+      window.regressionLab.load(
+        {
+          formatVersion: 1,
+          sections: [
+            {
+              content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 1 },
+                  content: [{ type: 'text', text: 'Heading drawn in the body font' }],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          formatVersion: 1,
+          id: 'fallback-heading',
+          styles: { paragraph: { font: 'Georgia' }, heading1: { font: 'Unserved Heading' } },
+        },
+      );
+    });
+    const editor = page.locator('.lab-document-editor h1.de-forced-lines');
+    await expect(editor).toHaveCSS('font-family', 'Georgia');
+    await page.evaluate(() => window.stressLab.whenSettled());
+    await showViewer(page);
+    await expect(page.locator(`${VIEWER} h1.de-forced-lines`)).toHaveCSS('font-family', 'Georgia');
+    const print = await page.evaluate(() => window.regressionLab.layoutPrint());
+    expect(print).toContain('--doc-heading-1-font-family: Georgia');
+    expect(print).not.toContain('Unserved Heading');
+  });
+
   for (const name of NAMES) {
     test(`DOCE-PAGINATION-13.6 draws ${name} on the computed pages and lines`, async ({ page }) => {
       await open(page, name);

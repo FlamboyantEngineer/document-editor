@@ -4,6 +4,7 @@
 
 import type { EditorView } from 'prosemirror-view';
 import type { PagedProjectionOptions } from './projection.js';
+import type { TextEngineHolder } from './text-engine-holder.js';
 
 // What ends a press on the editor.
 const RELEASES = ['mouseup', 'dragend', 'drop', 'blur'] as const;
@@ -91,15 +92,41 @@ export function frameIn(container: HTMLElement): (run: () => void) => () => void
  * Follows what the pages' measurements wait for, such as the host's font faces: whether it is
  * still due, and a call once it settles, loaded or not.
  */
-export function awaitReady(ready: PromiseLike<unknown> | undefined, settled: () => void) {
+export function awaitReady(
+  ready: PromiseLike<unknown> | undefined,
+  settled: () => void,
+  failed = settled,
+) {
   let waiting = Boolean(ready);
-  const done = () => {
+  const done = (notify: () => void) => () => {
     if (!waiting) return;
     waiting = false;
-    settled();
+    notify();
   };
-  ready?.then(done, done);
+  if (ready) void Promise.resolve(ready).then(done(settled), done(failed));
   return { waiting: () => waiting };
+}
+
+/** Waits for optional layout inputs and for its required engine, which can fail independently. */
+export function awaitLayoutInputs(
+  text: TextEngineHolder | null,
+  ready: PromiseLike<unknown> | undefined,
+  { settled, failed }: { settled: () => void; failed: () => void },
+) {
+  const engine =
+    text?.engine() === null
+      ? text.loaded.then(() => {
+          if (!text.engine()) throw new Error('The page layout engine is unavailable.');
+        })
+      : undefined;
+  if (!engine) return { blocked: awaitReady(ready, settled).waiting, failed: () => false };
+  const optional = ready && Promise.resolve(ready).catch(() => undefined);
+  let unavailable = false;
+  const waiting = awaitReady(Promise.all([engine, optional]), settled, () => {
+    unavailable = true;
+    failed();
+  });
+  return { blocked: () => unavailable || waiting.waiting(), failed: () => unavailable };
 }
 
 /**

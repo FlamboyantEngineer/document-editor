@@ -133,6 +133,22 @@ describe('DocumentViewer', () => {
     expect(drawn(container)).toHaveLength(10);
   });
 
+  it.each([
+    [1.5, [3, 4, 5]],
+    [-1, [4]],
+    [NaN, [4]],
+  ] as const)(
+    'DOCE-PAGINATION-13.6 draws the visible page with overscan %s',
+    (overscan, expected) => {
+      vi.stubGlobal('IntersectionObserver', FakeObserver);
+      const { container } = render(
+        <DocumentViewer layout={tenPages()} template={BASE_TEMPLATE} overscan={overscan} />,
+      );
+      showInView([4]);
+      expect(drawn(container)).toEqual(expected);
+    },
+  );
+
   it('DOCE-PAGINATION-13.6 draws the pages a screen beyond its scrolling frame', () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     render(
@@ -165,6 +181,26 @@ describe('DocumentViewer', () => {
         layout={layout}
         template={BASE_TEMPLATE}
         options={{ citationHref: () => null }}
+      />,
+    );
+    expect(observed).toHaveLength(2);
+  });
+
+  it('DOCE-PAGINATION-13.6 refreshes its drawing when an undefined option changes names', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    const layout = tenPages();
+    const { rerender } = render(
+      <DocumentViewer
+        layout={layout}
+        template={BASE_TEMPLATE}
+        options={{ citationHref: undefined }}
+      />,
+    );
+    rerender(
+      <DocumentViewer
+        layout={layout}
+        template={BASE_TEMPLATE}
+        options={{ resolveImage: undefined }}
       />,
     );
     expect(observed).toHaveLength(2);
@@ -281,7 +317,7 @@ describe('DocumentViewer', () => {
     Reflect.deleteProperty(document, 'fonts');
   });
 
-  it('DOCE-PAGINATION-12.8 draws other files under a family another viewer holds in a family of its own, through mount and unmount', async () => {
+  it('DOCE-PAGINATION-12.8 DOCE-PAGINATION-13.8 draws served faces and fallbacks under a viewer’s own family through mount and unmount', async () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     const made: string[] = [];
     class FakeFace {
@@ -305,28 +341,34 @@ describe('DocumentViewer', () => {
     });
     const arimo = served(new Uint8Array([1]));
     const cousine = served(new Uint8Array([2]));
-    const family = (root: Element | null) =>
+    const template = {
+      ...BASE_TEMPLATE,
+      styles: { ...BASE_TEMPLATE.styles, heading1: { font: 'Unserved Heading' } },
+    };
+    const family = (root: Element | null, field = 'paragraph') =>
       root instanceof HTMLElement
-        ? root.style.getPropertyValue('--doc-paragraph-font-family')
+        ? root.style.getPropertyValue(`--doc-${field}-font-family`)
         : null;
     const { container: inFirst, unmount: unmountFirst } = render(
-      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} label="First" />,
+      <DocumentViewer layout={arimo} template={template} label="First" />,
     );
     await act(async () => undefined);
     const own = family(inFirst.firstElementChild);
     expect(own).toContain('Arial');
+    expect(family(inFirst.firstElementChild, 'heading-1')).toBe(own);
     // The same files are shared; other files under the family are drawn in one of the viewer's own.
     const { container: inSame, unmount: unmountSame } = render(
-      <DocumentViewer layout={arimo} template={BASE_TEMPLATE} />,
+      <DocumentViewer layout={arimo} template={template} />,
     );
     const { container: inOther, unmount: unmountOther } = render(
-      <DocumentViewer layout={cousine} template={BASE_TEMPLATE} />,
+      <DocumentViewer layout={cousine} template={template} />,
     );
     await act(async () => undefined);
     expect(made).toEqual(['Arial', expect.stringMatching(/^Arial de-\d+$/u)]);
     expect(family(inSame.firstElementChild)).toBe(own);
     const otherFamily = family(inOther.firstElementChild);
     expect(otherFamily).toContain(made[1]);
+    expect(family(inOther.firstElementChild, 'heading-1')).toBe(otherFamily);
     expect(family(inFirst.firstElementChild)).toBe(own);
     // Unmounting either leaves the first viewer's faces and family as they were.
     unmountOther();

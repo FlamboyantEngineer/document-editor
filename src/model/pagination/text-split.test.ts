@@ -235,4 +235,16 @@ describe('text splits', () => {
     };
     expect(planParagraphSplit({ ...tail, fitting: 100 })).toBeNull();
   });
+
+  it('DOCE-PAGINATION-11.11 backs up to a split that keeps lines with the same content offset together', () => {
+    const text = words(12);
+    const lines = [0, 8, 16, 24, 24, 32, 40].map((from) => ({ from, height: LINE }));
+    const plan = planParagraphSplit({
+      text,
+      height: 70,
+      fitting: 45,
+      measurement: { ...lineMeasurement(text), lines: { lines } },
+    });
+    expect(plan).toEqual({ next: 16, end: 16, headHeight: 20, tailHeight: 50 });
+  });
 });

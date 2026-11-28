@@ -4,7 +4,6 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { BlockPlace, RegionGeometry } from '../layout-engine/blocks/types.js';
-import { suggestionKey, type SuggestionMarkup } from '../layout-engine/hidden-suggestions.js';
 import { footnoteNumbersKey, type LinesRecorder } from './nested-lines.js';
 import type { DrawnLines, RegionRoom } from './text-engine-types.js';
 
@@ -16,8 +15,8 @@ interface RegionSource {
   readonly widthOf: (scope: string | null) => number;
   /** A footnote entry's or marker's number, which its width follows. */
   readonly footnoteOf: (part: ProseMirrorNode) => string | undefined;
-  /** The markup the pages are laid out in, by which one holding a suggestion is kept too. */
-  readonly markup?: (() => SuggestionMarkup) | undefined;
+  /** What the region's layout depends on in the current markup. */
+  readonly markupKey?: ((node: ProseMirrorNode) => string) | undefined;
 }
 
 /** A region as the engine laid it out: its room, and its text blocks' lines. */
@@ -52,7 +51,7 @@ export function createRegionLines(source: RegionSource) {
       scope: string | null,
       variables?: ReadonlyMap<string, string>,
     ): LaidRegion {
-      const markup = suggestionKey(node, source.markup);
+      const markup = source.markupKey?.(node) ?? '';
       const numbers = footnoteNumbersKey(node, source.footnoteOf);
       const key = `${scope ?? ''}|${variables ? JSON.stringify([...variables]) : '-'}|${numbers}|${markup}`;
       const regions = kept.get(node) ?? new Map<string, LaidRegion>();

@@ -3,6 +3,7 @@
 // the measurer does not read (WOFF2, a collection) is left out with a problem, and nothing throws.
 
 import type { FontFaceFile, FontFiles } from '../../host/font-files.js';
+import { fontFaceKey } from '../../utils/font-keys.js';
 import type { ServedFace } from './faces.js';
 import { readWoff } from './woff.js';
 
@@ -14,6 +15,11 @@ export interface FontFaceProblem {
   readonly family: string;
   /** The face's place in the host's list. */
   readonly index: number;
+}
+
+interface ReadFace extends ServedFace {
+  /** The host file's identity before WOFF decoding changes its bytes. */
+  readonly key: string;
 }
 
 const WOFF = 0x774f4646;
@@ -66,7 +72,7 @@ function isOpenType(bytes: Uint8Array): boolean {
 
 /** The host's faces the measurer can read, and a problem for each it cannot. */
 export async function readHostFaces(files: FontFiles): Promise<{
-  faces: ServedFace[];
+  faces: ReadFace[];
   problems: FontFaceProblem[];
 }> {
   const results = await Promise.all(
@@ -82,6 +88,7 @@ export async function readHostFaces(files: FontFiles): Promise<{
         }
         return {
           face: {
+            key: fontFaceKey(face),
             family: face.family,
             weight: face.weight,
             italic: face.style === 'italic',
@@ -94,7 +101,7 @@ export async function readHostFaces(files: FontFiles): Promise<{
       }
     }),
   );
-  const faces: ServedFace[] = [];
+  const faces: ReadFace[] = [];
   const problems: FontFaceProblem[] = [];
   for (const result of results) {
     if (result.problem) problems.push(result.problem);
