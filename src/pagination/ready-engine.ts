@@ -15,6 +15,6 @@ export function readyEngine(session: Session, again: () => void): PagesTextEngin
   if (session.destroyed || (pace.text && pace.ready.blocked())) return null;
   const engine = pace.readiness.engine(engineOrFailure(pace.text), options.trace);
   if (!engine) return null;
-  const waiting = { ...session, owner: options.element.ownerDocument };
+  const waiting = { ...session, owner: options.element.ownerDocument, trace: options.trace };
   return waitsForMath(waiting, again) ? null : engine;
 }
