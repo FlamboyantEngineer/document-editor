@@ -356,15 +356,14 @@ function dropContinuation(tr: Transform, pos: number) {
   if (next) tr.delete(pos, pos + next.nodeSize);
 }
 
+// A later part of a contents list: it starts past the first entry and has the list's settings, and
+// its id where both have one.
 function continuesContents(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
-  const start = Number(next.attrs.entryStart);
-  if (!Number.isInteger(start) || start <= 0) return false;
-  const previousId: unknown = previous.attrs.dataId;
-  const nextId: unknown = next.attrs.dataId;
-  if (previousId && nextId && previousId !== nextId) return false;
-  return ['tocType', 'minLevel', 'refFilter'].every(
-    (name) => (previous.attrs[name] ?? null) === (next.attrs[name] ?? null),
-  );
+  const from = Number(next.attrs.entryStart);
+  const ids = previous.attrs.dataId && next.attrs.dataId ? ['dataId'] : [];
+  const same = (name: string) => (previous.attrs[name] ?? null) === (next.attrs[name] ?? null);
+  // A whole entry number past the first.
+  return from >= 1 && from % 1 === 0 && [...ids, 'tocType', 'minLevel', 'refFilter'].every(same);
 }
 
 /** The fragment rules of the document schema's splittable types. */
