@@ -86,3 +86,32 @@ describe('caption labels', () => {
     expect(hidden.label).toBe('Table 1 - \n');
   });
 });
+
+describe('line widths', () => {
+  it('DOCE-PAGINATION-9.1 leaves the spaces that end a block out of its last line’s width, as a wrapped line’s', () => {
+    const right = {
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        paragraph: { ...BASE_TEMPLATE.styles?.paragraph, alignment: 'right' as const },
+      },
+    };
+    const line = (text: string) => {
+      const first = laid(create('paragraph', [documentSchema.text(text)]), { template: right })
+        .lines[0];
+      return [first?.width, first?.left];
+    };
+    // Chromium hangs them at the block's end in pre-wrap: the line sits at the right edge.
+    expect(line('aaa bbb ')).toEqual(line('aaa bbb'));
+    expect(line('aaa bbb   ')).toEqual(line('aaa bbb'));
+    // Spaces before a hard break hang only where they do not fit, so they are kept.
+    const broken = laid(
+      create('paragraph', [documentSchema.text('aaa '), create('hard_break', [])]),
+      {
+        template: right,
+      },
+    );
+    // `aaa ` is 21px with the fake Canvas.
+    expect(broken.lines[0]?.width).toBe(21);
+  });
+});

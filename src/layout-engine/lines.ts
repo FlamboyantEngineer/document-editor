@@ -12,7 +12,7 @@ import {
   type RichInlineCursor,
 } from '@chenglou/pretext/rich-inline';
 import type { LineTable, TextLine } from './line-table.js';
-import type { Strut } from './metrics.js';
+import { type Strut, textWidth } from './metrics.js';
 import type { TextRun } from './runs.js';
 import type { TextAlign } from './typography.js';
 
@@ -24,6 +24,8 @@ interface RunLine {
   /** The items the line holds, first to last. */
   readonly firstItem: number;
   readonly lastItem: number;
+  /** The width of the white space the run's last line ends with, which Pretext counts in it. */
+  readonly trailing: number;
 }
 
 /** Prepared runs and their lines, kept between layouts. */
@@ -86,24 +88,46 @@ function tellLocale(language: string | undefined): void {
 
 const toEnd: RichInlineCursor = { itemIndex: 0, segmentIndex: 0, graphemeIndex: 0 };
 
-function walk(prepared: PreparedRichInline, widths: LineWidths): RunLine[] {
+// The width of the spaces and tabs a fragment's text ends with, in its item's font.
+function trailingWidth(
+  items: TextRun['items'],
+  last: { itemIndex: number; text: string } | undefined,
+) {
+  const item = last ? items[last.itemIndex] : undefined;
+  if (!last || !item || !('font' in item)) return 0;
+  const trailing = /[ \t]+$/u.exec(last.text)?.[0] ?? '';
+  return trailing ? textWidth(trailing, item.font) : 0;
+}
+
+function walk(
+  prepared: PreparedRichInline,
+  widths: LineWidths,
+  items: TextRun['items'],
+): RunLine[] {
   const lines: RunLine[] = [];
   let cursor: RichInlineCursor = toEnd;
+  let last: { itemIndex: number; text: string } | undefined;
   for (;;) {
     const width = Math.max(1, lines.length ? widths.rest : widths.first);
     const range = layoutNextRichInlineLineRange(prepared, width, cursor);
-    if (!range) return lines;
+    if (!range) break;
     const { fragments } = materializeRichInlineLineRange(prepared, range);
     const first = fragments[0];
+    last = fragments.at(-1);
     lines.push({
       item: first?.itemIndex ?? 0,
       sourceStart: first?.sourceStart ?? 0,
       width: range.width,
       firstItem: first?.itemIndex ?? 0,
-      lastItem: fragments.at(-1)?.itemIndex ?? 0,
+      lastItem: last?.itemIndex ?? 0,
+      trailing: 0,
     });
     cursor = range.end;
   }
+  // A wrapped line leaves its hanging spaces out already; the run's last line counts them.
+  const end = lines.at(-1);
+  if (end) lines[lines.length - 1] = { ...end, trailing: trailingWidth(items, last) };
+  return lines;
 }
 
 interface Prepared {
@@ -147,7 +171,7 @@ export function createLineCache(language: string | undefined): LineCache {
       const widthKey = `${String(widths.first)} ${String(widths.rest)}`;
       let lines = entry.widths.get(widthKey);
       if (!lines) {
-        lines = walk(entry.run, widths);
+        lines = walk(entry.run, widths, run.items);
         entry.widths.set(widthKey, lines);
       }
       return lines;
@@ -220,7 +244,7 @@ function runLines(
       from: offset < 0 || index === 0 ? run.start : offset + (inWord ? 0 : line.sourceStart),
       side: inWord ? undefined : insertedSide(run, line),
       inWord,
-      width: line.width,
+      width: shownWidth(run, line),
       height: lineHeight(run, line, input.strut),
       start: index === 0 ? opening : restStart,
       lastOfRun: index === lines.length - 1,
@@ -228,6 +252,11 @@ function runLines(
     };
   });
 }
+
+// A line's width: the spaces that end the block hang, as Chromium hangs them in pre-wrap; before
+// a hard break they hang only where they do not fit, so they count. Only a run's last line has any.
+const shownWidth = (run: TextRun, line: RunLine) =>
+  run.endsWithBreak ? line.width : Math.max(0, line.width - line.trailing);
 
 // Where a line that starts among inserted text breaks from the line before: before its first
 // inserted word, or after the last word inserted where its content starts.
