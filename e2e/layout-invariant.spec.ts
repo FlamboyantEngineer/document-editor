@@ -639,8 +639,9 @@ const PINNED: Readonly<
   // paragraphs are measured and drawn in the served Tinos (DOCE-PAGINATION-12.5). Footnote areas are
   // the engine's height, no longer rounded up to the browser's layout unit (DOCE-PAGINATION-10.10),
   // so the pages with footnotes have 0.005 px more room.
-  'long-mixed': { lines: '3918f8cba38d7fed', heights: 'b4cfd9dd8d7e41fe' },
-  'oversized-blocks': { lines: '3855b1312e8943bb', heights: 'f3be75ce06ce1c8d' },
+  // Code continuation offsets include the newline the page split dropped (DOCE-PAGINATION-11.3).
+  'long-mixed': { lines: 'f444ccf37cb49072', heights: 'b4cfd9dd8d7e41fe' },
+  'oversized-blocks': { lines: '50c6db2fb84ad93e', heights: 'f3be75ce06ce1c8d' },
   'roman-numbering-stress': { lines: '94afcf7cec6e0914', heights: 'd40800e840119375' },
 };
 
