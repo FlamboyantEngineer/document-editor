@@ -115,6 +115,9 @@ export function stubEngine(options: StubEngineOptions = {}): PagesTextEngine {
         marginBottom: 0,
       };
     },
+    measureContent(content, scope, inserted) {
+      return content.children.map((node) => this.measureBlock(node, scope, inserted));
+    },
     pageDigits: () => 3,
     contentsDrawn: () => null,
     measureRegion: () => null,

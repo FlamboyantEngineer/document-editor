@@ -941,6 +941,20 @@ The engine shall lay out a block holding a template variable outside a header or
 Implementation: `src/layout-engine/body-variables.ts`, `src/layout-engine/page-box.ts`, `src/layout-engine/runs.ts`, `src/layout-engine/text-layout.ts`, `src/layout-engine/blocks/text-blocks.ts`, `src/pagination/body-variables.ts`, `src/pagination/page-variables.ts`, `src/pagination/text-engine.ts`, `src/pagination/nested-lines.ts`, `src/pagination/layout-document.ts`, `src/pagination/forced-sets.ts`, `src/pagination/text-engine-holder.ts`, `src/components/document-editor/start-paging.ts`, `src/document/print-lines.ts`, `src/document/print-pages.ts`, `labs/reference/document.css`, `src/pagination/node-numbers.ts`, `src/pagination/forced-regions.ts`, `src/pagination/text-lines.ts`
 Verification: `src/layout-engine/text-layout.test.ts`, `src/pagination/body-variables.test.ts`, `src/pagination/text-engine-refusals.test.ts`, `src/document/print-pages.test.ts`, `src/pagination/node-numbers.test.ts`, `src/pagination/forced-regions.test.ts`, `e2e/inline-geometry.spec.ts`
 
+### DOCE-PAGINATION-11.14 - Numbers kept while typing
+
+A document that differs from the one the engine last numbered only in the text of one text block, as a typed letter, a deleted word or a mark makes it, shall keep that document's numbers without counting them again (`typedTextPath`): no heading, paragraph, caption, footnote or equation number is counted from text, so each node the edit replaced, from the document down to the text block, is found as the node it replaced, and no other block is walked. An edit that adds or removes an inline atom, such as a footnote marker, changes a node's type or attributes, reaches past one text block, or makes a paragraph come to hold text or stop holding it (DOCE-NUMBERING-3.3), numbers the document again. A typed letter in a document of 4,000 paragraphs walks at most 16 of its nodes' children to number it.
+
+Implementation: `src/pagination/typed-text.ts`, `src/pagination/node-numbers.ts`, `src/pagination/numbered-text.ts`
+Verification: `src/pagination/node-numbers-typing.test.ts`
+
+### DOCE-PAGINATION-11.15 - Sections kept while typing
+
+The engine shall give a section's page content's blocks (`measureContent`) kept by the content's node, without looking each block up again, while the document keeps its numbering (DOCE-PAGINATION-11.14), the section its scope and the engine its host views, and none of the section's blocks holds a list of contents, a template variable or a suggestion, holds words other plugins insert, or was laid out with provisional math (DOCE-PAGINATION-12.13): what those read lies outside their node. A block holding a type the host's layout rules size reads the markup (DOCE-PAGINATION-14.1), so which blocks qualify is decided again whenever the rules change. A letter typed in one section of a document then walks only that section's blocks; a structural edit, such as a heading added in an earlier section, lays out every section's blocks again with their new numbers.
+
+Implementation: `src/pagination/text-engine-kept.ts`, `src/pagination/text-engine.ts`, `src/pagination/layout-document.ts`, `src/pagination/node-numbers.ts`
+Verification: `src/pagination/text-engine-kept.test.ts`
+
 ## DOCE-PAGINATION-12 - Widths from the font files
 
 Under Pretext layout, text widths come from the served font files, shaped with HarfBuzz in WebAssembly, so every machine breaks lines in the same places (Charles, 2026-11-21: "Adopt as the standard"). Canvas stays in the labs only, as a comparison.
@@ -1065,10 +1079,10 @@ Verification: `src/layout-engine/math/mathjax-layouter-loading.test.ts`, `src/la
 
 ### DOCE-PAGINATION-12.13 - Math measured before it is typeset
 
-The engine can be asked for a block holding math before the math views have typeset it, or while the layouter still loads its glyphs: the pages' lines are drawn as soon as a transaction is applied, such as a paste or a collaborator's insertion, while the layout waits for the math (DOCE-PAGINATION-10.8, 14.4). Such math takes its reserved box (DOCE-PAGINATION-12.9) only for now: the box is provisional (`AtomSize.provisional`). The atom cache shall never keep a provisional size, and the engine shall keep no block, and no lines of a text block, laid out with one, so each is laid out again when next asked. Once any math given a provisional box can be laid out from its layout, the engine's `atomsVersion` moves and it forgets the regions and containers it kept, and the holder's version moves with it, never back when the engine is made again, so the forced lines and the math placements drawn with the provisional box are drawn again. Math typeset as invalid, refused by the layouter or missing a glyph keeps its reserved box for good: that box is final and kept.
+The engine can be asked for a block holding math before the math views have typeset it, or while the layouter still loads its glyphs: the pages' lines are drawn as soon as a transaction is applied, such as a paste or a collaborator's insertion, while the layout waits for the math (DOCE-PAGINATION-10.8, 14.4). Such math takes its reserved box (DOCE-PAGINATION-12.9) only for now: the box is provisional (`AtomSize.provisional`). The atom cache shall never keep a provisional size, and the engine shall keep no block, and no lines of a text block, laid out with one, so each is laid out again when next asked. Once any math given a provisional box can be laid out from its layout, the engine's `atomsVersion` moves and it forgets the regions and containers it kept, and the holder's version moves with it, never back when the engine is made again, so the forced lines and the math placements drawn with the provisional box are drawn again. Math typeset as invalid, refused by the layouter or missing a glyph keeps its reserved box for good: that box is final and kept. While an equation's glyphs load, the layouter asked for it again (`prepare`), as each read of the engine's waiting math does, shall wait on the load it started and try no conversion again, and it writes each math tree's MathML markup once.
 
-Implementation: `src/layout-engine/atoms.ts`, `src/layout-engine/math-atoms.ts`, `src/pagination/text-engine.ts`, `src/pagination/text-engine-atoms.ts`, `src/pagination/text-engine-holder.ts`
-Verification: `src/pagination/text-engine-provisional.test.ts`, `src/pagination/text-engine.test.ts`, `e2e/equations-layout.spec.ts`
+Implementation: `src/layout-engine/atoms.ts`, `src/layout-engine/math-atoms.ts`, `src/layout-engine/math/mathjax-layouter.ts`, `src/pagination/text-engine.ts`, `src/pagination/text-engine-atoms.ts`, `src/pagination/text-engine-holder.ts`
+Verification: `src/pagination/text-engine-provisional.test.ts`, `src/pagination/text-engine.test.ts`, `src/layout-engine/math/mathjax-layouter.test.ts`, `e2e/equations-layout.spec.ts`
 
 ### DOCE-PAGINATION-12.14 - A numbered equation as tall as its number
 

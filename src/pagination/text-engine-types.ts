@@ -169,6 +169,16 @@ export interface PagesTextEngine {
    */
   measureBlock(node: ProseMirrorNode, scope: string | null, inserted?: InsertedTexts): LayoutBlock;
   /**
+   * The top-level blocks of a section's page content, each as `measureBlock` gives it, kept by the
+   * content's node while nothing they were laid out with outside their nodes changed
+   * (DOCE-PAGINATION-11.15).
+   */
+  measureContent(
+    content: ProseMirrorNode,
+    scope: string | null,
+    inserted?: InsertedTexts,
+  ): readonly LayoutBlock[];
+  /**
    * A section's page header, footer or footnote area, laid out with the text its template variables
    * show (none when absent, so a region with one is left to the DOM); null when the DOM must
    * measure it.
