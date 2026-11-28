@@ -228,7 +228,18 @@ interface PageFill {
   readonly index: number;
   readonly options: PageLayoutOptions;
   readonly rules: LayoutRules;
+  /**
+   * The split last made on the page, with the blocks above it, so the block a heading keeps with,
+   * split to test it, is not split again to place it.
+   */
+  readonly tested: {
+    split?: { block: LayoutBlock; above: LayoutBlock[]; parts: SplitBlock | null };
+  };
 }
+
+// Whether two lists hold the same blocks, in order.
+const sameBlocks = (one: readonly LayoutBlock[], other: readonly LayoutBlock[]) =>
+  one.length === other.length && one.every((block, index) => block === other[index]);
 
 function gapBefore(page: PageFill, block: LayoutBlock): number {
   const last = page.blocks.at(-1);
@@ -278,6 +289,16 @@ const SPLIT_TRIES = 12;
 // whose head fits and one whose head does not, look for the tallest head that fits. Null when the
 // block does not split at the page's room.
 function splitToRoom(page: PageFill, block: LayoutBlock): SplitBlock | null {
+  // The block a heading keeps with was split to test it with the same blocks above it.
+  const known = page.tested.split;
+  if (known?.block === block && sameBlocks(known.above, page.blocks)) return known.parts;
+  const parts = splitToFit(page, block);
+  page.tested.split = { block, above: [...page.blocks], parts };
+  return parts;
+}
+
+// The split itself, as above.
+function splitToFit(page: PageFill, block: LayoutBlock): SplitBlock | null {
   const split = ruleFor(page.rules, block.node).split;
   const open = remainingHeight(page, [block], []);
   const context = splitContext(page, open.pageHeight, open.remaining);
@@ -373,6 +394,7 @@ export function layoutNextPage(
     index: pageIndex,
     options,
     rules: options.rules ?? LAYOUT_RULES,
+    tested: {},
   };
   while (queue.length && !pageEndsBefore(page, queue)) {
     if (!placeNext(page, queue)) break;

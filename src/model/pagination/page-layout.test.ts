@@ -93,6 +93,26 @@ describe('page layout', () => {
     expect(heights(tall)).toEqual([[50], [500]]);
   });
 
+  it('DOCE-PAGINATION-2.5 DOCE-PAGINATION-5.5 splits the block a heading keeps with once, testing and placing it', () => {
+    let splits = 0;
+    const counting: LayoutRules = {
+      ...splitting,
+      paragraph: {
+        ...splitting.paragraph,
+        split: (entry, height, context) => {
+          splits += 1;
+          return splitting.paragraph?.split?.(entry, height, context) ?? null;
+        },
+      },
+    };
+    const lead = [paragraph(60), heading(1), paragraph(100)];
+    expect(heights(layoutPages(lead, { pageHeight: 102, rules: counting }))).toEqual([
+      [60, 20, 20],
+      [80],
+    ]);
+    expect(splits).toBe(1);
+  });
+
   it('DOCE-PAGINATION-2.4 ends a page after a page break and before a block that starts one', () => {
     const blocks = [
       paragraph(10),

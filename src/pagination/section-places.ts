@@ -4,23 +4,46 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LayoutBlock } from '../model/index.js';
 
-const citations = new WeakMap<ProseMirrorNode, readonly string[]>();
+// The footnotes each block cites, by the suggestion mark the markup hides, which a citation under it
+// does not count.
+const citations = new Map<string | null, WeakMap<ProseMirrorNode, readonly string[]>>();
 
-function citedIn(node: ProseMirrorNode): readonly string[] {
-  const known = citations.get(node);
-  if (known) return known;
+function citedIn(node: ProseMirrorNode, hidden: string | null): readonly string[] {
+  const known = citations.get(hidden) ?? new WeakMap<ProseMirrorNode, readonly string[]>();
+  citations.set(hidden, known);
+  const found = known.get(node);
+  if (found) return found;
   const ids: string[] = [];
   node.descendants((child) => {
     const id = child.attrs.footnoteId as unknown;
-    if (child.type.name === 'footnote_reference' && typeof id === 'string' && id) ids.push(id);
+    if (child.type.name !== 'footnote_reference' || typeof id !== 'string' || !id) return;
+    if (!child.marks.some((mark) => mark.type.name === hidden)) ids.push(id);
   });
-  citations.set(node, ids);
+  known.set(node, ids);
   return ids;
 }
 
-/** The footnotes blocks cite, by id. */
-export function cited(blocks: readonly LayoutBlock[]): Set<string> {
-  return new Set(blocks.flatMap((block) => citedIn(block.node)));
+/** Which of the footnotes blocks cite count. */
+interface Citing {
+  /** Footnotes left out, such as those an earlier page shows. */
+  readonly skip?: ((id: string) => boolean) | undefined;
+  /** The suggestion mark the markup hides, under which a citation does not count. */
+  readonly hidden?: string | null | undefined;
+}
+
+/**
+ * The footnotes blocks cite where the markup shows the citation, by id, each once in the order
+ * first cited, but for those `skip` names; a list, and no set, as most pages cite few or none.
+ */
+export function cited(
+  blocks: readonly LayoutBlock[],
+  { skip, hidden = null }: Citing = {},
+): string[] {
+  const ids: string[] = [];
+  for (const block of blocks)
+    for (const id of citedIn(block.node, hidden))
+      if (!skip?.(id) && !ids.includes(id)) ids.push(id);
+  return ids;
 }
 
 interface SectionPlace {
