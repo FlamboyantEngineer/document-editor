@@ -2,7 +2,7 @@ import * as Y from '@y/y';
 import * as delta from 'lib0/delta';
 import type { Schema } from 'prosemirror-model';
 import { FRAGMENT_RULES } from '../model/pagination/fragments.js';
-import type { AnyDelta } from './delta.js';
+import { type AnyDelta, isWholeRecordAttr, keyedAttrOf } from './delta.js';
 import { isGuardFormatRecord, isGuardProposalMark } from './guard-format.js';
 import type { RoomScope } from './room-scope.js';
 
@@ -62,14 +62,22 @@ function hasPageOnlyAttr(type: Y.Type, name: string): boolean {
   );
 }
 
+// One key of the top node's record attribute (`values.document.name`), which holds a text.
+const isStoredKey = (name: string | number, value: unknown) =>
+  typeof name === 'string' && keyedAttrOf(name) !== null && typeof value === 'string';
+
 function hasKnownContent(type: Y.Type, options: { schema: Schema; root: Y.Type }): boolean {
   const node =
     type === options.root ? options.schema.topNodeType : options.schema.nodes[String(type.name)];
   if (!node || !hasKnownSplit(type)) return false;
   if (hasPageOnlyAttr(type, node.name)) return false;
   let known = true;
-  type.forEachAttr((_value: unknown, key: string | number) => {
-    if (!Object.hasOwn(node.spec.attrs ?? {}, key)) known = false;
+  const root = type === options.root;
+  type.forEachAttr((value: unknown, key: string | number) => {
+    // A record held whole is refused on the root, which keeps it by key (DOCE-COLLAB-6.9).
+    if (root && isWholeRecordAttr(key)) known = false;
+    else if (!Object.hasOwn(node.spec.attrs ?? {}, key) && !(root && isStoredKey(key, value)))
+      known = false;
   });
   const format: unknown = type.getAttr('suggestionFormat');
   if (format !== undefined && format !== null && !isGuardFormatRecord(format, options.schema))

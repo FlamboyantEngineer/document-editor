@@ -247,6 +247,13 @@ Verification: `src/collab/room-change-guard.test.ts`, `e2e/session-room.spec.ts`
 Implementation: `src/collab/comment-seed.ts`
 Verification: `src/collab/comment-seed.test.ts`, `e2e/session-room.spec.ts`
 
+### DOCE-COLLAB-6.9 - Stored texts by key
+
+A room shall keep the variable texts a document stores (the top node's `values`, DOCE-FORMAT-1.7) as one attribute of `content` per key, named `values.` and the key (`values.document.name`), never as one attribute holding the whole record, and read them back as the record; a document storing none keeps none. So writers who set the texts of different keys at once both keep theirs, a change writes only the keys it changes, and each writer's undo (DOCE-COLLAB-6.3) and redo take back and put back only the keys their own change set, whatever another writer set beside them. When two writers set the same key at once and the writer whose text the room kept undoes, that key shall hold no text, since an undo never brings back a text another writer's change replaced, and every other key keep its text; the writers' editors store the key's text again from the host (DOCE-PAGINATION-8.8). A room's write guard shall take such an attribute only on `content` itself and only holding a text, and refuse the record held whole (`values` itself on `content`); a room without a guard that holds one shall read and replay it as nothing, so an open editor and a fresh read of the room agree.
+
+Implementation: `src/collab/delta.ts`, `src/collab/replay.ts`, `src/collab/guard-shape.ts`, `docs/collaboration.md`
+Verification: `src/collab/document-values-room.test.ts`, `src/collab/room-change-guard-security.test.ts`
+
 ## DOCE-COLLAB-7 - Embedded documents and server enforcement
 
 ### DOCE-COLLAB-7.1 - Independent fields in one room
