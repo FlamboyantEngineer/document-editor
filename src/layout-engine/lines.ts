@@ -16,6 +16,12 @@ import { type Strut, textWidth } from './metrics.js';
 import type { TextRun } from './runs.js';
 import type { TextAlign } from './typography.js';
 
+/** The white space one item ends a line with. */
+interface Trailing {
+  readonly item: number;
+  readonly width: number;
+}
+
 /** A run's line as Pretext broke it: where it starts in the run's items and how wide it is. */
 interface RunLine {
   readonly item: number;
@@ -24,8 +30,11 @@ interface RunLine {
   /** The items the line holds, first to last. */
   readonly firstItem: number;
   readonly lastItem: number;
-  /** The width of the white space the run's last line ends with, which Pretext counts in it. */
-  readonly trailing: number;
+  /**
+   * The white space the run's last line ends with, which Pretext counts in it: each item's, last
+   * first, back to the first that holds more than white space.
+   */
+  readonly trailing: readonly Trailing[];
 }
 
 /** Prepared runs and their lines, kept between layouts. */
@@ -88,23 +97,22 @@ function tellLocale(language: string | undefined): void {
 
 const toEnd: RichInlineCursor = { itemIndex: 0, segmentIndex: 0, graphemeIndex: 0 };
 
-// The width of the spaces and tabs a line's text ends with, each fragment's in its item's font:
-// spaces that end a block hang whichever element holds them, so the walk goes back over every
-// fragment that is white space only.
-function trailingWidth(
+// The spaces and tabs a line's text ends with, each fragment's in its item's font, back over every
+// fragment that is white space only: spaces that end a block hang whichever element holds them.
+function trailingOf(
   items: TextRun['items'],
   fragments: readonly { itemIndex: number; text: string }[],
-) {
-  let width = 0;
+): Trailing[] {
+  const trailing: Trailing[] = [];
   for (let index = fragments.length - 1; index >= 0; index -= 1) {
     const fragment = fragments[index];
     const item = fragment ? items[fragment.itemIndex] : undefined;
     if (!fragment || !item || !('font' in item)) break;
-    const trailing = /[ \t]+$/u.exec(fragment.text)?.[0] ?? '';
-    if (trailing) width += textWidth(trailing, item.font);
-    if (trailing.length < fragment.text.length) break;
+    const spaces = /[ \t]+$/u.exec(fragment.text)?.[0] ?? '';
+    trailing.push({ item: fragment.itemIndex, width: spaces ? textWidth(spaces, item.font) : 0 });
+    if (spaces.length < fragment.text.length) break;
   }
-  return width;
+  return trailing;
 }
 
 function walk(
@@ -129,13 +137,13 @@ function walk(
       width: range.width,
       firstItem: first?.itemIndex ?? 0,
       lastItem: last?.itemIndex ?? 0,
-      trailing: 0,
+      trailing: [],
     });
     cursor = range.end;
   }
   // A wrapped line leaves its hanging spaces out already; the run's last line counts them.
   const end = lines.at(-1);
-  if (end) lines[lines.length - 1] = { ...end, trailing: trailingWidth(items, lastFragments) };
+  if (end) lines[lines.length - 1] = { ...end, trailing: trailingOf(items, lastFragments) };
   return lines;
 }
 
@@ -264,8 +272,17 @@ function runLines(
 
 // A line's width: the spaces that end the block hang, as Chromium hangs them in pre-wrap; before
 // a hard break they hang only where they do not fit, so they count. Only a run's last line has any.
-const shownWidth = (run: TextRun, line: RunLine) =>
-  run.endsWithBreak ? line.width : Math.max(0, line.width - line.trailing);
+// Content text alone ends the block: after a label or an inserted word the editor draws a trailing
+// break, before which the spaces count.
+function shownWidth(run: TextRun, line: RunLine): number {
+  if (run.endsWithBreak) return line.width;
+  let hanging = 0;
+  for (const { item, width } of line.trailing) {
+    if ((run.offsets[item] ?? -1) < 0 || (run.sides[item] ?? null) !== null) break;
+    hanging += width;
+  }
+  return Math.max(0, line.width - hanging);
+}
 
 // Where a line that starts among inserted text breaks from the line before: before its first
 // inserted word, or after the last word inserted where its content starts.
