@@ -532,6 +532,17 @@ describe('holdTextEngine', () => {
     holder.destroy();
   });
 
+  it('DOCE-PAGINATION-12.5 settles loaded with no engine when the served fonts fail', async () => {
+    const failed = Promise.reject(new Error('no fonts'));
+    const holder = holdTextEngine({
+      setting: { template: () => BASE_TEMPLATE, fonts: failed },
+      changed: () => undefined,
+    });
+    await expect(holder.loaded).resolves.toBeUndefined();
+    expect(holder.engine()).toBeNull();
+    holder.destroy();
+  });
+
   it('DOCE-PAGINATION-10.7 numbers an engine made again with the document the last one was numbered with', async () => {
     const holder = holdTextEngine({
       setting: { template: () => BASE_TEMPLATE, fonts: Promise.resolve(served()) },
