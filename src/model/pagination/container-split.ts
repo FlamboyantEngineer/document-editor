@@ -205,7 +205,8 @@ export function splitContainer(
   return split ? fragments(request, split, { head: {}, tail: {} }) : null;
 }
 
-// A paragraph's second fragment in a list item loses the marker's indent, so it keeps three lines.
+// A paragraph's second fragment in a list item keeps at least three lines, one more than elsewhere
+// (DOCE-PAGINATION-4.2); it is laid out and drawn at the item's own indent.
 const splitParagraphInItem = splitParagraphWith(3);
 
 const splitItemChild: ChildSplit = (block, height, context) =>

@@ -1,6 +1,6 @@
 // Tables: every cell laid out in its columns' width and its alignment, each row as tall as its
-// tallest cell, a cell that spans rows growing the last of them, and a table with its caption above
-// or below it. Rows are measured as the table splitter reads them (DOCE-PAGINATION-10.5).
+// tallest cell, a cell that spans rows growing them, and a table with its caption above or below
+// it. Rows are measured as the table splitter reads them (DOCE-PAGINATION-10.5).
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { TableMap } from 'prosemirror-tables';
@@ -55,7 +55,8 @@ function cellHeight(
 }
 
 // Each row's height: its single-row cells' tallest, then a cell spanning rows adds what it lacks
-// to the last row it spans.
+// to the rows it spans in proportion to their heights, as Chromium spreads it, or to the last when
+// they have none.
 function rowHeights(cells: readonly PlacedCell[], count: number): number[] {
   const heights = Array.from({ length: count }, () => 0);
   for (const cell of cells) {
@@ -66,8 +67,14 @@ function rowHeights(cells: readonly PlacedCell[], count: number): number[] {
   for (const cell of cells) {
     if (cell.bottom - cell.top <= 1) continue;
     const spanned = heights.slice(cell.top, cell.bottom).reduce((sum, height) => sum + height, 0);
-    const last = cell.bottom - 1;
-    if (cell.height > spanned) heights[last] = (heights[last] ?? 0) + cell.height - spanned;
+    const lacking = cell.height - spanned;
+    if (!(lacking > 0)) continue;
+    if (spanned > 0) {
+      for (let row = cell.top; row < cell.bottom; row += 1) {
+        const height = heights[row] ?? 0;
+        heights[row] = height + (lacking * height) / spanned;
+      }
+    } else heights[cell.bottom - 1] = lacking;
   }
   return heights;
 }

@@ -177,6 +177,26 @@ describe('container splits', () => {
     expect(createLayoutRules({ repeatTableHeader: false }).table?.split).toBeTypeOf('function');
   });
 
+  it('DOCE-PAGINATION-4.5 sets a body row taller than a page alone on its page and goes on with the rest', () => {
+    const row = (text: string) =>
+      node('table_row', null, [node('table_cell', null, [paragraph(text)])]);
+    const table = node('table', { dataId: 't2' }, [row('Tall'), row('Two'), row('Three')]);
+    const layouts = [
+      { top: 0, bottom: 150 },
+      { top: 150, bottom: 170 },
+      { top: 170, bottom: 190 },
+    ];
+    const queue = [measured(table, 191, layouts)];
+    const first = layoutNextPage(queue, 0, { pageHeight: 100, rules: LAYOUT_RULES });
+    // The tall row overflows its page alone; the rows after it start the next page.
+    expect(first.map((block) => block.node.textContent)).toEqual(['Tall']);
+    expect(queue.map((block) => block.node.textContent)).toEqual(['TwoThree']);
+    // Below other blocks it moves to a page of its own first.
+    const below = [measured(paragraph('Before'), 30, []), measured(table, 191, layouts)];
+    const page = layoutNextPage(below, 0, { pageHeight: 100, rules: LAYOUT_RULES });
+    expect(page.map((block) => block.node.textContent)).toEqual(['Before']);
+  });
+
   it('DOCE-PAGINATION-4.5 keeps the continuation grid when a header cell spans into the body', () => {
     const cell = (text: string, type = 'table_cell', rowspan = 1) =>
       node(type, { rowspan, colwidth: text === 'A' ? [100] : null }, [paragraph(text)]);
