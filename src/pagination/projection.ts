@@ -291,7 +291,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     (options.textLayout ? holdTextEngine({ setting: options.textLayout, ...holding }) : null);
   const source = EditorState.create({
     doc: options.state.doc,
-    // Footnotes numbered through the document, as no page's own numbers outgrow in digits.
+    // Footnotes numbered through the document: the measured document has no pages to number by.
     plugins: withFootnoteNumbers([...(options.plugins ?? []), ...(options.layoutPlugins ?? [])]),
   });
   const map = createProjectionMap(options.state.doc, rules);
