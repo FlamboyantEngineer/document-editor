@@ -238,12 +238,10 @@ function keepShownSelection(session: Session): void {
 
 // The engine once it and its math are ready; else null, pending, or failed without one to wait for.
 function readyEngine(session: Session): PagesTextEngine | null {
-  if (session.pace.ready.blocked()) return null;
-  const engine = engineOrFailure(session.pace.text);
-  if (!engine || typeof engine === 'string') {
-    if (engine) writeTrace(session.options.trace, 'fail', () => ({ reason: engine }));
-    return session.pace.readiness.withoutEngine(engine);
-  }
+  const { pace, options } = session;
+  if (pace.ready.blocked()) return null;
+  const engine = pace.readiness.engine(engineOrFailure(pace.text), options.trace);
+  if (!engine) return null;
   const waiting = { ...session, owner: session.options.element.ownerDocument };
   return waitsForMath(waiting, () => requestLayout(session)) ? null : engine;
 }
