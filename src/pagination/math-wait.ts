@@ -4,7 +4,18 @@
 
 import type { EditorState } from 'prosemirror-state';
 import { mathTypesetReady } from '../engine/math-views.js';
+import { askBefore } from '../utils/ask-before.js';
+import { type LayoutTraceSink, writeTrace } from './layout-trace.js';
 import type { PagesTextEngine } from './text-engine-types.js';
+
+/**
+ * How long the pages wait for the document's math to typeset and its layout to load. Past it they
+ * are laid out with the math they have, provisional, and wait on it no more (DOCE-PAGINATION-14.4).
+ */
+export const MATH_WAIT_TIMEOUT = 30_000;
+
+// The readiness of each projection whose math ran past the wait.
+const late = new WeakSet<object>();
 
 /** What a layout waits with: the state laid out, the document it shows in, and its readiness. */
 interface Waiting {
@@ -14,18 +25,31 @@ interface Waiting {
     readonly readiness: { pending(): void };
     readonly text?: { engine(): PagesTextEngine | null } | null | undefined;
   };
+  /** Where the layout's trace goes, which tells of math that ran past the wait. */
+  readonly trace?: LayoutTraceSink | undefined;
 }
 
 /**
  * Whether the canonical state's math views still typeset its document's math, or the engine's
  * math layouter still loads what laying it out needs, the layout then pending; `resume` is called
- * once they have.
+ * once they have, or once `MATH_WAIT_TIMEOUT` has passed, after which the projection no longer
+ * waits on math.
  */
-export function waitsForMath({ canonical, owner, pace }: Waiting, resume: () => void): boolean {
+export function waitsForMath(
+  { canonical, owner, pace, trace }: Waiting,
+  resume: () => void,
+): boolean {
+  if (late.has(pace.readiness)) return false;
   const typesetting = mathTypesetReady(canonical, canonical.doc, owner);
   const waiting = typesetting ?? pace.text?.engine()?.mathPending(canonical.doc) ?? null;
   if (!waiting) return false;
-  void waiting.then(resume, resume);
+  void askBefore(() => waiting, { timeout: MATH_WAIT_TIMEOUT }).then((asked) => {
+    if (!asked.answered && asked.why === 'timed-out') {
+      late.add(pace.readiness);
+      writeTrace(trace, 'mathLate', () => ({ reason: 'timed-out' }));
+    }
+    resume();
+  });
   pace.readiness.pending();
   return true;
 }
