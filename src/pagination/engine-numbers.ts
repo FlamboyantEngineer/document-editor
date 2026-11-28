@@ -129,8 +129,8 @@ function numberDecorations(
   return found.length ? DecorationSet.create(doc, found) : DecorationSet.empty;
 }
 
-// Whether a step only edits text inside a textblock that carries no number, as typing does: the
-// numbers stay, and the decorations only move.
+// Whether a step only edits text inside one textblock, as typing does, a heading's or a caption's
+// too: no number is counted from text, so the numbers stay and the decorations only move.
 function keepsNumbers(tr: Transaction, index: number): boolean {
   const step = tr.steps[index];
   if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) return true;
@@ -141,9 +141,7 @@ function keepsNumbers(tr: Transaction, index: number): boolean {
   if (!inline || slice.openStart || slice.openEnd) return false;
   const doc = tr.docs[index] as ProseMirrorNode;
   const start = doc.resolve(from);
-  const parent = start.parent;
-  if (!parent.isTextblock || start.end() < to) return false;
-  return parent.type.name !== 'heading' && !isCaptionNode(parent);
+  return start.parent.isTextblock && start.end() >= to;
 }
 
 /** Whether a transaction keeps every number, so the drawn ones only move with it. */
