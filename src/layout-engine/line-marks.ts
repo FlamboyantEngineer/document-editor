@@ -6,7 +6,9 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { countPrefix } from '../utils/count-prefix.js';
 import { clusterEnd, clusterStart } from './graphemes.js';
+import { atomAt } from './inline-content.js';
 import type { LineTable, TextLine } from './line-table.js';
+import { shownLine, shownText } from './line-visibility.js';
 import type { ReservedBox } from './reserved-boxes.js';
 
 /** A range of a block's content, by offset, and the hooks drawing it on its line. */
@@ -36,93 +38,18 @@ export interface JustifiedLines extends LineTable {
 
 const px = (value: number) => `${value.toFixed(3)}px`;
 
-type Range = readonly [number, number];
-
-// Where a line's shown content starts and ends: past the hidden ranges at its start, and before
-// those at its end (`LineTable.hidden`), so its marks sit on text the pages draw.
-function shownLine(table: JustifiedLines, line: TextLine): TextLine {
-  const hidden = table.hidden ?? [];
-  if (!hidden.length) return line;
-  let { from, to } = line;
-  for (let range = startingAt(hidden, from); range && range[1] <= to;) {
-    from = range[1];
-    range = startingAt(hidden, from);
-  }
-  for (let range = endingAt(hidden, to); range && range[0] >= from;) {
-    to = range[0];
-    range = endingAt(hidden, to);
-  }
-  return { ...line, from, to };
-}
-
-const startingAt = (hidden: readonly Range[], at: number) =>
-  hidden.find(([from, to]) => from === at && to > at);
-const endingAt = (hidden: readonly Range[], at: number) =>
-  hidden.find(([from, to]) => to === at && from < at);
-
-// The inline nodes other than text in a block's content, by where they start and end: read once
-// per block, not once per line.
-const atomsKept = new WeakMap<ProseMirrorNode, readonly Range[]>();
-
-function atomRanges(node: ProseMirrorNode): readonly Range[] {
-  let ranges = atomsKept.get(node);
-  if (!ranges) {
-    const found: Range[] = [];
-    node.forEach((child, start) => {
-      if (!child.isText) found.push([start, start + child.nodeSize]);
-    });
-    ranges = found;
-    atomsKept.set(node, ranges);
-  }
-  return ranges;
-}
-
-// The text a range of a block's content draws as text: its text nodes' text, and an object
-// character for each other inline node, as math, whose source a view never draws as text and
-// whose spaces the line does not stretch (DOCE-PAGINATION-13.1).
-function drawnText(node: ProseMirrorNode, from: number, to: number): string {
-  let text = '';
-  node.forEach((child, start) => {
-    const end = start + child.nodeSize;
-    if (end <= from || start >= to) return;
-    if (!child.isText) text += '\ufffc';
-    else text += (child.text ?? '').slice(Math.max(0, from - start), to - start);
-  });
-  return text;
-}
-
-// A line's shown text, without the hidden ranges inside it.
-function shownText(node: ProseMirrorNode, table: JustifiedLines, line: TextLine): string {
-  let text = '';
-  let at = line.from;
-  const inside = (table.hidden ?? []).filter(([from, to]) => from < line.to && to > line.from);
-  for (const [from, to] of inside) {
-    if (from > at) text += drawnText(node, at, from);
-    at = Math.max(at, to);
-  }
-  if (line.to > at) text += drawnText(node, at, line.to);
-  return text;
-}
-
-// The inline node other than text that holds an offset of a block's content strictly inside it,
-// such as math, whose text a view never draws: a mark must take it whole.
-function atomAround(node: ProseMirrorNode, offset: number): { from: number; to: number } | null {
-  const range = atomRanges(node).find(([from, to]) => from < offset && offset < to);
-  return range ? { from: range[0], to: range[1] } : null;
-}
-
 // Where a line's last grapheme cluster starts, so its mark never cuts a cluster: a surrogate
 // pair, a joined emoji sequence, a flag or a letter with any number of combining marks; or where
 // the inline node it ends with starts, such as math, which draws the mark on its own element.
 function lastCharacter(node: ProseMirrorNode, line: TextLine): number {
   const at = clusterStart(node, line.to, line.from);
-  return Math.max(line.from, atomAround(node, at)?.from ?? at);
+  return Math.max(line.from, atomAt(node, at)?.from ?? at);
 }
 
 // Where a line's first grapheme cluster ends, or the inline node it starts with.
 function firstCharacterEnd(node: ProseMirrorNode, line: TextLine): number {
   const at = clusterEnd(node, line.from, line.to);
-  return Math.min(line.to, atomAround(node, at)?.to ?? at);
+  return Math.min(line.to, atomAt(node, at - 1)?.to ?? at);
 }
 
 // The characters Chromium stretches by `word-spacing`: spaces and no-break spaces, not tabs.
@@ -190,13 +117,14 @@ function marksOfLine(
   table: JustifiedLines,
   { line: laid, prefixed, next }: { line: TextLine; prefixed: boolean; next: TextLine | undefined },
 ): LineMark[] {
-  const line = shownLine(table, laid);
+  const { hidden } = table;
+  const line = shownLine(hidden, laid);
   // A line that starts inside an inserted word starts in no content of its own.
   const among = line.side !== undefined || line.inWord;
   const start = prefixed || among ? null : startMark(node, table, line);
   const marks: LineMark[] = start ? [start] : [];
   if (line.end !== 'wrap' || line.to <= line.from) return marks;
-  const text = shownText(node, table, line);
+  const text = shownText(node, hidden, line);
   const spaces = spacesIn(text);
   // The room from where the line starts to the content's end edge, which a justified line fills.
   const room = table.width - table.overhead / 2 - line.left;

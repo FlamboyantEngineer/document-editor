@@ -356,10 +356,14 @@ function dropContinuation(tr: Transform, pos: number) {
   if (next) tr.delete(pos, pos + next.nodeSize);
 }
 
-function sameContentsSettings(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
-  return ['tocType', 'minLevel', 'refFilter'].every(
-    (name) => (previous.attrs[name] ?? null) === (next.attrs[name] ?? null),
-  );
+// A later part of a contents list: it starts past the first entry and has the list's settings, and
+// its id where both have one.
+function continuesContents(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
+  const from = Number(next.attrs.entryStart);
+  const ids = previous.attrs.dataId && next.attrs.dataId ? ['dataId'] : [];
+  const same = (name: string) => (previous.attrs[name] ?? null) === (next.attrs[name] ?? null);
+  // A whole entry number past the first.
+  return from >= 1 && from % 1 === 0 && [...ids, 'tocType', 'minLevel', 'refFilter'].every(same);
 }
 
 /** The fragment rules of the document schema's splittable types. */
@@ -385,7 +389,7 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   list_item: { whole: { ...PART, orphanedListContinuation: false }, join: joinListItems },
   toc_block: {
     whole: { entryStart: 0, entryEnd: null, showTitle: true },
-    continues: sameContentsSettings,
+    continues: continuesContents,
     join: dropContinuation,
   },
 });

@@ -26,14 +26,14 @@ afterEach(() => {
 const { nodes } = documentSchema;
 
 // A view of a code block and linked code, both in a language.
-function viewOfCode(language: string, lineNumbers?: LineNumbers): EditorView {
+function viewOfCode(language: string, lineNumbers?: LineNumbers, owner = document): EditorView {
   const block = nodes.code_block?.create({ language }, documentSchema.text('const size = 4;'));
   const code = block && createCodeFigure(documentSchema, block);
   const linked = nodes.linked_code_block?.create({ code: 'return "a";', language });
   if (!code || !linked) throw new Error('The schema has code and linked code');
   const doc = documentSchema.topNodeType.createAndFill(null, [code, linked]);
   if (!doc) throw new Error('The document is valid');
-  view = new EditorView(document.createElement('div'), {
+  view = new EditorView(owner.createElement('div'), {
     state: EditorState.create({ doc, plugins: [createObjectViews({ lineNumbers })] }),
   });
   return view;
@@ -66,6 +66,7 @@ describe('code highlighting', () => {
     expect(highlightCode('ab', 'json')).toEqual([{ from: 0, to: 2, kind: 'invalid' }]);
     expect(highlightCode('const size = 4;', 'plaintext')).toEqual([]);
     expect(highlightCode('const size = 4;', 'unknown')).toEqual([]);
+    expect(highlightCode('const size = 4;', 'constructor')).toEqual([]);
   });
 
   it('DOCE-OBJECTS-3.3 paints the tokens of code blocks and marks those of linked code', () => {
@@ -116,5 +117,26 @@ describe('code highlighting', () => {
     expect(
       shown.dom.querySelectorAll('pre:not(.linked-code-block pre) .de-code-token'),
     ).toHaveLength(0);
+  });
+
+  it("DOCE-EDITOR-6.19 preserves code highlights from the editor's own iframe window", () => {
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    try {
+      const owner = frame.contentDocument;
+      if (!owner?.defaultView) throw new Error('Expected an iframe document');
+      Object.assign(owner.defaultView, { CSS: { highlights }, Highlight: Set });
+      const shown = viewOfCode('typescript', 'none', owner);
+      const copy = shown.dom.cloneNode(true) as HTMLElement;
+      copyCodeHighlights(shown, copy);
+      const code = copy.querySelector('pre:not(.linked-code-block pre) code');
+      expect(tokens(code, 'keyword')).toEqual(['const']);
+      expect(tokens(code, 'number')).toEqual(['4']);
+      expect(code?.textContent).toBe('const size = 4;');
+    } finally {
+      view?.destroy();
+      view = null;
+      frame.remove();
+    }
   });
 });

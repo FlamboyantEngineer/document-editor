@@ -10,17 +10,20 @@ import {
   type PreparedRichInline,
   prepareRichInline,
   type RichInlineCursor,
+  type RichInlineFragment,
 } from '@chenglou/pretext/rich-inline';
+import { lineHeight } from './line-height.js';
 import type { LineTable, TextLine } from './line-table.js';
-import { type Strut, textWidth } from './metrics.js';
+import {
+  findTabTail,
+  prepareTabPrefix,
+  type Trailing,
+  trailingOf,
+  widthBeforeTabTail,
+} from './line-whitespace.js';
+import type { Strut } from './metrics.js';
 import type { TextRun } from './runs.js';
 import type { TextAlign } from './typography.js';
-
-/** The white space one item ends a line with. */
-interface Trailing {
-  readonly item: number;
-  readonly width: number;
-}
 
 /** A run's line as Pretext broke it: where it starts in the run's items and how wide it is. */
 interface RunLine {
@@ -98,32 +101,21 @@ export function selectTextLanguage(language: string | undefined): void {
 
 const toEnd: RichInlineCursor = { itemIndex: 0, segmentIndex: 0, graphemeIndex: 0 };
 
-// The spaces and tabs a line's text ends with, each fragment's in its item's font, back over every
-// fragment that is white space only: spaces that end a block hang whichever element holds them.
-function trailingOf(
-  items: TextRun['items'],
-  fragments: readonly { itemIndex: number; text: string }[],
-): Trailing[] {
-  const trailing: Trailing[] = [];
-  for (let index = fragments.length - 1; index >= 0; index -= 1) {
-    const fragment = fragments[index];
-    const item = fragment ? items[fragment.itemIndex] : undefined;
-    if (!fragment || !item || !('font' in item)) break;
-    const spaces = /[ \t]+$/u.exec(fragment.text)?.[0] ?? '';
-    trailing.push({ item: fragment.itemIndex, width: spaces ? textWidth(spaces, item.font) : 0 });
-    if (spaces.length < fragment.text.length) break;
-  }
-  return trailing;
-}
-
 function walk(
   prepared: PreparedRichInline,
   widths: LineWidths,
-  items: TextRun['items'],
+  {
+    items,
+    tabPrefix,
+  }: {
+    readonly items: TextRun['items'];
+    readonly tabPrefix: TabPrefix | undefined;
+  },
 ): RunLine[] {
   const lines: RunLine[] = [];
   let cursor: RichInlineCursor = toEnd;
-  let lastFragments: readonly { itemIndex: number; text: string }[] = [];
+  let lastStart = toEnd;
+  let lastFragments: readonly RichInlineFragment[] = [];
   for (;;) {
     const width = Math.max(1, lines.length ? widths.rest : widths.first);
     const range = layoutNextRichInlineLineRange(prepared, width, cursor);
@@ -131,6 +123,7 @@ function walk(
     const { fragments } = materializeRichInlineLineRange(prepared, range);
     const first = fragments[0];
     const last = fragments.at(-1);
+    lastStart = cursor;
     lastFragments = fragments;
     lines.push({
       item: first?.itemIndex ?? 0,
@@ -142,15 +135,32 @@ function walk(
     });
     cursor = range.end;
   }
-  // A wrapped line leaves its hanging spaces out already; the run's last line counts them.
+  // A wrapped line already hangs its trailing white space. The terminal line can count it.
   const end = lines.at(-1);
-  if (end) lines[lines.length - 1] = { ...end, trailing: trailingOf(items, lastFragments) };
+  if (end) {
+    lines[lines.length - 1] = tabPrefix
+      ? {
+          ...end,
+          width: widthBeforeTabTail(tabPrefix.prepared, tabPrefix.tail, {
+            items,
+            fragments: lastFragments,
+            start: lastStart,
+          }),
+        }
+      : { ...end, trailing: trailingOf(items, lastFragments) };
+  }
   return lines;
+}
+
+interface TabPrefix {
+  readonly prepared: PreparedRichInline;
+  readonly tail: NonNullable<ReturnType<typeof findTabTail>>;
 }
 
 interface Prepared {
   readonly run: PreparedRichInline;
   readonly widths: Map<string, RunLine[]>;
+  tabPrefixes?: Map<string, TabPrefix>;
 }
 
 /** A cache of prepared runs for one language, laid out in Pretext's pre-wrap white space. */
@@ -186,35 +196,26 @@ export function createLineCache(language: string | undefined): LineCache {
       }
       own.set(key, entry);
       remember(key, entry);
-      const widthKey = `${String(widths.first)} ${String(widths.rest)}`;
+      const tail = findTabTail(run);
+      const tailKey = tail ? `${String(tail.item)}:${String(tail.offset)}` : '';
+      const widthKey = `${String(widths.first)} ${String(widths.rest)} ${tailKey}`;
       let lines = entry.widths.get(widthKey);
       if (!lines) {
-        lines = walk(entry.run, widths, run.items);
+        let tabPrefix: TabPrefix | undefined;
+        if (tail) {
+          const prefixes = (entry.tabPrefixes ??= new Map());
+          tabPrefix = prefixes.get(tailKey);
+          if (!tabPrefix) {
+            tabPrefix = { prepared: prepareTabPrefix(run.items, tail), tail };
+            prefixes.set(tailKey, tabPrefix);
+          }
+        }
+        lines = walk(entry.run, widths, { items: run.items, tabPrefix });
         entry.widths.set(widthKey, lines);
       }
       return lines;
     },
   };
-}
-
-// A line's height: its strut, grown by each atom on it, which sits on the baseline at its own
-// baseline, or at its bottom when it has none; an atom aligned to the line's top or bottom
-// (`vertical-align: top` or `bottom`) only makes the line at least as tall as itself.
-function lineHeight(run: TextRun, line: RunLine, strut: Strut): number {
-  let { ascent, descent } = strut;
-  let aligned = 0;
-  for (let index = line.firstItem; index <= line.lastItem; index += 1) {
-    const atom = run.atoms[index];
-    if (!atom) continue;
-    if (atom.align === 'top' || atom.align === 'bottom') {
-      aligned = Math.max(aligned, atom.height);
-      continue;
-    }
-    const baseline = atom.baseline ?? atom.height;
-    ascent = Math.max(ascent, baseline);
-    descent = Math.max(descent, atom.height - baseline);
-  }
-  return Math.max(ascent + descent, aligned);
 }
 
 // Where a line starts in its room. A justified line starts at the edge, as its last line does.
@@ -268,8 +269,8 @@ function runLines(
   });
 }
 
-// A line's width: the spaces that end the block hang, as Chromium hangs them in pre-wrap; before
-// a hard break they hang only where they do not fit, so they count. Only a run's last line has any.
+// A line's width: the spaces that end the block hang. Before a hard break they hang only where
+// they do not fit, so they count. Only a run's last line needs this correction.
 // Content text alone ends the block: after a label or an inserted word the editor draws a trailing
 // break, before which the spaces count.
 function shownWidth(run: TextRun, line: RunLine): number {

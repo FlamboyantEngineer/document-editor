@@ -79,6 +79,27 @@ describe('registerFaces', () => {
       registration.release();
     },
   );
+
+  it('DOCE-PAGINATION-12.8 can retry refused files while the consumers of the failed registration remain mounted', async () => {
+    const refuse = new Set(['Reading']);
+    const { doc, added, made } = browserDocument({ refuse });
+    const files = { faces: [face('Reading', new Uint8Array([1]))] };
+    const first = registerFaces(doc, files);
+    const shared = registerFaces(doc, files);
+    expect(await first.loaded).toEqual(new Set(['reading']));
+    expect(await shared.loaded).toEqual(new Set(['reading']));
+    expect(added.size).toBe(0);
+
+    refuse.clear();
+    const retry = registerFaces(doc, files);
+    expect(await retry.loaded).toEqual(new Set());
+    expect(made).toEqual(['Reading', 'Reading']);
+    first.release();
+    shared.release();
+    expect(added.size).toBe(1);
+    retry.release();
+    expect(added.size).toBe(0);
+  });
 });
 
 class OrderedTestFace {

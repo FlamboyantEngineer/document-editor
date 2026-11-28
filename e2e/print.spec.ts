@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import { REGRESSION_DOCUMENTS } from '../labs/src/regression/regression-documents.js';
 import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
+import { printSnapshot } from '../src/document/index.js';
 import { expect, test, waitForLab } from './fixtures.js';
 import { expectPrintEqualsEditor } from './print-fidelity.js';
 
@@ -20,6 +22,40 @@ function sheetSizes(pdf: Buffer): string[] {
 }
 
 test.describe('print', () => {
+  test('DOCE-EDITOR-6.26 loads the font subset for print-only text before starting the PDF', async ({
+    page,
+  }) => {
+    const bytes = readFileSync(
+      new URL('../test/fixtures/fonts/noto-sans-hebrew-hebrew.woff', import.meta.url),
+    );
+    const text = 'אבג';
+    const html = `<style>
+      @font-face {
+        font-family: PrintHebrew;
+        src: url(data:font/woff;base64,${bytes.toString('base64')});
+        unicode-range: U+0590-05FF;
+      }
+      .sheet { display: none; font-family: PrintHebrew; }
+      @media print { .sheet { display: block; } }
+    </style><p class="sheet">${text}</p>`;
+    const result = await printSnapshot(
+      {
+        setContent: (html, options) => page.setContent(html, options),
+        evaluate: (run) => page.evaluate(run),
+        async pdf(options) {
+          await expect(page.getByText(text)).toBeHidden();
+          const status = await page.evaluate(
+            () => [...document.fonts].find((face) => face.family === 'PrintHebrew')?.status,
+          );
+          expect(status).toBe('loaded');
+          return page.pdf(options);
+        },
+      },
+      html,
+    );
+    expect(result.ok).toBe(true);
+  });
+
   test('DOCE-EDITOR-6.14 DOCE-EDITOR-6.15 prints each section on its sheet, without view-only decorations', async ({
     lab,
     page,

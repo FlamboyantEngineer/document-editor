@@ -67,6 +67,27 @@ describe('scrolling to the selection on the pages', () => {
 });
 
 describe('starting the projection', () => {
+  it('DOCE-PAGINATION-7.6 fails without an engine', async () => {
+    const onLayoutStateChange = vi.fn();
+    const schedule = vi.fn(() => () => undefined);
+    const projection = createPagedProjection({
+      element: document.body.appendChild(document.createElement('div')),
+      state: canonicalState(),
+      pageHeight: 1000,
+      schedule,
+      onProjection: () => undefined,
+      onLayoutStateChange,
+    });
+    expect(projection.layoutState()).toBe('failed');
+    await expect(projection.whenSettled()).resolves.toBe('failed');
+    projection.refresh();
+    projection.layout();
+    expect(projection.stats().layouts).toBe(0);
+    expect(onLayoutStateChange.mock.calls).toEqual([['failed']]);
+    expect(schedule).not.toHaveBeenCalled();
+    projection.destroy();
+  });
+
   it('DOCE-PAGINATION-12.5 lays nothing out before the layout engine has loaded with the served fonts', () => {
     stubLayout({});
     const projection = createPagedProjection({

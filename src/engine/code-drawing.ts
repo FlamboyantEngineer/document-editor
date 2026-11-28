@@ -30,26 +30,52 @@ interface Run {
   readonly marks: readonly LineMark[];
 }
 
+interface Token {
+  readonly from: number;
+  readonly to: number;
+  readonly kind: string;
+}
+
 // Outer marks before inner ones, a wider one before one inside it.
 const byNesting = (a: LineMark, b: LineMark) =>
   Number(!!a.inner) - Number(!!b.inner) || a.from - b.from || b.to - a.to;
 
-function runsOf(
-  text: string,
-  kinds: readonly { from: number; to: number; kind: string }[],
-  marks: readonly LineMark[],
-): Run[] {
+function scanMarks(marks: readonly LineMark[]) {
+  const starts = marks.toSorted((a, b) => a.from - b.from);
+  let active: LineMark[] = [];
+  let index = 0;
+  return (from: number, to: number) => {
+    active = active.filter((mark) => mark.to > from);
+    let next = starts[index];
+    while (next && next.from <= from) {
+      if (next.to > from) active.push(next);
+      index += 1;
+      next = starts[index];
+    }
+    return active.filter((mark) => mark.to >= to).sort(byNesting);
+  };
+}
+
+// Tokens are ordered and nonoverlapping. Only marks holding the current piece need nesting.
+function runsOf(text: string, kinds: readonly Token[], marks: readonly LineMark[]): Run[] {
   const edges = new Set([0, text.length]);
-  for (const { from, to } of [...kinds, ...marks]) edges.add(from).add(to);
+  for (const { from, to } of kinds) edges.add(from).add(to);
+  for (const { from, to } of marks) edges.add(from).add(to);
   const sorted = [...edges].filter((at) => at <= text.length).sort((a, b) => a - b);
   const runs: Run[] = [];
-  sorted.slice(1).forEach((to, index) => {
-    const from = sorted[index] ?? 0;
-    if (to <= from) return;
-    const kind = kinds.find((token) => token.from <= from && token.to >= to)?.kind;
-    const covering = marks.filter((mark) => mark.from <= from && mark.to >= to).sort(byNesting);
-    runs.push({ from, to, kind, marks: covering });
-  });
+  const covering = scanMarks(marks);
+  let from = sorted[0] ?? 0;
+  let index = 0;
+  for (const to of sorted.slice(1)) {
+    let token = kinds[index];
+    while (token && token.to <= from) {
+      index += 1;
+      token = kinds[index];
+    }
+    const kind = token && token.from <= from && token.to >= to ? token.kind : undefined;
+    runs.push({ from, to, kind, marks: covering(from, to) });
+    from = to;
+  }
   return runs;
 }
 
@@ -200,7 +226,7 @@ export function codeElements(owner: Document, trees: readonly CodeTree[]): Node[
     if (typeof tree === 'string') return owner.createTextNode(tree);
     const made = owner.createElement(tree.tag);
     for (const [name, value] of Object.entries(tree.attrs)) made.setAttribute(name, value);
-    made.append(...codeElements(owner, tree.children));
+    for (const child of codeElements(owner, tree.children)) made.appendChild(child);
     return made;
   });
 }

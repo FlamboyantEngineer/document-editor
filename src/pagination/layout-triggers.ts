@@ -112,8 +112,9 @@ export function awaitLayoutInputs(
   text: TextEngineHolder | null,
   { settled, failed }: { settled: () => void; failed: () => void },
 ) {
+  if (!text) return { blocked: () => true, failed: () => true };
   const engine =
-    text?.engine() === null
+    text.engine() === null
       ? text.loaded.then(() => {
           if (!text.engine()) throw new Error('The page layout engine is unavailable.');
         })

@@ -5,9 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { graphemeSegmenter } from '../utils/segmentation.js';
-
-/** The character that stands for an inline node other than text, one per position it takes. */
-export const OBJECT_CHARACTER = '￼';
+import { positionText } from './inline-content.js';
 
 // How many positions the first window reads; each further window reads twice as many.
 const FIRST_WINDOW = 16;
@@ -18,24 +16,6 @@ const FIRST_WINDOW = 16;
 // modifiers too, whatever the Unicode version. After any other character the boundary depends on
 // that pair alone.
 const LOOKS_BACK = /[\p{Grapheme_Extend}\p{M}\u200D\p{Emoji_Modifier}\p{Regional_Indicator}]/u;
-
-/**
- * The text of a block's content between two offsets, one character for each position: text as it
- * is, and each position of any other inline node as the object character.
- */
-export function positionText(block: ProseMirrorNode, from: number, to: number): string {
-  const { content } = block;
-  let text = '';
-  // Children are walked by their sizes alone up to the window, and none is read past it.
-  for (let index = 0, offset = 0; index < content.childCount && offset < to; index += 1) {
-    const child = content.child(index);
-    const [start, end] = [Math.max(from, offset), Math.min(to, offset + child.nodeSize)];
-    if (end > start && child.isText) text += (child.text ?? '').slice(start - offset, end - offset);
-    else if (end > start) text += OBJECT_CHARACTER.repeat(end - start);
-    offset += child.nodeSize;
-  }
-  return text;
-}
 
 /**
  * Where the grapheme cluster ending at `at` in a block's content starts, no further back than

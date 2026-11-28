@@ -1,0 +1,5 @@
+---
+'@flamboyantengineer/document-editor': patch
+---
+
+Page splits, drawn lines and font fallbacks agree in more cases. A table nested below other content of its container splits with the room its place leaves, and moves on when no body row fits there. Two lists of contents side by side no longer join into one when their parts are put back together. Code keeps its final line break in its last part, and the line break a code split drops still counts in the offsets of the part that goes on. A block's last line leaves a hanging tab out of its width, an inline atom next to the caret is deleted or stepped over whole and counts as one object for line marks, and script runs match every bracket pair of Unicode 17. Highlighted code draws long blocks without scanning every line mark for each token. A font family an answer leaves out is asked for again, with backoff, by the next request that names it; a failed registration releases its refused family, and the viewer drops a family whose face the browser refuses. A print loads the fonts of text that shows only in print, and a projection without a text layout engine reports the failure instead of waiting.

@@ -42,7 +42,8 @@ const LANGUAGES: Readonly<Record<string, CodeLanguage>> = {
 
 /** The base library's tokenizer for a language name a block may carry; none for plain text. */
 export function codeTokenizerOf(language: unknown): CodeTokenizer | undefined {
-  const preset = LANGUAGES[String(language ?? '').toLowerCase()];
+  const name = String(language ?? '').toLowerCase();
+  const preset = Object.hasOwn(LANGUAGES, name) ? LANGUAGES[name] : undefined;
   return preset ? resolveCodeTokenizer({ language: preset }) : undefined;
 }
 
@@ -121,10 +122,14 @@ interface PaintedBlock {
 }
 
 // The text nodes an element draws.
-function textsOf(element: Node): Node[] {
+const isText = (node: Node): node is Text => node.nodeType === 3;
+
+function textsOf(element: Node): Text[] {
   const walker = element.ownerDocument?.createTreeWalker(element, 4);
-  const texts: Node[] = [];
-  for (let text = walker?.nextNode(); text; text = walker?.nextNode()) texts.push(text);
+  const texts: Text[] = [];
+  for (let text = walker?.nextNode(); text; text = walker?.nextNode()) {
+    if (isText(text)) texts.push(text);
+  }
   return texts;
 }
 
@@ -215,12 +220,18 @@ interface TokenPart {
 // The parts of text nodes under `root` that a painted range covers.
 function partsOf(root: Node, range: AbstractRange, kind: string): TokenPart[] {
   const owner = root.ownerDocument;
-  if (!owner || !root.contains(range.startContainer)) return [];
+  const { startContainer, endContainer, startOffset, endOffset } = range;
+  if (!owner || !root.contains(startContainer)) return [];
+  if (startContainer === endContainer && isText(startContainer))
+    return endOffset > startOffset
+      ? [{ text: startContainer, from: startOffset, to: endOffset, kind }]
+      : [];
   const live = owner.createRange();
-  live.setStart(range.startContainer, range.startOffset);
-  live.setEnd(range.endContainer, range.endOffset);
-  return textsOf(root)
-    .filter((text): text is Text => text instanceof Text && live.intersectsNode(text))
+  live.setStart(startContainer, startOffset);
+  live.setEnd(endContainer, endOffset);
+  const common = live.commonAncestorContainer;
+  return textsOf(root.contains(common) ? common : root)
+    .filter((text) => live.intersectsNode(text))
     .map((text) => ({
       text,
       from: text === live.startContainer ? live.startOffset : 0,
@@ -230,30 +241,29 @@ function partsOf(root: Node, range: AbstractRange, kind: string): TokenPart[] {
     .filter(({ from, to }) => to > from);
 }
 
-// The child indexes from `root` down to `node`.
-function pathOf(root: Node, node: Node): number[] {
-  const path: number[] = [];
-  for (let at: Node | null = node; at && at !== root; at = at.parentNode) {
-    path.unshift(Array.prototype.indexOf.call(at.parentNode?.childNodes ?? [], at));
-  }
-  return path;
+// A deep clone keeps the original tree's text nodes in order.
+function textCopies(root: Node, copy: Node) {
+  const targets = textsOf(copy);
+  return new Map(textsOf(root).map((text, index) => [text, targets[index]]));
 }
-
-const nodeAt = (root: Node, path: readonly number[]): Node | undefined =>
-  path.reduce<Node | undefined>((node, index) => node?.childNodes[index], root);
 
 // The painted parts of the view's text, as the text nodes of `copy` at the same places.
 function copiedParts(view: EditorView, copy: Node, registry: Highlights['registry']) {
   const prefix = codeHighlightName('');
   const parts = new Map<Text, TokenPart[]>();
+  let targets: ReturnType<typeof textCopies> | undefined;
   const painted = [...registry].filter(([name]) => name.startsWith(prefix));
   for (const [name, ranges] of painted) {
     const found = [...ranges].flatMap((range) =>
       partsOf(view.dom, range, name.slice(prefix.length)),
     );
     for (const part of found) {
-      const target = nodeAt(copy, pathOf(view.dom, part.text));
-      if (target instanceof Text) parts.set(target, [...(parts.get(target) ?? []), part]);
+      targets ??= textCopies(view.dom, copy);
+      const target = targets.get(part.text);
+      if (!target) continue;
+      const previous = parts.get(target);
+      if (previous) previous.push(part);
+      else parts.set(target, [part]);
     }
   }
   return parts;
