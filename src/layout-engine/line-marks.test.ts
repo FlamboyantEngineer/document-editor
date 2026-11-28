@@ -1,7 +1,13 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { emptyLineIndent, firstLineIndent, type JustifiedLines, lineMarks } from './line-marks.js';
+import {
+  emptyLineIndent,
+  firstLineIndent,
+  type JustifiedLines,
+  labelParts,
+  lineMarks,
+} from './line-marks.js';
 import type { TextLine } from './line-table.js';
 
 const paragraph = (text: string) =>
@@ -308,5 +314,23 @@ describe('lineMarks', () => {
     const lines = table(13, 5, { overhead: 16, inset: 32 });
     const beside = { ...lines, lines: lines.lines.map((line) => ({ ...line, left: 40 })) };
     expect(lineMarks(code, beside)).toEqual([{ from: 9, to: 10, class: 'de-forced-lines__end' }]);
+  });
+
+  it('DOCE-PAGINATION-12.4 gives each part of a label the reserved clusters in it', () => {
+    // `表 1 図 - ` breaks after its first part, with a box in each part: the boxes are by offset
+    // in the label, the parts by offset in their own text.
+    const labelled = table(2, 2, {
+      label: '表 \n1 図 - ',
+      prefixReserved: [
+        { from: 0, to: 1, width: 12 },
+        { from: 4, to: 5, width: 12 },
+      ],
+    });
+    expect(labelParts(labelled)).toEqual([
+      { text: '表 ', breaks: true, reserved: [{ from: 0, to: 1, width: 12 }] },
+      { text: '1 図 - ', breaks: false, reserved: [{ from: 2, to: 3, width: 12 }] },
+    ]);
+    // Without a box, a label the content shares a line with is left to the stylesheet.
+    expect(labelParts(table(2, 2))).toBeNull();
   });
 });

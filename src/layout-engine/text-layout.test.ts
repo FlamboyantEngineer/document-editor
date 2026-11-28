@@ -154,6 +154,54 @@ describe('createTextLayout', () => {
     expect(table(block('<p>aa</p>'), 200, { reserve }).reserved).toBeUndefined();
   });
 
+  it('DOCE-PAGINATION-12.4 lists the reserved clusters of a heading’s number and a caption’s label', () => {
+    // Reserves each ideograph, in any font, at the font's size.
+    const reserve = (cluster: string, font: string) =>
+      /\p{Script=Han}/u.test(cluster) ? Number(/(\d+)px/u.exec(font)?.[1]) : null;
+    const heading = block('<h1>aaaa</h1>', 'heading');
+    const size = createTextLayout({ template: BASE_TEMPLATE }).typography(heading).font.size;
+    const numbered = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(heading, {
+      width: 400,
+      prefix: '第1章 ',
+    });
+    if (!numbered.ok) throw new Error(numbered.reason);
+    // The pages draw the number as they draw a caption's label, each ideograph in its box.
+    expect(numbered.table.label).toBe('第1章 ');
+    expect(numbered.table.prefixReserved).toEqual([
+      { from: 0, to: 1, width: size },
+      { from: 2, to: 3, width: size },
+    ]);
+    // The heading's content holds none.
+    expect(numbered.table.reserved).toBeUndefined();
+    const plain = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(heading, {
+      width: 400,
+      prefix: '1. ',
+    });
+    expect(plain.ok && plain.table.prefixReserved).toBeUndefined();
+
+    const caption = documentSchema.nodes.table_caption?.create(null, [documentSchema.text('ff')]);
+    if (!caption) throw new Error('no table caption');
+    const labelled = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(caption, {
+      width: 400,
+      label: '表 1 - ',
+    });
+    if (!labelled.ok) throw new Error(labelled.reason);
+    // The pages draw the label, which shares its line with the content, with its box.
+    expect(labelled.table).toMatchObject({
+      label: '表 1 - ',
+      prefixReserved: [{ from: 0, to: 1 }],
+    });
+    const latin = createTextLayout({ template: BASE_TEMPLATE, reserve }).layoutText(caption, {
+      width: 400,
+      label: 'Table 1 - ',
+    });
+    expect(latin.ok && latin.table).toMatchObject({ lines: [{ from: 0 }] });
+    expect(latin.ok && [latin.table.label, latin.table.prefixReserved]).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
   it('DOCE-PAGINATION-9.3 lays text out in its marks’ fonts, each text node as its own item', () => {
     const plain = table(block(`<p>${WORDS}</p>`), 60);
     const linked = table(

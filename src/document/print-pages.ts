@@ -185,7 +185,8 @@ function layoutDrawing(layout: PagesLayout, options: PagesDrawing): NodeDrawing 
         const text =
           block.text === undefined ? undefined : { text: block.text, marks: block.marks };
         const own = text ? [] : linesContent(node, block.marks, { pos, drawing });
-        return [...shownTrees({ label: block.label, text }), ...own];
+        const unread = node.type.name === 'heading';
+        return [...shownTrees({ label: block.label, text, unread }), ...own];
       }
       if (block) return linesContent(node, block.marks, { pos, drawing });
       const value = node.type.name === 'template_variable' ? values.get(pos + 1) : undefined;

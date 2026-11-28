@@ -26,7 +26,7 @@ interface FootnoteMarkerSource {
 }
 
 /** A footnote entry's number as Pretext lays it out, and the family it is drawn in. */
-interface FootnoteMarker {
+export interface FootnoteMarker {
   readonly item: RichInlineItem;
   readonly family: string;
 }

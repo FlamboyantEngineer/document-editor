@@ -71,22 +71,27 @@ function breakWidget(
 
 // What a caption draws before its content that the stylesheet would draw otherwise
 // (`shownTrees`): its label on the lines its parts start, and a later part's shown text, each a
-// widget at the content's start, the label first.
+// widget at the content's start, the label first; and a heading's number that holds a reserved
+// cluster, drawn and not read.
 function shownWidgets(
+  node: ProseMirrorNode,
   table: DrawnLines,
   { marks, key }: { marks: readonly LineMark[]; key: string },
 ): Decoration[] {
   const label = labelParts(table);
   const text = table.text === undefined ? undefined : { text: table.text, marks };
-  return [...(label ? [shownTrees({ label })] : []), ...(text ? [shownTrees({ text })] : [])].map(
-    (trees: PrintTree[], index, all) =>
-      Decoration.widget(
-        0,
-        (view) =>
-          printNodes(view.dom.ownerDocument, trees)[0] ??
-          view.dom.ownerDocument.createElement('span'),
-        { side: index - all.length, key: `shown|${String(index)}|${key}`, ignoreSelection: true },
-      ),
+  const unread = node.type.name === 'heading';
+  return [
+    ...(label ? [shownTrees({ label, unread })] : []),
+    ...(text ? [shownTrees({ text })] : []),
+  ].map((trees: PrintTree[], index, all) =>
+    Decoration.widget(
+      0,
+      (view) =>
+        printNodes(view.dom.ownerDocument, trees)[0] ??
+        view.dom.ownerDocument.createElement('span'),
+      { side: index - all.length, key: `shown|${String(index)}|${key}`, ignoreSelection: true },
+    ),
   );
 }
 
@@ -114,7 +119,7 @@ export function blockSet(
   // marks after it on that range join, as a static drawing nests them.
   // A later part's caption draws its lines over the text it shows (`LineTable.text`).
   const marks = lineMarks(drawnBlock(node, table), table, { prefixed });
-  const shown = shownWidgets(table, { marks, key });
+  const shown = shownWidgets(node, table, { marks, key });
   const content = table.text === undefined ? marks : [];
   const atoms = atomEnds(node);
   const own = content.map(({ from, to, inner, side, ...attrs }, index) => {

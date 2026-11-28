@@ -855,6 +855,28 @@ describe('forcedLines', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-12.4 draws a heading number that holds a reserved cluster, each such cluster in its box', () => {
+    const heading = create('heading', { level: 1, dataId: 'h1' }, [documentSchema.text('Scope')]);
+    const doc = pagesDoc([[heading]]);
+    const { engine } = stubEngine({ headings: new Map([[positionOf(doc, 'Scope'), '第1 ']]) });
+    const own = engine.lines.bind(engine);
+    engine.lines = (node, place) => {
+      const table = own(node, place);
+      return table && { ...table, label: '第1 ', prefixReserved: [{ from: 0, to: 1, width: 24 }] };
+    };
+    const state = stateWith(doc, engine);
+    const view = new EditorView(document.createElement('div'), { state });
+    // The pages draw the number, which the stylesheet's generated content would draw otherwise;
+    // it is drawn and not read, as that number is.
+    const label = view.dom.querySelector('h1 > .de-forced-lines__label');
+    expect(label?.getAttribute('aria-hidden')).toBe('true');
+    expect(label?.innerHTML).toBe(
+      '<span class="de-forced-lines__reserved" style="--de-reserved-width: 24.000px;">第</span>1 ',
+    );
+    expect(view.dom.querySelector('h1')?.textContent).toBe('第1 Scope');
+    view.destroy();
+  });
+
   it('DOCE-PAGINATION-11.2 lays out only the changed block again on a keystroke', () => {
     const doc = pagesDoc([[paragraph('first')], [paragraph('second')]]);
     const { engine, calls } = stubEngine();

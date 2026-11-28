@@ -1339,6 +1339,17 @@ div.de-host-view {
 }
 
 /*
+ * A heading's number that holds a cluster no served font draws is drawn by the pages, each such
+ * cluster in the box the engine reserved for it (`de-forced-lines__label`, DOCE-PAGINATION-12.4),
+ * in place of the number the rules above generate.
+ */
+.de-document-editor
+  .pm-page-content
+  :is(h1, h2, h3, h4, h5, h6).de-forced-lines:has(> .de-forced-lines__label)::before {
+  content: none;
+}
+
+/*
  * The separator is painted in the area's padding, not drawn as a border, so it takes exactly the
  * template's thickness on every screen, as the layout engine lays it out: a browser rounds a
  * border's width to whole device pixels.

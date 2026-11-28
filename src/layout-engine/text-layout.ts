@@ -6,11 +6,11 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { TextMeasurement } from '../model/pagination/text-split.js';
 import type { FontStacks } from '../model/templates/template-text-properties.js';
+import { labelInput, leadingItem, leadReserved, withLabelBoxes } from './block-lead.js';
 import type { BodyVariables } from './body-variables.js';
 import { codeGutterWidth } from './code-gutter.js';
 import { type ContentsLayout, createContentsLayout } from './contents-layout.js';
 import { continuedCaption } from './continued-caption.js';
-import { footnoteMarkerItem } from './footnote-marker.js';
 import type { InsertedText } from './inserted-text.js';
 import type { LineTable } from './line-table.js';
 import { type CacheStats, createLineCache, layoutLines } from './lines.js';
@@ -23,7 +23,6 @@ import type { TextAtomSource } from './text-atoms.js';
 import {
   type BlockTypography,
   blockTypography,
-  captionLabelFont,
   firstFamily,
   fontString,
   type FontStyle,
@@ -262,16 +261,6 @@ function fontBoxes(strutOf: ReturnType<typeof createStruts>) {
   };
 }
 
-// A caption's label, the item in the first run before which only a numbered paragraph's box is.
-function labelInput(
-  marker: unknown,
-  place: TextBlockPlace,
-  starts: { readonly lead?: number | undefined },
-): { label?: { item: number; text: string } } {
-  if (!marker || !place.label || place.footnoteNumber !== undefined) return {};
-  return { label: { item: starts.lead ? 1 : 0, text: place.label } };
-}
-
 // What a line table holds besides its lines: a code block's gutter, the ranges hidden as
 // suggestions, and the text a later part's caption shows.
 function laidExtras({
@@ -288,22 +277,6 @@ function laidExtras({
     ...(hidden.length ? { hidden } : {}),
     ...(continued ? { text: continued.text } : {}),
   };
-}
-
-// What a block draws before its content in a font of its own: a footnote entry's number, or a
-// caption's label.
-function leadingItem(
-  node: ProseMirrorNode,
-  style: BlockTypography,
-  { options, place }: { options: TextLayoutOptions; place: TextBlockPlace },
-) {
-  const source = { ...options, scope: place.scope };
-  if (place.footnoteNumber !== undefined)
-    return footnoteMarkerItem(place.footnoteNumber, style, source);
-  const font = place.label ? captionLabelFont(node, style, source) : null;
-  return font && place.label
-    ? { item: { text: place.label, font: fontString(font) }, family: font.family }
-    : null;
 }
 
 /** A text layout engine. Prepared text is kept between calls, so laying a block out again is cheap. */
@@ -362,6 +335,8 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         hidden: options.hidden?.(),
       });
       if (!runs.ok) return runs;
+      const boxes = leadReserved(place, { marker, font, reserve: options.reserve });
+      const label = labelInput(place, { marker, boxes, lead: starts.lead });
       const table = layoutLines(cache, {
         runs: runs.runs,
         width: lineWidth,
@@ -372,9 +347,12 @@ export function createTextLayout(options: TextLayoutOptions): TextLayout {
         firstStart: starts.firstStart,
         restStart: starts.restStart,
         block: node,
-        ...labelInput(marker, place, starts),
+        ...label,
       });
-      const laid = { ...table, ...laidExtras({ starts, hidden: runs.hidden, continued }) };
+      const laid = withLabelBoxes(
+        { ...table, ...laidExtras({ starts, hidden: runs.hidden, continued }) },
+        { boxes, label: label.label?.text },
+      );
       return { ok: true, table: withReserved(laid, runs, options.reserve) };
     },
   };

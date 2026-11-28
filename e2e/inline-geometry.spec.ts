@@ -420,4 +420,97 @@ test.describe('inline geometry on the engine’s lines', () => {
       expect(grown).toEqual([true, true]);
     }
   });
+
+  test('DOCE-PAGINATION-12.4 draws a heading number and a caption label in the boxes the engine reserved for their unserved clusters', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=minimal-paragraph&debug');
+    await waitForLab(page);
+    // Devanagari, which no lab font serves, in a heading's number and a table's caption label:
+    // the browser's fallback draws it at a width nothing predicts, the engine gives it 1 em.
+    const cell = (text: string) => ({
+      type: 'tableCell',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+    });
+    const file = {
+      formatVersion: 1,
+      template: { id: 'unserved-numbers' },
+      sections: [
+        {
+          name: 'body',
+          content: [
+            { type: 'heading', attrs: { id: 'h1' }, content: [{ type: 'text', text: 'Scope' }] },
+            {
+              type: 'table',
+              attrs: { id: 't1' },
+              content: [
+                { type: 'caption', content: [{ type: 'text', text: 'Readings' }] },
+                { type: 'tableRow', content: [cell('a'), cell('b')] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const template = {
+      formatVersion: 1,
+      id: 'unserved-numbers',
+      page: { size: 'A5', orientation: 'portrait' },
+      styles: {
+        heading1: { numbering: { format: '1', prefix: 'कक ', suffix: ' ' } },
+        table: { numbering: { format: '1', prefix: 'कक ', suffix: ' - ' } },
+      },
+      sections: [{ name: 'body', label: 'Body', required: true }],
+    };
+    await page.evaluate(
+      ([stored, own]) => {
+        window.regressionLab.load(stored as DocumentFile, own as never);
+      },
+      [file, template] as const,
+    );
+    await waitForLab(page);
+    await page.evaluate(() => window.regressionLab.drawAllLines(true));
+    const heading = page.locator('.de-document-editor__content .pm-page-content > h1');
+    await expect(heading).toHaveClass(/de-forced-lines/);
+    // Where the content's first character starts after the number, from the block's own left
+    // edge, against the number's width with each unserved cluster at 1 em of the block's font.
+    const starts = await page.evaluate(() =>
+      ['.pm-page-content > h1', '.pm-page-content .doc-caption-text'].map((selector) => {
+        const block = document.querySelector<HTMLElement>(
+          `.de-document-editor__content ${selector}`,
+        );
+        const label = block?.querySelector<HTMLElement>('.de-forced-lines__label');
+        if (!block || !label) return null;
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+        let first: Text | null = null;
+        for (let node = walker.nextNode(); node; node = walker.nextNode())
+          if (!label.contains(node) && node.textContent) {
+            first = node as Text;
+            break;
+          }
+        if (!first) return null;
+        const range = document.createRange();
+        range.setStart(first, 0);
+        range.setEnd(first, 1);
+        const style = getComputedStyle(label);
+        const context = document.createElement('canvas').getContext('2d');
+        if (!context) return null;
+        context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const served = (label.textContent ?? '').replace(/\p{Script=Devanagari}/gu, '');
+        const expected = context.measureText(served).width + 2 * parseFloat(style.fontSize);
+        const drawn = range.getBoundingClientRect().left - label.getBoundingClientRect().left;
+        return {
+          boxes: label.querySelectorAll('.de-forced-lines__reserved').length,
+          expected,
+          drawn,
+        };
+      }),
+    );
+    for (const start of starts) {
+      expect(start?.boxes).toBe(2);
+      expect(Math.abs((start?.drawn ?? 0) - (start?.expected ?? 1))).toBeLessThan(0.1);
+    }
+    expect(await page.evaluate(() => window.regressionLab.wrappedLines())).toEqual([]);
+    expect(await offPlan(page)).toEqual([]);
+  });
 });

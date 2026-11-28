@@ -485,6 +485,31 @@ describe("the engine's numbers in static pages", () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-12.4 draws a heading number that holds a reserved cluster as the pages view draws it', () => {
+    const heading = node('heading', { level: 1, dataId: 'h1' }, [text('Scope')]);
+    const doc = pagesDocument([page([heading])]);
+    let at = -1;
+    doc.descendants((each, pos) => {
+      if (each.type.name === 'heading') at = pos;
+    });
+    const engine = stubEngine({ headings: new Map([[at, '第1 ']]) });
+    const own = engine.lines.bind(engine);
+    engine.lines = (block, place) => {
+      const table = own(block, place);
+      return table && { ...table, label: '第1 ', prefixReserved: [{ from: 0, to: 1, width: 24 }] };
+    };
+    const { view, printed } = bothDrawings(doc, engine);
+    const label = (root: ParentNode) => {
+      const found = root.querySelector('h1 > .de-forced-lines__label');
+      return [found?.getAttribute('aria-hidden'), found?.innerHTML];
+    };
+    expect(label(printed)).toEqual(label(view));
+    expect(label(printed)).toEqual([
+      'true',
+      '<span class="de-forced-lines__reserved" style="--de-reserved-width: 24.000px;">第</span>1 ',
+    ]);
+  });
+
   it('DOCE-PAGINATION-13.7 draws the numbers the engine laid the pages out with', () => {
     const heading = node('heading', { level: 1, dataId: 'h1' }, [text('Scope')]);
     const equation = node('math_display', { dataId: 'eq1' }, [documentSchema.text('a^2')]);
