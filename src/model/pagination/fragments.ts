@@ -356,7 +356,12 @@ function dropContinuation(tr: Transform, pos: number) {
   if (next) tr.delete(pos, pos + next.nodeSize);
 }
 
-function sameContentsSettings(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
+function continuesContents(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
+  const start = Number(next.attrs.entryStart);
+  if (!Number.isInteger(start) || start <= 0) return false;
+  const previousId: unknown = previous.attrs.dataId;
+  const nextId: unknown = next.attrs.dataId;
+  if (previousId && nextId && previousId !== nextId) return false;
   return ['tocType', 'minLevel', 'refFilter'].every(
     (name) => (previous.attrs[name] ?? null) === (next.attrs[name] ?? null),
   );
@@ -385,7 +390,7 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   list_item: { whole: { ...PART, orphanedListContinuation: false }, join: joinListItems },
   toc_block: {
     whole: { entryStart: 0, entryEnd: null, showTitle: true },
-    continues: sameContentsSettings,
+    continues: continuesContents,
     join: dropContinuation,
   },
 });

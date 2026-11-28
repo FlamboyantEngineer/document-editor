@@ -153,8 +153,7 @@ export interface PagedProjectionOptions {
   readonly overflow?: (() => boolean) | undefined;
   /**
    * Lays the pages out with the layout engine, which it loads, and draws its lines on the pages
-   * (DOCE-PAGINATION-11). Without it or `textEngine` the pages are not laid out: nothing is
-   * measured in the DOM.
+   * (DOCE-PAGINATION-11). Without it or `textEngine` the projection fails to lay out pages.
    */
   readonly textLayout?: TextLayoutSetting | undefined;
   /**

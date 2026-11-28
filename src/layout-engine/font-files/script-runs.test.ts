@@ -30,6 +30,19 @@ describe('DOCE-PAGINATION-12.2 script runs as Blink shapes them', () => {
     ]);
   });
 
+  it.each([
+    ['⟨', '⟩'],
+    ['⦍', '⦐'],
+    ['⦏', '⦎'],
+    ['⹕', '⹖'],
+  ])('uses the Unicode bracket pair %s %s across scripts', (open, close) => {
+    expect(runs(`A${open}אב${close}123`)).toEqual([
+      [`A${open}`, 'Latn', false],
+      ['אב', 'Hebr', true],
+      [`${close}123`, 'Latn', false],
+    ]);
+  });
+
   it('restores the outer pair’s script after closing a nested pair of the same type', () => {
     expect(runs('א (b [ع (c) d] e) f')).toEqual([
       ['א (', 'Hebr', true],

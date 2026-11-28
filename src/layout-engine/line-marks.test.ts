@@ -131,6 +131,36 @@ describe('lineMarks', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-13.1 stretches spaces around an inline atom as a single box', () => {
+    const math = documentSchema.node('math_inline', null, [documentSchema.text('x + y')]);
+    const node = documentSchema.node('paragraph', null, [
+      documentSchema.text('A '),
+      math,
+      documentSchema.text(' B Z'),
+    ]);
+    const to = 4 + math.nodeSize;
+    const drawn = table(node.content.size, to, { justify: true });
+    expect(lineMarks(node, drawn)).toEqual([
+      { from: 0, to, class: 'de-forced-lines__justified', style: '--de-word-spacing: 45.000px' },
+      { from: to - 1, to, class: 'de-forced-lines__end' },
+    ]);
+  });
+
+  it('DOCE-PAGINATION-13.1 draws a wrap after an inline atom with a soft hyphen or line feed in its source', () => {
+    for (const source of ['x\u00ad', 'x\n']) {
+      const math = documentSchema.node('math_inline', null, [documentSchema.text(source)]);
+      const node = documentSchema.node('paragraph', null, [
+        documentSchema.text('A'),
+        math,
+        documentSchema.text('B'),
+      ]);
+      const to = 1 + math.nodeSize;
+      expect(lineMarks(node, table(node.content.size, to))).toEqual([
+        { from: 1, to, class: 'de-forced-lines__end' },
+      ]);
+    }
+  });
+
   it('DOCE-PAGINATION-13.1 keeps a character whole at a line end', () => {
     const node = paragraph('aaaa😀bb');
     const marks = lineMarks(node, table(8, 6));

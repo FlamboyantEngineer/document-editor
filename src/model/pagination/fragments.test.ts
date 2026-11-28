@@ -2,6 +2,7 @@ import type { Node } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { continuesFragment, FRAGMENT_RULES, isFragment, joinFragments } from '../index.js';
+import { splitContents } from './contents-split.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -160,6 +161,47 @@ describe('split block fragments', () => {
     expect(joined.map((block) => block.attrs)).toMatchObject([
       { tocType: 'toc', entryStart: 0, entryEnd: null, showTitle: true },
       { tocType: 'figures', entryStart: 0 },
+    ]);
+  });
+
+  it.each([
+    ['first', 'second'],
+    [null, null],
+  ])(
+    'DOCE-PAGINATION-1.6 keeps adjacent split contents lists apart (%s, %s)',
+    (firstId, secondId) => {
+      const lists = [firstId, secondId].map((dataId) => node('toc_block', { dataId, minLevel: 3 }));
+      const parts = lists.flatMap((list) => {
+        const split = splitContents(
+          {
+            node: list,
+            height: 40,
+            marginTop: 0,
+            marginBottom: 0,
+            measurement: {
+              rows: [
+                { top: 0, bottom: 20 },
+                { top: 20, bottom: 40 },
+              ],
+            },
+          },
+          25,
+        );
+        if (!split) throw new Error('contents did not split');
+        return [split.head.node, ...split.tail.map((part) => part.node)];
+      });
+      expect(joinFragments(parts).map((list) => list.toJSON())).toEqual(
+        lists.map((list) => list.toJSON()),
+      );
+    },
+  );
+
+  it('DOCE-PAGINATION-1.6 keeps a continuation with a different contents id apart', () => {
+    const first = node('toc_block', { dataId: 'first', entryEnd: 2 });
+    const second = node('toc_block', { dataId: 'second', entryStart: 2, showTitle: false });
+    expect(joinFragments([first, second]).map((list) => list.attrs.dataId)).toEqual([
+      'first',
+      'second',
     ]);
   });
 

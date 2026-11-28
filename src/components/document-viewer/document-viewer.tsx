@@ -5,8 +5,7 @@
 // elements, and every number is the one the engine laid the pages out with, whichever pages are
 // drawn.
 
-import { type CSSProperties, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
-import { registerFaces } from '../../document/font-registry.js';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import type { PagesLayout } from '../../document/pages-layout.js';
 import {
   drawLayoutPages,
@@ -14,11 +13,11 @@ import {
   VIEW_CLASSES,
 } from '../../document/print-pages.js';
 import { printElement, printHtml } from '../../document/print-tree.js';
-import type { FontFiles } from '../../host/font-files.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { isElement } from '../../utils/is-element.js';
 import { watchNearbySheets } from './nearby-sheets.js';
+import { useViewerFonts } from './use-viewer-fonts.js';
 
 const hooks = createHooks('document-viewer');
 
@@ -86,38 +85,6 @@ function wantedPages(visible: Iterable<number>, overscan: number, total: number)
   }
   return wanted;
 }
-
-// The served faces the pages were measured with, added to the viewer's document while it shows
-// them, so its pages draw the glyphs their lines were broken in (DOCE-PAGINATION-13.8); and the
-// family the viewer draws each served family under: another one when another surface of the
-// document draws other files under it (DOCE-PAGINATION-12.8).
-function useLayoutFaces(
-  fonts: FontFiles | null,
-  root: RefObject<HTMLElement | null>,
-): (family: string) => string {
-  const [drawn, setDrawn] = useState<{
-    readonly fonts: FontFiles | null;
-    readonly family: (family: string) => string;
-  }>({ fonts: null, family: sameFamily });
-  useEffect(() => {
-    const doc = root.current?.ownerDocument;
-    if (!doc) return undefined;
-    const registration = registerFaces(doc, fonts);
-    let released = false;
-    // Only a viewer drawing a family under another name draws its pages again.
-    if (registration.renamed)
-      void registration.loaded.then(() => {
-        if (!released) setDrawn({ fonts, family: registration.drawnFamily });
-      });
-    return () => {
-      released = true;
-      registration.release();
-    };
-  }, [fonts, root]);
-  return drawn.fonts === fonts ? drawn.family : sameFamily;
-}
-
-const sameFamily = (family: string) => family;
 
 // The anchor a link's fragment names: decoded, or as written when it does not decode (a literal
 // `%`), the first of the two that names an anchor of the pages.
@@ -291,10 +258,10 @@ export function DocumentViewer(props: DocumentViewerProps) {
   const overscan = Math.max(0, Math.floor(requestedOverscan || 0));
   const options = useSameOptions(props.options);
   const content = useRef<HTMLDivElement>(null);
-  const drawnFamily = useLayoutFaces(layout.fonts, content);
+  const drawnTemplate = useViewerFonts(template, layout.fonts, content);
   const drawing = useMemo(
-    () => drawLayoutPages(layout, template, { ...options, drawnFamily }),
-    [layout, template, options, drawnFamily],
+    () => drawLayoutPages(layout, drawnTemplate, options),
+    [layout, drawnTemplate, options],
   );
   const style = useMemo(() => templateProperties(drawing.template) as CSSProperties, [drawing]);
   useEffect(() => {

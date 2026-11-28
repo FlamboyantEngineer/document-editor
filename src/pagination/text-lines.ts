@@ -4,6 +4,8 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { footnoteNumberOf, footnoteNumbersKey } from '../engine/footnote-numbers.js';
+import type { LineTable } from '../layout-engine/line-table.js';
+import { shownRanges } from '../layout-engine/line-visibility.js';
 import { continuingParts, type ForcedBlock, forcedBlocksOf } from './forced-blocks.js';
 import { forcedLinesKey, type ForcedLinesState, sectionScope } from './forced-lines.js';
 import { FORCED_REGIONS, type ForcedRegion, regionBlocksOf } from './forced-regions.js';
@@ -68,7 +70,10 @@ function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): B
   const elementId = typeof id === 'string' ? id : '';
   // A header's, footer's or footnote area's block is whole on the page it is drawn on.
   const split = Boolean(elementId) && !region;
-  const start = split ? (reading.before.get(elementId) ?? 0) : 0;
+  const before = split ? reading.before.get(elementId) : undefined;
+  // A code split dropped the LF immediately before this fragment. The whole block still has it.
+  const separator = before !== undefined && element.attrs.codeBlockContinued === true ? 1 : 0;
+  const start = (before ?? 0) + separator;
   if (split) reading.before.set(elementId, start + node.content.size);
   return {
     elementId,
@@ -86,6 +91,7 @@ function blockOf(reading: Reading, block: ForcedBlock, region?: ForcedRegion): B
           ownText(node, {
             from,
             to,
+            hidden: table.hidden,
             marker: (offset) => reading.markerAt(pos + 1 + offset),
             variable: (offset) => reading.variableAt(pos + 1 + offset),
           }),
@@ -108,6 +114,7 @@ function captionOf(block: ForcedBlock, elementId: string): Pick<BlockTextLines, 
 interface TextBetween {
   readonly from: number;
   readonly to: number;
+  readonly hidden: LineTable['hidden'];
   /** The number drawn for the footnote marker at a content offset. */
   readonly marker: (offset: number) => string;
   /** The value drawn for the template variable at a content offset. */
@@ -116,14 +123,19 @@ interface TextBetween {
 
 // A block's own text between two content offsets: its text nodes', its footnote markers' numbers
 // and its template variables' values, as the page draws them, none of its other inline atoms'.
-function ownText(node: ProseMirrorNode, { from, to, marker, variable }: TextBetween): string {
+function ownText(
+  node: ProseMirrorNode,
+  { from, to, hidden, marker, variable }: TextBetween,
+): string {
   let text = '';
-  node.nodesBetween(from, to, (child, pos) => {
-    if (child.isText) text += (child.text ?? '').slice(Math.max(0, from - pos), to - pos);
-    else if (child.type.name === 'footnote_reference') text += marker(pos);
-    else if (child.type.name === 'template_variable') text += variable(pos) + child.textContent;
-    return !child.isAtom && child.type.name !== 'template_variable';
-  });
+  for (const [start, end] of shownRanges(hidden, from, to)) {
+    node.nodesBetween(start, end, (child, pos) => {
+      if (child.isText) text += (child.text ?? '').slice(Math.max(0, start - pos), end - pos);
+      else if (child.type.name === 'footnote_reference') text += marker(pos);
+      else if (child.type.name === 'template_variable') text += variable(pos) + child.textContent;
+      return !child.isAtom && child.type.name !== 'template_variable';
+    });
+  }
   return text;
 }
 

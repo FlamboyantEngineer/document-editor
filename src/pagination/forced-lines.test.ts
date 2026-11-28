@@ -3,7 +3,7 @@ import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { installFakeCanvas } from '../../test/canvas-fixtures.js';
-import { documentSchema } from '../../test/document-markup.js';
+import { documentSchema, findNode, parseMarkup } from '../../test/document-markup.js';
 import { STUB_INPUTS } from '../../test/pages-fixtures.js';
 import { linkedCodeFigure } from '../layout-engine/blocks/linked-code.js';
 import type { ContentsDrawn } from '../layout-engine/blocks/types.js';
@@ -1239,6 +1239,44 @@ describe('pageTextLines', () => {
     const lines = pageTextLines(stateWith(pagesDoc([[block]]), engine))[0]?.blocks[0]?.lines;
     expect(lines?.map((line) => line.text)).toEqual(['aa  bb']);
   });
+
+  it.each([
+    ['all', 'lead old new tail'],
+    ['final', 'lead new tail'],
+    ['original', 'lead old tail'],
+  ] as const)('DOCE-PAGINATION-11.3 reads only visible line text in %s markup', (markup, text) => {
+    installFakeCanvas();
+    const block = findNode(
+      parseMarkup('<p>lead <del data-id="s1">old </del><ins data-id="s2">new </ins>tail</p>'),
+      'paragraph',
+    );
+    if (!block) throw new Error('Expected a paragraph');
+    const engine = createPagesTextEngine({ template: BASE_TEMPLATE, markup: () => markup });
+    const lines = pageTextLines(stateWith(pagesDoc([[block]]), engine))[0]?.blocks[0]?.lines;
+    expect(lines).toEqual([{ from: 0, to: block.content.size, text }]);
+    engine.destroy();
+  });
+
+  it.each(['code_block', 'linked_code_block'] as const)(
+    'DOCE-PAGINATION-11.3 counts the whole %s newline before a continuation',
+    (type) => {
+      const block = (text: string, part: number) => {
+        const attrs = { dataId: 'code-1', splitPartIndex: part, codeBlockContinued: part > 0 };
+        if (type === 'linked_code_block') return create(type, { ...attrs, code: text });
+        return create('code_figure', null, [
+          create('code_caption', null, [documentSchema.text('Listing')]),
+          create(type, attrs, [documentSchema.text(text)]),
+        ]);
+      };
+      const { engine } = stubEngine();
+      const doc = pagesDoc([[block('AA', 0)], [block('BB', 1)]]);
+      const continuation = pageTextLines(stateWith(doc, engine))[1]?.blocks.find(
+        (each) => each.elementId === 'code-1',
+      );
+      expect(continuation?.start).toBe(3);
+      expect(continuation?.lines).toEqual([{ from: 3, to: 5, text: 'BB' }]);
+    },
+  );
 
   it('DOCE-PAGINATION-11.3 gives no pages without the layout engine', () => {
     expect(pageTextLines(stateWith(pagesDoc([[paragraph('text')]]), null))).toEqual([]);

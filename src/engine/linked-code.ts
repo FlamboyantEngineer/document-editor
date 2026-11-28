@@ -21,7 +21,9 @@ export function drawLinkedCode(
   const text = String(node.attrs.code ?? '');
   const laid = lines ? linkedCodeFigure(node)?.code : undefined;
   const marks = laid && lines ? lineMarks(laid, { ...lines, justify: false }) : [];
-  code.replaceChildren(
-    ...codeElements(code.ownerDocument, codeTrees(text, node.attrs.language, marks)),
-  );
+  const owner = code.ownerDocument;
+  const content = owner.createDocumentFragment();
+  for (const child of codeElements(owner, codeTrees(text, node.attrs.language, marks)))
+    content.appendChild(child);
+  code.replaceChildren(content);
 }
