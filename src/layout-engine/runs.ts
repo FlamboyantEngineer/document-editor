@@ -3,10 +3,11 @@
 // rounds each element's piece of a line on its own; Pretext still kerns across same-font items.
 
 import type { RichInlineBox, RichInlineItem } from '@chenglou/pretext/rich-inline';
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { citationIdentifiers } from '../model/citation-identifiers.js';
 import type { AtomPlace } from './atoms.js';
 import { type BodyVariables, PAGE_VARIABLES } from './body-variables.js';
+import { continueCode, joinCode, markedItem, type OpenCode } from './code-boxes.js';
 import { isHidden } from './hidden-suggestions.js';
 import type { InsertedText } from './inserted-text.js';
 import { type MathLayouts, type MathRecorder, placeMath } from './math-atoms.js';
@@ -104,15 +105,14 @@ interface RunInput {
   readonly hidden?: string | null | undefined;
 }
 
-/** The padding inline code takes on each side of each of its lines. */
-const INLINE_CODE_PADDING = 3;
-
 interface Builder {
   items: (RichInlineItem | RichInlineBox)[];
   offsets: number[];
   atoms: (InlineAtomSize | null)[];
   sides: (number | null)[];
   start: number;
+  /** The inline code element the last node is drawn in (`code-boxes.ts`). */
+  code: OpenCode | null;
 }
 
 const startRun = (start: number): Builder => ({
@@ -121,8 +121,11 @@ const startRun = (start: number): Builder => ({
   atoms: [],
   sides: [],
   start,
+  code: null,
 });
 
+// Adds an item; one of a node with marks may continue the code element of the node before it, and
+// an item of none, such as an inserted word, which is drawn outside every mark, ends it.
 function addText(
   run: Builder,
   {
@@ -130,17 +133,23 @@ function addText(
     offset,
     box,
     side = null,
+    marks = null,
   }: {
     item: RichInlineItem | RichInlineBox;
     offset: number;
     box: InlineAtomSize | null;
     side?: number | null;
+    marks?: readonly Mark[] | null;
   },
 ) {
   run.items.push(item);
   run.offsets.push(offset);
   run.atoms.push(box);
   run.sides.push(side);
+  const index = run.items.length - 1;
+  const { open, continues } = continueCode(run.code, marks);
+  if (continues) joinCode(run.items, { before: run.code?.index ?? null, after: index });
+  run.code = open && { ...open, index: 'font' in item ? index : open.index };
 }
 
 // Adds the words inserted at an offset, each an item of its own in the block's font, so a line
@@ -168,14 +177,7 @@ function finish(run: Builder, end: number, endsWithBreak: boolean): TextRun {
 
 function textItem(child: ProseMirrorNode, typography: BlockTypography): RichInlineItem {
   const font = fontString(markedFont(typography, child.marks));
-  const names = new Set(child.marks.map((mark) => mark.type.name));
-  const text = child.text ?? child.textContent;
-  // A line that ends inside the code fits without its end padding, as Chromium fits a cloned box.
-  if (names.has('code'))
-    return { text, font, extraWidth: 2 * INLINE_CODE_PADDING, extraWidthEnd: INLINE_CODE_PADDING };
-  // Chromium places the end of a line in underlined text exactly, its last letter's full width.
-  if (names.has('link') || names.has('underline')) return { text, font, accurateLineEnds: true };
-  return { text, font };
+  return markedItem({ text: child.text ?? child.textContent, font }, child.marks);
 }
 
 // Adds an inline atom to a run: as its text, or as a box of the size measured; the reason when it
@@ -188,10 +190,13 @@ function addAtom(
   const refused = input.textAtoms?.refused?.get(name);
   if (refused !== undefined) return refused;
   let item: RichInlineItem | RichInlineBox | null;
-  let size: InlineAtomSize | null = null;
+  let size: InlineAtomSize | null;
   if ((input.textAtoms?.types ?? TEXT_ATOMS).has(name)) {
     item = textAtomItem(child, input.typography, input.textAtoms ?? {});
     if (!item) return `no text for inline ${name}`;
+    if ('font' in item) item = markedItem(item, child.marks);
+    // In its marks' font, it grows its line as their text does; a footnote marker's `sup` does not.
+    size = name === 'footnote_reference' ? null : textBox(child, input);
   } else {
     const place = { parent: input.node, scope: input.scope, width: input.lineWidth };
     size = input.measureAtom?.(child, place) ?? null;
@@ -199,7 +204,7 @@ function addAtom(
     if (size.math) size = placedInline(child, size.math, input);
     item = { width: size.width };
   }
-  addText(run, { item, offset, box: size });
+  addText(run, { item, offset, box: size, marks: child.marks });
   return null;
 }
 
@@ -223,14 +228,16 @@ function addVariable(
   const font = fontString(markedFont(input.typography, child.marks));
   if (!variables && body && PAGE_VARIABLES.has(key)) {
     const width = pageBoxWidth(body.digits(), font);
-    addText(run, { item: { width }, offset, box: null });
+    addText(run, { item: { width }, offset, box: null, marks: child.marks });
     at.boxes.push({ from: offset, to: offset + child.nodeSize, width });
     return null;
   }
   // Without either, as where no page variables draw it (a footnote area), the text it holds.
   const value = variables ? variables.get(key) : body?.text(key);
   const text = (variables || body ? value : child.textContent) ?? '';
-  addText(run, { item: text ? { text, font, break: 'never' } : { width: 0 }, offset, box: null });
+  // In its marks' font, padded in inline code and growing its line, as their text is.
+  const item = text ? markedItem({ text, font, break: 'never' }, child.marks) : { width: 0 };
+  addText(run, { item, offset, box: text ? textBox(child, input) : null, marks: child.marks });
   return null;
 }
 
@@ -309,6 +316,8 @@ export function buildRuns(input: RunInput): TextRuns {
   node.forEach((child, offset) => {
     if (failure) return;
     if (isHidden(child, input.hidden)) {
+      // Drawn hidden in the code element around it, which it keeps open or ends.
+      run.code = continueCode(run.code, child.marks).open;
       const last = hidden.at(-1);
       if (last?.[1] === offset) last[1] = offset + child.nodeSize;
       else hidden.push([offset, offset + child.nodeSize]);
@@ -329,10 +338,11 @@ export function buildRuns(input: RunInput): TextRuns {
       const at = inserted.map((each) => each.offset);
       for (const piece of textPieces(child, { offset, typography, identifiers, inserted: at })) {
         insert(run, piece.offset);
-        addText(run, { ...piece, box });
+        addText(run, { ...piece, box, marks: child.marks });
       }
     } else if (child.type.name === 'template_variable') {
       // Its value is drawn inside it (`createPageVariables`) and may be the page's own number.
+      insert(run, offset);
       failure = addVariable(run, { child, offset, input, boxes });
     } else {
       insert(run, offset);

@@ -19,13 +19,12 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { keepsNumbering } from '../engine/paragraph-numbering.js';
 import { insertedKey } from '../layout-engine/inserted-text.js';
 import { continuedDirections, drawnDirection } from './block-directions.js';
 import { type DrawnPages, watchDrawnPages } from './drawn-pages.js';
-import { keepsAllNumbers } from './engine-numbers.js';
 import { forcedBlocksOf } from './forced-blocks.js';
 import { keepForcedCaret } from './forced-caret.js';
+import { numberingFor, sameNumbers } from './forced-numbering.js';
 import { blockAttrs, blockSet, type Builder, containerSet, makeSet } from './forced-sets.js';
 import { type InsertedTexts, insertedTexts, NO_INSERTED } from './inserted-texts.js';
 import type { PagesTextEngine } from './text-engine-types.js';
@@ -181,30 +180,17 @@ interface ForcedLinesSource {
 // How often an engine's footnotes were numbered otherwise.
 const numbersOf = (engine: PagesTextEngine | null) => engine?.numbersVersion?.() ?? 0;
 
-type ContentBuilder = Builder & { readonly doc: ProseMirrorNode };
-
-// An ordinary text edit leaves the headings, numbered paragraph eligibility and caption nodes
-// as they were. Only their positions have moved.
-function numberingFor(
-  engine: PagesTextEngine,
-  { doc, tr }: { readonly doc: ProseMirrorNode; readonly tr?: Transaction | undefined },
-  previous: ContentBuilder | null,
-): ReturnType<PagesTextEngine['numbering']> {
-  if (previous?.engine !== engine) return engine.numbering(doc);
-  const { numbers, skipped, labelOf, labels } = previous;
-  if (previous.doc === doc) {
-    return { headings: numbers, paragraphs: skipped, labelOf, labelsKey: labels };
-  }
-  if (!tr || previous.doc !== tr.before || !keepsAllNumbers(tr) || !keepsNumbering(tr)) {
-    return engine.numbering(doc);
-  }
-  return {
-    headings: new Map([...numbers].map(([pos, text]) => [tr.mapping.map(pos), text])),
-    paragraphs: new Set([...skipped].map((pos) => tr.mapping.map(pos))),
-    labelOf,
-    labelsKey: labels,
-  };
-}
+/**
+ * A builder and what its kept sets were drawn with besides the nodes: how often the engine's
+ * footnotes were numbered otherwise, and the variable values the document stored. A kept page's
+ * set holds its blocks' lines, which a marker renumbered or a stored value changed elsewhere widens
+ * though the page's node stays the same (DOCE-PAGINATION-11.2).
+ */
+type ContentBuilder = Builder & {
+  readonly doc: ProseMirrorNode;
+  readonly footnotes: number;
+  readonly values: unknown;
+};
 
 // The decorations of a document, with the builder's kept sets when the engine and the numbers are
 // those it was made with.
@@ -224,18 +210,22 @@ function decorate(
   const numbering = numberingFor(engine, state, previous);
   const numbers = numbering.headings;
   const directions = continuedDirections(doc);
+  const footnotes = numbersOf(engine);
+  const values: unknown = doc.attrs.values;
   const same =
     previous?.engine === engine &&
     previous.version === source.version() &&
-    previous.skipped.size === numbering.paragraphs.size &&
+    previous.footnotes === footnotes &&
+    previous.values === values &&
     previous.labels === numbering.labelsKey &&
-    sameValues(previous.numbers, numbers) &&
-    sameValues(previous.directions, directions);
+    sameNumbers(previous, { numbers, skipped: numbering.paragraphs, directions }, state);
   const builder: ContentBuilder = {
     engine,
     numbers,
     version: source.version(),
     doc,
+    footnotes,
+    values,
     skipped: numbering.paragraphs,
     labelOf: numbering.labelOf,
     labels: numbering.labelsKey,
@@ -246,13 +236,6 @@ function decorate(
     inserted: state.inserted,
   };
   return { builder, decorations: documentSet(builder, doc, state.drawn) };
-}
-
-// Whether two numberings show the same numbers in the same order.
-function sameValues<T>(a: ReadonlyMap<number, T>, b: ReadonlyMap<number, T>): boolean {
-  if (a.size !== b.size) return false;
-  const left = [...a.values()];
-  return [...b.values()].every((value, index) => value === left[index]);
 }
 
 /**
